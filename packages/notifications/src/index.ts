@@ -1,5 +1,7 @@
 import { createEmailDraftFromType } from "./types/registry"
 import { resolveEmailRouting, type EmailDeliveryMode } from "./email-routing"
+import type { NotificationEmailTransport } from "./client"
+import { renderNotificationEmail } from "@halaalvest/email/emails/notification"
 import type {
   EmailRoutingMetadata,
   NotificationEmailDelivery,
@@ -26,11 +28,16 @@ export type {
   QaNotificationPreview,
 } from "./core-types"
 
-export type NotificationEmailTransport = {
-  send: (
-    draft: NotificationEmailDraft
-  ) => NotificationEmailDelivery | Promise<NotificationEmailDelivery>
-}
+export {
+  createMemoryNotificationStore,
+  getNotificationEmailDeliveryErrorCause,
+  NotificationService,
+} from "./client"
+export type {
+  NotificationEmailTransport,
+  NotificationStore,
+  NotificationStoreState,
+} from "./client"
 
 export type ResendEmailTransportOptions = {
   apiKey: string
@@ -52,9 +59,18 @@ export type RetryingEmailTransportOptions = {
   }) => void
 }
 
-export type NotificationStoreState = {
-  notifications: NotificationRecord[]
+class EmailProviderResponseError extends Error {
+  constructor(status: number) {
+    super(`Email provider returned HTTP ${status}.`)
+  }
 }
+
+export { getExpoMobilePushReceipt, sendExpoMobilePush } from "./mobile-push"
+export type {
+  MobilePushMessage,
+  MobilePushReceipt,
+  MobilePushTicket,
+} from "./mobile-push"
 
 function toProviderTagValue(value: string) {
   return value.replace(/[^A-Za-z0-9_-]/g, "_")
@@ -160,14 +176,6 @@ function formatProviderEmailFrom(
   return `${formatEmailDisplayName(sender.displayName)} <${localPart}@${configuredSender.domain}>`
 }
 
-export type NotificationStore = {
-  clear: () => void
-  dismiss: (notificationId: string) => void
-  getState: () => NotificationStoreState
-  publish: (input: NotificationInput) => string
-  subscribe: (listener: () => void) => () => void
-}
-
 export type PlatformNotificationType =
   | "app_notification"
   | "workspace_invitation"
@@ -221,121 +229,6 @@ export function createNotificationFromType<
     recipients: [],
     variant: definition.variant,
   }
-}
-
-export function createMemoryNotificationStore(): NotificationStore {
-  let state: NotificationStoreState = {
-    notifications: [],
-  }
-  const listeners = new Set<() => void>()
-
-  function emit() {
-    for (const listener of listeners) {
-      listener()
-    }
-  }
-
-  return {
-    clear() {
-      state = {
-        notifications: [],
-      }
-      emit()
-    },
-    dismiss(notificationId) {
-      state = {
-        notifications: state.notifications.map((notification) =>
-          notification.id === notificationId
-            ? {
-                ...notification,
-                status: "dismissed",
-              }
-            : notification
-        ),
-      }
-      emit()
-    },
-    getState() {
-      return state
-    },
-    publish(input) {
-      const id = input.id ?? `notification-${Date.now()}-${Math.random()}`
-      state = {
-        notifications: [
-          ...state.notifications,
-          {
-            ...input,
-            id,
-            recipients: input.recipients ?? [],
-            status: "active",
-          },
-        ],
-      }
-      emit()
-      return id
-    },
-    subscribe(listener) {
-      listeners.add(listener)
-      return () => {
-        listeners.delete(listener)
-      }
-    },
-  }
-}
-
-export class NotificationService {
-  constructor(
-    private readonly sendNotification: (input: NotificationInput) => string,
-    private readonly emailTransport?: NotificationEmailTransport
-  ) {}
-
-  notify(input: NotificationInput) {
-    return this.sendNotification(input)
-  }
-
-  async email(draft: NotificationEmailDraft) {
-    if (!this.emailTransport) {
-      return {
-        attempts: 1,
-        draft,
-        messageId: `email-${Date.now()}-${Math.random()}`,
-        status: "queued",
-      } satisfies NotificationEmailDelivery
-    }
-
-    return this.emailTransport.send(draft)
-  }
-
-  async tryEmail(draft: NotificationEmailDraft) {
-    try {
-      return await this.email(draft)
-    } catch (error) {
-      const delivery = {
-        attempts: 1,
-        draft,
-        errorMessage:
-          error instanceof Error
-            ? error.message
-            : "Unknown email delivery failure.",
-        messageId: `email-${Date.now()}-${Math.random()}`,
-        routing: getEmailRoutingFromError(error),
-        status: "failed",
-      } satisfies NotificationEmailDelivery
-      notificationDeliveryErrorCauses.set(delivery, error)
-      return delivery
-    }
-  }
-}
-
-const notificationDeliveryErrorCauses = new WeakMap<
-  NotificationEmailDelivery,
-  unknown
->()
-
-export function getNotificationEmailDeliveryErrorCause(
-  delivery: NotificationEmailDelivery
-) {
-  return notificationDeliveryErrorCauses.get(delivery)
 }
 
 export function createConsoleEmailTransport(): NotificationEmailTransport {
@@ -413,8 +306,14 @@ export function createResendEmailTransport(
         copyRecipient !== originalRecipient
           ? [copyRecipient]
           : undefined
+      const from = formatProviderEmailFrom(options.from, draft.sender)
 
       try {
+        const bodyHtml =
+          draft.bodyHtml ??
+          (draft.bodyTemplate
+            ? await renderNotificationEmail(draft.bodyTemplate)
+            : undefined)
         const response = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
@@ -423,7 +322,7 @@ export function createResendEmailTransport(
           },
           body: JSON.stringify({
             bcc: bccRecipients,
-            from: formatProviderEmailFrom(options.from, draft.sender),
+            from,
             headers: isQaDomainRoute
               ? {
                   "X-HalaalVest-Email-Routing": routing.mode,
@@ -441,9 +340,9 @@ export function createResendEmailTransport(
               },
             ],
             html:
-              isQaDomainRoute && draft.bodyHtml
-                ? `${createQaEmailHtmlBanner(originalRecipient)}${draft.bodyHtml}`
-                : draft.bodyHtml,
+              isQaDomainRoute && bodyHtml
+                ? `${createQaEmailHtmlBanner(originalRecipient)}${bodyHtml}`
+                : bodyHtml,
             text: [
               ...(isQaDomainRoute
                 ? [
@@ -464,11 +363,8 @@ export function createResendEmailTransport(
         })
 
         if (!response.ok) {
-          const errorBody = await response.text()
-
-          throw new Error(
-            `Resend email delivery failed: ${response.status} ${errorBody}`
-          )
+          // Provider error bodies can contain recipient addresses or tokens.
+          throw new EmailProviderResponseError(response.status)
         }
 
         const payload = (await response.json()) as { id?: string }
@@ -526,9 +422,9 @@ function createEmailTransportError(
   routing: EmailRoutingMetadata
 ) {
   const wrappedError = new Error(
-    error instanceof Error
+    error instanceof EmailProviderResponseError
       ? error.message
-      : "Email provider rejected the request."
+      : "Email provider request failed."
   ) as Error & { emailRouting?: EmailRoutingMetadata }
 
   wrappedError.emailRouting = routing

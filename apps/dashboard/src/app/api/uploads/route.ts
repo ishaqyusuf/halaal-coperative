@@ -1,18 +1,26 @@
 import { createAuditLogEntry, createDbRuntime } from "@halaalvest/db"
 import { NextResponse, type NextRequest } from "next/server"
 import { getDashboardServerContext } from "@/lib/server-context"
+import { hasActiveUploadMembership } from "@/lib/uploads/upload-access"
 import {
+  isDashboardUploadStorageUnavailable,
   isSupportedDashboardUploadPurpose,
-  saveDashboardUpload,
-} from "@/lib/uploads/local-upload-storage"
+} from "@/lib/uploads/upload-policy"
 
 export const runtime = "nodejs"
 
 export async function POST(request: NextRequest) {
   const context = await getDashboardServerContext()
 
-  if (!context.tenant || !context.auth.user) {
+  if (!hasActiveUploadMembership(context) || !context.tenant || !context.auth.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+  }
+
+  if (isDashboardUploadStorageUnavailable()) {
+    return NextResponse.json(
+      { error: "File uploads are unavailable until persistent storage is configured." },
+      { status: 503 }
+    )
   }
 
   let formData: FormData
@@ -35,6 +43,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const { saveDashboardUpload } = await import("@/lib/uploads/local-upload-storage")
     const upload = await saveDashboardUpload({
       file,
       purpose,

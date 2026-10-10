@@ -2,20 +2,23 @@
 
 import type { ChangeEvent, FormEvent } from "react"
 import { useState } from "react"
+import type { ProjectFinancingRequestStatus } from "@halaalvest/db"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuPortal,
+  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@halaalvest/ui/components/dropdown-menu"
-import { Input } from "@halaalvest/ui/components/input"
 import { FinanceFilterList } from "@/components/finance-filter-list"
 import { SearchFilterDropdownInput } from "@/components/search-filter-dropdown-input"
 import { useProjectFinancingFilterParams } from "@/hooks/use-project-financing-filter-params"
+import { useSortParams } from "@/hooks/use-sort-params"
 
 const statusFilters = [
   { id: "submitted", name: "Submitted" },
@@ -25,10 +28,11 @@ const statusFilters = [
   { id: "completed", name: "Completed" },
   { id: "rejected", name: "Rejected" },
   { id: "cancelled", name: "Cancelled" },
-]
+] satisfies Array<{ id: ProjectFinancingRequestStatus; name: string }>
 
 export function ProjectFinancingSearchFilter() {
   const { filter, setFilter } = useProjectFinancingFilterParams()
+  const { setParams: setSortParams } = useSortParams()
   const [input, setInput] = useState(filter.q ?? "")
   const [isOpen, setIsOpen] = useState(false)
 
@@ -52,6 +56,15 @@ export function ProjectFinancingSearchFilter() {
   const hasValidFilters = Object.values(validFilters).some(
     (value) => value !== null
   )
+
+  async function clearFilters() {
+    await Promise.all([
+      setFilter({ q: null, status: null }),
+      setSortParams({ sort: null }),
+    ])
+    setInput("")
+    setIsOpen(false)
+  }
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
@@ -111,6 +124,10 @@ export function ProjectFinancingSearchFilter() {
             </DropdownMenuPortal>
           </DropdownMenuSub>
         </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => void clearFilters()}>
+          Clear filters
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

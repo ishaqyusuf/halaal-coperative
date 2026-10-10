@@ -3,8 +3,8 @@ import {
   getMemberByUserId,
   getMemberSupportCaseSummary,
   getSupportCaseSummary,
+  getTenantOperationProfile,
   listMembers,
-  listSupportCases,
   listTenantUsersWithMemberships,
   type SupportCaseCategory,
 } from "@halaalvest/db"
@@ -89,31 +89,29 @@ export async function loadSupportPageData(
       return { state: "member-profile-missing" as const }
     }
 
-    const [cases, summary] = await Promise.all([
-      listSupportCases({
-        memberId: member.id,
-        tenantId: context.tenant.id,
-      }),
+    const [summary, operationProfile] = await Promise.all([
       getMemberSupportCaseSummary({
         memberId: member.id,
         tenantId: context.tenant.id,
       }),
+      getTenantOperationProfile(context.tenant.id),
     ])
 
     return {
       state: "member-ready" as const,
-      cases,
+      canCreateSupportCases:
+        operationProfile.services.support_cases.canMemberCreate,
       initialCase: loadMemberSupportCaseInitialValues(searchParams),
       member,
       summary,
     }
   }
 
-  const [cases, summary, members, users] = await Promise.all([
-    listSupportCases({ tenantId: context.tenant.id }),
+  const [summary, members, users, operationProfile] = await Promise.all([
     getSupportCaseSummary(context.tenant.id),
     listMembers(context.tenant.id, { page: 1, pageSize: 200 }),
     listTenantUsersWithMemberships(context.tenant.id),
+    getTenantOperationProfile(context.tenant.id),
   ])
 
   return {
@@ -129,7 +127,8 @@ export async function loadSupportPageData(
         label: `${user.fullName} (${user.email})`,
       })),
     canReviewFinancialAdjustments,
-    cases,
+    canCreateSupportCases:
+      operationProfile.services.support_cases.canStaffCreate,
     memberOptions: members.items.map((member) => ({
       id: member.id,
       label: `${member.fullName} (${member.memberNumber})`,

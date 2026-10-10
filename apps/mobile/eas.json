@@ -21,13 +21,53 @@
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "autoIncrement": true,
-      "channel": "preview"
+      "channel": "preview",
+      "environment": "preview"
+    },
+    "store-qa": {
+      "distribution": "store",
+      "environment": "preview",
+      "env": {
+        "APP_VARIANT": "production",
+        "EXPO_PUBLIC_SENTRY_ENABLED_MOBILE": "false",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+      },
+      "autoIncrement": true,
+      "channel": "store-qa"
+    },
+    "native-validation": {
+      "extends": "store-qa",
+      "channel": "native-validation",
+      "env": {
+        "APP_VARIANT": "production",
+        "EXPO_PUBLIC_API_URL": "https://api.validation.invalid",
+        "EXPO_PUBLIC_DASHBOARD_URL": "https://dashboard.validation.invalid",
+        "EXPO_PUBLIC_AUTO_UPDATE_ON_FOREGROUND": "false",
+        "EXPO_PUBLIC_SENTRY_ENABLED_MOBILE": "false",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "env": {
+        "APP_VARIANT": "production"
+      },
+      "autoIncrement": true,
+      "channel": "production",
+      "environment": "production"
     }
   },
   "submit": {
-    "production": {}
+    "store-qa": {
+      "ios": {
+        "ascAppId": "6815838235",
+        "appleTeamId": "ZXC78SPCV4"
+      }
+    },
+    "production": {
+      "ios": {
+        "ascAppId": "6815838235",
+        "appleTeamId": "ZXC78SPCV4"
+      }
+    }
   }
 }

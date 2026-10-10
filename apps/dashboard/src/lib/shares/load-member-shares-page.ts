@@ -1,9 +1,9 @@
 import {
   createDbRuntime,
   getMemberByUserId,
+  getMemberOperationalReadiness,
   getMemberUnitSharePosition,
   getTenantSharePolicy,
-  listMemberShareApplications,
 } from "@halaalvest/db"
 import { getDashboardServerContext } from "@/lib/server-context"
 
@@ -40,12 +40,12 @@ export async function loadMemberSharesPageData() {
     return { state: "unit-model-inactive" as const }
   }
 
-  const [applications, position] = await Promise.all([
-    listMemberShareApplications({
+  const [position, readiness] = await Promise.all([
+    getMemberUnitSharePosition({
       memberId: member.id,
       tenantId,
     }),
-    getMemberUnitSharePosition({
+    getMemberOperationalReadiness({
       memberId: member.id,
       tenantId,
     }),
@@ -53,9 +53,11 @@ export async function loadMemberSharesPageData() {
 
   return {
     state: "ready" as const,
-    applications,
     member,
     policy,
     position,
+    requestBlockedReason: readiness?.isReady
+      ? null
+      : "Complete member verification and migration setup before requesting optional shares.",
   }
 }

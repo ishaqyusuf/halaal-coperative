@@ -1,4 +1,5 @@
 import { Text } from "@/components/ui/text"
+import { useColors } from "@/hooks/use-color"
 import { cn } from "@/lib/utils"
 import { View } from "react-native"
 
@@ -79,26 +80,51 @@ export function getStatusBadgeTone(value: string | null | undefined) {
 export function StatusBadge({
   className,
   label,
+  textScale,
   tone = "neutral",
+  wrap = false,
 }: {
   className?: string
   label: string
+  textScale?: number
   tone?: StatusBadgeTone
+  wrap?: boolean
 }) {
+  const colors = useColors()
+  const textColor = {
+    blocked: colors.warn,
+    destructive: colors.destructive,
+    muted: colors.secondaryForeground,
+    neutral: colors.mutedForeground,
+    success: colors.success,
+    warning: colors.warn,
+  }[tone]
+
   return (
     <View
       accessibilityLabel={label}
       className={cn(
-        "min-h-7 shrink-0 items-center justify-center rounded-md border px-2.5 py-1",
+        "min-h-7 shrink-0 items-center justify-center self-start rounded-full border px-2.5 py-1",
         toneClass[tone].container,
         className
       )}
     >
       <Text
-        adjustsFontSizeToFit
+        adjustsFontSizeToFit={!wrap}
+        allowFontScaling={textScale === undefined}
         className={cn("text-xs leading-4 font-semibold", toneClass[tone].text)}
-        minimumFontScale={0.82}
-        numberOfLines={1}
+        minimumFontScale={wrap ? undefined : 0.82}
+        numberOfLines={wrap ? undefined : 1}
+        style={{
+          color: textColor,
+          ...(textScale === undefined
+            ? null
+            : {
+                fontSize: 12 * textScale,
+                fontWeight: "600" as const,
+                lineHeight: 16 * textScale,
+              }),
+        }}
       >
         {label}
       </Text>

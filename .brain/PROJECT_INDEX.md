@@ -13,6 +13,7 @@ This file is a fast map of the repository so contributors can quickly find impor
 
 - `brain/`: project memory and planning system.
 - `brain/plans/ongoing.md`: active resumable execution plans for long-running implementation tracks.
+- `brain/plans/2026-08-11-halaalvest-mobile-complete-production-implementation-directive.md`: canonical goal instruction for the complete mobile architecture, EwaTrade-aligned NativeWind UI, feature, security, emulator QA, screenshot, Sentry, and pilot-readiness rollout.
 - `brain/product/halaal-cooperative-operating-model.md`: durable domain model for Halaal cooperative finance, admin operations, compliance, and trust decisions.
 - `brain/product/mobile-ui-template-direction.md`: selected Nusuk-style mobile UI template adaptation for the Halaalvest white-label app.
 - `brain/product/pricing-and-packaging.md`: public pricing posture, plan bands, Free Beta rules, pass-through fee treatment, and packaging guardrails.
@@ -26,7 +27,7 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `apps/marketing/app/api/onboarding/route.ts`: public onboarding API endpoint that verifies the token and provisions the tenant workspace.
 - `apps/marketing/src/app/`: main marketing route entrypoints for launch and pre-launch rendering.
 - `apps/marketing/src/lib/marketing-config.ts`: marketing-app wrapper around the shared homepage and launch-stage config exported from `packages/domain`.
-- `apps/marketing/src/lib/signup-flow.ts`: shared signup and onboarding schemas, defaults, and payload shaping.
+- `apps/marketing/src/lib/signup-flow.ts`: shared signup and onboarding schemas, including the globally unique 3–5-letter cooperative prefix, defaults, and payload shaping.
 - `apps/marketing/src/lib/dev-form-fill.ts`: central dev-mode random autofill generator for signup and onboarding forms.
 - `apps/marketing/src/components/marketing/`: launch and pre-launch landing page sections for the public marketing surface.
 - `apps/marketing/src/components/signup/`: shared shell and client forms for signup verification and onboarding bootstrap.
@@ -38,7 +39,7 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `apps/dashboard/src/app/(public)/login/page.tsx`: public dashboard login chooser that lists available workspace accounts for the current tenant or platform host.
 - `apps/dashboard/src/app/(public)/signup/members/page.tsx`: canonical member signup route that enforces tenant signup access policy and accepts staff-issued signed signup-link tokens.
 - `apps/dashboard/src/app/(public)/signup/members/verify/page.tsx`: canonical member-signup verification route for the pluralized signup path.
-- `apps/dashboard/src/app/auth/login/route.ts`: scoped tenant sign-in endpoint that sets the session token and user-id cookies for the current tenant or platform host.
+- `apps/dashboard/src/app/auth/login/route.ts`: scoped tenant sign-in endpoint accepting email or cooperative access code on a resolved tenant host and setting the session token and user-id cookies.
 - `apps/dashboard/src/app/auth/logout/route.ts`: scoped dashboard sign-out endpoint that clears both session and user-id cookies before returning to `/login`.
 - `apps/dashboard/src/app/(app)/(sidebar)/members/page.tsx`: Midday-style members list route using the invoice/customers page anatomy of summary strip, compact toolbar, and direct table surface.
 - `apps/dashboard/src/app/(app)/(sidebar)/business/page.tsx`: operational business-profit workspace with summary metrics, search/action controls, and the business/profit table moved out of finance settings.
@@ -86,7 +87,7 @@ This file is a fast map of the repository so contributors can quickly find impor
 - `packages/eslint-config/`: shared lint configuration for apps and packages.
 - `packages/tsconfig/`: shared TypeScript presets for Next.js and workspace packages.
 - `packages/ui/`: shared shadcn/base UI components, styling tokens, and utilities.
-- `packages/utils/`: shared formatting and low-level utilities.
+- `packages/utils/`: shared formatting and low-level utilities, including cooperative prefix/access-code normalization and composition.
 - `packages/db/src/queries/`: tenant, domain, user, and membership repository scaffolding.
 - `packages/db/src/queries/notifications.ts`: notification outbox persistence plus tenant notification preference query helpers.
 - `packages/db/src/queries/ledger.ts`: ledger posting plus member-ledger transaction query helpers for reporting and statement views.

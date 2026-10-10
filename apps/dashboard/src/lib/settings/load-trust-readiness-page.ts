@@ -1,3 +1,4 @@
+import { buildLegalReadinessItems } from "./legal-readiness"
 import { getTenantTrustProfile, type TenantTrustProfile } from "@halaalvest/db"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
@@ -37,11 +38,6 @@ function buildTrustReadinessItems(
   trustProfile: TenantTrustProfile
 ): TrustReadinessItem[] {
   const monitoringConfigured = isMonitoringConfigured()
-  const hasLegalEvidence = Boolean(
-    trustProfile.legalTermsUrl ||
-    trustProfile.privacyPolicyUrl ||
-    trustProfile.dataProcessingUrl
-  )
   const hasRestoreEvidence = Boolean(
     trustProfile.backupRetentionNote ||
     trustProfile.recoveryPointObjective ||
@@ -78,20 +74,7 @@ function buildTrustReadinessItems(
       status: hasRestoreEvidence ? "Evidence saved" : "Document before pilot",
       tone: hasRestoreEvidence ? "positive" : "warning",
     },
-    {
-      detail: hasLegalEvidence
-        ? "Legal document references have been recorded. Counsel still owns " +
-          "the final approved terms, privacy language, and data-processing " +
-          "scope before the pilot is contract-ready."
-        : "Final legal terms, privacy language, data-processing scope, and " +
-          "support responsibilities must be supplied by the legal team before " +
-          "the pilot is treated as contract-ready.",
-      evidence: hasLegalEvidence ? "Saved legal links" : "Legal readiness item",
-      label: "Terms and conditions",
-      owner: "Legal and founder",
-      status: hasLegalEvidence ? "Evidence saved" : "Legal review required",
-      tone: hasLegalEvidence ? "positive" : "warning",
-    },
+    ...buildLegalReadinessItems(trustProfile),
     {
       detail: monitoringConfigured
         ? "A Sentry-compatible DSN is present in this runtime, so application " +

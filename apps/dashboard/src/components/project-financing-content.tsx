@@ -2,10 +2,12 @@
 
 import { useState, useTransition, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
 import { Textarea } from "@halaalvest/ui/components/textarea"
+import { formatCurrency } from "@halaalvest/utils"
 import type {
   ProjectFinancingRequestRow,
   ProjectFinancingStructure,
@@ -22,6 +24,7 @@ import {
   reviewProjectFinancingRequestAction,
 } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
+import { useTRPC } from "@/trpc/client"
 
 export type ProjectFinancingMemberOption = {
   id: string
@@ -68,6 +71,38 @@ function Field({
   )
 }
 
+function useRefreshProjectFinancing() {
+  const queryClient = useQueryClient()
+  const router = useRouter()
+  const trpc = useTRPC()
+
+  return async (
+    onClose: () => Promise<void>,
+    projectFinancingRequestId?: string
+  ) => {
+    await onClose()
+
+    const invalidations = [
+      queryClient.invalidateQueries(
+        trpc.projectFinancing.list.infiniteQueryFilter()
+      ),
+    ]
+
+    if (projectFinancingRequestId) {
+      invalidations.push(
+        queryClient.invalidateQueries(
+          trpc.projectFinancing.get.queryFilter({
+            projectFinancingRequestId,
+          })
+        )
+      )
+    }
+
+    await Promise.all(invalidations)
+    router.refresh()
+  }
+}
+
 export function ProjectFinancingRequestCreateContent({
   chargeOptions,
   memberOptions,
@@ -75,9 +110,9 @@ export function ProjectFinancingRequestCreateContent({
 }: {
   chargeOptions: WorkflowChargeOption[]
   memberOptions: ProjectFinancingMemberOption[]
-  onClose: () => void
+  onClose: () => Promise<void>
 }) {
-  const router = useRouter()
+  const refreshProjectFinancing = useRefreshProjectFinancing()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [memberId, setMemberId] = useState("")
@@ -95,6 +130,14 @@ export function ProjectFinancingRequestCreateContent({
       value: member.id,
     })),
   ]
+  const requestedAmountValue = Number(requestedAmount)
+  const requestedMonthsValue = Number(requestedPaybackMonths)
+  const canSubmit =
+    Boolean(memberId && businessName.trim()) &&
+    requestedAmountValue > 0 &&
+    (proposedStructure === "repayable_facility"
+      ? Number.isInteger(requestedMonthsValue) && requestedMonthsValue > 0
+      : requestedPaybackMonths === "")
 
   function submitRequest() {
     startTransition(async () => {
@@ -117,12 +160,11 @@ export function ProjectFinancingRequestCreateContent({
         setProposedStructure("undecided")
         setRequestedAmount("")
         setRequestedPaybackMonths("")
-        onClose()
         showSuccess(
           "Project financing request saved",
           "Request is pending review."
         )
-        router.refresh()
+        await refreshProjectFinancing(onClose)
       } catch (error) {
         showError(
           "Could not save project financing request",
@@ -134,7 +176,7 @@ export function ProjectFinancingRequestCreateContent({
 
   return (
     <>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2">
         <Field label="Member">
           <LabeledSelectInput
             disabled={isPending}
@@ -161,36 +203,45 @@ export function ProjectFinancingRequestCreateContent({
         <Field label="Proposed structure">
           <LabeledSelectInput
             disabled={isPending}
-            onValueChange={(value) =>
-              setProposedStructure(value as ProjectFinancingStructure)
-            }
+            onValueChange={(value) => {
+              const structure = value as ProjectFinancingStructure
+              setProposedStructure(structure)
+              if (structure !== "repayable_facility") {
+                setRequestedPaybackMonths("")
+              }
+            }}
             options={structureOptions}
             value={proposedStructure}
           />
         </Field>
         <Field label="Payback months">
           <Input
-            disabled={isPending}
+            disabled={isPending || proposedStructure !== "repayable_facility"}
             inputMode="numeric"
             onChange={(event) => setRequestedPaybackMonths(event.target.value)}
+            placeholder={
+              proposedStructure === "repayable_facility"
+                ? "Required for repayable facilities"
+                : "Not applicable"
+            }
             value={requestedPaybackMonths}
           />
         </Field>
-        <Field className="md:col-span-2 xl:col-span-3" label="Purpose">
+        <Field className="md:col-span-2" label="Purpose">
           <Textarea
             disabled={isPending}
             onChange={(event) => setProjectPurpose(event.target.value)}
             value={projectPurpose}
           />
         </Field>
-        <Field className="md:col-span-2 xl:col-span-4" label="Description">
+        <Field className="md:col-span-2" label="Description">
           <Textarea
             disabled={isPending}
             onChange={(event) => setBusinessDescription(event.target.value)}
             value={businessDescription}
           />
         </Field>
-        <div className="md:col-span-2 xl:col-span-4">
+        <div className="md:col-span-2">
           <WorkflowChargeSummary
             basisAmount={Number(requestedAmount) || 0}
             charges={chargeOptions}
@@ -199,7 +250,12 @@ export function ProjectFinancingRequestCreateContent({
         </div>
       </div>
       <div className="mt-4">
-        <Button disabled={isPending} onClick={submitRequest} type="button">
+        <Button
+          className="h-11 w-full md:h-9 md:w-auto"
+          disabled={isPending || !canSubmit}
+          onClick={submitRequest}
+          type="button"
+        >
           Save request
         </Button>
       </div>
@@ -212,9 +268,9 @@ export function MemberProjectFinancingRequestCreateContent({
   onClose,
 }: {
   chargeOptions: WorkflowChargeOption[]
-  onClose: () => void
+  onClose: () => Promise<void>
 }) {
-  const router = useRouter()
+  const refreshProjectFinancing = useRefreshProjectFinancing()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [businessName, setBusinessName] = useState("")
@@ -224,6 +280,14 @@ export function MemberProjectFinancingRequestCreateContent({
     useState<ProjectFinancingStructure>("undecided")
   const [requestedAmount, setRequestedAmount] = useState("")
   const [requestedPaybackMonths, setRequestedPaybackMonths] = useState("")
+  const requestedAmountValue = Number(requestedAmount)
+  const requestedMonthsValue = Number(requestedPaybackMonths)
+  const canSubmit =
+    Boolean(businessName.trim()) &&
+    requestedAmountValue > 0 &&
+    (proposedStructure === "repayable_facility"
+      ? Number.isInteger(requestedMonthsValue) && requestedMonthsValue > 0
+      : requestedPaybackMonths === "")
 
   function submitRequest() {
     startTransition(async () => {
@@ -244,12 +308,11 @@ export function MemberProjectFinancingRequestCreateContent({
         setProposedStructure("undecided")
         setRequestedAmount("")
         setRequestedPaybackMonths("")
-        onClose()
         showSuccess(
           "Project financing request sent",
           "Request is pending review."
         )
-        router.refresh()
+        await refreshProjectFinancing(onClose)
       } catch (error) {
         showError(
           "Could not send project financing request",
@@ -261,7 +324,7 @@ export function MemberProjectFinancingRequestCreateContent({
 
   return (
     <>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2">
         <Field label="Business">
           <Input
             disabled={isPending}
@@ -280,36 +343,45 @@ export function MemberProjectFinancingRequestCreateContent({
         <Field label="Proposed structure">
           <LabeledSelectInput
             disabled={isPending}
-            onValueChange={(value) =>
-              setProposedStructure(value as ProjectFinancingStructure)
-            }
+            onValueChange={(value) => {
+              const structure = value as ProjectFinancingStructure
+              setProposedStructure(structure)
+              if (structure !== "repayable_facility") {
+                setRequestedPaybackMonths("")
+              }
+            }}
             options={structureOptions}
             value={proposedStructure}
           />
         </Field>
         <Field label="Payback months">
           <Input
-            disabled={isPending}
+            disabled={isPending || proposedStructure !== "repayable_facility"}
             inputMode="numeric"
             onChange={(event) => setRequestedPaybackMonths(event.target.value)}
+            placeholder={
+              proposedStructure === "repayable_facility"
+                ? "Required for repayable facilities"
+                : "Not applicable"
+            }
             value={requestedPaybackMonths}
           />
         </Field>
-        <Field className="md:col-span-2 xl:col-span-4" label="Purpose">
+        <Field className="md:col-span-2" label="Purpose">
           <Textarea
             disabled={isPending}
             onChange={(event) => setProjectPurpose(event.target.value)}
             value={projectPurpose}
           />
         </Field>
-        <Field className="md:col-span-2 xl:col-span-4" label="Description">
+        <Field className="md:col-span-2" label="Description">
           <Textarea
             disabled={isPending}
             onChange={(event) => setBusinessDescription(event.target.value)}
             value={businessDescription}
           />
         </Field>
-        <div className="md:col-span-2 xl:col-span-4">
+        <div className="md:col-span-2">
           <WorkflowChargeSummary
             basisAmount={Number(requestedAmount) || 0}
             charges={chargeOptions}
@@ -318,7 +390,12 @@ export function MemberProjectFinancingRequestCreateContent({
         </div>
       </div>
       <div className="mt-4">
-        <Button disabled={isPending} onClick={submitRequest} type="button">
+        <Button
+          className="h-11 w-full md:h-9 md:w-auto"
+          disabled={isPending || !canSubmit}
+          onClick={submitRequest}
+          type="button"
+        >
           Send request
         </Button>
       </div>
@@ -332,10 +409,10 @@ export function ProjectFinancingReviewContent({
   request,
 }: {
   chargeOptions: WorkflowChargeOption[]
-  onClose: () => void
+  onClose: () => Promise<void>
   request: ProjectFinancingRequestRow
 }) {
-  const router = useRouter()
+  const refreshProjectFinancing = useRefreshProjectFinancing()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [approvedAmount, setApprovedAmount] = useState("")
@@ -344,6 +421,16 @@ export function ProjectFinancingReviewContent({
     defaultReviewStructure(request)
   )
   const [notes, setNotes] = useState("")
+  const effectiveApprovedAmount =
+    Number(approvedAmount) || request.requestedAmount
+  const effectiveApprovedMonths =
+    Number(approvedPaybackMonths) || request.requestedPaybackMonths || 0
+  const canApprove =
+    approvedStructure !== "undecided" &&
+    effectiveApprovedAmount > 0 &&
+    (approvedStructure === "repayable_facility"
+      ? Number.isInteger(effectiveApprovedMonths) && effectiveApprovedMonths > 0
+      : approvedPaybackMonths === "")
 
   function reviewRequest(status: "approved" | "rejected" | "under_review") {
     startTransition(async () => {
@@ -362,8 +449,7 @@ export function ProjectFinancingReviewContent({
           "Project financing review saved",
           `Request marked ${status.replace(/_/g, " ")}.`
         )
-        onClose()
-        router.refresh()
+        await refreshProjectFinancing(onClose, request.id)
       } catch (error) {
         showError(
           "Could not save project financing review",
@@ -375,6 +461,16 @@ export function ProjectFinancingReviewContent({
 
   return (
     <div className="space-y-3">
+      <section className="border-y border-border py-4">
+        <p className="font-medium text-foreground">{request.businessName}</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {request.member.fullName} · Requested{" "}
+          {formatCurrency(request.requestedAmount)}
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground capitalize">
+          Proposed {formatProjectFinancingStructure(request.proposedStructure)}
+        </p>
+      </section>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Approved amount">
           <Input
@@ -387,7 +483,7 @@ export function ProjectFinancingReviewContent({
         </Field>
         <Field label="Payback months">
           <Input
-            disabled={isPending}
+            disabled={isPending || approvedStructure !== "repayable_facility"}
             inputMode="numeric"
             onChange={(event) => setApprovedPaybackMonths(event.target.value)}
             placeholder={
@@ -402,9 +498,13 @@ export function ProjectFinancingReviewContent({
       <Field label="Approved structure">
         <LabeledSelectInput
           disabled={isPending}
-          onValueChange={(value) =>
-            setApprovedStructure(value as ProjectFinancingStructure)
-          }
+          onValueChange={(value) => {
+            const structure = value as ProjectFinancingStructure
+            setApprovedStructure(structure)
+            if (structure !== "repayable_facility") {
+              setApprovedPaybackMonths("")
+            }
+          }}
           options={structureOptions}
           value={approvedStructure}
         />
@@ -421,9 +521,10 @@ export function ProjectFinancingReviewContent({
         charges={chargeOptions}
         title="Approval charges"
       />
-      <div className="flex flex-wrap gap-2">
+      <div className="grid gap-2 sm:grid-cols-3">
         {request.status === "submitted" ? (
           <Button
+            className="h-11 w-full md:h-9"
             disabled={isPending}
             onClick={() => reviewRequest("under_review")}
             type="button"
@@ -433,13 +534,15 @@ export function ProjectFinancingReviewContent({
           </Button>
         ) : null}
         <Button
-          disabled={isPending}
+          className="h-11 w-full md:h-9"
+          disabled={isPending || !canApprove}
           onClick={() => reviewRequest("approved")}
           type="button"
         >
           Approve
         </Button>
         <Button
+          className="h-11 w-full md:h-9"
           disabled={isPending}
           onClick={() => reviewRequest("rejected")}
           type="button"
@@ -456,13 +559,15 @@ export function ProjectFinancingDisbursementContent({
   onClose,
   request,
 }: {
-  onClose: () => void
+  onClose: () => Promise<void>
   request: ProjectFinancingRequestRow
 }) {
-  const router = useRouter()
+  const refreshProjectFinancing = useRefreshProjectFinancing()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
-  const [disbursedAt, setDisbursedAt] = useState("")
+  const [disbursedAt, setDisbursedAt] = useState(() =>
+    new Date().toISOString().slice(0, 10)
+  )
   const [reference, setReference] = useState("")
   const [notes, setNotes] = useState("")
 
@@ -481,8 +586,7 @@ export function ProjectFinancingDisbursementContent({
           "Project financing disbursed",
           "Funding evidence was recorded."
         )
-        onClose()
-        router.refresh()
+        await refreshProjectFinancing(onClose, request.id)
       } catch (error) {
         showError(
           "Could not record disbursement",
@@ -494,6 +598,13 @@ export function ProjectFinancingDisbursementContent({
 
   return (
     <>
+      <section className="mb-4 border-y border-border py-4">
+        <p className="font-medium text-foreground">{request.businessName}</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Approved {formatCurrency(request.approvedAmount ?? 0)} ·{" "}
+          {formatProjectFinancingStructure(request.approvedStructure)}
+        </p>
+      </section>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Disbursed at">
           <Input
@@ -520,6 +631,7 @@ export function ProjectFinancingDisbursementContent({
       </div>
       <div className="mt-4">
         <Button
+          className="h-11 w-full md:h-9 md:w-auto"
           disabled={isPending}
           onClick={recordDisbursement}
           type="button"
@@ -528,5 +640,203 @@ export function ProjectFinancingDisbursementContent({
         </Button>
       </div>
     </>
+  )
+}
+
+function formatProjectFinancingDate(value: Date | string | null) {
+  if (!value) return "Not recorded"
+
+  return new Date(value).toLocaleDateString("en-NG", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  })
+}
+
+function formatProjectFinancingStructure(
+  value: ProjectFinancingStructure | null
+) {
+  return value ? value.replaceAll("_", " ") : "Not set"
+}
+
+export function ProjectFinancingRequestDetailsContent({
+  request,
+}: {
+  request: ProjectFinancingRequestRow
+}) {
+  const approvedAmount = request.approvedAmount ?? 0
+  const paidAmount = request.paidAmount ?? 0
+  const outstandingAmount = Math.max(0, approvedAmount - paidAmount)
+
+  return (
+    <div className="space-y-6">
+      <section className="border-y border-border py-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="font-medium text-foreground">
+              {request.businessName}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {request.member.fullName} · {request.member.memberNumber}
+            </p>
+          </div>
+          <span className="border border-border px-2 py-1 text-xs capitalize">
+            {request.status.replaceAll("_", " ")}
+          </span>
+        </div>
+        {request.businessDescription ? (
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            {request.businessDescription}
+          </p>
+        ) : null}
+      </section>
+
+      <DetailsSection title="Request">
+        <DetailsGrid>
+          <Detail
+            label="Requested amount"
+            value={formatCurrency(request.requestedAmount)}
+          />
+          <Detail
+            label="Proposed structure"
+            value={formatProjectFinancingStructure(request.proposedStructure)}
+          />
+          <Detail
+            label="Payback term"
+            value={
+              request.requestedPaybackMonths
+                ? `${request.requestedPaybackMonths} months`
+                : "Not proposed"
+            }
+          />
+          <Detail
+            label="Requested on"
+            value={formatProjectFinancingDate(request.requestedAt)}
+          />
+        </DetailsGrid>
+        {request.projectPurpose ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            Purpose: {request.projectPurpose}
+          </p>
+        ) : null}
+      </DetailsSection>
+
+      <DetailsSection title="Review and approval">
+        <DetailsGrid>
+          <Detail
+            label="Approved amount"
+            value={
+              request.approvedAmount
+                ? formatCurrency(request.approvedAmount)
+                : "Not approved"
+            }
+          />
+          <Detail
+            label="Approved structure"
+            value={formatProjectFinancingStructure(request.approvedStructure)}
+          />
+          <Detail
+            label="Approved payback"
+            value={
+              request.approvedPaybackMonths
+                ? `${request.approvedPaybackMonths} months`
+                : "Not applicable"
+            }
+          />
+          <Detail
+            label="Monthly payback"
+            value={
+              request.approvedMonthlyPayback
+                ? formatCurrency(request.approvedMonthlyPayback)
+                : "Not applicable"
+            }
+          />
+          <Detail
+            label="Reviewed on"
+            value={formatProjectFinancingDate(request.reviewedAt)}
+          />
+          <Detail
+            label="Reviewed by"
+            value={request.reviewedByUser?.fullName ?? "Not reviewed"}
+          />
+        </DetailsGrid>
+        {request.reviewNotes ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            Review note: {request.reviewNotes}
+          </p>
+        ) : null}
+      </DetailsSection>
+
+      <DetailsSection title="Funding evidence">
+        <DetailsGrid>
+          <Detail
+            label="Disbursed on"
+            value={formatProjectFinancingDate(request.disbursedAt)}
+          />
+          <Detail
+            label="Reference"
+            value={request.disbursementReference ?? "Not recorded"}
+          />
+          <Detail
+            label="Disbursed by"
+            value={request.disbursedByUser?.fullName ?? "Not recorded"}
+          />
+        </DetailsGrid>
+        {request.disbursementNotes ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            {request.disbursementNotes}
+          </p>
+        ) : null}
+      </DetailsSection>
+
+      <DetailsSection title="Payment evidence">
+        {request.approvedStructure === "repayable_facility" ? (
+          <DetailsGrid>
+            <Detail label="Paid" value={formatCurrency(paidAmount)} />
+            <Detail
+              label="Outstanding"
+              value={formatCurrency(outstandingAmount)}
+            />
+            <Detail
+              label="Last payment"
+              value={formatProjectFinancingDate(request.paidAt)}
+            />
+          </DetailsGrid>
+        ) : (
+          <p className="border-y border-border py-4 text-sm text-muted-foreground">
+            Payment posting is not enabled for partnership or profit-sharing
+            structures.
+          </p>
+        )}
+      </DetailsSection>
+    </div>
+  )
+}
+
+function DetailsSection({
+  children,
+  title,
+}: {
+  children: ReactNode
+  title: string
+}) {
+  return (
+    <section>
+      <h3 className="mb-3 text-sm font-medium text-foreground">{title}</h3>
+      {children}
+    </section>
+  )
+}
+
+function DetailsGrid({ children }: { children: ReactNode }) {
+  return <dl className="grid gap-3 sm:grid-cols-2">{children}</dl>
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-1 text-sm text-foreground">{value}</dd>
+    </div>
   )
 }

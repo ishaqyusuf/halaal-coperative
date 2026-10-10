@@ -144,6 +144,7 @@ export type PostLedgerTransactionInput = {
   reference?: string
   narration?: string
   sourceType?: "backfill" | "import"
+  migrationWriteGuardValidated?: boolean
 }
 
 export async function postLedgerTransaction(
@@ -153,7 +154,11 @@ export async function postLedgerTransaction(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
-  if (input.sourceType !== "backfill" && input.sourceType !== "import") {
+  if (
+    input.sourceType !== "backfill" &&
+    input.sourceType !== "import" &&
+    !input.migrationWriteGuardValidated
+  ) {
     const migrationState = await getTenantInitialMigrationState(
       input.tenantId,
       prisma

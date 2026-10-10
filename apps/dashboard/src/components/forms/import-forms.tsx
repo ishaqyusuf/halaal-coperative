@@ -31,6 +31,7 @@ import {
 import {
   dashboardImportConfigs,
   getDashboardImportExistingMatches,
+  getDashboardImportIdentityKeys,
   getDashboardImportPrimaryValue,
   parseDashboardImportCsv,
   type DashboardImportKind,
@@ -319,23 +320,22 @@ export function DashboardImportForm({
       }
     }
 
-    const seen = new Set<string>()
-    const duplicates = new Set<string>()
+    const identityCounts = new Map<string, number>()
     const existingMatches = new Set<string>()
     let existingMatchCount = 0
 
     preview.rows.forEach((row) => {
+      getDashboardImportIdentityKeys(
+        importKind,
+        row as Record<string, unknown>
+      ).forEach((key) => {
+        identityCounts.set(key, (identityCounts.get(key) ?? 0) + 1)
+      })
+
       const primaryValue = getDashboardImportPrimaryValue(
         importKind,
         row as Record<string, unknown>
       )
-      if (primaryValue) {
-        if (seen.has(primaryValue)) {
-          duplicates.add(primaryValue)
-        } else {
-          seen.add(primaryValue)
-        }
-      }
 
       if (
         getDashboardImportExistingMatches(
@@ -349,9 +349,24 @@ export function DashboardImportForm({
       }
     })
 
+    const duplicateKeys = new Set(
+      Array.from(identityCounts.entries())
+        .filter(([, count]) => count > 1)
+        .map(([key]) => key)
+    )
+    const duplicateRows = preview.rows.filter((row) =>
+      getDashboardImportIdentityKeys(
+        importKind,
+        row as Record<string, unknown>
+      ).some((key) => duplicateKeys.has(key))
+    )
+    const duplicates = Array.from(duplicateKeys).map((key) =>
+      key.slice(key.indexOf(":") + 1)
+    )
+
     return {
-      duplicateCount: duplicates.size,
-      duplicates: Array.from(duplicates).slice(0, 4),
+      duplicateCount: duplicateRows.length,
+      duplicates: duplicates.slice(0, 4),
       existingMatches: Array.from(existingMatches).slice(0, 4),
       existingMatchCount,
     }
@@ -395,6 +410,7 @@ export function DashboardImportForm({
         const action = importActionMap[importKind]
         await action(
           objectToFormData({
+            confirmExistingMatches: values.confirmExistingMatches,
             confirmation: values.importConfirmation,
             csvText: values.csvText,
           })
@@ -431,7 +447,11 @@ export function DashboardImportForm({
         }
 
         await stageImportBatchAction(
-          objectToFormData({ csvText: values.csvText, importKind })
+          objectToFormData({
+            confirmExistingMatches: values.confirmExistingMatches,
+            csvText: values.csvText,
+            importKind,
+          })
         )
         await refreshImportQueries()
         router.refresh()
@@ -450,8 +470,11 @@ export function DashboardImportForm({
   }
 
   const isDeductionSourceImport = importKind === "deduction_sources"
-  const hasUnsafeDeductionSourceDuplicates =
-    isDeductionSourceImport && reconciliation.duplicateCount > 0
+  const isLoanProductImport = importKind === "loan_products"
+  const isConfigurationImport =
+    isDeductionSourceImport || isLoanProductImport
+  const hasUnsafeConfigurationDuplicates =
+    isConfigurationImport && reconciliation.duplicateCount > 0
 
   return (
     <article
@@ -611,6 +634,8 @@ export function DashboardImportForm({
                   Existing matches in workspace: {reconciliation.existingMatchCount}.{" "}
                   {isDeductionSourceImport
                     ? `Matching source names will update their type and external reference${reconciliation.existingMatches.length ? `: ${reconciliation.existingMatches.join(", ")}.` : "."}`
+                    : isLoanProductImport
+                      ? `Matching loan-product names or codes may update the product name, type, term, and savings multiple${reconciliation.existingMatches.length ? `: ${reconciliation.existingMatches.join(", ")}.` : "."}`
                     : "Matching keys will be updated or linked where the import path supports idempotent upserts."}
                 </p>
                 <p>
@@ -624,6 +649,13 @@ export function DashboardImportForm({
                     Allowed source types: ministry payroll, employer payroll,
                     bank transfer, card, cash, and manual. This import creates
                     collection sources; it does not post deductions.
+                  </p>
+                ) : isLoanProductImport ? (
+                  <p className="md:col-span-2">
+                    Allowed product types: normal and quick. Terms must be
+                    positive whole months and the savings multiple must be
+                    greater than zero. This import defines financing policy; it
+                    does not create balances or disburse loans.
                   </p>
                 ) : null}
               </div>
@@ -655,6 +687,8 @@ export function DashboardImportForm({
                         <FormLabel>
                           {isDeductionSourceImport
                             ? `I reviewed the ${reconciliation.existingMatchCount} collection sources whose type or external reference may be updated.`
+                            : isLoanProductImport
+                              ? `I reviewed the ${reconciliation.existingMatchCount} loan products whose name, type, term, or savings multiple may be updated.`
                             : `I reviewed the ${reconciliation.existingMatchCount} rows that will match existing workspace records.`}
                         </FormLabel>
                         <FormMessage />
@@ -664,11 +698,12 @@ export function DashboardImportForm({
                 />
               ) : null}
               {reconciliation.duplicateCount > 0 &&
-              isDeductionSourceImport ? (
+              isConfigurationImport ? (
                 <p className="text-sm leading-6 text-destructive">
-                  Remove duplicate collection-source names before staging or
-                  importing. Duplicate configuration rows cannot be safely
-                  applied.
+                  Remove duplicate {isDeductionSourceImport
+                    ? "collection-source names"
+                    : "loan-product names or codes"} before staging or importing.
+                  Duplicate configuration rows cannot be safely applied.
                 </p>
               ) : reconciliation.duplicateCount > 0 ? (
                 <FormField
@@ -739,10 +774,11 @@ export function DashboardImportForm({
                   isLocked ||
                   !preview.ok ||
                   preview.rows.length === 0 ||
-                  hasUnsafeDeductionSourceDuplicates ||
+                  hasUnsafeConfigurationDuplicates ||
                   (reconciliation.existingMatchCount > 0 &&
                     !confirmedExistingMatches) ||
-                  (reconciliation.duplicateCount > 0 &&
+                  (!isConfigurationImport &&
+                    reconciliation.duplicateCount > 0 &&
                     !confirmedInFileDuplicates)
                 }
                 onStage={() => onStageBatch(form.getValues())}
@@ -756,10 +792,11 @@ export function DashboardImportForm({
                   !preview.ok ||
                   preview.rows.length === 0 ||
                   importConfirmation !== "IMPORT NOW" ||
-                  hasUnsafeDeductionSourceDuplicates ||
+                  hasUnsafeConfigurationDuplicates ||
                   (reconciliation.existingMatchCount > 0 &&
                     !confirmedExistingMatches) ||
-                  (reconciliation.duplicateCount > 0 &&
+                  (!isConfigurationImport &&
+                    reconciliation.duplicateCount > 0 &&
                     !confirmedInFileDuplicates)
                 }
                 type="submit"

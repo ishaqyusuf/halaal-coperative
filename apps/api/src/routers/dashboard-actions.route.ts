@@ -61,6 +61,7 @@ import {
   importRepaymentMigrations,
   getInitialMigrationMemberReview,
   getTenantOperationProfile,
+  listChargeDefinitions,
   generateHistoricalBackfillShareProfitAllocations,
   markTenantBusinessProfitPoolsReviewed,
   markTenantLegacyLoansReviewed,
@@ -176,6 +177,7 @@ import { buildTenantDashboardUrl } from "@halaalvest/utils"
 import {
   type DashboardImportKind,
   getDashboardImportExistingMatches,
+  getDashboardImportIdentityKeys,
   getDashboardImportPrimaryValue,
   parseDashboardImportCsv,
 } from "../lib/import-csv"
@@ -966,6 +968,25 @@ function requireDirectImportConfirmation(formData: FormData) {
   if (confirmation !== "IMPORT NOW") {
     throw new DashboardActionExpectedError(
       "Type IMPORT NOW to run a direct import without staging."
+    )
+  }
+}
+
+function requireExistingMatchConfirmation(
+  formData: FormData,
+  importKind: "deduction_sources" | "loan_products",
+  existingMatchCount: number
+) {
+  const confirmation = formData.get("confirmExistingMatches")
+  if (
+    existingMatchCount > 0 &&
+    confirmation !== "true" &&
+    confirmation !== "on"
+  ) {
+    throw new DashboardActionExpectedError(
+      importKind === "loan_products"
+        ? "Review and confirm the existing loan products whose policy fields may be updated."
+        : "Review and confirm the existing collection sources whose configuration may be updated."
     )
   }
 }
@@ -2017,7 +2038,7 @@ export async function stageCollectionSourceContributionBatchAction(
   revalidatePath("/contributions")
 
   return {
-    redirectTo: `/contributions?batchId=${batch.id}`,
+    redirectTo: `/contributions?view=collections&batchId=${batch.id}`,
   }
 }
 
@@ -2773,6 +2794,7 @@ export async function createMemberShareApplicationAction(formData: FormData) {
 
   revalidatePath("/settings/finance")
   revalidatePath("/settings/finance/shares")
+  revalidatePath("/shares")
 }
 
 export async function createOwnMemberShareApplicationAction(
@@ -2813,6 +2835,7 @@ export async function reviewMemberShareApplicationAction(formData: FormData) {
 
   revalidatePath("/settings/finance")
   revalidatePath("/settings/finance/shares")
+  revalidatePath("/shares")
 }
 
 export async function updateTenantFinancingPolicyAction(formData: FormData) {
@@ -3536,11 +3559,49 @@ export async function applyChargeAction(formData: FormData) {
 
   requireDateOnOrAfterTenantStartDate(actor, assessedAt, "Charge date")
 
+  const assessedDate = new Date(`${assessedAt}T00:00:00.000Z`)
+  const definitions = await listChargeDefinitions(actor.tenant.id)
+  const definition = definitions.find(
+    (item: any) => item.id === getRequiredString(formData, "chargeDefinitionId")
+  )
+
+  if (!definition || !definition.isActive) {
+    throw new DashboardActionExpectedError(
+      "Select an active charge definition."
+    )
+  }
+
+  const valueType =
+    definition.chargeValueType ??
+    (definition.kind === "percentage" ? "percentage" : "fixed_amount")
+  if (valueType === "percentage") {
+    throw new DashboardActionExpectedError(
+      "Percentage charges must be applied through a workflow with a server-owned basis amount."
+    )
+  }
+
+  const effectiveVersion = [...(definition.versions ?? [])]
+    .filter(
+      (version: any) =>
+        new Date(version.effectiveFrom).getTime() <= assessedDate.getTime()
+    )
+    .sort(
+      (left: any, right: any) =>
+        new Date(right.effectiveFrom).getTime() -
+        new Date(left.effectiveFrom).getTime()
+    )[0]
+  const amount = Number(effectiveVersion?.amount ?? definition.amount)
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new DashboardActionExpectedError(
+      "The selected charge does not have a valid effective amount for this date."
+    )
+  }
+
   const charge = await applyCharge({
     actorUserId: actor.user.id,
-    amount: Number(getRequiredString(formData, "amount")),
-    assessedAt: new Date(`${assessedAt}T00:00:00.000Z`),
-    chargeDefinitionId: getRequiredString(formData, "chargeDefinitionId"),
+    amount,
+    assessedAt: assessedDate,
+    chargeDefinitionId: definition.id,
     memberId: getRequiredString(formData, "memberId"),
     notes: (formData.get("notes") as string | null)?.trim() || undefined,
     tenantId: actor.tenant.id,
@@ -3689,6 +3750,7 @@ export async function submitLoanRequestAction(formData: FormData) {
 
     await sendEmailDraftWithAudit({
       draft,
+      mobile: { entityId: approval.id },
       source: "dashboard.loans",
       tenantId: actor.tenant.id,
     })
@@ -3727,7 +3789,6 @@ export async function reviewLoanGuarantorApprovalAction(formData: FormData) {
     tenantName: actor.tenant.name,
     tenantSlug: actor.tenant.slug,
   })
-
   revalidatePath("/loans")
 }
 
@@ -3784,6 +3845,7 @@ export async function reviewLoanRequestAction(formData: FormData) {
     tenantName: actor.tenant.name,
     tenantSlug: actor.tenant.slug,
   })
+  await sendLoanRequestStatusMemberEmail(actor, request)
 
   revalidatePath("/loans")
 }
@@ -4288,6 +4350,7 @@ async function sendSupportCaseCreatedMemberEmail(
 
   await sendEmailDraftWithAudit({
     draft,
+    mobile: { entityId: supportCase.id },
     source: "dashboard.support",
     tenantId: actor.tenant.id,
   })
@@ -4311,6 +4374,7 @@ async function sendSupportMessageMemberEmail(
 
   await sendEmailDraftWithAudit({
     draft,
+    mobile: { entityId: supportCase.id },
     source: "dashboard.support",
     tenantId: actor.tenant.id,
   })
@@ -4330,6 +4394,7 @@ async function sendSupportStatusMemberEmail(
 
   await sendEmailDraftWithAudit({
     draft,
+    mobile: { entityId: supportCase.id },
     source: "dashboard.support",
     tenantId: actor.tenant.id,
   })
@@ -4364,6 +4429,7 @@ async function sendPaymentReceiptStatusMemberEmail(
 
   await sendEmailDraftWithAudit({
     draft,
+    mobile: { entityId: receipt.id },
     source: "dashboard.payment_receipts",
     tenantId: actor.tenant.id,
   })
@@ -4432,6 +4498,7 @@ async function sendLoanRequestStatusMemberEmail(
 
   await sendEmailDraftWithAudit({
     draft,
+    mobile: { entityId: request.id },
     source: "dashboard.loans",
     tenantId: actor.tenant.id,
   })
@@ -4467,6 +4534,7 @@ async function sendProjectFinancingRequestStatusMemberEmail(
 
   await sendEmailDraftWithAudit({
     draft,
+    mobile: { entityId: request.id },
     source: "dashboard.project_financing",
     tenantId: actor.tenant.id,
   })
@@ -4501,6 +4569,7 @@ async function sendProcurementRequestStatusMemberEmail(
 
   await sendEmailDraftWithAudit({
     draft,
+    mobile: { entityId: request.id },
     source: "dashboard.procurement",
     tenantId: actor.tenant.id,
   })
@@ -4539,6 +4608,7 @@ async function sendFoodPurchaseApplicationStatusMemberEmail(
 
   await sendEmailDraftWithAudit({
     draft,
+    mobile: { entityId: application.id },
     source: "dashboard.food_purchase",
     tenantId: actor.tenant.id,
   })
@@ -4583,6 +4653,7 @@ async function sendFoodPurchaseAccountingStatusCommitteeEmail(
 
   await sendEmailDraftWithAudit({
     draft,
+    mobile: { entityId: cycle.id },
     source: "dashboard.food_purchase.accounting",
     tenantId: actor.tenant.id,
   })
@@ -5612,6 +5683,13 @@ export async function recordCollectionFollowUpAction(formData: FormData) {
 
 export async function createSupportCaseAction(formData: FormData) {
   const actor = await requireDashboardActor(allStaffRoles)
+  const operationProfile = await getTenantOperationProfile(actor.tenant.id)
+
+  if (!operationProfile.services.support_cases.canStaffCreate) {
+    throw new DashboardActionExpectedError(
+      "Staff support-case creation is not enabled for this cooperative."
+    )
+  }
 
   const supportCase = await createSupportCase({
     assignedToUserId: getOptionalTrimmedString(formData, "assignedToUserId"),
@@ -5683,6 +5761,13 @@ export async function addSupportCaseMessageAction(formData: FormData) {
 export async function createMemberSupportCaseAction(formData: FormData) {
   const actor = await requireDashboardActor(memberSelfServiceRoles)
   const member = await requireActorMember(actor)
+  const operationProfile = await getTenantOperationProfile(actor.tenant.id)
+
+  if (!operationProfile.services.support_cases.canMemberCreate) {
+    throw new DashboardActionExpectedError(
+      "Support self-service is not enabled for this cooperative."
+    )
+  }
 
   const supportCase = await createMemberSupportCase({
     attachmentUrl: getOptionalTrimmedString(formData, "attachmentUrl"),
@@ -5865,12 +5950,18 @@ export async function createFoodPurchaseCycleAction(formData: FormData) {
 export async function submitFoodPurchaseApplicationAction(formData: FormData) {
   const actor = await requireDashboardActor(allStaffRoles)
   await requireLiveFinancialWritesOpen(actor)
+  const memberId = getRequiredString(formData, "memberId")
+
+  await assertMemberOperationalReadiness({
+    memberId,
+    tenantId: actor.tenant.id,
+  })
 
   await submitFoodPurchaseApplication({
     actorUserId: actor.user.id,
     cycleId: getRequiredString(formData, "cycleId"),
     itemDescription: getOptionalTrimmedString(formData, "itemDescription"),
-    memberId: getRequiredString(formData, "memberId"),
+    memberId,
     requestSource: "staff",
     requestedAmount: Number(getRequiredString(formData, "requestedAmount")),
     requestedPaybackMonths: Number(
@@ -5912,6 +6003,13 @@ export async function submitOwnFoodPurchaseApplicationAction(
 export async function reviewFoodPurchaseApplicationAction(formData: FormData) {
   const actor = await requireDashboardActor(allStaffRoles)
   await requireLiveFinancialWritesOpen(actor)
+  const status = getRequiredString(formData, "status")
+
+  if (!new Set(["approved", "rejected", "under_review"]).has(status)) {
+    throw new DashboardActionExpectedError(
+      "Select a valid Foodstuff Purchase application review status."
+    )
+  }
 
   const application = await reviewFoodPurchaseApplication({
     actorUserId: actor.user.id,
@@ -5919,10 +6017,7 @@ export async function reviewFoodPurchaseApplicationAction(formData: FormData) {
     approvedAmount: getOptionalNumber(formData, "approvedAmount"),
     approvedPaybackMonths: getOptionalNumber(formData, "approvedPaybackMonths"),
     notes: getOptionalTrimmedString(formData, "notes"),
-    status: getRequiredString(formData, "status") as
-      | "approved"
-      | "rejected"
-      | "under_review",
+    status: status as "approved" | "rejected" | "under_review",
     tenantId: actor.tenant.id,
   })
 
@@ -5957,13 +6052,18 @@ export async function reviewFoodPurchaseAccountingAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireLiveFinancialWritesOpen(actor)
   const notes = getOptionalTrimmedString(formData, "notes")
+  const decision = getRequiredString(formData, "decision")
+
+  if (!new Set(["approved", "rejected"]).has(decision)) {
+    throw new DashboardActionExpectedError(
+      "Select a valid Foodstuff Purchase accounting review decision."
+    )
+  }
 
   const cycle = await reviewFoodPurchaseAccounting({
     actorUserId: actor.user.id,
     cycleId: getRequiredString(formData, "cycleId"),
-    decision: getRequiredString(formData, "decision") as
-      | "approved"
-      | "rejected",
+    decision: decision as "approved" | "rejected",
     notes,
     tenantId: actor.tenant.id,
   })
@@ -6199,6 +6299,17 @@ export async function recordProjectFinancingDisbursementAction(
 
 export async function createMemberPaymentReceiptAction(formData: FormData) {
   const actor = await requireDashboardActor(allStaffRoles)
+  const operationProfile = await getTenantOperationProfile(actor.tenant.id)
+
+  if (!operationProfile.services.payment_receipts.canStaffCreate) {
+    throw new DashboardActionExpectedError(
+      "Staff payment-receipt staging is not enabled for this cooperative."
+    )
+  }
+
+  const paidAt = getRequiredString(formData, "paidAt")
+
+  requireDateOnOrAfterTenantStartDate(actor, paidAt, "Receipt payment date")
 
   await createMemberPaymentReceipt({
     allocations: parsePaymentReceiptAllocations(formData),
@@ -6208,7 +6319,7 @@ export async function createMemberPaymentReceiptAction(formData: FormData) {
     ) as DashboardContributionChannel,
     memberId: getRequiredString(formData, "memberId"),
     memberNotes: getOptionalTrimmedString(formData, "memberNotes"),
-    paidAt: new Date(`${getRequiredString(formData, "paidAt")}T00:00:00.000Z`),
+    paidAt: new Date(`${paidAt}T00:00:00.000Z`),
     paymentReference: getOptionalTrimmedString(formData, "paymentReference"),
     proofDocumentName: getOptionalTrimmedString(formData, "proofDocumentName"),
     proofDocumentUrl: getOptionalTrimmedString(formData, "proofDocumentUrl"),
@@ -6232,6 +6343,9 @@ export async function createOwnMemberPaymentReceiptAction(formData: FormData) {
     )
   }
 
+  const paidAt = getRequiredString(formData, "paidAt")
+  requireDateOnOrAfterTenantStartDate(actor, paidAt, "Receipt payment date")
+
   await createMemberPaymentReceipt({
     allocations: parsePaymentReceiptAllocations(formData),
     channel: getRequiredString(
@@ -6240,7 +6354,7 @@ export async function createOwnMemberPaymentReceiptAction(formData: FormData) {
     ) as DashboardContributionChannel,
     memberId: member.id,
     memberNotes: getOptionalTrimmedString(formData, "memberNotes"),
-    paidAt: new Date(`${getRequiredString(formData, "paidAt")}T00:00:00.000Z`),
+    paidAt: new Date(`${paidAt}T00:00:00.000Z`),
     paymentReference: getOptionalTrimmedString(formData, "paymentReference"),
     proofDocumentName: getOptionalTrimmedString(formData, "proofDocumentName"),
     proofDocumentUrl: getOptionalTrimmedString(formData, "proofDocumentUrl"),
@@ -6344,6 +6458,15 @@ export async function importDeductionSourcesCsvAction(formData: FormData) {
     )
   }
 
+  const referenceData = await getImportReferenceData(actor.tenant.id)
+  requireExistingMatchConfirmation(
+    formData,
+    "deduction_sources",
+    parsed.rows.filter((row) =>
+      getDashboardImportExistingMatches("deduction_sources", referenceData, row)
+    ).length
+  )
+
   await importDeductionSources({
     actorUserId: actor.user.id,
     rows: parsed.rows,
@@ -6369,6 +6492,15 @@ export async function importLoanProductsCsvAction(formData: FormData) {
     )
   }
 
+  const referenceData = await getImportReferenceData(actor.tenant.id)
+  requireExistingMatchConfirmation(
+    formData,
+    "loan_products",
+    parsed.rows.filter((row) =>
+      getDashboardImportExistingMatches("loan_products", referenceData, row)
+    ).length
+  )
+
   await importLoanProducts({
     actorUserId: actor.user.id,
     rows: parsed.rows,
@@ -6377,6 +6509,8 @@ export async function importLoanProductsCsvAction(formData: FormData) {
 
   revalidateImportSettingsPaths()
   revalidatePath("/loans")
+  revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/loan")
 }
 
 export async function importContributionsCsvAction(formData: FormData) {
@@ -6531,49 +6665,54 @@ export async function stageImportBatchAction(formData: FormData) {
   requireImportRowsOnOrAfterTenantStartDate(actor, importKind, parsed.rows)
 
   const referenceData = await getImportReferenceData(actor.tenant.id)
-  const seen = new Set<string>()
-  const duplicateKeys = new Set<string>()
-
-  parsed.rows.forEach((row) => {
-    const primaryValue = getDashboardImportPrimaryValue(importKind, row)
-    if (!primaryValue) {
-      return
-    }
-    const comparisonValue =
-      importKind === "deduction_sources"
-        ? primaryValue.trim().toLowerCase()
-        : primaryValue
-
-    if (seen.has(comparisonValue)) {
-      duplicateKeys.add(primaryValue)
-      return
-    }
-
-    seen.add(comparisonValue)
+  const identityCounts = new Map<string, number>()
+  const identityKeysByRow = parsed.rows.map((row) => {
+    const keys = getDashboardImportIdentityKeys(importKind, row)
+    keys.forEach((key) => {
+      identityCounts.set(key, (identityCounts.get(key) ?? 0) + 1)
+    })
+    return keys
   })
+  const duplicateKeys = new Set(
+    Array.from(identityCounts.entries())
+      .filter(([, count]) => count > 1)
+      .map(([key]) => key)
+  )
+  const duplicateRows = identityKeysByRow.map((keys) =>
+    keys.some((key) => duplicateKeys.has(key))
+  )
+  const isConfigurationImport =
+    importKind === "deduction_sources" || importKind === "loan_products"
 
-  if (importKind === "deduction_sources" && duplicateKeys.size > 0) {
+  if (isConfigurationImport && duplicateRows.some(Boolean)) {
     throw new DashboardActionExpectedError(
-      "Remove duplicate collection-source names before staging this import."
+      importKind === "loan_products"
+        ? "Remove duplicate loan-product names or codes before staging this import."
+        : "Remove duplicate collection-source names before staging this import."
+    )
+  }
+
+  const existingMatches = parsed.rows.map((row) =>
+    getDashboardImportExistingMatches(importKind, referenceData, row)
+  )
+  if (isConfigurationImport) {
+    requireExistingMatchConfirmation(
+      formData,
+      importKind,
+      existingMatches.filter(Boolean).length
     )
   }
 
   await createImportBatch({
     actorUserId: actor.user.id,
-    duplicateRowCount: duplicateKeys.size,
-    existingMatchCount: parsed.rows.filter((row) =>
-      getDashboardImportExistingMatches(importKind, referenceData, row)
-    ).length,
+    duplicateRowCount: duplicateRows.filter(Boolean).length,
+    existingMatchCount: existingMatches.filter(Boolean).length,
     importType: importKind,
     rows: parsed.rows.map((row, index) => {
       const primaryValue = getDashboardImportPrimaryValue(importKind, row)
       return {
-        duplicateInFile: primaryValue ? duplicateKeys.has(primaryValue) : false,
-        existingMatch: getDashboardImportExistingMatches(
-          importKind,
-          referenceData,
-          row
-        ),
+        duplicateInFile: duplicateRows[index] ?? false,
+        existingMatch: existingMatches[index] ?? false,
         payload: row,
         primaryValue,
         rowIndex: index + 1,
@@ -6588,6 +6727,10 @@ export async function stageImportBatchAction(formData: FormData) {
   revalidatePath("/members")
   if (importKind === "deduction_sources") {
     revalidatePath("/contributions")
+  }
+  if (importKind === "loan_products") {
+    revalidatePath("/settings/finance")
+    revalidatePath("/settings/finance/loan")
   }
 }
 
@@ -6631,6 +6774,8 @@ export async function applyImportBatchAction(formData: FormData) {
   revalidatePath("/charges")
   revalidatePath("/loans")
   revalidatePath("/repayments")
+  revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/loan")
 }
 
 export async function queueBackfillDraftAction(formData: FormData) {

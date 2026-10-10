@@ -1,5 +1,5 @@
-import { StatementScreen } from "@/screens/statement-screen"
+import { MemberStatementRouteController } from "@/features/member-core/routes/member-statement-route-controller"
 
 export default function StatementRoute() {
-  return <StatementScreen />
+  return <MemberStatementRouteController />
 }

@@ -17,7 +17,6 @@ const APPROVED_UNAVAILABLE_MESSAGES = new Set([
   "Member KYC review is unavailable.",
   "Member onboarding review is unavailable.",
   "Member status review is unavailable.",
-  "Mobile device registration is unavailable.",
   "Procurement requests are unavailable.",
   "Procurement request review is unavailable.",
   "Project financing requests are unavailable.",
@@ -35,6 +34,9 @@ const APPROVED_UNAVAILABLE_MESSAGES = new Set([
 const APPROVED_WORKFLOW_MESSAGES = new Set([
   "Member verification is required before financial or operational actions can continue.",
   "Resolve all live provider blockers before purging QA data.",
+  "Subscription administration access is required for this action.",
+  "This cooperative has reached its active-member plan capacity.",
+  "Member login is not enabled for this cooperative plan.",
   "This account is not active for the selected cooperative.",
   "This QA workspace is being purged and no longer accepts writes.",
   "The QA purge preview expired or changed. Preview again.",

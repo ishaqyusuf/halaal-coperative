@@ -1,14 +1,15 @@
 model User {
-  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId        String    @map("tenant_id") @db.Uuid
-  email           String
-  phoneNumber     String?   @map("phone_number")
-  passwordHash    String?   @map("password_hash")
-  fullName        String    @map("full_name")
-  isPlatformOwner Boolean   @default(false) @map("is_platform_owner")
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String    @map("tenant_id") @db.Uuid
+  email                 String
+  cooperativeAccessCode String?   @unique @map("cooperative_access_code") @db.VarChar(96)
+  phoneNumber           String?   @map("phone_number")
+  passwordHash          String?   @map("password_hash")
+  fullName              String    @map("full_name")
+  isPlatformOwner       Boolean   @default(false) @map("is_platform_owner")
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt             DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   tenant                                     Tenant                              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   memberships                                Membership[]
@@ -44,11 +45,100 @@ model User {
   createdCollectionSourceContributionBatches CollectionSourceContributionBatch[] @relation("CollectionSourceBatchCreatedBy")
   postedCollectionSourceContributionBatches  CollectionSourceContributionBatch[] @relation("CollectionSourceBatchPostedBy")
   processedSpecialSavingsWithdrawals         MemberSpecialSavingsWithdrawal[]    @relation("MemberSpecialSavingsWithdrawalProcessedBy")
+  authChallenges                             AuthChallenge[]
+  mobileDeviceSessions                       MobileDeviceSession[]               @relation("MobileDeviceSessionUser")
+  mobileAppAccessPurchases                    MobileAppAccessPurchase[]
+  mobileAppReviewGrant                        MobileAppReviewGrant?
+  mobilePushRegistrations                    MobilePushRegistration[]
+  mobileUserNotificationPreferences          MobileUserNotificationPreference[]
+  revokedMobileDeviceSessions                MobileDeviceSession[]               @relation("MobileDeviceSessionRevokedBy")
+
+  privacyRequests AccountPrivacyRequest[] @relation("AccountPrivacyRequester")
+  legalAcceptances LegalAcceptance[] @relation("LegalAcceptanceUser")
+  dashboardEvidenceUploads DashboardEvidenceUpload[]
 
   @@unique([tenantId, email], map: "users_tenant_email_key")
   @@index([tenantId], map: "users_tenant_id_idx")
   @@index([deletedAt], map: "users_deleted_at_idx")
   @@map("users")
+}
+
+model AuthChallenge {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String               @map("tenant_id") @db.Uuid
+  userId              String?              @map("user_id") @db.Uuid
+  onboardingRequestId String?              @map("onboarding_request_id") @db.Uuid
+  purpose             AuthChallengePurpose
+  evidenceHash        String               @map("evidence_hash") @db.VarChar(64)
+  recipientEmailHash  String?              @map("recipient_email_hash") @db.VarChar(64)
+  attemptCount        Int                  @default(0) @map("attempt_count")
+  maxAttempts         Int                  @default(5) @map("max_attempts")
+  expiresAt           DateTime             @map("expires_at") @db.Timestamptz(6)
+  consumedAt          DateTime?            @map("consumed_at") @db.Timestamptz(6)
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant            Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user              User?                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  onboardingRequest MemberOnboardingRequest? @relation(fields: [onboardingRequestId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, purpose, createdAt], map: "auth_challenges_tenant_purpose_created_idx")
+  @@index([userId, purpose, createdAt], map: "auth_challenges_user_purpose_created_idx")
+  @@index([onboardingRequestId, purpose], map: "auth_challenges_onboarding_purpose_idx")
+  @@index([expiresAt], map: "auth_challenges_expires_at_idx")
+  @@map("auth_challenges")
+}
+
+model AuthRateLimitBucket {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String?  @map("tenant_id") @db.Uuid
+  operation       String   @db.VarChar(64)
+  signalType      String   @map("signal_type") @db.VarChar(32)
+  signalHash      String   @map("signal_hash") @db.VarChar(64)
+  windowStartedAt DateTime @map("window_started_at") @db.Timestamptz(6)
+  attemptCount    Int      @default(1) @map("attempt_count")
+  expiresAt       DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([operation, signalType, signalHash, windowStartedAt], map: "auth_rate_limit_buckets_signal_window_key")
+  @@index([tenantId, operation, windowStartedAt], map: "auth_rate_limit_buckets_tenant_operation_idx")
+  @@index([expiresAt], map: "auth_rate_limit_buckets_expires_at_idx")
+  @@map("auth_rate_limit_buckets")
+}
+
+model MobileDeviceSession {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  membershipId     String?   @map("membership_id") @db.Uuid
+  tokenHash        String    @unique @map("token_hash") @db.VarChar(64)
+  deviceIdHash     String    @map("device_id_hash") @db.VarChar(64)
+  deviceLabel      String    @map("device_label") @db.VarChar(160)
+  platform         String    @db.VarChar(40)
+  appVersion       String    @map("app_version") @db.VarChar(80)
+  buildVariant     String    @map("build_variant") @db.VarChar(80)
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(6)
+  lastUsedAt       DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(6)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(6)
+  revokedByUserId  String?   @map("revoked_by_user_id") @db.Uuid
+  revocationReason String?   @map("revocation_reason") @db.VarChar(80)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user       User        @relation("MobileDeviceSessionUser", fields: [userId], references: [id], onDelete: Cascade)
+  membership Membership? @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+  revokedBy  User?       @relation("MobileDeviceSessionRevokedBy", fields: [revokedByUserId], references: [id], onDelete: SetNull)
+  pushRegistration MobilePushRegistration?
+
+  @@index([tenantId, userId, revokedAt, expiresAt], map: "mobile_device_sessions_tenant_user_state_idx")
+  @@index([membershipId, revokedAt], map: "mobile_device_sessions_membership_state_idx")
+  @@index([deviceIdHash, userId], map: "mobile_device_sessions_device_user_idx")
+  @@index([expiresAt], map: "mobile_device_sessions_expires_at_idx")
+  @@map("mobile_device_sessions")
 }
 
 model Membership {
@@ -60,8 +150,9 @@ model Membership {
   createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mobileDeviceSessions MobileDeviceSession[]
 
   @@unique([tenantId, userId, role], map: "memberships_tenant_user_role_key")
   @@index([tenantId, role], map: "memberships_tenant_role_idx")

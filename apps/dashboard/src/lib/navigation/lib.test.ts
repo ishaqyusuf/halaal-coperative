@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test"
-import { getDashboardRouteTitle, getVisibleDashboardNav } from "./lib"
+import {
+  canAccessDashboardPath,
+  getDashboardRouteTitle,
+  getVisibleDashboardNav,
+} from "./lib"
 
 function visibleHrefs(
   hiddenPaths: string[] = [],
@@ -40,9 +44,40 @@ describe("dashboard navigation operation profile filtering", () => {
 
     expect(hrefs).toContain("/loans")
   })
+
+  test("makes current platform documents reachable to members and staff", () => {
+    for (const role of [
+      "member",
+      "finance_officer",
+      "operations_officer",
+      "tenant_admin",
+      "super_admin",
+    ] as const) {
+      expect(visibleHrefs([], role)).toContain("/settings/platform-documents")
+      expect(canAccessDashboardPath("/settings/platform-documents", role)).toBe(
+        true
+      )
+    }
+  })
 })
 
 describe("dashboard navigation route titles", () => {
+  test("keeps the route title when operation-profile navigation is hidden", () => {
+    const route = getDashboardRouteTitle("/procurement", "tenant_admin", [
+      "/procurement",
+    ])
+
+    expect(route.activeItem?.title).toBe("Procurement")
+    expect(route.currentModule?.subtitle).toBe("Contributions and controls")
+    expect(
+      route.modules.flatMap((module) =>
+        module.sections.flatMap((section) =>
+          section.links.filter((link) => link.show).map((link) => link.href)
+        )
+      )
+    ).not.toContain("/procurement")
+  })
+
   test.each([
     ["/settings/imports", "Imports"],
     ["/settings/imports/batches", "Imports"],

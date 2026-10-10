@@ -3,12 +3,21 @@ import { describe, expect, test } from "bun:test"
 const dashboardSourceRoot = new URL("../", import.meta.url).pathname
 
 describe("dashboard Quick fill coverage", () => {
-  test("keeps the universal data-entry form enhancer mounted", async () => {
+  test("keeps Quick Fill owned by typed forms instead of global DOM injection", async () => {
     const provider = await Bun.file(
-      new URL("../components/qa-quick-fill-provider.tsx", import.meta.url),
+      new URL("../components/qa-quick-fill-provider.tsx", import.meta.url)
     ).text()
 
-    expect(provider).toContain("<UniversalQaQuickFill")
+    expect(provider).not.toContain("<UniversalQaQuickFill")
+    expect(provider).not.toContain("MutationObserver")
+
+    for (const file of [
+      "../components/forms/member-forms.tsx",
+      "../components/onboarding/member-signup-form.tsx",
+    ]) {
+      const source = await Bun.file(new URL(file, import.meta.url)).text()
+      expect(source).toContain("applyDashboard")
+    }
   })
 
   test("limits explicit exemptions to identity, submit-only, and search forms", async () => {

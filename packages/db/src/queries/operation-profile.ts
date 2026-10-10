@@ -1,4 +1,4 @@
-import type { PrismaClient } from "../../generated/prisma/client"
+import type { Prisma, PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
@@ -62,6 +62,15 @@ export type UpdateTenantOperationProfileInput = {
   changeReason?: string | null
   policy?: Partial<TenantOperationProfilePolicy>
   services?: Partial<Record<TenantServiceKey, TenantServiceAccessMode>>
+  tenantId: string
+}
+
+export type UpdateTenantOperationProfileServiceInput = {
+  actorUserId: string
+  changeReason?: string | null
+  expectedAccessMode: TenantServiceAccessMode
+  nextAccessMode: TenantServiceAccessMode
+  serviceKey: TenantServiceKey
   tenantId: string
 }
 
@@ -150,6 +159,38 @@ function buildDefaultServices(): Record<
     }),
     {} as Record<TenantServiceKey, TenantServiceCapability>
   )
+}
+
+function buildOperationProfileReadModel(input: {
+  policy: Record<string, unknown> | null | undefined
+  profile: {
+    reviewedAt: Date | null
+    reviewedByUserId: string | null
+  }
+  settings: Array<{ accessMode: unknown; serviceKey: unknown }>
+  tenantId: string
+}): TenantOperationProfileReadModel {
+  const services = buildDefaultServices()
+
+  for (const setting of input.settings) {
+    if (
+      isTenantServiceKey(setting.serviceKey) &&
+      isTenantServiceAccessMode(setting.accessMode)
+    ) {
+      services[setting.serviceKey] = buildServiceCapability(
+        setting.serviceKey,
+        setting.accessMode
+      )
+    }
+  }
+
+  return {
+    policy: normalizePolicy(input.policy),
+    reviewedAt: input.profile.reviewedAt,
+    reviewedByUserId: input.profile.reviewedByUserId,
+    services,
+    tenantId: input.tenantId,
+  }
 }
 
 function normalizePolicy(policy: Record<string, unknown> | null | undefined) {
@@ -339,27 +380,145 @@ export async function getTenantOperationProfile(
       where: { tenantId },
     }),
   ])
-  const services = buildDefaultServices()
-
-  for (const setting of settings) {
-    const serviceKey = setting.serviceKey as unknown
-    const accessMode = setting.accessMode as unknown
-
-    if (
-      isTenantServiceKey(serviceKey) &&
-      isTenantServiceAccessMode(accessMode)
-    ) {
-      services[serviceKey] = buildServiceCapability(serviceKey, accessMode)
-    }
-  }
-
-  return {
-    policy: normalizePolicy(policy),
-    reviewedAt: profile.reviewedAt ?? null,
-    reviewedByUserId: profile.reviewedByUserId ?? null,
-    services,
+  return buildOperationProfileReadModel({
+    policy,
+    profile: {
+      reviewedAt: profile.reviewedAt ?? null,
+      reviewedByUserId: profile.reviewedByUserId ?? null,
+    },
+    settings,
     tenantId,
-  }
+  })
+}
+
+export async function updateTenantOperationProfileService(
+  input: UpdateTenantOperationProfileServiceInput,
+  prismaOverride?: PrismaClient
+): Promise<TenantOperationProfileReadModel> {
+  assertTenantServiceAccessMode(input.expectedAccessMode)
+  assertTenantServiceAccessMode(input.nextAccessMode)
+
+  const prisma = getPrisma(prismaOverride)
+  await ensureTenantOperationProfileDefaults(input.tenantId, prisma)
+
+  return prisma.$transaction(async (transaction: Prisma.TransactionClient) => {
+    const [profile, settings, policy] = await Promise.all([
+      transaction.tenantOperationProfile.findUnique({
+        where: { tenantId: input.tenantId },
+      }),
+      transaction.tenantServiceSetting.findMany({
+        where: { tenantId: input.tenantId },
+      }),
+      transaction.tenantPolicy.findUnique({
+        select: {
+          foodPurchaseMaximumActiveObligationsPerMember: true,
+          foodPurchaseRequiresOpenCycle: true,
+          procurementMaximumActiveObligationsPerMember: true,
+        },
+        where: { tenantId: input.tenantId },
+      }),
+    ])
+
+    if (!profile) {
+      throw new QueryInfrastructureError(
+        "Tenant operation profile disappeared during update."
+      )
+    }
+
+    const previous = buildOperationProfileReadModel({
+      policy,
+      profile: {
+        reviewedAt: profile.reviewedAt ?? null,
+        reviewedByUserId: profile.reviewedByUserId ?? null,
+      },
+      settings,
+      tenantId: input.tenantId,
+    })
+    const currentAccessMode = previous.services[input.serviceKey].accessMode
+
+    if (currentAccessMode !== input.expectedAccessMode) {
+      throw ExpectedQueryError.conflict(
+        "This service access mode changed on another device. Refresh before saving."
+      )
+    }
+
+    if (input.nextAccessMode === currentAccessMode) {
+      return previous
+    }
+
+    const restrictive = isRestrictiveAccessChange({
+      next: input.nextAccessMode,
+      previous: currentAccessMode,
+    })
+    const changeReason = input.changeReason?.trim() ?? ""
+
+    if (restrictive && changeReason.length === 0) {
+      throw ExpectedQueryError.validation(
+        "A reason is required when disabling a service, making it view-only, or removing member self-service access."
+      )
+    }
+
+    const updateResult = await transaction.tenantServiceSetting.updateMany({
+      data: { accessMode: input.nextAccessMode },
+      where: {
+        accessMode: input.expectedAccessMode,
+        serviceKey: input.serviceKey,
+        tenantId: input.tenantId,
+      },
+    })
+
+    if (updateResult.count !== 1) {
+      throw ExpectedQueryError.conflict(
+        "This service access mode changed on another device. Refresh before saving."
+      )
+    }
+
+    const reviewedAt = new Date()
+    await transaction.tenantOperationProfile.update({
+      data: {
+        reviewedAt,
+        reviewedByUserId: input.actorUserId,
+      },
+      where: { tenantId: input.tenantId },
+    })
+
+    const nextSettings = settings.map(
+      (setting: { accessMode: string; serviceKey: string }) =>
+        setting.serviceKey === input.serviceKey
+          ? { ...setting, accessMode: input.nextAccessMode }
+          : setting
+    )
+    const next = buildOperationProfileReadModel({
+      policy,
+      profile: {
+        reviewedAt,
+        reviewedByUserId: input.actorUserId,
+      },
+      settings: nextSettings,
+      tenantId: input.tenantId,
+    })
+
+    await createAuditLogEntry(
+      {
+        action: "tenant_operation_profile.service_access_updated",
+        actorType: "user",
+        actorUserId: input.actorUserId,
+        entityId: profile.id,
+        entityType: "TenantOperationProfile",
+        metadata: {
+          changeReason: changeReason || null,
+          next,
+          previous,
+          restrictiveServiceKeys: restrictive ? [input.serviceKey] : [],
+          serviceKey: input.serviceKey,
+        },
+        tenantId: input.tenantId,
+      },
+      transaction as PrismaClient
+    )
+
+    return next
+  })
 }
 
 export async function updateTenantOperationProfile(

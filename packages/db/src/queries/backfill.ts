@@ -8,7 +8,7 @@ import {
   getBusinessProfitSeasonPeriod,
   type BusinessProfitSeasonFrequency,
 } from "@halaalvest/domain"
-import type { PrismaClient } from "../../generated/prisma/client"
+import type { PrismaClient, TenantBusinessPolicy } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
 import { applyCharge, applyLoanRequestChargesInTransaction } from "./charges"
@@ -75,16 +75,17 @@ async function getBusinessProfitSeasonPolicy(
   tenantId: string,
   prisma: any
 ): Promise<BusinessProfitSeasonPolicy> {
-  const policy = await readOptionalTenantBusinessPolicy(
-    prisma,
-    (tenantBusinessPolicy) =>
-      tenantBusinessPolicy.findUnique({
-        select: {
-          financialYearStartMonth: true,
-          profitDistributionFrequency: true,
-        },
-        where: { tenantId },
-      })
+  const policy = await readOptionalTenantBusinessPolicy<Pick<
+    TenantBusinessPolicy,
+    "financialYearStartMonth" | "profitDistributionFrequency"
+  > | null>(prisma, (tenantBusinessPolicy) =>
+    tenantBusinessPolicy.findUnique({
+      select: {
+        financialYearStartMonth: true,
+        profitDistributionFrequency: true,
+      },
+      where: { tenantId },
+    })
   )
 
   const profitDistributionFrequency = policy?.profitDistributionFrequency

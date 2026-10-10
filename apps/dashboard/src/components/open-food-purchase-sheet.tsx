@@ -11,11 +11,17 @@ import {
 } from "lucide-react"
 import { useFoodPurchaseParams } from "@/hooks/use-food-purchase-params"
 
-export function OpenFoodPurchaseReleaseSheet() {
+export function OpenFoodPurchaseReleaseSheet({
+  iconOnly = false,
+}: {
+  iconOnly?: boolean
+} = {}) {
   const { setParams } = useFoodPurchaseParams()
 
   return (
     <Button
+      aria-label={iconOnly ? "Record fund release evidence" : undefined}
+      className={iconOnly ? "size-11" : undefined}
       onClick={() =>
         setParams({
           foodPurchaseApplicationId: null,
@@ -24,22 +30,33 @@ export function OpenFoodPurchaseReleaseSheet() {
         })
       }
       type="button"
+      size={iconOnly ? "icon-lg" : undefined}
     >
       <HandCoinsIcon data-icon="inline-start" />
-      Record fund release
+      {iconOnly ? (
+        <span className="sr-only">Record release</span>
+      ) : (
+        "Record release evidence"
+      )}
     </Button>
   )
 }
 
 export function OpenFoodPurchaseApplicationSheet({
   disabled,
+  iconOnly = false,
 }: {
   disabled?: boolean
+  iconOnly?: boolean
 }) {
   const { setParams } = useFoodPurchaseParams()
 
   return (
     <Button
+      aria-label={
+        iconOnly ? "Record Foodstuff Purchase application" : undefined
+      }
+      className={iconOnly ? "size-11" : undefined}
       disabled={disabled}
       onClick={() =>
         setParams({
@@ -50,22 +67,31 @@ export function OpenFoodPurchaseApplicationSheet({
       }
       type="button"
       variant="outline"
+      size={iconOnly ? "icon-lg" : undefined}
     >
       <FilePlus2Icon data-icon="inline-start" />
-      Record application
+      {iconOnly ? (
+        <span className="sr-only">Record application</span>
+      ) : (
+        "Record application"
+      )}
     </Button>
   )
 }
 
 export function OpenMemberFoodPurchaseApplicationSheet({
   disabled,
+  iconOnly = false,
 }: {
   disabled?: boolean
+  iconOnly?: boolean
 }) {
   const { setParams } = useFoodPurchaseParams()
 
   return (
     <Button
+      aria-label={iconOnly ? "Apply for Foodstuff Purchase" : undefined}
+      className={iconOnly ? "size-11" : undefined}
       disabled={disabled}
       onClick={() =>
         setParams({
@@ -75,9 +101,10 @@ export function OpenMemberFoodPurchaseApplicationSheet({
         })
       }
       type="button"
+      size={iconOnly ? "icon-lg" : undefined}
     >
       <ShoppingBasketIcon data-icon="inline-start" />
-      Apply
+      {iconOnly ? <span className="sr-only">Apply</span> : "Apply"}
     </Button>
   )
 }

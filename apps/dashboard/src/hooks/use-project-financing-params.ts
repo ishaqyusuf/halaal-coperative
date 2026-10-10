@@ -1,9 +1,15 @@
 import { useQueryStates } from "nuqs"
-import { createLoader, parseAsString } from "nuqs/server"
+import { createLoader, parseAsString, parseAsStringEnum } from "nuqs/server"
 
 const projectFinancingParamsSchema = {
   projectFinancingRequestId: parseAsString,
-  projectFinancingSheetType: parseAsString,
+  projectFinancingSheetType: parseAsStringEnum([
+    "create",
+    "details",
+    "disbursement",
+    "review",
+    "self-service",
+  ]),
 }
 
 export function useProjectFinancingParams() {

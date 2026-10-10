@@ -482,6 +482,66 @@ export async function applyImportBatch(
   await assertMemberRecordImportsOpen(input.tenantId, prisma)
 
   try {
+    if (batch.importType === "loan_products") {
+      return await prisma.$transaction(
+        async (tx) => {
+          const claim = await tx.importBatch.updateMany({
+            data: { errorMessage: null },
+            where: {
+              id: batch.id,
+              status: { in: ["draft", "failed"] },
+              tenantId: input.tenantId,
+            },
+          })
+
+          if (claim.count !== 1) {
+            throw ExpectedQueryError.conflict(
+              "This import batch has already been applied or is being applied."
+            )
+          }
+
+          const result = await applyLoanProductRows(
+            {
+              actorUserId: input.actorUserId,
+              rows: castImportRows("loan_products", batch.rows.map((row) => row.payload)) as Parameters<
+                typeof importLoanProducts
+              >[0]["rows"],
+              tenantId: input.tenantId,
+            },
+            tx
+          )
+
+          await tx.importBatch.update({
+            where: { id: batch.id },
+            data: {
+              appliedAt: new Date(),
+              errorMessage: null,
+              status: "applied",
+            },
+          })
+
+          await createAuditLogEntry(
+            {
+              action: "import_batch.applied",
+              actorType: "user",
+              actorUserId: input.actorUserId,
+              entityId: batch.id,
+              entityType: "ImportBatch",
+              metadata: {
+                importType: batch.importType,
+                processed: result.processed,
+              },
+              tenantId: input.tenantId,
+            },
+            tx as unknown as PrismaClient
+          )
+
+          return result
+        },
+        { timeout: 15_000 }
+      )
+    }
+
     const result = await applyImportRows(
       {
         actorUserId: input.actorUserId,
@@ -519,14 +579,18 @@ export async function applyImportBatch(
 
     return result
   } catch (error) {
-    await prisma.importBatch.update({
-      where: { id: batch.id },
+    await prisma.importBatch.updateMany({
       data: {
         errorMessage:
           error instanceof Error
             ? error.message
             : "Import batch application failed.",
         status: "failed",
+      },
+      where: {
+        id: batch.id,
+        status: { not: "applied" },
+        tenantId: input.tenantId,
       },
     })
 
@@ -564,7 +628,6 @@ export async function getImportReferenceData(
           termMonths: true,
         },
         orderBy: { createdAt: "desc" },
-        take: 200,
       }),
       prisma.chargeDefinition.findMany({
         where: { tenantId },
@@ -749,54 +812,176 @@ export async function importDeductionSources(
   )
 }
 
-export async function importLoanProducts(
-  input: {
-    actorUserId: string
-    rows: Array<{
-      code?: string
-      loanType: "normal" | "quick"
-      maxSavingsMultiple: number
-      name: string
-      termMonths: number
-    }>
-    tenantId: string
-  },
-  prismaOverride?: PrismaClient
+type LoanProductImportInput = {
+  actorUserId: string
+  rows: Array<{
+    code?: string
+    loanType: "normal" | "quick"
+    maxSavingsMultiple: number
+    name: string
+    termMonths: number
+  }>
+  tenantId: string
+}
+
+function normalizeLoanProductRows(rows: LoanProductImportInput["rows"]) {
+  const normalizedRows = rows.map((row) => ({
+    ...row,
+    code: row.code?.trim().toUpperCase() || null,
+    name: row.name.trim(),
+  }))
+  const normalizedNames = normalizedRows.map((row) => row.name.toLowerCase())
+  const normalizedCodes = normalizedRows
+    .map((row) => row.code)
+    .filter((code): code is string => Boolean(code))
+
+  if (normalizedRows.some((row) => !row.name)) {
+    throw ExpectedQueryError.precondition("Every loan product needs a name.")
+  }
+  if (
+    normalizedRows.some(
+      (row) => !Number.isSafeInteger(row.termMonths) || row.termMonths <= 0
+    )
+  ) {
+    throw ExpectedQueryError.precondition(
+      "Every loan-product term must be a positive whole number of months."
+    )
+  }
+  if (
+    normalizedRows.some(
+      (row) =>
+        !Number.isFinite(row.maxSavingsMultiple) ||
+        row.maxSavingsMultiple <= 0
+    )
+  ) {
+    throw ExpectedQueryError.precondition(
+      "Every loan-product savings multiple must be greater than zero."
+    )
+  }
+  if (new Set(normalizedNames).size !== normalizedNames.length) {
+    throw ExpectedQueryError.precondition(
+      "Remove duplicate loan-product names before importing."
+    )
+  }
+  if (new Set(normalizedCodes).size !== normalizedCodes.length) {
+    throw ExpectedQueryError.precondition(
+      "Remove duplicate loan-product codes before importing."
+    )
+  }
+
+  return normalizedRows
+}
+
+async function applyLoanProductRows(
+  input: LoanProductImportInput,
+  prisma: PrismaClient | Prisma.TransactionClient
 ): Promise<ImportResult> {
-  const prisma = prismaOverride ?? createPrismaClient()
-  if (!prisma) throw new Error("Database not configured")
-  await assertMemberRecordImportsOpen(input.tenantId, prisma)
+  const rows = normalizeLoanProductRows(input.rows)
+  const existingProducts = await prisma.loanProduct.findMany({
+    include: {
+      _count: {
+        select: { loanRequests: true, loans: true },
+      },
+    },
+    where: { tenantId: input.tenantId },
+  })
+  const existingNormalizedNames = new Set<string>()
+  const existingNormalizedCodes = new Set<string>()
 
-  let processed = 0
+  for (const product of existingProducts) {
+    const normalizedName = product.name.trim().toLowerCase()
+    if (existingNormalizedNames.has(normalizedName)) {
+      throw ExpectedQueryError.conflict(
+        "Existing loan-product names are ambiguous after case normalization. Resolve the duplicate names in the live correction workflow before importing."
+      )
+    }
+    existingNormalizedNames.add(normalizedName)
 
-  for (const row of input.rows) {
-    const code = row.code?.trim().toUpperCase() || null
+    const normalizedCode = product.code?.trim().toUpperCase()
+    if (normalizedCode && existingNormalizedCodes.has(normalizedCode)) {
+      throw ExpectedQueryError.conflict(
+        "Existing loan-product codes are ambiguous after case normalization. Resolve the duplicate codes in the live correction workflow before importing."
+      )
+    }
+    if (normalizedCode) existingNormalizedCodes.add(normalizedCode)
+  }
 
-    await prisma.loanProduct.upsert({
-      where: {
-        tenantId_name: {
+  const byName = new Map(
+    existingProducts.map((product) => [product.name.toLowerCase(), product])
+  )
+  const byCode = new Map(
+    existingProducts
+      .filter((product) => Boolean(product.code))
+      .map((product) => [product.code?.toUpperCase() as string, product])
+  )
+  const createdIds: string[] = []
+  const updatedIds: string[] = []
+  const changes: Array<Record<string, unknown>> = []
+
+  for (const row of rows) {
+    const nameMatch = byName.get(row.name.toLowerCase())
+    const codeMatch = row.code ? byCode.get(row.code) : undefined
+
+    if (nameMatch && codeMatch && nameMatch.id !== codeMatch.id) {
+      throw ExpectedQueryError.conflict(
+        `${row.name} conflicts with another loan product using code ${row.code}. Use the live correction workflow to resolve the identity conflict.`
+      )
+    }
+
+    const existing = codeMatch ?? nameMatch
+    if (!existing) {
+      const created = await prisma.loanProduct.create({
+        data: {
+          code: row.code,
+          isActive: true,
+          loanType: row.loanType,
+          maxSavingsMultiple: row.maxSavingsMultiple,
           name: row.name,
           tenantId: input.tenantId,
+          termMonths: row.termMonths,
         },
-      },
-      update: {
-        code,
-        isActive: true,
-        loanType: row.loanType,
-        maxSavingsMultiple: row.maxSavingsMultiple,
-        termMonths: row.termMonths,
-      },
-      create: {
-        code,
-        isActive: true,
-        loanType: row.loanType,
-        maxSavingsMultiple: row.maxSavingsMultiple,
-        name: row.name,
-        tenantId: input.tenantId,
-        termMonths: row.termMonths,
-      },
+      })
+      createdIds.push(created.id)
+      continue
+    }
+
+    const before = {
+      code: existing.code,
+      isActive: existing.isActive,
+      loanType: existing.loanType,
+      maxSavingsMultiple: Number(existing.maxSavingsMultiple),
+      name: existing.name,
+      termMonths: existing.termMonths,
+    }
+    const after = {
+      code: row.code,
+      isActive: true,
+      loanType: row.loanType,
+      maxSavingsMultiple: row.maxSavingsMultiple,
+      name: row.name,
+      termMonths: row.termMonths,
+    }
+    const changed = JSON.stringify(before) !== JSON.stringify(after)
+
+    if (
+      changed &&
+      (existing._count.loanRequests > 0 || existing._count.loans > 0)
+    ) {
+      throw ExpectedQueryError.precondition(
+        `${existing.name} is already used by loan records. Use the live loan-product correction workflow instead of changing its imported policy.`
+      )
+    }
+
+    if (!changed) {
+      continue
+    }
+
+    const updated = await prisma.loanProduct.update({
+      data: after,
+      where: { id: existing.id },
     })
-    processed += 1
+    updatedIds.push(updated.id)
+    changes.push({ after, before, id: existing.id })
   }
 
   await createAuditLogEntry(
@@ -805,13 +990,33 @@ export async function importLoanProducts(
       actorType: "user",
       actorUserId: input.actorUserId,
       entityType: "LoanProduct",
-      metadata: { processed },
+      metadata: {
+        changes,
+        createdIds,
+        processed: rows.length,
+        updatedIds,
+      },
       tenantId: input.tenantId,
     },
-    prisma
+    prisma as PrismaClient
   )
 
-  return { processed }
+  return { processed: rows.length }
+}
+
+export async function importLoanProducts(
+  input: LoanProductImportInput,
+  prismaOverride?: PrismaClient
+): Promise<ImportResult> {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+  await assertMemberRecordImportsOpen(input.tenantId, prisma)
+  normalizeLoanProductRows(input.rows)
+
+  return prisma.$transaction(
+    (tx) => applyLoanProductRows(input, tx),
+    { timeout: 15_000 }
+  )
 }
 
 export async function importMembers(

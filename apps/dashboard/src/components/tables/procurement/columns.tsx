@@ -1,15 +1,11 @@
 "use client"
 
 import { Badge } from "@halaalvest/ui/components/badge"
-import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import { formatCurrency } from "@halaalvest/utils"
 import type { ProcurementRequestRow } from "@halaalvest/db"
 import type { ColumnDef } from "@tanstack/react-table"
 import { memo } from "react"
-import {
-  OpenProcurementPurchaseSheet,
-  OpenProcurementRequestReviewSheet,
-} from "@/components/open-procurement-request-sheet"
+import { ProcurementActionsMenu } from "./actions-menu"
 
 export type ProcurementRequest = ProcurementRequestRow
 
@@ -17,7 +13,7 @@ type ProcurementTableMeta = {
   canReview: boolean
 }
 
-function formatDate(value: Date | string) {
+export function formatProcurementDate(value: Date | string) {
   const date = value instanceof Date ? value : new Date(value)
 
   return date.toLocaleDateString("en-NG", {
@@ -32,7 +28,12 @@ function displayEnum(value: string) {
 }
 
 function statusClassName(status: ProcurementRequest["status"]) {
-  if (status === "approved" || status === "purchased" || status === "active") {
+  if (
+    status === "approved" ||
+    status === "purchased" ||
+    status === "active" ||
+    status === "completed"
+  ) {
     return "border-emerald-200 bg-emerald-50 text-emerald-700"
   }
 
@@ -43,7 +44,7 @@ function statusClassName(status: ProcurementRequest["status"]) {
   return "border-amber-200 bg-amber-50 text-amber-700"
 }
 
-function getScheduleCounts(request: ProcurementRequest) {
+export function getProcurementScheduleCounts(request: ProcurementRequest) {
   return request.repaymentScheduleItems.reduce(
     (summary, schedule) => {
       const outstanding = Math.max(0, schedule.amount - schedule.paidAmount)
@@ -75,7 +76,7 @@ const RequestCell = memo(({ request }: { request: ProcurementRequest }) => (
 
 RequestCell.displayName = "RequestCell"
 
-const StatusBadge = memo(
+export const ProcurementStatusBadge = memo(
   ({ status }: { status: ProcurementRequest["status"] }) => (
     <Badge className={statusClassName(status)} variant="outline">
       {displayEnum(status)}
@@ -83,31 +84,9 @@ const StatusBadge = memo(
   )
 )
 
-StatusBadge.displayName = "StatusBadge"
+ProcurementStatusBadge.displayName = "ProcurementStatusBadge"
 
 export const columns: ColumnDef<ProcurementRequest>[] = [
-  {
-    cell: ({ row }) => (
-      <Checkbox
-        aria-label={`Select ${row.original.itemName}`}
-        checked={row.getIsSelected()}
-        onCheckedChange={(checked) => row.toggleSelected(checked === true)}
-      />
-    ),
-    enableHiding: false,
-    enableResizing: false,
-    enableSorting: false,
-    id: "select",
-    maxSize: 50,
-    meta: {
-      className:
-        "w-[50px] min-w-[50px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20 justify-center",
-      skeleton: { type: "checkbox" },
-      sticky: true,
-    },
-    minSize: 50,
-    size: 50,
-  },
   {
     accessorKey: "itemName",
     cell: ({ row }) => <RequestCell request={row.original} />,
@@ -127,8 +106,11 @@ export const columns: ColumnDef<ProcurementRequest>[] = [
   },
   {
     accessorKey: "status",
-    cell: ({ row }) => <StatusBadge status={row.original.status} />,
+    cell: ({ row }) => (
+      <ProcurementStatusBadge status={row.original.status} />
+    ),
     enableResizing: true,
+    enableSorting: false,
     header: "Status",
     id: "status",
     maxSize: 180,
@@ -218,7 +200,7 @@ export const columns: ColumnDef<ProcurementRequest>[] = [
   },
   {
     cell: ({ row }) => {
-      const counts = getScheduleCounts(row.original)
+      const counts = getProcurementScheduleCounts(row.original)
 
       return (
         <div>
@@ -232,6 +214,7 @@ export const columns: ColumnDef<ProcurementRequest>[] = [
       )
     },
     enableResizing: true,
+    enableSorting: false,
     header: "Schedule",
     id: "schedule",
     maxSize: 220,
@@ -247,7 +230,7 @@ export const columns: ColumnDef<ProcurementRequest>[] = [
     accessorKey: "requestedAt",
     cell: ({ row }) => (
       <div>
-        <p>{formatDate(row.original.requestedAt)}</p>
+        <p>{formatProcurementDate(row.original.requestedAt)}</p>
         <p className="mt-1 truncate text-xs text-muted-foreground">
           {row.original.createdByUser.fullName}
         </p>
@@ -285,19 +268,12 @@ export const columns: ColumnDef<ProcurementRequest>[] = [
       const meta = table.options.meta as ProcurementTableMeta
       const request = row.original
 
-      if (!meta.canReview) {
-        return <span className="text-xs text-muted-foreground">Read only</span>
-      }
-
-      if (["submitted", "under_review"].includes(request.status)) {
-        return <OpenProcurementRequestReviewSheet requestId={request.id} />
-      }
-
-      if (request.status === "approved") {
-        return <OpenProcurementPurchaseSheet requestId={request.id} />
-      }
-
-      return <span className="text-xs text-muted-foreground">No action</span>
+      return (
+        <ProcurementActionsMenu
+          canReview={meta.canReview}
+          request={request}
+        />
+      )
     },
     enableHiding: false,
     enableResizing: false,

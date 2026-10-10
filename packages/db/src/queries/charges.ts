@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import type { ChargeKind, PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
@@ -55,6 +56,30 @@ export type ChargeQuote = {
   purpose: string
   trigger: ChargeApplicabilityTrigger
   workflow: ChargeWorkflow
+}
+
+export function getApplicableChargeQuoteHash(
+  charges: ChargeQuote[],
+  requestedAmount: number
+) {
+  const terms = charges
+    .map((charge) => ({
+      amount: charge.amount.toFixed(2),
+      code: charge.code,
+      collectionMode: charge.collectionMode,
+      id: charge.chargeApplicabilityId ?? charge.chargeDefinitionId,
+      isRequired: charge.isRequired,
+      name: charge.name,
+    }))
+    .sort((left, right) =>
+      JSON.stringify(left).localeCompare(JSON.stringify(right))
+    )
+
+  return createHash("sha256")
+    .update(
+      JSON.stringify({ requestedAmount: requestedAmount.toFixed(2), terms })
+    )
+    .digest("hex")
 }
 
 function startOfUtcDay(value: Date) {
@@ -700,6 +725,19 @@ export async function deleteChargeDefinitionVersion(
     )
   }
 
+  const applicationCount = await prisma.chargeApplication.count({
+    where: {
+      chargeDefinitionId: version.chargeDefinitionId,
+      tenantId,
+    },
+  })
+
+  if (applicationCount > 0) {
+    throw ExpectedQueryError.conflict(
+      "Charge versions with member applications are immutable. Add a new dated version instead."
+    )
+  }
+
   return prisma.chargeDefinitionVersion.delete({
     where: { id: chargeDefinitionVersionId, tenantId },
   })
@@ -896,12 +934,28 @@ async function applyChargeInTransaction(
   input: ApplyChargeInput,
   tx: PrismaClient
 ) {
+  if (!Number.isFinite(input.amount) || input.amount <= 0) {
+    throw ExpectedQueryError.validation(
+      "Charge amount must be a positive number."
+    )
+  }
   const txAny = tx as any
   const chargeDef = await tx.chargeDefinition.findFirst({
     where: { id: input.chargeDefinitionId, tenantId: input.tenantId },
   })
   if (!chargeDef)
     throw ExpectedQueryError.notFound("Charge definition not found")
+  if (chargeDef.isActive === false) {
+    throw ExpectedQueryError.precondition("Charge definition is inactive.")
+  }
+
+  if (typeof txAny.member?.findFirst === "function") {
+    const member = await txAny.member.findFirst({
+      where: { id: input.memberId, tenantId: input.tenantId },
+      select: { id: true },
+    })
+    if (!member) throw ExpectedQueryError.notFound("Member not found")
+  }
 
   const collectionMode = input.collectionMode ?? "deduct_from_savings"
   const shouldPostToSavings = collectionMode === "deduct_from_savings"
@@ -982,6 +1036,7 @@ async function applyChargeInTransaction(
       chargeApplicationId: application.id,
       narration: `${chargeDef.name} assessed`,
       sourceType: input.sourceType,
+      migrationWriteGuardValidated: true,
       entries: [
         {
           ledgerAccountId: savingsAccount!.id,
@@ -1256,7 +1311,8 @@ export async function applyLoanRequestCharges(
   )
 }
 
-async function restoreChargeToMemberSavings(input: {
+async function postChargeCorrection(input: {
+  collectionMode: ChargeCollectionMode
   isMonthlyLevy: boolean
   isShareCharge?: boolean
   amount: number
@@ -1264,12 +1320,13 @@ async function restoreChargeToMemberSavings(input: {
   applicationName: string
   assessedAt: Date
   memberId: string
+  sourceType?: "backfill" | "import"
   tenantId: string
   tx: PrismaClient
 }) {
-  const savingsAccount = await getLedgerAccountByCode(
+  const sourceAccount = await getLedgerAccountByCode(
     input.tenantId,
-    "1000",
+    input.collectionMode === "deduct_from_savings" ? "1000" : "2000",
     input.tx
   )
   const incomeAccount = await getLedgerAccountByCode(
@@ -1278,20 +1335,25 @@ async function restoreChargeToMemberSavings(input: {
     input.tx
   )
 
-  if (!savingsAccount || !incomeAccount) {
+  if (!sourceAccount || !incomeAccount) {
     throw new QueryInfrastructureError(
       "Ledger accounts not initialized for this cooperative"
     )
   }
 
-  await postLedgerTransaction(
+  const correctionTransaction = await postLedgerTransaction(
     {
       tenantId: input.tenantId,
-      transactionType: "charge",
+      transactionType: input.isMonthlyLevy ? "levy" : "charge",
       postedAt: input.assessedAt,
       memberId: input.memberId,
-      chargeApplicationId: input.applicationId,
-      narration: `${input.applicationName} restored`,
+      reference: `charge-correction:${input.applicationId}`,
+      sourceType: input.sourceType,
+      migrationWriteGuardValidated: true,
+      narration:
+        input.collectionMode === "deduct_from_savings"
+          ? `${input.applicationName} restored to member savings`
+          : `${input.applicationName} separate payment returned`,
       entries: [
         {
           ledgerAccountId: incomeAccount.id,
@@ -1299,7 +1361,7 @@ async function restoreChargeToMemberSavings(input: {
           amount: input.amount,
         },
         {
-          ledgerAccountId: savingsAccount.id,
+          ledgerAccountId: sourceAccount.id,
           direction: "credit",
           amount: input.amount,
         },
@@ -1308,16 +1370,18 @@ async function restoreChargeToMemberSavings(input: {
     input.tx
   )
 
-  await input.tx.member.update({
-    where: { id: input.memberId, tenantId: input.tenantId },
-    data: {
-      totalSavingsSnapshot: {
-        increment: input.amount,
+  if (input.collectionMode === "deduct_from_savings") {
+    await input.tx.member.update({
+      where: { id: input.memberId, tenantId: input.tenantId },
+      data: {
+        totalSavingsSnapshot: {
+          increment: input.amount,
+        },
       },
-    },
-  })
+    })
+  }
 
-  if (input.isShareCharge) {
+  if (input.collectionMode === "deduct_from_savings" && input.isShareCharge) {
     await createMemberShareLedgerEntry(
       {
         tenantId: input.tenantId,
@@ -1331,19 +1395,170 @@ async function restoreChargeToMemberSavings(input: {
       input.tx
     )
   }
+
+  return correctionTransaction
 }
 
-export async function waiveChargeApplication(
+export async function settleChargeApplication(
   input: {
     actorUserId: string
     chargeApplicationId: string
+    notes?: string | null
+    paidAt: Date
+    reference: string
+    sourceType?: "backfill" | "import"
     tenantId: string
   },
   prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
-  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+  if (input.sourceType !== "backfill" && input.sourceType !== "import") {
+    await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+  }
+
+  const reference = input.reference.trim()
+  if (!reference) {
+    throw ExpectedQueryError.validation("Payment reference is required.")
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const application = await tx.chargeApplication.findFirst({
+      include: { chargeDefinition: true },
+      where: { id: input.chargeApplicationId, tenantId: input.tenantId },
+    })
+
+    if (!application)
+      throw ExpectedQueryError.notFound("Charge application not found")
+    if (
+      application.status !== "pending" ||
+      application.collectionMode !== "pay_separately"
+    ) {
+      throw ExpectedQueryError.conflict(
+        "Only pending separate-payment charges can be settled."
+      )
+    }
+
+    const duplicateReference = await tx.ledgerTransaction.findFirst({
+      select: { id: true },
+      where: { reference, tenantId: input.tenantId },
+    })
+    if (duplicateReference) {
+      throw ExpectedQueryError.conflict(
+        "This payment reference has already been posted."
+      )
+    }
+
+    const claimed = await tx.chargeApplication.updateMany({
+      where: {
+        id: application.id,
+        tenantId: input.tenantId,
+        status: application.status,
+      },
+      data: { status: "posted" },
+    })
+    if (claimed.count !== 1) {
+      throw ExpectedQueryError.conflict(
+        "This charge application changed. Refresh before trying again."
+      )
+    }
+
+    const cashAccount = await getLedgerAccountByCode(
+      input.tenantId,
+      "2000",
+      tx as unknown as PrismaClient
+    )
+    const incomeAccount = await getLedgerAccountByCode(
+      input.tenantId,
+      (application.chargeDefinition as any).purpose === "member_share"
+        ? "3200"
+        : application.chargeDefinition.isMonthlyLevy
+          ? "3100"
+          : "3000",
+      tx as unknown as PrismaClient
+    )
+    if (!cashAccount || !incomeAccount) {
+      throw new QueryInfrastructureError(
+        "Ledger accounts not initialized for this cooperative"
+      )
+    }
+
+    const ledgerTransaction = await postLedgerTransaction(
+      {
+        chargeApplicationId: application.id,
+        entries: [
+          {
+            amount: Number(application.amount),
+            direction: "debit",
+            ledgerAccountId: cashAccount.id,
+          },
+          {
+            amount: Number(application.amount),
+            direction: "credit",
+            ledgerAccountId: incomeAccount.id,
+          },
+        ],
+        memberId: application.memberId,
+        narration: `${application.chargeDefinition.name} separate payment received`,
+        postedAt: input.paidAt,
+        reference,
+        sourceType: input.sourceType,
+        migrationWriteGuardValidated: true,
+        tenantId: input.tenantId,
+        transactionType: application.chargeDefinition.isMonthlyLevy
+          ? "levy"
+          : "charge",
+      },
+      tx as unknown as PrismaClient
+    )
+
+    const updated = await tx.chargeApplication.update({
+      data: {
+        notes: input.notes?.trim() || application.notes,
+        status: "posted",
+      },
+      where: { id: application.id },
+    })
+
+    await tx.auditLog.create({
+      data: {
+        action: "charge.settled",
+        actorType: "user",
+        actorUserId: input.actorUserId,
+        entityId: application.id,
+        entityType: "ChargeApplication",
+        metadata: {
+          amount: Number(application.amount),
+          collectionMode: application.collectionMode,
+          ledgerTransactionId: ledgerTransaction.id,
+          notes: input.notes?.trim() || null,
+          paidAt: input.paidAt.toISOString(),
+          reference,
+        },
+        occurredAt: new Date(),
+        tenantId: input.tenantId,
+      },
+    })
+
+    return updated
+  })
+}
+
+export async function waiveChargeApplication(
+  input: {
+    actorUserId: string
+    chargeApplicationId: string
+    reason?: string
+    sourceType?: "backfill" | "import"
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+  if (input.sourceType !== "backfill" && input.sourceType !== "import") {
+    await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+  }
 
   return prisma.$transaction(async (tx) => {
     const application = await tx.chargeApplication.findFirst({
@@ -1353,10 +1568,26 @@ export async function waiveChargeApplication(
 
     if (!application)
       throw ExpectedQueryError.notFound("Charge application not found")
-    if (application.status !== "posted")
+    if (!["pending", "posted"].includes(application.status))
       throw ExpectedQueryError.conflict(
-        "Only posted charge applications can be waived."
+        "Only pending or posted charge applications can be waived."
       )
+
+    const reason = input.reason?.trim() || null
+
+    const claimed = await tx.chargeApplication.updateMany({
+      where: {
+        id: application.id,
+        tenantId: input.tenantId,
+        status: application.status,
+      },
+      data: { status: "waived" },
+    })
+    if (claimed.count !== 1) {
+      throw ExpectedQueryError.conflict(
+        "This charge application changed. Refresh before trying again."
+      )
+    }
 
     const updated = await tx.chargeApplication.update({
       where: { id: application.id },
@@ -1366,18 +1597,23 @@ export async function waiveChargeApplication(
       },
     })
 
-    await restoreChargeToMemberSavings({
-      isMonthlyLevy: application.chargeDefinition.isMonthlyLevy,
-      isShareCharge:
-        (application.chargeDefinition as any).purpose === "member_share",
-      amount: Number(application.amount),
-      applicationId: application.id,
-      applicationName: application.chargeDefinition.name,
-      assessedAt: new Date(),
-      memberId: application.memberId,
-      tenantId: input.tenantId,
-      tx: tx as unknown as PrismaClient,
-    })
+    const correctionTransaction =
+      application.status === "posted"
+        ? await postChargeCorrection({
+            collectionMode: application.collectionMode,
+            isMonthlyLevy: application.chargeDefinition.isMonthlyLevy,
+            isShareCharge:
+              (application.chargeDefinition as any).purpose === "member_share",
+            amount: Number(application.amount),
+            applicationId: application.id,
+            applicationName: application.chargeDefinition.name,
+            assessedAt: new Date(),
+            memberId: application.memberId,
+            sourceType: input.sourceType,
+            tenantId: input.tenantId,
+            tx: tx as unknown as PrismaClient,
+          })
+        : null
 
     await tx.auditLog.create({
       data: {
@@ -1389,6 +1625,10 @@ export async function waiveChargeApplication(
         entityId: updated.id,
         metadata: {
           amount: Number(updated.amount),
+          collectionMode: application.collectionMode,
+          correctiveLedgerTransactionId: correctionTransaction?.id ?? null,
+          priorStatus: application.status,
+          reason,
         },
         occurredAt: new Date(),
       },
@@ -1402,13 +1642,17 @@ export async function reverseChargeApplication(
   input: {
     actorUserId: string
     chargeApplicationId: string
+    reason?: string
+    sourceType?: "backfill" | "import"
     tenantId: string
   },
   prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
-  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+  if (input.sourceType !== "backfill" && input.sourceType !== "import") {
+    await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+  }
 
   return prisma.$transaction(async (tx) => {
     const application = await tx.chargeApplication.findFirst({
@@ -1423,6 +1667,20 @@ export async function reverseChargeApplication(
         "Only posted charge applications can be reversed."
       )
 
+    const claimed = await tx.chargeApplication.updateMany({
+      where: {
+        id: application.id,
+        tenantId: input.tenantId,
+        status: application.status,
+      },
+      data: { status: "reversed" },
+    })
+    if (claimed.count !== 1) {
+      throw ExpectedQueryError.conflict(
+        "This charge application changed. Refresh before trying again."
+      )
+    }
+
     const updated = await tx.chargeApplication.update({
       where: { id: application.id },
       data: {
@@ -1430,7 +1688,9 @@ export async function reverseChargeApplication(
       },
     })
 
-    await restoreChargeToMemberSavings({
+    const reason = input.reason?.trim() || null
+    const correctionTransaction = await postChargeCorrection({
+      collectionMode: application.collectionMode,
       isMonthlyLevy: application.chargeDefinition.isMonthlyLevy,
       isShareCharge:
         (application.chargeDefinition as any).purpose === "member_share",
@@ -1439,6 +1699,7 @@ export async function reverseChargeApplication(
       applicationName: application.chargeDefinition.name,
       assessedAt: new Date(),
       memberId: application.memberId,
+      sourceType: input.sourceType,
       tenantId: input.tenantId,
       tx: tx as unknown as PrismaClient,
     })
@@ -1453,6 +1714,10 @@ export async function reverseChargeApplication(
         entityId: updated.id,
         metadata: {
           amount: Number(updated.amount),
+          collectionMode: application.collectionMode,
+          correctiveLedgerTransactionId: correctionTransaction.id,
+          priorStatus: application.status,
+          reason,
         },
         occurredAt: new Date(),
       },

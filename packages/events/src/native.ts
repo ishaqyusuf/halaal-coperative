@@ -3,13 +3,22 @@ import type {
   NativeBatch as AnalyticsBatch,
   NativeEvent as AnalyticsEvent,
 } from "./contracts"
+import { packBatch } from "./batch"
 import { safeRoute } from "./policy"
+import {
+  safeProperties,
+  validEventName,
+  type AnalyticsContext,
+  type EventProperties,
+} from "./attribution"
 
 type Visitor = { id: string; firstSeenOn: string; lastVisitOn: string | null }
 // Native deliberately uses no browser globals. IDs are installation-local and project-scoped.
 export function createNativeAnalytics(options: {
+  context?: AnalyticsContext | null
   endpoint: string
   enabled: boolean
+  permission?: () => boolean
   appVersion?: string
   appBuild?: string
   storage: AnalyticsConfig["storage"]
@@ -20,6 +29,8 @@ export function createNativeAnalytics(options: {
   const project = "halaalvest-mobile"
   const key = `logly:${project}:visitor`
   const now = options.now ?? (() => new Date())
+  let context = options.context ? { ...options.context } : null
+  let scope: string | undefined = options.context?.scope
   let visitor: Visitor | undefined
   let queue: AnalyticsEvent[] = []
   let timer: ReturnType<typeof setInterval> | undefined
@@ -43,34 +54,50 @@ export function createNativeAnalytics(options: {
         clearTimeout(timeout)
       }
     })
+  const allowed = () => {
+    if (options.permission?.() !== false) return true
+    queue = []
+    context = null
+    visitor = undefined
+    scope = undefined
+    lastRoute = undefined
+    try {
+      options.storage?.removeItem(key)
+      options.storage?.removeItem(`${key}:scope`)
+    } catch {}
+    return false
+  }
   const flush = () => {
+    if (!allowed()) return Promise.resolve()
     if (inFlight) return inFlight
     if (!active || !queue.length) return Promise.resolve()
-    queue = queue.filter(
-      (event) => now().getTime() - Date.parse(event.occurredAt) < 86400000
-    )
-    const events = queue.slice(0, 25)
-    if (!events.length) return Promise.resolve()
-    inFlight = send({
-      sentAt: now().toISOString(),
-      sdk: { name: "@ishaqyusuf/logly-core", version: "0.3.0" },
-      events,
-    })
-      .then(() => {
-        const sent = new Set(events.map((event) => event.eventId))
+    inFlight = (async () => {
+      while (active && queue.length && allowed()) {
+        queue = queue.filter(
+          (event) => now().getTime() - Date.parse(event.occurredAt) < 86_400_000
+        )
+        const batch = packBatch(queue, now().toISOString())
+        if (!batch.events.length) {
+          queue.shift()
+          continue
+        }
+        try {
+          await send(batch)
+        } catch {
+          break
+        }
+        const sent = new Set(batch.events.map((event) => event.eventId))
         queue = queue.filter((event) => !sent.has(event.eventId))
-      })
-      .catch(() => {
-        /* Keep the bounded in-memory batch for the next foreground/interval retry. */
-      })
-      .finally(() => {
-        inFlight = undefined
-      })
+      }
+    })().finally(() => {
+      inFlight = undefined
+    })
     return inFlight
   }
   const init = () => {
-    if (active || !options.enabled) return
+    if (active || !options.enabled || !allowed()) return
     try {
+      scope = options.storage?.getItem(`${key}:scope`) ?? scope
       const raw = options.storage?.getItem(key)
       const stored = raw ? JSON.parse(raw) : undefined
       visitor =
@@ -93,9 +120,10 @@ export function createNativeAnalytics(options: {
     } // Storage failures must never prevent app startup.
   }
   const trackPageView = ({ route }: { route: string }) => {
-    if (!active || !visitor) return
+    if (!allowed() || !active || !visitor) return
     try {
       const date = now()
+      if (context && date.getTime() > context.expiresAt) return
       const day = date.toISOString().slice(0, 10)
       const safe = safeRoute(route)
       const newDay = visitor.lastVisitOn !== day
@@ -113,6 +141,7 @@ export function createNativeAnalytics(options: {
         occurredAt: date.toISOString(),
         visitorId,
         route: safe,
+        analyticsContext: context?.token,
         properties: {},
       })
       if (newDay) {
@@ -131,10 +160,63 @@ export function createNativeAnalytics(options: {
       /* Analytics is best-effort and never interrupts navigation. */
     }
   }
+  const reset = () => {
+    queue = []
+    context = null
+    lastRoute = undefined
+    if (visitor) {
+      visitor = {
+        id: options.createId(),
+        firstSeenOn: now().toISOString().slice(0, 10),
+        lastVisitOn: null,
+      }
+      try {
+        options.storage?.setItem(key, JSON.stringify(visitor))
+      } catch {
+        /* Best effort. */
+      }
+    }
+  }
   return {
     init,
+    track(name: string, properties: EventProperties = {}) {
+      if (!allowed() || !active || !visitor || !validEventName(name))
+        return false
+      const date = now()
+      if (context && date.getTime() > context.expiresAt) return false
+      queue.push({
+        eventId: options.createId(),
+        project,
+        name,
+        version: 1,
+        source: "mobile",
+        platform: "android",
+        occurredAt: date.toISOString(),
+        visitorId: visitor.id,
+        route: lastRoute,
+        appVersion: options.appVersion?.slice(0, 64),
+        appBuild: options.appBuild?.slice(0, 64),
+        analyticsContext: context?.token,
+        properties: safeProperties(properties),
+      })
+      queue = queue.slice(-250)
+      void flush()
+      return true
+    },
     trackPageView,
     flush,
+    reset,
+    setContext(value: AnalyticsContext | null) {
+      const next = value?.scope ?? "anonymous"
+      if (scope !== undefined && next !== scope) reset()
+      scope = next
+      try {
+        options.storage?.setItem(`${key}:scope`, next)
+      } catch {
+        /* Best effort. */
+      }
+      context = value ? { ...value } : null
+    },
     destroy: () => {
       active = false
       if (timer) clearInterval(timer)

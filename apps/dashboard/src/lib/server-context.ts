@@ -9,6 +9,7 @@ import {
   createDbRuntime,
   findActiveMembershipAsync,
   findUserByIdAsync,
+  getActiveQaAuthorization,
   getDashboardMetrics,
   getPendingMemberOnboardingForUser,
   getTenantOnboardingState,
@@ -71,6 +72,7 @@ type DashboardServerContext = {
     } | null
     sessionScope: SessionScope | null
     sessionToken: string | null
+    qaDomain: string | null
     user: UserRecord | null
   }
   tenant: TenantResolution["tenant"]
@@ -110,18 +112,21 @@ type DashboardPageData = {
 }
 
 export function canShowQuickFill(context: {
-  auth: { user: { email: string } | null }
+  auth: { qaDomain?: string | null; user: { email: string } | null }
 }) {
   return getQaQuickFillContext(context).enabled
 }
 
 export function getQaQuickFillContext(context: {
-  auth: { user: { email: string } | null }
+  auth: { qaDomain?: string | null; user: { email: string } | null }
 }): QaQuickFillContext {
+  const qaDomain = context.auth.qaDomain?.trim().toLowerCase() ?? null
   return resolveQaQuickFillContext({
-    authenticatedEmail: context.auth.user?.email,
-    configuredDomains: getServerQaEmailDomains(),
-    isDevelopment: process.env.NODE_ENV !== "production",
+    authenticatedEmail: qaDomain ? `authorized@${qaDomain}` : null,
+    configuredDomains: qaDomain
+      ? [...new Set([...getServerQaEmailDomains(), qaDomain])]
+      : getServerQaEmailDomains(),
+    isDevelopment: false,
   })
 }
 
@@ -141,7 +146,14 @@ export async function getDashboardServerContext(): Promise<DashboardServerContex
     expectedScope: sessionScope ?? platformSessionScope,
     token: sessionToken,
   })
-  const requestedUserId = sessionPayload?.userId ?? null
+  const qaAuthorization = sessionPayload?.qaAuthorizationId
+    ? await getActiveQaAuthorization(sessionPayload.qaAuthorizationId)
+    : null
+  const activeSessionPayload =
+    sessionPayload?.qaAuthorizationId && !qaAuthorization
+      ? null
+      : sessionPayload
+  const requestedUserId = activeSessionPayload?.userId ?? null
   const resolvedUser = await findUserByIdAsync(requestedUserId)
   const tenantResolution = await resolveTenantAsync({
     fallbackTenantId:
@@ -172,8 +184,9 @@ export async function getDashboardServerContext(): Promise<DashboardServerContex
               userId: user.id,
             })
           : null,
-      sessionToken: sessionPayload ? sessionToken : null,
+      sessionToken: activeSessionPayload ? sessionToken : null,
       sessionScope,
+      qaDomain: qaAuthorization?.qaDomain ?? null,
       user,
     },
     tenant: tenantResolution.tenant,

@@ -132,4 +132,67 @@ describe("buildRequestContext mobile bearer sessions", () => {
     expect(context.auth.activeMembership).toBeNull()
     expect(context.tenant.current).toBeNull()
   })
+
+  test("rejects a legacy signed bearer token presented by the mobile client", async () => {
+    const token = await createSignedSessionToken({
+      membershipId: "membership-amanah-admin",
+      scope: platformSessionScope,
+      tenantId: "tenant-amanah-demo",
+      userId: "user-tenant-admin-amanah",
+    })
+    const context = await buildRequestContext(
+      new Headers({
+        authorization: `Bearer ${token}`,
+        host: "api.halaalvest.localhost",
+        "x-mobile-device-id": "mobile-legacy-session-test",
+        "x-trpc-source": "mobile",
+      })
+    )
+
+    expect(context.auth.session).toBeNull()
+    expect(context.auth.activeMembership).toBeNull()
+    expect(context.tenant.current).toBeNull()
+  })
+
+  test("accepts a mobile-kind bearer in the non-database development fallback", async () => {
+    const token = await createSignedSessionToken({
+      membershipId: "membership-amanah-admin",
+      scope: platformSessionScope,
+      sessionKind: "mobile",
+      tenantId: "tenant-amanah-demo",
+      userId: "user-tenant-admin-amanah",
+    })
+    const context = await buildRequestContext(
+      new Headers({
+        authorization: `Bearer ${token}`,
+        host: "api.halaalvest.localhost",
+        "x-mobile-device-id": "mobile-development-session-test",
+        "x-trpc-source": "mobile",
+      })
+    )
+
+    expect(context.auth.session?.token).toBe(token)
+    expect(context.auth.session?.user.id).toBe("user-tenant-admin-amanah")
+    expect(context.auth.activeMembership?.role).toBe("tenant_admin")
+    expect(context.request.mobileAuthenticated).toBe(true)
+  })
+
+  test("keeps mobile access classification when a signed mobile client omits its source header", async () => {
+    const token = await createSignedSessionToken({
+      membershipId: "membership-amanah-admin",
+      scope: platformSessionScope,
+      sessionKind: "mobile",
+      tenantId: "tenant-amanah-demo",
+      userId: "user-tenant-admin-amanah",
+    })
+    const context = await buildRequestContext(
+      new Headers({
+        authorization: `Bearer ${token}`,
+        host: "api.halaalvest.localhost",
+        "x-mobile-device-id": "mobile-development-session-test",
+      })
+    )
+    expect(context.auth.session?.token).toBe(token)
+    expect(context.request.mobileAuthenticated).toBe(true)
+  })
 })

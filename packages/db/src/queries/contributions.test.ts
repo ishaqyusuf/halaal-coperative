@@ -4,6 +4,7 @@ import {
   listContributions,
   recordContribution,
   recordMemberPayment,
+  resolveMemberPaymentAllocation,
   setMemberContributionPlan,
   settleSupportCaseSpecialSavingsRefund,
   updateContributionPlan,
@@ -130,7 +131,9 @@ function createLiveContributionPolicyPrismaStub(input?: {
 
   return {
     ...createLockedContributionPrismaStub(),
-    $transaction: async (callback: (transactionClient: typeof tx) => Promise<unknown>) => {
+    $transaction: async (
+      callback: (transactionClient: typeof tx) => Promise<unknown>
+    ) => {
       transactions.push(callback)
       return callback(tx)
     },
@@ -197,12 +200,12 @@ describe("contribution live write guards", () => {
             return []
           },
         },
-      } as never,
+      } as never
     )
 
     expect(result.items).toEqual([])
     expect(reads[0]).toMatchObject({
-      take: 500,
+      take: 501,
       where: {
         extraSavingsAmount: { gt: 0 },
         tenantId: "tenant-1",
@@ -214,6 +217,118 @@ describe("contribution live write guards", () => {
         tenantId: "tenant-1",
       },
     })
+  })
+
+  test("uses an ordering-aware opaque cursor and keeps the total unpaginated", async () => {
+    const reads: Record<string, unknown>[] = []
+    const counts: Record<string, unknown>[] = []
+    const firstPageRows = [
+      {
+        amount: 300,
+        committedAmount: null,
+        extraSavingsAmount: null,
+        id: "contribution-3",
+        member: { fullName: "Amina", id: "member-1", memberNumber: "001" },
+        postedAt: new Date("2026-08-03T00:00:00.000Z"),
+      },
+      {
+        amount: 200,
+        committedAmount: null,
+        extraSavingsAmount: null,
+        id: "contribution-2",
+        member: { fullName: "Bola", id: "member-2", memberNumber: "002" },
+        postedAt: new Date("2026-08-02T00:00:00.000Z"),
+      },
+      {
+        amount: 100,
+        committedAmount: null,
+        extraSavingsAmount: null,
+        id: "contribution-1",
+        member: { fullName: "Chidi", id: "member-3", memberNumber: "003" },
+        postedAt: new Date("2026-08-01T00:00:00.000Z"),
+      },
+    ]
+    const prisma = {
+      contribution: {
+        count: async (input: Record<string, unknown>) => {
+          counts.push(input)
+          return 3
+        },
+        findMany: async (input: Record<string, unknown>) => {
+          reads.push(input)
+          return reads.length === 1 ? firstPageRows : []
+        },
+      },
+    }
+
+    const first = await listContributions(
+      "tenant-1",
+      { pageSize: 2, sort: ["postedAt", "desc"] },
+      prisma as never
+    )
+
+    expect(first.items).toHaveLength(2)
+    expect(first.nextCursor).toBeTruthy()
+    expect(reads[0]).toMatchObject({
+      orderBy: [{ postedAt: "desc" }, { id: "desc" }],
+      take: 3,
+      where: { tenantId: "tenant-1" },
+    })
+
+    const cursor = JSON.parse(
+      Buffer.from(first.nextCursor!, "base64url").toString("utf8")
+    )
+    expect(cursor).toEqual({
+      direction: "desc",
+      field: "postedAt",
+      id: "contribution-2",
+      value: "2026-08-02T00:00:00.000Z",
+    })
+
+    await listContributions(
+      "tenant-1",
+      {
+        cursor: first.nextCursor,
+        pageSize: 2,
+        sort: ["postedAt", "desc"],
+      },
+      prisma as never
+    )
+
+    expect(reads[1]).toMatchObject({
+      take: 3,
+      where: {
+        OR: [
+          { postedAt: { lt: new Date("2026-08-02T00:00:00.000Z") } },
+          {
+            id: { lt: "contribution-2" },
+            postedAt: new Date("2026-08-02T00:00:00.000Z"),
+          },
+        ],
+        tenantId: "tenant-1",
+      },
+    })
+    expect(counts).toEqual([
+      { where: { tenantId: "tenant-1" } },
+      { where: { tenantId: "tenant-1" } },
+    ])
+  })
+
+  test("rejects a cursor reused with a different contribution sort", async () => {
+    const cursor = Buffer.from(
+      JSON.stringify({
+        direction: "desc",
+        field: "postedAt",
+        id: "contribution-2",
+        value: "2026-08-02T00:00:00.000Z",
+      })
+    ).toString("base64url")
+
+    await expect(
+      listContributions("tenant-1", { cursor, sort: ["amount", "desc"] }, {
+        contribution: {},
+      } as never)
+    ).rejects.toThrow("does not match the requested sort")
   })
 
   test("blocks contribution posting before live operations", async () => {
@@ -229,11 +344,57 @@ describe("contribution live write guards", () => {
           postedAt: new Date("2025-02-01T00:00:00.000Z"),
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Live financial record writes are locked")
 
     expect(prisma.ledgerLookups).toHaveLength(0)
+  })
+
+  test("allocates a payment remainder to savings for savings-first members", () => {
+    expect(
+      resolveMemberPaymentAllocation({
+        committedSavingsAmount: 25_000,
+        extraSavingsAmount: 5_000,
+        hasLoanTarget: true,
+        paymentAllocationPreference: "savings_first",
+        scheduledLoanServicingAmount: 10_000,
+        totalAmount: 50_000,
+      })
+    ).toMatchObject({
+      extraLoanPaymentAmount: 0,
+      extraSavingsAmount: 15_000,
+      totalLoanAmount: 10_000,
+      totalSavingsAmount: 40_000,
+    })
+  })
+
+  test("allocates a payment remainder to the active loan for loan-first members", () => {
+    expect(
+      resolveMemberPaymentAllocation({
+        committedSavingsAmount: 25_000,
+        hasLoanTarget: true,
+        paymentAllocationPreference: "loan_first",
+        scheduledLoanServicingAmount: 10_000,
+        totalAmount: 50_000,
+      })
+    ).toMatchObject({
+      extraLoanPaymentAmount: 15_000,
+      extraSavingsAmount: 0,
+      totalLoanAmount: 25_000,
+      totalSavingsAmount: 25_000,
+    })
+  })
+
+  test("requires explicit allocation when a manual-split payment has remainder", () => {
+    expect(() =>
+      resolveMemberPaymentAllocation({
+        committedSavingsAmount: 25_000,
+        hasLoanTarget: true,
+        paymentAllocationPreference: "manual_split",
+        totalAmount: 30_000,
+      })
+    ).toThrow("manual split")
   })
 
   test("blocks member payment posting before live operations", async () => {
@@ -249,8 +410,8 @@ describe("contribution live write guards", () => {
           postedAt: new Date("2025-02-01T00:00:00.000Z"),
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Live financial record writes are locked")
 
     expect(prisma.memberLookups).toHaveLength(0)
@@ -269,8 +430,8 @@ describe("contribution live write guards", () => {
           startsAt: new Date("2025-02-01T00:00:00.000Z"),
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Live financial record writes are locked")
 
     expect(prisma.transactions).toHaveLength(0)
@@ -287,8 +448,8 @@ describe("contribution live write guards", () => {
           planId: "plan-1",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Live financial record writes are locked")
 
     expect(prisma.transactions).toHaveLength(0)
@@ -305,8 +466,8 @@ describe("contribution live write guards", () => {
           planId: "plan-1",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Live financial record writes are locked")
 
     expect(prisma.transactions).toHaveLength(0)
@@ -323,8 +484,8 @@ describe("contribution live write guards", () => {
           preference: "savings_first",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Live financial record writes are locked")
 
     expect(prisma.transactions).toHaveLength(0)
@@ -344,8 +505,8 @@ describe("contribution live write guards", () => {
           planId: "plan-1",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Strict commitment policy")
 
     expect(prisma.planUpdates).toHaveLength(0)
@@ -364,7 +525,7 @@ describe("contribution live write guards", () => {
         planId: "plan-1",
         tenantId: "tenant-1",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(prisma.planUpdates).toHaveLength(1)
@@ -386,8 +547,8 @@ describe("contribution live write guards", () => {
           planId: "plan-1",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Procurement commitment policy is fixed")
 
     expect(prisma.planUpdates).toHaveLength(0)
@@ -408,8 +569,8 @@ describe("contribution live write guards", () => {
           planId: "plan-1",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Foodstuff Purchase commitment policy is fixed")
 
     expect(prisma.planUpdates).toHaveLength(0)
@@ -427,7 +588,7 @@ describe("contribution live write guards", () => {
         planId: "plan-1",
         tenantId: "tenant-1",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(prisma.planUpdates).toHaveLength(1)
@@ -448,8 +609,8 @@ describe("contribution live write guards", () => {
           sourceType: "backfill",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Ledger accounts not initialized")
 
     expect(prisma.ledgerLookups).toHaveLength(2)
@@ -469,8 +630,8 @@ describe("contribution live write guards", () => {
           sourceType: "import",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Ledger accounts not initialized")
 
     expect(prisma.ledgerLookups).toHaveLength(2)
@@ -483,6 +644,7 @@ describe("contribution live write guards", () => {
     const ledgerCreates: Array<Record<string, any>> = []
     const memberUpdates: Array<Record<string, any>> = []
     const withdrawalCreates: Array<Record<string, any>> = []
+    const transactionOptions: Array<Record<string, any> | undefined> = []
     const tx = {
       ...livePrisma,
       auditLog: {
@@ -521,6 +683,7 @@ describe("contribution live write guards", () => {
       },
       memberSpecialSavingsWithdrawal: {
         aggregate: async () => ({ _sum: { amount: 0 } }),
+        findFirst: async () => null,
         create: async (args: Record<string, any>) => {
           withdrawalCreates.push(args)
           return { id: "withdrawal-1", ...args.data }
@@ -549,7 +712,11 @@ describe("contribution live write guards", () => {
       ...livePrisma,
       $transaction: async (
         callback: (transactionClient: typeof tx) => Promise<unknown>,
-      ) => callback(tx),
+        options?: Record<string, any>
+      ) => {
+        transactionOptions.push(options)
+        return callback(tx)
+      },
       ledgerAccount: {
         findUnique: async (args: Record<string, any>) => ({
           id:
@@ -570,7 +737,7 @@ describe("contribution live write guards", () => {
         supportCaseId: "case-1",
         tenantId: "tenant-1",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(withdrawal.id).toBe("withdrawal-1")
@@ -601,6 +768,61 @@ describe("contribution live write guards", () => {
       entityId: "withdrawal-1",
       entityType: "MemberSpecialSavingsWithdrawal",
     })
+    expect(transactionOptions[0]).toMatchObject({
+      isolationLevel: "Serializable",
+    })
+  })
+
+  test("rejects a duplicate special-savings refund payment reference", async () => {
+    const livePrisma = createLiveContributionPolicyPrismaStub()
+    const tx = {
+      ...livePrisma,
+      memberSpecialSavingsWithdrawal: {
+        findFirst: async () => ({ id: "withdrawal-existing" }),
+      },
+      supportCase: {
+        findFirst: async () => ({
+          financialAdjustmentApprovalStatus: "approved",
+          id: "case-2",
+          memberId: "member-1",
+          moneyImpactRequested: true,
+          requiresFinancialAdjustment: true,
+          specialSavingsWithdrawal: null,
+          status: "in_progress",
+        }),
+      },
+      user: {
+        findFirst: async () => ({ id: "user-1" }),
+      },
+    }
+    const prisma = {
+      ...livePrisma,
+      $transaction: async (
+        callback: (transactionClient: typeof tx) => Promise<unknown>
+      ) => callback(tx),
+      ledgerAccount: {
+        findUnique: async (args: Record<string, any>) => ({
+          id:
+            args.where.tenantId_code.code === "1000"
+              ? "savings-account"
+              : "cash-account",
+        }),
+      },
+    }
+
+    await expect(
+      settleSupportCaseSpecialSavingsRefund(
+        {
+          actorUserId: "user-1",
+          amount: 10000,
+          paidAt: new Date("2026-07-23T00:00:00.000Z"),
+          reference: "ACAC-REFUND-001",
+          supportCaseId: "case-2",
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("payment reference has already been used")
   })
 
   test("blocks a support refund until the financial adjustment is approved", async () => {
@@ -625,7 +847,7 @@ describe("contribution live write guards", () => {
     const prisma = {
       ...livePrisma,
       $transaction: async (
-        callback: (transactionClient: typeof tx) => Promise<unknown>,
+        callback: (transactionClient: typeof tx) => Promise<unknown>
       ) => callback(tx),
       ledgerAccount: {
         findUnique: async (args: Record<string, any>) => ({
@@ -647,8 +869,8 @@ describe("contribution live write guards", () => {
           supportCaseId: "case-1",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Approved financial adjustment review is required")
   })
 })

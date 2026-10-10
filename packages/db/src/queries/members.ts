@@ -7,7 +7,8 @@ import type {
   RepaymentScheduleStatus,
 } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
-import { ExpectedQueryError } from "../query-error"
+import { composeCooperativeAccessCode } from "@halaalvest/utils"
+import { ExpectedQueryError, isUniqueConstraintError } from "../query-error"
 import { getMemberTransactions } from "./ledger"
 import {
   getMembersOperationalReadiness,
@@ -18,6 +19,8 @@ import { getTenantInitialMigrationState } from "./migration"
 import { ensureMemberInGeneratedMonthlyRecord } from "./monthly-records"
 import { getTenantOperationProfile } from "./operation-profile"
 import { assertQaIdentityLane } from "./qa-maintenance"
+import { claimDashboardEvidenceUploadLink } from "./dashboard-evidence-uploads"
+import { assertTenantCanActivateMember } from "./subscriptions"
 
 export type ListMembersFilters = {
   kycStatus?: KycStatus
@@ -32,6 +35,61 @@ export type ListMembersFilters = {
 }
 
 export type MemberMigrationFilterStatus = "pending" | "finalized"
+
+const memberStatusTransitions = {
+  active: ["inactive", "suspended", "exited"],
+  exited: [],
+  inactive: ["active", "suspended", "exited"],
+  pending: ["active", "inactive"],
+  suspended: ["active", "inactive", "exited"],
+} as const satisfies Record<MemberStatus, readonly MemberStatus[]>
+
+const memberKycTransitions = {
+  not_started: ["pending"],
+  pending: ["verified", "rejected"],
+  rejected: ["pending"],
+  verified: ["pending"],
+} as const satisfies Record<KycStatus, readonly KycStatus[]>
+
+export function getAllowedMemberStatusTransitions(status: MemberStatus) {
+  return memberStatusTransitions[status]
+}
+
+export function getAllowedMemberKycTransitions(status: KycStatus) {
+  return memberKycTransitions[status]
+}
+
+export function assertMemberStatusTransition(
+  currentStatus: MemberStatus,
+  nextStatus: MemberStatus
+) {
+  if (currentStatus === nextStatus) return
+  if (
+    !(
+      memberStatusTransitions[currentStatus] as readonly MemberStatus[]
+    ).includes(nextStatus)
+  ) {
+    throw ExpectedQueryError.conflict(
+      `Member status cannot change from ${currentStatus.replace(/_/g, " ")} to ${nextStatus.replace(/_/g, " ")}.`
+    )
+  }
+}
+
+export function assertMemberKycTransition(
+  currentStatus: KycStatus,
+  nextStatus: KycStatus
+) {
+  if (currentStatus === nextStatus) return
+  if (
+    !(memberKycTransitions[currentStatus] as readonly KycStatus[]).includes(
+      nextStatus
+    )
+  ) {
+    throw ExpectedQueryError.conflict(
+      `Member KYC cannot change from ${currentStatus.replace(/_/g, " ")} to ${nextStatus.replace(/_/g, " ")}.`
+    )
+  }
+}
 
 export type ListMembersTableFilters = Omit<
   ListMembersFilters,
@@ -52,6 +110,12 @@ export type MembersTableSortField =
   | "joinedAt"
 
 const memberListInclude = {
+  contributionPlans: {
+    orderBy: { startsAt: "desc" as const },
+    select: { amount: true },
+    take: 1,
+    where: { isActive: true },
+  },
   deductionSource: true,
   user: { select: { id: true, email: true, fullName: true } },
 } satisfies Prisma.MemberInclude
@@ -245,6 +309,7 @@ export async function ensureMemberPortalAccess(
       include: {
         user: {
           select: {
+            cooperativeAccessCode: true,
             email: true,
             fullName: true,
             id: true,
@@ -291,6 +356,7 @@ export async function ensureMemberPortalAccess(
           tenantId: input.tenantId,
         },
         select: {
+          cooperativeAccessCode: true,
           email: true,
           fullName: true,
           id: true,
@@ -300,6 +366,24 @@ export async function ensureMemberPortalAccess(
           tenantId: true,
         },
       }))
+
+    if (!user.cooperativeAccessCode) {
+      const tenant = await tx.tenant.findUnique({
+        where: { id: input.tenantId },
+        select: { cooperativeCodePrefix: true },
+      })
+      if (tenant?.cooperativeCodePrefix) {
+        await tx.user.update({
+          where: { id: user.id },
+          data: {
+            cooperativeAccessCode: composeCooperativeAccessCode(
+              tenant.cooperativeCodePrefix,
+              member.memberNumber
+            ),
+          },
+        })
+      }
+    }
 
     const linkedMember = await tx.member.findFirst({
       where: {
@@ -658,6 +742,10 @@ export async function createMemberWithState(
   tx: MemberWriteClient,
   input: CreateMemberInput
 ) {
+  await assertTenantCanActivateMember(
+    input.tenantId,
+    tx as unknown as PrismaClient
+  )
   await assertMemberProfileMutationOpen(input.tenantId, tx)
   await assertQaIdentityLane({
     email: input.email,
@@ -913,10 +1001,23 @@ export async function createMember(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
-  return prisma.$transaction(async (tx) => createMemberWithState(tx, input), {
-    maxWait: 10_000,
-    timeout: 30_000,
-  })
+  try {
+    return await prisma.$transaction(
+      async (tx) => createMemberWithState(tx, input),
+      {
+        isolationLevel: "Serializable",
+        maxWait: 10_000,
+        timeout: 30_000,
+      }
+    )
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      throw ExpectedQueryError.conflict(
+        "A member with this member number or linked login already exists in this cooperative."
+      )
+    }
+    throw error
+  }
 }
 
 export type UpdateMemberInput = {
@@ -1023,6 +1124,21 @@ export async function updateMemberStatus(
   return prisma.$transaction(async (tx) => {
     await assertLiveFinancialWritesOpen(tenantId, tx)
 
+    const currentMember = await tx.member.findUnique({
+      select: { status: true },
+      where: { id: memberId, tenantId },
+    })
+    if (!currentMember) {
+      throw ExpectedQueryError.notFound("Member not found.")
+    }
+    assertMemberStatusTransition(currentMember.status, newStatus)
+    if (newStatus === "active" && currentMember.status !== "active") {
+      await assertTenantCanActivateMember(
+        tenantId,
+        tx as unknown as PrismaClient
+      )
+    }
+
     const member = await tx.member.update({
       where: { id: memberId, tenantId },
       data: {
@@ -1066,6 +1182,15 @@ export async function updateMemberKyc(
 
   return prisma.$transaction(async (tx) => {
     await assertLiveFinancialWritesOpen(input.tenantId, tx)
+
+    const currentMember = await tx.member.findUnique({
+      select: { kycStatus: true },
+      where: { id: input.memberId, tenantId: input.tenantId },
+    })
+    if (!currentMember) {
+      throw ExpectedQueryError.notFound("Member not found.")
+    }
+    assertMemberKycTransition(currentMember.kycStatus, input.kycStatus)
 
     const member = await tx.member.update({
       where: { id: input.memberId, tenantId: input.tenantId },
@@ -1140,6 +1265,17 @@ export async function createMemberDocument(
         tenantId: input.tenantId,
       },
     })
+
+    await claimDashboardEvidenceUploadLink(
+      {
+        tenantId: input.tenantId,
+        url: input.documentUrl,
+        purpose: "member_document",
+        entityId: document.id,
+        claimantUserId: input.actorUserId,
+      },
+      tx
+    )
 
     await tx.auditLog.create({
       data: {
@@ -1251,7 +1387,8 @@ export type MemberStatementSummary = {
 
 export async function listMemberStatementSummaries(
   tenantId: string,
-  prismaOverride?: PrismaClient
+  prismaOverride?: PrismaClient,
+  memberId?: string
 ): Promise<MemberStatementSummary[]> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -1264,7 +1401,7 @@ export async function listMemberStatementSummaries(
     dividendTotals,
   ] = await Promise.all([
     prisma.member.findMany({
-      where: { tenantId },
+      where: { tenantId, ...(memberId ? { id: memberId } : {}) },
       orderBy: { createdAt: "desc" },
       include: {
         deductionSource: { select: { name: true } },
@@ -1279,6 +1416,7 @@ export async function listMemberStatementSummaries(
     prisma.contribution.groupBy({
       by: ["memberId"],
       where: {
+        ...(memberId ? { memberId } : {}),
         tenantId,
         status: "posted",
       },
@@ -1293,6 +1431,7 @@ export async function listMemberStatementSummaries(
     prisma.repayment.groupBy({
       by: ["memberId"],
       where: {
+        ...(memberId ? { memberId } : {}),
         tenantId,
         status: "posted",
       },
@@ -1302,6 +1441,7 @@ export async function listMemberStatementSummaries(
     prisma.loan.groupBy({
       by: ["memberId"],
       where: {
+        ...(memberId ? { memberId } : {}),
         tenantId,
         status: {
           in: ["approved", "disbursed", "active", "defaulted"],
@@ -1318,6 +1458,7 @@ export async function listMemberStatementSummaries(
     prisma.dividendAllocation.groupBy({
       by: ["memberId"],
       where: {
+        ...(memberId ? { memberId } : {}),
         tenantId,
         dividendPeriod: {
           status: "published",
@@ -1391,6 +1532,20 @@ export async function listMemberStatementSummaries(
       lastDividendAllocatedAt: dividendTotal?._max.createdAt ?? null,
     }
   })
+}
+
+export async function getMemberStatementSummary(
+  tenantId: string,
+  memberId: string,
+  prismaOverride?: PrismaClient
+): Promise<MemberStatementSummary | null> {
+  const summaries = await listMemberStatementSummaries(
+    tenantId,
+    prismaOverride,
+    memberId
+  )
+
+  return summaries[0] ?? null
 }
 
 export async function getMemberStatementDetail(
@@ -1514,7 +1669,7 @@ export async function getMemberStatementDetail(
         })
       : [],
     getMemberTransactions(tenantId, memberId, prisma),
-    listMemberStatementSummaries(tenantId, prisma),
+    getMemberStatementSummary(tenantId, memberId, prisma),
   ])
 
   return {
@@ -1525,7 +1680,7 @@ export async function getMemberStatementDetail(
     ledgerTransactions,
     loans,
     repayments,
-    summary: summary.find((item) => item.memberId === memberId) ?? null,
+    summary,
   }
 }
 

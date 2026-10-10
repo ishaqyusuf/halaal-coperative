@@ -63,7 +63,8 @@ export const portfolioColumns: ColumnDef<LoanPortfolioRow>[] = [
           {formatCurrency(Number(row.original.principalAmount))}
         </p>
         <p className="mt-1 truncate text-xs text-muted-foreground">
-          Outstanding {formatCurrency(Number(row.original.outstandingPrincipal))}
+          Outstanding{" "}
+          {formatCurrency(Number(row.original.outstandingPrincipal))}
         </p>
       </div>
     ),
@@ -123,7 +124,8 @@ export const portfolioColumns: ColumnDef<LoanPortfolioRow>[] = [
             <p className="mt-1 truncate text-xs text-muted-foreground">
               Pool after disbursement:{" "}
               {formatCurrency(
-                Number(meta.availablePool) - Number(row.original.principalAmount)
+                Number(meta.availablePool) -
+                  Number(row.original.principalAmount)
               )}
             </p>
           ) : null}

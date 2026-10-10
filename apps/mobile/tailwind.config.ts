@@ -1,10 +1,7 @@
-import type { Config } from "tailwindcss";
+import type { Config } from "tailwindcss"
 
 export default {
-  content: [
-    "./src/**/*.{js,jsx,ts,tsx}",
-    "./*.{js,jsx,ts,tsx}",
-  ],
+  content: ["./src/**/*.{js,jsx,ts,tsx}", "./*.{js,jsx,ts,tsx}"],
   darkMode: "media",
   theme: {
     extend: {
@@ -12,12 +9,24 @@ export default {
         border: "var(--border)",
         input: "var(--input)",
         ring: "var(--ring)",
+        overlay: "var(--overlay)",
         background: "var(--background)",
         foreground: "var(--foreground)",
         primary: {
           DEFAULT: "var(--primary)",
           foreground: "var(--primary-foreground)",
         },
+        brand: {
+          DEFAULT: "var(--brand)",
+          foreground: "var(--brand-foreground)",
+        },
+        "brand-contrast": "var(--brand-contrast)",
+        "brand-surface": {
+          DEFAULT: "var(--brand-surface)",
+          foreground: "var(--brand-surface-foreground)",
+        },
+        "brand-vivid": "var(--brand-vivid)",
+        "brand-warm": "var(--brand-warm)",
         success: {
           DEFAULT: "var(--success)",
           foreground: "var(--success-foreground)",
@@ -59,4 +68,4 @@ export default {
     },
   },
   plugins: [],
-} satisfies Config;
+} satisfies Config

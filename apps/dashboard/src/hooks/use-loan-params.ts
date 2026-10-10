@@ -6,16 +6,14 @@ export const loanParamsSchema = {
   guarantorReviewStatus: parseAsStringEnum(["approved", "rejected"]),
   loanId: parseAsString,
   loanRequestId: parseAsString,
-  loanReviewStatus: parseAsStringEnum([
-    "approved",
-    "rejected",
-    "under_review",
-  ]),
+  loanReviewStatus: parseAsStringEnum(["approved", "rejected", "under_review"]),
   loanSheetType: parseAsStringEnum([
     "request",
+    "request-details",
     "review",
     "guarantor",
     "disburse",
+    "loan-details",
   ]),
 }
 

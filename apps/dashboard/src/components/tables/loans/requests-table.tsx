@@ -7,24 +7,21 @@ import {
   TableCell,
   TableRow,
 } from "@halaalvest/ui/components/table"
-import { useInfiniteQuery } from "@tanstack/react-query"
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useRef } from "react"
 import { EmptyState, VirtualRow } from "@/components/tables/core"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
-import { useSortParams } from "@/hooks/use-sort-params"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
 import { useTableDnd } from "@/hooks/use-table-dnd"
 import { useTableScroll } from "@/hooks/use-table-scroll"
 import { useTableSettings } from "@/hooks/use-table-settings"
 import { useLoanTableStore } from "@/store/loans"
-import { useTRPC } from "@/trpc/client"
 import { ROW_HEIGHTS, STICKY_COLUMNS } from "@/utils/table-configs"
 import { getColumnIds, type TableSettings } from "@/utils/table-settings"
 import { requestColumns } from "./request-columns"
-import { LoanRequestsSkeleton } from "./skeleton"
 import { LoanTableHeader } from "./table-header"
+import { useLoanRequestsQuery } from "./use-loans-query"
 
 export type LoanRequestRow = {
   approvals: Array<{
@@ -59,36 +56,8 @@ export type LoanRequestRow = {
   status: string
 }
 
-type LoanRequestSortField =
-  | "memberName"
-  | "requestedAt"
-  | "reviewStatus"
-  | "status"
-
 const NON_CLICKABLE_COLUMNS = new Set(["actions", "review"])
 const COLUMN_IDS = getColumnIds(requestColumns)
-
-function getSort(
-  sort?: string[] | null
-): [LoanRequestSortField, "asc" | "desc"] | null {
-  if (!sort || sort.length !== 2) return null
-
-  const field = sort[0]
-  const direction = sort[1]
-  if (!field || !direction) return null
-
-  const validFields = new Set<string>([
-    "memberName",
-    "requestedAt",
-    "reviewStatus",
-    "status",
-  ])
-
-  if (!validFields.has(field)) return null
-  if (direction !== "asc" && direction !== "desc") return null
-
-  return [field as LoanRequestSortField, direction]
-}
 
 export function LoanRequestsTable({
   canReview,
@@ -99,38 +68,15 @@ export function LoanRequestsTable({
   initialSettings?: Partial<TableSettings>
   memberId?: string
 }) {
-  const trpc = useTRPC()
-  const { params } = useSortParams()
   const parentRef = useRef<HTMLDivElement>(null)
   const { setRequestColumns } = useLoanTableStore()
-  const queryInput = useMemo(
-    () => ({
-      memberId,
-      sort: getSort(params.sort),
-    }),
-    [memberId, params.sort]
-  )
-  const infiniteQueryOptions = trpc.loans.requests.infiniteQueryOptions(
-    queryInput,
-    {
-      getNextPageParam: ({ meta }) => meta?.cursor,
-      refetchInterval: 5000,
-      refetchOnMount: "always",
-      refetchOnWindowFocus: true,
-    }
-  )
   const {
-    data,
     fetchNextPage,
+    hasActiveControls,
     hasNextPage,
-    isError,
     isFetchingNextPage,
-    isPending,
-  } = useInfiniteQuery(infiniteQueryOptions)
-  const tableData = useMemo(
-    () => data?.pages.flatMap((page) => page.data) ?? [],
-    [data]
-  )
+    requests: tableData,
+  } = useLoanRequestsQuery(memberId)
 
   const {
     columnOrder,
@@ -201,24 +147,19 @@ export function LoanRequestsTable({
     threshold: 50,
   })
 
-  if (isPending) {
-    return <LoanRequestsSkeleton />
-  }
-
-  if (isError) {
-    return (
-      <EmptyState
-        description="Reload the page before reviewing loan requests again."
-        title="Loan requests could not load."
-      />
-    )
-  }
-
   if (!tableData.length) {
     return (
       <EmptyState
-        description="Submitted member loan requests will appear here for review and approval."
-        title="No loan requests yet"
+        description={
+          hasActiveControls
+            ? "Clear the current filters or choose a different status."
+            : "Submitted member loan requests will appear here for review and approval."
+        }
+        title={
+          hasActiveControls
+            ? "No matching loan requests"
+            : "No loan requests yet"
+        }
       />
     )
   }
@@ -229,7 +170,7 @@ export function LoanRequestsTable({
     <div className="relative">
       <div className="w-full">
         <div
-          className="overflow-auto overscroll-contain border-x border-b border-border scrollbar-hide"
+          className="scrollbar-hide overflow-auto overscroll-x-contain overscroll-y-auto border-x border-b border-border"
           ref={(element) => {
             parentRef.current = element
             tableScroll.containerRef.current = element

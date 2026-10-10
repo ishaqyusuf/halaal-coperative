@@ -1,6 +1,6 @@
 "use client"
 
-import type { ChangeEvent, FormEvent } from "react"
+import type { ChangeEvent, FormEvent, KeyboardEvent } from "react"
 import { useState } from "react"
 import {
   DropdownMenu,
@@ -12,12 +12,14 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@halaalvest/ui/components/dropdown-menu"
-import { Input } from "@halaalvest/ui/components/input"
 import { FinanceFilterList } from "@/components/finance-filter-list"
 import { SearchFilterDropdownInput } from "@/components/search-filter-dropdown-input"
 import { useShareApplicationFilterParams } from "@/hooks/use-share-application-filter-params"
 
-const statusFilters = [
+const statusFilters: Array<{
+  id: "approved" | "cancelled" | "pending" | "rejected"
+  name: string
+}> = [
   { id: "pending", name: "Pending" },
   { id: "approved", name: "Approved" },
   { id: "rejected", name: "Rejected" },
@@ -26,23 +28,39 @@ const statusFilters = [
 
 export function ShareApplicationSearchFilter() {
   const { filter, setFilter } = useShareApplicationFilterParams()
-  const [input, setInput] = useState(filter.shareApplicationQ ?? "")
+  const currentQuery = filter.shareApplicationQ ?? ""
+  const [draft, setDraft] = useState({
+    source: currentQuery,
+    value: currentQuery,
+  })
   const [isOpen, setIsOpen] = useState(false)
+  const input = draft.source === currentQuery ? draft.value : currentQuery
 
   const handleSearch = (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value
 
     if (value) {
-      setInput(value)
+      setDraft({ source: currentQuery, value })
     } else {
       setFilter({ shareApplicationQ: null })
-      setInput("")
+      setDraft({ source: "", value: "" })
     }
   }
 
   const handleSubmit = (event?: FormEvent) => {
     event?.preventDefault()
-    setFilter({ shareApplicationQ: input.length > 0 ? input : null })
+    const value = input.trim()
+    setDraft({ source: value, value })
+    setFilter({ shareApplicationQ: value.length > 0 ? value : null })
+  }
+
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return
+
+    event.preventDefault()
+    const value = event.currentTarget.value.trim()
+    setDraft({ source: value, value })
+    setFilter({ shareApplicationQ: value.length > 0 ? value : null })
   }
 
   const validFilters = {
@@ -63,6 +81,7 @@ export function ShareApplicationSearchFilter() {
             filterActive={hasValidFilters}
             filterOpen={isOpen}
             onChange={handleSearch}
+            onKeyDown={handleSearchKeyDown}
             placeholder="Search share applications..."
             spellCheck="false"
             value={input}

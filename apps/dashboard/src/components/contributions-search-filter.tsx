@@ -3,7 +3,7 @@
 import type { PageFilterData } from "@halaalvest/utils"
 import { SearchFilter } from "@/components/search-filter"
 import {
-  contributionsFilterParamsSchema,
+  contributionsLedgerFilterParamsSchema,
   useContributionsFilterParams,
 } from "@/hooks/use-contributions-filter-params"
 
@@ -13,11 +13,17 @@ export function ContributionsSearchFilter({
   initialFilterList?: PageFilterData[]
 }) {
   const { filters, setFilters } = useContributionsFilterParams()
+  const ledgerFilters = {
+    channel: filters.channel,
+    dateRange: filters.dateRange,
+    memberId: filters.memberId,
+    search: filters.search,
+  }
 
   return (
     <SearchFilter
-      filterSchema={contributionsFilterParamsSchema}
-      filters={filters}
+      filterSchema={contributionsLedgerFilterParamsSchema}
+      filters={ledgerFilters}
       initialFilterList={initialFilterList}
       placeholder="Search contribution activity..."
       setFilters={setFilters}

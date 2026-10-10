@@ -1,5 +1,10 @@
 import { normalizeRole } from "@halaalvest/auth/roles"
-import { getTenantFirstRunOnboardingState } from "@halaalvest/db"
+import {
+  getPublishedLegalBundle,
+  getTenantFirstRunOnboardingState,
+  listOwnLegalAcceptances,
+} from "@halaalvest/db"
+import { needsLegalReviewReminder } from "@halaalvest/domain/legal-reminder"
 import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
 import {
   TenantUrlProvider,
@@ -14,6 +19,7 @@ import { getDashboardServerContext } from "@/lib/server-context"
 import {
   resolveInitialMigrationLayoutRedirect,
   resolveInitialMigrationSetupGate,
+  shouldOpenFirstRunOnboarding,
 } from "@/lib/setup-gate"
 import { tenantRedirect } from "@/utils/tenant-redirect"
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
@@ -31,6 +37,7 @@ export default async function SidebarLayout({
   })
   const context = await getDashboardServerContext()
   const nextPath = normalizeDashboardRedirectPath(headerStore.get("x-pathname"))
+  const reviewingPlatformDocuments = nextPath === "/settings/platform-documents"
 
   if (!context.auth.sessionToken || !context.auth.user) {
     await tenantRedirect(`/login?next=${encodeURIComponent(nextPath)}`)
@@ -72,7 +79,11 @@ export default async function SidebarLayout({
       await tenantRedirect(setupRedirect)
     }
 
-    if (!setupGate.canUseLiveWorkspace && !setupGate.isWorkspaceAdmin) {
+    if (
+      !setupGate.canUseLiveWorkspace &&
+      !setupGate.isWorkspaceAdmin &&
+      !reviewingPlatformDocuments
+    ) {
       const tenantName = context.tenant.name
       const userName = context.auth.user?.fullName ?? "Anonymous Workspace User"
 
@@ -132,9 +143,12 @@ export default async function SidebarLayout({
       nextPath === "/onboarding" || nextPath.startsWith("/onboarding/")
 
     if (
-      setupGate.canUseLiveWorkspace &&
-      setupGate.isWorkspaceAdmin &&
-      !alreadyInOnboarding
+      shouldOpenFirstRunOnboarding({
+        alreadyInOnboarding: alreadyInOnboarding || reviewingPlatformDocuments,
+        canUseLiveWorkspace: setupGate.canUseLiveWorkspace,
+        isQaAuthorized: Boolean(context.auth.qaDomain),
+        isWorkspaceAdmin: setupGate.isWorkspaceAdmin,
+      })
     ) {
       const firstRunOnboarding = await getTenantFirstRunOnboardingState(
         context.tenant.id
@@ -148,12 +162,25 @@ export default async function SidebarLayout({
 
   const tenantName = context.tenant?.name ?? "Platform Demo Workspace"
   const userName = context.auth.user?.fullName ?? "Anonymous Workspace User"
+  const legalBundle = getPublishedLegalBundle()
+  const legalRecords =
+    legalBundle.available &&
+    context.tenant &&
+    context.auth.user &&
+    context.auth.membership
+      ? await listOwnLegalAcceptances({
+          tenantId: context.tenant.id,
+          userId: context.auth.user.id,
+        }).catch(() => null)
+      : null
+  const showLegalReminder = needsLegalReviewReminder(legalBundle, legalRecords)
 
   return (
     <TenantUrlProvider config={tenantUrlConfig} context={tenantUrlContext}>
       <DashboardShellClient
         hiddenNavPaths={hiddenNavPaths}
         role={role}
+        showLegalReminder={showLegalReminder}
         tenantName={tenantName}
         userName={userName}
       >

@@ -1,0 +1,4 @@
+module.exports = {
+  MOBILE_STORE_APP_VERSION: "1.0.0",
+  MOBILE_INTERNAL_APP_VERSION: "0.2.0",
+}

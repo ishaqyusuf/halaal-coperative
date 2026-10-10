@@ -1,3 +1,17 @@
+## Halaalvest Mobile Complete Production Implementation
+- Status: In Progress
+- Objective: Execute the approved 33-ticket mobile architecture, feature-completion, security, native QA, and pilot-readiness program using EwaTrade as the primary UI/mobile solution reference, NativeWind `className`-first design, dark mode, keyboard-safe inputs, deny-by-default role/permission guards, and privacy-bounded Sentry.
+- Canonical Directive: `.brain/plans/2026-08-11-halaalvest-mobile-complete-production-implementation-directive.md`
+- Ticket Map: `.scratch/mobile-architecture-hardening-and-feature-completion/map.md`
+- Migration Contract: `.scratch/mobile-architecture-hardening-and-feature-completion/migration-contract.md`
+- Completed: Tickets 01-02 — Established the executable route/tenant/finance/UI contract and shared runtime with scoped cache/drafts, bounded reconnect/foreground read refresh, no offline command replay, semantic NativeWind/keyboard guards, and Android Expo evidence.
+- Progress: 25 of 33 tickets complete (75.8%); 8 remain.
+- Latest Completion: Ticket 28 — durable push registration/preferences and governed exact-record deep links.
+- Current Frontier: Ticket 30 is 5 of 8 acceptance items complete (62.5%): 5 of 18 positive journeys (27.8%) and all 7 negative journeys have fresh production-contract plus headless-Android evidence. Thirteen positive journeys, invitation delivery, and the complete visual/device matrix remain open. Ticket 15's real screen-reader, iOS, broader-device, and release-profile performance acceptance also remains open; Tickets 29-33 continue through the downstream QA/build chain.
+- External Gates: Billing-provider selection/credentials, private object-storage/retention selection, production push/store credentials, and production Sentry ownership may block their specific tickets but do not block other ready frontier work.
+- Resume Prompt: Execute the Halaalvest mobile production implementation directive in `.brain/plans/2026-08-11-halaalvest-mobile-complete-production-implementation-directive.md`. Continue from the current ticket frontier until every unblocked ticket is implemented, tested with Expo and emulator/simulator, documented with screenshots, and honestly completed.
+- Last Updated: 2026-09-06
+
 ## Dashboard Operations Rollout
 - Status: In Progress
 - Objective: Implement dashboard operations phase by phase using a role-filtered navigation shell, keep Brain synchronized, and continue through members, finance, experience, and settings workflows.

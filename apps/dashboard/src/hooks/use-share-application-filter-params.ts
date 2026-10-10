@@ -1,9 +1,14 @@
 import { useQueryStates } from "nuqs"
-import { createLoader, parseAsString } from "nuqs/server"
+import { createLoader, parseAsString, parseAsStringEnum } from "nuqs/server"
 
 const shareApplicationFilterParamsSchema = {
   shareApplicationQ: parseAsString,
-  shareApplicationStatus: parseAsString,
+  shareApplicationStatus: parseAsStringEnum([
+    "approved",
+    "cancelled",
+    "pending",
+    "rejected",
+  ]),
 }
 
 export function useShareApplicationFilterParams() {

@@ -1,8 +1,8 @@
-import { cn } from "@/lib/utils";
-import * as Slot from "@rn-primitives/slot";
-import { cva, type VariantProps } from "class-variance-authority";
-import * as React from "react";
-import { Platform, Text as RNText, type Role } from "react-native";
+import { cn } from "@/lib/utils"
+import * as Slot from "@rn-primitives/slot"
+import { cva, type VariantProps } from "class-variance-authority"
+import * as React from "react"
+import { Platform, Text as RNText, type Role } from "react-native"
 
 const textVariants = cva(
   cn(
@@ -14,8 +14,8 @@ const textVariants = cva(
   {
     variants: {
       color: {
-        default: "text-gray-800 dark:text-gray-100 ",
-        secondary: "text-gray-500 dark:text-gray-400",
+        default: "text-foreground",
+        secondary: "text-muted-foreground",
       },
       variant: {
         default: "",
@@ -42,7 +42,7 @@ const textVariants = cva(
         ),
         lead: "text-xl text-muted-foreground",
         large: "text-lg font-semibold",
-        small: "text-sm font-medium leading-none",
+        small: "text-sm leading-none font-medium",
         muted: "text-sm text-muted-foreground",
       },
     },
@@ -51,11 +51,11 @@ const textVariants = cva(
       color: "default",
     },
   }
-);
+)
 
-type TextVariantProps = VariantProps<typeof textVariants>;
+type TextVariantProps = VariantProps<typeof textVariants>
 
-type TextVariant = NonNullable<TextVariantProps["variant"]>;
+type TextVariant = NonNullable<TextVariantProps["variant"]>
 
 const ROLE: Partial<Record<TextVariant, Role>> = {
   h1: "heading",
@@ -64,16 +64,16 @@ const ROLE: Partial<Record<TextVariant, Role>> = {
   h4: "heading",
   blockquote: Platform.select({ web: "blockquote" as Role }),
   code: Platform.select({ web: "code" as Role }),
-};
+}
 
 const ARIA_LEVEL: Partial<Record<TextVariant, string>> = {
   h1: "1",
   h2: "2",
   h3: "3",
   h4: "4",
-};
+}
 
-const TextClassContext = React.createContext<string | undefined>(undefined);
+const TextClassContext = React.createContext<string | undefined>(undefined)
 
 function Text({
   className,
@@ -84,10 +84,10 @@ function Text({
 }: React.ComponentProps<typeof RNText> &
   TextVariantProps &
   React.RefAttributes<RNText> & {
-    asChild?: boolean;
+    asChild?: boolean
   }) {
-  const textClass = React.useContext(TextClassContext);
-  const Component: any = asChild ? Slot.Text : RNText;
+  const textClass = React.useContext(TextClassContext)
+  const Component: any = asChild ? Slot.Text : RNText
   return (
     <Component
       className={cn(textVariants({ variant, color }), textClass, className)}
@@ -95,7 +95,7 @@ function Text({
       aria-level={variant ? ARIA_LEVEL[variant] : undefined}
       {...props}
     />
-  );
+  )
 }
 
-export { Text, TextClassContext };
+export { Text, TextClassContext }

@@ -43,13 +43,13 @@ function TabsTrigger({
     >
       <TabsPrimitive.Trigger
         className={cn(
-          "flex h-[calc(100%-1px)] flex-row items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 shadow-none shadow-black/5",
+          "flex h-[calc(100%-1px)] flex-row items-center justify-center gap-1.5 rounded-lg border border-transparent px-2 py-1",
           Platform.select({
             web: "inline-flex cursor-default whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0",
           }),
           props.disabled && "opacity-50",
           props.value === value &&
-            "bg-background dark:border-foreground/10 dark:bg-input/30",
+            "bg-card dark:border-foreground/10 dark:bg-input/30",
           className
         )}
         {...props}
@@ -68,12 +68,7 @@ function TabsContent({
       {...props}
       asChild // Use asChild to pass styles to our animated view
     >
-      <Animated.View
-        entering={FadeIn.duration(200)}
-        style={{
-          flex: 1,
-        }}
-      >
+      <Animated.View className="flex-1" entering={FadeIn.duration(200)}>
         {/* We need a View here because Animated.View can't have text as a direct child */}
         <View className="flex-1">{props.children}</View>
       </Animated.View>

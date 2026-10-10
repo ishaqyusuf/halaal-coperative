@@ -117,6 +117,104 @@ export type ContributionSortField =
   | "memberName"
   | "postedAt"
 
+type ContributionListCursor = {
+  direction: "asc" | "desc"
+  field: ContributionSortField
+  id: string
+  value: string | null
+}
+
+function decodeContributionCursor(
+  cursor?: string | null
+): ContributionListCursor | null {
+  if (!cursor) return null
+
+  try {
+    const parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"))
+    const supportedFields = new Set<ContributionSortField>([
+      "amount",
+      "committedAmount",
+      "extraSavingsAmount",
+      "memberName",
+      "postedAt",
+    ])
+
+    if (
+      typeof parsed?.id !== "string" ||
+      !supportedFields.has(parsed?.field) ||
+      (parsed?.direction !== "asc" && parsed?.direction !== "desc") ||
+      (parsed?.value !== null && typeof parsed?.value !== "string")
+    ) {
+      throw ExpectedQueryError.validation("Invalid cursor")
+    }
+
+    return parsed as ContributionListCursor
+  } catch {
+    throw ExpectedQueryError.validation("Contribution list cursor is invalid.")
+  }
+}
+
+function encodeContributionCursor(cursor: ContributionListCursor) {
+  return Buffer.from(JSON.stringify(cursor)).toString("base64url")
+}
+
+function contributionCursorWhere(
+  cursor: ContributionListCursor | null
+): Record<string, unknown> {
+  if (!cursor) return {}
+  const comparison = cursor.direction === "asc" ? "gt" : "lt"
+
+  if (cursor.field === "memberName") {
+    return {
+      OR: [
+        { member: { fullName: { [comparison]: cursor.value } } },
+        {
+          id: { [comparison]: cursor.id },
+          member: { fullName: cursor.value },
+        },
+      ],
+    }
+  }
+
+  if (cursor.field === "postedAt") {
+    const postedAt = new Date(cursor.value ?? "")
+    if (Number.isNaN(postedAt.getTime())) {
+      throw ExpectedQueryError.validation(
+        "Contribution list cursor date is invalid."
+      )
+    }
+
+    return {
+      OR: [
+        { postedAt: { [comparison]: postedAt } },
+        { id: { [comparison]: cursor.id }, postedAt },
+      ],
+    }
+  }
+
+  if (cursor.value === null) {
+    return {
+      [cursor.field]: null,
+      id: { [comparison]: cursor.id },
+    }
+  }
+
+  const value = Number(cursor.value)
+  if (!Number.isFinite(value)) {
+    throw ExpectedQueryError.validation(
+      "Contribution list cursor amount is invalid."
+    )
+  }
+
+  return {
+    OR: [
+      { [cursor.field]: { [comparison]: value } },
+      { [cursor.field]: value, id: { [comparison]: cursor.id } },
+      ...(cursor.field === "amount" ? [] : [{ [cursor.field]: null }]),
+    ],
+  }
+}
+
 export async function listContributions(
   tenantId: string,
   filters?: ListContributionsFilters,
@@ -128,24 +226,33 @@ export async function listContributions(
   const page = filters?.page ?? 1
   const pageSize = filters?.pageSize ?? 25
   const [sortField, sortDirection] = filters?.sort ?? ["postedAt", "desc"]
-  const orderBy =
+  const cursor = decodeContributionCursor(filters?.cursor)
+  if (
+    cursor &&
+    (cursor.field !== sortField || cursor.direction !== sortDirection)
+  ) {
+    throw ExpectedQueryError.validation(
+      "Contribution list cursor does not match the requested sort."
+    )
+  }
+  const orderBy: any[] =
     sortField === "amount"
-      ? [{ amount: sortDirection }, { postedAt: "desc" as const }]
+      ? [{ amount: sortDirection }, { id: sortDirection }]
       : sortField === "committedAmount"
-        ? [{ committedAmount: sortDirection }, { postedAt: "desc" as const }]
+        ? [
+            { committedAmount: { sort: sortDirection, nulls: "last" } },
+            { id: sortDirection },
+          ]
         : sortField === "extraSavingsAmount"
           ? [
-              { extraSavingsAmount: sortDirection },
-              { postedAt: "desc" as const },
+              { extraSavingsAmount: { sort: sortDirection, nulls: "last" } },
+              { id: sortDirection },
             ]
           : sortField === "memberName"
-            ? [
-                { member: { fullName: sortDirection } },
-                { postedAt: "desc" as const },
-              ]
+            ? [{ member: { fullName: sortDirection } }, { id: sortDirection }]
             : [{ postedAt: sortDirection }, { id: sortDirection }]
 
-  const where = {
+  const baseWhere = {
     tenantId,
     ...(filters?.channel && { channel: filters.channel }),
     ...(filters?.contributionPlanId && {
@@ -179,24 +286,43 @@ export async function listContributions(
       },
     }),
   }
+  const where = { ...baseWhere, ...contributionCursorWhere(cursor) }
 
-  const [items, total] = await Promise.all([
+  const [rows, total] = await Promise.all([
     prisma.contribution.findMany({
       where,
       orderBy,
-      ...(filters?.cursor
-        ? { cursor: { id: filters.cursor }, skip: 1 }
-        : { skip: (page - 1) * pageSize }),
-      take: pageSize,
+      ...(!cursor && page > 1 ? { skip: (page - 1) * pageSize } : {}),
+      take: pageSize + 1,
       include: {
         member: { select: { id: true, fullName: true, memberNumber: true } },
         contributionPlan: true,
       },
     }),
-    prisma.contribution.count({ where }),
+    prisma.contribution.count({ where: baseWhere }),
   ])
 
-  return { items, total, page, pageSize }
+  const hasNextPage = rows.length > pageSize
+  const items = hasNextPage ? rows.slice(0, pageSize) : rows
+  const last = items.at(-1)
+  const cursorValue = last
+    ? sortField === "memberName"
+      ? last.member.fullName
+      : sortField === "postedAt"
+        ? last.postedAt.toISOString()
+        : (last[sortField]?.toString() ?? null)
+    : null
+  const nextCursor =
+    hasNextPage && last
+      ? encodeContributionCursor({
+          direction: sortDirection,
+          field: sortField,
+          id: last.id,
+          value: cursorValue,
+        })
+      : null
+
+  return { items, nextCursor, total, page, pageSize }
 }
 
 export async function listContributionPlans(
@@ -656,6 +782,33 @@ function normalizePositiveMoney(value: number, label: string) {
   return Math.round(value * 100) / 100
 }
 
+async function runSerializableTransactionWithRetry<T>(
+  prisma: PrismaClient,
+  callback: (tx: PrismaClient) => Promise<T>
+) {
+  const maxAttempts = 3
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await prisma.$transaction(callback as never, {
+        isolationLevel: "Serializable",
+        maxWait: 5_000,
+        timeout: 15_000,
+      })
+    } catch (error) {
+      const code = (error as { code?: string } | null)?.code
+
+      if (code !== "P2034" || attempt === maxAttempts) {
+        throw error
+      }
+    }
+  }
+
+  throw new QueryInfrastructureError(
+    "Could not safely complete the support refund transaction"
+  )
+}
+
 export async function settleSupportCaseSpecialSavingsRefund(
   input: SettleSupportCaseSpecialSavingsRefundInput,
   prismaOverride?: PrismaClient
@@ -694,7 +847,7 @@ export async function settleSupportCaseSpecialSavingsRefund(
     )
   }
 
-  return prisma.$transaction(async (tx) => {
+  return runSerializableTransactionWithRetry(prisma, async (tx) => {
     const actor = await tx.user.findFirst({
       select: { id: true },
       where: {
@@ -743,9 +896,9 @@ export async function settleSupportCaseSpecialSavingsRefund(
       )
     }
 
-    if (supportCase.status === "closed") {
+    if (supportCase.status === "closed" || supportCase.status === "resolved") {
       throw ExpectedQueryError.conflict(
-        "A refund cannot be posted to a closed support case."
+        "A refund cannot be posted to a completed support case."
       )
     }
 
@@ -761,6 +914,24 @@ export async function settleSupportCaseSpecialSavingsRefund(
     ) {
       throw ExpectedQueryError.precondition(
         "Approved financial adjustment review is required before posting a special-savings refund."
+      )
+    }
+
+    const duplicateReference =
+      await tx.memberSpecialSavingsWithdrawal.findFirst({
+        select: { id: true },
+        where: {
+          reference: {
+            equals: reference,
+            mode: "insensitive",
+          },
+          tenantId: input.tenantId,
+        },
+      })
+
+    if (duplicateReference) {
+      throw ExpectedQueryError.conflict(
+        "This payment reference has already been used for a special-savings refund."
       )
     }
 
@@ -955,24 +1126,15 @@ export type RecordMemberPaymentResult = {
   repaymentId: string | null
 }
 
-export async function recordMemberPaymentMutation(
-  input: RecordMemberPaymentInput,
-  prisma: PrismaClient
-): Promise<RecordMemberPaymentResult> {
-  const member = await prisma.member.findFirst({
-    where: {
-      id: input.memberId,
-      tenantId: input.tenantId,
-    },
-    select: {
-      paymentAllocationPreference: true,
-    },
-  })
-
-  if (!member) {
-    throw ExpectedQueryError.notFound("Member not found.")
-  }
-
+export function resolveMemberPaymentAllocation(input: {
+  committedSavingsAmount: number
+  extraLoanPaymentAmount?: number
+  extraSavingsAmount?: number
+  hasLoanTarget: boolean
+  paymentAllocationPreference: PaymentAllocationPreference
+  scheduledLoanServicingAmount?: number
+  totalAmount?: number
+}) {
   const committedSavingsAmount = input.committedSavingsAmount
   let extraSavingsAmount = input.extraSavingsAmount ?? 0
   const scheduledLoanServicingAmount = input.scheduledLoanServicingAmount ?? 0
@@ -993,13 +1155,16 @@ export async function recordMemberPaymentMutation(
     const leftover = input.totalAmount - explicitTotal
 
     if (leftover > 0) {
-      if (member.paymentAllocationPreference === "manual_split") {
+      if (input.paymentAllocationPreference === "manual_split") {
         throw ExpectedQueryError.precondition(
           "This member uses manual split. Allocate the remaining payment explicitly."
         )
       }
 
-      if (member.paymentAllocationPreference === "loan_first" && input.loanId) {
+      if (
+        input.paymentAllocationPreference === "loan_first" &&
+        input.hasLoanTarget
+      ) {
         extraLoanPaymentAmount += leftover
       } else {
         extraSavingsAmount += leftover
@@ -1007,8 +1172,52 @@ export async function recordMemberPaymentMutation(
     }
   }
 
-  const totalSavingsAmount = committedSavingsAmount + extraSavingsAmount
-  const totalLoanAmount = scheduledLoanServicingAmount + extraLoanPaymentAmount
+  return {
+    committedSavingsAmount,
+    explicitTotal,
+    extraLoanPaymentAmount,
+    extraSavingsAmount,
+    scheduledLoanServicingAmount,
+    totalLoanAmount: scheduledLoanServicingAmount + extraLoanPaymentAmount,
+    totalSavingsAmount: committedSavingsAmount + extraSavingsAmount,
+  }
+}
+
+export async function recordMemberPaymentMutation(
+  input: RecordMemberPaymentInput,
+  prisma: PrismaClient
+): Promise<RecordMemberPaymentResult> {
+  const member = await prisma.member.findFirst({
+    where: {
+      id: input.memberId,
+      tenantId: input.tenantId,
+    },
+    select: {
+      paymentAllocationPreference: true,
+    },
+  })
+
+  if (!member) {
+    throw ExpectedQueryError.notFound("Member not found.")
+  }
+
+  const {
+    committedSavingsAmount,
+    explicitTotal,
+    extraLoanPaymentAmount,
+    extraSavingsAmount,
+    scheduledLoanServicingAmount,
+    totalLoanAmount,
+    totalSavingsAmount,
+  } = resolveMemberPaymentAllocation({
+    committedSavingsAmount: input.committedSavingsAmount,
+    extraLoanPaymentAmount: input.extraLoanPaymentAmount,
+    extraSavingsAmount: input.extraSavingsAmount,
+    hasLoanTarget: Boolean(input.loanId),
+    paymentAllocationPreference: member.paymentAllocationPreference,
+    scheduledLoanServicingAmount: input.scheduledLoanServicingAmount,
+    totalAmount: input.totalAmount,
+  })
 
   if (totalSavingsAmount <= 0 && totalLoanAmount <= 0) {
     throw ExpectedQueryError.validation(

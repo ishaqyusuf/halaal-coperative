@@ -15,9 +15,11 @@ function formatCacheDate(value: string) {
 }
 
 export function CachedReadBanner({
+  action = "taking action",
   cache,
   label = "data",
 }: {
+  action?: string
   cache: MobileReadCacheState | null | undefined
   label?: string
 }) {
@@ -25,25 +27,35 @@ export function CachedReadBanner({
 
   const isStale = cache.status === "stale"
 
-  return (
-    <View
-      className={`gap-1 rounded-md border p-3 ${
-        isStale ? "border-warn/40 bg-warn/10" : "border-border bg-secondary"
-      }`}
-    >
+  if (!isStale) {
+    return (
       <View className="flex-row items-center gap-2">
-        <Icon
-          name={isStale ? "WifiOff" : "CloudCheck"}
-          className={`size-sm ${isStale ? "text-warn" : "text-success"}`}
-        />
-        <Text className="text-sm font-semibold text-foreground">
-          {isStale ? "Offline snapshot" : "Data refreshed"}
+        <View className="bg-success size-2 rounded-full" />
+        <Text className="text-success text-xs font-medium">
+          Updated {formatCacheDate(cache.cachedAt)}
         </Text>
       </View>
+    )
+  }
+
+  const isOffline = cache.reason === "offline"
+  const title = isOffline
+    ? "Offline"
+    : cache.reason === "stale"
+      ? "Refresh needed"
+      : "Saved data"
+
+  return (
+    <View className="border-warn/40 bg-warn/10 gap-1 rounded-lg border p-3">
+      <View className="flex-row items-center gap-2">
+        <Icon
+          className="size-sm text-warn"
+          name={isOffline ? "WifiOff" : "History"}
+        />
+        <Text className="text-sm font-semibold text-foreground">{title}</Text>
+      </View>
       <Text className="text-xs leading-5 text-muted-foreground">
-        {isStale
-          ? `Showing cached ${label} from ${formatCacheDate(cache.cachedAt)}. Refresh before submitting approvals, postings, role changes, or financial requests.`
-          : `Updated ${formatCacheDate(cache.cachedAt)}.`}
+        {`Saved ${label} from ${formatCacheDate(cache.cachedAt)}. Refresh before ${action}.`}
       </Text>
     </View>
   )

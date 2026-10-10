@@ -1,12 +1,20 @@
 import type { MembershipRecord, UserRecord } from "@halaalvest/db"
 import { resolveDashboardSessionScope } from "@halaalvest/utils"
-import { scryptSync, timingSafeEqual } from "node:crypto"
+import {
+  createHmac,
+  randomBytes,
+  scryptSync,
+  timingSafeEqual,
+} from "node:crypto"
 export * from "./roles"
 
 export type SessionScope = typeof platformSessionScope | string
 
 export type AuthSession = {
+  mobileDeviceSessionId?: string
+  qaAuthorizationId?: string
   scope: SessionScope
+  sessionExpiresAt?: number
   token: string
   user: UserRecord
 }
@@ -15,6 +23,8 @@ export type SignedSessionPayload = {
   expiresAt: number
   membershipId?: string
   nonce: string
+  qaAuthorizationId?: string
+  sessionKind?: "mobile"
   scope: SessionScope
   tenantId?: string
   userId: string
@@ -30,6 +40,117 @@ export const authUserCookieName = "halaalvest_user"
 export const platformSessionScope = "platform"
 const sessionTtlMs = 1000 * 60 * 60 * 24 * 7
 const passwordKeyLength = 64
+
+function getAuthEvidenceSecret() {
+  const secret =
+    process.env.AUTH_EVIDENCE_SECRET?.trim() ??
+    process.env.SIGNUP_TOKEN_SECRET?.trim() ??
+    process.env.AUTH_SECRET?.trim()
+
+  if (secret) return secret
+  if (process.env.NODE_ENV !== "production") {
+    return "halaalvest-dev-auth-evidence-secret"
+  }
+
+  throw new Error("AUTH_EVIDENCE_SECRET is required in production.")
+}
+
+function getSignupTokenSecret() {
+  const secret = process.env.SIGNUP_TOKEN_SECRET?.trim()
+  if (secret) return secret
+  if (process.env.NODE_ENV !== "production") {
+    return "halaalvest-dev-signup-secret"
+  }
+  throw new Error("SIGNUP_TOKEN_SECRET is required in production.")
+}
+
+export type MemberSignupLinkTokenPayload = {
+  linkId: string
+  tenantId: string
+  tokenVersion: number
+}
+
+export function createMemberSignupLinkToken(
+  payload: MemberSignupLinkTokenPayload
+) {
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url")
+  const signature = createHmac("sha256", getSignupTokenSecret())
+    .update(body)
+    .digest("base64url")
+  return `${body}.${signature}`
+}
+
+export function verifyMemberSignupLinkToken(token: string) {
+  const [body, signature] = token.trim().split(".")
+  if (!body || !signature) throw new Error("The signup link is invalid.")
+
+  const expected = Buffer.from(
+    createHmac("sha256", getSignupTokenSecret())
+      .update(body)
+      .digest("base64url")
+  )
+  const received = Buffer.from(signature)
+  if (
+    expected.length !== received.length ||
+    !timingSafeEqual(expected, received)
+  ) {
+    throw new Error("The signup link is invalid.")
+  }
+
+  let payload: unknown
+  try {
+    payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8"))
+  } catch {
+    throw new Error("The signup link is invalid.")
+  }
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    !("linkId" in payload) ||
+    typeof payload.linkId !== "string" ||
+    !("tenantId" in payload) ||
+    typeof payload.tenantId !== "string" ||
+    !("tokenVersion" in payload) ||
+    typeof payload.tokenVersion !== "number" ||
+    !Number.isInteger(payload.tokenVersion) ||
+    payload.tokenVersion < 1
+  ) {
+    throw new Error("The signup link is invalid.")
+  }
+  return payload as MemberSignupLinkTokenPayload
+}
+
+export function hashPassword(password: string) {
+  const normalized = password.trim()
+
+  if (!normalized) throw new Error("Password is required.")
+
+  const salt = randomBytes(16).toString("hex")
+  const hash = scryptSync(normalized, salt, passwordKeyLength).toString("hex")
+
+  return `${salt}:${hash}`
+}
+
+export function createAuthEvidenceCode() {
+  const value = randomBytes(4).readUInt32BE(0) % 1_000_000
+  return value.toString().padStart(6, "0")
+}
+
+export function createAuthEvidenceToken() {
+  return randomBytes(32).toString("base64url")
+}
+
+export function hashAuthEvidence(value: string) {
+  return createHmac("sha256", getAuthEvidenceSecret())
+    .update(value.trim())
+    .digest("hex")
+}
+
+export function hashAuthRateLimitSignal(value: string) {
+  return createHmac("sha256", getAuthEvidenceSecret())
+    .update(`rate-limit:${value.trim().toLowerCase()}`)
+    .digest("hex")
+}
 
 export function getScopedAuthSessionCookieName(scope: SessionScope) {
   return scope === platformSessionScope
@@ -101,16 +222,28 @@ async function signValue(value: string) {
   }
 }
 
-export async function createSignedSessionToken(input: {
+type CreateSignedSessionInput = {
+  expiresAt?: number
   membershipId?: string | null
+  nonce?: string
+  qaAuthorizationId?: string | null
   scope: SessionScope
+  sessionKind?: "mobile"
   tenantId?: string | null
   userId: string
-}) {
+}
+
+export async function createSignedSessionTokenBundle(
+  input: CreateSignedSessionInput
+) {
   const payload = {
-    expiresAt: Date.now() + sessionTtlMs,
+    expiresAt: input.expiresAt ?? Date.now() + sessionTtlMs,
     ...(input.membershipId ? { membershipId: input.membershipId } : {}),
-    nonce: crypto.randomUUID(),
+    nonce: input.nonce ?? crypto.randomUUID(),
+    ...(input.qaAuthorizationId
+      ? { qaAuthorizationId: input.qaAuthorizationId }
+      : {}),
+    ...(input.sessionKind ? { sessionKind: input.sessionKind } : {}),
     scope: input.scope,
     ...(input.tenantId ? { tenantId: input.tenantId } : {}),
     userId: input.userId,
@@ -118,7 +251,29 @@ export async function createSignedSessionToken(input: {
   const encodedPayload = encodeBase64Url(JSON.stringify(payload))
   const { signature } = await signValue(encodedPayload)
 
-  return `${encodedPayload}.${signature}`
+  return { payload, token: `${encodedPayload}.${signature}` }
+}
+
+function getQaAcceleratorSecret() {
+  const secret = process.env.QA_ACCELERATOR_SECRET?.trim()
+  if (!secret) {
+    throw new Error(
+      "QA_ACCELERATOR_SECRET is required for QA accelerator access."
+    )
+  }
+  return secret
+}
+
+export function hashQaAcceleratorEvidence(value: string) {
+  return createHmac("sha256", getQaAcceleratorSecret())
+    .update(value.trim())
+    .digest("hex")
+}
+
+export async function createSignedSessionToken(
+  input: CreateSignedSessionInput
+) {
+  return (await createSignedSessionTokenBundle(input)).token
 }
 
 export function verifyPassword(

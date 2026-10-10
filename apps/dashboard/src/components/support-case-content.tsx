@@ -3,8 +3,10 @@
 import { useMemo, useState, useTransition, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { useNotifications } from "@halaalvest/notifications-react"
+import { isSafeSupportAttachmentUrl } from "@halaalvest/utils"
 import { Button } from "@halaalvest/ui/components/button"
 import { Checkbox } from "@halaalvest/ui/components/checkbox"
+import { Badge } from "@halaalvest/ui/components/badge"
 import { Input } from "@halaalvest/ui/components/input"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import type {
@@ -13,6 +15,7 @@ import type {
   SupportCaseRow,
   SupportCaseStatus,
 } from "@halaalvest/db"
+import { useQueryClient } from "@tanstack/react-query"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
 import { UploadEvidenceInput } from "@/components/upload-evidence-input"
 import {
@@ -25,6 +28,7 @@ import {
   updateSupportCaseStatusAction,
 } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
+import { useTRPC } from "@/trpc/client"
 
 export type SupportCaseOption = {
   id: string
@@ -88,6 +92,131 @@ function Field({
   )
 }
 
+function useSupportMutationRefresh() {
+  const queryClient = useQueryClient()
+  const router = useRouter()
+  const trpc = useTRPC()
+
+  return async (supportCaseId?: string) => {
+    const invalidations = [
+      queryClient.invalidateQueries(trpc.support.list.infiniteQueryFilter()),
+    ]
+
+    if (supportCaseId) {
+      invalidations.push(
+        queryClient.invalidateQueries({
+          queryKey: trpc.support.get.queryKey({ supportCaseId }),
+        })
+      )
+    }
+
+    await Promise.all(invalidations)
+    router.refresh()
+  }
+}
+
+function formatSupportDate(value: Date | string) {
+  const date = value instanceof Date ? value : new Date(value)
+
+  return date.toLocaleString("en-NG", {
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "short",
+    year: "numeric",
+  })
+}
+
+function SupportCaseContext({ supportCase }: { supportCase: SupportCaseRow }) {
+  return (
+    <section className="mb-5 border-y border-border py-4">
+      <div className="flex flex-wrap gap-2">
+        <Badge className="capitalize" variant="outline">
+          {labelFromValue(supportCase.status)}
+        </Badge>
+        <Badge className="capitalize" variant="outline">
+          {labelFromValue(supportCase.priority)} priority
+        </Badge>
+        <Badge className="capitalize" variant="secondary">
+          {labelFromValue(supportCase.category)}
+        </Badge>
+      </div>
+
+      <p className="mt-4 text-sm leading-6 text-foreground">
+        {supportCase.description}
+      </p>
+
+      <dl className="mt-4 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-xs">
+        <dt className="text-muted-foreground">Member</dt>
+        <dd className="truncate text-right">
+          {supportCase.member
+            ? `${supportCase.member.fullName} · ${supportCase.member.memberNumber}`
+            : "No member linked"}
+        </dd>
+        <dt className="text-muted-foreground">Assigned to</dt>
+        <dd className="truncate text-right">
+          {supportCase.assignedToUser?.fullName ?? "Unassigned"}
+        </dd>
+        <dt className="text-muted-foreground">Money impact</dt>
+        <dd className="text-right">
+          {supportCase.moneyImpactRequested ? "Requested" : "Not requested"}
+        </dd>
+        <dt className="text-muted-foreground">Finance review</dt>
+        <dd className="text-right capitalize">
+          {labelFromValue(supportCase.financialAdjustmentApprovalStatus)}
+        </dd>
+      </dl>
+
+      <div className="mt-5 border-t border-border pt-4">
+        <p className="text-xs font-medium text-foreground">Conversation</p>
+        <div className="mt-3 divide-y divide-border border-y border-border">
+          {supportCase.messages.length ? (
+            supportCase.messages.map((message) => (
+              <article className="py-3" key={message.id}>
+                <div className="flex items-center justify-between gap-3 text-xs">
+                  <span className="font-medium text-foreground">
+                    {message.authorUser?.fullName ??
+                      labelFromValue(message.authorType)}
+                  </span>
+                  <time className="shrink-0 text-muted-foreground">
+                    {formatSupportDate(message.createdAt)}
+                  </time>
+                </div>
+                <p className="mt-1 text-sm leading-6 whitespace-pre-wrap text-muted-foreground">
+                  {message.message}
+                </p>
+                {isSafeSupportAttachmentUrl(message.attachmentUrl) ? (
+                  <a
+                    className="mt-2 inline-flex min-h-11 items-center text-xs font-medium text-foreground underline underline-offset-4"
+                    href={message.attachmentUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    Open attachment
+                  </a>
+                ) : null}
+              </article>
+            ))
+          ) : (
+            <p className="py-3 text-sm text-muted-foreground">
+              No messages have been added yet.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {supportCase.resolutionSummary ? (
+        <div className="mt-4 border-t border-border pt-4">
+          <p className="text-xs font-medium text-foreground">Resolution</p>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            {supportCase.resolutionSummary}
+          </p>
+        </div>
+      ) : null}
+    </section>
+  )
+}
+
 export function SupportCaseCreateContent({
   assignees,
   memberOptions,
@@ -95,15 +224,14 @@ export function SupportCaseCreateContent({
 }: {
   assignees: SupportCaseOption[]
   memberOptions: SupportCaseOption[]
-  onClose: () => void
+  onClose: () => void | Promise<void>
 }) {
-  const router = useRouter()
+  const refreshSupportQueries = useSupportMutationRefresh()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [memberId, setMemberId] = useState("")
   const [assignedToUserId, setAssignedToUserId] = useState("")
-  const [category, setCategory] =
-    useState<SupportCaseCategory>("payment_issue")
+  const [category, setCategory] = useState<SupportCaseCategory>("payment_issue")
   const [priority, setPriority] = useState<SupportCasePriority>("normal")
   const [subject, setSubject] = useState("")
   const [description, setDescription] = useState("")
@@ -152,9 +280,9 @@ export function SupportCaseCreateContent({
         setMoneyImpactRequested(false)
         setPriority("normal")
         setSubject("")
-        onClose()
+        await onClose()
         showSuccess("Case opened", "Support case is now tracked.")
-        router.refresh()
+        await refreshSupportQueries()
       } catch (error) {
         showError(
           "Could not open case",
@@ -211,7 +339,11 @@ export function SupportCaseCreateContent({
             disabled={isPending}
             onUploaded={(upload) => setAttachmentUrl(upload.url)}
             purpose="support_attachment"
-            value={attachmentUrl}
+            value={
+              isSafeSupportAttachmentUrl(attachmentUrl)
+                ? attachmentUrl
+                : undefined
+            }
           />
           <Input
             className="mt-2"
@@ -238,7 +370,12 @@ export function SupportCaseCreateContent({
         />
       </Field>
       <div className="mt-3 flex justify-end">
-        <Button disabled={isPending} onClick={createCase} type="button">
+        <Button
+          className="h-11 w-full sm:w-auto"
+          disabled={isPending}
+          onClick={createCase}
+          type="button"
+        >
           Open case
         </Button>
       </div>
@@ -252,10 +389,10 @@ export function SupportCaseUpdateContent({
   supportCase,
 }: {
   assignees: SupportCaseOption[]
-  onClose: () => void
+  onClose: () => void | Promise<void>
   supportCase: SupportCaseRow
 }) {
-  const router = useRouter()
+  const refreshSupportQueries = useSupportMutationRefresh()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [status, setStatus] = useState<SupportCaseStatus>(supportCase.status)
@@ -300,9 +437,9 @@ export function SupportCaseUpdateContent({
             supportCaseId: supportCase.id,
           })
         )
-        onClose()
+        await onClose()
         showSuccess("Case updated", "Support status was recorded.")
-        router.refresh()
+        await refreshSupportQueries(supportCase.id)
       } catch (error) {
         showError(
           "Could not update case",
@@ -324,12 +461,12 @@ export function SupportCaseUpdateContent({
             supportCaseId: supportCase.id,
           })
         )
-        onClose()
+        await onClose()
         showSuccess(
           "Refund recorded",
           "The special-savings withdrawal was posted and the case was resolved."
         )
-        router.refresh()
+        await refreshSupportQueries(supportCase.id)
       } catch (error) {
         showError(
           "Could not record refund",
@@ -341,6 +478,7 @@ export function SupportCaseUpdateContent({
 
   return (
     <>
+      <SupportCaseContext supportCase={supportCase} />
       <div className="grid gap-3 md:grid-cols-3">
         <Field label="Status">
           <LabeledSelectInput
@@ -383,18 +521,26 @@ export function SupportCaseUpdateContent({
           />
           Needs finance adjustment
         </label>
-        <Button disabled={isPending} onClick={updateCase} type="button">
+        <Button
+          className="h-11 w-full sm:w-auto"
+          disabled={isPending}
+          onClick={updateCase}
+          type="button"
+        >
           Update case
         </Button>
       </div>
       {supportCase.specialSavingsWithdrawal ? (
-        <div className="mt-5 rounded-lg border bg-muted/30 p-4 text-sm">
+        <div className="mt-5 border-t border-border py-5 text-sm">
           <p className="font-medium">Special-savings refund posted</p>
           <p className="mt-1 text-muted-foreground">
-            {supportCase.specialSavingsWithdrawal.amount.toLocaleString("en-NG", {
-              currency: "NGN",
-              style: "currency",
-            })}{" "}
+            {supportCase.specialSavingsWithdrawal.amount.toLocaleString(
+              "en-NG",
+              {
+                currency: "NGN",
+                style: "currency",
+              }
+            )}{" "}
             on{" "}
             {supportCase.specialSavingsWithdrawal.paidAt.toLocaleDateString(
               "en-NG"
@@ -404,7 +550,7 @@ export function SupportCaseUpdateContent({
         </div>
       ) : supportCase.requiresFinancialAdjustment &&
         supportCase.financialAdjustmentApprovalStatus === "approved" ? (
-        <div className="mt-5 rounded-lg border p-4">
+        <div className="mt-5 border-t border-border py-5">
           <p className="font-medium">Post special-savings refund</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Record the bank payment. This posts the withdrawal to the ledger and
@@ -450,6 +596,7 @@ export function SupportCaseUpdateContent({
           </div>
           <div className="mt-3 flex justify-end">
             <Button
+              className="h-11 w-full sm:w-auto"
               disabled={
                 isPending ||
                 !refundAmount ||
@@ -472,10 +619,10 @@ export function SupportCaseFinancialAdjustmentReviewContent({
   onClose,
   supportCase,
 }: {
-  onClose: () => void
+  onClose: () => void | Promise<void>
   supportCase: SupportCaseRow
 }) {
-  const router = useRouter()
+  const refreshSupportQueries = useSupportMutationRefresh()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [approvalNotes, setApprovalNotes] = useState("")
@@ -495,8 +642,8 @@ export function SupportCaseFinancialAdjustmentReviewContent({
           "Adjustment reviewed",
           `Financial adjustment was ${labelFromValue(approvalStatus)}.`
         )
-        onClose()
-        router.refresh()
+        await onClose()
+        await refreshSupportQueries(supportCase.id)
       } catch (error) {
         showError(
           "Could not review adjustment",
@@ -508,6 +655,7 @@ export function SupportCaseFinancialAdjustmentReviewContent({
 
   return (
     <>
+      <SupportCaseContext supportCase={supportCase} />
       <Field label="Approval note">
         <Textarea
           disabled={isPending}
@@ -517,6 +665,7 @@ export function SupportCaseFinancialAdjustmentReviewContent({
       </Field>
       <div className="mt-3 flex flex-wrap justify-end gap-2">
         <Button
+          className="h-11 flex-1 sm:flex-none"
           disabled={isPending}
           onClick={() => reviewFinancialAdjustment("rejected")}
           type="button"
@@ -525,6 +674,7 @@ export function SupportCaseFinancialAdjustmentReviewContent({
           Reject adjustment
         </Button>
         <Button
+          className="h-11 flex-1 sm:flex-none"
           disabled={isPending}
           onClick={() => reviewFinancialAdjustment("approved")}
           type="button"
@@ -540,10 +690,10 @@ export function SupportCaseReplyContent({
   onClose,
   supportCase,
 }: {
-  onClose: () => void
+  onClose: () => void | Promise<void>
   supportCase: SupportCaseRow
 }) {
-  const router = useRouter()
+  const refreshSupportQueries = useSupportMutationRefresh()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [message, setMessage] = useState("")
@@ -558,9 +708,9 @@ export function SupportCaseReplyContent({
           })
         )
         setMessage("")
-        onClose()
+        await onClose()
         showSuccess("Reply saved", "Support case message was recorded.")
-        router.refresh()
+        await refreshSupportQueries(supportCase.id)
       } catch (error) {
         showError(
           "Could not save reply",
@@ -572,18 +722,32 @@ export function SupportCaseReplyContent({
 
   return (
     <>
-      <Field label="Reply">
-        <Textarea
-          disabled={isPending}
-          onChange={(event) => setMessage(event.target.value)}
-          value={message}
-        />
-      </Field>
-      <div className="mt-3 flex justify-end">
-        <Button disabled={isPending} onClick={addMessage} type="button">
-          Add reply
-        </Button>
-      </div>
+      <SupportCaseContext supportCase={supportCase} />
+      {supportCase.status === "closed" ? (
+        <p className="border-y border-border py-4 text-sm text-muted-foreground">
+          This case is closed and cannot receive new replies.
+        </p>
+      ) : (
+        <>
+          <Field label="Reply">
+            <Textarea
+              disabled={isPending}
+              onChange={(event) => setMessage(event.target.value)}
+              value={message}
+            />
+          </Field>
+          <div className="mt-3 flex justify-end">
+            <Button
+              className="h-11 w-full sm:w-auto"
+              disabled={isPending}
+              onClick={addMessage}
+              type="button"
+            >
+              Add reply
+            </Button>
+          </div>
+        </>
+      )}
     </>
   )
 }
@@ -593,18 +757,16 @@ export function MemberSupportCaseCreateContent({
   onClose,
 }: {
   initialCase?: MemberSupportCaseInitialValues
-  onClose: () => void
+  onClose: () => void | Promise<void>
 }) {
-  const router = useRouter()
+  const refreshSupportQueries = useSupportMutationRefresh()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [category, setCategory] = useState<SupportCaseCategory>(
     initialCase?.category ?? "payment_issue"
   )
   const [subject, setSubject] = useState(initialCase?.subject ?? "")
-  const [description, setDescription] = useState(
-    initialCase?.description ?? ""
-  )
+  const [description, setDescription] = useState(initialCase?.description ?? "")
   const [attachmentUrl, setAttachmentUrl] = useState(
     initialCase?.attachmentUrl ?? ""
   )
@@ -629,9 +791,9 @@ export function MemberSupportCaseCreateContent({
         setDescription("")
         setMoneyImpactRequested(false)
         setSubject("")
-        onClose()
+        await onClose()
         showSuccess("Case opened", "Your support request was recorded.")
-        router.refresh()
+        await refreshSupportQueries()
       } catch (error) {
         showError(
           "Could not open case",
@@ -672,7 +834,11 @@ export function MemberSupportCaseCreateContent({
           disabled={isPending}
           onUploaded={(upload) => setAttachmentUrl(upload.url)}
           purpose="support_attachment"
-          value={attachmentUrl}
+          value={
+            isSafeSupportAttachmentUrl(attachmentUrl)
+              ? attachmentUrl
+              : undefined
+          }
         />
         <Input
           className="mt-2"
@@ -691,7 +857,12 @@ export function MemberSupportCaseCreateContent({
         This may affect my payment or balance
       </label>
       <div className="mt-3 flex justify-end">
-        <Button disabled={isPending} onClick={createCase} type="button">
+        <Button
+          className="h-11 w-full sm:w-auto"
+          disabled={isPending}
+          onClick={createCase}
+          type="button"
+        >
           Open case
         </Button>
       </div>
@@ -703,10 +874,10 @@ export function MemberSupportCaseReplyContent({
   onClose,
   supportCase,
 }: {
-  onClose: () => void
+  onClose: () => void | Promise<void>
   supportCase: SupportCaseRow
 }) {
-  const router = useRouter()
+  const refreshSupportQueries = useSupportMutationRefresh()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [message, setMessage] = useState("")
@@ -721,9 +892,9 @@ export function MemberSupportCaseReplyContent({
           })
         )
         setMessage("")
-        onClose()
+        await onClose()
         showSuccess("Reply sent", "Your message was added to the case.")
-        router.refresh()
+        await refreshSupportQueries(supportCase.id)
       } catch (error) {
         showError(
           "Could not send reply",
@@ -735,18 +906,33 @@ export function MemberSupportCaseReplyContent({
 
   return (
     <>
-      <Field label="Reply">
-        <Textarea
-          disabled={isPending}
-          onChange={(event) => setMessage(event.target.value)}
-          value={message}
-        />
-      </Field>
-      <div className="mt-3 flex justify-end">
-        <Button disabled={isPending} onClick={addMessage} type="button">
-          Add reply
-        </Button>
-      </div>
+      <SupportCaseContext supportCase={supportCase} />
+      {supportCase.status === "closed" ? (
+        <p className="border-y border-border py-4 text-sm text-muted-foreground">
+          This case is closed. The conversation and resolution remain available
+          for review.
+        </p>
+      ) : (
+        <>
+          <Field label="Reply">
+            <Textarea
+              disabled={isPending}
+              onChange={(event) => setMessage(event.target.value)}
+              value={message}
+            />
+          </Field>
+          <div className="mt-3 flex justify-end">
+            <Button
+              className="h-11 w-full sm:w-auto"
+              disabled={isPending}
+              onClick={addMessage}
+              type="button"
+            >
+              Add reply
+            </Button>
+          </div>
+        </>
+      )}
     </>
   )
 }

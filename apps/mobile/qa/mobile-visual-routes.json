@@ -1,0 +1,211 @@
+{
+  "version": 1,
+  "screens": [
+    {
+      "id": "bootstrap",
+      "route": null,
+      "role": "bootstrap",
+      "source": "src/features/bootstrap/screens/bootstrap-screen.tsx"
+    },
+    {
+      "id": "auth-sign-in",
+      "route": "/sign-in",
+      "role": "guest",
+      "source": "src/app/(auth)/sign-in.tsx"
+    },
+    {
+      "id": "auth-recovery",
+      "route": "/recovery",
+      "role": "public",
+      "source": "src/app/(auth)/recovery.tsx"
+    },
+    {
+      "id": "member-home",
+      "route": "/",
+      "role": "member",
+      "source": "src/app/(member)/(tabs)/index.tsx"
+    },
+    {
+      "id": "member-commitments",
+      "route": "/commitments",
+      "role": "member",
+      "source": "src/app/(member)/(tabs)/commitments.tsx"
+    },
+    {
+      "id": "member-financing",
+      "route": "/financing",
+      "role": "member",
+      "source": "src/app/(member)/(tabs)/financing.tsx"
+    },
+    {
+      "id": "member-shares",
+      "route": "/shares",
+      "role": "member",
+      "source": "src/app/(member)/(tabs)/shares.tsx"
+    },
+    {
+      "id": "member-more",
+      "route": "/more",
+      "role": "member",
+      "source": "src/app/(member)/(tabs)/more.tsx"
+    },
+    {
+      "id": "member-food-purchase",
+      "route": "/food-purchase",
+      "role": "member",
+      "source": "src/app/(member)/food-purchase.tsx"
+    },
+    {
+      "id": "member-guarantor-approvals",
+      "route": "/guarantor-approvals",
+      "role": "member",
+      "source": "src/app/(member)/guarantor-approvals.tsx"
+    },
+    {
+      "id": "member-procurement",
+      "route": "/procurement",
+      "role": "member",
+      "source": "src/app/(member)/procurement.tsx"
+    },
+    {
+      "id": "member-project-financing",
+      "route": "/project-financing",
+      "role": "member",
+      "source": "src/app/(member)/project-financing.tsx"
+    },
+    {
+      "id": "member-receipts",
+      "route": "/receipts",
+      "role": "member",
+      "source": "src/app/(member)/receipts.tsx"
+    },
+    {
+      "id": "member-statement",
+      "route": "/statement",
+      "role": "member",
+      "source": "src/app/(member)/statement.tsx"
+    },
+    {
+      "id": "member-support",
+      "route": "/support",
+      "role": "member",
+      "source": "src/app/(member)/support.tsx"
+    },
+    {
+      "id": "admin-overview",
+      "route": "/",
+      "role": "admin",
+      "source": "src/app/(admin)/(tabs)/index.tsx"
+    },
+    {
+      "id": "admin-finance",
+      "route": "/finance",
+      "role": "admin",
+      "source": "src/app/(admin)/(tabs)/finance.tsx"
+    },
+    {
+      "id": "admin-contributions",
+      "route": "/contributions",
+      "role": "admin",
+      "source": "src/app/(admin)/contributions.tsx"
+    },
+    {
+      "id": "admin-charges",
+      "route": "/charges",
+      "role": "admin",
+      "source": "src/app/(admin)/charges.tsx"
+    },
+    {
+      "id": "admin-financing-operations",
+      "route": "/financing-operations",
+      "role": "admin",
+      "source": "src/app/(admin)/financing-operations.tsx"
+    },
+    {
+      "id": "admin-repayment-operations",
+      "route": "/repayment-operations",
+      "role": "admin",
+      "source": "src/app/(admin)/repayment-operations.tsx"
+    },
+    {
+      "id": "admin-procurement-operations",
+      "route": "/procurement-operations",
+      "role": "admin",
+      "source": "src/app/(admin)/procurement-operations.tsx"
+    },
+    {
+      "id": "admin-food-purchase-operations",
+      "route": "/food-purchase-operations",
+      "role": "admin",
+      "source": "src/app/(admin)/food-purchase-operations.tsx"
+    },
+    {
+      "id": "admin-project-financing-operations",
+      "route": "/project-financing-operations",
+      "role": "admin",
+      "source": "src/app/(admin)/project-financing-operations.tsx"
+    },
+    {
+      "id": "admin-share-profit-governance",
+      "route": "/share-profit-governance",
+      "role": "admin",
+      "source": "src/app/(admin)/share-profit-governance.tsx"
+    },
+    {
+      "id": "admin-members",
+      "route": "/members",
+      "role": "admin",
+      "source": "src/app/(admin)/(tabs)/members.tsx"
+    },
+    {
+      "id": "admin-reports",
+      "route": "/reports",
+      "role": "admin",
+      "source": "src/app/(admin)/(tabs)/reports.tsx"
+    },
+    {
+      "id": "admin-more",
+      "route": "/more",
+      "role": "admin",
+      "source": "src/app/(admin)/(tabs)/more.tsx"
+    },
+    {
+      "id": "admin-member-detail",
+      "route": "/members/:memberId",
+      "role": "admin",
+      "source": "src/app/(admin)/members/[memberId].tsx"
+    },
+    {
+      "id": "admin-subscription",
+      "route": "/subscription",
+      "role": "admin",
+      "source": "src/app/(admin)/subscription.tsx"
+    },
+    {
+      "id": "notifications",
+      "route": "/notifications",
+      "role": "authenticated",
+      "source": "src/app/notifications.tsx"
+    },
+    {
+      "id": "updates",
+      "route": "/updates",
+      "role": "authenticated",
+      "source": "src/app/updates.tsx"
+    },
+    {
+      "id": "device-sessions",
+      "route": "/sessions",
+      "role": "authenticated",
+      "source": "src/app/sessions.tsx"
+    },
+    {
+      "id": "not-found",
+      "route": "/__visual-not-found__",
+      "role": "any",
+      "source": "src/app/+not-found.tsx"
+    }
+  ],
+  "requiredThemes": ["light", "dark"],
+  "requiredViewport": "typical-android"
+}

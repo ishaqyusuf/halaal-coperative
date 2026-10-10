@@ -1,30 +1,29 @@
 "use client"
 
-import type {
-  SupportCaseRow,
-  SupportCaseSummary,
-} from "@halaalvest/db"
-import { OpenMemberSupportCaseCreateSheet } from "@/components/open-support-case-sheet"
+import { Suspense } from "react"
+import type { SupportCaseSummary } from "@halaalvest/db"
 import {
   type MemberSupportCaseInitialValues,
   type SupportCaseOption,
 } from "@/components/support-case-content"
 import { SupportCaseSheet } from "@/components/sheets/support-case-sheet"
 import { SupportHeader } from "@/components/support-header"
-import { SupportDataTable } from "@/components/tables/support/data-table"
+import { SupportDataView } from "@/components/tables/support/data-view"
+import { SupportDataErrorBoundary } from "@/components/tables/support/error-boundary"
+import { SupportSkeleton } from "@/components/tables/support/skeleton"
 import type { TableSettings } from "@/utils/table-settings"
 
 export function SupportCasesView({
   assignees,
+  canCreateSupportCases,
   canReviewFinancialAdjustments = false,
-  cases,
   initialSettings,
   memberOptions,
   summary,
 }: {
   assignees: SupportCaseOption[]
+  canCreateSupportCases: boolean
   canReviewFinancialAdjustments?: boolean
-  cases: SupportCaseRow[]
   initialSettings?: Partial<TableSettings>
   memberOptions: SupportCaseOption[]
   summary: SupportCaseSummary
@@ -33,10 +32,10 @@ export function SupportCasesView({
     <div className="space-y-6">
       <SupportCaseSheet
         assignees={assignees}
-        cases={cases}
+        canCreateSupportCases={canCreateSupportCases}
         memberOptions={memberOptions}
       />
-      <section className="grid gap-4 md:grid-cols-5">
+      <section className="hidden divide-x divide-border border-y border-border md:grid md:grid-cols-5">
         <SummaryTile label="Open" value={summary.openCases} />
         <SummaryTile
           label="Feature requests"
@@ -50,39 +49,46 @@ export function SupportCasesView({
         <SummaryTile label="Resolved" value={summary.closedCases} />
       </section>
 
-      <section className="overflow-hidden rounded-md border border-border bg-card">
-        <SupportHeader />
-        <SupportDataTable
-          canReviewFinancialAdjustments={canReviewFinancialAdjustments}
-          cases={cases}
-          initialSettings={initialSettings}
+      <section>
+        <SupportHeader
+          assignees={assignees}
+          canCreateSupportCases={canCreateSupportCases}
+          mode="staff"
         />
+        <SupportDataErrorBoundary>
+          <Suspense
+            fallback={<SupportSkeleton initialSettings={initialSettings} />}
+          >
+            <SupportDataView
+              canReviewFinancialAdjustments={canReviewFinancialAdjustments}
+              initialSettings={initialSettings}
+              mode="staff"
+            />
+          </Suspense>
+        </SupportDataErrorBoundary>
       </section>
     </div>
   )
 }
 
 export function MemberSupportCasesView({
-  cases,
+  canCreateSupportCases,
   initialCase,
   initialSettings,
-  member,
   summary,
 }: {
-  cases: SupportCaseRow[]
+  canCreateSupportCases: boolean
   initialCase?: MemberSupportCaseInitialValues
   initialSettings?: Partial<TableSettings>
-  member: {
-    fullName: string
-    id: string
-    memberNumber: string
-  }
   summary: SupportCaseSummary
 }) {
   return (
     <div className="space-y-6">
-      <SupportCaseSheet cases={cases} initialCase={initialCase} />
-      <section className="grid gap-4 md:grid-cols-5">
+      <SupportCaseSheet
+        canCreateSupportCases={canCreateSupportCases}
+        initialCase={initialCase}
+      />
+      <section className="hidden divide-x divide-border border-y border-border md:grid md:grid-cols-5">
         <SummaryTile label="Open" value={summary.openCases} />
         <SummaryTile
           label="Feature requests"
@@ -93,32 +99,23 @@ export function MemberSupportCasesView({
         <SummaryTile label="Urgent" value={summary.urgentOpenCases} />
       </section>
 
-      <section className="rounded-lg border border-border bg-card p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-foreground">
-              Open support case
-            </p>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              {member.fullName} ({member.memberNumber})
-            </p>
-          </div>
-          <OpenMemberSupportCaseCreateSheet />
-        </div>
-      </section>
-
-      <section className="overflow-hidden rounded-md border border-border bg-card">
+      <section>
         <SupportHeader
-          action={null}
-          description="Track your support cases, staff replies, and resolution status."
-          title="My support cases"
-        />
-        <SupportDataTable
-          canReviewFinancialAdjustments={false}
-          cases={cases}
-          initialSettings={initialSettings}
+          assignees={[]}
+          canCreateSupportCases={canCreateSupportCases}
           mode="member"
         />
+        <SupportDataErrorBoundary>
+          <Suspense
+            fallback={<SupportSkeleton initialSettings={initialSettings} />}
+          >
+            <SupportDataView
+              canReviewFinancialAdjustments={false}
+              initialSettings={initialSettings}
+              mode="member"
+            />
+          </Suspense>
+        </SupportDataErrorBoundary>
       </section>
     </div>
   )
@@ -126,7 +123,7 @@ export function MemberSupportCasesView({
 
 function SummaryTile({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="px-4 py-4">
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
       <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
     </div>

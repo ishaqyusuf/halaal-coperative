@@ -19,6 +19,7 @@
     "typescript": "^5.9.3"
   },
   "exports": {
+    "./shared-env": "./src/shared-env.mjs",
     ".": "./src/index.ts",
     "./runtime-url": "./src/runtime-url.ts"
   }

@@ -7,111 +7,35 @@ import {
   TableCell,
   TableRow,
 } from "@halaalvest/ui/components/table"
-import { useInfiniteQuery } from "@tanstack/react-query"
-import { resolveDateFilter } from "@halaalvest/utils"
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
-import { useDeferredValue, useEffect, useMemo, useRef } from "react"
-import { EmptyState, VirtualRow } from "@/components/tables/core"
-import { useContributionsFilterParams } from "@/hooks/use-contributions-filter-params"
+import { LoaderCircle } from "lucide-react"
+import { useEffect, useRef } from "react"
+import { VirtualRow } from "@/components/tables/core"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
-import { useSortParams } from "@/hooks/use-sort-params"
+import { useScrollHeader } from "@/hooks/use-scroll-header"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
 import { useTableDnd } from "@/hooks/use-table-dnd"
 import { useTableScroll } from "@/hooks/use-table-scroll"
 import { useTableSettings } from "@/hooks/use-table-settings"
 import { useContributionsTableStore } from "@/store/contributions"
-import { useTRPC } from "@/trpc/client"
-import { getEnumValue } from "@/utils/enum"
 import { ROW_HEIGHTS, STICKY_COLUMNS } from "@/utils/table-configs"
 import { getColumnIds, type TableSettings } from "@/utils/table-settings"
 import { columns } from "./columns"
 import { ContributionsEmptyState } from "./empty-states"
-import { ContributionsSkeleton } from "./skeleton"
 import { ContributionsTableHeader } from "./table-header"
+import { useContributionsQuery } from "./use-contributions-query"
 
 const COLUMN_IDS = getColumnIds(columns)
-
-type ContributionSortField =
-  | "amount"
-  | "committedAmount"
-  | "extraSavingsAmount"
-  | "memberName"
-  | "postedAt"
-
-function getSort(
-  sort?: string[] | null
-): [ContributionSortField, "asc" | "desc"] | null {
-  if (!sort || sort.length !== 2) return null
-
-  const field = sort[0]
-  const direction = sort[1]
-  if (!field || !direction) return null
-
-  const validFields = new Set<string>([
-    "amount",
-    "committedAmount",
-    "extraSavingsAmount",
-    "memberName",
-    "postedAt",
-  ])
-
-  if (!validFields.has(field)) return null
-  if (direction !== "asc" && direction !== "desc") return null
-
-  return [field as ContributionSortField, direction]
-}
 
 export function ContributionsDataTable({
   initialSettings,
 }: {
   initialSettings?: Partial<TableSettings>
 }) {
-  const trpc = useTRPC()
-  const { filters } = useContributionsFilterParams()
-  const { params } = useSortParams()
+  const query = useContributionsQuery()
   const parentRef = useRef<HTMLDivElement>(null)
   const { setColumns } = useContributionsTableStore()
-  const deferredSearch = useDeferredValue(filters.search)
-  const queryInput = useMemo(() => {
-    const dateRange = resolveDateFilter(filters.dateRange)
-
-    return {
-      channel: getEnumValue(filters.channel, [
-        "cash",
-        "manual",
-        "payroll",
-        "transfer",
-      ] as const),
-      from: dateRange?.from,
-      memberId: filters.memberId ?? undefined,
-      q: deferredSearch || undefined,
-      sort: getSort(params.sort),
-      to: dateRange?.to,
-    }
-  }, [deferredSearch, filters, params.sort])
-  const infiniteQueryOptions = trpc.contributions.ledger.infiniteQueryOptions(
-    queryInput,
-    {
-      getNextPageParam: ({ meta }) => meta?.cursor,
-      refetchInterval: 5000,
-      refetchOnMount: "always",
-      refetchOnWindowFocus: true,
-    }
-  )
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isError,
-    isFetchingNextPage,
-    isPending,
-  } = useInfiniteQuery(infiniteQueryOptions)
-  const tableData = useMemo(
-    () => data?.pages.flatMap((page) => page.data) ?? [],
-    [data]
-  )
-
   const {
     columnOrder,
     columnSizing,
@@ -128,20 +52,15 @@ export function ContributionsDataTable({
   const table = useReactTable({
     columnResizeMode: "onChange",
     columns,
-    data: tableData,
+    data: query.rows,
     enableColumnResizing: true,
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.id,
     onColumnOrderChange: setColumnOrder,
     onColumnSizingChange: setColumnSizing,
     onColumnVisibilityChange: setColumnVisibility,
-    state: {
-      columnOrder,
-      columnSizing,
-      columnVisibility,
-    },
+    state: { columnOrder, columnSizing, columnVisibility },
   })
-
   const { sensors, handleDragEnd } = useTableDnd(table)
 
   useEffect(() => {
@@ -153,14 +72,12 @@ export function ContributionsDataTable({
     stickyColumns: STICKY_COLUMNS.contributions,
     table,
   })
-
   const tableScroll = useTableScroll({
     startFromColumn: 1,
     useColumnWidths: true,
   })
-
-  const rowHeight = ROW_HEIGHTS.contributions
   const rows = table.getRowModel().rows
+  const rowHeight = ROW_HEIGHTS.contributions
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     estimateSize: () => rowHeight,
@@ -168,102 +85,86 @@ export function ContributionsDataTable({
     overscan: 10,
   })
 
+  useScrollHeader(parentRef, { extraOffset: 24 })
   useInfiniteScroll<HTMLDivElement>({
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
+    fetchNextPage: query.fetchNextPage,
+    hasNextPage: query.hasNextPage,
+    isFetchingNextPage: query.isFetchingNextPage,
     rowCount: rows.length,
     rowVirtualizer,
     scrollRef: parentRef,
     threshold: 50,
   })
 
-  if (isPending) {
-    return <ContributionsSkeleton />
+  if (!query.rows.length) {
+    return <ContributionsEmptyState filtered={query.hasFilters} />
   }
-
-  if (isError) {
-    return (
-      <EmptyState
-        description="Reload the page or adjust the filters before trying again."
-        title="Contribution ledger could not load."
-      />
-    )
-  }
-
-  if (!tableData.length) {
-    return <ContributionsEmptyState />
-  }
-
-  const virtualItems = rowVirtualizer.getVirtualItems()
 
   return (
-    <div className="relative">
-      <div className="w-full">
-        <div
-          className="scrollbar-hide overflow-auto overscroll-contain border-x border-b border-border"
-          ref={(element) => {
-            parentRef.current = element
-            tableScroll.containerRef.current = element
-          }}
-          style={{
-            maxHeight: 420,
-            minHeight: Math.min(360, rows.length * rowHeight + 45),
-          }}
-        >
-          <DndContext
-            collisionDetection={closestCenter}
-            id="contributions-table-dnd"
-            onDragEnd={handleDragEnd}
-            sensors={sensors}
+    <div
+      aria-busy={query.isFetchingNextPage}
+      className="scrollbar-hide overflow-auto overscroll-x-contain overscroll-y-auto"
+      ref={(element) => {
+        parentRef.current = element
+        tableScroll.containerRef.current = element
+      }}
+      style={{ height: "calc(100dvh - 310px + var(--header-offset, 0px))" }}
+    >
+      <DndContext
+        collisionDetection={closestCenter}
+        id="contributions-table-dnd"
+        onDragEnd={handleDragEnd}
+        sensors={sensors}
+      >
+        <Table className="w-full min-w-[920px]">
+          <ContributionsTableHeader table={table} tableScroll={tableScroll} />
+          <TableBody
+            className="block border-x-0"
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              position: "relative",
+            }}
           >
-            <Table className="w-full min-w-full">
-              <ContributionsTableHeader
-                table={table}
-                tableScroll={tableScroll}
-              />
+            {rowVirtualizer.getVirtualItems().length ? (
+              rowVirtualizer
+                .getVirtualItems()
+                .map((virtualRow: VirtualItem) => {
+                  const row = rows[virtualRow.index]
+                  if (!row) return null
 
-              <TableBody
-                className="block border-x-0"
-                style={{
-                  height: `${rowVirtualizer.getTotalSize()}px`,
-                  position: "relative",
-                }}
-              >
-                {virtualItems.length > 0 ? (
-                  virtualItems.map((virtualRow: VirtualItem) => {
-                    const row = rows[virtualRow.index]
-                    if (!row) return null
-
-                    return (
-                      <VirtualRow
-                        columnOrder={columnOrder}
-                        columnSizing={columnSizing}
-                        columnVisibility={columnVisibility}
-                        getStickyClassName={getStickyClassName}
-                        getStickyStyle={getStickyStyle}
-                        key={row.id}
-                        row={row}
-                        rowHeight={rowHeight}
-                        virtualStart={virtualRow.start}
-                      />
-                    )
-                  })
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      className="h-24 text-center"
-                      colSpan={columns.length}
-                    >
-                      No results.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </DndContext>
+                  return (
+                    <VirtualRow
+                      columnOrder={columnOrder}
+                      columnSizing={columnSizing}
+                      columnVisibility={columnVisibility}
+                      getStickyClassName={getStickyClassName}
+                      getStickyStyle={getStickyStyle}
+                      key={row.id}
+                      row={row}
+                      rowHeight={rowHeight}
+                      virtualStart={virtualRow.start}
+                    />
+                  )
+                })
+            ) : (
+              <TableRow>
+                <TableCell
+                  className="h-24 text-center"
+                  colSpan={columns.length}
+                >
+                  No results.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </DndContext>
+      {query.isFetchingNextPage ? (
+        <div className="flex h-12 items-center justify-center text-muted-foreground">
+          <LoaderCircle aria-hidden className="size-4 animate-spin" />
+          <span className="sr-only">Loading more contribution records</span>
         </div>
-      </div>
+      ) : null}
     </div>
   )
 }

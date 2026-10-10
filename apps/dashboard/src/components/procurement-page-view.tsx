@@ -102,7 +102,7 @@ export function ProcurementPageView({
           canCreate={data.canCreate}
           initialSettings={procurementInitialSettings}
           member={data.member}
-          requests={data.requests}
+          summary={data.summary}
         />
       </WorkspacePageShell>
     )
@@ -120,7 +120,6 @@ export function ProcurementPageView({
         canReview={data.canReview}
         memberOptions={data.memberOptions}
         initialSettings={procurementInitialSettings}
-        requests={data.requests}
         submissionChargeOptions={data.submissionChargeOptions}
         summary={data.summary}
       />

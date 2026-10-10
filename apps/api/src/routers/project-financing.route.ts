@@ -3,6 +3,7 @@ import {
   findProjectFinancingRequest,
   getMemberByUserId,
   listProjectFinancingRequestPage,
+  redactProjectFinancingRequestForMember,
 } from "@halaalvest/db"
 import { listProjectFinancingRequestsSchema } from "../schemas/project-financing"
 import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
@@ -31,12 +32,15 @@ export const projectFinancingRouter = createTRPCRouter({
     .input(z.object({ projectFinancingRequestId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const scopedMemberId = await getScopedMemberId(ctx)
-
-      return findProjectFinancingRequest({
+      const request = await findProjectFinancingRequest({
         memberId: scopedMemberId,
         projectFinancingRequestId: input.projectFinancingRequestId,
         tenantId: ctx.tenant.current.id,
       })
+
+      return scopedMemberId && request
+        ? redactProjectFinancingRequestForMember(request)
+        : request
     }),
 
   list: tenantProcedure
@@ -47,20 +51,17 @@ export const projectFinancingRouter = createTRPCRouter({
       const result = await listProjectFinancingRequestPage({
         cursor: input?.cursor ?? undefined,
         memberId: scopedMemberId ?? input?.memberId,
-        pageSize: pageSize + 1,
+        pageSize,
         search: input?.q || undefined,
         sort: input?.sort ?? null,
         status: input?.status,
         tenantId: ctx.tenant.current.id,
       })
-      const data = result.data.slice(0, pageSize)
-
       return {
-        data,
-        meta: {
-          cursor: result.data.length > pageSize ? data.at(-1)?.id : undefined,
-          total: result.meta.total,
-        },
+        ...result,
+        data: scopedMemberId
+          ? result.data.map(redactProjectFinancingRequestForMember)
+          : result.data,
       }
     }),
 })

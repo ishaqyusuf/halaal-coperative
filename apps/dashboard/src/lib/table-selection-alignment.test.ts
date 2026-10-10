@@ -3,8 +3,11 @@ import { readFileSync } from "node:fs"
 
 const selectableTables: [string][] = [
   ["business"],
-  ["food-purchase"],
   ["members"],
+]
+
+const individualActionTables: [string][] = [
+  ["food-purchase"],
   ["payment-receipts"],
   ["procurement"],
   ["project-financing"],
@@ -18,6 +21,17 @@ const virtualRowSource = readFileSync(
 )
 
 describe("shared table selection alignment", () => {
+  test.each(individualActionTables)(
+    "%s exposes individual actions without unused bulk selection",
+    (table) => {
+      const source = readFileSync(
+        new URL(`../components/tables/${table}/columns.tsx`, import.meta.url),
+        "utf8"
+      )
+      expect(source).not.toContain('id: "select"')
+      expect(source).toContain('id: "actions"')
+    }
+  )
   test("centers select cells and their checkbox wrappers", () => {
     expect(virtualRowSource).toContain('const isSelect = columnId === "select"')
     expect(virtualRowSource).toContain('isSelect && "justify-center px-0"')

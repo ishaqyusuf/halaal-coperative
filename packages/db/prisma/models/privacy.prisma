@@ -1,0 +1,57 @@
+enum AccountPrivacyRequestStatus {
+  submitted
+  verified
+  awaiting_information
+  processing
+  completed
+  rejected
+  cancelled
+}
+
+model AccountPrivacyRequest {
+  id                   String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String?                     @map("tenant_id") @db.Uuid
+  userId               String?                     @map("user_id") @db.Uuid
+  supportCaseId        String?                     @unique @map("support_case_id") @db.Uuid
+  idempotencyKey       String                      @map("idempotency_key") @db.Uuid
+  status               AccountPrivacyRequestStatus @default(submitted)
+  noticeVersion        String                      @map("notice_version") @db.VarChar(80)
+  requestedAt          DateTime                    @default(now()) @map("requested_at") @db.Timestamptz(6)
+  verifiedAt           DateTime?                   @map("verified_at") @db.Timestamptz(6)
+  verifiedByUserId     String?                     @map("verified_by_user_id") @db.Uuid
+  verificationEvidence String?                     @map("verification_evidence")
+  accessRevokedAt      DateTime?                   @map("access_revoked_at") @db.Timestamptz(6)
+  processingEvidence   Json?                       @map("processing_evidence")
+  completionSummary    String?                     @map("completion_summary")
+  completedAt          DateTime?                   @map("completed_at") @db.Timestamptz(6)
+  updatedAt            DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant      Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  user        User?        @relation("AccountPrivacyRequester", fields: [userId], references: [id], onDelete: SetNull)
+  supportCase SupportCase? @relation(fields: [supportCaseId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, idempotencyKey], map: "account_privacy_requests_user_idempotency_key")
+  @@index([userId, requestedAt], map: "account_privacy_requests_user_requested_idx")
+  @@index([status, requestedAt], map: "account_privacy_requests_status_requested_idx")
+  @@map("account_privacy_requests")
+}
+
+model LegalAcceptance {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String?  @map("tenant_id") @db.Uuid
+  userId          String?  @map("user_id") @db.Uuid
+  documentType    String   @map("document_type") @db.VarChar(40)
+  documentVersion String   @map("document_version") @db.VarChar(80)
+  contentHash     String   @map("content_hash") @db.VarChar(64)
+  contentSnapshot Json     @map("content_snapshot")
+  action          String   @db.VarChar(40)
+  surface         String   @db.VarChar(40)
+  acceptedAt      DateTime @default(now()) @map("accepted_at") @db.Timestamptz(6)
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  user   User?   @relation("LegalAcceptanceUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, documentType, documentVersion, contentHash], map: "legal_acceptances_user_document_key")
+  @@index([tenantId, acceptedAt], map: "legal_acceptances_tenant_accepted_idx")
+  @@map("legal_acceptances")
+}

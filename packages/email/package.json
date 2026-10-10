@@ -5,29 +5,34 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./emails/notification": "./src/emails/notification.ts",
+    "./emails/notification": "./src/emails/notification.tsx",
     "./render": "./src/render.ts"
   },
   "scripts": {
-    "dev": "portless email email dev --dir src/emails",
+    "dev": "portless halaalvest-email sh -c 'email dev --dir src/emails -p \"$PORT\"'",
     "--build": "email build --dir src/emails",
     "start": "email start --dir src/emails",
     "lint": "eslint .",
-    "format": "prettier --write \"src/**/*.ts\"",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@react-email/ui": "6.9.5",
+    "@types/bun": "^1.2.17",
     "@types/node": "^25.1.0",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
     "@halaalvest/eslint-config": "workspace:*",
     "@halaalvest/tsconfig": "workspace:*",
     "eslint": "^9.39.2",
+    "react-email": "6.9.5",
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@react-email/components": "0.0.31",
-    "@react-email/render": "1.1.2",
-    "@react-email/tailwind": "1.0.4",
-    "react-email": "3.0.4",
-    "responsive-react-email": "^0.0.5"
+    "@react-email/components": "1.0.1",
+    "@react-email/render": "2.0.0",
+    "@react-email/tailwind": "2.0.1",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
   }
 }

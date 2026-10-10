@@ -2,6 +2,7 @@ import { useQueryStates } from "nuqs"
 import { createLoader, parseAsString, parseAsStringEnum } from "nuqs/server"
 
 export const contributionParamsSchema = {
+  batchId: parseAsString,
   contributionSheetType: parseAsStringEnum([
     "plan",
     "payment",

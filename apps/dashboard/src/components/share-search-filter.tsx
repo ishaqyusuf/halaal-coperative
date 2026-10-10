@@ -11,9 +11,10 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@halaalvest/ui/components/dropdown-menu"
-import { Input } from "@halaalvest/ui/components/input"
 import type { ChangeEvent, FormEvent } from "react"
 import { useRef, useState } from "react"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { MobileSearchFilter } from "@/components/search-filter/mobile-search-filter"
 import { FinanceFilterList } from "@/components/finance-filter-list"
 import { SearchFilterDropdownInput } from "@/components/search-filter-dropdown-input"
 import { useShareFilterParams } from "@/hooks/use-share-filter-params"
@@ -29,6 +30,7 @@ const statusFilters = [
 ]
 
 export function ShareSearchFilter() {
+  const isMobile = useIsMobile()
   const inputRef = useRef<HTMLInputElement>(null)
   const { filter, setFilter } = useShareFilterParams()
   const [input, setInput] = useState(filter.q ?? "")
@@ -58,7 +60,7 @@ export function ShareSearchFilter() {
   )
 
   return (
-    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+    <DropdownMenu open={!isMobile && isOpen} onOpenChange={setIsOpen}>
       <div className="flex w-full flex-col items-start space-y-4 sm:w-auto sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4">
         <form className="relative w-full sm:w-auto" onSubmit={handleSubmit}>
           <SearchFilterDropdownInput
@@ -68,6 +70,7 @@ export function ShareSearchFilter() {
             autoCorrect="off"
             filterActive={hasValidFilters}
             filterOpen={isOpen}
+            onFilterClick={isMobile ? () => setIsOpen(true) : undefined}
             onChange={handleSearch}
             placeholder="Search share rules..."
             spellCheck="false"
@@ -84,6 +87,34 @@ export function ShareSearchFilter() {
           }}
         />
       </div>
+
+      {isMobile && isOpen ? (
+        <MobileSearchFilter
+          filterList={[
+            {
+              value: "valueType",
+              label: "Rule",
+              type: "checkbox",
+              options: valueTypeFilters.map((item) => ({
+                value: item.id,
+                label: item.name,
+              })),
+            },
+            {
+              value: "status",
+              label: "Status",
+              type: "checkbox",
+              options: statusFilters.map((item) => ({
+                value: item.id,
+                label: item.name,
+              })),
+            },
+          ]}
+          filters={filter}
+          onClose={() => setIsOpen(false)}
+          setFilters={setFilter}
+        />
+      ) : null}
 
       <DropdownMenuContent
         align="end"

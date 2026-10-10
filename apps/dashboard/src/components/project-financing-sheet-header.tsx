@@ -7,6 +7,7 @@ import {
 
 type ProjectFinancingSheetType =
   | "create"
+  | "details"
   | "disbursement"
   | "review"
   | "self-service"
@@ -18,6 +19,14 @@ function getHeaderCopy({
   request?: ProjectFinancingRequestRow
   type: ProjectFinancingSheetType
 }) {
+  if (type === "details") {
+    return {
+      description:
+        "Review the request, approval, funding, and payment evidence for this project.",
+      title: request?.businessName ?? "Project financing details",
+    }
+  }
+
   if (type === "review") {
     return {
       description: request

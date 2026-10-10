@@ -3,6 +3,7 @@ import type { Prisma, PrismaClient } from "../../generated/prisma/client"
 import {
   buildTenantSiteHostname,
   isReservedTenantSubdomainLabel,
+  normalizeCooperativeCodePrefix,
   normalizeSubdomainLabel,
   platformAppHostname,
 } from "@halaalvest/utils"
@@ -17,6 +18,7 @@ export type TenantRecord = {
   id: string
   slug: string
   name: string
+  cooperativeCodePrefix?: string | null
   memberNumberPrefix?: string | null
   currentSize?: number | null
   officeAddress?: string | null
@@ -59,6 +61,10 @@ export type TenantResolution = {
 }
 
 export type TenantSignupAvailability = {
+  cooperativeCodePrefix: {
+    available: boolean
+    normalized: string
+  }
   cooperativeName: {
     available: boolean
     normalized: string
@@ -88,6 +94,7 @@ const seedTenants: TenantRecord[] = [
     id: "tenant-amanah-demo",
     slug: "amanah",
     name: "Amanah Staff Thrift Cooperative",
+    cooperativeCodePrefix: "AMN",
     memberNumberPrefix: "MEM-",
     currentSize: 428,
     officeAddress: "12 Marina Road, Lagos Island, Lagos",
@@ -108,6 +115,7 @@ const seedTenants: TenantRecord[] = [
     id: "tenant-barakah-demo",
     slug: "barakah",
     name: "Barakah Multipurpose Cooperative",
+    cooperativeCodePrefix: "BRK",
     memberNumberPrefix: "MEM-",
     currentSize: 212,
     officeAddress: "44 Shehu Shagari Way, Abuja",
@@ -247,6 +255,7 @@ function mapPrismaTenantRecord(input: {
   id: string
   slug: string
   name: string
+  cooperativeCodePrefix: string | null
   memberNumberPrefix: string | null
   currentSize: number | null
   officeAddress: string | null
@@ -266,6 +275,7 @@ function mapPrismaTenantRecord(input: {
     id: input.id,
     slug: input.slug,
     name: input.name,
+    cooperativeCodePrefix: input.cooperativeCodePrefix,
     memberNumberPrefix: input.memberNumberPrefix,
     currentSize: input.currentSize,
     officeAddress: input.officeAddress,
@@ -453,10 +463,14 @@ export async function listTenants() {
 }
 
 export async function checkTenantSignupAvailability(input: {
+  cooperativeCodePrefix?: string | null
   cooperativeName?: string | null
   workspaceSlug?: string | null
 }): Promise<TenantSignupAvailability> {
   const normalizedName = input.cooperativeName?.trim() ?? ""
+  const normalizedCodePrefix = normalizeCooperativeCodePrefix(
+    input.cooperativeCodePrefix
+  )
   const normalizedSlug = normalizeSubdomainLabel(input.workspaceSlug ?? "")
   const hostname = normalizedSlug ? buildTenantSiteHostname(normalizedSlug) : ""
   const isReservedSlug = isReservedTenantSubdomainLabel(normalizedSlug)
@@ -469,6 +483,11 @@ export async function checkTenantSignupAvailability(input: {
           (tenant) => tenant.name.trim().toLowerCase() === nameLower
         )
       : false
+    const existingTenantByCodePrefix = normalizedCodePrefix
+      ? listSeedTenants().some(
+          (tenant) => tenant.cooperativeCodePrefix === normalizedCodePrefix
+        )
+      : false
     const existingTenantBySlug = normalizedSlug
       ? listSeedTenants().some((tenant) => tenant.slug === normalizedSlug)
       : false
@@ -477,6 +496,12 @@ export async function checkTenantSignupAvailability(input: {
       : false
 
     return {
+      cooperativeCodePrefix: {
+        available:
+          /^[A-Z]{3,5}$/.test(normalizedCodePrefix) &&
+          !existingTenantByCodePrefix,
+        normalized: normalizedCodePrefix,
+      },
       cooperativeName: {
         available: Boolean(normalizedName) && !existingTenantByName,
         normalized: normalizedName,
@@ -493,44 +518,60 @@ export async function checkTenantSignupAvailability(input: {
     }
   }
 
-  const [existingTenantByName, existingTenantBySlug, existingDomain] =
-    await Promise.all([
-      normalizedName
-        ? prisma.tenant.findFirst({
-            where: {
-              name: {
-                equals: normalizedName,
-                mode: "insensitive",
-              },
+  const [
+    existingTenantByCodePrefix,
+    existingTenantByName,
+    existingTenantBySlug,
+    existingDomain,
+  ] = await Promise.all([
+    normalizedCodePrefix
+      ? prisma.tenant.findUnique({
+          where: { cooperativeCodePrefix: normalizedCodePrefix },
+          select: { id: true },
+        })
+      : null,
+    normalizedName
+      ? prisma.tenant.findFirst({
+          where: {
+            name: {
+              equals: normalizedName,
+              mode: "insensitive",
             },
-            select: {
-              id: true,
-            },
-          })
-        : null,
-      normalizedSlug
-        ? prisma.tenant.findUnique({
-            where: {
-              slug: normalizedSlug,
-            },
-            select: {
-              id: true,
-            },
-          })
-        : null,
-      hostname
-        ? prisma.tenantDomain.findUnique({
-            where: {
-              hostname,
-            },
-            select: {
-              id: true,
-            },
-          })
-        : null,
-    ])
+          },
+          select: {
+            id: true,
+          },
+        })
+      : null,
+    normalizedSlug
+      ? prisma.tenant.findUnique({
+          where: {
+            slug: normalizedSlug,
+          },
+          select: {
+            id: true,
+          },
+        })
+      : null,
+    hostname
+      ? prisma.tenantDomain.findUnique({
+          where: {
+            hostname,
+          },
+          select: {
+            id: true,
+          },
+        })
+      : null,
+  ])
 
   return {
+    cooperativeCodePrefix: {
+      available:
+        /^[A-Z]{3,5}$/.test(normalizedCodePrefix) &&
+        !existingTenantByCodePrefix,
+      normalized: normalizedCodePrefix,
+    },
     cooperativeName: {
       available: Boolean(normalizedName) && !existingTenantByName,
       normalized: normalizedName,
@@ -590,6 +631,33 @@ export async function findTenantBySlugAsync(slug: string | null | undefined) {
         select: {
           id: true,
         },
+      },
+    },
+  })
+
+  return tenant ? mapPrismaTenantRecord(tenant) : null
+}
+
+export async function findTenantByCooperativeCodePrefixAsync(
+  cooperativeCodePrefix: string | null | undefined
+) {
+  const normalizedPrefix = normalizeCooperativeCodePrefix(cooperativeCodePrefix)
+  if (!normalizedPrefix) return null
+
+  const prisma = createPrismaClient()
+  if (!prisma) {
+    return (
+      listSeedTenants().find(
+        (tenant) => tenant.cooperativeCodePrefix === normalizedPrefix
+      ) ?? null
+    )
+  }
+
+  const tenant = await prisma.tenant.findUnique({
+    where: { cooperativeCodePrefix: normalizedPrefix },
+    include: {
+      members: {
+        select: { id: true },
       },
     },
   })

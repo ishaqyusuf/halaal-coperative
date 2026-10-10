@@ -1,125 +1,99 @@
-import { listLoanRequests, listLoans } from "@halaalvest/db"
-import { z } from "zod"
+import {
+  getLoanDetail,
+  getLoanRequestDetail,
+  getMemberByUserId,
+  listLoanRequestsPage,
+  listLoansPage,
+} from "@halaalvest/db"
+import {
+  getLoanRequestSchema,
+  getLoanSchema,
+  listLoanPortfolioSchema,
+  listLoanRequestsSchema,
+} from "../schemas/loans"
 import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
 
-const loanRequestSortFieldSchema = z.enum([
-  "memberName",
-  "requestedAt",
-  "reviewStatus",
-  "status",
-])
-
-const loanPortfolioSortFieldSchema = z.enum([
-  "estimatedMonthlyServicing",
-  "loanProductName",
-  "memberName",
-  "status",
-])
-
-const listLoanRequestsSchema = z
-  .object({
-    cursor: z.string().nullable().optional(),
-    memberId: z.string().uuid().optional(),
-    pageSize: z.coerce.number().int().min(1).max(100).optional(),
-    sort: z
-      .tuple([loanRequestSortFieldSchema, z.enum(["asc", "desc"])])
-      .nullable()
-      .optional(),
-  })
-  .optional()
-
-const listLoanPortfolioSchema = z
-  .object({
-    cursor: z.string().nullable().optional(),
-    memberId: z.string().uuid().optional(),
-    pageSize: z.coerce.number().int().min(1).max(100).optional(),
-    sort: z
-      .tuple([loanPortfolioSortFieldSchema, z.enum(["asc", "desc"])])
-      .nullable()
-      .optional(),
-  })
-  .optional()
-
-function sortRows<TRow>(
-  rows: TRow[],
-  sort: [string, "asc" | "desc"] | null | undefined,
-  getValue: (row: TRow, field: string) => string | number
-) {
-  if (!sort) return rows
-
-  const [field, direction] = sort
-  const factor = direction === "asc" ? 1 : -1
-
-  return [...rows].sort((left, right) => {
-    const leftValue = getValue(left, field)
-    const rightValue = getValue(right, field)
-
-    if (typeof leftValue === "number" && typeof rightValue === "number") {
-      return (leftValue - rightValue) * factor
-    }
-
-    return String(leftValue).localeCompare(String(rightValue)) * factor
-  })
+type LoanRouterContext = {
+  auth: {
+    activeMembership: { role: string }
+    session: { user: { id: string } }
+  }
+  tenant: { current: { id: string } }
 }
 
-function paginateRows<TRow extends { id: string }>(
-  rows: TRow[],
-  input?: { cursor?: string | null; pageSize?: number }
-) {
-  const pageSize = input?.pageSize ?? 50
-  const startIndex = input?.cursor
-    ? rows.findIndex((row) => row.id === input.cursor) + 1
-    : 0
-  const data = rows.slice(startIndex, startIndex + pageSize)
-  const next = rows[startIndex + pageSize]
-
-  return {
-    data,
-    meta: {
-      cursor: next?.id,
-      total: rows.length,
-    },
+async function getScopedMemberId(ctx: LoanRouterContext) {
+  if (ctx.auth.activeMembership.role !== "member") {
+    return undefined
   }
+
+  const member = await getMemberByUserId({
+    tenantId: ctx.tenant.current.id,
+    userId: ctx.auth.session.user.id,
+  })
+
+  return member?.id ?? "__missing_member_profile__"
 }
 
 export const loansRouter = createTRPCRouter({
+  loan: tenantProcedure.input(getLoanSchema).query(async ({ ctx, input }) => {
+    const scopedMemberId = await getScopedMemberId(ctx)
+    const loan = await getLoanDetail({
+      id: input.loanId,
+      memberId: scopedMemberId,
+      tenantId: ctx.tenant.current.id,
+    })
+
+    return loan
+  }),
+
   portfolio: tenantProcedure
     .input(listLoanPortfolioSchema)
     .query(async ({ ctx, input }) => {
-      const rows = (await listLoans(ctx.tenant.current.id)).filter((row) =>
-        input?.memberId ? row.member.id === input.memberId : true
-      )
-      const sortedRows = sortRows(rows, input?.sort ?? null, (row, field) => {
-        if (field === "estimatedMonthlyServicing") {
-          return Number(row.estimatedMonthlyServicing)
-        }
-        if (field === "loanProductName") return row.loanProduct.name
-        if (field === "memberName") return row.member.fullName
-        return row.status
+      const scopedMemberId = await getScopedMemberId(ctx)
+      const result = await listLoansPage(ctx.tenant.current.id, {
+        cursor: input?.cursor,
+        memberId: scopedMemberId ?? input?.memberId,
+        pageSize: input?.pageSize,
+        q: input?.q || undefined,
+        sort: input?.sort,
+        status: input?.status || undefined,
       })
 
-      return paginateRows(sortedRows, input)
+      return {
+        data: result.data,
+        meta: result.meta,
+      }
+    }),
+
+  request: tenantProcedure
+    .input(getLoanRequestSchema)
+    .query(async ({ ctx, input }) => {
+      const scopedMemberId = await getScopedMemberId(ctx)
+      const request = await getLoanRequestDetail({
+        id: input.loanRequestId,
+        memberId: scopedMemberId,
+        tenantId: ctx.tenant.current.id,
+      })
+
+      return request
     }),
 
   requests: tenantProcedure
     .input(listLoanRequestsSchema)
     .query(async ({ ctx, input }) => {
-      const rows = (await listLoanRequests(ctx.tenant.current.id)).filter((row) =>
-        input?.memberId ? row.member.id === input.memberId : true
-      )
-      const sortedRows = sortRows(rows, input?.sort ?? null, (row, field) => {
-        if (field === "memberName") return row.member.fullName
-        if (field === "requestedAt") return row.requestedAt.getTime()
-        if (field === "reviewStatus") {
-          return row.guarantorApprovals.some(
-            (approval) => approval.status === "pending"
-          )
-            ? "pending"
-            : "complete"
-        }
-        return row.status
+      const scopedMemberId = await getScopedMemberId(ctx)
+      const result = await listLoanRequestsPage(ctx.tenant.current.id, {
+        cursor: input?.cursor,
+        memberId: scopedMemberId ?? input?.memberId,
+        pageSize: input?.pageSize,
+        q: input?.q || undefined,
+        sort: input?.sort,
+        status: input?.status || undefined,
       })
 
-      return paginateRows(sortedRows, input)
+      return {
+        data: result.data,
+        meta: result.meta,
+      }
     }),
 })

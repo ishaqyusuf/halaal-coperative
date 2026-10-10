@@ -3,6 +3,7 @@ model ProjectFinancingRequest {
   tenantId                String                        @map("tenant_id") @db.Uuid
   memberId                String                        @map("member_id") @db.Uuid
   createdByUserId         String                        @map("created_by_user_id") @db.Uuid
+  submissionKey           String?                       @map("submission_key")
   reviewedByUserId        String?                       @map("reviewed_by_user_id") @db.Uuid
   disbursedByUserId       String?                       @map("disbursed_by_user_id") @db.Uuid
   businessName            String                        @map("business_name")
@@ -36,6 +37,7 @@ model ProjectFinancingRequest {
   charges                   ChargeApplication[]
   paymentReceiptAllocations MemberPaymentReceiptAllocation[]
 
+  @@unique([tenantId, submissionKey], map: "project_financing_requests_tenant_submission_key")
   @@index([tenantId, status, requestedAt], map: "project_financing_requests_tenant_status_requested_idx")
   @@index([tenantId, memberId, status], map: "project_financing_requests_tenant_member_status_idx")
   @@map("project_financing_requests")

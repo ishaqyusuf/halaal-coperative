@@ -356,6 +356,42 @@ function stringifyMetadataValue(value: unknown) {
   return JSON.stringify(value)
 }
 
+const safeChangeKeys = new Set([
+  "amount",
+  "approvedAmount",
+  "approvedUnits",
+  "caseStage",
+  "collectionMode",
+  "outstandingPrincipal",
+  "priority",
+  "requestedAmount",
+  "requestedUnits",
+  "resolutionStatus",
+  "stage",
+  "status",
+  "structureType",
+  "totalAmount",
+  "units",
+])
+
+const sensitiveMetadataKeyPattern =
+  /(account|address|bank|cookie|credential|document|email|password|phone|proof|recipient|secret|session|token|url)/i
+
+function redactFreeText(value: string) {
+  return value
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted email]")
+    .replace(/https?:\/\/\S+/gi, "[redacted link]")
+    .replace(/\+?\d[\d\s()-]{7,}\d/g, "[redacted phone]")
+    .slice(0, 180)
+}
+
+function safeMetadataValue(key: string, value: unknown) {
+  if (sensitiveMetadataKeyPattern.test(key)) return "[redacted]"
+
+  const formatted = stringifyMetadataValue(value)
+  return typeof value === "string" ? redactFreeText(formatted) : formatted
+}
+
 function getMetadataSummary(metadata: unknown) {
   const record = getMetadataRecord(metadata)
   if (!record) return []
@@ -378,14 +414,15 @@ function getMetadataSummary(metadata: unknown) {
       if (key === "status" && previousStatus && nextStatus) {
         continue
       }
+      if (!safeChangeKeys.has(key)) continue
       const before = previous[key]
       const after = next[key]
       if (JSON.stringify(before) !== JSON.stringify(after)) {
         summary.push(
-          `${key}: ${stringifyMetadataValue(before)} -> ${stringifyMetadataValue(after)}`,
+          `${getActionLabel(key)}: ${safeMetadataValue(key, before)} -> ${safeMetadataValue(key, after)}`,
         )
       }
-      if (summary.length >= 6) break
+      if (summary.length >= 3) break
     }
   }
 
@@ -394,19 +431,15 @@ function getMetadataSummary(metadata: unknown) {
     "resolutionSummary",
     "reviewNotes",
     "notes",
-    "memberId",
-    "loanId",
-    "receiptId",
-    "supportCaseId",
   ]) {
     const value = getMetadataStringValue(record, key)
     if (value && !summary.some((item) => item.includes(value))) {
-      summary.push(`${getActionLabel(key)}: ${value}`)
+      summary.push(`${getActionLabel(key)}: ${safeMetadataValue(key, value)}`)
     }
-    if (summary.length >= 6) break
+    if (summary.length >= 3) break
   }
 
-  return summary
+  return summary.slice(0, 3)
 }
 
 function normalizeActivityReportEvent(

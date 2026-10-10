@@ -1,0 +1,4 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "HALAALVEST_DATABASE_URL=postgresql://preview-build.invalid:5432/halaalvest bun run --cwd ../../packages/db db:generate && bun run build"
+}

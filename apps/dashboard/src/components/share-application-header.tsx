@@ -7,23 +7,33 @@ import { ShareApplicationSearchFilter } from "@/components/share-application-sea
 export function ShareApplicationHeader({
   action,
   description,
-  title = "Share applications",
+  title,
 }: {
   action?: ReactNode
-  description: string
+  description?: string
   title?: string
 }) {
   return (
-    <div className="flex flex-col gap-3 border-b border-border bg-background px-4 py-3 md:flex-row md:items-center md:justify-between">
-      <div>
-        <p className="text-sm font-medium text-foreground">{title}</p>
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-      </div>
-      <div className="flex items-center gap-2">
+    <>
+      <div className="hidden items-center justify-between border-b border-border bg-background px-4 py-3 md:flex">
         <ShareApplicationSearchFilter />
-        <ShareApplicationColumnVisibility />
-        {action}
+        <div className="flex items-center gap-2">
+          <ShareApplicationColumnVisibility />
+          {action}
+        </div>
       </div>
-    </div>
+      {title || description ? (
+        <div className="border-b border-border bg-background px-4 py-3">
+          {title ? (
+            <p className="text-sm font-medium text-foreground">{title}</p>
+          ) : null}
+          {description ? (
+            <p className={title ? "mt-1 text-sm text-muted-foreground" : "text-sm text-muted-foreground"}>
+              {description}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </>
   )
 }

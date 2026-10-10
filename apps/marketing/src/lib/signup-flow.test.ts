@@ -9,10 +9,10 @@ import {
 const validOnboardingInput = {
   city: "Lagos Island",
   confirmPassword: "password123",
+  cooperativeCodePrefix: "AMN",
   country: "Nigeria",
   cooperativeName: "Amanah Staff Cooperative",
   currentSize: "25",
-  memberNumberPrefix: "MEM-",
   officeAddress: "12 Marina Road, Lagos Island, Lagos",
   password: "password123",
   primaryContactEmail: "admin@example.test",

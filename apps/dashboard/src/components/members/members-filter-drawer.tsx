@@ -1,12 +1,18 @@
 "use client"
 
+import { formatDateFilterValue } from "@/components/search-filter/search-filter-utils"
+
+import {
+  MobileFilterGroup,
+  filterOptionSummary,
+} from "@/components/search-filter/mobile-filter-group"
+
 import type { TenantMigrationSetupMode } from "@halaalvest/db"
 import {
   RadioGroup,
   RadioGroupItem,
 } from "@halaalvest/ui/components/radio-group"
-import { Separator } from "@halaalvest/ui/components/separator"
-import { useState, type ReactNode } from "react"
+import { useState } from "react"
 import { MobileFilterDrawer } from "@/components/search-filter/mobile-filter-drawer"
 import { DateRangeFilter } from "@/components/search-filter/date-range-filter"
 import {
@@ -24,21 +30,6 @@ import {
 
 type MembersControlDraft = MembersFilterParams & {
   sort: string[] | null
-}
-
-function FilterSection({
-  children,
-  title,
-}: {
-  children: ReactNode
-  title: string
-}) {
-  return (
-    <section className="space-y-3">
-      <h3 className="text-xs font-medium text-foreground">{title}</h3>
-      {children}
-    </section>
-  )
 }
 
 function FilterRadioGroup({
@@ -100,15 +91,12 @@ export function MembersFilterDrawer({
   const migrationStatusFilters = getMigrationStatusFilters(migrationLabel)
   const sortValue = draft.sort?.join(",") ?? "joinedAt,desc"
 
-  function applyFilters() {
-    void setParams(draft)
-    onOpenChange(false)
+  async function applyFilters() {
+    await setParams({ ...draft, q: params.q })
   }
 
   function clearFilters() {
-    setDraft(clearedMembersControlsParams)
-    void setParams(clearedMembersControlsParams)
-    onOpenChange(false)
+    setDraft({ ...clearedMembersControlsParams, q: params.q })
   }
 
   return (
@@ -120,8 +108,11 @@ export function MembersFilterDrawer({
       open={open}
       title="Filter members"
     >
-      <div className="space-y-6">
-        <FilterSection title="Member status">
+      <div className="space-y-0">
+        <MobileFilterGroup
+          title="Member status"
+          summary={filterOptionSummary(draft.status, memberStatusFilters)}
+        >
           <FilterRadioGroup
             idPrefix="status"
             onValueChange={(status) =>
@@ -130,11 +121,12 @@ export function MembersFilterDrawer({
             options={memberStatusFilters}
             value={draft.status}
           />
-        </FilterSection>
+        </MobileFilterGroup>
 
-        <Separator />
-
-        <FilterSection title="Member type">
+        <MobileFilterGroup
+          title="Member type"
+          summary={filterOptionSummary(draft.memberType, memberTypeFilters)}
+        >
           <FilterRadioGroup
             idPrefix="type"
             onValueChange={(memberType) =>
@@ -143,11 +135,12 @@ export function MembersFilterDrawer({
             options={memberTypeFilters}
             value={draft.memberType}
           />
-        </FilterSection>
+        </MobileFilterGroup>
 
-        <Separator />
-
-        <FilterSection title="KYC status">
+        <MobileFilterGroup
+          title="KYC status"
+          summary={filterOptionSummary(draft.kycStatus, kycStatusFilters)}
+        >
           <FilterRadioGroup
             idPrefix="kyc"
             onValueChange={(kycStatus) =>
@@ -156,11 +149,15 @@ export function MembersFilterDrawer({
             options={kycStatusFilters}
             value={draft.kycStatus}
           />
-        </FilterSection>
+        </MobileFilterGroup>
 
-        <Separator />
-
-        <FilterSection title={`${migrationLabel} setup`}>
+        <MobileFilterGroup
+          title={`${migrationLabel} setup`}
+          summary={filterOptionSummary(
+            draft.migrationStatus,
+            migrationStatusFilters
+          )}
+        >
           <FilterRadioGroup
             idPrefix="migration"
             onValueChange={(migrationStatus) =>
@@ -169,24 +166,27 @@ export function MembersFilterDrawer({
             options={migrationStatusFilters}
             value={draft.migrationStatus}
           />
-        </FilterSection>
+        </MobileFilterGroup>
 
-        <Separator />
-
-        <FilterSection title="Joined date">
+        <MobileFilterGroup
+          title="Joined date"
+          summary={formatDateFilterValue(draft.dateRange)}
+        >
           <div className="border border-border">
             <DateRangeFilter
+              mobile
               onChange={(dateRange) =>
                 setDraft((current) => ({ ...current, dateRange }))
               }
               value={draft.dateRange}
             />
           </div>
-        </FilterSection>
+        </MobileFilterGroup>
 
-        <Separator />
-
-        <FilterSection title="Sort by">
+        <MobileFilterGroup
+          title="Sort by"
+          summary={filterOptionSummary(sortValue, memberSortOptions)}
+        >
           <RadioGroup
             onValueChange={(nextSort) =>
               setDraft((current) => ({
@@ -210,7 +210,7 @@ export function MembersFilterDrawer({
               </label>
             ))}
           </RadioGroup>
-        </FilterSection>
+        </MobileFilterGroup>
       </div>
     </MobileFilterDrawer>
   )

@@ -1,157 +1,57 @@
 "use client"
 
 import { closestCenter, DndContext } from "@dnd-kit/core"
-import { Button } from "@halaalvest/ui/components/button"
 import {
   Table,
   TableBody,
   TableCell,
   TableRow,
 } from "@halaalvest/ui/components/table"
-import { useInfiniteQuery } from "@tanstack/react-query"
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
-import { AnimatePresence } from "framer-motion"
-import {
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useRef,
-} from "react"
-import { BottomBar, EmptyState, VirtualRow } from "@/components/tables/core"
-import { useFoodPurchaseFilterParams } from "@/hooks/use-food-purchase-filter-params"
+import { useCallback, useEffect, useMemo, useRef } from "react"
+import { VirtualRow } from "@/components/tables/core"
 import { useFoodPurchaseParams } from "@/hooks/use-food-purchase-params"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useScrollHeader } from "@/hooks/use-scroll-header"
-import { useSortParams } from "@/hooks/use-sort-params"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
 import { useTableDnd } from "@/hooks/use-table-dnd"
 import { useTableScroll } from "@/hooks/use-table-scroll"
 import { useTableSettings } from "@/hooks/use-table-settings"
 import { useFoodPurchaseStore } from "@/store/food-purchase"
-import { useTRPC } from "@/trpc/client"
 import {
   ROW_HEIGHTS,
   STICKY_COLUMNS,
   SUMMARY_GRID_HEIGHTS,
 } from "@/utils/table-configs"
 import { getColumnIds, type TableSettings } from "@/utils/table-settings"
-import { columns, type FoodPurchaseApplication } from "./columns"
+import { columns } from "./columns"
 import { FoodPurchaseEmptyState } from "./empty-states"
-import { FoodPurchaseSkeleton } from "./skeleton"
 import { FoodPurchaseTableHeader } from "./table-header"
+import { useFoodPurchaseQuery } from "./use-food-purchase-query"
 
-const NON_CLICKABLE_COLUMNS = new Set(["select", "actions"])
+const NON_CLICKABLE_COLUMNS = new Set(["actions"])
 const COLUMN_IDS = getColumnIds(columns)
 
-type FoodPurchaseSortField =
-  | "approvedAmount"
-  | "itemDescription"
-  | "memberName"
-  | "paidAmount"
-  | "requestedAmount"
-  | "requestedAt"
-  | "status"
-
-type FoodPurchaseStatus =
-  | "approved"
-  | "cancelled"
-  | "rejected"
-  | "submitted"
-  | "under_review"
-
-function getSort(
-  sort?: string[] | null
-): [FoodPurchaseSortField, "asc" | "desc"] | null {
-  if (!sort || sort.length !== 2) return null
-
-  const field = sort[0]
-  const direction = sort[1]
-  if (!field || !direction) return null
-
-  const fieldMap: Record<string, FoodPurchaseSortField> = {
-    application: "memberName",
-    approved: "approvedAmount",
-    approvedAmount: "approvedAmount",
-    item: "itemDescription",
-    itemDescription: "itemDescription",
-    paidAmount: "paidAmount",
-    payment: "paidAmount",
-    requested: "requestedAmount",
-    requestedAmount: "requestedAmount",
-    requestedAt: "requestedAt",
-    status: "status",
-  }
-  const sortField = fieldMap[field]
-
-  if (!sortField) return null
-  if (direction !== "asc" && direction !== "desc") return null
-
-  return [sortField, direction]
-}
-
-function getStatus(value: string | null): FoodPurchaseStatus | undefined {
-  const validStatuses = new Set<FoodPurchaseStatus>([
-    "approved",
-    "cancelled",
-    "rejected",
-    "submitted",
-    "under_review",
-  ])
-
-  return validStatuses.has(value as FoodPurchaseStatus)
-    ? (value as FoodPurchaseStatus)
-    : undefined
-}
-
 type Props = {
-  applications: FoodPurchaseApplication[]
   canReviewApplications: boolean
   initialSettings?: Partial<TableSettings>
 }
 
 export function FoodPurchaseDataTable({
-  applications,
   canReviewApplications,
   initialSettings,
 }: Props) {
-  const trpc = useTRPC()
   const parentRef = useRef<HTMLDivElement>(null)
-  const { filter } = useFoodPurchaseFilterParams()
-  const { params } = useSortParams()
   const { setParams } = useFoodPurchaseParams()
-  const { rowSelection, setColumns, setRowSelection } = useFoodPurchaseStore()
-  const deferredSearch = useDeferredValue(filter.q)
-  const queryInput = useMemo(
-    () => ({
-      q: deferredSearch || undefined,
-      sort: getSort(params.sort),
-      status: getStatus(filter.status),
-    }),
-    [deferredSearch, filter.status, params.sort]
-  )
-  const infiniteQueryOptions = trpc.foodPurchase.list.infiniteQueryOptions(
-    queryInput,
-    {
-      getNextPageParam: ({ meta }) => meta?.cursor,
-      refetchInterval: 5000,
-      refetchOnMount: "always",
-      refetchOnWindowFocus: true,
-    }
-  )
+  const { setColumns } = useFoodPurchaseStore()
   const {
-    data,
+    applications: tableData,
     fetchNextPage,
+    hasActiveControls,
     hasNextPage,
-    isError,
     isFetchingNextPage,
-    isPending,
-  } = useInfiniteQuery(infiniteQueryOptions)
-  const tableData = useMemo(
-    () => data?.pages.flatMap((page) => page.data) ?? applications,
-    [applications, data]
-  )
+  } = useFoodPurchaseQuery()
 
   useScrollHeader(parentRef, { extraOffset: SUMMARY_GRID_HEIGHTS.foodPurchase })
 
@@ -180,19 +80,16 @@ export function FoodPurchaseDataTable({
     columns,
     data: tableData,
     enableColumnResizing: true,
-    enableRowSelection: true,
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.id,
     meta: tableMeta,
     onColumnOrderChange: setColumnOrder,
     onColumnSizingChange: setColumnSizing,
     onColumnVisibilityChange: setColumnVisibility,
-    onRowSelectionChange: setRowSelection,
     state: {
       columnOrder,
       columnSizing,
       columnVisibility,
-      rowSelection,
     },
   })
 
@@ -209,7 +106,7 @@ export function FoodPurchaseDataTable({
   })
 
   const tableScroll = useTableScroll({
-    startFromColumn: 2,
+    startFromColumn: 1,
     useColumnWidths: true,
   })
 
@@ -257,31 +154,16 @@ export function FoodPurchaseDataTable({
     threshold: 50,
   })
 
-  if (isPending && !applications.length) {
-    return <FoodPurchaseSkeleton />
-  }
-
-  if (isError && !applications.length) {
-    return (
-      <EmptyState
-        description="Reload the page or adjust the Foodstuff Purchase list before trying again."
-        title="Foodstuff Purchase applications could not load."
-      />
-    )
-  }
-
   if (!tableData.length) {
-    return <FoodPurchaseEmptyState />
+    return <FoodPurchaseEmptyState filtered={hasActiveControls} />
   }
 
   const virtualItems = rowVirtualizer.getVirtualItems()
-  const selectedRows = table.getSelectedRowModel().rows
-
   return (
     <div className="relative">
       <div className="w-full">
         <div
-          className="overflow-auto overscroll-contain border-x border-b border-border scrollbar-hide"
+          className="scrollbar-hide overflow-auto overscroll-contain border-x border-b border-border"
           ref={(element) => {
             parentRef.current = element
             tableScroll.containerRef.current = element
@@ -321,7 +203,7 @@ export function FoodPurchaseDataTable({
                         columnVisibility={columnVisibility}
                         getStickyClassName={getStickyClassName}
                         getStickyStyle={getStickyStyle}
-                        isSelected={rowSelection[row.id] ?? false}
+                        isSelected={false}
                         key={row.id}
                         nonClickableColumns={NON_CLICKABLE_COLUMNS}
                         onCellClick={openApplication}
@@ -350,23 +232,6 @@ export function FoodPurchaseDataTable({
           />
         </div>
       </div>
-
-      <AnimatePresence>
-        {selectedRows.length ? (
-          <BottomBar
-            selectedCount={selectedRows.length}
-            onDeselect={() => table.toggleAllRowsSelected(false)}
-          >
-            <Button
-              onClick={() => table.toggleAllRowsSelected(false)}
-              size="sm"
-              variant="outline"
-            >
-              Clear selection
-            </Button>
-          </BottomBar>
-        ) : null}
-      </AnimatePresence>
     </div>
   )
 }

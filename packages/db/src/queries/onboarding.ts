@@ -1,7 +1,13 @@
+import { getPublishedLegalBundle, validateLegalAcknowledgement, type LegalAcknowledgement } from "../legal-publication"
+import { recordLegalAcceptanceInTransaction } from "./legal-acceptance"
 import type { PrismaClient } from "../../generated/prisma/client"
 import {
   buildTenantSiteHostname,
+  composeCooperativeAccessCode,
+  cooperativeMemberNumberPrefix,
   isReservedTenantSubdomainLabel,
+  isValidCooperativeCodePrefix,
+  normalizeCooperativeCodePrefix,
   normalizeSubdomainLabel,
 } from "@halaalvest/utils"
 import { createPrismaClient } from "../prisma"
@@ -68,6 +74,8 @@ export type TenantFirstRunOnboardingSnapshot = {
 }
 
 export type TenantBootstrapInput = {
+  legalAcknowledgement?: LegalAcknowledgement
+  cooperativeCodePrefix?: string | null
   name: string
   slug: string
   ownerFullName: string
@@ -118,6 +126,7 @@ function toTenantRecord(input: {
   id: string
   slug: string
   name: string
+  cooperativeCodePrefix?: string | null
   currentSize?: number | null
   officeAddress?: string | null
   city?: string | null
@@ -136,6 +145,7 @@ function toTenantRecord(input: {
     id: input.id,
     slug: input.slug,
     name: input.name,
+    cooperativeCodePrefix: input.cooperativeCodePrefix ?? null,
     currentSize: input.currentSize ?? null,
     officeAddress: input.officeAddress ?? null,
     city: input.city ?? null,
@@ -486,8 +496,23 @@ export async function createTenantWorkspaceBootstrap(
     )
   }
 
+  const cooperativeCodePrefix = normalizeCooperativeCodePrefix(
+    input.cooperativeCodePrefix
+  )
+  if (
+    input.cooperativeCodePrefix != null &&
+    !isValidCooperativeCodePrefix(cooperativeCodePrefix)
+  ) {
+    throw ExpectedQueryError.validation(
+      "Use a cooperative prefix of 3 to 5 letters."
+    )
+  }
+
   const primarySiteHostname = buildTenantSiteHostname(slug)
   const primaryDashboardHostname = primarySiteHostname
+
+  const requiresLegalAcceptance = getPublishedLegalBundle().acceptanceRequired || input.legalAcknowledgement !== undefined
+  if (requiresLegalAcceptance) validateLegalAcknowledgement(input.legalAcknowledgement)
 
   const tenant = await prisma.$transaction(
     async (tx) => {
@@ -503,9 +528,11 @@ export async function createTenantWorkspaceBootstrap(
                 mode: "insensitive",
               },
             },
+            ...(cooperativeCodePrefix ? [{ cooperativeCodePrefix }] : []),
           ],
         },
         select: {
+          cooperativeCodePrefix: true,
           name: true,
           slug: true,
         },
@@ -514,6 +541,15 @@ export async function createTenantWorkspaceBootstrap(
       if (existingTenant?.slug === slug) {
         throw ExpectedQueryError.conflict(
           "That workspace subdomain is not available."
+        )
+      }
+
+      if (
+        cooperativeCodePrefix &&
+        existingTenant?.cooperativeCodePrefix === cooperativeCodePrefix
+      ) {
+        throw ExpectedQueryError.conflict(
+          "That cooperative prefix is already in use."
         )
       }
 
@@ -527,12 +563,17 @@ export async function createTenantWorkspaceBootstrap(
         data: {
           slug,
           name: input.name.trim(),
+          cooperativeCodePrefix: cooperativeCodePrefix || null,
           currentSize: input.currentSize,
           officeAddress: input.officeAddress?.trim() || null,
           city: input.city?.trim() || null,
           state: input.state?.trim() || input.region?.trim() || null,
           country: input.country?.trim() || null,
-          memberNumberPrefix: input.memberNumberPrefix?.trim() || null,
+          memberNumberPrefix:
+            input.memberNumberPrefix?.trim() ||
+            (cooperativeCodePrefix
+              ? cooperativeMemberNumberPrefix(cooperativeCodePrefix)
+              : null),
           startDate: input.startDate
             ? new Date(`${input.startDate}T00:00:00.000Z`)
             : null,
@@ -570,6 +611,13 @@ export async function createTenantWorkspaceBootstrap(
           email: input.ownerEmail.trim().toLowerCase(),
           fullName: input.ownerFullName.trim(),
           passwordHash: input.ownerPasswordHash,
+          cooperativeAccessCode:
+            cooperativeCodePrefix && input.ownerMemberNumber?.trim()
+              ? composeCooperativeAccessCode(
+                  cooperativeCodePrefix,
+                  input.ownerMemberNumber
+                )
+              : null,
         },
       })
 
@@ -581,6 +629,10 @@ export async function createTenantWorkspaceBootstrap(
           isDefault: true,
         },
       })
+
+      if (requiresLegalAcceptance) {
+        await recordLegalAcceptanceInTransaction(tx, {tenantId:createdTenant.id,userId:owner.id,acknowledgement:input.legalAcknowledgement!,surface:"web_onboarding"})
+      }
 
       if (input.ownerMemberNumber?.trim()) {
         await tx.member.create({

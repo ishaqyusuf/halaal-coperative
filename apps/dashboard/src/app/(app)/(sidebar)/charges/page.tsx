@@ -4,6 +4,7 @@ import {
   listChargeDefinitions,
   listMembers,
 } from "@halaalvest/db"
+import type { Metadata } from "next"
 import {
   ChargesPageView,
   ChargesUnavailableView,
@@ -13,44 +14,40 @@ import {
   getDashboardServerContext,
 } from "@/lib/server-context"
 import { loadChargeOperationParams } from "@/hooks/use-charge-operation-params"
+import { loadChargeFilterParams } from "@/hooks/use-charge-filter-params"
 import { loadSortParams } from "@/hooks/use-sort-params"
+import { getChargeLibraryListInput } from "@/lib/charges/charge-library-list-input"
 import { financeManagementRoles, hasAnyRole } from "@/lib/workspace-access"
-import {
-  getQueryClient,
-  getServerCaller,
-  HydrateClient,
-  trpc,
-} from "@/trpc/server"
+import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server"
 import { getInitialTableSettings } from "@/utils/columns"
 
-type ChargeLibrarySortField =
-  | "amount"
-  | "currentEffectiveFrom"
-  | "isActive"
-  | "kind"
-  | "name"
+export const metadata: Metadata = {
+  title: "Charges | Halaalvest",
+}
 
-function getSort(
-  sort?: string[] | null
-): [ChargeLibrarySortField, "asc" | "desc"] | null {
-  if (!sort || sort.length !== 2) return null
+type ChargeDefinitionRecord = {
+  amount: number | string | { toString(): string }
+  chargeValueType?: string | null
+  code: string
+  id: string
+  isActive: boolean
+  isMonthlyLevy: boolean
+  kind: string
+  name: string
+}
 
-  const field = sort[0]
-  const direction = sort[1]
-  if (!field || !direction) return null
-
-  const validFields = new Set<string>([
-    "amount",
-    "currentEffectiveFrom",
-    "isActive",
-    "kind",
-    "name",
-  ])
-
-  if (!validFields.has(field)) return null
-  if (direction !== "asc" && direction !== "desc") return null
-
-  return [field as ChargeLibrarySortField, direction]
+type ChargeApplicationRecord = {
+  amount: number | string | { toString(): string }
+  chargeApplicability?: { trigger: string; workflow: string } | null
+  chargeDefinition: { name: string }
+  collectionMode?: string
+  foodPurchaseApplication?: { status: string } | null
+  id: string
+  loanRequest?: { status: string } | null
+  member: { fullName: string }
+  procurementRequest?: { itemName: string; status: string } | null
+  projectFinancingRequest?: { businessName: string; status: string } | null
+  status: string
 }
 
 export default async function ChargesPage({
@@ -60,6 +57,9 @@ export default async function ChargesPage({
 }) {
   const params = await searchParams
   loadChargeOperationParams(params)
+  const filter = loadChargeFilterParams(params)
+  const activeView =
+    filter.view === "applications" ? "applications" : "definitions"
   const { sort } = loadSortParams(params)
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
@@ -78,86 +78,53 @@ export default async function ChargesPage({
     listChargeApplications(context.tenant.id, { limit: 20 }),
   ])
 
-  const activeCharges = charges.filter((charge: any) => charge.isActive)
-  const monthlyLevies = charges.filter((charge: any) => charge.isMonthlyLevy)
-  const postedApplications = chargeApplications.filter(
-    (application: any) => application.status === "posted"
-  )
-  const today = new Date()
-  const [chargeLibraryTableSettings, caller] = await Promise.all([
-    getInitialTableSettings("chargeLibrary"),
-    getServerCaller(),
-  ])
-  const chargeLibraryInput = {
-    sort: getSort(sort),
-  }
-  const chargeLibraryOptions = trpc.charges.chargeLibrary.infiniteQueryOptions(
-    chargeLibraryInput,
-    {
-      getNextPageParam: ({ meta }) => meta?.cursor,
-    }
-  )
-  const initialChargeLibraryPage =
-    await caller.charges.chargeLibrary(chargeLibraryInput)
+  const chargeDefinitions = charges as ChargeDefinitionRecord[]
+  const applications = chargeApplications as ChargeApplicationRecord[]
 
-  getQueryClient().setQueryData(chargeLibraryOptions.queryKey, {
-    pageParams: [chargeLibraryOptions.initialPageParam],
-    pages: [initialChargeLibraryPage],
-  })
+  const activeCharges = chargeDefinitions.filter((charge) => charge.isActive)
+  const manuallyApplicableCharges = activeCharges
+    .filter(
+      (charge) =>
+        (charge.chargeValueType ??
+          (charge.kind === "percentage" ? "percentage" : "fixed_amount")) ===
+        "fixed_amount"
+    )
+    .map((charge) => ({
+      amount: Number(charge.amount),
+      code: charge.code,
+      id: charge.id,
+      isActive: charge.isActive,
+      isMonthlyLevy: charge.isMonthlyLevy,
+      kind: charge.kind,
+      name: charge.name,
+    }))
+  const monthlyLevies = chargeDefinitions.filter(
+    (charge) => charge.isMonthlyLevy
+  )
+  const postedApplications = applications.filter(
+    (application) => application.status === "posted"
+  )
+  const chargeLibraryTableSettings =
+    await getInitialTableSettings("chargeLibrary")
+  const chargeLibraryInput = getChargeLibraryListInput(filter, sort)
+  await batchPrefetch([
+    trpc.charges.chargeLibrary.queryOptions(chargeLibraryInput),
+  ])
 
   return (
     <HydrateClient>
       <ChargesPageView
-        activeCharges={activeCharges}
+        activeView={activeView}
+        activeChargeCount={activeCharges.length}
+        activeCharges={manuallyApplicableCharges}
         canManageCharges={canManageCharges}
-        chargeApplications={chargeApplications}
+        chargeApplications={applications}
         chargeLibraryTableSettings={chargeLibraryTableSettings}
-        charges={charges.map((charge: any) => {
-          const sortedVersions = [...(charge.versions ?? [])].sort(
-            (left, right) =>
-              new Date(right.effectiveFrom).getTime() -
-              new Date(left.effectiveFrom).getTime()
-          )
-          const currentVersion =
-            sortedVersions.find(
-              (version) =>
-                new Date(version.effectiveFrom).getTime() <= today.getTime()
-            ) ?? null
-
-          return {
-            amount: currentVersion
-              ? Number(currentVersion.amount)
-              : Number(charge.amount),
-            chargeValueType:
-              charge.chargeValueType ??
-              (charge.kind === "percentage" ? "percentage" : "fixed_amount"),
-            code: charge.code,
-            currentEffectiveFrom: currentVersion
-              ? currentVersion.effectiveFrom.toISOString().slice(0, 10)
-              : null,
-            id: charge.id,
-            isActive: charge.isActive,
-            isMonthlyLevy: charge.isMonthlyLevy,
-            kind: charge.kind,
-            name: charge.name,
-            versions: sortedVersions.map((version: any) => ({
-              amount: Number(version.amount),
-              effectiveFrom: version.effectiveFrom.toISOString().slice(0, 10),
-              id: version.id,
-              notes: version.notes ?? null,
-              status:
-                currentVersion?.id === version.id
-                  ? "current"
-                  : new Date(version.effectiveFrom).getTime() > today.getTime()
-                    ? "scheduled"
-                    : "historical",
-            })),
-          }
-        })}
         members={members}
         monthlyLevies={monthlyLevies}
         postedApplications={postedApplications}
         quickFillEnabled={canShowQuickFill(context)}
+        totalChargeDefinitions={chargeDefinitions.length}
       />
     </HydrateClient>
   )

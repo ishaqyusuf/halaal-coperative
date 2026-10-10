@@ -83,8 +83,8 @@ function getHeaderCopy({
 
   return {
     description:
-      "Record the monthly amount released for Foodstuff Purchase before members apply.",
-    title: "Record monthly fund release",
+      "Record evidence of the monthly committee release before members apply. This does not post a cash or ledger transaction.",
+    title: "Record monthly release evidence",
   }
 }
 

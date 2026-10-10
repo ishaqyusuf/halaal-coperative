@@ -2,6 +2,7 @@ import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
+import { claimDashboardEvidenceUploadLink } from "./dashboard-evidence-uploads"
 import { ensureTenantLedgerAccounts, postLedgerTransaction } from "./ledger"
 import { getTenantInitialMigrationState } from "./migration"
 import { createMemberShareLedgerEntry } from "./tenant-finance"
@@ -1611,7 +1612,8 @@ export async function createMemberOpeningBalance(
   const mutationData = buildOpeningBalanceMutationData(input, openingDate)
   const auditMetadata = buildOpeningBalanceAuditMetadata(input, openingDate)
 
-  const existing = await prisma.memberOpeningBalance.findFirst({
+  return prisma.$transaction(async (tx: any) => {
+  const existing = await tx.memberOpeningBalance.findFirst({
     where: {
       memberId: input.memberId,
       openingDate,
@@ -1628,7 +1630,7 @@ export async function createMemberOpeningBalance(
       )
     }
 
-    const updated = await prisma.memberOpeningBalance.update({
+    const updated = await tx.memberOpeningBalance.update({
       data: {
         ...mutationData,
         reviewedAt: null,
@@ -1640,6 +1642,12 @@ export async function createMemberOpeningBalance(
       where: { id: existing.id },
     })
 
+    await claimDashboardEvidenceUploadLink({
+      tenantId: input.tenantId, url: input.sourceDocumentUrl,
+      purpose: "opening_balance_source", entityId: updated.id,
+      claimantUserId: input.actorUserId,
+    }, tx)
+
     await createAuditLogEntry(
       {
         action: "migration.opening_balance.updated",
@@ -1650,7 +1658,7 @@ export async function createMemberOpeningBalance(
         metadata: auditMetadata,
         tenantId: input.tenantId,
       },
-      prisma
+      tx
     )
 
     return normalizeOpeningBalance(updated)
@@ -1659,7 +1667,7 @@ export async function createMemberOpeningBalance(
   let created
 
   try {
-    created = await prisma.memberOpeningBalance.create({
+    created = await tx.memberOpeningBalance.create({
       data: {
         ...mutationData,
         createdByUserId: input.actorUserId,
@@ -1678,6 +1686,12 @@ export async function createMemberOpeningBalance(
     throw error
   }
 
+  await claimDashboardEvidenceUploadLink({
+    tenantId: input.tenantId, url: input.sourceDocumentUrl,
+    purpose: "opening_balance_source", entityId: created.id,
+    claimantUserId: input.actorUserId,
+  }, tx)
+
   await createAuditLogEntry(
     {
       action: "migration.opening_balance.created",
@@ -1688,10 +1702,11 @@ export async function createMemberOpeningBalance(
       metadata: auditMetadata,
       tenantId: input.tenantId,
     },
-    prisma
+    tx
   )
 
   return normalizeOpeningBalance(created)
+  })
 }
 
 export async function reviewMemberOpeningBalance(

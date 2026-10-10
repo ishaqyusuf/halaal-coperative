@@ -17,14 +17,14 @@ import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 function isContributionSheetOpen(type: string | null) {
   return Boolean(
     type === "plan" ||
-      type === "payment" ||
-      type === "preference" ||
-      type === "editPlan" ||
-      type === "stageBatch" ||
-      type === "postBatchRows" ||
-      type === "markBatchRowCollected" ||
-      type === "markBatchRowException" ||
-      type === "postBatchRow"
+    type === "payment" ||
+    type === "preference" ||
+    type === "editPlan" ||
+    type === "stageBatch" ||
+    type === "postBatchRows" ||
+    type === "markBatchRowCollected" ||
+    type === "markBatchRowException" ||
+    type === "postBatchRow"
   )
 }
 
@@ -55,24 +55,32 @@ export function ContributionSheet({
       return
     }
 
-    setParams(null)
+    setParams({
+      contributionSheetType: null,
+      selectedCollectionBatchId: null,
+      selectedCollectionRowId: null,
+      selectedContributionMemberId: null,
+      selectedContributionPlanId: null,
+    })
   }
 
   return (
     <WorkflowPresentation
       config={presentation}
+      mobileFullScreen
       open={isOpen}
       onOpenChange={handleOnOpenChange}
     >
-        {isOpen ? (
-          <Suspense
-            fallback={
-              <div className="px-6 text-sm text-muted-foreground">
-                Loading contribution form...
-              </div>
-            }
-          >
-            <ContributionSheetHeader />
+      {isOpen ? (
+        <Suspense
+          fallback={
+            <div className="px-6 text-sm text-muted-foreground">
+              Loading contribution form...
+            </div>
+          }
+        >
+          <ContributionSheetHeader />
+          <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
             <ContributionContent
               activeCommitmentPlans={activeCommitmentPlans}
               activeLoans={activeLoans}
@@ -81,8 +89,9 @@ export function ContributionSheet({
               members={members}
               selectedCollectionSourceBatch={selectedCollectionSourceBatch}
             />
-          </Suspense>
-        ) : null}
+          </div>
+        </Suspense>
+      ) : null}
     </WorkflowPresentation>
   )
 }

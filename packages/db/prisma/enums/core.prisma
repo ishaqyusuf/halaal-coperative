@@ -86,6 +86,13 @@ enum MemberSignupAccessMode {
   disabled
 }
 
+enum AuthChallengePurpose {
+  member_email_verification
+  member_activation_completion
+  password_recovery
+  account_deletion_email
+}
+
 enum TenantServiceAccessMode {
   disabled
   office_only

@@ -43,6 +43,7 @@ This file captures prompt-level instructions and durable context that future AI 
 - Canonical Next.js/App Router/web rules: `/Users/M1PRO/.me/coding-standards/nextjs.md`
 - Canonical Expo/React Native/mobile rules: `/Users/M1PRO/.me/coding-standards/expo.md`
 - Treat these files as the source of truth for personal coding standards; do not copy full rule text into project Brain docs.
+- Treat active rules as non-negotiable; project-specific exceptions require an ADR in `.brain/decisions/`.
 <!-- END: global-personal-coding-rules -->
 
 ## Non-Negotiable Architecture Rules
@@ -52,3 +53,14 @@ This file captures prompt-level instructions and durable context that future AI 
 - Use Plot Keys as the reference for local URL handling, portless/proxy support, and generated links.
 - Add `app/[...slug]/page.tsx` as a catch-all route that redirects to `/` unless the repository has an explicit reason to diverge.
 - For Prisma database updates, when the repository root has `db:migrate` and `db:push` scripts, run `bun db:migrate` and `bun db:push` after schema changes; do not manually create migration files.
+
+<!-- personal-coding-rules:start -->
+## Global Personal Coding Rules
+
+Agents must treat these global coding rule references as non-negotiable:
+
+- `/Users/M1PRO/.me/coding-standards/global.md`
+- `/Users/M1PRO/.me/coding-standards/expo.md`
+
+Project-specific exceptions require an ADR in `.brain/decisions/` before agents may diverge.
+<!-- personal-coding-rules:end -->

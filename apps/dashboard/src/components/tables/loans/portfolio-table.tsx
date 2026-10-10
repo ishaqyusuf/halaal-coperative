@@ -7,24 +7,21 @@ import {
   TableCell,
   TableRow,
 } from "@halaalvest/ui/components/table"
-import { useInfiniteQuery } from "@tanstack/react-query"
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useRef } from "react"
 import { EmptyState, VirtualRow } from "@/components/tables/core"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
-import { useSortParams } from "@/hooks/use-sort-params"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
 import { useTableDnd } from "@/hooks/use-table-dnd"
 import { useTableScroll } from "@/hooks/use-table-scroll"
 import { useTableSettings } from "@/hooks/use-table-settings"
 import { useLoanTableStore } from "@/store/loans"
-import { useTRPC } from "@/trpc/client"
 import { ROW_HEIGHTS, STICKY_COLUMNS } from "@/utils/table-configs"
 import { getColumnIds, type TableSettings } from "@/utils/table-settings"
 import { portfolioColumns } from "./portfolio-columns"
-import { LoanPortfolioSkeleton } from "./skeleton"
 import { LoanTableHeader } from "./table-header"
+import { useLoanPortfolioQuery } from "./use-loans-query"
 
 export type LoanPortfolioRow = {
   estimatedMonthlyServicing: number | string | { toString(): string }
@@ -38,36 +35,8 @@ export type LoanPortfolioRow = {
   termMonths: number
 }
 
-type LoanPortfolioSortField =
-  | "estimatedMonthlyServicing"
-  | "loanProductName"
-  | "memberName"
-  | "status"
-
 const NON_CLICKABLE_COLUMNS = new Set(["actions"])
 const COLUMN_IDS = getColumnIds(portfolioColumns)
-
-function getSort(
-  sort?: string[] | null
-): [LoanPortfolioSortField, "asc" | "desc"] | null {
-  if (!sort || sort.length !== 2) return null
-
-  const field = sort[0]
-  const direction = sort[1]
-  if (!field || !direction) return null
-
-  const validFields = new Set<string>([
-    "estimatedMonthlyServicing",
-    "loanProductName",
-    "memberName",
-    "status",
-  ])
-
-  if (!validFields.has(field)) return null
-  if (direction !== "asc" && direction !== "desc") return null
-
-  return [field as LoanPortfolioSortField, direction]
-}
 
 export function LoanPortfolioTable({
   availablePool,
@@ -80,38 +49,15 @@ export function LoanPortfolioTable({
   initialSettings?: Partial<TableSettings>
   memberId?: string
 }) {
-  const trpc = useTRPC()
-  const { params } = useSortParams()
   const parentRef = useRef<HTMLDivElement>(null)
   const { setPortfolioColumns } = useLoanTableStore()
-  const queryInput = useMemo(
-    () => ({
-      memberId,
-      sort: getSort(params.sort),
-    }),
-    [memberId, params.sort]
-  )
-  const infiniteQueryOptions = trpc.loans.portfolio.infiniteQueryOptions(
-    queryInput,
-    {
-      getNextPageParam: ({ meta }) => meta?.cursor,
-      refetchInterval: 5000,
-      refetchOnMount: "always",
-      refetchOnWindowFocus: true,
-    }
-  )
   const {
-    data,
     fetchNextPage,
+    hasActiveControls,
     hasNextPage,
-    isError,
     isFetchingNextPage,
-    isPending,
-  } = useInfiniteQuery(infiniteQueryOptions)
-  const tableData = useMemo(
-    () => data?.pages.flatMap((page) => page.data) ?? [],
-    [data]
-  )
+    loans: tableData,
+  } = useLoanPortfolioQuery(memberId)
 
   const {
     columnOrder,
@@ -183,24 +129,19 @@ export function LoanPortfolioTable({
     threshold: 50,
   })
 
-  if (isPending) {
-    return <LoanPortfolioSkeleton />
-  }
-
-  if (isError) {
-    return (
-      <EmptyState
-        description="Reload the page before reviewing approved loans again."
-        title="Loan portfolio could not load."
-      />
-    )
-  }
-
   if (!tableData.length) {
     return (
       <EmptyState
-        description="Approved and live cooperative loans will appear here once requests move into servicing."
-        title="No approved or active loans"
+        description={
+          hasActiveControls
+            ? "Clear the current filters or choose a different status."
+            : "Approved and live cooperative loans will appear here once requests move into servicing."
+        }
+        title={
+          hasActiveControls
+            ? "No matching loans"
+            : "No approved or active loans"
+        }
       />
     )
   }
@@ -211,7 +152,7 @@ export function LoanPortfolioTable({
     <div className="relative">
       <div className="w-full">
         <div
-          className="overflow-auto overscroll-contain border-x border-b border-border scrollbar-hide"
+          className="scrollbar-hide overflow-auto overscroll-x-contain overscroll-y-auto border-x border-b border-border"
           ref={(element) => {
             parentRef.current = element
             tableScroll.containerRef.current = element

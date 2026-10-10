@@ -1,0 +1,503 @@
+{
+  "version": 1,
+  "sourceOfTruth": ".brain/plans/2026-08-11-halaalvest-mobile-complete-production-implementation-directive.md",
+  "principles": {
+    "entrypoints": "Expo Router entrypoints validate route parameters and compose one feature-owned route controller; they do not fetch data or execute commands.",
+    "authorization": "The server remains authoritative for tenant, membership role, record access, Operation Profile, subscription entitlement, and legal state transitions.",
+    "financialCommands": "Money-affecting commands are online-only, server-authorized, tenant-scoped, idempotent where retry is possible, audited, and never inferred from cached client state.",
+    "financialCalculations": "Eligibility, repayment allocation, balances, charges, profit sharing, settlement, and ledger effects are calculated by the server. Client totals are untrusted previews only.",
+    "offline": "Offline mode may display explicitly stale tenant-scoped reads and preserve drafts. It may not queue, approve, post, settle, or imply success for a financial command.",
+    "styling": "NativeWind className and semantic theme tokens are the default. Inline style is reserved for runtime-computed values and native component APIs that do not accept className.",
+    "keyboard": "Every input-bearing scroll surface must use the shared keyboard-aware primitive or a keyboard-aware sheet contract.",
+    "errors": "All routes retain a safe loading, empty, cached/stale, offline, error, and retry path appropriate to their data contract; internal failures are sanitized before presentation and Sentry capture."
+  },
+  "shells": [
+    {
+      "file": "src/app/_layout.tsx",
+      "kind": "root-provider-shell"
+    },
+    {
+      "file": "src/app/+html.tsx",
+      "kind": "expo-document-shell"
+    },
+    {
+      "file": "src/app/(auth)/_layout.tsx",
+      "kind": "public-auth-shell"
+    },
+    {
+      "file": "src/app/(member)/_layout.tsx",
+      "kind": "member-role-guard"
+    },
+    {
+      "file": "src/app/(member)/(tabs)/_layout.tsx",
+      "kind": "member-navigation-shell"
+    },
+    {
+      "file": "src/app/(admin)/_layout.tsx",
+      "kind": "staff-role-guard"
+    },
+    {
+      "file": "src/app/(admin)/(tabs)/_layout.tsx",
+      "kind": "staff-navigation-shell"
+    }
+  ],
+  "routes": [
+    {
+      "file": "src/app/index.tsx",
+      "path": "/",
+      "feature": "auth",
+      "roles": [
+        "public",
+        "member",
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Session bootstrap may resolve a signed tenant membership but must not expose tenant data before server validation."
+    },
+    {
+      "file": "src/app/+not-found.tsx",
+      "path": "/+not-found",
+      "feature": "shell",
+      "roles": [
+        "public"
+      ],
+      "tenantBoundary": "No tenant data; recovery navigation only."
+    },
+    {
+      "file": "src/app/(auth)/sign-in.tsx",
+      "path": "/sign-in",
+      "feature": "auth",
+      "roles": [
+        "public"
+      ],
+      "tenantBoundary": "The submitted cooperative code is resolved by the server; the client never chooses a tenant id."
+    },
+    {
+      "file": "src/app/(auth)/recovery.tsx",
+      "path": "/recovery",
+      "feature": "auth",
+      "roles": [
+        "public"
+      ],
+      "tenantBoundary": "Recovery uses neutral public responses, tenant-bound single-use evidence, and server-resolved membership context."
+    },
+    {
+      "file": "src/app/(member)/(tabs)/index.tsx",
+      "path": "/(member)",
+      "feature": "member-home",
+      "controller": "@/features/member-core/routes/member-home-route-controller",
+      "roles": [
+        "member"
+      ],
+      "tenantBoundary": "Reads only the member profile linked to the active signed tenant membership."
+    },
+    {
+      "file": "src/app/(member)/(tabs)/commitments.tsx",
+      "path": "/(member)/commitments",
+      "feature": "commitments",
+      "controller": "@/features/member-core/routes/member-commitments-route-controller",
+      "roles": [
+        "member"
+      ],
+      "tenantBoundary": "Member-owned commitment and contribution reads in the active tenant only."
+    },
+    {
+      "file": "src/app/(member)/(tabs)/shares.tsx",
+      "path": "/(member)/shares",
+      "feature": "shares-profit",
+      "controller": "@/features/shares-profit/routes/member-shares-route-controller",
+      "roles": [
+        "member"
+      ],
+      "tenantBoundary": "Member-owned share applications, holdings, and published profit allocations in the active tenant only."
+    },
+    {
+      "file": "src/app/(member)/(tabs)/financing.tsx",
+      "path": "/(member)/financing",
+      "feature": "financing",
+      "controller": "@/features/financing/routes/member-financing-route-controller",
+      "roles": [
+        "member"
+      ],
+      "tenantBoundary": "Member-owned financing requests, loans, schedules, and server-provided eligibility in the active tenant only."
+    },
+    {
+      "file": "src/app/(member)/(tabs)/more.tsx",
+      "path": "/(member)/more",
+      "feature": "settings-access",
+      "roles": [
+        "member"
+      ],
+      "tenantBoundary": "Active member profile, device/session settings, and tenant-safe service navigation only."
+    },
+    {
+      "file": "src/app/(member)/statement.tsx",
+      "path": "/(member)/statement",
+      "feature": "statements",
+      "controller": "@/features/member-core/routes/member-statement-route-controller",
+      "roles": [
+        "member"
+      ],
+      "tenantBoundary": "Member-owned canonical ledger statement in the active tenant only."
+    },
+    {
+      "file": "src/app/(member)/receipts.tsx",
+      "path": "/(member)/receipts",
+      "feature": "receipts",
+      "controller": "@/features/receipts/routes/member-receipts-route-controller",
+      "roles": [
+        "member"
+      ],
+      "tenantBoundary": "Member-owned receipt evidence and allocations in the active tenant; submission is an online server command."
+    },
+    {
+      "file": "src/app/(member)/support.tsx",
+      "path": "/(member)/support",
+      "feature": "support",
+      "controller": "@/features/support/routes/member-support-route-controller",
+      "roles": [
+        "member"
+      ],
+      "tenantBoundary": "Member-owned support threads in the active tenant only."
+    },
+    {
+      "file": "src/app/(member)/guarantor-approvals.tsx",
+      "path": "/(member)/guarantor-approvals",
+      "feature": "financing-guarantors",
+      "controller": "@/features/guarantors/routes/member-guarantor-approvals-route-controller",
+      "roles": [
+        "member"
+      ],
+      "tenantBoundary": "Only requests addressed to the active member in the active tenant; response authorization is rechecked by the server."
+    },
+    {
+      "file": "src/app/(member)/procurement.tsx",
+      "path": "/(member)/procurement",
+      "feature": "procurement",
+      "roles": [
+        "member"
+      ],
+      "tenantBoundary": "Member-owned procurement requests and fulfillment status in the active tenant only."
+    },
+    {
+      "file": "src/app/(member)/food-purchase.tsx",
+      "path": "/(member)/food-purchase",
+      "feature": "food-purchase",
+      "roles": [
+        "member"
+      ],
+      "tenantBoundary": "Member-owned Foodstuff Purchase requests and repayment status in the active tenant only."
+    },
+    {
+      "file": "src/app/(member)/project-financing.tsx",
+      "path": "/(member)/project-financing",
+      "feature": "project-financing",
+      "roles": [
+        "member"
+      ],
+      "tenantBoundary": "Member-owned project financing applications and approved structure in the active tenant only."
+    },
+    {
+      "file": "src/app/(admin)/(tabs)/index.tsx",
+      "path": "/(admin)",
+      "feature": "admin-overview",
+      "roles": [
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Server-scoped operational summaries for the active staff membership and tenant only."
+    },
+    {
+      "file": "src/app/(admin)/(tabs)/members.tsx",
+      "path": "/(admin)/members",
+      "feature": "admin-members",
+      "roles": [
+        "tenant_admin",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Tenant member registry and KYC queue; every record and action is server-authorized."
+    },
+    {
+      "file": "src/app/(admin)/members/[memberId].tsx",
+      "path": "/(admin)/members/:memberId",
+      "feature": "admin-members",
+      "roles": [
+        "tenant_admin",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "The route id is untrusted; detail lookup must prove the member belongs to the active tenant."
+    },
+    {
+      "file": "src/app/(admin)/(tabs)/finance.tsx",
+      "path": "/(admin)/finance",
+      "feature": "admin-finance-support",
+      "controller": "@/features/admin-finance-support/routes/admin-finance-support-route-controller",
+      "roles": [
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Tenant finance queues and commands are server-authorized, Operation-Profile-aware, entitled, audited, and online-only."
+    },
+    {
+      "file": "src/app/(admin)/contributions.tsx",
+      "path": "/(admin)/contributions",
+      "feature": "admin-contribution-operations",
+      "controller": "@/features/admin-contribution-operations/routes/admin-contributions-route-controller",
+      "roles": [
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Contribution ledger, member commitments, and Collection Source batches are tenant-scoped; every financial command is permission-checked, online-only, state-checked, idempotent, transactional, and audited by the server."
+    },
+    {
+      "file": "src/app/(admin)/charges.tsx",
+      "path": "/(admin)/charges",
+      "feature": "admin-charge-operations",
+      "controller": "@/features/admin-charge-operations/routes/admin-charges-route-controller",
+      "roles": [
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Charge applications, monthly levies, effective versions, and audit history are tenant-scoped; money-impacting apply, settlement, waiver, and reversal commands are separately permission-checked, online-only, state-checked, idempotent, and audited by the server."
+    },
+    {
+      "file": "src/app/(admin)/financing-operations.tsx",
+      "path": "/(admin)/financing-operations",
+      "feature": "admin-financing-operations",
+      "controller": "@/features/admin-financing-operations/routes/admin-financing-operations-route-controller",
+      "roles": [
+        "tenant_admin",
+        "finance_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Financing cycles, approval queues, immutable decision evidence, disbursements, schedules, and operational activity are tenant-scoped; cycle, approval, and disbursement commands are separately permission-checked, online-only, expected-state guarded, idempotent, transactional, and audited by the server."
+    },
+    {
+      "file": "src/app/(admin)/repayment-operations.tsx",
+      "path": "/(admin)/repayment-operations",
+      "feature": "admin-repayment-operations",
+      "controller": "@/features/admin-repayment-operations/routes/admin-repayment-operations-route-controller",
+      "roles": [
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Repayment schedules, facility balances, posted history, and collection evidence are tenant-scoped; posting requires financing-service permission while follow-up uses its separate non-financial permission. Commands are online-only, expected-state guarded, idempotent, transactional where financial, and audited by the server."
+    },
+    {
+      "file": "src/app/(admin)/procurement-operations.tsx",
+      "path": "/(admin)/procurement-operations",
+      "feature": "admin-procurement-operations",
+      "controller": "@/features/admin-procurement-operations/routes/admin-procurement-operations-route-controller",
+      "roles": [
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Procurement review, approved purchase activation, repayment schedules, and payment receipt evidence are tenant-scoped. Commands are separately permission-checked, online-only, expected-state guarded, idempotent, audited, and preserve independent receipt review before schedule settlement."
+    },
+    {
+      "file": "src/app/(admin)/food-purchase-operations.tsx",
+      "path": "/(admin)/food-purchase-operations",
+      "feature": "admin-food-purchase-operations",
+      "controller": "@/features/admin-food-purchase-operations/routes/admin-food-purchase-operations-route-controller",
+      "roles": [
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Foodstuff Purchase release evidence, cycle state, member applications, settlement evidence, committee accounting, correction, acceptance, and completion are tenant-scoped. Commands are separately permission-checked, online-only, expected-state guarded, idempotent, transactional, and audited; release and accounting evidence never silently post cash or distribute profit."
+    },
+    {
+      "file": "src/app/(admin)/project-financing-operations.tsx",
+      "path": "/(admin)/project-financing-operations",
+      "feature": "admin-project-financing-operations",
+      "controller": "@/features/admin-project-financing-operations/routes/admin-project-financing-operations-route-controller",
+      "roles": [
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Project financing review, structure activation, release evidence, principal-only receipt allocation, and evidence-only partnership or profit-sharing records are tenant-scoped. Commands are separately permission-checked, online-only, expected-state guarded, idempotent, audited, and never let non-repayable structures expose repayment or balance controls."
+    },
+    {
+      "file": "src/app/(admin)/share-profit-governance.tsx",
+      "path": "/(admin)/share-profit-governance",
+      "feature": "admin-share-profit-governance",
+      "controller": "@/features/admin-share-profit-governance/routes/admin-share-profit-governance-route-controller",
+      "roles": [
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Share-policy positions, optional-unit applications, immutable share-capital postings, profit periods, reviewed allocations, and publication evidence are tenant-scoped. Review, approval, and publication commands are separately permission-checked, online-only, expected-state guarded, idempotent, audited, and never expose unpublished member allocations."
+    },
+    {
+      "file": "src/app/(admin)/(tabs)/reports.tsx",
+      "path": "/(admin)/reports",
+      "feature": "reports-audit",
+      "roles": [
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Tenant-scoped reports and sanitized audit/activity views; export authorization is server-owned."
+    },
+    {
+      "file": "src/app/(admin)/(tabs)/more.tsx",
+      "path": "/(admin)/more",
+      "feature": "settings-access-subscription",
+      "roles": [
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Settings and access surfaces render server permissions; subscription changes require tenant-admin authority."
+    },
+    {
+      "file": "src/app/(admin)/subscription.tsx",
+      "path": "/(admin)/subscription",
+      "feature": "subscription",
+      "roles": [
+        "tenant_admin",
+        "super_admin"
+      ],
+      "tenantBoundary": "Commercial details, invoices, entitlements, usage, and plan intents are server-scoped to the active tenant and require subscription-administration permission."
+    },
+    {
+      "file": "src/app/(admin)/operation-profile.tsx",
+      "path": "/(admin)/operation-profile",
+      "feature": "operation-profile",
+      "controller": "@/features/operation-profile/routes/operation-profile-route-controller",
+      "roles": [
+        "tenant_admin",
+        "super_admin"
+      ],
+      "tenantBoundary": "Configured and effective service access are tenant-scoped and server-authoritative. Changes require Operation Profile permission, live subscription access, an expected-mode compare-and-set, and a before/after audit event."
+    },
+    {
+      "file": "src/app/notifications.tsx",
+      "path": "/notifications",
+      "feature": "notifications",
+      "roles": [
+        "member",
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Only notifications addressed to the active signed tenant membership; deep links re-authorize their destination."
+    },
+    {
+      "file": "src/app/updates.tsx",
+      "path": "/updates",
+      "feature": "updates",
+      "roles": [
+        "member",
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Application update state contains no cross-tenant business data."
+    },
+    {
+      "file": "src/app/sessions.tsx",
+      "path": "/sessions",
+      "feature": "device-sessions",
+      "controller": "@/features/device-sessions/routes/device-sessions-route-controller",
+      "roles": [
+        "member",
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Self-service reads and revokes only the signed user's durable sessions. Managed access requires manage_roles authority, validates the untrusted target user id, and remains scoped to the active tenant."
+    },
+    {
+      "file": "src/app/app-lock.tsx",
+      "path": "/app-lock",
+      "feature": "app-lock",
+      "controller": "@/features/app-lock/routes/app-lock-route-controller",
+      "roles": [
+        "member",
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Local app-lock configuration is scoped to the authenticated user and current device. It is cleared on sign-out, session revocation, or identity change and never grants server authority."
+    },
+    {
+      "file": "src/app/account-privacy.tsx",
+      "path": "/account-privacy",
+      "feature": "account-privacy",
+      "controller": "@/features/account-privacy/routes/account-privacy-route-controller",
+      "roles": [
+        "member",
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Authenticated account-owned privacy requests across memberships; submission uses active tenant context, with no paid-plan or financial-readiness requirement. Confirmation, idempotency and current session checks guard mutations."
+    },
+    {
+      "file": "src/app/legal-agreements.tsx",
+      "path": "/legal-agreements",
+      "feature": "legal",
+      "controller": "@/features/legal/routes/legal-agreements-route-controller",
+      "roles": [
+        "member",
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Current published terms/privacy snapshots and own acceptance evidence only; writes bind to signed account and active tenant after server revision check."
+    },
+    {
+      "file": "src/app/mobile-access.tsx",
+      "path": "/mobile-access",
+      "feature": "mobile-app-access",
+      "controller": "@/features/mobile-app-access/routes/mobile-app-access-route-controller",
+      "roles": [
+        "member",
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Signed account and active tenant membership are required. Purchase and restoration bind to the server-verified individual user; this recovery route remains available before paid access is granted."
+    }
+  ],
+  "stateContracts": {
+    "staleCache": "Cached reads are keyed by tenant, role, and user/member scope, visibly marked with freshness, and cleared atomically on logout, tenant change, or role change.",
+    "drafts": "Drafts are tenant-, role-, user-, feature-, and record-scoped; sensitive drafts stay in protected persistence and are never treated as submitted.",
+    "errors": "Root and feature boundaries provide retry/recovery, expose only safe references, and send sanitized context to Sentry.",
+    "subscription": "Navigation hints are not authorization. The server returns effective plan, entitlement, limits, usage, and denial reason for every gated capability.",
+    "operationProfile": "The server returns effective view/transact mode and denial reason; the client cannot derive permission from a cached profile.",
+    "deviceSessions": "Mobile bearer tokens remain valid only while their hashed durable device session is active. Rotation is compare-and-swap, revocation is immediate, managed access is tenant-scoped and permission-gated, and raw bearer/device hashes never enter audit metadata.",
+    "appLock": "The local PIN is salted and hashed in SecureStore by user and device, hydration fails closed after prior setup, biometric unlock requires strong enrolled biometrics, background relock is bounded, and screen/app-switcher privacy is active while configured. App lock never substitutes for the server session or authorization."
+  }
+}

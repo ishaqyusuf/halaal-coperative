@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
@@ -25,6 +26,7 @@ import {
   submitOwnFoodPurchaseApplicationAction,
 } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
+import { useTRPC } from "@/trpc/client"
 
 export type FoodPurchaseOption = {
   id: string
@@ -59,6 +61,35 @@ function Field({
   )
 }
 
+function useRefreshFoodPurchase() {
+  const queryClient = useQueryClient()
+  const router = useRouter()
+  const trpc = useTRPC()
+
+  return async (onClose: () => Promise<void>, applicationId?: string) => {
+    await onClose()
+
+    const invalidations = [
+      queryClient.invalidateQueries(
+        trpc.foodPurchase.list.infiniteQueryFilter()
+      ),
+    ]
+
+    if (applicationId) {
+      invalidations.push(
+        queryClient.invalidateQueries(
+          trpc.foodPurchase.get.queryFilter({
+            foodPurchaseApplicationId: applicationId,
+          })
+        )
+      )
+    }
+
+    await Promise.all(invalidations)
+    router.refresh()
+  }
+}
+
 function useOpenCycleOptions(cycles: FoodPurchaseCycleRow[]) {
   return useMemo(
     () => [
@@ -79,9 +110,9 @@ function useOpenCycleOptions(cycles: FoodPurchaseCycleRow[]) {
 export function FoodPurchaseReleaseContent({
   onClose,
 }: {
-  onClose: () => void
+  onClose: () => Promise<void>
 }) {
-  const router = useRouter()
+  const refreshFoodPurchase = useRefreshFoodPurchase()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [periodMonth, setPeriodMonth] = useState("")
@@ -104,12 +135,11 @@ export function FoodPurchaseReleaseContent({
         setReleasedAmount("")
         setReleasedAt("")
         setReleaseNotes("")
-        onClose()
+        await refreshFoodPurchase(onClose)
         showSuccess(
           "Foodstuff Purchase cycle saved",
-          "Committee funds recorded."
+          "Committee release evidence recorded."
         )
-        router.refresh()
       } catch (error) {
         showError(
           "Could not save Foodstuff Purchase cycle",
@@ -154,8 +184,13 @@ export function FoodPurchaseReleaseContent({
           />
         </Field>
       </div>
-      <div className="mt-4">
-        <Button disabled={isPending} onClick={createCycle} type="button">
+      <div className="mt-6 flex justify-end border-t border-border pt-4">
+        <Button
+          className="h-11 w-full sm:h-9 sm:w-auto"
+          disabled={isPending}
+          onClick={createCycle}
+          type="button"
+        >
           Save cycle
         </Button>
       </div>
@@ -172,9 +207,9 @@ export function FoodPurchaseApplicationCreateContent({
   chargeOptions: WorkflowChargeOption[]
   cycles: FoodPurchaseCycleRow[]
   memberOptions: FoodPurchaseOption[]
-  onClose: () => void
+  onClose: () => Promise<void>
 }) {
-  const router = useRouter()
+  const refreshFoodPurchase = useRefreshFoodPurchase()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [cycleId, setCycleId] = useState("")
@@ -211,12 +246,11 @@ export function FoodPurchaseApplicationCreateContent({
         setRequestedAmount("")
         setRequestedPaybackMonths("1")
         setRequestNotes("")
-        onClose()
+        await refreshFoodPurchase(onClose)
         showSuccess(
           "Foodstuff Purchase application saved",
           "Request is pending."
         )
-        router.refresh()
       } catch (error) {
         showError(
           "Could not save Foodstuff Purchase application",
@@ -281,12 +315,14 @@ export function FoodPurchaseApplicationCreateContent({
           <WorkflowChargeSummary
             basisAmount={Number(requestedAmount) || 0}
             charges={chargeOptions}
+            flat
             title="Submission charges"
           />
         </div>
       </div>
-      <div className="mt-4">
+      <div className="mt-6 flex justify-end border-t border-border pt-4">
         <Button
+          className="h-11 w-full sm:h-9 sm:w-auto"
           disabled={isPending || openCycleOptions.length <= 1}
           onClick={submitApplication}
           type="button"
@@ -305,9 +341,9 @@ export function MemberFoodPurchaseApplicationCreateContent({
 }: {
   chargeOptions: WorkflowChargeOption[]
   cycles: FoodPurchaseCycleRow[]
-  onClose: () => void
+  onClose: () => Promise<void>
 }) {
-  const router = useRouter()
+  const refreshFoodPurchase = useRefreshFoodPurchase()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [cycleId, setCycleId] = useState("")
@@ -334,12 +370,11 @@ export function MemberFoodPurchaseApplicationCreateContent({
         setRequestedAmount("")
         setRequestedPaybackMonths("1")
         setRequestNotes("")
-        onClose()
+        await refreshFoodPurchase(onClose)
         showSuccess(
           "Foodstuff Purchase request sent",
           "Your request is pending."
         )
-        router.refresh()
       } catch (error) {
         showError(
           "Could not send request",
@@ -396,12 +431,14 @@ export function MemberFoodPurchaseApplicationCreateContent({
           <WorkflowChargeSummary
             basisAmount={Number(requestedAmount) || 0}
             charges={chargeOptions}
+            flat
             title="Applicable charges"
           />
         </div>
       </div>
-      <div className="mt-4">
+      <div className="mt-6 flex justify-end border-t border-border pt-4">
         <Button
+          className="h-11 w-full sm:h-9 sm:w-auto"
           disabled={isPending || openCycleOptions.length <= 1}
           onClick={submitApplication}
           type="button"
@@ -420,9 +457,9 @@ export function FoodPurchaseApplicationReviewContent({
 }: {
   application: FoodPurchaseApplicationRow
   chargeOptions: WorkflowChargeOption[]
-  onClose: () => void
+  onClose: () => Promise<void>
 }) {
-  const router = useRouter()
+  const refreshFoodPurchase = useRefreshFoodPurchase()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [approvedAmount, setApprovedAmount] = useState("")
@@ -445,8 +482,7 @@ export function FoodPurchaseApplicationReviewContent({
           "Foodstuff Purchase review saved",
           `Application marked ${status.replace(/_/g, " ")}.`
         )
-        onClose()
-        router.refresh()
+        await refreshFoodPurchase(onClose, application.id)
       } catch (error) {
         showError(
           "Could not save Foodstuff Purchase review",
@@ -490,11 +526,13 @@ export function FoodPurchaseApplicationReviewContent({
       <WorkflowChargeSummary
         basisAmount={Number(approvedAmount) || application.requestedAmount}
         charges={chargeOptions}
+        flat
         title="Approval charges"
       />
-      <div className="flex flex-wrap gap-2">
+      <div className="grid gap-2 border-t border-border pt-4 sm:flex sm:justify-end">
         {application.status === "submitted" ? (
           <Button
+            className="h-11 sm:h-9"
             disabled={isPending}
             onClick={() => reviewApplication("under_review")}
             type="button"
@@ -504,6 +542,7 @@ export function FoodPurchaseApplicationReviewContent({
           </Button>
         ) : null}
         <Button
+          className="h-11 sm:h-9"
           disabled={isPending}
           onClick={() => reviewApplication("approved")}
           type="button"
@@ -511,6 +550,7 @@ export function FoodPurchaseApplicationReviewContent({
           Approve
         </Button>
         <Button
+          className="h-11 sm:h-9"
           disabled={isPending}
           onClick={() => reviewApplication("rejected")}
           type="button"
@@ -528,9 +568,9 @@ export function FoodPurchaseAccountingContent({
   onClose,
 }: {
   cycle: FoodPurchaseCycleRow
-  onClose: () => void
+  onClose: () => Promise<void>
 }) {
-  const router = useRouter()
+  const refreshFoodPurchase = useRefreshFoodPurchase()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [salesAmount, setSalesAmount] = useState("")
@@ -554,8 +594,7 @@ export function FoodPurchaseAccountingContent({
           "Foodstuff Purchase accounting saved",
           "Profit was recorded."
         )
-        onClose()
-        router.refresh()
+        await refreshFoodPurchase(onClose)
       } catch (error) {
         showError(
           "Could not save Foodstuff Purchase accounting",
@@ -600,8 +639,13 @@ export function FoodPurchaseAccountingContent({
           />
         </Field>
       </div>
-      <div className="mt-4">
-        <Button disabled={isPending} onClick={recordAccounting} type="button">
+      <div className="mt-6 flex justify-end border-t border-border pt-4">
+        <Button
+          className="h-11 w-full sm:h-9 sm:w-auto"
+          disabled={isPending}
+          onClick={recordAccounting}
+          type="button"
+        >
           Save accounting
         </Button>
       </div>
@@ -614,9 +658,9 @@ export function FoodPurchaseAccountingReviewContent({
   onClose,
 }: {
   cycle: FoodPurchaseCycleRow
-  onClose: () => void
+  onClose: () => Promise<void>
 }) {
-  const router = useRouter()
+  const refreshFoodPurchase = useRefreshFoodPurchase()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [notes, setNotes] = useState("")
@@ -635,8 +679,7 @@ export function FoodPurchaseAccountingReviewContent({
           "Foodstuff Purchase accounting reviewed",
           `Accounting ${decision}.`
         )
-        onClose()
-        router.refresh()
+        await refreshFoodPurchase(onClose)
       } catch (error) {
         showError(
           "Could not review Foodstuff Purchase accounting",
@@ -655,8 +698,9 @@ export function FoodPurchaseAccountingReviewContent({
           value={notes}
         />
       </Field>
-      <div className="flex flex-wrap gap-2">
+      <div className="grid gap-2 border-t border-border pt-4 sm:flex sm:justify-end">
         <Button
+          className="h-11 sm:h-9"
           disabled={isPending}
           onClick={() => reviewAccounting("approved")}
           type="button"
@@ -664,6 +708,7 @@ export function FoodPurchaseAccountingReviewContent({
           Approve accounting
         </Button>
         <Button
+          className="h-11 sm:h-9"
           disabled={isPending}
           onClick={() => reviewAccounting("rejected")}
           type="button"

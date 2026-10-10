@@ -1,5 +1,17 @@
 # Database Schema
 
+## Mobile store reviewer grant — 29 September 2026
+
+`mobile_app_review_grants` is separate from verified `mobile_app_access_purchases`. It has one row per user, an original QA tenant, store environment, purpose, expiry (at most 30 days from issue/renewal), optional revocation timestamp and audit timestamps. Tenant/user foreign keys cascade only for QA fixture teardown. A current platform owner can issue/renew or revoke through audited transactions; the snapshot accepts a grant only for the selected QA tenant/environment while the user is active, the tenant is not purging, and the grant has not expired or been revoked. This is reviewer access, not payment or a change to cooperative finance/tenant subscription records.
+
+## Personal mobile app access — 28 September 2026
+
+`mobile_app_access_purchases` stores one verified Apple original transaction chain or hashed Google purchase-token chain per authenticated user, with a tenant foreign key for original account/audit provenance. The personal entitlement is read by **user and store environment**, not by active tenant: the same signed-in user may switch cooperative memberships without buying a second subscription. A client verification from any selected cooperative must still prove that user's membership there; ordinary feature data remains tenant/role scoped. The row records the configured product/duration, provider environment, current status, period/grace bounds, cancellation flag, last verification time and evidence hash. `(provider_name, provider_subscription_id)` is unique globally so one receipt cannot be assigned to two users. `mobile_app_access_provider_events` retains distinct hashed verified-state evidence per purchase for audit and replay handling. Neither table changes `tenant_subscriptions` or the cooperative finance ledger. QA tenant/user deletion cascades through purchases and their event history; ordinary account-deletion revocation retains the pseudonymous user row and these records for separate retention review.
+
+## Pending store refund-review read model — 28 September 2026
+
+The platform queue reads existing `subscription_provider_events` rows where provider is Google Play, event type is `pending_refund_review.received`, and status is `received`. It orders by `occurred_at` and event ID with a bounded cursor, then projects only order/reason/account-binding/deadline metadata from the private JSON payload. New provider receipts set the existing `attempts` field to one; an idempotent duplicate increments it after matching the stored payload hash and tenant. The queue projects that count and `updated_at` as tracked delivery activity; an older receipt with zero attempts reports unknown activity rather than inventing a count. Encrypted token, token digest and raw payload are never returned to the dashboard. No Prisma model or migration changed.
+
 ## Purpose
 
 This file tracks the evolving database design and current source of truth at a conceptual level.
@@ -26,8 +38,18 @@ This file tracks the evolving database design and current source of truth at a c
 - `ledger_entries`
 - `audit_logs`
 - `notification_outbox`
+- `mobile_push_registrations`
+- `mobile_user_notification_preferences`
 - `member_signup_links`
 - `tenant_brought_forward_snapshots`
+- `qa_tester_credentials`
+- `qa_client_authorizations`
+- `subscription_plans`
+- `tenant_subscriptions`
+- `tenant_subscription_addons`
+- `subscription_checkout_intents`
+- `subscription_invoices`
+- `subscription_provider_events`
 
 ## Current Scaffold State
 
@@ -36,7 +58,7 @@ This file tracks the evolving database design and current source of truth at a c
   - `schema.prisma` for datasource and generator.
   - `enums/` for domain enums.
   - `models/` for domain-grouped model files.
-- Current model coverage includes tenants, tenant domains, tenant operation profiles, tenant service settings, tenant brought-forward snapshots, users, memberships, members, member documents, import batches, import batch rows, member opening balances, deduction sources, collection-source contribution batches, collection-source contribution batch rows, contribution plans, contributions, member special-savings withdrawals, member payment receipts, member payment receipt allocations, charge definitions, charge applications, loan products, financing cycles, loan requests, loan approvals, loan guarantor approvals, loans, procurement requests, project financing requests, food purchase cycles, food purchase applications, repayment schedules, repayments, collection follow-ups, support cases, support case messages, ledger accounts, ledger transactions, ledger entries, dividend periods, dividend allocations, member share applications, offline sync events, audit logs, and notification outbox entries.
+- Current model coverage includes tenants, tenant domains, tenant operation profiles, tenant service settings, tenant brought-forward snapshots, users, memberships, members, member documents, import batches, import batch rows, member opening balances, deduction sources, collection-source contribution batches, collection-source contribution batch rows, contribution plans, contributions, member special-savings withdrawals, member payment receipts, member payment receipt allocations, charge definitions, charge applications, loan products, financing cycles, loan requests, loan approvals, loan guarantor approvals, loans, procurement requests, project financing requests, food purchase cycles, food purchase applications, repayment schedules, repayments, collection follow-ups, support cases, support case messages, ledger accounts, ledger transactions, ledger entries, dividend periods, dividend allocations, member share applications, offline sync events, audit logs, notification outbox entries, mobile push registrations, and mobile user notification preferences.
 - `tenant_policies` now also stores `member_signup_access_mode` so each cooperative can choose whether member signup stays in-office only or becomes public.
 - `tenant_policies` now also stores monthly financing-cycle defaults and guardrails: capacity basis, quick/normal allocation percentages, intake reservation mode, whether disbursement requires deployable funds, whether special savings counts toward eligibility, strict commitment during active financing, active-financing emergency/quick blocking, active-financing procurement blocking, procurement maximum payback months, procurement commitment-reduction mode during payback, procurement maximum active obligations per member, Foodstuff Purchase maximum payback months, Foodstuff Purchase commitment-reduction mode during payback, Foodstuff Purchase open-cycle requirement, and Foodstuff Purchase maximum active obligations per member.
 - `tenant_operation_profiles` stores one reviewed Operation Profile per tenant, including reviewed timestamp, reviewer, and updated timestamp.
@@ -55,10 +77,12 @@ This file tracks the evolving database design and current source of truth at a c
 - `procurement_requests` stores member item-purchase requests with requested cost, repayment months, estimated monthly repayment, approved cost/months, payback-policy snapshot, commitment-reduction snapshot, review status, reviewer, purchase evidence, and audit-backed request/review/purchase timestamps.
 - `procurement_repayment_schedule_items` stores the active monthly repayment schedule created when finance records the purchase/fulfillment of an approved procurement request, including amount, paid amount, due date, and pending/due/overdue/paid-style servicing status.
 - `project_financing_requests` stores staged member business funding requests with requested amount, optional proposed structure, approved amount/structure, optional payback months, principal-only payback estimate when applicable, disbursement date/reference/notes/actor evidence, paid amount/date evidence for repayable facilities, review status, reviewer, and audit-backed request/review timestamps.
-- `food_purchase_cycles` and `food_purchase_applications` store monthly committee fund releases, member Foodstuff Purchase applications, requested/approved payback months, committee approval decisions, payback-policy snapshot, commitment-reduction snapshot, approved amount, paid amount/date evidence from receipt allocations, and end-of-month accounting/profit evidence.
+- `food_purchase_cycles` and `food_purchase_applications` store monthly committee fund releases, member Foodstuff Purchase applications, requested/approved payback months, committee approval decisions, payback-policy snapshot, commitment-reduction snapshot, approved amount, paid amount/date evidence from receipt allocations, and end-of-month accounting/profit evidence. Cycle lifecycle states explicitly include `draft`, `open`, `intake_closed`, `accounting_submitted`, `accounting_approved`, `accounting_rejected`, `completed`, `closed`, and `cancelled`; applications may carry a nullable submission key that is unique within the tenant for idempotent creation.
 - `member_signup_links` now stores staff-issued member signup links with token-rotation version, expiry, optional signup cap, enable/disable state, notes, creator, and last-used timestamp.
 - `member_onboarding_requests` now also stores an optional `signup_link_id` so remote signup analytics can be tied back to the issuing link.
 - `tenants` now also stores onboarding profile metadata for new cooperative workspaces: `current_size`, `office_address`, `city`, `state`, `country`, and `start_date`; `region` remains for compatibility and is mirrored from `state` on new profile writes.
+- `tenants.cooperative_code_prefix` stores a nullable, globally unique 3–5-letter uppercase tenant prefix. New public signups require it; legacy tenants remain nullable until a collision-aware backfill is approved.
+- `users.cooperative_access_code` stores a nullable, globally unique normalized sign-in code. New tenant owners and linked members derive it from the tenant prefix and membership identifier; legacy users remain nullable until backfill, and staff invite delivery must intentionally surface newly issued codes.
 - `tenants` now also stores trust-readiness profile evidence: legal terms URL, privacy URL, data-processing URL, incident contact name/email, backup-retention note, recovery point objective, recovery time objective, and last review metadata.
 - `members` now also stores `payment_allocation_preference`, `kyc_status`, `government_id_number`, `kyc_document_type`, `kyc_document_url`, `kyc_document_uploaded_at`, and `kyc_review_notes`.
 - `member_documents` now stores multiple supporting KYC documents per member, with per-document review status, notes, uploaded timestamps, and reviewed timestamps.
@@ -66,6 +90,19 @@ This file tracks the evolving database design and current source of truth at a c
 - `collection_follow_ups` now stores persisted collections notes, status, next-action dates, stage, priority, resolution state, promise-to-pay dates, assignee links, and actor/member/loan links instead of relying only on audit metadata.
 - `audit_logs` is also being reused for tenant-scoped operational delivery tracking, including notification email outcomes after tenant bootstrap.
 - `notification_outbox` stores durable email delivery attempts before and after tenant creation, with optional `tenantId`, delivery status, message id, attempts, source, and rendered email payload fields.
+- `qa_tester_credentials` stores one-way credential digests, exact QA domains, tester labels, expiry/revocation/lockout state, failed-use counters, and creator evidence. Raw tester credentials are never persisted.
+- `qa_client_authorizations` stores bounded client-signal/token hashes, client kind, environment, contract version, exact QA domain, expiry, revocation, and last-use evidence. It is authorization for profile discovery, not a replacement product session.
+- `mobile_device_sessions` stores tenant/user/optional membership scope, one-way token and device hashes, safe device/platform/app/build labels, created/last-used/expiry timestamps, and revocation actor/reason/timestamp evidence. Bearer tokens and raw device fingerprints are never persisted.
+- QA revocation verification reads aggregate session/revoked counts scoped by
+  tenant, user, and run start. Unlike the 25-row device-management listing, this
+  read has no pagination cap. This is a query-only change; no schema migration
+  or database synchronization is required.
+- `mobile_push_registrations` stores one provider endpoint per durable mobile-device session with tenant/user scope, provider-token hash, platform/project/permission state, validation/disable/failure evidence, and active-recipient indexes. Raw provider tokens are write-only application secrets and are never returned or copied into audit metadata.
+- `mobile_user_notification_preferences` stores one tenant/user/channel/category choice. Effective delivery still intersects this choice with tenant channel policy, subscription availability, intended role, mandatory-category rules, and an active durable device session.
+- `account_privacy_requests.processing_evidence` now carries the verified operator's handover/retention note and a restricted completion-contact email captured immediately before account identifier anonymisation. This is a use of the existing JSON column, not a schema migration. The contact remains only while the request is processing; completion notification and removal/retention of this evidence are still to be implemented and approved.
+- `subscription_plans` stores the five provider-neutral plan definitions, active-member limit, separately categorized monthly/setup pricing, entitlement JSON, available add-ons, add-on definitions, and pass-through provider-cost definitions.
+- `tenant_subscriptions` stores one current tenant-owned plan and lifecycle record, including source/provider identifiers, trial/current/grace/cancellation periods, capacity override, and provider-source evidence. For Google Play SubscriptionsV2, `current_period_starts_at` stays null: the verified API `startTime` is the original subscription grant, not an authoritative current renewal-period start. The verified `expiryTime` still populates `current_period_ends_at`; the grant time remains in the private provider-event payload for chain validation. `tenant_subscription_addons` stores explicit active/cancelled/expired tenant add-ons and their entitlement/limit overrides.
+- `subscription_checkout_intents` stores tenant-scoped idempotent plan-change requests without claiming payment completion. `subscription_invoices` stores provider-neutral amounts, periods, line items, due/paid evidence, and optional hosted URLs. `subscription_provider_events` stores payload hashes and idempotent processing state by provider event identity. A Google `pending_refund_review.received` event uses the existing JSON payload for order/reason, token digest, conservative event-or-first-receipt review deadline and AES-256-GCM encrypted review token with key ID; the plaintext token is not stored. The record stays `received` and may have null tenant ID until a reviewed account correlation exists. No schema or migration changed for this intake.
 - `packages/db` now exposes repository-style query scaffolding for tenants, tenant domains, users, memberships, and runtime status through `src/queries/` and `src/runtime.ts`.
 - Prisma client generation is now wired and `packages/db/src/prisma.ts` provides an optional adapter-backed runtime when `HALAALVEST_DATABASE_URL` is configured.
 - Query functions currently fall back to seed-backed data when no database runtime is configured, but can read from Prisma when the environment is available.
@@ -97,7 +134,26 @@ This file tracks the evolving database design and current source of truth at a c
 - Track member category and payment channel so direct deduction and indirect contribution flows remain explicit.
 - Prefer append-only transaction tables over mutable running totals where possible.
 - TODO: decide whether offline sync metadata belongs on each transactional table or in separate sync event tables.
+
 # QA data lifecycle
 
 - `Tenant.dataClassification`, `qaSourceDomain`, `qaMarkedAt`, and `qaPurgeStartedAt` provide the explicit QA isolation and purge state.
 - Global `QaPurgeRun` rows retain only actor, timestamps, status, aggregate deletion counts, and an error category; deleted tenant identities and contents are never copied into the receipt.
+
+
+### Launch privacy foundation (24 September 2026)
+`AccountPrivacyRequest` stores requester/tenant/support-case links, per-user idempotency, notice version, status, verification and processing evidence, revocation and completion timestamps. Access revocation is distinct from complete erasure. `LegalAcceptance` stores document version/hash/content snapshot, action, surface and accepted timestamp; runtime acceptance flow is pending and drafts must never be recorded as accepted.
+
+
+LegalAcceptance runtime writes now use exact server-computed approved document snapshots. During public web onboarding they share the account/workspace transaction; existing-account writes recheck live user and tenant membership. Duplicate user/document/version/hash inserts are skipped; audit is emitted only when evidence is newly inserted. No schema change was needed for this runtime wiring.
+
+
+The acceptance-history query first verifies that the signed user has active membership in the selected tenant, then selects at most 20 recent account-wide document type/version/hash/action/time records for that user. This matches the per-user acceptance uniqueness across cooperative workspaces; it does not expose stored snapshots or other users’ records.
+
+
+`AuthChallengePurpose` now includes `account_deletion_email`; `AuthChallenge.recipientEmailHash` optionally binds a one-time external privacy link to the address at issuance. Only a digest of the random link token and a keyed recipient hash are stored; expired and consumed challenges cannot create a request. AccountPrivacyRequest and linked support case are created atomically during redemption.
+
+### Dashboard evidence upload lifecycle — 24 September 2026
+`dashboard_evidence_uploads` records a UUID, tenant, nullable uploader, purpose, original name, MIME, declared/stored byte sizes, pending/uploaded/deleted status, and created/uploaded/deleted times. It stores lifecycle metadata, not provider tokens or file bytes. Uploaded state and `file.uploaded` audit commit in one Serializable transaction; repeated finalization does not duplicate audit. A pending record is required before token issuance, and upload intent creation is blocked after QA purge marking. Linked business-record ownership is still derived from saved URLs rather than a foreign key.
+
+The lifecycle row also stores nullable `linked_entity_type`, `linked_entity_id` and `linked_at`. A private upload is claimed once by a matching saved member document, opening balance, payment receipt or support message; type and ID are then required by GET. No provider bytes or tokens are stored.

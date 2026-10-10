@@ -64,6 +64,12 @@ function createHybridConsoleEmailTransport(input: {
         (input.qaDomainRoutes.size > 0 && domain.endsWith(".test"))
 
       if (!isQaRecipient) {
+        if (
+          process.env.APP_ENV?.trim().toLowerCase() === "preview" ||
+          process.env.VERCEL_ENV?.trim().toLowerCase() === "preview"
+        ) {
+          throw new Error("Preview email requires an approved QA domain route.")
+        }
         return consoleTransport.send(draft)
       }
 
@@ -141,16 +147,14 @@ export function createServerNotificationService() {
   const emailTransport = baseEmailTransport
     ? createRetryingEmailTransport(baseEmailTransport, {
         maxAttempts: 2,
-        onAttemptFailure({ attempt, draft, error, maxAttempts }) {
+        onAttemptFailure({ attempt, maxAttempts }) {
           console.error(
             JSON.stringify(
               {
                 attempt,
                 channel: "email",
-                error: error instanceof Error ? error.message : String(error),
+                error: "Email delivery attempt failed.",
                 maxAttempts,
-                notificationType: draft.notificationType,
-                recipient: draft.recipient.value,
               },
               null,
               2

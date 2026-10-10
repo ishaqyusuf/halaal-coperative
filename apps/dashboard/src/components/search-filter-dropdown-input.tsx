@@ -12,11 +12,7 @@ import {
 import { DropdownMenuTrigger } from "@halaalvest/ui/components/dropdown-menu"
 import { cn } from "@halaalvest/ui/lib/utils"
 
-export function MiddayFilterIcon({
-  className,
-}: {
-  className?: string
-}) {
+export function MiddayFilterIcon({ className }: { className?: string }) {
   return (
     <svg
       aria-hidden="true"
@@ -32,33 +28,48 @@ export function MiddayFilterIcon({
 export function SearchFilterDropdownInput({
   filterActive,
   filterOpen,
+  onFilterClick,
   type = "search",
   ...props
 }: ComponentProps<typeof InputGroupInput> & {
   filterActive: boolean
   filterOpen: boolean
+  onFilterClick?: () => void
 }) {
   return (
-    <InputGroup className="w-full sm:w-[350px]">
+    <InputGroup className="h-11 w-full sm:w-[350px] md:h-8">
       <InputGroupAddon align="inline-start">
         <HugeiconsIcon icon={Search01Icon} size={16} />
       </InputGroupAddon>
-      <InputGroupInput type={type} {...props} />
+      <InputGroupInput aria-label={props.placeholder} type={type} {...props} />
       <InputGroupAddon align="inline-end">
-        <DropdownMenuTrigger
-          render={
-            <InputGroupButton
-              aria-label="Toggle filters"
-              className={cn(
-                "text-muted-foreground",
-                (filterActive || filterOpen) && "text-foreground",
-              )}
-              size="icon-xs"
-            />
-          }
-        >
-          <MiddayFilterIcon />
-        </DropdownMenuTrigger>
+        {onFilterClick ? (
+          <InputGroupButton
+            aria-label="Toggle filters"
+            aria-expanded={filterOpen}
+            aria-haspopup="dialog"
+            className="size-11"
+            onClick={onFilterClick}
+            size="icon-sm"
+          >
+            <MiddayFilterIcon />
+          </InputGroupButton>
+        ) : (
+          <DropdownMenuTrigger
+            render={
+              <InputGroupButton
+                aria-label="Toggle filters"
+                className={cn(
+                  "text-muted-foreground",
+                  (filterActive || filterOpen) && "text-foreground"
+                )}
+                size="icon-xs"
+              />
+            }
+          >
+            <MiddayFilterIcon />
+          </DropdownMenuTrigger>
+        )}
       </InputGroupAddon>
     </InputGroup>
   )

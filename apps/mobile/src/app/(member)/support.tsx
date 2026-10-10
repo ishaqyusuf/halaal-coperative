@@ -1,5 +1,5 @@
-import { SupportScreen } from "@/screens/support-screen"
+import { MemberSupportRouteController } from "@/features/support/routes/member-support-route-controller"
 
 export default function SupportRoute() {
-  return <SupportScreen />
+  return <MemberSupportRouteController />
 }

@@ -51,6 +51,7 @@ export type NotificationEmailDraft = {
   actionLabel: string
   actionUrl: string
   bodyHtml?: string
+  bodyTemplate?: NotificationEmailTemplate
   bodyText: string
   notificationType: string
   previewText: string
@@ -58,6 +59,22 @@ export type NotificationEmailDraft = {
   recipient: NotificationRecipient
   sender?: NotificationEmailSender
   subject: string
+}
+
+export type NotificationEmailTemplate = {
+  actionLabel: string
+  actionUrl: string
+  amount?: string | null
+  amountLabel?: string
+  bodyText: string
+  details?: Array<{ label: string; value: string }>
+  eventLabel: string
+  organizationName?: string
+  previewText: string
+  recipientName?: string
+  statusLabel?: string
+  subject: string
+  variant?: NotificationVariant
 }
 
 export type NotificationEmailSender = {

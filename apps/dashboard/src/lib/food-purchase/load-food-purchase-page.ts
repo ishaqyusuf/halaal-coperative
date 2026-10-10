@@ -1,8 +1,8 @@
 import {
   createDbRuntime,
+  getFoodPurchaseApplicationSummary,
   getMemberByUserId,
   getTenantOperationProfile,
-  listFoodPurchaseApplications,
   listFoodPurchaseCycles,
   listMembers,
   quoteApplicableCharges,
@@ -52,9 +52,9 @@ export async function loadFoodPurchasePageData() {
       return { state: "member-profile-missing" as const }
     }
 
-    const [cycles, applications, chargeOptions] = await Promise.all([
+    const [cycles, applicationSummary, chargeOptions] = await Promise.all([
       listFoodPurchaseCycles({ tenantId: context.tenant.id }),
-      listFoodPurchaseApplications({
+      getFoodPurchaseApplicationSummary({
         memberId: member.id,
         tenantId: context.tenant.id,
       }),
@@ -69,30 +69,45 @@ export async function loadFoodPurchasePageData() {
     if (
       foodPurchaseCapability.accessMode === "disabled" &&
       cycles.length === 0 &&
-      applications.length === 0
+      applicationSummary.totalApplications === 0
     ) {
       return { state: "service-disabled" as const }
     }
 
     return {
       state: "member-ready" as const,
-      applications,
       canCreateApplication: foodPurchaseCapability.canMemberCreate,
       chargeOptions,
-      cycles,
-      member,
+      cycles: cycles.map((cycle) => ({
+        ...cycle,
+        accountingSubmittedByUser: cycle.accountingSubmittedByUser
+          ? {
+              fullName: cycle.accountingSubmittedByUser.fullName,
+              id: cycle.accountingSubmittedByUser.id,
+            }
+          : null,
+        releasedByUser: {
+          fullName: cycle.releasedByUser.fullName,
+          id: cycle.releasedByUser.id,
+        },
+      })),
+      member: {
+        fullName: member.fullName,
+        memberNumber: member.memberNumber,
+      },
+      summary: applicationSummary,
     }
   }
 
   const [
     cycles,
-    applications,
+    applicationSummary,
     members,
     submissionChargeOptions,
     approvalChargeOptions,
   ] = await Promise.all([
     listFoodPurchaseCycles({ tenantId: context.tenant.id }),
-    listFoodPurchaseApplications({ tenantId: context.tenant.id }),
+    getFoodPurchaseApplicationSummary({ tenantId: context.tenant.id }),
     listMembers(context.tenant.id, { page: 1, pageSize: 200 }),
     quoteApplicableCharges({
       basisAmount: 100,
@@ -111,14 +126,13 @@ export async function loadFoodPurchasePageData() {
   if (
     foodPurchaseCapability.accessMode === "disabled" &&
     cycles.length === 0 &&
-    applications.length === 0
+    applicationSummary.totalApplications === 0
   ) {
     return { state: "service-disabled" as const }
   }
 
   return {
     state: "staff-ready" as const,
-    applications,
     approvalChargeOptions,
     canRecordAccounting: canSubmitApplications,
     canReleaseFunds: canReleaseFunds && foodPurchaseCapability.canStaffCreate,
@@ -133,13 +147,9 @@ export async function loadFoodPurchasePageData() {
     })),
     submissionChargeOptions,
     summary: {
-      approvedApplications: applications.filter(
-        (application) => application.status === "approved"
-      ).length,
+      approvedApplications: applicationSummary.approvedApplications,
       openCycles: cycles.filter((cycle) => cycle.status === "open").length,
-      pendingApplications: applications.filter((application) =>
-        ["submitted", "under_review"].includes(application.status)
-      ).length,
+      pendingApplications: applicationSummary.pendingApplications,
       reportedProfit: cycles.reduce(
         (total, cycle) => total + (cycle.profitAmount ?? 0),
         0

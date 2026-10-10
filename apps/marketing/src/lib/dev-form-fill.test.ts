@@ -15,7 +15,7 @@ describe("marketing QA quick fill", () => {
       .replace(/-+$/g, "")
 
     expect(values.primaryContactEmail).toBe(
-      `${expectedLocalPart}@ishaq.qa.test`,
+      `${expectedLocalPart}@ishaq.qa.test`
     )
   })
 
@@ -25,7 +25,8 @@ describe("marketing QA quick fill", () => {
     })
 
     expect(values.primaryContactEmail).toBe(
-      `${values.workspaceSlug}@ishaq.qa.test`,
+      `${values.workspaceSlug}@ishaq.qa.test`
     )
+    expect(values.cooperativeCodePrefix).toMatch(/^[A-Z]{3,5}$/)
   })
 })

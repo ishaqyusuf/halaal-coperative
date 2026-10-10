@@ -6,6 +6,593 @@
 - Added fail-closed signed evidence verification, exact-revision CI guards, concurrency protection, and focused regression coverage. The integration verifies hosted state and never deploys it.
 - Hosted activation is pending protected HMAC/evidence configuration and provider-side evidence collection; until then, `release:check` correctly refuses approval.
 
+## 2026-09-06 — Admin charge application accepted
+
+- Headless Android run `t30-admin-charge-final-v6` passes all three production
+  steps for the ordinary Starter-healthy `ishaq.qa.test` Finance Officer.
+  API and Android each prove one application, one ledger transaction, two
+  balanced entries and the exact `₦5,000` savings deduction; final cleanup
+  restores the baseline.
+- The form reuses the approved five-option `A — Ledger Calendar`; days, months,
+  years and all swipe transitions retain identical sheet bounds and a semantic
+  backdrop. The separately approved five-option `D — Emerald confirmation cap`
+  keeps the Charges screen and status bar neutral. All 16 frames pass direct
+  visual review and all measured inputs clear Gboard.
+- Transaction-scoped queries are sequential, the ledger migration readiness
+  check is not duplicated inside an already validated transaction, and the
+  runner now makes any process warning fail acceptance. The final receipt records
+  `runtimeWarnings: []`, Android sign-out, both credential revocations and 2/2
+  session revocations.
+- Forty-one focused tests/128 assertions, database/API TypeScript and zero-error
+  scoped lint pass. Positive journeys advance to 5/18 (27.8%); negative journeys
+  remain 7/7; Ticket 30 remains 5/8 (62.5%); overall progress remains 25/33
+  (75.8%). Evidence:
+  `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/ticket-30/android/admin-charge-application/final-v6/README.md`.
+
+## 2026-09-06 — Duplicate-charge exact retry accepted
+
+- Headless Android run `t30-duplicate-charge-final-v2` passes the real
+  Starter-healthy Finance Officer negative journey. The first production charge
+  commits before its response is interrupted; the exact retained command retries
+  to the same canonical result with `replayed: true`.
+- Five Design HTML/PNG directions selected `A — Canonical receipt`. Ten native
+  frames pass direct alignment, spacing, backdrop, token, status-bar, keyboard,
+  clipping and reachability review. API and Android fingerprints each prove one
+  application, one ledger transaction and two balanced entries.
+- Android signs out; both credentials and 2/2 sessions are revoked; cleanup
+  restores baseline. Forty focused tests/121 assertions, mobile/API TypeScript,
+  scoped lint and the complete mobile contract pass.
+- Negative journeys are complete at 7/7, closing Ticket 30 acceptance item 6.
+  Ticket 30 advances to 5/8 (62.5%); positive journeys remain 4/18 and overall
+  progress remains 25/33 (75.8%). Evidence:
+  `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/ticket-30/android/duplicate-charge-command/final-v2/README.md`.
+
+## 2026-09-06 — Member-capacity journey accepted
+
+- Headless Android run `t30-member-capacity-native-v3` passes the real
+  Starter-capacity Tenant Admin journey. Production member creation returns
+  exact `PERMISSION_DENIED`; the complete directory fingerprint is unchanged.
+- Five Design HTML/PNG directions selected `A — Capacity rail`. Members now
+  consumes the server-owned subscription state, removes the impossible create
+  action, and provides one Plan & billing recovery. Both native frames pass
+  direct visual review.
+- Android signs out; both temporary credentials and 2/2 sessions are revoked.
+  Negative journeys advance to 4/7. Ticket 30 remains 4/8 pending all seven
+  negative categories; positive journeys remain 4/18 and overall completion
+  remains 25/33 (75.8%). Evidence:
+  `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/ticket-30/android/member-capacity-limit/final-v3/README.md`.
+
+## 2026-09-06 — Read-only Procurement command accepted
+
+- Headless Android run `t30-ro-proc-v6` passes the real Enterprise stale Member
+  negative journey. Production `mobile.member.procurement.createRequest` returns
+  the exact `PRECONDITION_FAILED` contract, the complete paginated request
+  fingerprint is unchanged, and native Procurement remains browse-only with no
+  New/Continue, form, Quick Fill or staff action.
+- The single non-duplicate Light/100% frame passes direct spacing, alignment,
+  status-bar, semantic-token and empty-state review. The tag-filtered app log has
+  no JavaScript error, Android crash or native fatal entry.
+- QA session hardening prevents valid short-lived QA sessions from entering the
+  normal rolling refresh loop; explicit refresh preserves authorization/expiry.
+  The QA access control now clears the Android navigation inset. Android signs
+  out and both temporary credentials plus 2/2 sessions are revoked.
+- Negative journeys advance to 3/7. Ticket 30 remains 4/8, positive journeys
+  remain 4/18 and overall completion remains 25/33 (75.8%). Evidence:
+  `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/ticket-30/android/operation-profile-modes/read-only-procurement-v6/README.md`.
+
+## 2026-09-05 — Native Operation Profile stale recovery accepted
+
+- Four Design HTML/PNG options selected `A — Preserved draft recovery`; native
+  source uses the shared token-driven floating bottom sheet and real backdrop.
+- Headless Android run `t30-stale-native-recovery-v2` passes the real API and
+  Android conflict steps with ordinary `ishaq.qa.test` sessions. Keep editing
+  retains the exact draft; explicit refresh updates the review basis; two server
+  readbacks prove no automatic mutation retry.
+- All six frames pass direct visual review, app-process fatal/runtime output is
+  empty, the QA fixture returns to `read_only`, Android signs out, both temporary
+  credentials and 2/2 sessions are revoked.
+- Negative journeys advance to 2/7. Ticket 30 remains 4/8, positive journeys
+  remain 4/18 and overall completion remains 25/33 (75.8%). Evidence:
+  `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/ticket-30/android/operation-profile-stale/native-conflict-recovery-v2/README.md`.
+
+## 2026-09-04 — Ticket 30 production-contract QA foundation
+
+- Added a Midday-aligned `@halaalvest/domain` v1 scenario contract and
+  `@halaalvest/db` read-only collision preview plus idempotent provisioner. The
+  harness fails before DB access in production and reuses the existing QA
+  accelerator instead of creating a parallel session path.
+- Local exact-domain execution provisioned 9 visibly classified QA tenants with
+  all five plans, four roles per tenant, four Operation Profile combinations,
+  and all nine reserved state labels. Rerun counts remain 9 tenants, 36 users,
+  37 memberships, 10 members, 9 subscriptions, 9 profiles, and 54 settings. The
+  Starter/healthy Tenant Admin also owns one non-default Member membership and
+  linked `QSH-0002` Member profile so role switching is exercised by one real
+  multi-role identity instead of unrelated users.
+- Safety readback proves zero password hashes, mobile sessions, custom domains,
+  provider subscriptions, live classifications, wrong domains, or tenant-policy
+  drift. All 36 cooperative numbers match the production `ABC-0123` input shape.
+  A fact-based inspector now verifies 9/9 states from real records. Pending
+  review is an audited member receipt created through the existing Operation
+  Profile-guarded self-service workflow; rerun evidence remains one receipt and
+  one audit. Published profit now contains one real completed business-profit
+  entry, reconciled published allocation, published dividend period/member
+  allocation, and one preparation/approval/publication audit, all stable on
+  rerun. Overdue is produced by the real contribution, financing-cycle,
+  dual-approval, disbursement, schedule, ledger, and collections-refresh
+  services; stale is a real rejected Operation Profile compare-and-set tied to
+  the unchanged setting. Two complete harness reruns retain the same fixture
+  identifiers with zero failures. The consolidated scenario, execution,
+  authorization, membership-selection, cleanup, QA-maintenance, and financing
+  regression gate passes 119 tests with 423 expectations; domain/DB/API/jobs
+  TypeScript, Prisma generation,
+  formatting, focused lint, and diff hygiene pass.
+- A session-boundary audit also closes the third acceptance item. The ordinary
+  QA accelerator is the only entry path and now binds authorization to token,
+  client signal, client kind, contract version, environment, credential, exact
+  domain, expiry, and revocation. Five API tests with 23 expectations reject
+  forged/cross-client/cross-kind/profile-selection and production paths. Real
+  readback exposes exactly 37 eligible harness profiles across 9 tenants and no
+  wrong-domain rows: 9 Tenant Admin, 9 Finance Officer, 9 Operations Officer,
+  and 10 Member profiles across 36 distinct users. Active-membership selection
+  now prefers the default membership inside the resolved tenant, preventing row
+  order from silently changing the signed-in role.
+- Added a versioned positive-journey registry covering all 16 required product
+  areas through 18 role-scoped journeys. Each journey names its fixture,
+  production tRPC paths, evidence assertion, and Android checkpoint. An API
+  conformance test verifies every named path exists on the production router.
+  A domain-owned sequential executor now accepts an injected transport/native
+  adapter, preserves contract order, stops and skips safely after a terminal
+  result, converts thrown details into bounded codes, and emits an identity- and
+  secret-free receipt. This is runner readiness only; it does not claim that a
+  live authorized session executed the journey or produced native evidence.
+- Added a v1 negative-journey registry covering all seven required denial and
+  idempotency categories. Offline writes are declared as transport suppression,
+  not server failures; stale, entitlement, Operation Profile, role, tenant, and
+  replay cases name bounded production outcomes. All invoked paths pass the same
+  assembled-router conformance check and every journey includes an Android
+  checkpoint. A separate sequential executor routes suppressed steps only to a
+  zero-transport verifier, fails any recorded call or mismatched outcome, skips
+  remaining steps after a terminal result, and removes thrown private details
+  from its receipt. Fresh negative execution remains 0/7.
+- Added a repeatable invitation proof that enters through a temporary
+  platform-issued credential, the existing QA accelerator, and an ordinary
+  durable mobile Tenant Admin session before calling the production invitation
+  route. A DB-owned inspector returns only membership/default/code-shape,
+  password-absence, routing/status, recipient-count, and audit booleans. Cleanup
+  signs out and revokes the credential. The external-action gate rejected the
+  first delivery request before process launch because the configured tester
+  inbox was not explicitly authorized; no external or database state was
+  created, and acceptance item 5 remains open.
+- Added a versioned exact-scenario cleanup preflight plus redacted preview,
+  irreversible receipt, and rollback-rehearsal receipt. It blocks classification,
+  domain, identity, purge-state, credential/session, custom-domain, document, and
+  provider-resource hazards, then reuses the existing QA-maintenance marker and
+  QA-only tenant-delete boundary. A real local PostgreSQL rehearsal deleted all
+  nine targets inside one transaction, confirmed zero remained, rolled back
+  deliberately, and restored the identical fingerprint and aggregate counts.
+  The irreversible command was rejected before launch without explicit deletion
+  authority and was not retried; no persistent state changed.
+- This completes four of eight Ticket 30 acceptance items. Real-session automated
+  journeys, routed invitation proof, and native visual checkpoints remain open. Overall directive
+  progress remains 25/33 (75.8%).
+- Evidence:
+  `.scratch/mobile-architecture-hardening-and-feature-completion/ticket-30-production-contract-qa-harness/evidence-report.md`
+  and `.scratch/mobile-architecture-hardening-and-feature-completion/ticket-30-production-contract-qa-harness/cleanup-rehearsal.md`.
+
+## 2026-09-04 — Sign-in disabled-action contrast correction
+
+- Reproduced the owner-reported faint `Sign in` action on the headless Pixel 3a API 34 development client: the shared button's generic 50% opacity blended the selected coral action into a misleading salmon block when cooperative number or password was absent.
+- Kept the existing validation contract, selected Prosperity Garden direction, and enabled coral state. The unavailable action now uses semantic `bg-muted` plus readable `text-muted-foreground` with no whole-control fade; the smoke guard pins both the named disabled predicate and this token-driven treatment.
+- Android evidence now includes the rejected pre-fix frame, the corrected empty state, and a non-secret completed password state with the enabled CTA fully visible above Gboard. Mobile TypeScript, pinned focused ESLint, diff hygiene, and the complete 36-route/seven-shell contract pass.
+- Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/sign-in-prosperity-garden/README.md`. This is a refinement inside the existing auth slice; Ticket 29 and directive progress remain 25/33 (75.8%).
+
+## 2026-09-04 — Ticket 29 Admin Finance Treasury Signal source milestone
+
+- Generated and published five separately reviewable Design HTML/PNG directions; selected `A — Treasury Signal` by approved default for its compact emerald decision pulse, flat review queue, restrained semantic accent roles, and content-sized operations sheet.
+- Replaced the 816-line route-level screen with a 34-line composition, feature controller, LegendList queue, operations/detail floating sheets, and compact/full action form stack. The controller preserves signed-role gating, authoritative server data, stale-response suppression, online-only commands, expected state, idempotency, drafts, review/success sequencing, and governed notification destinations.
+- Browse and data entry stay separate. Collection dates use the shared fixed-height calendar sheet; long approvals use the full-screen sheet; short actions use the floating sheet; Quick Fill remains development-only and form-local. A literal-color scan reports no feature-local hex/RGB/HSL values.
+- Validation passes seven focused tests with 22 expectations, mobile TypeScript, focused zero-output ESLint, diff hygiene, and the complete 36-route/seven-shell mobile contract.
+- Android native acceptance remains pending. The headless Android 14/API 34 development client at Metro `1443` is ready at the exact `ishaq.qa.test` QA gate with the credential masked, but submitting that secret to authorize the device and select Tenant Admin requires explicit approval. No bypass, fabricated live state, native completion, or performance improvement is claimed.
+- Design: `.scratch/mobile-architecture-hardening-and-feature-completion/designs/ticket-29-admin-finance-rich-directions/README.md`. Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/admin-finance-treasury-signal/README.md`.
+- Ticket 29 and directive counts remain 25/33 (75.8%).
+
+## 2026-09-04 — Mobile Sign-In Prosperity Garden refinement
+
+- Reopened the latest sign-in because the previous composition still lacked the requested product-quality warmth. Five separately clickable Design HTML/PNG directions selected `E — Prosperity Garden` by approved default.
+- Implemented the selected deep-emerald identity field, indigo atmosphere, semantic saffron/coral/teal connected-member garden, rounded flat form transition, and shield-led coral action. Cooperative-number/password authentication, first-gate recovery, the icon-only authorized QA sheet, stable password geometry, reduced-motion tenant handoff, and className-first semantic tokens remain intact.
+- Headless Pixel 3a API 34 evidence at Metro `1443` covers Light/Dark 100%, Light/Dark 200%, both Gboard inputs, stable hidden/visible bounds, recovery, the QA-sheet backdrop and keyboard lift, empty disabled CTA, and completed enabled CTA. The final native pair is `18-light-100-final-clean.png` and `22-light-100-filled-final-clean.png` in the evidence index.
+- Five focused presentation tests, mobile TypeScript, focused ESLint/Prettier, the 31-token theme guard, and the complete 36-route/seven-shell contract pass. Android has no fatal/native crash; one headless development-client keep-awake warning is isolated to rejected evidence.
+- The exact `ishaq.qa.test` authorization attempt remains server-rejected with `AUTHENTICATION_REQUIRED`, so a fresh signed tenant handshake is not claimed and no credential/session boundary was bypassed. Ticket 29 and directive counts remain 25/33 (75.8%). The dedicated refinement is 87.5%; only an isolated commit remains blocked by the pre-existing untracked auth migration.
+- Design: `.scratch/mobile-architecture-hardening-and-feature-completion/designs/ticket-29-sign-in-vibrant-directions/README.md`. Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/sign-in-prosperity-garden/README.md`.
+
+## 2026-09-01 — Mobile Sign-In Living Cooperative Completion
+
+- Rejected Cooperative Reveal as still too dry. Rebuilt five separately clickable Design HTML/PNG directions with materially different palettes and compositions: `A — Saffron Weave`, `B — Mosaic Pulse`, `C — Crescent Garden`, `D — Terracotta Passage`, and `E — Living Cooperative`.
+- Selected `E — Living Cooperative` by the approved-default workflow. Its deep emerald field, indigo atmosphere, and saffron/coral/teal connected-member network give the sign-in gate a specific cooperative identity without turning the form into a card stack.
+- Implemented the selected direction with feature-owned semantic-token hero/motif components, a pure presentation model, tenant name/avatar replacement, flat leading-icon inputs, a warm CTA detail, and an absolute bottom-left authorized QA trigger. At 200% text, decorative network content is removed and the form becomes the stable primary surface.
+- Android 14/API 34 development-client evidence on Metro `1443` passes Light/Dark 100%, Light 200%, both Gboard inputs at normal and 200%, first-gate recovery, enlarged centered secure bullets, stable hidden/visible field geometry, clean fatal/runtime logs, and final Light/font-scale `1.0` restoration.
+- Six focused tests, TypeScript, focused ESLint/Prettier, and the complete 36-route/seven-shell mobile contract pass. Design: `.scratch/mobile-architecture-hardening-and-feature-completion/designs/ticket-29-sign-in-premium-directions/README.md`. Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/sign-in-living-cooperative/README.md`.
+- The current tester credential remains server-rejected, so the live cooperative-name/avatar handshake was not replayed and no authorization bypass was used. Real TalkBack and the remaining Ticket 29 matrix stay open; ticket and directive counts remain unchanged at 25/33 (75.8%).
+
+## 2026-09-01 — Mobile Recovery Vault Passage Completion
+
+- Reopened account recovery because its generic white utility form no longer matched the accepted Emerald Vault sign-in. Generated five separately clickable Design HTML/PNG directions and selected `A — Vault Passage` by approved default.
+- Implemented the selected deep-emerald/saffron gateway, real brand mark, flat semantic-token form surface, concise 1-of-3 progress, and a Midday-style split between recovery orchestration, pure presentation, and step components. Request, code, and password remain separate first-gate states with no extra explanatory copy or card stack.
+- Pixel 3a API 34 development-client evidence at Metro port `1443` passes Light/Dark, 200% text, cooperative/email/OTP/new-password/confirm-password keyboards, complete code/password headers, mismatch announcement, enlarged centered masking, normal reveal text, and exact identical hidden/visible input bounds. Android was restored to Light/night `no`/font scale `1.0`; a post-clear fatal/runtime replay is clean.
+- Mobile TypeScript, five focused recovery tests, pinned focused ESLint, and the complete 36-route/seven-shell contract pass. Recovery Quick Fill remains correctly gated to an authorized development/`ishaq.qa.test` device or session; no credential or authorization boundary was bypassed.
+- Design: `.scratch/mobile-architecture-hardening-and-feature-completion/designs/ticket-29-recovery-emerald-vault-directions/README.md`. Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/recovery-emerald-vault/README.md`.
+- This refines the existing auth slice without increasing ticket completion. Overall directive progress remains 25/33 (75.8%).
+
+## 2026-09-01 — Mobile Sign-In Emerald Vault Completion
+
+- Rejected the preceding `B — Woven Gateway` as still too dry, generated five new separately clickable 390 × 844 Design HTML directions, and selected `B — Emerald Vault` by approved default.
+- Implemented the selected deep-emerald cooperative gateway, nested arch motif, saffron portal, flat semantic-token form surface, real Halaalvest mark, and concise private-member trust cue without adding screen-local colors, excessive cards, or descriptive copy.
+- Preserved the thin-screen/feature-component split, cooperative-number/password authentication, first-gate recovery, verified cooperative identity replacement, icon-only development Quick Fill, reduced large-text composition, and keyboard-safe form behavior.
+- Pixel 3a API 34 development-client evidence at Metro port `1443` passes clean Light/Dark 100% and 200%, both normal and 200% input keyboards, recovery navigation, enlarged centered secure bullets, normal revealed text, exact stable hidden/visible field bounds, and final Light/font-scale-`1.0` restoration. One Expo-overlay Dark frame is isolated as rejected evidence.
+- Four focused presentation tests, mobile TypeScript, the complete 36-route/seven-shell contract, NativeWind theme drift guard, focused lint, and formatting pass. A fresh live cooperative handshake remains open because the available tester credential is server-rejected; no authorization bypass or credential rewrite was used.
+- Design: `.scratch/mobile-architecture-hardening-and-feature-completion/designs/ticket-29-sign-in-signature-directions/README.md`. Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/sign-in-emerald-vault/README.md`.
+- This refines the existing auth slice without increasing ticket completion. Overall directive progress remains 25/33 (75.8%).
+
+## 2026-09-01 — Mobile Sign-In Woven Gateway Completion
+
+- Rejected `E — Cooperative Passport` as still too poster-like and dry, generated five new separately clickable 390 × 844 Design HTML directions, and selected `B — Woven Gateway` by approved default.
+- Implemented a compact signature motif through reusable semantic `brandWarm`, `brandVivid`, and `brandContrast` roles synchronized across runtime, NativeWind, CSS, Tailwind, and the theme-drift guard. The cooperative-number/password task, first-gate recovery, verified tenant identity swap, icon-only Quick Fill, flat hierarchy, and concise copy remain intact.
+- Android QA rejected the first 200% frame for label/action and placeholder/eye collisions, then accepted the corrected Light/Dark 100%/200% layouts plus both independently focused inputs above Gboard at normal and 200%. Password hide/show bounds remain stable; final emulator state is Light at font scale `1.0` on Metro port `1443`.
+- The complete mobile contract, NativeWind theme guard, TypeScript, focused ESLint/Prettier, and four presentation tests pass. The live cooperative handshake and real TalkBack remain open because the available tester credential is server-rejected; no authorization bypass was used.
+- Design: `.scratch/mobile-architecture-hardening-and-feature-completion/designs/ticket-29-sign-in-studio-directions/README.md`. Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/sign-in-woven-gateway/README.md`.
+- Ticket and directive counts remain unchanged at 25/33 (75.8%).
+
+## 2026-09-01 — Mobile Ticket 29 Procurement Rich UI Source Slice
+
+- Rejected the prior dry, near-monochrome Procurement hierarchy and generated five richer separately clickable Design HTML directions. Selected `A — Emerald ledger`: one deep cooperative-green balance/progress surface, a flat active-purchase section, one teal request action, and concise divided history.
+- Added a tested feature-owned presentation model plus focused overview/history components. Paid progress now derives from approved/requested value minus outstanding value, the active purchase is not duplicated in history, normal content no longer repeats description/review/purchase detail, live freshness copy is hidden, and large text reflows instead of shrinking the balance.
+- Three focused tests with eight expectations, mobile TypeScript, lint with zero errors, the complete 36-route/seven-shell mobile contract, and browser-console-clean design previews pass.
+- Fresh Android Procurement acceptance remains pending. The port-`1443` development client loads the bundle and settles at the first auth gate, while the unchanged `ishaq.qa.test` tester credential remains server-rejected and was not bypassed. Final native Light/Dark, 100%/200%, all form keyboards, sheet flows, state matrix, and TalkBack are not claimed.
+- Design: `.scratch/mobile-architecture-hardening-and-feature-completion/designs/ticket-29-procurement-accessibility/README.md`. Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/procurement/README.md`. Overall directive progress remains 25/33 tickets (75.8%).
+- Brain files updated: mobile-hardening feature, canonical directive, Ticket 29 issue, in-progress ledger, and progress.
+
+## 2026-09-01 — Mobile Ticket 29 Android Guarantor Approvals Implementation Correction
+
+- Revalidated five separately clickable Pretext/GStack directions and retained `A — Decision queue`. Native/source comparison found that resolved approvals still reused the complete pending-request body, contradicting the selected compact history.
+- Added a concise tested resolved-history presentation, split resolved rendering from the pending decision body, enabled large-text status wrapping, and reduced bounded virtual-list estimates so short history no longer reserves full-card blank space. The response form remains separate in the shared keyboard-safe floating sheet.
+- Four focused tests, mobile TypeScript, scoped Prettier, lint with zero errors, and the complete 36-route/seven-shell contract pass.
+- Fresh Android acceptance is explicitly pending. The configured tester credential was entered securely through the visible Pixel 3a port-`1443` `ishaq.qa.test` authorization flow, but the server rejected it with `Sign in again to continue` and the client discarded it. Initial and rejected-state screenshot/hierarchy evidence is retained; no mock signed session, credential rewrite, or authorization bypass was used.
+- Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/guarantor-approvals/README.md`. This does not close a Ticket 29 slice; overall directive progress remains 25/33 tickets (75.8%).
+- Brain files updated: mobile-hardening feature, canonical directive, Ticket 29 issue, in-progress ledger, design/evidence manifests, and progress.
+
+## 2026-09-01 — Mobile Ticket 29 Android Sign-In Richness Refinement
+
+- Reopened the normal-density sign-in after the first richer concept still read as too dry. Five new separately clickable Pretext/GStack HTML/PNG directions selected `A — Emerald Canopy`, retaining direction E's cooperative identity-handshake behavior.
+- Implemented a semantic-token emerald/gold growth hero, native sign-in hierarchy, and tested concise large-text/verified-cooperative headline model while preserving cooperative-number/password auth, first-gate recovery, stable password geometry, Gboard progression, and the authorized icon-only QA sheet.
+- Pixel 3a API 34 development-client evidence at Metro port `1443` passes Light/Dark 100%, Dark 200%, both sign-in inputs above Gboard, settled masking, safe reveal, and final Light/font-scale-`1.0` restoration. One capture-load GPU-fence ANR recovered after Wait and is retained as rejected evidence; the clean recapture and final filtered Android error log pass.
+- The emulator image does not include the real TalkBack service package; its Accessibility Menu is not treated as equivalent. The TalkBack acceptance gate remains explicit and open.
+- Seven focused auth/recovery tests, mobile TypeScript, package lint with zero errors, and the complete 36-route/seven-shell contract pass. Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/sign-in-rich/README.md`.
+- This refines the existing auth slice without closing Ticket 29. Fresh live cooperative-handshake replay, real TalkBack, and the remaining program-wide matrix remain open; overall directive progress remains 25/33 tickets (75.8%).
+- Brain files updated: mobile-hardening feature, canonical directive, Ticket 29 issue, in-progress ledger, and progress.
+
+## 2026-09-01 — Mobile Sign-In Cooperative Passport Completion
+
+- Rejected the implemented `Emerald Canopy` composition as still too dry and too close to a white/black financial form.
+- Generated five new, separately clickable 390 × 844 Pretext/GStack Design HTML directions with distinct compositions rather than palette swaps: Harvest Arc, Woven Trust, Collective Orbit, Living Ledger, and Cooperative Passport.
+- Selected `E — Cooperative Passport` because the cooperative avatar/name handshake is the visual payoff of a verified cooperative number. The direction uses emerald, mint, saffron, and restrained teal while preserving concise copy, flat hierarchy, two fields, first-gate recovery, icon-only development Quick Fill, and keyboard-safe implementation constraints.
+- Implemented the selected composition with a feature-owned form, tested presentation model, semantic hero/form tokens, the real Halaalvest mark, and verified-tenant identity swap. Emulator review caught and fixed an empty local brand tile plus a duplicated 200% title before acceptance.
+- Android evidence at Expo port `1443` passes Light/Dark 100%, Light 200%, both Gboard inputs, IME focus transfer, centered password bullets, exact stable reveal bounds, and final Light/font-scale-`1.0` restoration. TypeScript, four focused tests, the full 36-route/seven-shell contract, and zero-error lint pass.
+- The live tenant handshake was not replayed because the available tester credential is server-rejected; no mock session or credential rewrite was used. Design: `.scratch/mobile-architecture-hardening-and-feature-completion/designs/ticket-29-sign-in-spiced-directions/`. Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/sign-in-passport/README.md`.
+- Ticket and directive counts remain unchanged at 25/33 (75.8%).
+
+## 2026-09-01 — Mobile Ticket 29 Android Member More Accessibility Slice
+
+- Five separately clickable JStack/GStack directions selected `A — Compact directory`. Member More now leads with route names and retains only live decision metadata in a flat semantic-token hierarchy; freshness, repeated descriptions, status-pill clutter, and card-heavy workspace treatment were removed.
+- Native Android review rejected initial 200% clipping, lost semantic text color, workspace collisions, and inconsistent Appearance icon/label centering. The accepted composition preserves token colors/weights, stacks row metadata, tenant, role, and state at constrained text, and gives all three Appearance options a shared optical centerline at 100%/200%.
+- Real authorized `@ishaq.qa.test` data, eleven route actions/Back, Light/Dark 100%, Dark/Light 200% lower-state reachability, touch targets, mobile TypeScript, pinned ESLint, the full contract, and clean Android fatal/runtime logs pass. The screen has no input, so keyboard avoidance is not applicable. Android is restored to Light/font scale `1.0`.
+- Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/member-more/README.md`. This is the twelfth Ticket 29 Android slice; Ticket 29 remains open and overall directive progress remains 25/33 tickets (75.8%).
+- Brain files updated: mobile-hardening feature, canonical directive, Ticket 29 issue, in-progress ledger, UI audit ledger, and progress.
+
+## 2026-09-01 — Mobile Ticket 29 Android Member Financing Sheet/CTA Hardening Slice
+
+- Rechecked the selected `A — Position ledger` native Financing result and corrected the `Continue request` placement so it belongs to Available products, shares the section edges, and retains a 48 dp-class action target.
+- Added one semantic-token shared floating-sheet backdrop above the full-screen form portal and applied it to both shared sheet wrappers. Light/Dark review and dirty-close sheets now remain opaque and visually separated from the muted covered form without a native modal or hardcoded screen color.
+- Android replay found and fixed a non-visual regression: duplicate keyboard-gated review presentation state could restore the form footer but strand a second review open. The parent visibility state is now authoritative; open, Review again, reopen, backdrop dismiss, Android Back, dirty close, and Close form pass without submitting a financial request.
+- Two focused tests, mobile TypeScript, scoped Biome, diff hygiene, the complete 36-route/seven-shell contract, and focused Android logs pass. Final Android state is Light at font scale `1.0`.
+- Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/financing/README.md`. Ticket 29 remains in progress; overall directive progress remains 25/33 tickets (75.8%), with eight remaining.
+- Brain files updated: mobile-hardening feature, canonical directive, Ticket 29 issue, in-progress ledger, and progress.
+
+## 2026-09-01 — Mobile Ticket 29 Android Member Home Accessibility Slice
+
+- Generated five separately clickable Home JStack/GStack HTML/PNG directions and selected `A — Semantic Stack`. The accepted EwaTrade-aligned result preserves profile, freshness, readiness, position, attention, and services while keeping normal density compact.
+- Added a tested feature-owned layout policy: 200% readiness/position/action content reflows semantically, currency and labels remain complete, and services switch to full-width flat divided rows at font scale `1.8` and above. The first two-column 200% service capture is retained as rejected evidence because it broke long labels mid-word.
+- Verified populated Light/Dark 100%/200%, complete scroll reachability, Updates navigation/Android Back, semantic-token parity, and clean post-load app-PID logs. Home has no input, so keyboard avoidance is not applicable; the emulator was restored to Light/font scale `1.0` after the matrix.
+- Three focused tests, mobile TypeScript, scoped Biome, and the complete 36-route/seven-shell mobile contract pass. Ticket 29 remains in progress for real TalkBack and the remaining program-wide accessibility matrix. Overall directive progress remains 25/33 tickets (75.8%); eight remain.
+- Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/member-home/README.md`.
+- Brain files updated: mobile-hardening feature, canonical directive, Ticket 29 issue, in-progress ledger, and progress.
+
+## 2026-09-01 — Mobile Ticket 29 Android Plans / Commitments Accessibility Slice
+
+- Generated five separately clickable Plans JStack/GStack HTML/PNG directions and selected `A — Flat savings ledger`. The final EwaTrade-aligned screen uses one posted-savings hero, flat active-plan/special-savings rows, and one recent-contribution ledger without duplicate cards, records, or bookkeeping copy.
+- Added a tested feature-owned presentation model that prefers stable metric keys, preserves exact NGN values, and omits misleading zero-value active state. The page uses one parent scroller and an accessible `Load more` action.
+- Verified empty/populated Light 100%, populated Dark 100%, Light/Dark 200%, complete lower-content reachability, pagination, and clean Android app-PID logs. Plans contains no inputs, so keyboard avoidance is not applicable; the final emulator state is Light at font scale `1.0` using the isolated QA member fixture.
+- Twelve focused tests, mobile TypeScript, scoped Biome, and the complete 36-route/seven-shell mobile contract pass. Ticket 29 remains in progress because real TalkBack is unverified and the remaining program matrix is open. The member Home slice is now recorded above. Overall directive progress remains 25/33 tickets (75.8%); eight remain.
+- Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/commitments/README.md`.
+- Brain files updated: mobile-hardening feature, canonical directive, Ticket 29 issue, in-progress ledger, and progress.
+
+## 2026-09-01 — Mobile Ticket 29 Android Shares Accessibility Slice
+
+- Generated five separately clickable Shares JStack/GStack HTML/PNG directions and selected `A — Flat ownership ledger`. The final EwaTrade-aligned screen uses one flat posted-capital summary, divided compulsory/optional ownership rows, and separate published-profit/request books without redundant cards or internal copy.
+- Preserved the list/form separation and hardened the shared long-form stack: authorized Quick Fill is icon-only in the sticky footer row, hides for the keyboard and nested review, and no longer obscures Units at 200%. Nested review removes the underlying footer, reflows rows/actions, scrolls only its capped body, and remains topmost for Android Back.
+- Verified Light/Dark 100%, Dark 200%, lower-section reachability, Units and multiline-context Gboard clearance, populated Quick Fill, review-body scrolling with fixed actions, dirty-close confirmation, and clean Android app-PID logs. No financial request was submitted; the final emulator state is the authorized Zainab Musa `@ishaq.qa.test` session in Light at font scale `1.0`.
+- Two focused tests, mobile TypeScript, scoped Biome, and the complete 36-route/seven-shell mobile contract pass. Ticket 29 remains in progress for real TalkBack and the remaining program-wide accessibility matrix. Overall directive progress remains 25/33 tickets (75.8%); eight remain.
+- Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/shares/README.md`.
+- Brain files updated: mobile-hardening feature, canonical directive, Ticket 29 issue, in-progress ledger, and progress.
+
+## 2026-08-31 — Mobile Ticket 29 Android Statement Accessibility Slice
+
+- Captured the existing Statement baseline, generated five separately clickable normal-density JStack/GStack HTML/PNG directions, and selected `A — Position ledger` to preserve the compact position-first hierarchy while making the 200% state reflow instead of enlarging the normal UI.
+- Removed visible internal references and ledger bookkeeping prose, corrected long activity-label/amount layout, suppressed the zero-value pending-workflow row, restored semantic Dark status-pill contrast, and made the parent Statement scroller own its embedded history while standalone histories remain virtualized.
+- Verified Light/Dark at 100% and 200%, full section reachability, a compact content-sized export sheet, generated 18-row ready state, Android native share chooser handoff, Back dismissal order, and final restoration to Light/font scale `1.0`. Statement has no input, so keyboard avoidance is not applicable to this screen.
+- Mobile TypeScript, nine focused formatting tests, scoped Biome, the complete 36-route/seven-shell mobile contract, and a clean post-clear app-PID Android replay pass. The first contract run caught and then cleared a missing NativeWind base class on the dynamically scaled `Load more` label.
+- Ticket 29 remains in progress for real TalkBack and the remaining program-wide accessibility matrix. Overall directive progress remains 25/33 tickets (75.8%); eight remain. Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/statement/README.md`.
+- Brain files updated: mobile-hardening feature, canonical directive, Ticket 29 issue, in-progress ledger, and progress.
+
+## 2026-08-31 — Mobile Ticket 29 Android Notification Accessibility Slice
+
+- Captured the current live-session unavailable baseline, generated five separately clickable normal-density JStack/GStack HTML/PNG directions, and selected `A — Compact inbox ledger` for the populated inbox and separate preference state.
+- Implemented flat unread/total/failure state, Unread/All controls, divided push status and activity rows, governed destination actions, explicit mandatory preferences, optional semantic switches, and shared brand-token unread/action accents without native modals or hardcoded component colors.
+- Hardened 200% behavior after rejecting two emulator captures: shared display headings now cap at `1.6` without reducing body scaling, and permission/preference rows remove row-only flex growth after vertical reflow. Every activity row and preference remains visible and reachable by scrolling.
+- Verified Light/Dark at 100%, Light at 200%, row routing/read mutation, Unread/All, Read all/empty recovery, Android settings, preference changes, mobile TypeScript, 16 focused tests with 33 expectations, the complete mobile contract, scoped Biome, and a clean post-clear Android app-PID replay.
+- Ticket 29 remains in progress for real TalkBack and the remaining program-wide accessibility matrix. Overall directive progress remains 25/33 tickets (75.8%); eight remain. Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/notifications/README.md`.
+- Brain files updated: ADR-034, mobile-hardening feature, canonical directive, Ticket 29 issue, in-progress ledger, and progress.
+
+## 2026-08-31 — Mobile Ticket 29 Android Device Access Accessibility Slice
+
+- Generated five separately clickable normal-density JStack/GStack directions and selected `A — Compact access ledger`. The final EwaTrade-aligned screen removes the redundant subtitle/metric strip, keeps populated device evidence in flat divided rows, and restores the app to compact Light mode.
+- Added Android 200% semantic reflow without enlarging the 100% layout: shared route titles receive accessible line boxes; summaries, counts, rows, metadata, and destructive actions wrap or stack; semantic token colors and intended weights remain intact.
+- The shared floating sheet now clips its scroll viewport. Device confirmation remains content-sized under normal density, receives only an accessibility-aware dynamic cap at large text, stacks actions, and retains capped scrolling with a fixed footer. No native modal or session mutation was used.
+- Verification passes populated Light/Dark 100%, Light 200%, lower-list reachability, Light/Dark/200% sheet states, refresh/Back behavior, mobile TypeScript, the complete mobile contract, scoped Biome, eight focused tests with 15 expectations, and a clean app-scoped Android error replay.
+- Ticket 29 remains in progress for real TalkBack and the remaining program-wide accessibility matrix. Overall directive progress remains 25/33 tickets (75.8%); eight remain. Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/device-access/README.md`.
+- Brain files updated: mobile-hardening feature, canonical directive, Ticket 29 issue, in-progress ledger, and progress.
+
+## 2026-08-31 — Mobile Ticket 29 Android App Lock Accessibility Slice
+
+- Reused the existing five App Lock GStack directions and selected `A — Protection at a glance`; no new normal-scale design was introduced. The approved Light 100% UI remains compact.
+- Added ADR-034 semantic reflow for App Lock status/device metadata only at constrained text scale. The labeled 200% accessibility stress test now stacks secondary content without clipping, overlap, or horizontal discovery, and Android was restored to `1.0` afterward.
+- Verified setup, deliberate confirmation mismatch, configured Light/Dark settings, wrong/correct unlock, relock timing, Lock now, the production secure-capture boundary, verified removal through the floating destructive confirmation, and final Light/unconfigured cleanup. The custom keypad uses no Android keyboard, and its fixed action remains reachable.
+- Added atomic mobile token/profile persistence rollback, governed Sentry capture for sign-in/QA handoff failures, explicit accessibility semantics for the remaining direct native action controls, and a contract gate preventing recurrence. The shared Pressable now omits active-scale animation when reduced motion is enabled and no longer remounts keypad actions when NativeWind animation classes change.
+- Verification passes mobile TypeScript, the complete mobile contract, scoped Biome, diff hygiene, 22 focused tests with 43 expectations, and a clean post-clear Android fatal/unhandled replay.
+- Ticket 29 remains in progress. Overall directive progress remains 25/33 tickets (75.8%); eight remain. Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/app-lock/README.md`.
+- Brain files updated: mobile-hardening feature, Ticket 29 issue, in-progress ledger, and progress.
+
+## 2026-08-31 — Mobile Ticket 29 Android Auth Accessibility Slice
+
+- Captured normal and 200% auth baselines, generated five separately clickable JStack/GStack HTML/PNG directions, and selected `A — Task-first stack`: normal cooperative-number/password sign-in owns the page while optional QA access opens in the shared floating bottom sheet.
+- Preserved the compact 100% UI and added resilient Light/Dark 200% behavior, centered enlarged password bullets, stable eye-toggle geometry, actual Gboard Next/Go focus progression, assertive validation, explicit recovery Back semantics, and EwaTrade-derived zero-duration reduced-motion handling for cooperative identity confirmation.
+- QA-sheet opening dismisses the sign-in keyboard and isolates covered controls. A real authorized `ishaq.qa.test` Fatima profile opened the correct tenant-scoped member session, and Sign out returned to the first auth gate.
+- Verification passes mobile TypeScript, the full 36-route/seven-shell contract, eight focused auth/layout tests, scoped Biome, API/Metro health, Light/Dark 100%/200% emulator evidence, reduced-motion evidence, and a clean sheet open/dismiss log replay.
+- Ticket 29 remains in progress for real TalkBack and the program-wide accessibility matrix. Overall directive progress remains 25/33 tickets (75.8%); eight remain.
+- Brain files updated: mobile-hardening feature, canonical directive, in-progress ledger, and progress. Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/auth-large-text/README.md`.
+
+## 2026-08-31 — Mobile Ticket 29 Android 200% Text Resilience Slice
+
+- Captured failing Pixel 3a API 34 baselines for Overview, Members, Create member, Plan & billing, plan rows, and Growth at Android font scale `2.0`; generated five GStack HTML/PNG directions and selected `A — Semantic reflow`.
+- Added a shared, unit-tested font-scale/effective-width policy. Essential metrics, progress labels, plan/detail rows, form choices, full-screen headers, and native tab labels now adapt without hiding finance values or depending on horizontal discovery.
+- Added persistent essential Create member labels, verified all six input focus transitions, and retained the lowest input plus sticky review action above the numeric keyboard. Dirty-close and Growth remain shared floating sheets with compressed-tree background isolation; Growth caps then scrolls with a fixed CTA.
+- Removed redundant provider/add-on prose because explicit cost rows already convey the constraint. Normal scale retains the compact three-column Overview and five-tab layout.
+- Verification passes mobile TypeScript, the complete 36-route/seven-shell contract, four layout tests, two mobile-overview database tests, scoped Biome, a cold Android development-client launch, and fresh fatal-log inspection.
+- Ticket 29 remains in progress for real TalkBack and the program-wide large-text/Dark/focus-order/announcement/reduced-motion/contrast/touch-target/workflow matrix. Overall directive progress remains 25/33 tickets (75.8%); eight remain.
+- Brain files updated: ADR-034, mobile-hardening feature, canonical directive, in-progress ledger, and progress. Evidence: `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/29-accessibility-mobile-ergonomics/android/large-text-200/README.md`.
+
+## 2026-08-31 — Mobile Ticket 28 Push Notifications And Governed Deep Links
+
+- Added durable Expo push registrations bound one-to-one to active mobile-device sessions, token fingerprint auditing, provider-failure/revocation state, and tenant/user notification preferences with mandatory security/transactional categories and subscription-aware optional delivery.
+- Added the native notification runtime for Android channels, permission guidance, token refresh, foreground registration refresh, cold-start/live response handling, duplicate-response claims, unread synchronization, and OS settings recovery. The centralized semantic brand token is converted to the native channel color format rather than hardcoding a component color.
+- Added a typed action registry that validates signed session, tenant, intended role, allowed destination, and bounded opaque record id before opening exact financing, receipt, support, Procurement, Foodstuff Purchase, project financing, report, guarantor, security, update, or notification context. Deleted/unavailable records render a compact safe notice.
+- Five separately clickable HTML/PNG options selected `A — Clear ledger`. A rebuilt Pixel 3a API 34 development client on Metro `1443` verified Light/Dark, denied/granted permission, active registration, mandatory/optional preferences, exact financing/report/support destinations, unread mutation, and unavailable-record recovery. Evidence is indexed at `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/ticket-28/README.md`.
+- Verification passes mobile TypeScript, the complete 36-route/seven-shell mobile contract, 27 notification/domain/database/mobile tests with 71 expectations, 103 mobile API route tests with 250 expectations, and a fresh Android fatal-log scan. Required `bun db:migrate` and `bun db:push` checks were attempted but Docker did not become reachable; no reset or hand-written migration was performed.
+- Overall directive progress is 25/33 tickets (75.8%); 8 remain. Ticket 15 is the next executable frontier. Tickets 29-33 remain dependency-gated behind Tickets 15, 16, and 18 and their downstream QA/build chain.
+- Brain files updated: mobile-hardening feature, API endpoints/contracts/permissions, database schema/relationships/migrations, canonical directive, ongoing plan, in-progress/done ledgers, and progress.
+
+## 2026-08-31 — Mobile Ticket 27 Reports, Statements, And Audit Activity
+
+- Completed the fixed server-owned catalogue for member register/statements, contributions/special savings, charges, financing/repayments, receipts, Procurement, Foodstuff Purchase, project financing, shares/profit, support, opening balances, and audit activity. Signed tenant/role scope, subscription availability, and row limits are server-owned.
+- Added authenticated admin generation and member self-scoped statement export. CSV is delivered only in the authenticated response, written to short-lived app cache, removed on cancel/expiry/permission or session loss/unmount, and handed to the native share adapter without a bearer URL or public file. Raw CSV preview text is neither rendered nor retained in generated-file state.
+- Added cursor-paginated governance activity with actor, authorizer/reviewer where available, timestamp, affected entity, and at most three allowlisted redacted facts. CSV formula injection is neutralized and report row caps fail closed.
+- Five separately clickable HTML/PNG options selected `A — Report workspace`. Final Pixel 3a API 34 development-client evidence on Metro `1443` covers Statement/export/file-ready, populated Reports/generation/private-file rows, Activity, filters, and fixed-height native-swiping month/year calendar states. Copy was reduced to useful orientation/action/status/constraint/recovery text, and list rows now use inset dividers with deliberate vertical title spacing.
+- Verification passes mobile TypeScript, the complete 36-route/seven-shell mobile contract, scoped Biome, 21 report/domain/database/model tests with 57 expectations, 101 mobile-router tests with 246 expectations, and 21 calendar/date/list-formatting tests with 56 expectations. The external native share chooser was not opened because it could expose a private report to third-party apps; local adapter wiring and lifecycle were reviewed without selecting a target.
+- Overall directive progress is 24/33 tickets (72.7%); 9 remain. Ticket 28 push notifications and governed deep links is the next executable frontier; Tickets 15, 16, and 18 retain their documented cross-device accessibility/performance, live billing-provider, and private-storage/retention gates.
+- Brain files updated: mobile-hardening feature, API endpoints/contracts/permissions, directive/ongoing plan, in-progress/done ledgers, and progress. No database schema documentation changed because Ticket 27 reuses existing data models and adds only tenant-scoped read/export composition.
+
+## 2026-08-31 — Mobile Tickets 09 And 10 Migration/Contraction Closeout
+
+- Completed the final Reports, Notifications, Updates, and More migration boundary: feature controllers own signed scope, runtime/API/native orchestration, request invalidation, permission shaping, workspace switching, and sign-out; screens are explicit prop-driven presentation boundaries with only ephemeral tabs, drafts, and sheets.
+- Extended the executable architecture contract to require all four controllers and reject API/runtime/auth/native orchestration in their screens, including pinning `expo-updates` operations to the Updates controller.
+- Retained the already selected GStack directions—`Reports first`, `Inbox first`, `Status first`, and `Administration first`—because this closeout introduced no new UI decision. A post-refactor Pixel 3a Light regression captured all four surfaces, real notification read mutation, and a truthful update-check failure/retry; signed `@ishaq.qa.test` evidence remains authoritative for tenant/role acceptance.
+- Verification passes 118 focused tests with 302 expectations, mobile/API TypeScript, scoped Biome, diff hygiene, the complete 36-route/seven-shell mobile contract, accessibility-tree action checks, and strict Android fatal/unhandled/ANR log inspection.
+- Closed legacy contraction after repository-wide checks confirmed no production consumer of removed generic screen/client/router-behavior/database-query compatibility layers. Ticket 30 explicitly owns live QA-routed invitation delivery; Ticket 31 owns installed-preview update/rollback and the broader native build matrix.
+- Overall directive progress is 23/33 tickets (69.7%); 10 remain. Ticket 27 is newly unblocked and is the next executable frontier; Ticket 15 remains active for real screen-reader, iOS, broader-device, and release-profile performance acceptance.
+- Brain files updated: canonical directive, ongoing plan, in-progress/done ledgers, mobile-hardening feature, and progress. No database or API documentation changed because behavior, schema, permissions, and wire contracts did not change; this closeout moved mobile orchestration ownership and hardened executable boundaries.
+
+## 2026-08-31 — Mobile Ticket 06 Member Cooperative Services Closeout
+
+- Completed the feature-owned Procurement, Foodstuff Purchase, and Project financing member migration behind thin routes, typed feature controllers/adapters, signed tenant/member API procedures, and tenant-scoped domain queries.
+- Kept the approved `E — Operational clarity` state treatment: flat consequence/recovery rails, preserved history, semantic-token NativeWind `className`-first styling, and no extra card layer. No new UI decision was introduced during acceptance closeout.
+- A real signed Zainab Musa `@ishaq.qa.test` session on the installed Pixel 3a API 34 development client produced 30 canonical Light state screenshots and three representative Dark captures. Accessibility-tree checks prove labelled/focusable retry, creation suppression with readable history/detail in read-only mode, and shared floating detail presentation.
+- Visual QA found and fixed internal brought-forward Procurement key exposure, placeholder singular/plural copy, and contradictory empty fixtures that retained an active-obligation restriction after zeroing history and totals. The deterministic overrides remain development-only and production authorization remains server-owned.
+- Verification passed 10 focused mobile tests, 79 cooperative-service database policy/idempotency/tenant tests, 97 mobile-router tests, mobile/API/database-source TypeScript, focused Biome, diff hygiene, the complete 36-route mobile contract, and recent Android fatal-log inspection. The normal database typecheck wrapper could not run Prisma generation without `HALAALVEST_DATABASE_URL`; direct database source TypeScript passed without changing data.
+- Overall directive progress is 21/33 tickets (63.6%); 12 remain. Tickets 09 and 10 are the active migration-acceptance frontier. Ticket 31 retains the program-wide iOS, installed-build, and broader-device matrix.
+- Brain files updated: mobile hardening, Procurement, Foodstuff Purchase, Project financing, in-progress ledger, canonical directive, issue map, Ticket 06 issue/evidence, Ticket 10 status, and progress. No database or API documentation changed because this closeout changed development-only presentation fixtures and visible copy, not schema or contracts.
+
+## 2026-08-31 — Mobile Ticket 26 Share And Profit Governance
+
+- Implemented two explicit tenant-scoped books: Share capital for unit/monthly-history policy, compulsory/optional position, applications, and immutable postings; Profit allocation for realized results, reviewed deductions, reconciliation, approval, and publication.
+- Added independently permissioned, expected-state and UUID-idempotent share review, profit approval, and profit publication with signed tenant/actor scope, transaction-owned validation, audit evidence, and published-only member visibility.
+- Followed the mandatory visual workflow: retained the native baseline, published five separately clickable HTML/PNG directions, selected `A — Two books`, and indexed final populated Light/Dark, both-policy, real-command, every-input keyboard, no-results, denied, empty, error, offline, and stale screenshots.
+- A signed `@ishaq.qa.test` Tenant Admin Pixel 3a/API 34 development-client pass used Metro `1443` and API `1442`. The QA fixture was restored after real share approval, profit approval, and publication checks.
+- Verification passed 59 focused tests, mobile/API/DB TypeScript, the complete 36-route contract, zero-error package lint, diff hygiene, and a fresh Android fatal-log replay. The full API/DB suites retain five classified failures owned by other tickets rather than Ticket 26.
+- Overall directive progress is 19/33 tickets (57.6%); 14 remain. The next executable frontier is Tickets 06, 07, 09, and 10 acceptance closeout, beginning with Ticket 09 because it directly unlocks Ticket 27. Tickets 15, 16, and 18 retain their documented accessibility/device/performance, billing-provider, and private-storage/retention blockers.
+- Brain files updated: mobile share/profit feature, mobile-hardening feature, API endpoint/contract/permission docs, architecture, ADR-032, canonical directive, task ledgers, issue map, and progress. No database schema documentation changed because Ticket 26 reused the existing schema.
+
+## 2026-08-30 — Mobile Ticket 25 Project Financing Operations
+
+- Implemented tenant-scoped Review, Active, and Closed workspaces with exact request detail, expected-state and UUID-idempotent review/activation/release commands, audit evidence, and explicit offline/stale command blocking.
+- Preserved the accounting boundary: repayable facilities materialize only approved principal and can receive valid receipt allocations; investment partnerships and profit-sharing remain evidence-only and cannot create schedules, receipt targets, implied returns, obligations, transfers, or ledger postings.
+- Followed the mandatory visual workflow: retained the native baseline, published five separately clickable HTML/PNG directions, selected `B — Boundary Ledger`, and indexed final populated Light/Dark, action, keyboard, fixed-height calendar, denied, empty, error, offline, and stale screenshots.
+- A signed `@ishaq.qa.test` Tenant Admin Pixel 3a/API 34 development-client pass used Metro port `1443`. Verification passed 54 focused tests with 159 assertions, eight calendar/date tests with 29 assertions, mobile/API/DB TypeScript, the complete 35-route mobile contract, zero-error package lint, diff hygiene, and Android fatal-log inspection.
+- The 2026-08-31 visual follow-up corrected the attention and operations-list rhythm: 16-point row padding, content-aligned inset separators, and no divider after the final row. Fresh Light/Dark development-client captures are indexed in the Ticket 25 evidence manifest, and the emulator was restored to Light mode.
+- Overall directive progress is 18/33 tickets (54.5%); 15 remain. Ticket 26 share and profit governance oversight is the next executable frontier. Tickets 15, 16, and 18 retain their documented accessibility/device/performance, billing-provider, and private-storage/retention blockers.
+- Brain files updated: project-financing and mobile-hardening features, API endpoint/contract/permission docs, coding standards, canonical directive, task ledgers, and progress. No database schema documentation changed because Ticket 25 reused the existing schema.
+
+## 2026-08-30 — Mobile Ticket 24 Foodstuff Purchase Cycle Operations
+
+- Implemented the tenant-scoped staff cycle desk with explicit release/intake/application/accounting/completion states, independent permission capabilities, UUID command receipts, expected-state/Serializable guards, server search and 30-row paging, full-cycle aggregates, allocation-shortfall evidence, and sanitized feature-scoped Sentry capture.
+- Preserved the financial boundary: committee release and accepted accounting are operational governance evidence only; receipt allocation updates approved application paid/outstanding amounts without creating an unapproved ledger posting, member obligation, Foodstuff Purchase profit distribution, or dividend allocation.
+- Followed the mandatory visual workflow: retained the native baseline, published five separately clickable HTML/PNG directions, selected `A — Cycle desk`, and indexed final Light/Dark, transition, form, keyboard, review, allocation warning, and fixed-height day/month/year swipe screenshots.
+- Responsive scale was verified with React Native logical points, live window/screen and keyboard metrics, safe-area insets, width-derived centered three-column month/year grids, bounded gutters, and 48–56-point controls. A signed `@ishaq.qa.test` Tenant Admin Pixel 3a/API 34 development-client pass used Metro port `1443`.
+- Verification: mobile/API/DB TypeScript, the complete 34-route mobile contract, 54 focused tests with 153 expectations, receipt-settlement regressions, scoped formatting, and Android fatal-log inspection pass. The root schema push completed; migration generation safely stopped on pre-existing drift without a reset or hand-written migration.
+- Overall directive progress is 17/33 tickets (51.5%); 16 remain. Ticket 25 project-financing operations is the next executable feature frontier. Tickets 15, 16, and 18 retain their documented accessibility/device/performance, billing-provider, and private-storage/retention blockers.
+- Brain files updated: Foodstuff Purchase and mobile-hardening features, API endpoint/contract/permission docs, database schema/migration records, canonical directive, task ledgers, and progress.
+
+## 2026-08-30 — Mobile Ticket 22 Repayment Posting And Collections Operations
+
+- Implemented tenant-scoped Due/Collections/Posted lanes and facility servicing detail, earliest-unpaid repayment allocation, expected-state and reference guards, UUID idempotency, atomic repayment/loan/schedule/ledger/audit evidence, and separately governed nonfinancial collection follow-up.
+- Followed the mandatory visual workflow: retained the native baseline, published five independently clickable HTML/PNG directions, selected `E — Servicing desk`, and indexed final populated Light/Dark, facility, form, every-input keyboard, review, success, posted-history, and collection-evidence screenshots.
+- A real signed `@ishaq.qa.test` Tenant Admin Pixel 3a development-client run on Metro `1443` and API `1442` posted ₦66,667 as `QA-REP-291112`, reducing outstanding principal to approximately ₦4.03m, and recorded a Promise To Pay follow-up that explicitly left principal unchanged.
+- Verification: 41 focused tests with 112 expectations, DB/API/mobile TypeScript, and the complete 32-route mobile architecture/runtime/NativeWind/keyboard/fixture/smoke contract pass.
+- Overall directive progress is 15/33 tickets (45.5%); 18 remain. Ticket 23 procurement fulfillment operations is the next executable feature frontier. Tickets 15, 16, and 18 retain their documented accessibility/device/performance, billing-provider, and private-storage/retention blockers.
+- Brain files updated: repayment/collections and mobile-hardening features, API endpoint/contract/permission docs, architecture, ADR-030, canonical directive, task ledgers, and progress.
+
+## 2026-08-30 — Mobile Ticket 21 Financing Cycle And Governed Disbursement
+
+- Implemented tenant-scoped review/disbursement/activity lanes, immutable first-open cycle capacity and allocation snapshots, expected-state lifecycle controls, final approval revalidation, and separately governed disbursement with a fresh transactional deployable-funds check.
+- Added thin DB/API/mobile feature boundaries, named visibility/write permissions, UUID command receipts, audited ledger/schedule evidence, stale/offline command blocking, and sanitized Sentry capture.
+- Followed the mandatory visual workflow: retained the native baseline, published five separately clickable HTML/PNG directions, selected `E — Operational clarity`, and indexed final populated Light/Dark, search, detail, form, keyboard, review, success, and discard evidence.
+- A real signed `@ishaq.qa.test` Tenant Admin Pixel 3a development-client run on Metro `1443` and API `1442` opened the August QA cycle, approved and disbursed a ₦300,000 normal request, and preserved a ₦40,000 quick request blocked by one pending guarantor response.
+- Verification: 46 focused tests with 137 expectations, DB/API/mobile TypeScript, the complete 31-route mobile contract, focused Biome, and Android/React Native fatal-log inspection pass.
+- Overall directive progress is 14/33 tickets (42.4%); 19 remain. Ticket 22 repayment posting and collections operations is the next executable feature frontier. Tickets 15, 16, and 18 retain their documented accessibility/device/performance, billing-provider, and private-storage/retention blockers.
+- Brain files updated: financing policy and mobile hardening features, API endpoint/contract/permission docs, architecture, ADR-029, canonical directive, task ledgers, and progress.
+
+## 2026-08-30 — Mobile Ticket 20 Staff Charge And Monthly Levy Operations
+
+- Implemented permission-split Applications, Monthly levies, and Rules lanes with tenant-scoped search/filter/cursor reads, exact dated-version/target/ledger/audit detail, supported application and separate-payment settlement, reasoned waiver/reversal, expected-state checks, and UUID-plus-fingerprint idempotency.
+- Closed an evidence-integrity gap discovered during final review: existing dated charge versions now reject edits as well as deletion after any member application exists, so historical mobile detail cannot be rewritten by a legacy dashboard mutation.
+- Followed the mandatory visual workflow: retained the native baseline, published five whole-screen and five apply-form HTML/PNG directions, selected `A — Applications workspace` and `A — Compact picker rows`, and indexed final Light/Dark, picker, review, success, discard, and ten-input keyboard evidence.
+- A real signed `@ishaq.qa.test` Tenant Admin Pixel 3a API 34 development-client run on Metro `1443` and API `1442` applied and settled QA charges, rejected a duplicate settlement reference, exercised correction review without submitting another correction, and restored Light mode.
+- Verification: mobile/API TypeScript, the complete mobile contract, zero-error mobile lint, source-policy scan, diff hygiene, and 76 focused charge/finance/auth tests with 277 expectations pass. The DB package's normal typecheck initially lacked the required environment loader; the environment-owned retry is recorded in the ticket report.
+- Overall directive progress is 13/33 tickets (39.4%); 20 remain. Ticket 21 financing cycle and disbursement operations is the next executable feature frontier. Tickets 15, 16, and 18 retain their documented accessibility/device/performance, billing-provider, and private-storage/retention blockers.
+- Brain files updated: charge-control and mobile-hardening features, API endpoint/contract/permission docs, ADR-028, canonical directive, task ledgers, and progress.
+
+## 2026-08-30 — Mobile Ticket 19 Staff Contribution And Collection Source Operations
+
+- Implemented the permission-split staff Contributions workspace with active-only Ledger, Commitments, and Collections reads, exact member/batch details, historical commitment commands, allocation preferences, individual payment allocation, Collection Source staging/row correction/selected posting, expected-state checks, and UUID-plus-fingerprint idempotency.
+- Followed the mandatory visual workflow: retained the real Finance baseline, published five separately clickable GStack/Design HTML and image directions, selected `A — Workspace lanes`, and indexed the final flat semantic-token NativeWind Light/Dark, long-form, floating-sheet, keyboard, review, and success evidence.
+- A real signed Tenant Admin Pixel 3a API 34 development-client run on Metro `1443` and API `1442` used only the exact `@ishaq.qa.test` QA-classified tenant. It staged an August 2026 QA payroll batch and updated one QA collected row to ₦50,000. No live tenant or local financial posting was touched.
+- Verification: mobile/API/DB TypeScript, complete mobile contract, 38 focused auth/DB tests, 9 focused API tests, zero-error scoped lint, and native Light/Dark/input QA passed.
+- Overall directive progress is 12/33 tickets (36.4%); 21 remain. Ticket 20 is the next executable feature frontier. Tickets 15, 16, and 18 retain their documented accessibility/device/performance, billing-provider, and private-storage/retention blockers.
+- Brain files updated: member commitment feature, mobile hardening feature, API endpoint/contract/permission docs, canonical directive, task ledgers, and progress.
+
+## 2026-08-30 — Mobile Ticket 08 Work Queue Evidence Closeout
+
+- Re-audited the feature-owned admin finance/support queue against the mandatory visual workflow, retained the actual native baseline, published five separately clickable GStack/Design HTML and image directions, and selected `A — Decision queue first`.
+- Refined the selected flat NativeWind semantic-token implementation with denser row/screen spacing and explicit search/filter test seams; browse content remains separate from compact or full-screen keyboard-safe form sheets.
+- A real signed Tenant Admin Pixel 3a API 34 development-client run on Metro port 1443 passed the populated Light/Dark queue, role-permitted actions, content-aware floating sheet, keyboard avoidance, confirmation, empty search, cached offline data, disabled offline commands, and clean Android error logs. No real finance command was submitted, and final appearance was restored to Light.
+- Verification: mobile TypeScript, complete mobile contract, target-screen zero-warning lint, and 13 focused DB/API tests with 28 expectations passed. Release-profile performance is not claimed from the small development-client sample.
+- Overall directive progress is 11/33 tickets (33.3%); 22 remain. Ticket 19 is the next executable feature frontier. Tickets 16 and 18 retain billing-provider and private-storage/retention blockers; Tickets 15, 29, 31, and 32 own remaining cross-device, accessibility, performance, and release evidence.
+- Brain files updated: `.brain/features/mobile-architecture-hardening.md`, the canonical directive, task ledgers, and progress.
+
+## 2026-08-30 — Mobile Ticket 17 Operation Profile And Tenant Settings
+
+- Implemented the permission-gated mobile Operation Profile for six cooperative services and four configured modes, with signed-tenant data, plain-language operating consequences, policy-limit visibility, and subscription-composed effective access.
+- Added focused expected-state compare-and-set updates that preserve unrelated service settings, require evidence for restrictive changes, record before/after audit details, and reject unauthorized, stale, concurrent, offline, stale-cache, or subscription-restricted writes.
+- Followed the mandatory visual workflow: retained the actual pre-feature More baseline, published five separate GStack/Design HTML/image directions and a comparison, selected `E — Operational clarity`, implemented its flat NativeWind semantic-token system, and retained final native Light/Dark/state evidence.
+- Pixel 3a API 34 passed compact sheet sizing, capped overflow scrolling, keyboard avoidance, Quick Fill, review, success, stale/offline/subscription/denied/error states, accessibility semantics, and clean fatal logs. A real Support-case mode update was restored immediately, leaving two QA audit events and no changed tenant setting.
+- Verification: 41 focused tests with 196 expectations, mobile TypeScript, complete mobile contract, package lint with existing warnings only, and diff hygiene. Overall directive progress is 10/33 tickets (30.3%); 23 remain. Ticket 18 is the next independent feature frontier while Tickets 15 and 16 retain their documented accessibility/device/performance and billing-provider blockers.
+- Brain files updated: `.brain/features/mobile-architecture-hardening.md`, API endpoint/contract/permission docs, the canonical directive, task ledgers, and progress.
+
+## 2026-08-30 — Mobile Ticket 14 Tenant Subscription Foundation
+
+- Completed the provider-neutral plan/subscription/add-on/checkout-intent/invoice/provider-event foundation, explicit Free Beta/trial/active/past-due/grace/cancelled/suspended/manual/enterprise lifecycle, authoritative member-login/capacity enforcement, audited transitions, tenant isolation, and fail-safe fallback.
+- Corrected first-time Free Beta provisioning to begin at subscription provisioning rather than historical tenant creation, preventing old tenants from receiving an already-expired initial period.
+- Generated five separate Design HTML/image directions and selected `Disclosure first`; the final flat NativeWind Light/Dark UI exposes every commercial category, records a truthful plan intent, and provides populated invoice list/detail floating sheets.
+- Pixel 3a API 34 through Expo Go/Metro `1443` and local API `1442` passed a real `@ishaq.qa.test` Tenant Admin flow, scroll/fixed-action/Done/Android-Back behavior, and clean React Native/Android fatal logs. Evidence is indexed under `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/14-subscription-foundation/README.md`.
+- Verification: 29 focused tests with 88 expectations; domain/DB/API/mobile TypeScript; targeted lint; Prisma generation and synchronized non-destructive push; complete mobile contract. The required migrate attempt refused pre-existing drift without reset. Overall directive progress is 9/33 tickets (27.3%); Ticket 15 is the next active frontier and Ticket 16 retains live-provider work.
+- Brain files updated: `.brain/features/tenant-subscription-entitlements.md`, `.brain/features/mobile-architecture-hardening.md`, `.brain/decisions/ADR-027-adopt-provider-neutral-tenant-subscription-foundation.md`, API/permission/database docs, task ledgers, progress, and the canonical directive.
+
+## 2026-08-29 — Mobile Ticket 13 Local App Lock And Privacy
+
+- Completed the feature-owned local app-lock slice with secure per-user/device PIN configuration, optional strong biometrics, fail-closed protected hydration, bounded immediate/one-minute/five-minute relock, and cleanup for sign-out, revocation, identity change, and secure-store reset.
+- Followed the mandatory visual workflow: captured the original native screen, generated five separate Design HTML/image directions, selected `Protection at a glance`, implemented the flat semantic-token NativeWind design, and retained final native state screenshots plus a manifest.
+- Pixel 3a API 34 verified setup, confirmation, configured actions, wrong-PIN rejection, correct-PIN unlock, immediate background relock, unavailable-biometric guidance, and stable in-app keypad geometry. A local Android development APK built, installed, and ran successfully.
+- Production privacy was tested separately from the screenshot-enabled QA run. With `EXPO_PUBLIC_QA_ALLOW_APP_LOCK_SCREENSHOTS=false`, active and Recents captures produced zero-byte output under the native secure-screen boundary; accessibility XML remained available and proved both authorized content and the relocked overlay.
+- Verification: 12 focused tests with 30 expectations, mobile TypeScript, package lint with zero errors, the complete mobile executable contract, native Android build/install, and focused evidence review pass. Overall directive progress is 8/33 tickets (24.2%); Ticket 14 subscription foundation is next.
+- Brain files updated: `.brain/features/mobile-architecture-hardening.md`, `.brain/plans/2026-08-11-halaalvest-mobile-complete-production-implementation-directive.md`, `.brain/tasks/in-progress.md`, `.brain/tasks/done.md`, `.brain/progress.md`.
+
+## 2026-08-29 — Dedicated Mobile Recovery OTP Correction
+
+- Generated and rendered five screen-specific GStack HTML recovery-code directions, retained separate light-mode images and HTML files, and selected `A — Guided continuation` before implementation.
+- Split recovery into account-identification, six-digit OTP, and new-password states; removed the visible internal recovery reference; retained native one-time-code autofill; masked the delivery email; and kept every input/action visible through Android keyboard transitions.
+- Completed the real `@ishaq.qa.test` request, API-issued development OTP, password reset, and signed-session handoff on Pixel 3a API 34 through Expo Go port `1443`. The final member Home capture proves the server handshake completed.
+- Centralized the stored QA-device authorization contract so the floating Quick Fill can remain guarded on signed-out auth screens. The running QA endpoint rejected the configured local tester credential, so device-authorization runtime proof remains open; no guard bypass was introduced.
+- Verification: 4 focused recovery-flow tests, mobile TypeScript, and the complete architecture/runtime/native-import/NativeWind/keyboard/fixture/smoke contract pass. Current, five-option, final, keyboard, and completion evidence is indexed under `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/ui-audit/01-auth/`.
+
+## 2026-08-29 — Revocable Mobile Device Sessions
+
+- Completed Ticket 12 with durable one-way-hashed mobile token/device records, bounded metadata, expiry/last-use/revocation evidence, replay-safe rotation, user and `manage_roles` administration, and mobile-only rejection of legacy signed bearer tokens.
+- Password recovery and sign-out-all revoke active sessions; role changes rotate them; tenant suspension, member suspension, membership removal, expiry, and explicit revocation fail closed. Unauthorized local invalidation clears SecureStore session state, form drafts, and scoped read caches without allowing an old request to clear a newer token.
+- Implemented the selected Gate 25 `Access first` NativeWind Light/Dark screen with flat divided rows and shared floating destructive confirmations. Pixel 3a API 34 Expo Go on port `1443` verified current-device identity, revoking another device, preserving the current session, sign-out-all, first-gate return, and clean fatal logs.
+- Verification: 23 focused tests with 106 assertions; DB/API/mobile typechecks; all affected package lints with zero errors; diff hygiene; and the full 28-route/26-screen mobile contract. `db:migrate` safely refused the existing drift reset; no reset/manual migration occurred, and `db:push` confirmed the schema is synchronized.
+
+## 2026-08-29 — Signed Android Preview Build
+
+- Hardened the account-aware EAS runner so development, preview, and production
+  load the repository's exact `.env` plus target environment contract instead
+  of borrowing production values for preview.
+- Added a root EAS archive boundary that excludes generated local Android native
+  files. EAS now prebuilds from `app.config.ts`, preserving the separate preview
+  package, label, scheme, runtime settings, and signing/version stream while
+  reducing the compressed upload from 129 MB to 10 MB.
+- EAS Android preview build `f42d828e-93c2-4837-8d10-2d2e3125fe4b` finished
+  successfully. Downloaded APK inspection confirms
+  `com.halaalvest.mobile.preview`, `Halaalvest Preview`, version code `2`, and
+  `halaalvest-preview`; the archive integrity check, managed prebuild, mobile
+  typecheck, and complete mobile contract pass.
+- One prior submission hit Expo's temporary credentials network error, and one
+  local-native-contaminated preview submission was deliberately canceled before
+  completion after inspection exposed the production Android identity.
+
+## 2026-08-29 — Optional Mobile QA Entry Correction
+
+- Replaced the always-expanded mobile QA login panel with a dismissible,
+  non-blocking suggestion and persistent Set up/Update QA access CTA.
+- Moved QA domain and tester-credential entry into the shared closable,
+  keyboard-safe compact sheet. Backdrop, swipe, Android Back, and the explicit
+  close button return to ordinary sign-in; QA capability failures leave normal
+  auth available.
+- Decoupled clearing QA authorization from ordinary local-session invalidation.
+- Verification: mobile typecheck, full mobile architecture/runtime/import/theme/
+  UI/keyboard/fixture/smoke contract, package lint with existing warnings only,
+  and `git diff --check` pass. Physical Android Expo Go on Samsung SM-S928U1
+  verified suggestion dismissal, persistent CTA, sheet open/close, and enabled
+  login controls. Expo web remained blocked before render by the existing
+  React Native Worklets web-runtime error.
+
+## 2026-08-29 — Mobile And Web QA Accelerator Implementation
+
+- Implemented server-private capability decisions for local, development, and preview with production fail-closed startup/configuration behavior and contract-version checks.
+- Added digest-only tester credentials, bounded client authorizations, exact QA-domain profile discovery, revocation-aware ordinary mobile/web sessions, and an idempotent Safa QA seed with admin, member, and finance personas.
+- Replaced password-prefill shortcuts with credentialed mobile/dashboard gates; added the same authorization boundary to marketing so Quick Fill works in preview and remains exact-domain scoped.
+- Separated development, preview, and production mobile identities and documented the hard requirement for EAS preview URLs to target isolated preview services; production mobile configuration keeps the accelerator disabled.
+- Published one shared typed form inventory with safe recipes, prerequisites, and explicit exclusions for secrets, KYC/private documents, approvals, destructive actions, provider effects, and financial posting.
+- Generated four Pretext-based Design HTML variants, selected the calm-ledger direction, and validated the implemented web flow in local Chromium at mobile, tablet, and desktop widths.
+- Verification: 24 focused tests (55 assertions), domain/auth/DB/API/dashboard/marketing/mobile typechecks, revocation of derived web sessions, full mobile contract, Prisma client generation, database push/seed, dashboard profile/member UI flow, and marketing authorization/Quick Fill UI flow pass. `db:migrate` was attempted but stopped on pre-existing schema drift; no reset or manual migration was performed.
+- Remaining release-only evidence: physical Android/iOS, WebKit, controlled providers, deployed-preview purge/revocation drill, and production artifact inspection.
+
+## 2026-08-27 — Mobile And Web Development And Preview QA Accelerator Planning
+
+- Compared Halaalvest with EwaTrade's approved mobile/web development and preview QA accelerator and confirmed Halaalvest did not yet have the equivalent planned feature, execution plan, backlog task, or ticket batch.
+- Published a Halaalvest-specific 15-ticket dependency graph that preserves the EwaTrade security shape while adapting form families and acceptance rules to cooperative membership, contributions, shares, charges, receipts, interest-free financing, repayments, procurement, Foodstuff Purchase, project financing, support, roles, Operation Profile modes, and immutable financial history.
+- The plan consolidates existing Halaalvest QA seams rather than duplicating them: explicit `.test` email routing, QA tenant classification/purge, canonical mobile/web sessions, mobile development fixtures, dashboard/marketing Quick Fill helpers, and form-coverage guards.
+- Status: planned, not implemented. Ticket 01 is the only initial unblocked frontier; ticket publication does not authorize production QA tooling, live providers, financial effects, or controlled canaries.
+- Brain files updated: `.brain/features/mobile-dev-preview-qa-accelerator.md`, `.brain/plans/2026-08-27-feature-mobile-dev-preview-qa-accelerator.md`, `.brain/tasks/backlog.md`, `.brain/progress.md`.
+- Ticket batch: `.scratch/mobile-web-dev-preview-qa-accelerator/issues/`.
+
 ## 2026-08-05 — Approved Production Diagnostics Integration
 
 - Recorded the owner's explicit approval of Halaalvest external production diagnostics under the observability transmission policy.
@@ -1327,3 +1914,55 @@
 - Member migration profit adjustment rows now show the linked reviewed dividend season label and period end when available.
 - Additional touched files for this update: `packages/db/prisma/models/dividends.prisma`, `packages/db/prisma/migrations/20260702143000_add_dividend_period_deductions/migration.sql`, `packages/db/src/queries/migration.test.ts`, `apps/dashboard/src/components/initial-migration-preview.tsx`, `apps/dashboard/src/app/(app)/(sidebar)/settings/finance/finance-route.tsx`.
 - Checks run for this update: `git diff --check` scoped to touched files; `bun test packages/domain/src/modules/migration.test.ts packages/db/src/queries/migration.test.ts`; `bun test packages/db/src/queries/tenant-finance.test.ts`; `bun test packages/db/src/queries/migration-profit-adjustments.test.ts`.
+
+## 2026-09-01 — Ticket 29 Admin Overview Command Ledger
+
+- Rendered and published five rich Design HTML/PNG directions plus a comparison page; selected `A — Command Ledger` after individual visual review and removed its redundant draft heading.
+- Implemented a semantic emerald operational hero, warm decision accents, flat aligned decision/compliance/warning/activity ledgers, an inverse shared header tone, and a pure feature presentation model. Server values, queue order, severity, cache state, permissions, and tenant scope remain authoritative.
+- Validation passed: 9 focused tests/26 expectations; `bun --filter @halaalvest/mobile typecheck`; focused ESLint with zero errors; and `bun --filter @halaalvest/mobile check:contract` across 36 routes and seven shells.
+- Android validation is honestly partial: both connected builds were checked and the development QA sheet was captured, but no valid signed admin session exists. The exact `ishaq.qa.test` QA domain is present while its assigned tester credential is not configured. No authorization boundary was bypassed, so final native Light/Dark/200% and state screenshots remain pending.
+- Program progress remains 25/33 tickets (75.8%); Ticket 29 and the twelve accepted Android slices are unchanged.
+
+# 2026-09-06 — Ticket 30 offline Procurement write suppression
+
+- Source mode: active Halaalvest mobile production implementation directive,
+  approved-default Design HTML workflow, and real-session Android QA.
+- Current status: accepted `offline-procurement-write` in
+  `t30-offline-proc-native-v2`. Five native-scale design directions selected
+  `A — Trust rail`; the route-owned runtime guard now suppresses offline
+  financial commands while leaving saved history and local detail readable.
+- Production evidence: one deterministic staff-authorized QA request, 0
+  transport calls, 0 optimistic requests, unchanged full-history fingerprint,
+  both API/Android steps passed, three directly reviewed native screenshots,
+  ordinary sign-out, both credentials revoked and 2/2 sessions revoked.
+- Checks: mobile/API/database TypeScript passed; complete mobile architecture,
+  runtime, native-import, NativeWind token/UI, keyboard, development-fixture and
+  smoke contracts passed; focused ESLint passed clean; 9 focused tests passed.
+- Brain files updated: `.brain/progress.md`, `.brain/tasks/in-progress.md`,
+  `.brain/tasks/2026-09-04-mobile-ticket-30-production-contract-qa-harness.md`,
+  `.brain/features/mobile-architecture-hardening.md`, and
+  `.brain/plans/2026-08-11-halaalvest-mobile-complete-production-implementation-directive.md`.
+- Evidence:
+  `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/ticket-30/android/offline-procurement-write/final-v2/README.md`.
+- Progress: negative journeys 5/7; Ticket 30 4/8; positive journeys 4/18;
+  overall directive 25/33 (75.8%). Cross-tenant project-financing detail and
+  duplicate-charge idempotency are the two remaining negative journeys.
+
+
+## 2026-10-01 — Environment launcher icon integration
+
+- Integrated the owner-approved green Production, cobalt Preview and red
+  Development launcher/adaptive/iOS light/dark exports from 22 September.
+- Preview now has dedicated artwork; Android solid backgrounds match the approved
+  palette. Existing splash behavior and native application identities are retained.
+- Extended Node Expo config validation with all three asset families, image
+  dimensions, platform opacity/alpha, backgrounds and distinct content hashes.
+- Validation passed: Node Expo configuration regression (1 test, 71 assertions),
+  focused Prettier/diff checks and the mobile NativeWind/UI contract. Actual copied
+  Preview light and Development dark assets were visually inspected.
+- Disposable Android Preview prebuild passed; generated application identity,
+  icon background (`#EAF2FF`) and adaptive XML are correct. The generated launcher
+  raster was visually inspected. Evidence: `/private/tmp/halaalvest-icon-native-w9ixdyza`.
+- No signed native build or device installation was performed. Existing installed
+  apps retain their embedded icons until new native binaries are installed.
+- Brain impact: feature/ADR records, Brain index, progress and task states updated. No API, database, permission or financial behavior change.

@@ -50,7 +50,14 @@ export function makeQueryClient() {
       },
     }),
     defaultOptions: {
+      mutations: {
+        networkMode: "always",
+        retry: false,
+      },
       queries: {
+        refetchOnReconnect: false,
+        refetchOnWindowFocus: false,
+        retry: 1,
         staleTime: 60 * 1000,
       },
       dehydrate: {

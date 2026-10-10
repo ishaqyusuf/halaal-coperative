@@ -1,44 +1,59 @@
 import { headers } from "next/headers"
-import { getRoleDisplayName } from "@halaalvest/auth/roles"
-import type { MembershipRole } from "@halaalvest/db"
-import {
-  getTenantMemberSignupSettings,
-  listTenantUsersWithMemberships,
-  listTenants,
-} from "@halaalvest/db"
+import { getTenantMemberSignupSettings } from "@halaalvest/db"
 import { buildTenantHref } from "@halaalvest/tenant-url"
 import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
 import { Badge } from "@halaalvest/ui/components/badge"
 import { HalaalvestLogo } from "@halaalvest/ui/components/brand-logo"
 import { cn } from "@halaalvest/ui/lib/utils"
-import { buildTenantSiteHostname } from "@halaalvest/utils"
 import { LoginForm } from "./login-form"
+import { QaAccessPanel } from "./qa-access-panel"
 import { normalizeDashboardRedirectPath } from "@/lib/auth-redirect"
+import { resolveDashboardPublicLegalOrigin } from "@/lib/public-legal-origin"
+import { getPublicRequestHost } from "@/lib/request-host"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { resolveInitialMigrationSetupGate } from "@/lib/setup-gate"
 import { tenantRedirect } from "@/utils/tenant-redirect"
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
 
-function getTenantScopedMembership<
-  TUser extends {
-    memberships: Array<{
-      isDefault: boolean
-      role: MembershipRole
-      tenantId: string
-    }>
-  },
->(user: TUser, tenantId: string) {
-  const tenantMemberships = user.memberships.filter(
-    (candidate) => candidate.tenantId === tenantId
-  )
-
-  if (!tenantMemberships.length) {
-    return null
+function LegalSupportDestinations({ origin }: { origin: string | null }) {
+  if (!origin) {
+    return (
+      <span className="mt-3 block text-muted-foreground" role="status">
+        Public legal, account deletion and support pages are being prepared.
+      </span>
+    )
   }
 
   return (
-    tenantMemberships.find((candidate) => candidate.isDefault) ??
-    tenantMemberships[0]
+    <nav
+      aria-label="Platform legal and support"
+      className="mt-3 flex flex-wrap gap-4"
+    >
+      <a
+        className="inline-flex min-h-11 items-center underline"
+        href={`${origin}/terms`}
+      >
+        Terms
+      </a>
+      <a
+        className="inline-flex min-h-11 items-center underline"
+        href={`${origin}/privacy`}
+      >
+        Privacy
+      </a>
+      <a
+        className="inline-flex min-h-11 items-center underline"
+        href={`${origin}/delete-account`}
+      >
+        Delete account
+      </a>
+      <a
+        className="inline-flex min-h-11 items-center underline"
+        href={`${origin}/support`}
+      >
+        Support
+      </a>
+    </nav>
   )
 }
 
@@ -81,38 +96,6 @@ export default async function LoginPage({
     await tenantRedirect(nextPath)
   }
 
-  const tenants = isDevelopment ? await listTenants() : []
-  const visibleTenants = context.tenant
-    ? tenants.filter((tenant) => tenant.id === context.tenant?.id)
-    : tenants
-
-  const accountGroups = isDevelopment
-    ? await Promise.all(
-        visibleTenants.map(async (tenant) => ({
-          tenant,
-          users: await listTenantUsersWithMemberships(tenant.id),
-        }))
-      )
-    : []
-  const devAccounts = accountGroups.flatMap(({ tenant, users }) =>
-    users.flatMap((user) => {
-      const membership = getTenantScopedMembership(user, tenant.id)
-
-      if (!membership) {
-        return []
-      }
-
-      return {
-        email: user.email,
-        fullName: user.fullName,
-        isPlatformOwner: user.isPlatformOwner,
-        roleLabel: getRoleDisplayName(membership?.role ?? null),
-        tenantName: tenant.name,
-        userId: user.id,
-      }
-    })
-  )
-
   const tenantName = context.tenant?.name ?? "Halaalvest"
   const memberSignupSettings = context.tenant
     ? await getTenantMemberSignupSettings(context.tenant.id)
@@ -120,9 +103,10 @@ export default async function LoginPage({
   const showMemberSignupCta =
     Boolean(context.tenant) &&
     memberSignupSettings?.memberSignupAccessMode === "public"
-  const tenantHostname = context.tenant
-    ? buildTenantSiteHostname(context.tenant.slug)
-    : "app.halaalvest.local"
+  const tenantHostname = getPublicRequestHost(headerStore)
+  const publicLegalOrigin = resolveDashboardPublicLegalOrigin(
+    process.env.DASHBOARD_PUBLIC_LEGAL_ORIGIN
+  )
   const heroEyebrow = context.tenant
     ? "Cooperative workspace"
     : "Platform access"
@@ -189,16 +173,19 @@ export default async function LoginPage({
                   {tenantName}
                 </dd>
               </div>
-              <div className="grid grid-cols-[7rem_1fr] gap-4 border-b border-border px-4 py-3">
-                <dt className="text-muted-foreground">Host</dt>
-                <dd className="min-w-0 truncate font-medium text-foreground">
-                  {tenantHostname}
-                </dd>
-              </div>
+              {tenantHostname ? (
+                <div className="grid grid-cols-[7rem_1fr] gap-4 border-b border-border px-4 py-3">
+                  <dt className="text-muted-foreground">Host</dt>
+                  <dd className="min-w-0 truncate font-medium text-foreground">
+                    {tenantHostname}
+                  </dd>
+                </div>
+              ) : null}
               <div className="grid grid-cols-[7rem_1fr] gap-4 px-4 py-3">
                 <dt className="text-muted-foreground">Session</dt>
                 <dd className="min-w-0 leading-6 text-muted-foreground">
                   {supportCopy}
+                  <LegalSupportDestinations origin={publicLegalOrigin} />
                 </dd>
               </div>
             </dl>
@@ -215,10 +202,14 @@ export default async function LoginPage({
                 />
                 <Badge variant="outline">{heroEyebrow}</Badge>
               </div>
-              <p className="mt-4 text-sm text-muted-foreground">
-                {tenantHostname}
-              </p>
+              {tenantHostname ? (
+                <p className="mt-4 text-sm text-muted-foreground">
+                  {tenantHostname}
+                </p>
+              ) : null}
             </div>
+
+            <QaAccessPanel />
 
             <div className="border border-border bg-background p-5 shadow-sm sm:p-6">
               <div className="flex items-start justify-between gap-4">
@@ -235,8 +226,8 @@ export default async function LoginPage({
                 </Badge>
               </div>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Enter your email and password to access the current cooperative
-                host.
+                Enter your email or cooperative access code and password to
+                access the current cooperative host.
               </p>
 
               {error === "invalid-account" ? (
@@ -254,8 +245,6 @@ export default async function LoginPage({
 
               <LoginForm
                 action={loginAction}
-                devAccounts={devAccounts}
-                isDevelopment={isDevelopment}
                 memberSignupHref={memberSignupHref}
                 nextPath={nextPath}
                 resetPasswordHref={resetPasswordHref}
@@ -263,16 +252,10 @@ export default async function LoginPage({
               />
             </div>
 
-            <p className="mt-4 text-center text-xs leading-5 text-muted-foreground">
+            <div className="mt-4 text-center text-xs leading-5 text-muted-foreground">
               {supportCopy}
-            </p>
-
-            {isDevelopment ? (
-              <div className="mt-4 border border-[#d6a63a]/60 bg-[#fff2c7] px-3 py-2 text-xs font-medium text-[#0b1f36] dark:border-[#d6a63a]/40 dark:bg-[#2a240e] dark:text-[#f7faf7]">
-                Development mode - {devAccounts.length} email suggestion
-                {devAccounts.length === 1 ? "" : "s"} available
-              </div>
-            ) : null}
+              <LegalSupportDestinations origin={publicLegalOrigin} />
+            </div>
           </div>
         </section>
       </div>

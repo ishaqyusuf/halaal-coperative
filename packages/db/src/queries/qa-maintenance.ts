@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto"
+import type { Prisma, PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
 
@@ -29,8 +30,10 @@ export type QaMaintenancePreview = {
   }>
 }
 
-function requirePrisma() {
-  const prisma = createPrismaClient()
+type QaMaintenancePrisma = PrismaClient | Prisma.TransactionClient
+
+function requirePrisma(prismaOverride?: QaMaintenancePrisma) {
+  const prisma = prismaOverride ?? createPrismaClient()
 
   if (!prisma) {
     throw new Error(
@@ -290,10 +293,13 @@ export async function getQaMaintenancePreview(): Promise<QaMaintenancePreview> {
       workspaces: tenants.length,
     },
     fingerprint,
-    tenants: tenants.map(({ domains, updatedAt: _updatedAt, ...tenant }) => ({
-      ...tenant,
-      hostnames: domains.map((domain) => domain.hostname),
-    })),
+    tenants: tenants.map(({ domains, updatedAt, ...tenant }) => {
+      void updatedAt
+      return {
+        ...tenant,
+        hostnames: domains.map((domain) => domain.hostname),
+      }
+    }),
   }
 }
 
@@ -386,14 +392,45 @@ export async function beginQaPurgeRun(id: string) {
   }
 }
 
-export async function deleteQaTenant(tenantId: string) {
-  const prisma = requirePrisma()
+export async function markQaTenantForPurge(
+  input: {
+    cooperativeCodePrefix: string
+    id: string
+    qaSourceDomain: string
+    slug: string
+    startedAt: Date
+    updatedAt: Date
+  },
+  prismaOverride?: QaMaintenancePrisma
+) {
+  const prisma = requirePrisma(prismaOverride)
+
+  return prisma.tenant.updateMany({
+    data: { qaPurgeStartedAt: input.startedAt },
+    where: {
+      cooperativeCodePrefix: input.cooperativeCodePrefix,
+      dataClassification: "qa",
+      id: input.id,
+      qaPurgeStartedAt: null,
+      qaSourceDomain: input.qaSourceDomain,
+      slug: input.slug,
+      updatedAt: input.updatedAt,
+    },
+  })
+}
+
+export async function deleteQaTenant(
+  tenantId: string,
+  prismaOverride?: QaMaintenancePrisma,
+  expectedStartedAt?: Date
+) {
+  const prisma = requirePrisma(prismaOverride)
 
   return prisma.tenant.delete({
     where: {
       id: tenantId,
       dataClassification: "qa",
-      qaPurgeStartedAt: { not: null },
+      qaPurgeStartedAt: expectedStartedAt ?? { not: null },
     },
   })
 }

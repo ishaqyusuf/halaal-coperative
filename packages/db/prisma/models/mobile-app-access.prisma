@@ -1,0 +1,62 @@
+model MobileAppAccessPurchase {
+  id                             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                       String   @map("tenant_id") @db.Uuid
+  userId                         String   @map("user_id") @db.Uuid
+  providerName                   String   @map("provider_name") @db.VarChar(24)
+  providerSubscriptionId         String   @map("provider_subscription_id") @db.VarChar(128)
+  previousProviderSubscriptionId String?  @map("previous_provider_subscription_id") @db.VarChar(128)
+  productId                      String   @map("product_id") @db.VarChar(200)
+  duration                       String   @db.VarChar(16)
+  status                         String   @db.VarChar(16)
+  environment                    String   @db.VarChar(12)
+  periodStartsAt                 DateTime? @map("period_starts_at") @db.Timestamptz(6)
+  periodEndsAt                   DateTime @map("period_ends_at") @db.Timestamptz(6)
+  graceEndsAt                    DateTime? @map("grace_ends_at") @db.Timestamptz(6)
+  cancelAtPeriodEnd              Boolean  @default(false) @map("cancel_at_period_end")
+  lastVerifiedAt                 DateTime @map("last_verified_at") @db.Timestamptz(6)
+  lastEvidenceHash               String   @map("last_evidence_hash") @db.VarChar(64)
+  createdAt                      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events MobileAppAccessProviderEvent[]
+
+  @@unique([providerName, providerSubscriptionId], map: "mobile_app_access_purchases_provider_chain_key")
+  @@index([userId, status, periodEndsAt], map: "mobile_app_access_purchases_user_status_end_idx")
+  @@index([tenantId, userId], map: "mobile_app_access_purchases_tenant_user_idx")
+  @@map("mobile_app_access_purchases")
+}
+
+model MobileAppAccessProviderEvent {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  purchaseId   String   @map("purchase_id") @db.Uuid
+  evidenceHash String   @map("evidence_hash") @db.VarChar(64)
+  payload      Json
+  verifiedAt   DateTime @map("verified_at") @db.Timestamptz(6)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  purchase MobileAppAccessPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  @@unique([purchaseId, evidenceHash], map: "mobile_app_access_provider_events_purchase_hash_key")
+  @@index([purchaseId, verifiedAt], map: "mobile_app_access_provider_events_purchase_verified_idx")
+  @@map("mobile_app_access_provider_events")
+}
+
+model MobileAppReviewGrant {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  userId      String    @unique @map("user_id") @db.Uuid
+  environment String    @db.VarChar(12)
+  reason      String    @db.VarChar(500)
+  expiresAt   DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, expiresAt], map: "mobile_app_review_grants_tenant_expiry_idx")
+  @@map("mobile_app_review_grants")
+}

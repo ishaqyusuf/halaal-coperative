@@ -1,0 +1,57 @@
+# Dependencies and local tooling
+node_modules/
+**/node_modules/
+.expo/
+**/.expo/
+.turbo/
+**/.turbo/
+
+# Local environment files. EAS preview/production values come from the
+# corresponding remote EAS environment instead of uploaded dotenv files.
+.env
+.env.*
+!.env.example
+
+# Generated build output and local planning/evidence artifacts
+# The scoped build runner also uses EAS_NO_VCS=1; VCS-backed shallow archives
+# include .git even when .easignore names it.
+coverage/
+**/coverage/
+dist/
+**/dist/
+build/
+**/build/
+out/
+**/out/
+.next/
+**/.next/
+.vercel/
+**/.vercel/
+artifacts/
+.git/
+**/.git/
+.local/
+**/.local/
+.gstack/
+.claude/
+.agents/
+.brain/
+.scratch/
+.codex/
+.trigger/
+outputs/
+CONTEXT.md
+tickets.md
+AGENTS.md
+.npmrc
+.vercelignore
+/Screenshot_*.png
+packages/db/generated/
+.DS_Store
+*.log
+
+# The checked-out native trees are for local device development. Managed EAS
+# builds must prebuild from app.config.ts so dev, preview, and production keep
+# their distinct package/bundle IDs, schemes, display names, icons, and splash UI.
+apps/mobile/android/
+apps/mobile/ios/

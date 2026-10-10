@@ -16,13 +16,13 @@ import {
   createSignupApprovalPayload,
   verifySignedEarlyAccessRequestToken,
 } from "@/lib/early-access"
-import { getMarketingAppOrigin } from "@/lib/runtime-url"
+import { getMarketingEmailOrigin } from "@/lib/marketing-email-origin"
 import { setQaPreviewFlash } from "@/lib/qa-preview-flash.server"
 import { captureMarketingError } from "@/lib/sentry"
 import { getMarketingServerErrorResponse } from "@/lib/error-response.server"
 
-function buildSignupUrl(requestUrl: string, token: string) {
-  const url = new URL("/signup", getMarketingAppOrigin(requestUrl))
+function buildSignupUrl(origin: string, token: string) {
+  const url = new URL("/signup", origin)
   url.searchParams.set("approvalToken", token)
 
   return url.toString()
@@ -106,9 +106,10 @@ export async function GET(request: Request) {
       requestPayload.primaryContactEmail,
       getServerQaEmailDomains()
     )
+    const emailOrigin = getMarketingEmailOrigin(request.url)
     const approvalPayload = createSignupApprovalPayload(requestPayload)
     const signupApprovalToken = createSignedSignupApprovalToken(approvalPayload)
-    const signupUrl = buildSignupUrl(request.url, signupApprovalToken)
+    const signupUrl = buildSignupUrl(emailOrigin, signupApprovalToken)
     const approvalEmail = createMarketingEarlyAccessApprovedEmail({
       expiresAt: approvalPayload.expiresAt,
       recipientEmail: approvalPayload.primaryContactEmail,

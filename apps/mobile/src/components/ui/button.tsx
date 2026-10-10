@@ -5,7 +5,7 @@ import { Platform, Pressable } from "react-native"
 
 const buttonVariants = cva(
   cn(
-    "group min-h-11 min-w-11 shrink-0 flex-row items-center justify-center gap-2 rounded-md shadow-none",
+    "group min-h-11 min-w-11 shrink-0 flex-row items-center justify-center gap-2 rounded-lg",
     Platform.select({
       web: "whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
     })
@@ -14,23 +14,23 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: cn(
-          "bg-primary shadow-sm shadow-black/5 active:bg-primary/90",
+          "bg-primary active:bg-primary/90",
           Platform.select({ web: "hover:bg-primary/90" })
         ),
         destructive: cn(
-          "bg-destructive shadow-sm shadow-black/5 active:bg-destructive/90 dark:bg-destructive/60",
+          "bg-destructive active:bg-destructive/90 dark:bg-destructive/60",
           Platform.select({
             web: "hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40",
           })
         ),
         outline: cn(
-          "border border-border bg-background shadow-sm shadow-black/5 active:bg-accent dark:border-input dark:bg-input/30 dark:active:bg-input/50",
+          "border border-border bg-card active:bg-accent dark:border-input dark:bg-input/30 dark:active:bg-input/50",
           Platform.select({
             web: "hover:bg-accent dark:hover:bg-input/50",
           })
         ),
         secondary: cn(
-          "bg-secondary shadow-sm shadow-black/5 active:bg-secondary/80",
+          "bg-secondary active:bg-secondary/80",
           Platform.select({ web: "hover:bg-secondary/80" })
         ),
         ghost: cn(
@@ -41,15 +41,15 @@ const buttonVariants = cva(
       },
       size: {
         default: cn(
-          "h-11 px-4 py-2",
+          "min-h-11 px-4 py-2",
           Platform.select({ web: "has-[>svg]:px-3" })
         ),
         sm: cn(
-          "h-11 gap-1.5 rounded-md px-3",
+          "min-h-11 gap-1.5 rounded-lg px-3",
           Platform.select({ web: "has-[>svg]:px-2.5" })
         ),
         lg: cn(
-          "h-12 rounded-md px-6",
+          "min-h-12 rounded-lg px-6",
           Platform.select({ web: "has-[>svg]:px-4" })
         ),
         icon: "h-11 w-11",
@@ -71,7 +71,7 @@ const buttonTextVariants = cva(
     variants: {
       variant: {
         default: "text-primary-foreground",
-        destructive: "text-white",
+        destructive: "text-destructive-foreground",
         outline: cn(
           "group-active:text-accent-foreground",
           Platform.select({ web: "group-hover:text-accent-foreground" })
@@ -79,7 +79,7 @@ const buttonTextVariants = cva(
         secondary: "text-secondary-foreground",
         ghost: "group-active:text-accent-foreground",
         link: cn(
-          "text-primary group-active:underline",
+          "text-brand group-active:underline",
           Platform.select({
             web: "underline-offset-4 group-hover:underline hover:underline",
           })
@@ -103,16 +103,30 @@ type ButtonProps = React.ComponentProps<typeof Pressable> &
   React.RefAttributes<typeof Pressable> &
   VariantProps<typeof buttonVariants>
 
-function Button({ className, variant, size, ...props }: ButtonProps) {
+function Button({
+  accessibilityState,
+  className,
+  disabled,
+  role,
+  variant,
+  size,
+  ...props
+}: ButtonProps) {
+  const resolvedAccessibilityState =
+    disabled == null
+      ? accessibilityState
+      : { ...accessibilityState, disabled: Boolean(disabled) }
   return (
     <TextClassContext.Provider value={buttonTextVariants({ variant, size })}>
       <Pressable
         className={cn(
-          props.disabled && "opacity-50",
+          disabled && "opacity-50",
           buttonVariants({ variant, size }),
           className
         )}
-        role="button"
+        accessibilityState={resolvedAccessibilityState}
+        disabled={disabled}
+        role={role ?? "button"}
         {...props}
       />
     </TextClassContext.Provider>

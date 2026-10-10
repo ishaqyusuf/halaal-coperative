@@ -21,7 +21,7 @@ import {
   formatEarlyAccessSetupNeeds,
 } from "@/lib/early-access"
 import { formatCooperativeSizeRangeLabel } from "@halaalvest/domain"
-import { getMarketingAppOrigin } from "@/lib/runtime-url"
+import { getMarketingEmailOrigin } from "@/lib/marketing-email-origin"
 import { getMarketingServerErrorResponse } from "@/lib/error-response.server"
 import { parseMarketingJson } from "@/lib/parse-json.server"
 
@@ -37,11 +37,8 @@ function getMarketingAdminRecipients() {
     .filter(Boolean)
 }
 
-function buildApprovalUrl(requestUrl: string, token: string) {
-  const url = new URL(
-    "/api/early-access/approve",
-    getMarketingAppOrigin(requestUrl)
-  )
+function buildApprovalUrl(origin: string, token: string) {
+  const url = new URL("/api/early-access/approve", origin)
   url.searchParams.set("token", token)
 
   return url.toString()
@@ -77,9 +74,10 @@ export async function POST(request: Request) {
       return NextResponse.json(response.body, { status: response.status })
     }
 
+    const emailOrigin = getMarketingEmailOrigin(request.url)
     const payload = createEarlyAccessRequestPayload(input)
     const token = createSignedEarlyAccessRequestToken(payload)
-    const approvalUrl = buildApprovalUrl(request.url, token)
+    const approvalUrl = buildApprovalUrl(emailOrigin, token)
     const qaDomains = getServerQaEmailDomains()
     const isQaRequest = isEmailAtQaDomain(
       payload.primaryContactEmail,

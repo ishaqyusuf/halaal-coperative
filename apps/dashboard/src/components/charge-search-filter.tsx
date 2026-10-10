@@ -11,12 +11,14 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@halaalvest/ui/components/dropdown-menu"
-import { Input } from "@halaalvest/ui/components/input"
 import type { ChangeEvent, FormEvent } from "react"
 import { useRef, useState } from "react"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { MobileSearchFilter } from "@/components/search-filter/mobile-search-filter"
 import { FinanceFilterList } from "@/components/finance-filter-list"
 import { SearchFilterDropdownInput } from "@/components/search-filter-dropdown-input"
 import { useChargeFilterParams } from "@/hooks/use-charge-filter-params"
+import { useSortParams } from "@/hooks/use-sort-params"
 
 const statusFilters = [
   { id: "active", name: "Active" },
@@ -36,8 +38,10 @@ const valueTypeFilters = [
 ]
 
 export function ChargeSearchFilter() {
+  const isMobile = useIsMobile()
   const inputRef = useRef<HTMLInputElement>(null)
   const { filter, hasFilters, setFilter } = useChargeFilterParams()
+  const { params, setParams: setSortParams } = useSortParams()
   const [input, setInput] = useState(filter.q ?? "")
   const [isOpen, setIsOpen] = useState(false)
 
@@ -57,15 +61,17 @@ export function ChargeSearchFilter() {
     setFilter({ q: input.length > 0 ? input : null })
   }
 
-  const validFilters = Object.fromEntries(
-    Object.entries(filter).filter(([key]) => key !== "q")
-  )
+  const validFilters = {
+    frequency: filter.frequency,
+    status: filter.status,
+    valueType: filter.valueType,
+  }
   const hasValidFilters = Object.values(validFilters).some(
     (value) => value !== null
   )
 
   return (
-    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+    <DropdownMenu open={!isMobile && isOpen} onOpenChange={setIsOpen}>
       <div className="flex w-full flex-col items-start space-y-4 sm:w-auto sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4">
         <form className="relative w-full sm:w-auto" onSubmit={handleSubmit}>
           <SearchFilterDropdownInput
@@ -75,6 +81,7 @@ export function ChargeSearchFilter() {
             autoCorrect="off"
             filterActive={hasValidFilters}
             filterOpen={isOpen}
+            onFilterClick={isMobile ? () => setIsOpen(true) : undefined}
             onChange={handleSearch}
             placeholder="Search charges..."
             spellCheck="false"
@@ -93,8 +100,45 @@ export function ChargeSearchFilter() {
         />
       </div>
 
+      {isMobile && isOpen ? (
+        <MobileSearchFilter
+          filterList={[
+            {
+              value: "status",
+              label: "Status",
+              type: "checkbox",
+              options: statusFilters.map((item) => ({
+                value: item.id,
+                label: item.name,
+              })),
+            },
+            {
+              value: "frequency",
+              label: "Frequency",
+              type: "checkbox",
+              options: frequencyFilters.map((item) => ({
+                value: item.id,
+                label: item.name,
+              })),
+            },
+            {
+              value: "valueType",
+              label: "Value type",
+              type: "checkbox",
+              options: valueTypeFilters.map((item) => ({
+                value: item.id,
+                label: item.name,
+              })),
+            },
+          ]}
+          filters={filter}
+          onClose={() => setIsOpen(false)}
+          setFilters={setFilter}
+        />
+      ) : null}
+
       <DropdownMenuContent
-        align="end"
+        align="start"
         alignOffset={-11}
         className="w-[350px]"
         side="bottom"
@@ -184,16 +228,19 @@ export function ChargeSearchFilter() {
           </DropdownMenuSub>
         </DropdownMenuGroup>
 
-        {hasFilters ? (
+        {hasFilters || params.sort ? (
           <DropdownMenuGroup>
             <DropdownMenuItem
               onClick={() =>
-                setFilter({
-                  frequency: null,
-                  q: null,
-                  status: null,
-                  valueType: null,
-                })
+                void Promise.all([
+                  setFilter({
+                    frequency: null,
+                    q: null,
+                    status: null,
+                    valueType: null,
+                  }),
+                  setSortParams({ sort: null }),
+                ])
               }
             >
               Clear filters

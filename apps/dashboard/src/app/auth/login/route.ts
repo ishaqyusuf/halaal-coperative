@@ -8,7 +8,7 @@ import {
 import {
   findActiveMembershipAsync,
   findUserByEmailAsync,
-  findUserByIdAsync,
+  findUserByTenantSignInIdentifierAsync,
   getPendingMemberOnboardingForUser,
   resolveTenantAsync,
 } from "@halaalvest/db"
@@ -32,8 +32,9 @@ function buildCookieOptions(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData()
-  const userId = String(formData.get("userId") ?? "").trim()
-  const email = String(formData.get("email") ?? "")
+  const identifier = String(
+    formData.get("identifier") ?? formData.get("email") ?? ""
+  )
     .trim()
     .toLowerCase()
   const password = String(formData.get("password") ?? "")
@@ -45,11 +46,7 @@ export async function POST(request: NextRequest) {
     `/login?next=${encodeURIComponent(nextPath)}&error=invalid-account`
   )
 
-  if (userId && process.env.NODE_ENV === "production") {
-    return NextResponse.redirect(loginPath)
-  }
-
-  if (!userId && (!email || !password)) {
+  if (!identifier || !password) {
     return NextResponse.redirect(loginPath)
   }
 
@@ -60,13 +57,15 @@ export async function POST(request: NextRequest) {
     slug: request.headers.get("x-tenant-subdomain"),
   })
 
-  const credentialUser = userId
-    ? null
-    : await findUserByEmailAsync({
-        email,
-        tenantId: tenantResolution.tenant?.id ?? null,
+  const credentialUser = tenantResolution.tenant
+    ? await findUserByTenantSignInIdentifierAsync({
+        identifier,
+        tenantId: tenantResolution.tenant.id,
       })
-  const user = userId ? await findUserByIdAsync(userId) : credentialUser
+    : identifier.includes("@")
+      ? await findUserByEmailAsync({ email: identifier })
+      : null
+  const user = credentialUser
 
   if (!user) {
     return NextResponse.redirect(loginPath)
@@ -80,10 +79,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(loginPath)
   }
 
-  if (
-    credentialUser &&
-    !verifyPassword(password, credentialUser.passwordHash)
-  ) {
+  if (!verifyPassword(password, user.passwordHash)) {
     return NextResponse.redirect(loginPath)
   }
 

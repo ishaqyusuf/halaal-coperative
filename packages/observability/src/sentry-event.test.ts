@@ -2,6 +2,97 @@ import { describe, expect, test } from "bun:test"
 import { getSourceMapUploadConfig, sanitizeSentryEvent } from "./sentry-event"
 
 describe("external diagnostic event policy", () => {
+  test("bounds exception data and removes local paths and non-finite extras", () => {
+    const event = sanitizeSentryEvent(
+      {
+        tags: {
+          error_code: "UNEXPECTED",
+          error_reference: "ERR-BOUND1",
+          runtime: "mobile",
+          source: "mobile.error_boundary",
+        },
+        exception: {
+          values: Array.from({ length: 10 }, () => ({
+            type: "Error",
+            stacktrace: {
+              frames: Array.from({ length: 120 }, () => ({
+                filename:
+                  "file:///Users/private-person/work/apps/mobile/src/index.ts?secret=value",
+              })),
+            },
+          })),
+        },
+        extra: { attempt: Number.POSITIVE_INFINITY },
+      },
+      { allowedExtraKeys: ["attempt"] }
+    )
+    const serialized = JSON.stringify(event)
+    expect(serialized).not.toContain("private-person")
+    expect(serialized).not.toContain("secret")
+    expect(event).not.toHaveProperty("extra")
+    expect(event).toMatchObject({
+      exception: {
+        values: Array.from({ length: 4 }, () => ({
+          type: "Error",
+          value: "Captured UNEXPECTED",
+          stacktrace: {
+            frames: Array.from({ length: 80 }, () => ({
+              filename: "apps/mobile/src/index.ts",
+            })),
+          },
+        })),
+      },
+    })
+  })
+
+  test("does not transmit Android device paths or request URLs as stack filenames", () => {
+    const filenames = [
+      "/data/user/0/com.halaalvest.mobile/cache/private-statement.csv",
+      "/data/user/0/com.halaalvest.mobile/cache/src/private-statement.csv",
+      "file:///data/user/0/com.halaalvest.mobile/cache/private-statement.csv",
+      "C:\\Users\\private-person\\Downloads\\member-statement.csv",
+      "https://api.halaalvest.test/members/member-123",
+    ]
+    const event = sanitizeSentryEvent({
+      tags: {
+        error_code: "UNEXPECTED",
+        error_reference: "ERR-BOUND2",
+        runtime: "mobile",
+        source: "mobile.error_boundary",
+      },
+      exception: {
+        values: [
+          {
+            type: "Error",
+            stacktrace: { frames: filenames.map((filename) => ({ filename })) },
+          },
+        ],
+      },
+    })
+
+    expect(event).toMatchObject({
+      exception: {
+        values: [
+          {
+            stacktrace: {
+              frames: [
+                { filename: "local-source" },
+                { filename: "local-source" },
+                { filename: "local-source" },
+                { filename: "local-source" },
+                { filename: "external-source" },
+              ],
+            },
+          },
+        ],
+      },
+    })
+    const serialized = JSON.stringify(event)
+    expect(serialized).not.toContain("private-statement")
+    expect(serialized).not.toContain("member-123")
+    expect(serialized).not.toContain("private-person")
+  })
+
   test("drops SDK-generated events that did not pass classified capture", () => {
     expect(
       sanitizeSentryEvent({

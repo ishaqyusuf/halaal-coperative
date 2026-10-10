@@ -2,35 +2,10 @@ import { sentryEsbuildPlugin } from "@sentry/esbuild-plugin"
 import { esbuildPlugin } from "@trigger.dev/build/extensions"
 import { syncEnvVars } from "@trigger.dev/build/extensions/core"
 import { defineConfig } from "@trigger.dev/sdk/v3"
-
-const syncedProductionEnvVars = [
-  "HALAALVEST_DATABASE_URL",
-  "EMAIL_DELIVERY_MODE",
-  "EMAIL_FROM_ADDRESS",
-  "EMAIL_QA_DOMAIN_ROUTES",
-  "EMAIL_REPLY_TO",
-  "EMAIL_TEST_RECIPIENT",
-  "EMAIL_TEST_MODE",
-  "APP_ENV",
-  "RESEND_API_KEY",
-  "SENTRY_DSN_JOBS",
-  "SENTRY_ENVIRONMENT_JOBS",
-  "SENTRY_RELEASE_JOBS",
-  "TEST_EMAIL",
-] as const
-
-function getTriggerProjectId() {
-  return process.env.TRIGGER_PROJECT_ID?.trim() || "halaalvest-jobs"
-}
-
-function getSyncedProductionEnv() {
-  return Object.fromEntries(
-    syncedProductionEnvVars.flatMap((key) => {
-      const value = process.env[key]?.trim()
-      return value ? [[key, value]] : []
-    })
-  )
-}
+import {
+  syncedTriggerJobEnvironment,
+  triggerProjectForConfigEnv,
+} from "../../scripts/trigger-deploy-profile"
 
 function getSentryBuildExtensions() {
   const authToken = process.env.SENTRY_AUTH_TOKEN?.trim()
@@ -65,7 +40,7 @@ function getSentryBuildExtensions() {
 }
 
 export default defineConfig({
-  project: getTriggerProjectId(),
+  project: triggerProjectForConfigEnv(process.env),
   runtime: "node-22",
   logLevel: "log",
   maxDuration: 120,
@@ -81,7 +56,9 @@ export default defineConfig({
   },
   build: {
     extensions: [
-      syncEnvVars(() => getSyncedProductionEnv(), { override: true }),
+      syncEnvVars(() => syncedTriggerJobEnvironment(process.env), {
+        override: true,
+      }),
       ...getSentryBuildExtensions(),
     ],
   },

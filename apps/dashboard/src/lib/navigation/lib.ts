@@ -1,4 +1,7 @@
-import { getRoleDisplayName, type CooperativeRole } from "@halaalvest/auth/roles"
+import {
+  getRoleDisplayName,
+  type CooperativeRole,
+} from "@halaalvest/auth/roles"
 import {
   getActiveLinkFromMap,
   getLinkModules,
@@ -54,9 +57,7 @@ export function getVisibleDashboardNav(
       })),
     }))
     .filter((module) =>
-      module.sections.some((section) =>
-        section.links.some((item) => item.show)
-      )
+      module.sections.some((section) => section.links.some((item) => item.show))
     )
 }
 
@@ -116,8 +117,9 @@ export function getDashboardRouteTitle(
   hiddenPaths: string[] = []
 ) {
   const modules = getVisibleDashboardNav(role, hiddenPaths)
-  const activeItem = getActiveDashboardNavItem(pathname, modules)
-  const currentModule = getCurrentDashboardModule(pathname, modules)
+  const titleModules = getVisibleDashboardNav(role)
+  const activeItem = getActiveDashboardNavItem(pathname, titleModules)
+  const currentModule = getCurrentDashboardModule(pathname, titleModules)
 
   return {
     activeItem,

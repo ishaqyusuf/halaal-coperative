@@ -15,6 +15,8 @@ export type TableId =
   | "procurement"
   | "foodPurchase"
   | "projectFinancing"
+  | "repaymentSchedule"
+  | "repaymentHistory"
   | "support"
   | "paymentReceipts"
   | "chargeLibrary"
@@ -48,6 +50,8 @@ export const defaultHiddenColumns: Record<TableId, string[]> = {
   procurement: ["vendor"],
   foodPurchase: ["item"],
   projectFinancing: ["disbursed"],
+  repaymentSchedule: [],
+  repaymentHistory: ["reference"],
   support: ["linkedRecord"],
   paymentReceipts: ["reference"],
   chargeLibrary: [],

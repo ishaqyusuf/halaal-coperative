@@ -7,162 +7,51 @@ import {
   TableCell,
   TableRow,
 } from "@halaalvest/ui/components/table"
-import { useInfiniteQuery } from "@tanstack/react-query"
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
-import { AnimatePresence } from "framer-motion"
-import {
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useRef,
-} from "react"
-import { Button } from "@halaalvest/ui/components/button"
-import { BottomBar, EmptyState, VirtualRow } from "@/components/tables/core"
-import { useProcurementFilterParams } from "@/hooks/use-procurement-filter-params"
+import { useCallback, useEffect, useMemo, useRef } from "react"
+import { VirtualRow } from "@/components/tables/core"
 import { useProcurementParams } from "@/hooks/use-procurement-params"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useScrollHeader } from "@/hooks/use-scroll-header"
-import { useSortParams } from "@/hooks/use-sort-params"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
 import { useTableDnd } from "@/hooks/use-table-dnd"
 import { useTableScroll } from "@/hooks/use-table-scroll"
 import { useTableSettings } from "@/hooks/use-table-settings"
 import { useProcurementStore } from "@/store/procurement"
-import { useTRPC } from "@/trpc/client"
 import {
   ROW_HEIGHTS,
   STICKY_COLUMNS,
   SUMMARY_GRID_HEIGHTS,
 } from "@/utils/table-configs"
 import { getColumnIds, type TableSettings } from "@/utils/table-settings"
-import { columns, type ProcurementRequest } from "./columns"
+import { columns } from "./columns"
 import { ProcurementEmptyState } from "./empty-states"
-import { ProcurementSkeleton } from "./skeleton"
 import { ProcurementTableHeader } from "./table-header"
+import { useProcurementQuery } from "./use-procurement-query"
 
-const NON_CLICKABLE_COLUMNS = new Set(["select", "actions"])
+const NON_CLICKABLE_COLUMNS = new Set(["actions"])
 const COLUMN_IDS = getColumnIds(columns)
-
-type ProcurementSortField =
-  | "approvedCost"
-  | "estimatedMonthlyRepayment"
-  | "itemName"
-  | "memberName"
-  | "outstandingAmount"
-  | "requestedAt"
-  | "requestedCost"
-  | "status"
-  | "vendorName"
-
-type ProcurementStatus =
-  | "active"
-  | "approved"
-  | "cancelled"
-  | "completed"
-  | "purchased"
-  | "rejected"
-  | "submitted"
-  | "under_review"
-
-function getSort(
-  sort?: string[] | null
-): [ProcurementSortField, "asc" | "desc"] | null {
-  if (!sort || sort.length !== 2) return null
-
-  const field = sort[0]
-  const direction = sort[1]
-  if (!field || !direction) return null
-
-  const fieldMap: Record<string, ProcurementSortField> = {
-    approved: "approvedCost",
-    approvedCost: "approvedCost",
-    estimatedMonthlyRepayment: "estimatedMonthlyRepayment",
-    itemName: "itemName",
-    monthly: "estimatedMonthlyRepayment",
-    outstandingAmount: "outstandingAmount",
-    requested: "requestedCost",
-    requestedAt: "requestedAt",
-    requestedCost: "requestedCost",
-    request: "itemName",
-    schedule: "outstandingAmount",
-    status: "status",
-    vendor: "vendorName",
-    vendorName: "vendorName",
-  }
-  const sortField = fieldMap[field]
-
-  if (!sortField) return null
-  if (direction !== "asc" && direction !== "desc") return null
-
-  return [sortField, direction]
-}
-
-function getStatus(value: string | null): ProcurementStatus | undefined {
-  const validStatuses = new Set<ProcurementStatus>([
-    "active",
-    "approved",
-    "cancelled",
-    "completed",
-    "purchased",
-    "rejected",
-    "submitted",
-    "under_review",
-  ])
-
-  return validStatuses.has(value as ProcurementStatus)
-    ? (value as ProcurementStatus)
-    : undefined
-}
 
 type Props = {
   canReview: boolean
   initialSettings?: Partial<TableSettings>
-  requests: ProcurementRequest[]
 }
 
 export function ProcurementDataTable({
   canReview,
   initialSettings,
-  requests,
 }: Props) {
-  const trpc = useTRPC()
   const parentRef = useRef<HTMLDivElement>(null)
-  const { filter } = useProcurementFilterParams()
-  const { params } = useSortParams()
   const { setParams } = useProcurementParams()
-  const { rowSelection, setColumns, setRowSelection } = useProcurementStore()
-  const deferredSearch = useDeferredValue(filter.q)
-  const queryInput = useMemo(
-    () => ({
-      q: deferredSearch || undefined,
-      sort: getSort(params.sort),
-      status: getStatus(filter.status),
-    }),
-    [deferredSearch, filter.status, params.sort]
-  )
-  const infiniteQueryOptions = trpc.procurement.list.infiniteQueryOptions(
-    queryInput,
-    {
-      getNextPageParam: ({ meta }) => meta?.cursor,
-      refetchInterval: 5000,
-      refetchOnMount: "always",
-      refetchOnWindowFocus: true,
-    }
-  )
+  const { setColumns } = useProcurementStore()
   const {
-    data,
     fetchNextPage,
+    hasFilters,
     hasNextPage,
-    isError,
     isFetchingNextPage,
-    isPending,
-  } = useInfiniteQuery(infiniteQueryOptions)
-  const tableData = useMemo(
-    () => data?.pages.flatMap((page) => page.data) ?? requests,
-    [data, requests]
-  )
+    requests: tableData,
+  } = useProcurementQuery()
 
   useScrollHeader(parentRef, { extraOffset: SUMMARY_GRID_HEIGHTS.procurement })
 
@@ -191,19 +80,16 @@ export function ProcurementDataTable({
     columns,
     data: tableData,
     enableColumnResizing: true,
-    enableRowSelection: true,
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.id,
     meta: tableMeta,
     onColumnOrderChange: setColumnOrder,
     onColumnSizingChange: setColumnSizing,
     onColumnVisibilityChange: setColumnVisibility,
-    onRowSelectionChange: setRowSelection,
     state: {
       columnOrder,
       columnSizing,
       columnVisibility,
-      rowSelection,
     },
   })
 
@@ -220,7 +106,7 @@ export function ProcurementDataTable({
   })
 
   const tableScroll = useTableScroll({
-    startFromColumn: 2,
+    startFromColumn: 1,
     useColumnWidths: true,
   })
 
@@ -235,7 +121,7 @@ export function ProcurementDataTable({
 
   const openRequest = useCallback(
     (id?: string) => {
-      if (!id || !canReview) {
+      if (!id) {
         return
       }
 
@@ -246,19 +132,27 @@ export function ProcurementDataTable({
       }
 
       if (["submitted", "under_review"].includes(request.status)) {
-        setParams({
-          procurementRequestId: id,
-          procurementSheetType: "review",
-        })
-        return
+        if (canReview) {
+          setParams({
+            procurementRequestId: id,
+            procurementSheetType: "review",
+          })
+          return
+        }
       }
 
-      if (request.status === "approved") {
+      if (request.status === "approved" && canReview) {
         setParams({
           procurementRequestId: id,
           procurementSheetType: "purchase",
         })
+        return
       }
+
+      setParams({
+        procurementRequestId: id,
+        procurementSheetType: "details",
+      })
     },
     [canReview, tableData, setParams]
   )
@@ -273,31 +167,17 @@ export function ProcurementDataTable({
     threshold: 50,
   })
 
-  if (isPending && !requests.length) {
-    return <ProcurementSkeleton />
-  }
-
-  if (isError && !requests.length) {
-    return (
-      <EmptyState
-        description="Reload the page or adjust the procurement list before trying again."
-        title="Procurement requests could not load."
-      />
-    )
-  }
-
   if (!tableData.length) {
-    return <ProcurementEmptyState />
+    return <ProcurementEmptyState filtered={hasFilters} />
   }
 
   const virtualItems = rowVirtualizer.getVirtualItems()
-  const selectedRows = table.getSelectedRowModel().rows
 
   return (
     <div className="relative">
       <div className="w-full">
         <div
-          className="overflow-auto overscroll-contain border-x border-b border-border scrollbar-hide"
+          className="scrollbar-hide overflow-auto overscroll-x-contain overscroll-y-auto border-x border-b border-border"
           ref={(element) => {
             parentRef.current = element
             tableScroll.containerRef.current = element
@@ -337,7 +217,7 @@ export function ProcurementDataTable({
                         columnVisibility={columnVisibility}
                         getStickyClassName={getStickyClassName}
                         getStickyStyle={getStickyStyle}
-                        isSelected={rowSelection[row.id] ?? false}
+                        isSelected={false}
                         key={row.id}
                         nonClickableColumns={NON_CLICKABLE_COLUMNS}
                         onCellClick={openRequest}
@@ -366,23 +246,6 @@ export function ProcurementDataTable({
           />
         </div>
       </div>
-
-      <AnimatePresence>
-        {selectedRows.length ? (
-          <BottomBar
-            selectedCount={selectedRows.length}
-            onDeselect={() => table.toggleAllRowsSelected(false)}
-          >
-            <Button
-              onClick={() => table.toggleAllRowsSelected(false)}
-              size="sm"
-              variant="outline"
-            >
-              Clear selection
-            </Button>
-          </BottomBar>
-        ) : null}
-      </AnimatePresence>
     </div>
   )
 }

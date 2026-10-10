@@ -93,6 +93,10 @@ type AvailabilityState =
         available: boolean
         normalized: string
       }
+      cooperativeCodePrefix: {
+        available: boolean
+        normalized: string
+      }
       workspaceSlug: {
         available: boolean
         hostname: string
@@ -129,8 +133,8 @@ export function SignupForm({
     : createWorkspaceSlugSuggestion(defaultValues?.cooperativeName ?? "")
   const form = useZodForm<SignupIntentInput>(signupIntentSchema, {
     defaultValues: {
+      cooperativeCodePrefix: defaultValues?.cooperativeCodePrefix ?? "",
       cooperativeName: defaultValues?.cooperativeName ?? "",
-      memberNumberPrefix: "",
       primaryContactEmail: defaultValues?.primaryContactEmail ?? "",
       primaryContactFullName: defaultValues?.primaryContactFullName ?? "",
       primaryContactMemberNumber: "",
@@ -151,6 +155,10 @@ export function SignupForm({
     control: form.control,
     name: "cooperativeName",
   })
+  const cooperativeCodePrefix = useWatch({
+    control: form.control,
+    name: "cooperativeCodePrefix",
+  })
   const workspaceSlug = useWatch({
     control: form.control,
     name: "workspaceSlug",
@@ -160,6 +168,7 @@ export function SignupForm({
     availability.status !== "checking" &&
     (availability.status !== "ready" ||
       (availability.cooperativeName.available &&
+        availability.cooperativeCodePrefix.available &&
         availability.workspaceSlug.available))
 
   useEffect(() => {
@@ -177,7 +186,11 @@ export function SignupForm({
   useEffect(() => {
     const normalizedName = cooperativeName?.trim() ?? ""
 
-    if (normalizedName.length < 2 || normalizedWorkspaceSlug.length < 2) {
+    if (
+      normalizedName.length < 2 ||
+      !/^[a-zA-Z]{3,5}$/.test(cooperativeCodePrefix ?? "") ||
+      normalizedWorkspaceSlug.length < 2
+    ) {
       setAvailability({ status: "idle" })
       return
     }
@@ -188,6 +201,7 @@ export function SignupForm({
         setAvailability({ status: "checking" })
 
         const params = new URLSearchParams({
+          cooperativeCodePrefix: cooperativeCodePrefix ?? "",
           cooperativeName: normalizedName,
           workspaceSlug: normalizedWorkspaceSlug,
         })
@@ -223,17 +237,18 @@ export function SignupForm({
       controller.abort()
       window.clearTimeout(timeout)
     }
-  }, [cooperativeName, normalizedWorkspaceSlug])
+  }, [cooperativeCodePrefix, cooperativeName, normalizedWorkspaceSlug])
 
   async function onSubmit(values: SignupIntentInput) {
     if (
       availability.status === "ready" &&
       (!availability.cooperativeName.available ||
+        !availability.cooperativeCodePrefix.available ||
         !availability.workspaceSlug.available)
     ) {
       showError(
         "Setup could not continue",
-        "Choose an available name and subdomain."
+        "Choose an available prefix, name, and subdomain."
       )
       return
     }
@@ -504,21 +519,19 @@ export function SignupForm({
                 name="primaryContactMemberNumber"
                 render={({ field }) => (
                   <FormItem className="md:col-span-2">
-                    <FormLabel>
-                      Admin Membership No (Leave prefix blank if you do not have
-                      a Membership No Prefix).
-                    </FormLabel>
+                    <FormLabel>Cooperative prefix and admin number</FormLabel>
                     <div className="grid grid-cols-[8rem_minmax(0,1fr)] gap-3">
                       <FormField
                         control={form.control}
-                        name="memberNumberPrefix"
+                        name="cooperativeCodePrefix"
                         render={({ field: prefixField }) => (
                           <FormItem className="space-y-0">
                             <FormControl>
                               <Input
-                                aria-label="Member number prefix"
+                                aria-label="Cooperative prefix"
                                 className="w-32 px-2 text-center uppercase"
-                                placeholder="Prefix"
+                                maxLength={5}
+                                placeholder="AMN"
                                 {...prefixField}
                                 onChange={(event) =>
                                   prefixField.onChange(
@@ -538,6 +551,10 @@ export function SignupForm({
                         />
                       </FormControl>
                     </div>
+                    <FormDescription>
+                      Reserve a unique 3–5 letter prefix. Access codes use it,
+                      for example AMN-0042.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -583,6 +600,7 @@ export function SignupForm({
               <Alert
                 variant={
                   availability.cooperativeName.available &&
+                  availability.cooperativeCodePrefix.available &&
                   availability.workspaceSlug.available
                     ? "default"
                     : "destructive"
@@ -591,6 +609,22 @@ export function SignupForm({
                 <AlertTitle>Website availability</AlertTitle>
                 <AlertDescription>
                   <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge
+                        variant={
+                          availability.cooperativeCodePrefix.available
+                            ? "secondary"
+                            : "destructive"
+                        }
+                      >
+                        Prefix
+                      </Badge>
+                      <span>
+                        {availability.cooperativeCodePrefix.available
+                          ? `${availability.cooperativeCodePrefix.normalized} is available.`
+                          : "That cooperative prefix is not available."}
+                      </span>
+                    </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge
                         variant={
@@ -664,6 +698,11 @@ export function SignupForm({
                 onboarding.
               </p>
             </div>
+            <nav aria-label="Legal and support" className="flex flex-wrap gap-4 text-sm">
+              <a className="min-h-11 py-3 underline" href="/terms">Platform terms</a>
+              <a className="min-h-11 py-3 underline" href="/privacy">Privacy notice</a>
+              <a className="min-h-11 py-3 underline" href="/support">Support</a>
+            </nav>
           </form>
         </CardContent>
       </Card>

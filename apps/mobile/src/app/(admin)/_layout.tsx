@@ -1,12 +1,12 @@
-import { useAuthContext } from "@/hooks/use-auth";
-import { LoadingScreen } from "@/screens/loading-screen";
-import { Redirect, Stack } from "expo-router";
+import { useAuthContext } from "@/hooks/use-auth"
+import { BootstrapScreen } from "@/components/app/bootstrap-screen"
+import { Redirect, Stack } from "expo-router"
 
 export default function AdminLayout() {
-  const { initializing, role } = useAuthContext();
+  const { initializing, role } = useAuthContext()
 
-  if (initializing) return <LoadingScreen />;
-  if (role !== "admin") return <Redirect href="/" />;
+  if (initializing) return <BootstrapScreen />
+  if (role !== "admin") return <Redirect href="/" />
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return <Stack screenOptions={{ headerShown: false }} />
 }

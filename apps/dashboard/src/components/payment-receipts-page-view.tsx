@@ -94,7 +94,6 @@ export function PaymentReceiptsPageView({
           member={data.member}
           procurementSchedules={data.procurementSchedules}
           projectFinancingRequests={data.projectFinancingRequests}
-          receipts={data.receipts}
           summary={data.summary}
         />
       </WorkspacePageShell>
@@ -108,6 +107,7 @@ export function PaymentReceiptsPageView({
       title="Payment receipts"
     >
       <PaymentReceiptsView
+        canCreateReceipt={data.canCreateReceipt}
         categoryOptions={data.categoryOptions}
         commitmentPlans={data.commitmentPlans}
         foodPurchaseApplications={data.foodPurchaseApplications}
@@ -116,7 +116,6 @@ export function PaymentReceiptsPageView({
         initialSettings={paymentReceiptsInitialSettings}
         procurementSchedules={data.procurementSchedules}
         projectFinancingRequests={data.projectFinancingRequests}
-        receipts={data.receipts}
         summary={data.summary}
       />
     </WorkspacePageShell>

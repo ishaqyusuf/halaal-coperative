@@ -12,6 +12,13 @@ const requiredSemanticTokens = [
   "accent-foreground",
   "background",
   "border",
+  "brand",
+  "brand-contrast",
+  "brand-foreground",
+  "brand-surface",
+  "brand-surface-foreground",
+  "brand-vivid",
+  "brand-warm",
   "card",
   "card-foreground",
   "destructive",
@@ -20,6 +27,7 @@ const requiredSemanticTokens = [
   "input",
   "muted",
   "muted-foreground",
+  "overlay",
   "popover",
   "popover-foreground",
   "primary",
@@ -73,6 +81,77 @@ function assertFile(relativePath) {
   assert(existsSync(join(root, relativePath)), `Missing ${relativePath}`)
 }
 
+function extractObjectBody(source, propertyName, fromIndex = 0) {
+  const propertyPattern = new RegExp(`\\b${propertyName}\\s*:\\s*\\{`, "g")
+  propertyPattern.lastIndex = fromIndex
+  const match = propertyPattern.exec(source)
+
+  assert(match, `Could not find ${propertyName} theme object.`)
+
+  const openingBrace = source.indexOf("{", match.index)
+  let depth = 0
+
+  for (let index = openingBrace; index < source.length; index += 1) {
+    if (source[index] === "{") depth += 1
+    if (source[index] === "}") depth -= 1
+
+    if (depth === 0) {
+      return source.slice(openingBrace + 1, index)
+    }
+  }
+
+  throw new Error(`Theme object ${propertyName} is not closed.`)
+}
+
+function parseThemeObject(source, propertyName, fromIndex = 0) {
+  const body = extractObjectBody(source, propertyName, fromIndex)
+  const values = new Map()
+
+  for (const match of body.matchAll(
+    /^\s*([a-zA-Z][a-zA-Z0-9]*):\s*"([^"]+)",?$/gm
+  )) {
+    values.set(match[1], match[2])
+  }
+
+  return values
+}
+
+function themeKeyToCssVariable(key) {
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .replace(/([a-zA-Z])(\d+)/g, "$1-$2")
+    .toLowerCase()
+}
+
+function parseCssThemeValues(source) {
+  const parsed = postcss.parse(source)
+  const values = { light: new Map(), dark: new Map() }
+
+  parsed.walkRules(":root", (rule) => {
+    let parent = rule.parent
+    let isDark = false
+
+    while (parent) {
+      if (
+        parent.type === "atrule" &&
+        parent.name === "media" &&
+        parent.params.includes("prefers-color-scheme: dark")
+      ) {
+        isDark = true
+        break
+      }
+      parent = parent.parent
+    }
+    const scheme = isDark ? "dark" : "light"
+
+    rule.walkDecls(/^--/, (declaration) => {
+      values[scheme].set(declaration.prop.slice(2), declaration.value)
+    })
+  })
+
+  return values
+}
+
 assertFile("src/lib/nativewind-theme-vars.ts")
 
 const layout = read("src/app/_layout.tsx")
@@ -80,6 +159,7 @@ const metroConfig = read("metro.config.js")
 const themeVars = read("src/lib/nativewind-theme-vars.ts")
 const tailwindConfig = read("tailwind.config.ts")
 const globalCss = read("src/styles/global.css")
+const themeSource = read("src/lib/theme.ts")
 
 assert(
   metroConfig.includes("withNativewind(config, {"),
@@ -95,7 +175,9 @@ assert(
   "Root layout must import VariableContextProvider from nativewind."
 )
 assert(
-  layout.includes('import { nativewindThemeVars } from "@/lib/nativewind-theme-vars"'),
+  layout.includes(
+    'import { nativewindThemeVars } from "@/lib/nativewind-theme-vars"'
+  ),
   "Root layout must import nativewindThemeVars."
 )
 assert(
@@ -124,10 +206,7 @@ for (const token of requiredSemanticTokens) {
     themeVars.includes(`"--${token}"`),
     `nativewindThemeVars is missing --${token}.`
   )
-  assert(
-    globalCss.includes(`--${token}:`),
-    `global.css is missing --${token}.`
-  )
+  assert(globalCss.includes(`--${token}:`), `global.css is missing --${token}.`)
   assert(
     tailwindConfig.includes(`var(--${token})`),
     `tailwind.config.ts is missing var(--${token}).`
@@ -139,6 +218,34 @@ for (const token of requiredPaletteTokens) {
     themeVars.includes(`"--${token}"`),
     `nativewindThemeVars is missing --${token}.`
   )
+}
+
+const themeObjectStart = themeSource.indexOf("export const THEME")
+assert(themeObjectStart >= 0, "src/lib/theme.ts must export THEME.")
+
+const themeValues = {
+  light: parseThemeObject(themeSource, "light", themeObjectStart),
+  dark: parseThemeObject(themeSource, "dark", themeObjectStart),
+}
+const cssThemeValues = parseCssThemeValues(globalCss)
+
+for (const scheme of ["light", "dark"]) {
+  assert(
+    themeValues[scheme].size > 0,
+    `No ${scheme} runtime theme tokens were parsed from src/lib/theme.ts.`
+  )
+
+  for (const [themeKey, expectedValue] of themeValues[scheme]) {
+    const cssVariable = themeKeyToCssVariable(themeKey)
+    const actualValue =
+      cssThemeValues[scheme].get(cssVariable) ??
+      (scheme === "dark" ? cssThemeValues.light.get(cssVariable) : undefined)
+
+    assert(
+      actualValue === expectedValue,
+      `${scheme} theme drift for --${cssVariable}: theme.ts is ${expectedValue}, global.css is ${actualValue ?? "missing"}.`
+    )
+  }
 }
 
 const compiled = await postcss([tailwind()]).process(
@@ -163,5 +270,5 @@ for (const className of [
 }
 
 console.log(
-  `NativeWind theme variable guard passed (${requiredSemanticTokens.length} semantic tokens, ${requiredPaletteTokens.length} palette samples).`
+  `NativeWind theme variable guard passed (${requiredSemanticTokens.length} semantic tokens, ${themeValues.light.size + themeValues.dark.size} cross-runtime values, ${requiredPaletteTokens.length} palette samples).`
 )

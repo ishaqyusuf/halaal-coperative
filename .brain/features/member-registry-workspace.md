@@ -65,7 +65,7 @@ The staff member workspace provides one tenant-scoped operating surface for find
 ## Member Import
 
 - The import workflow uses a wide dialog presentation with correct dialog accessibility semantics.
-- Staff can configure and reorder columns, download the current Excel template, upload CSV/XLS/XLSX, edit rows in a scrollable grid, review existing matches and in-file duplicates, import immediately, or stage a batch.
+- Staff can configure and reorder columns, download the current Excel template, upload CSV/XLS/XLSX, edit rows in a scrollable grid, review existing matches and in-file duplicates, import immediately, or stage a batch. The workbook reader/template writer now use the vendored SheetJS CE 0.20.3 tarball; a focused CSV/XLS/XLSX round-trip and the local dashboard production build pass. See [the patched-package ADR](../decisions/ADR-20260928-vendor-patched-sheetjs-for-dashboard-imports.md). Real staff-file/browser and deployed package checks remain open.
 - Successful imports invalidate the member infinite query; staged or direct imports invalidate the import-batch infinite query.
 - Header controls, the editable grid, review gates, and footer actions adapt to phone widths without forcing the presentation beyond the viewport.
 - The full-page `/settings/imports/members` batch history shares the canonical import Suspense query and switches below `md` from the desktop virtual table to flat divided shadcn Items, a mobile filter drawer, touch-sized actions, and a non-table loading skeleton. Its settings navigation becomes a shadcn bottom-sheet selector on the same breakpoint.
@@ -76,6 +76,20 @@ The staff member workspace provides one tenant-scoped operating surface for find
 - Management actions are shown only when the current role has the matching member, import, commitment, or collection-source permission.
 - Member profile mutations continue to respect initial-migration and live-operation guards.
 - Member operational readiness is derived without a schema snapshot: active registry status, verified KYC, and mode-aware migration evidence are evaluated from the current tenant and member records.
+
+## Native Mobile Administration
+
+- 2026-09-07 source-only update: Joined date uses the shared floating calendar
+  in the full-screen create form. Cooperative-number keyboard progression opens
+  that calendar; other member fields retain the existing form/input primitives.
+  Native tests and screenshots for this refinement are deferred by the user.
+
+- The admin Overview, Members directory, and Member detail routes now resolve through `features/admin-member-lifecycle`; Expo Router pages and compatibility screens are thin delegates rather than alternate business-logic owners.
+- Overview is read-focused and exception-led: deployable funds, collection coverage, portfolio risk, critical-first action queues, compliance gaps, setup warnings, and recent audited activity use server-owned values.
+- The directory uses bounded server pagination plus search, lifecycle-status, and KYC filters. Summary counts cover the complete filtered registry rather than only the visible page, while rows expose lifecycle, KYC, Collection Source, linked-login, compact identity context, and the latest active monthly commitment as the member's monthly obligation.
+- Create uses a keyboard-safe full-screen form sheet. Short onboarding, KYC, and status reviews use measured floating sheets capped at 44% with overflow scrolling. Every command moves through an explicit review and post-dismiss success surface, retains scoped drafts, blocks stale/offline submission, and provides development-only Quick Fill.
+- The mobile route boundary uses the shared `manage_members` permission rather than role rank. Finance-only staff and member workspaces are denied; signed tenant and actor scope is authoritative. Activation retains subscription capacity enforcement, and every lifecycle command retains migration/live-operation, legal-transition, audit, and notification effects.
+- The NativeWind UI is semantic-token-only, light/dark capable, flat and divider-led, with one large title and no redundant eyebrow label. Forms never share a browsing surface inline.
 
 ## Midday Conformance
 
@@ -100,3 +114,13 @@ The staff member workspace provides one tenant-scoped operating surface for find
 - On 2026-07-30, the compact mobile status block and loading fallback were verified at the same Portless tenant URL. At 360×800 and 390×844, each row kept member type with identity and presented labeled `Migration setup`, `Member status`, and `KYC` values without horizontal overflow; a live reload showed only the flat item skeleton during loading and never exposed the desktop table. At 1604×994, the six-column desktop table remained unchanged, and browser logs contained no warnings or errors.
 - On 2026-07-30, `/members/f547dd43-ce66-4023-af55-84ddd7b803b3` completed its Midday customer-detail adaptation: route loading/error isolation, compact header actions, a phone bottom drawer, and a two-column phone summary were verified at 360×800, 390×844, 767×900, 768×900, and 1604×994. The member-actions drawer plus URL-backed KYC and portal-access presentations opened correctly, no tested width produced horizontal overflow, and browser logs contained no warnings or errors.
 - On 2026-07-30, `/members/f547dd43-ce66-4023-af55-84ddd7b803b3/backfill?step=brought-forward` completed its Midday onboarding adaptation. Focused conformance and migration tests passed, dashboard typecheck and lint passed, and authenticated Portless QA at 360, 390, 767, 768, 1024, and 1440 pixel widths confirmed canonical step routing, mode-appropriate content, shared action sheets, 44-pixel phone targets, zero horizontal overflow, no nested main landmarks, and no application console errors.
+- On 2026-08-28, the native Admin Members gate completed its `Directory first` Expo Go pass on Pixel 3a API 34 at port `1443`: server metrics, search, accessible lifecycle/KYC filtering, flat virtualized rows, every create input, KYC review, member creation, onboarding approval, confirmation/success sequencing, refreshed counts, and Light/Dark parity passed with the isolated fixture. Native QA also moved shared fixed actions into the Gorhom footer slot and adopted the EwaTrade-style keyboard-sticky footer so compact inputs and actions remain simultaneously visible. The final emulator state restored the real Zainab `@ishaq.qa.test` member session in Light mode; signed-staff and the remaining error/offline/cross-platform matrix stay open.
+- On 2026-08-28, the native Admin Member Detail gate completed its `Readiness first` Expo Go pass on Pixel 3a API 34 at port `1443`: flat identity/readiness/financial/audited-record hierarchy, one separated `Manage member` sheet, lifecycle and KYC notes, Quick Fill, visible-keyboard fixed actions, review, fixture success, refreshed states, and Light/Dark parity passed. A fixture regression test now prevents stale lifecycle/KYC profile copy. The final emulator state restored the real Zainab `@ishaq.qa.test` member session in Light mode; signed-staff and the remaining read/error/offline/cross-platform matrix stay open.
+- On 2026-08-31, native Admin Overview, Members, and Member Detail closed Ticket 07 on the Pixel 3a API 34 development client at port `1443`. The signed `@ishaq.qa.test` tenant was expanded through the guarded lifecycle command boundary to 100 clearly prefixed QA members; page 1, page 2, exact search, all documented loading/error/empty/denied/offline/stale/not-found states, and the signed detail were captured. The directory returned 20 bounded rows with complete 100-member counts and measured page/search responses below 63 ms locally. Access-denied detail now clears and gates prior data before rendering, so it cannot leak a stale member profile behind or beside the denial state. Focused Ticket 07 coverage passed 40 tests and 91 expectations, while the complete mobile contract and Android fatal-log replay also passed.
+
+Dashboard member-document saves now claim a private upload for the exact document ID in the same transaction; private reads require that claim, matching URL and current membership/ownership. Live-store validation and approved retention/deletion remain open.
+
+
+## Expandable mobile filter sheet — 6 October 2026
+
+Below `md`, filters now use the shared expandable-category sheet: selections are drafts until Apply; Reset clears drafts; dismissal discards edits; search stays intact. Desktop controls and typed URL/query ownership remain unchanged. See [shared behavior and coverage](dashboard-mobile-filter-sheets.md) and [validation boundaries](../tasks/2026-10-06-mobile-filter-sheets.md).

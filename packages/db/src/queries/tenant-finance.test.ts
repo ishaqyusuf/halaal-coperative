@@ -10,11 +10,13 @@ import {
   getTenantMigrationSetup,
   getMemberUnitSharePosition,
   getTenantSharePolicy,
+  listMemberShareApplicationPage,
   listShareBusinessesTable,
   publishShareProfitAllocations,
   recommendTenantMigrationSetupMode,
   reviewMemberShareApplication,
   updateTenantBusinessProfitPolicy,
+  updateChargeDefinitionVersion,
   updateTenantMigrationSetup,
   updateTenantSharePolicy,
   updateShareBusiness,
@@ -354,6 +356,47 @@ describe("tenant finance queries", () => {
       },
     })
     expect(upsertInput.update).not.toHaveProperty("notes")
+  })
+
+  test("keeps charge versions immutable after member applications exist", async () => {
+    const versionUpdates: unknown[] = []
+    const base = withMigrationState({})
+
+    await expect(
+      updateChargeDefinitionVersion(
+        {
+          amount: 12000,
+          chargeDefinitionVersionId: "charge-version-1",
+          chargeValueType: "fixed_amount",
+          effectiveFrom: new Date("2026-08-01T00:00:00.000Z"),
+          tenantId: "tenant-1",
+        },
+        {
+          ...base,
+          $transaction: async (
+            callback: (transaction: unknown) => Promise<unknown>
+          ) =>
+            callback({
+              ...base,
+              chargeApplication: { count: async () => 1 },
+              chargeDefinitionVersion: {
+                findFirst: async () => ({
+                  chargeDefinitionId: "charge-definition-1",
+                  chargeValueType: "fixed_amount",
+                  id: "charge-version-1",
+                  kind: "fixed",
+                }),
+                update: async (input: unknown) => {
+                  versionUpdates.push(input)
+                  return input
+                },
+              },
+            }),
+        } as never
+      )
+    ).rejects.toThrow("Charge versions with member applications are immutable")
+
+    expect(versionUpdates).toHaveLength(0)
   })
 
   test("reads default share policy when tenant policy has not been configured", async () => {
@@ -1096,10 +1139,99 @@ describe("tenant finance queries", () => {
     })
   })
 
+  test("uses a sort-bound opaque cursor and bounds share application pages in the DB", async () => {
+    const findManyCalls: Record<string, unknown>[] = []
+    const rows = ["3", "2", "1"].map((id, index) => ({
+      approvedUnits: null,
+      createdAt: new Date(`2026-08-0${3 - index}T00:00:00.000Z`),
+      id: `share-app-${id}`,
+      member: {
+        email: null,
+        fullName: `Member ${id}`,
+        memberNumber: `M-00${id}`,
+      },
+      memberId: `member-${id}`,
+      notes: null,
+      requestedByUserId: `user-${id}`,
+      requestedUnits: Number(id),
+      reviewedAt: null,
+      reviewedByUserId: null,
+      reviewNotes: null,
+      shareValueSnapshot: Number(id) * 10000,
+      status: "pending",
+      unitAmountSnapshot: 10000,
+    }))
+    const prisma = {
+      memberShareApplication: {
+        count: async () => rows.length,
+        findMany: async (input: Record<string, unknown>) => {
+          findManyCalls.push(input)
+          return findManyCalls.length === 1 ? rows : []
+        },
+      },
+    }
+
+    const firstPage = await listMemberShareApplicationPage(
+      { pageSize: 2, tenantId: "tenant-1" },
+      prisma as never
+    )
+
+    expect(firstPage.data).toHaveLength(2)
+    expect(firstPage.meta).toMatchObject({ hasNextPage: true, total: 3 })
+    expect(firstPage.meta.cursor).toBeDefined()
+    expect(firstPage.meta.cursor).not.toBe(firstPage.data.at(-1)?.id)
+    expect(findManyCalls[0]).toMatchObject({
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 3,
+      where: { tenantId: "tenant-1" },
+    })
+
+    await listMemberShareApplicationPage(
+      {
+        cursor: firstPage.meta.cursor,
+        pageSize: 2,
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(findManyCalls[1]).toMatchObject({
+      take: 3,
+      where: { AND: expect.any(Array) },
+    })
+  })
+
   test("approves pending share applications into share ledger entries", async () => {
     const applicationUpdates: Record<string, unknown>[] = []
     const ledgerCreates: Record<string, unknown>[] = []
     const auditLogCreates: Record<string, unknown>[] = []
+    const application = {
+      createdAt: new Date("2026-07-08T10:00:00.000Z"),
+      id: "share-app-1",
+      member: {
+        fullName: "Aisha Bello",
+        memberNumber: "M-001",
+      },
+      memberId: "member-1",
+      notes: null,
+      requestedByUserId: "member-user-1",
+      requestedUnits: 2,
+      reviewedAt: null as Date | null,
+      reviewedByUserId: null as string | null,
+      reviewNotes: null as string | null,
+      shareValueSnapshot: 20000,
+      status: "pending" as "approved" | "pending",
+      unitAmountSnapshot: 10000,
+    }
+    const memberShareApplication = {
+      findFirst: async () => application,
+      findMany: async () => [],
+      updateMany: async (input: any) => {
+        applicationUpdates.push(input)
+        Object.assign(application, input.data)
+        return { count: 1 }
+      },
+    }
 
     const reviewed = await reviewMemberShareApplication(
       {
@@ -1123,64 +1255,23 @@ describe("tenant finance queries", () => {
                 return input
               },
             },
-            memberShareApplication: {
-              update: async (input: any) => {
-                applicationUpdates.push(input)
-                return {
-                  approvedUnits: input.data.approvedUnits,
-                  createdAt: new Date("2026-07-08T10:00:00.000Z"),
-                  id: "share-app-1",
-                  memberId: "member-1",
-                  notes: null,
-                  requestedByUserId: "member-user-1",
-                  requestedUnits: 2,
-                  shareValueSnapshot: 20000,
-                  unitAmountSnapshot: 10000,
-                  ...input.data,
-                  member: {
-                    fullName: "Aisha Bello",
-                    memberNumber: "M-001",
-                  },
-                }
-              },
-            },
+            memberShareApplication,
             memberShareLedgerEntry: {
               create: async (input: Record<string, unknown>) => {
                 ledgerCreates.push(input)
                 return { id: "ledger-1", ...input.data }
               },
             },
-          }),
-        memberShareApplication: {
-          findFirst: async () => ({
-            createdAt: new Date("2026-07-08T10:00:00.000Z"),
-            id: "share-app-1",
-            member: {
-              fullName: "Aisha Bello",
-              memberNumber: "M-001",
+            tenantPolicy: {
+              findUnique: async () => ({
+                compulsoryShareUnits: 1,
+                id: "policy-1",
+                maximumShareUnits: 20,
+                shareConfigurationMode: "unit_based",
+                shareUnitAmount: 10000,
+              }),
             },
-            memberId: "member-1",
-            notes: null,
-            requestedByUserId: "member-user-1",
-            requestedUnits: 2,
-            reviewedAt: null,
-            reviewedByUserId: null,
-            reviewNotes: null,
-            shareValueSnapshot: 20000,
-            status: "pending",
-            unitAmountSnapshot: 10000,
           }),
-          findMany: async () => [],
-        },
-        tenantPolicy: {
-          findUnique: async () => ({
-            compulsoryShareUnits: 1,
-            id: "policy-1",
-            maximumShareUnits: 20,
-            shareConfigurationMode: "unit_based",
-            shareUnitAmount: 10000,
-          }),
-        },
       } as never
     )
 
@@ -1197,7 +1288,11 @@ describe("tenant finance queries", () => {
         reviewNotes: "Approved after receipt review",
         status: "approved",
       },
-      where: { id: "share-app-1" },
+      where: {
+        id: "share-app-1",
+        status: "pending",
+        tenantId: "tenant-1",
+      },
     })
     expect(ledgerCreates[0]).toMatchObject({
       data: {
@@ -1232,6 +1327,32 @@ describe("tenant finance queries", () => {
   test("rejects pending share applications without posting share capital", async () => {
     const applicationUpdates: Record<string, unknown>[] = []
     const auditLogCreates: Record<string, unknown>[] = []
+    const application = {
+      createdAt: new Date("2026-07-08T10:00:00.000Z"),
+      id: "share-app-1",
+      member: {
+        fullName: "Aisha Bello",
+        memberNumber: "M-001",
+      },
+      memberId: "member-1",
+      notes: null,
+      requestedByUserId: "member-user-1",
+      requestedUnits: 2,
+      reviewedAt: null as Date | null,
+      reviewedByUserId: null as string | null,
+      reviewNotes: null as string | null,
+      shareValueSnapshot: 20000,
+      status: "pending" as "pending" | "rejected",
+      unitAmountSnapshot: 10000,
+    }
+    const memberShareApplication = {
+      findFirst: async () => application,
+      updateMany: async (input: any) => {
+        applicationUpdates.push(input)
+        Object.assign(application, input.data)
+        return { count: 1 }
+      },
+    }
 
     const reviewed = await reviewMemberShareApplication(
       {
@@ -1242,49 +1363,16 @@ describe("tenant finance queries", () => {
         tenantId: "tenant-1",
       },
       {
-        auditLog: {
-          create: async (input: Record<string, unknown>) => {
-            auditLogCreates.push(input)
-            return input
-          },
-        },
-        memberShareApplication: {
-          findFirst: async () => ({
-            createdAt: new Date("2026-07-08T10:00:00.000Z"),
-            id: "share-app-1",
-            member: {
-              fullName: "Aisha Bello",
-              memberNumber: "M-001",
-            },
-            memberId: "member-1",
-            notes: null,
-            requestedByUserId: "member-user-1",
-            requestedUnits: 2,
-            reviewedAt: null,
-            reviewedByUserId: null,
-            reviewNotes: null,
-            shareValueSnapshot: 20000,
-            status: "pending",
-            unitAmountSnapshot: 10000,
-          }),
-          update: async (input: any) => {
-            applicationUpdates.push(input)
-            return {
-              createdAt: new Date("2026-07-08T10:00:00.000Z"),
-              id: "share-app-1",
-              memberId: "member-1",
-              requestedByUserId: "member-user-1",
-              requestedUnits: 2,
-              shareValueSnapshot: 20000,
-              unitAmountSnapshot: 10000,
-              ...input.data,
-              member: {
-                fullName: "Aisha Bello",
-                memberNumber: "M-001",
+        $transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
+          callback({
+            auditLog: {
+              create: async (input: Record<string, unknown>) => {
+                auditLogCreates.push(input)
+                return input
               },
-            }
-          },
-        },
+            },
+            memberShareApplication,
+          }),
       } as never
     )
 
@@ -1300,7 +1388,11 @@ describe("tenant finance queries", () => {
         reviewNotes: "Member has reached the policy limit",
         status: "rejected",
       },
-      where: { id: "share-app-1" },
+      where: {
+        id: "share-app-1",
+        status: "pending",
+        tenantId: "tenant-1",
+      },
     })
     expect(auditLogCreates[0]).toMatchObject({
       data: {
@@ -1316,6 +1408,81 @@ describe("tenant finance queries", () => {
         tenantId: "tenant-1",
       },
     })
+  })
+
+  test("claims a pending share application only once under concurrent review", async () => {
+    const ledgerCreates: Record<string, unknown>[] = []
+    const auditLogCreates: Record<string, unknown>[] = []
+    const application = {
+      approvedUnits: null as number | null,
+      createdAt: new Date("2026-08-11T10:00:00.000Z"),
+      id: "share-app-race-1",
+      member: { fullName: "Aisha Bello", memberNumber: "M-001" },
+      memberId: "member-1",
+      notes: null,
+      requestedByUserId: "member-user-1",
+      requestedUnits: 2,
+      reviewedAt: null as Date | null,
+      reviewedByUserId: null as string | null,
+      reviewNotes: null as string | null,
+      shareValueSnapshot: 20000,
+      status: "pending" as "approved" | "pending",
+      unitAmountSnapshot: 10000,
+    }
+    const tx = {
+      ...withMigrationState({ initialMigrationStatus: "live_operations" }),
+      auditLog: {
+        create: async (input: Record<string, unknown>) => {
+          auditLogCreates.push(input)
+          return input
+        },
+      },
+      memberShareApplication: {
+        findFirst: async () => ({ ...application }),
+        findMany: async () => [],
+        updateMany: async (input: any) => {
+          if (application.status !== input.where.status) return { count: 0 }
+          Object.assign(application, input.data)
+          return { count: 1 }
+        },
+      },
+      memberShareLedgerEntry: {
+        create: async (input: Record<string, unknown>) => {
+          ledgerCreates.push(input)
+          return { id: "ledger-race-1", ...input.data }
+        },
+      },
+      tenantPolicy: {
+        findUnique: async () => ({
+          compulsoryShareUnits: 1,
+          id: "policy-1",
+          maximumShareUnits: 20,
+          shareConfigurationMode: "unit_based",
+          shareUnitAmount: 10000,
+        }),
+      },
+    }
+    const prisma = {
+      $transaction: async (
+        callback: (transaction: unknown) => Promise<unknown>
+      ) => callback(tx),
+    }
+    const input = {
+      actorUserId: "user-1",
+      applicationId: "share-app-race-1",
+      decision: "approved" as const,
+      tenantId: "tenant-1",
+    }
+
+    const [first, second] = await Promise.allSettled([
+      reviewMemberShareApplication(input, prisma as never),
+      reviewMemberShareApplication(input, prisma as never),
+    ])
+
+    expect([first.status, second.status]).toContain("fulfilled")
+    expect([first.status, second.status]).toContain("rejected")
+    expect(ledgerCreates).toHaveLength(1)
+    expect(auditLogCreates).toHaveLength(1)
   })
 
   test("blocks business profit setup after member backfill starts", async () => {
@@ -2263,5 +2430,32 @@ describe("tenant finance queries", () => {
       ],
     })
     expect(dividendPeriodUpdates).toHaveLength(0)
+  })
+
+  test("rejects mobile publication when the profit entry is not in the expected approved state", async () => {
+    await expect(
+      publishShareProfitAllocations(
+        {
+          expectedStatus: "approved",
+          profitEntryId: "profit-entry-1",
+          tenantId: "tenant-1",
+        },
+        {
+          $transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
+            callback({
+              shareBusinessProfitEntry: {
+                findFirst: async () => ({
+                  allocations: [],
+                  id: "profit-entry-1",
+                  linkedDividendPeriodId: "dividend-period-1",
+                  linkedDividendPeriod: { status: "approved" },
+                  sourceType: "manual",
+                  status: "reviewed",
+                }),
+              },
+            }),
+        } as never
+      )
+    ).rejects.toThrow("Only approved profit entries can be published")
   })
 })

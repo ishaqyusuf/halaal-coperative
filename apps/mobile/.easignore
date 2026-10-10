@@ -1,0 +1,22 @@
+# EAS CLI runs from apps/mobile in this monorepo. Keep generated local native
+# projects out of the upload so EAS prebuild applies the selected app variant.
+/android
+/ios
+
+# Local dependencies, generated output and credentials are never build input.
+node_modules/
+.expo/
+.turbo/
+.env
+.env.*
+!.env.example
+coverage/
+dist/
+build/
+out/
+.next/
+*.log
+.DS_Store
+
+# Preserve the existing app-level gitignore rule.
+expo-env.d.ts

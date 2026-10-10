@@ -1,0 +1,59 @@
+enum SubscriptionPlanCode {
+  free_beta
+  starter
+  standard
+  growth
+  enterprise
+}
+
+enum TenantSubscriptionStatus {
+  free_beta
+  trialing
+  active
+  past_due
+  grace
+  cancelled
+  suspended
+  manual
+  enterprise
+}
+
+enum TenantSubscriptionSource {
+  system_default
+  free_beta
+  manual
+  billing_provider
+  enterprise_contract
+}
+
+enum SubscriptionAddonStatus {
+  active
+  cancelled
+  expired
+}
+
+enum SubscriptionCheckoutIntentStatus {
+  pending
+  ready
+  completed
+  expired
+  cancelled
+  failed
+}
+
+enum SubscriptionInvoiceStatus {
+  draft
+  open
+  paid
+  void
+  uncollectible
+  refunded
+}
+
+enum SubscriptionProviderEventStatus {
+  received
+  processing
+  applied
+  ignored
+  failed
+}

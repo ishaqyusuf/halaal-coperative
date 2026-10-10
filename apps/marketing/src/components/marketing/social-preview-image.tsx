@@ -171,7 +171,7 @@ export function SocialPreviewImage() {
                 lineHeight: 1.1,
               }}
             >
-              Interest-free cooperative operations
+              Interest-free financing; charges shown separately
             </div>
             <div
               style={{

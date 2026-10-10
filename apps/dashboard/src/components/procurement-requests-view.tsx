@@ -1,35 +1,15 @@
 "use client"
 
 import { formatCurrency } from "@halaalvest/utils"
-import type { ProcurementRequestRow, ProcurementSummary } from "@halaalvest/db"
+import type { ProcurementSummary } from "@halaalvest/db"
 import { OpenMemberProcurementRequestCreateSheet } from "@/components/open-procurement-request-sheet"
 import { ProcurementHeader } from "@/components/procurement-header"
+import { ProcurementMobileToolbar } from "@/components/procurement-mobile-toolbar"
 import type { ProcurementMemberOption } from "@/components/procurement-request-content"
 import { ProcurementRequestSheet } from "@/components/sheets/procurement-request-sheet"
-import { ProcurementDataTable } from "@/components/tables/procurement/data-table"
+import { ProcurementDataView } from "@/components/tables/procurement/data-view"
 import type { WorkflowChargeOption } from "@/components/workflow-charge-summary"
 import type { TableSettings } from "@/utils/table-settings"
-
-function getScheduleCounts(request: ProcurementRequestRow) {
-  return request.repaymentScheduleItems.reduce(
-    (summary, schedule) => {
-      const outstanding = Math.max(0, schedule.amount - schedule.paidAmount)
-
-      if (schedule.status === "due") {
-        summary.due += 1
-      }
-
-      if (schedule.status === "overdue") {
-        summary.overdue += 1
-      }
-
-      summary.outstanding += outstanding
-
-      return summary
-    },
-    { due: 0, outstanding: 0, overdue: 0 }
-  )
-}
 
 export function ProcurementRequestsView({
   approvalChargeOptions,
@@ -37,7 +17,6 @@ export function ProcurementRequestsView({
   canReview,
   initialSettings,
   memberOptions,
-  requests,
   submissionChargeOptions,
   summary,
 }: {
@@ -46,7 +25,6 @@ export function ProcurementRequestsView({
   canReview: boolean
   initialSettings?: Partial<TableSettings>
   memberOptions: ProcurementMemberOption[]
-  requests: ProcurementRequestRow[]
   submissionChargeOptions: WorkflowChargeOption[]
   summary: ProcurementSummary
 }) {
@@ -55,23 +33,24 @@ export function ProcurementRequestsView({
       <ProcurementRequestSheet
         approvalChargeOptions={approvalChargeOptions}
         memberOptions={memberOptions}
-        requests={requests}
         submissionChargeOptions={submissionChargeOptions}
       />
-      <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-        <SummaryTile label="Pending" value={summary.pendingRequests} />
-        <SummaryTile label="Approved" value={summary.approvedRequests} />
-        <SummaryTile label="Active" value={summary.activeRequests} />
-        <SummaryTile label="Due" value={summary.dueScheduleItems} />
-        <SummaryTile label="Overdue" value={summary.overdueScheduleItems} />
-        <SummaryTile
-          label="Outstanding"
-          value={formatCurrency(summary.outstandingAmount)}
-        />
+      <section className="hidden border-y border-border/70 md:block">
+        <div className="grid grid-cols-3 divide-x divide-border/70 xl:grid-cols-6">
+          <SummaryMetric label="Pending" value={summary.pendingRequests} />
+          <SummaryMetric label="Approved" value={summary.approvedRequests} />
+          <SummaryMetric label="Active" value={summary.activeRequests} />
+          <SummaryMetric label="Due" value={summary.dueScheduleItems} />
+          <SummaryMetric label="Overdue" value={summary.overdueScheduleItems} />
+          <SummaryMetric
+            label="Outstanding"
+            value={formatCurrency(summary.outstandingAmount)}
+          />
+        </div>
       </section>
 
       {!canCreate ? (
-        <section className="rounded-md border border-border bg-muted/20 p-4">
+        <section className="border-y border-border bg-muted/20 px-4 py-3">
           <p className="text-sm font-medium text-foreground">
             New procurement requests are closed
           </p>
@@ -83,15 +62,18 @@ export function ProcurementRequestsView({
         </section>
       ) : null}
 
-      <section className="overflow-hidden rounded-md border border-border bg-card">
+      <section className="min-w-0">
+        <ProcurementMobileToolbar
+          canCreate={canCreate}
+          createDisabled={memberOptions.length === 0}
+        />
         <ProcurementHeader
           canCreate={canCreate}
           hasMemberOptions={memberOptions.length > 0}
         />
-        <ProcurementDataTable
+        <ProcurementDataView
           canReview={canReview}
           initialSettings={initialSettings}
-          requests={requests}
         />
       </section>
     </div>
@@ -103,7 +85,7 @@ export function MemberProcurementRequestsView({
   canCreate,
   initialSettings,
   member,
-  requests,
+  summary,
 }: {
   chargeOptions: WorkflowChargeOption[]
   canCreate: boolean
@@ -112,57 +94,38 @@ export function MemberProcurementRequestsView({
     fullName: string
     memberNumber: string
   }
-  requests: ProcurementRequestRow[]
+  summary: ProcurementSummary
 }) {
-  const pendingRequests = requests.filter((request) =>
-    ["submitted", "under_review"].includes(request.status)
-  )
-  const approvedRequests = requests.filter((request) =>
-    ["approved", "purchased", "active"].includes(request.status)
-  )
-  const scheduleSummary = requests.reduce(
-    (summary, request) => {
-      const counts = getScheduleCounts(request)
-
-      return {
-        due: summary.due + counts.due,
-        outstanding: summary.outstanding + counts.outstanding,
-        overdue: summary.overdue + counts.overdue,
-      }
-    },
-    { due: 0, outstanding: 0, overdue: 0 }
-  )
-
   return (
     <div className="space-y-6">
-      <ProcurementRequestSheet
-        requests={requests}
-        selfServiceChargeOptions={chargeOptions}
-      />
-      <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
-        <SummaryTile label="Pending" value={pendingRequests.length} />
-        <SummaryTile label="Approved" value={approvedRequests.length} />
-        <SummaryTile label="Due" value={scheduleSummary.due} />
-        <SummaryTile label="Overdue" value={scheduleSummary.overdue} />
-        <SummaryTile label="Total requests" value={requests.length} />
+      <ProcurementRequestSheet selfServiceChargeOptions={chargeOptions} />
+      <section className="hidden border-y border-border/70 md:block">
+        <div className="grid grid-cols-5 divide-x divide-border/70">
+          <SummaryMetric label="Pending" value={summary.pendingRequests} />
+          <SummaryMetric
+            label="Approved"
+            value={summary.approvedRequests + summary.activeRequests}
+          />
+          <SummaryMetric label="Due" value={summary.dueScheduleItems} />
+          <SummaryMetric label="Overdue" value={summary.overdueScheduleItems} />
+          <SummaryMetric label="Total requests" value={summary.totalRequests} />
+        </div>
       </section>
 
       {canCreate ? (
-        <section className="rounded-lg border border-border bg-card p-4">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                Request item purchase
-              </p>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                {member.fullName} ({member.memberNumber})
-              </p>
-            </div>
-            <OpenMemberProcurementRequestCreateSheet />
+        <section className="hidden items-center justify-between gap-3 border-y border-border py-4 md:flex">
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              Request item purchase
+            </p>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              {member.fullName} ({member.memberNumber})
+            </p>
           </div>
+          <OpenMemberProcurementRequestCreateSheet />
         </section>
       ) : (
-        <section className="rounded-lg border border-border bg-card p-4">
+        <section className="border-y border-border py-4">
           <p className="text-sm font-medium text-foreground">
             Procurement requests are handled by the cooperative office
           </p>
@@ -173,19 +136,19 @@ export function MemberProcurementRequestsView({
         </section>
       )}
 
-      <section className="overflow-hidden rounded-md border border-border bg-card">
+      <section className="min-w-0">
+        <ProcurementMobileToolbar canCreate={canCreate} selfService />
         <ProcurementHeader canCreate={false} hasMemberOptions={false} />
-        <ProcurementDataTable
+        <ProcurementDataView
           canReview={false}
           initialSettings={initialSettings}
-          requests={requests}
         />
       </section>
     </div>
   )
 }
 
-function SummaryTile({
+function SummaryMetric({
   label,
   value,
 }: {
@@ -193,11 +156,11 @@ function SummaryTile({
   value: number | string
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <p className="text-xs text-muted-foreground uppercase">
-        {label}
+    <div className="min-w-0 px-4 py-4">
+      <p className="text-xs text-muted-foreground uppercase">{label}</p>
+      <p className="mt-2 truncate text-xl font-semibold text-foreground">
+        {value}
       </p>
-      <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
     </div>
   )
 }

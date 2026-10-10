@@ -12,17 +12,17 @@ export function FormStateBanner({
   if (!hasDraft && !isStale) return null
 
   return (
-    <View className="gap-2 rounded-md border border-border bg-card p-3">
+    <View className="gap-2 rounded-lg bg-secondary p-3">
       <View className="flex-row flex-wrap items-center gap-2">
-        {hasDraft ? <StatusBadge label="Draft saved" tone="muted" /> : null}
+        {hasDraft ? <StatusBadge label="Draft retained" tone="muted" /> : null}
         {isStale ? (
           <StatusBadge label="Refresh required" tone="warning" />
         ) : null}
       </View>
       <Text className="text-xs leading-5 text-muted-foreground">
         {isStale
-          ? "This form can stay drafted on this device, but it cannot be submitted until fresh server data is loaded."
-          : "Changes are saved on this device until the server confirms a submission."}
+          ? "This draft stays in the form, but it cannot be submitted until fresh server data is loaded."
+          : "Changes stay in this form until the server confirms a submission."}
       </Text>
     </View>
   )

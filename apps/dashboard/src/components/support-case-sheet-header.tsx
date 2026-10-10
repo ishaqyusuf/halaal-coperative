@@ -42,7 +42,7 @@ function getHeaderCopy({
         type === "reply"
           ? "Add an internal or member-facing update to this support case."
           : "Send an update or additional detail to the cooperative team.",
-      title: "Add support reply",
+      title: supportCase?.subject ?? "Support conversation",
     }
   }
 

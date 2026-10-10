@@ -47,20 +47,12 @@ export const procurementRouter = createTRPCRouter({
       const result = await listProcurementRequestPage({
         cursor: input?.cursor ?? undefined,
         memberId: scopedMemberId ?? input?.memberId,
-        pageSize: pageSize + 1,
+        pageSize,
         search: input?.q || undefined,
         sort: input?.sort ?? null,
         status: input?.status,
         tenantId: ctx.tenant.current.id,
       })
-      const data = result.data.slice(0, pageSize)
-
-      return {
-        data,
-        meta: {
-          cursor: result.data.length > pageSize ? data.at(-1)?.id : undefined,
-          total: result.meta.total,
-        },
-      }
+      return result
     }),
 })

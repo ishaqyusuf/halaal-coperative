@@ -11,6 +11,8 @@ export function OpenRepaymentRefreshSheet() {
     <Button
       onClick={() =>
         setParams({
+          loanId: null,
+          repaymentId: null,
           repaymentScheduleItemId: null,
           repaymentSheetType: "refresh",
         })
@@ -24,7 +26,15 @@ export function OpenRepaymentRefreshSheet() {
   )
 }
 
-export function OpenRepaymentPostSheet({ disabled }: { disabled?: boolean }) {
+export function OpenRepaymentPostSheet({
+  disabled,
+  iconOnly = false,
+  loanId,
+}: {
+  disabled?: boolean
+  iconOnly?: boolean
+  loanId?: string
+}) {
   const { setParams } = useRepaymentParams()
 
   return (
@@ -32,14 +42,23 @@ export function OpenRepaymentPostSheet({ disabled }: { disabled?: boolean }) {
       disabled={disabled}
       onClick={() =>
         setParams({
+          loanId: loanId ?? null,
+          repaymentId: null,
           repaymentScheduleItemId: null,
           repaymentSheetType: "post",
         })
       }
       type="button"
+      {...(iconOnly
+        ? {
+            "aria-label": "Post repayment",
+            className: "size-11",
+            size: "icon-lg" as const,
+          }
+        : {})}
     >
       <PlusIcon data-icon="inline-start" />
-      Post repayment
+      {iconOnly ? null : "Post repayment"}
     </Button>
   )
 }
@@ -55,6 +74,8 @@ export function OpenCollectionFollowUpSheet({
     <Button
       onClick={() =>
         setParams({
+          loanId: null,
+          repaymentId: null,
           repaymentScheduleItemId,
           repaymentSheetType: "followUp",
         })
@@ -65,6 +86,56 @@ export function OpenCollectionFollowUpSheet({
     >
       <MessageSquarePlusIcon data-icon="inline-start" />
       Follow up
+    </Button>
+  )
+}
+
+export function OpenRepaymentScheduleDetailsSheet({
+  repaymentScheduleItemId,
+}: {
+  repaymentScheduleItemId: string
+}) {
+  const { setParams } = useRepaymentParams()
+
+  return (
+    <Button
+      onClick={() =>
+        setParams({
+          loanId: null,
+          repaymentId: null,
+          repaymentScheduleItemId,
+          repaymentSheetType: "scheduleDetails",
+        })
+      }
+      type="button"
+      variant="ghost"
+    >
+      View installment
+    </Button>
+  )
+}
+
+export function OpenRepaymentDetailsSheet({
+  repaymentId,
+}: {
+  repaymentId: string
+}) {
+  const { setParams } = useRepaymentParams()
+
+  return (
+    <Button
+      onClick={() =>
+        setParams({
+          loanId: null,
+          repaymentId,
+          repaymentScheduleItemId: null,
+          repaymentSheetType: "repaymentDetails",
+        })
+      }
+      type="button"
+      variant="ghost"
+    >
+      View repayment
     </Button>
   )
 }

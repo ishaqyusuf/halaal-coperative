@@ -5,6 +5,10 @@ export type SentryEventSanitizerOptions = {
 
 type UnknownRecord = Record<string, unknown>
 
+const MAX_EXCEPTION_VALUES = 4
+const MAX_STACK_FRAMES = 80
+const MAX_ADDITIONAL_KEYS = 24
+
 const BASE_TAG_KEYS = [
   "error_category",
   "error_code",
@@ -34,12 +38,39 @@ function sanitizeFilename(value: unknown) {
   const filename = boundedString(value, 500)
   if (!filename) return undefined
 
+  let pathname: string
+  let protocol: string | undefined
   try {
     const url = new URL(filename)
-    return url.pathname.slice(0, 500)
+    pathname = url.pathname
+    protocol = url.protocol
   } catch {
-    return filename.split(/[?#]/, 1)[0]?.slice(0, 500)
+    pathname = filename.split(/[?#]/, 1)[0] ?? ""
   }
+  pathname = pathname.replace(/\\/g, "/")
+
+  const codeFile = /\.(?:js|jsx|mjs|cjs|ts|tsx|bundle|java|kt|cpp|mm|h|so)$/i
+
+  // Only build-owned web assets can retain their URL path. Other URL paths may
+  // contain member IDs or request parameters even after the query is removed.
+  if (protocol === "http:" || protocol === "https:") {
+    if (
+      !/^\/(?:_next\/static|static\/js)\/[A-Za-z0-9_./-]+$/.test(pathname) ||
+      !codeFile.test(pathname)
+    ) {
+      return "external-source"
+    }
+  } else if (/^(?:[a-z]:\/|\/)/i.test(pathname)) {
+    // Absolute stack paths can contain workstation usernames, Android app-data
+    // IDs, and private export filenames. Retain only recognized code roots.
+    const sourceRoot = pathname.search(/\/(?:apps|packages|src|node_modules)\//)
+    const codePath = sourceRoot >= 0 ? pathname.slice(sourceRoot + 1) : ""
+    pathname = codeFile.test(codePath) ? codePath : "local-source"
+  }
+
+  return (
+    pathname.replace(/[\u0000-\u001f\u007f]/g, "").slice(0, 500) || undefined
+  )
 }
 
 function sanitizeFrame(value: unknown) {
@@ -61,13 +92,15 @@ function sanitizeFrame(value: unknown) {
 
 function sanitizeException(value: unknown, errorCode: string | undefined) {
   const exception = record(value)
-  const values = Array.isArray(exception?.values) ? exception.values : []
+  const values = Array.isArray(exception?.values)
+    ? exception.values.slice(0, MAX_EXCEPTION_VALUES)
+    : []
   const sanitizedValues = values.flatMap((candidate) => {
     const exceptionValue = record(candidate)
     if (!exceptionValue) return []
     const stacktrace = record(exceptionValue.stacktrace)
     const frames = Array.isArray(stacktrace?.frames)
-      ? stacktrace.frames.flatMap((frame) => {
+      ? stacktrace.frames.slice(-MAX_STACK_FRAMES).flatMap((frame) => {
           const sanitized = sanitizeFrame(frame)
           return sanitized ? [sanitized] : []
         })
@@ -91,7 +124,10 @@ function sanitizeTags(
   additionalAllowedKeys: readonly string[]
 ) {
   const input = record(value)
-  const allowed = new Set<string>([...BASE_TAG_KEYS, ...additionalAllowedKeys])
+  const allowed = new Set<string>([
+    ...BASE_TAG_KEYS,
+    ...additionalAllowedKeys.slice(0, MAX_ADDITIONAL_KEYS),
+  ])
   const output: Record<string, string> = {}
 
   for (const key of allowed) {
@@ -106,12 +142,12 @@ function sanitizeExtra(value: unknown, allowedKeys: readonly string[]) {
   const input = record(value)
   const output: Record<string, boolean | number | string | null> = {}
 
-  for (const key of allowedKeys) {
+  for (const key of allowedKeys.slice(0, MAX_ADDITIONAL_KEYS)) {
     const item = input?.[key]
     if (
       item === null ||
       typeof item === "boolean" ||
-      typeof item === "number"
+      (typeof item === "number" && Number.isFinite(item))
     ) {
       output[key] = item
     } else if (typeof item === "string") {

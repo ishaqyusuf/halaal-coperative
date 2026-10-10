@@ -1,0 +1,54 @@
+# HalaalVest first-release store catalog setup packet
+Personal Apple publisher correction (29 September): the earlier Organization-team ASC app, group and product setup is historical draft evidence. The owner-selected personal-team app identity and its product availability have not been established; re-verify all catalog mappings on that exact record under the [personal-publisher handoff](../decisions/ADR-20260929-personal-apple-publisher-handoff.md).
+
+Organization Apple publisher confirmed (29 September): the existing Zeroes Organization HalaalVest ASC app is the intended release record again. The temporary personal-team catalog warning is superseded. Recheck the exact subscription products, availability, territories and prices on that record before paid sale; no product or cloud setting was changed by the [source identity correction](../decisions/ADR-20260929-zeroes-organization-ios-release-identity.md).
+
+Prepared 28 September 2026 from current primary `main` source. **Proposal for owner/billing/legal approval; no subscription product, price, offer or paid-sale territory is approved or created by this packet.** The first public mobile release requires working Apple and Google software subscriptions. The app download is free. HalaalVest's SaaS fee is separate from member contributions, savings, financing, repayments and cooperative profit.
+
+## Proposed catalog identity
+
+The existing Apple auto-renewable subscription group is **HalaalVest Software Plans**, group ID `22420854`, in app `6815838235` under ZEROES AND ONE TECH HUB NIG LIMITED. It is saved as `Prepare for Submission` and has no products. Use this one group for the three monthly tiers, subject to owner approval of the group copy and upgrade behavior. Apple ranks the most capable subscription at level 1, so propose Growth level 1, Standard level 2 and Starter level 3. This is a proposed console setting, not yet a tested plan-change policy.
+
+| Tenant plan | Apple product ID proposal | Apple duration/level | Google product ID proposal | Google base plan | Public NGN monthly range; **not a store price** |
+| --- | --- | --- | --- | --- | --- |
+| Starter | `halaalvest.starter.monthly` | Auto-renewable, 1 month, level 3 | `halaalvest.starter.monthly` | `monthly`, auto-renewing `P1M` | ₦12,500–₦18,750 |
+| Standard | `halaalvest.standard.monthly` | Auto-renewable, 1 month, level 2 | `halaalvest.standard.monthly` | `monthly`, auto-renewing `P1M` | ₦50,000–₦75,000 |
+| Growth | `halaalvest.growth.monthly` | Auto-renewable, 1 month, level 1 | `halaalvest.growth.monthly` | `monthly`, auto-renewing `P1M` | ₦150,000–₦225,000 |
+
+These are candidate durable identifiers. The current server parser accepts exactly one mapping per paid plan per store, requires `basePlanId` on Google and forbids it on Apple. The six proposed records passed `parseStoreCatalog` locally and each ID is within Google's 40-character, lowercase/digit/underscore/period format. They do **not** exist in either provider console. `free_beta` and custom `enterprise` remain outside the store catalog. Do not create annual, prepaid or installment products for the first release: the native offer loader accepts only one-month Apple subscriptions and one-phase `P1M` recurring Google offers. [Source: store-policy parser](../../apps/api/src/billing/store-policy.ts), [native offer loader](../../apps/mobile/src/features/subscription/hooks/use-store-subscriptions.ts), [plan definitions](../../packages/domain/src/modules/subscriptions.ts), [Google product/base-plan rules](https://support.google.com/googleplay/android-developer/answer/140504?hl=en), [Apple subscription levels](https://developer.apple.com/help/app-store-connect/reference/in-app-purchases-and-subscriptions/auto-renewable-subscription-information).
+
+After approval and provider creation, the candidate server value is:
+
+```json
+[
+  {"store":"apple","productId":"halaalvest.starter.monthly","planCode":"starter"},
+  {"store":"apple","productId":"halaalvest.standard.monthly","planCode":"standard"},
+  {"store":"apple","productId":"halaalvest.growth.monthly","planCode":"growth"},
+  {"store":"google","productId":"halaalvest.starter.monthly","basePlanId":"monthly","planCode":"starter"},
+  {"store":"google","productId":"halaalvest.standard.monthly","basePlanId":"monthly","planCode":"standard"},
+  {"store":"google","productId":"halaalvest.growth.monthly","basePlanId":"monthly","planCode":"growth"}
+]
+```
+
+This is a candidate `STORE_BILLING_CATALOG`, **not** an instruction to set the production environment now. Keep `STORE_BILLING_SALES_ENABLED=false` until approved products, verified credentials, public policies and signed-device lifecycle QA are complete. The server exposes no offer if its store verification configuration is missing.
+
+## Offer and sale-scope recommendation for approval
+
+Propose **no introductory trial, discounted offer or annual prepayment at launch**. The Android loader filters to a single recurring `P1M` phase; iOS displays the standard monthly `displayPrice` without introductory eligibility or trial terms. A trial would require additional client/catalog presentation and signed-device testing. The existing Free Beta is a separate tenant status, not a store trial. Product copy should state the store-returned local price, one-month renewal, cancellation route and any setup/add-on/pass-through charges clearly. [Apple subscription information](https://developer.apple.com/help/app-store-connect/reference/in-app-purchases-and-subscriptions/auto-renewable-subscription-information), [Google offer rules](https://support.google.com/googleplay/android-developer/answer/140504?hl=en).
+
+The owner chose worldwide **app download** availability. Propose a separate initial paid-sale country list starting with **Nigeria only if billing/legal confirms service and merchant eligibility there**; leave all other paid-sale territories disabled until country-specific service, tax, support, currency and disclosure review. This is a review proposal, not a decision that Nigeria is approved. Apple subscription availability and Google base-plan availability are configured separately from app availability, and Google uses the buyer's Play country. Exact Apple/Google prices must be chosen from each console's price controls; the marketing ranges do not authorize a price or guarantee an exact NGN price point. Record the final local prices, tax treatment and renewal/cancellation terms for every enabled storefront. [Apple subscription availability](https://developer.apple.com/help/app-store-connect/manage-subscriptions/set-availability-for-an-auto-renewable-subscription), [Apple subscription pricing](https://developer.apple.com/help/app-store-connect/manage-subscriptions/manage-pricing-for-auto-renewable-subscriptions), [Google base-plan setup](https://support.google.com/googleplay/android-developer/answer/140504?hl=en).
+
+## Decisions still required before creating products
+
+1. Approve or revise all six durable IDs, Apple group display copy and Growth/Standard/Starter level order; decide whether all three paid tiers launch on both stores. Confirm Apple immediate upgrades/crossgrades/downgrades and the source's Google deferred replacement match the commercial policy.
+2. Select exact monthly consumer prices in each store and each paid-sale country, starting storefront/currency, tax category and treatment, and whether price points fit the public marketing ranges. Approve paid-sale countries separately from worldwide app availability.
+3. Approve no introductory trial/offer, or commission the additional native offer UX and tests before configuring one. Decide how separately quoted setup, migration, add-ons and pass-through costs are disclosed and collected without conflating them with subscriptions.
+4. Approve final Billing policy, Terms, Privacy, cooperative-service eligibility and support contacts, including renewal, cancellation, grace/failed-payment, downgrade and refund language. Supply reviewer tenant/admin access.
+
+## Console and verification prerequisites after approval
+
+**Apple:** The Paid Apps Agreement has been signed but remains `Pending User Info`; complete the bank account and U.S. tax questionnaire and confirm it becomes **Active** before sandbox IAP testing. Confirm distribution rights. In group `22420854`, create the approved one-month products, assign levels, localized display names/descriptions, review screenshot and notes, subscription prices, tax category and per-product availability. Configure App Store Server API key and sandbox/production notification URLs, and sign an iOS build with the `com.halaalvest.mobile` IAP-capable profile. The first IAP must accompany an app version for review. Verify signed-device purchase, Restore, renewal, cancellation, billing retry/grace, expiry and refund against the tenant entitlement ledger before enabling sales. [Apple IAP workflow](https://developer.apple.com/help/app-store-connect/configure-in-app-purchase-settings/overview-for-configuring-in-app-purchases/), [Apple required metadata](https://developer.apple.com/help/app-store-connect/reference/app-information/required-localizable-and-editable-properties).
+
+**Google:** Developer account `5055259525516463203` remains Personal; its website is verified. Organization conversion is an owner identity/release gate awaiting exact D-U-N-S, matching Organization payments profile and verified public/private contacts. Google says a Personal account can technically monetize with a payments profile, so conversion is not stated here as a Play Billing API prerequisite. Confirm the publisher's merchant payments profile and Play app `com.halaalvest.mobile`, then create the approved subscriptions, `monthly` auto-renewing base plans, localized metadata, regional prices and paid-sale availability. Do not activate base plans until approved. Link the Android Publisher API service account, configure per-app Pub/Sub RTDN with subscription/voided-purchase events, test delivery and staff retry/dead-letter monitoring. Use an internal test track/license testers and verify signed Play purchase, acknowledgment only after entitlement, Restore, deferred change, renewal, cancellation, expiry, refund/voided purchase and ledger reconciliation. [Google payments profile](https://support.google.com/googleplay/android-developer/answer/3092739?hl=en), [Google subscriptions](https://support.google.com/googleplay/android-developer/answer/140504?hl=en), [Play Billing readiness/RTDN](https://developer.android.com/google/play/billing/getting-ready), [Google account types](https://support.google.com/googleplay/android-developer/answer/13634885?hl=en).
+
+The explicit owner hold still prohibits EAS cloud builds, deployment, OTA and store submission until the monthly reset and a separate lift. This packet does not lift it or authorize product activation.

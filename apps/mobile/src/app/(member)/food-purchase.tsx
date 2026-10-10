@@ -1,5 +1,5 @@
-import { FoodPurchaseScreen } from "@/screens/food-purchase-screen"
+import { MemberFoodPurchaseRouteController } from "@/features/food-purchase/routes/member-food-purchase-route-controller"
 
 export default function FoodPurchaseRoute() {
-  return <FoodPurchaseScreen />
+  return <MemberFoodPurchaseRouteController />
 }

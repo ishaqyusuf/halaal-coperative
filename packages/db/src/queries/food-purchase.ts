@@ -1,8 +1,10 @@
+import { QueryInfrastructureError } from "../query-error"
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
-import { ExpectedQueryError } from "../query-error"
+import { ExpectedQueryError, isUniqueConstraintError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
 import { applyApplicableWorkflowChargesInTransaction } from "./charges"
+import { assertMemberOperationalReadiness } from "./member-readiness"
 import { getTenantInitialMigrationState } from "./migration"
 import { getTenantOperationProfile } from "./operation-profile"
 
@@ -12,6 +14,9 @@ export type FoodPurchaseCycleStatus =
   | "accounting_submitted"
   | "cancelled"
   | "closed"
+  | "completed"
+  | "draft"
+  | "intake_closed"
   | "open"
 
 export type FoodPurchaseApplicationStatus =
@@ -48,7 +53,7 @@ export type FoodPurchaseRequestSource =
   | "system"
 
 type UserPreview = {
-  email: string
+  email?: string
   fullName: string
   id: string
 }
@@ -89,7 +94,7 @@ export type FoodPurchaseApplicationRow = {
   id: string
   itemDescription: string | null
   member: {
-    email: string | null
+    email?: string | null
     fullName: string
     id: string
     memberNumber: string
@@ -118,6 +123,9 @@ const foodPurchaseCycleStatuses = new Set([
   "accounting_submitted",
   "cancelled",
   "closed",
+  "completed",
+  "draft",
+  "intake_closed",
   "open",
 ])
 
@@ -128,6 +136,52 @@ const foodPurchaseApplicationStatuses = new Set([
   "submitted",
   "under_review",
 ])
+
+const foodPurchaseApplicationReviewStatuses = new Set([
+  "approved",
+  "rejected",
+  "under_review",
+])
+
+const foodPurchaseAccountingReviewDecisions = new Set(["approved", "rejected"])
+
+const foodPurchaseNonAcceptingCycleStatuses = new Set([
+  "accounting_approved",
+  "accounting_rejected",
+  "accounting_submitted",
+  "cancelled",
+  "closed",
+  "completed",
+  "draft",
+  "intake_closed",
+])
+
+async function runSerializableTransactionWithRetry<T>(
+  prisma: PrismaClient,
+  callback: (tx: PrismaClient) => Promise<T>
+) {
+  const maxAttempts = 3
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return (await prisma.$transaction(callback as never, {
+        isolationLevel: "Serializable",
+        maxWait: 5_000,
+        timeout: 15_000,
+      })) as T
+    } catch (error) {
+      const code = (error as { code?: string } | null)?.code
+
+      if (code !== "P2034" || attempt === maxAttempts) {
+        throw error
+      }
+    }
+  }
+
+  throw new QueryInfrastructureError(
+    "Could not safely complete the Foodstuff Purchase transaction"
+  )
+}
 
 function trimOptional(value?: string | null) {
   const trimmed = value?.trim()
@@ -151,6 +205,35 @@ function assertPositiveInteger(value: number, label: string) {
 function assertNonNegativeAmount(value: number, label: string) {
   if (!Number.isFinite(value) || value < 0) {
     throw ExpectedQueryError.validation(`${label} cannot be negative.`)
+  }
+}
+
+function assertValidDate(value: Date, label: string) {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    throw ExpectedQueryError.validation(`${label} is invalid.`)
+  }
+}
+
+async function assertDateOnOrAfterTenantStartDate(
+  input: {
+    date: Date
+    label: string
+    tenantId: string
+  },
+  prisma: any
+) {
+  assertValidDate(input.date, input.label)
+
+  const tenant = await prisma.tenant?.findUnique?.({
+    select: { startDate: true },
+    where: { id: input.tenantId },
+  })
+  const startDate = tenant?.startDate as Date | null | undefined
+
+  if (startDate && input.date.getTime() < startDate.getTime()) {
+    throw ExpectedQueryError.precondition(
+      `${input.label} cannot be before the cooperative start date (${startDate.toISOString().slice(0, 10)}).`
+    )
   }
 }
 
@@ -458,10 +541,6 @@ async function getApprovedApplicationTotal(
   },
   prisma: any
 ) {
-  if (typeof prisma.foodPurchaseApplication?.aggregate !== "function") {
-    return 0
-  }
-
   const approved = await prisma.foodPurchaseApplication.aggregate({
     _sum: { approvedAmount: true },
     where: {
@@ -477,17 +556,13 @@ async function getApprovedApplicationTotal(
   return Number(approved._sum.approvedAmount ?? 0)
 }
 
-async function getActiveFoodPurchaseObligationCount(
+export async function getActiveFoodPurchaseObligationCount(
   input: {
     memberId: string
     tenantId: string
   },
   prisma: any
 ) {
-  if (typeof prisma.foodPurchaseApplication?.findMany !== "function") {
-    return 0
-  }
-
   const approvedApplications = await prisma.foodPurchaseApplication.findMany({
     select: {
       approvedAmount: true,
@@ -547,6 +622,7 @@ export async function listFoodPurchaseCycles(
 export async function createFoodPurchaseCycle(
   input: {
     actorUserId: string
+    initialStatus?: "draft" | "open"
     periodMonth: Date
     releasedAmount: number
     releasedAt?: Date
@@ -582,8 +658,29 @@ export async function createFoodPurchaseCycle(
     input.releasedAmount,
     "Released Foodstuff Purchase amount"
   )
+  const releasedAt = input.releasedAt ?? new Date()
+
+  await Promise.all([
+    assertDateOnOrAfterTenantStartDate(
+      {
+        date: input.periodMonth,
+        label: "Foodstuff Purchase period",
+        tenantId: input.tenantId,
+      },
+      prisma
+    ),
+    assertDateOnOrAfterTenantStartDate(
+      {
+        date: releasedAt,
+        label: "Foodstuff Purchase release date",
+        tenantId: input.tenantId,
+      },
+      prisma
+    ),
+  ])
 
   const periodMonth = normalizePeriodMonth(input.periodMonth)
+  const initialStatus = input.initialStatus ?? "open"
   const existingCycle = await prisma.foodPurchaseCycle.findFirst({
     select: { id: true },
     where: {
@@ -603,10 +700,10 @@ export async function createFoodPurchaseCycle(
       data: {
         periodMonth,
         releasedAmount: input.releasedAmount,
-        releasedAt: input.releasedAt ?? new Date(),
+        releasedAt,
         releasedByUserId: input.actorUserId,
         releaseNotes: trimOptional(input.releaseNotes),
-        status: "open",
+        status: initialStatus,
         tenantId: input.tenantId,
       },
       include: cycleInclude(),
@@ -624,6 +721,124 @@ export async function createFoodPurchaseCycle(
           releasedAmount: input.releasedAmount,
           releasedAt: cycle.releasedAt,
           releaseNotes: trimOptional(input.releaseNotes),
+          status: initialStatus,
+        },
+        tenantId: input.tenantId,
+      },
+      tx
+    )
+
+    return normalizeFoodPurchaseCycle(cycle)
+  })
+}
+
+export type FoodPurchaseCycleTransition =
+  | "cancel"
+  | "close_intake"
+  | "complete"
+  | "open_intake"
+  | "reopen_intake"
+
+const foodPurchaseCycleTransitionContract: Record<
+  FoodPurchaseCycleTransition,
+  { from: FoodPurchaseCycleStatus[]; to: FoodPurchaseCycleStatus }
+> = {
+  cancel: {
+    from: ["accounting_rejected", "draft", "intake_closed", "open"],
+    to: "cancelled",
+  },
+  close_intake: { from: ["open"], to: "intake_closed" },
+  complete: { from: ["accounting_approved"], to: "completed" },
+  open_intake: { from: ["draft"], to: "open" },
+  reopen_intake: { from: ["intake_closed"], to: "open" },
+}
+
+export async function transitionFoodPurchaseCycle(
+  input: {
+    actorUserId: string
+    cycleId: string
+    expectedStatus: FoodPurchaseCycleStatus
+    notes?: string | null
+    tenantId: string
+    transition: FoodPurchaseCycleTransition
+  },
+  prismaOverride?: PrismaClient
+): Promise<FoodPurchaseCycleRow> {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+  await assertActorBelongsToTenant(input, prisma)
+
+  const contract = foodPurchaseCycleTransitionContract[input.transition]
+  if (!contract) {
+    throw ExpectedQueryError.validation(
+      "Foodstuff Purchase cycle transition is not supported."
+    )
+  }
+  if (!contract.from.includes(input.expectedStatus)) {
+    throw ExpectedQueryError.validation(
+      `Foodstuff Purchase ${input.transition.replaceAll("_", " ")} cannot start from ${input.expectedStatus}.`
+    )
+  }
+
+  return runSerializableTransactionWithRetry(prisma, async (tx: any) => {
+    const existingCycle = await readFoodPurchaseCycle(
+      { cycleId: input.cycleId, tenantId: input.tenantId },
+      tx
+    )
+    if (existingCycle.status !== input.expectedStatus) {
+      throw ExpectedQueryError.conflict(
+        `Foodstuff Purchase cycle changed from ${input.expectedStatus} to ${existingCycle.status}. Refresh before continuing.`
+      )
+    }
+
+    const pendingApplications = await tx.foodPurchaseApplication.count({
+      where: {
+        cycleId: input.cycleId,
+        status: { in: ["submitted", "under_review"] },
+        tenantId: input.tenantId,
+      },
+    })
+    if (input.transition === "close_intake" && pendingApplications > 0) {
+      throw ExpectedQueryError.precondition(
+        `${pendingApplications} Foodstuff Purchase application${pendingApplications === 1 ? " is" : "s are"} still awaiting a decision.`
+      )
+    }
+
+    const claimed = await tx.foodPurchaseCycle.updateMany({
+      data: { status: contract.to },
+      where: {
+        id: input.cycleId,
+        status: input.expectedStatus,
+        tenantId: input.tenantId,
+      },
+    })
+    if (claimed.count !== 1) {
+      throw ExpectedQueryError.conflict(
+        "This Foodstuff Purchase cycle was already changed by another request."
+      )
+    }
+
+    const cycle = await tx.foodPurchaseCycle.findFirst({
+      include: cycleInclude(),
+      where: { id: input.cycleId, tenantId: input.tenantId },
+    })
+    if (!cycle) {
+      throw ExpectedQueryError.notFound("Foodstuff Purchase cycle not found.")
+    }
+
+    await createAuditLogEntry(
+      {
+        action: `food_purchase.cycle_${input.transition}`,
+        actorType: "user",
+        actorUserId: input.actorUserId,
+        entityId: cycle.id,
+        entityType: "FoodPurchaseCycle",
+        metadata: {
+          notes: trimOptional(input.notes),
+          previousStatus: input.expectedStatus,
+          status: contract.to,
         },
         tenantId: input.tenantId,
       },
@@ -720,11 +935,195 @@ function getFoodPurchaseApplicationOrderBy(
     ]
   }
 
+  if (sortField === "approvedAmount" || sortField === "itemDescription") {
+    return [
+      { [sortField]: { nulls: "last" as const, sort: direction } },
+      { requestedAt: "desc" as const },
+      { id: "desc" as const },
+    ]
+  }
+
   return [
     { [sortField]: direction },
     { requestedAt: "desc" as const },
     { id: "desc" as const },
   ]
+}
+
+type FoodPurchaseApplicationPageCursor = {
+  approvedAmount: number | null
+  createdAt: string
+  id: string
+  itemDescription: string | null
+  memberName: string
+  paidAmount: number
+  requestedAmount: number
+  requestedAt: string
+  sortDirection: "asc" | "desc"
+  sortField: FoodPurchaseApplicationSortField
+  status: FoodPurchaseApplicationStatus
+}
+
+function normalizeFoodPurchaseApplicationSort(
+  sort?: [FoodPurchaseApplicationSortField, "asc" | "desc"] | null
+) {
+  return sort ?? (["requestedAt", "desc"] as const)
+}
+
+function encodeFoodPurchaseApplicationPageCursor(
+  cursor: FoodPurchaseApplicationPageCursor
+) {
+  return Buffer.from(JSON.stringify(cursor)).toString("base64url")
+}
+
+function decodeFoodPurchaseApplicationPageCursor(
+  value: string,
+  sort?: [FoodPurchaseApplicationSortField, "asc" | "desc"] | null
+) {
+  try {
+    const cursor = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8")
+    ) as FoodPurchaseApplicationPageCursor
+    const [sortField, sortDirection] =
+      normalizeFoodPurchaseApplicationSort(sort)
+
+    if (
+      !cursor ||
+      cursor.sortField !== sortField ||
+      cursor.sortDirection !== sortDirection ||
+      typeof cursor.id !== "string" ||
+      typeof cursor.memberName !== "string" ||
+      typeof cursor.paidAmount !== "number" ||
+      typeof cursor.requestedAmount !== "number" ||
+      typeof cursor.status !== "string" ||
+      (typeof cursor.itemDescription !== "string" &&
+        cursor.itemDescription !== null) ||
+      (typeof cursor.approvedAmount !== "number" &&
+        cursor.approvedAmount !== null) ||
+      Number.isNaN(new Date(cursor.createdAt).getTime()) ||
+      Number.isNaN(new Date(cursor.requestedAt).getTime())
+    ) {
+      throw ExpectedQueryError.validation("Invalid cursor")
+    }
+
+    return cursor
+  } catch {
+    throw ExpectedQueryError.validation(
+      "Foodstuff Purchase application cursor is invalid."
+    )
+  }
+}
+
+export function createFoodPurchaseApplicationPageCursor(
+  application: FoodPurchaseApplicationRow,
+  sort?: [FoodPurchaseApplicationSortField, "asc" | "desc"] | null
+) {
+  const [sortField, sortDirection] = normalizeFoodPurchaseApplicationSort(sort)
+
+  return encodeFoodPurchaseApplicationPageCursor({
+    approvedAmount: application.approvedAmount,
+    createdAt: application.createdAt.toISOString(),
+    id: application.id,
+    itemDescription: application.itemDescription,
+    memberName: application.member.fullName,
+    paidAmount: application.paidAmount,
+    requestedAmount: application.requestedAmount,
+    requestedAt: application.requestedAt.toISOString(),
+    sortDirection,
+    sortField,
+    status: application.status,
+  })
+}
+
+function comparison(value: unknown, direction: "asc" | "desc") {
+  return direction === "asc" ? { gt: value } : { lt: value }
+}
+
+function nullableComparison(
+  field: "approvedAmount" | "itemDescription",
+  value: number | string | null,
+  direction: "asc" | "desc"
+) {
+  if (value === null) return null
+
+  return {
+    OR: [{ [field]: comparison(value, direction) }, { [field]: null }],
+  }
+}
+
+function getFoodPurchaseApplicationPageKeysetWhere(input: {
+  cursor: FoodPurchaseApplicationPageCursor
+  sort?: [FoodPurchaseApplicationSortField, "asc" | "desc"] | null
+}): any {
+  const [sortField, sortDirection] = normalizeFoodPurchaseApplicationSort(
+    input.sort
+  )
+  const cursor = input.cursor
+  const requestedAtTieBreak = {
+    OR: [
+      { requestedAt: comparison(new Date(cursor.requestedAt), "desc") },
+      {
+        AND: [
+          { requestedAt: new Date(cursor.requestedAt) },
+          { id: comparison(cursor.id, "desc") },
+        ],
+      },
+    ],
+  }
+
+  if (sortField === "requestedAt") {
+    return {
+      OR: [
+        {
+          requestedAt: comparison(new Date(cursor.requestedAt), sortDirection),
+        },
+        {
+          AND: [
+            { requestedAt: new Date(cursor.requestedAt) },
+            {
+              createdAt: comparison(new Date(cursor.createdAt), sortDirection),
+            },
+          ],
+        },
+        {
+          AND: [
+            { requestedAt: new Date(cursor.requestedAt) },
+            { createdAt: new Date(cursor.createdAt) },
+            { id: comparison(cursor.id, sortDirection) },
+          ],
+        },
+      ],
+    }
+  }
+
+  const primaryField = sortField === "memberName" ? "memberName" : sortField
+  const primaryValue =
+    sortField === "memberName"
+      ? cursor.memberName
+      : sortField === "approvedAmount"
+        ? cursor.approvedAmount
+        : sortField === "itemDescription"
+          ? cursor.itemDescription
+          : cursor[sortField]
+  const primaryEquals =
+    primaryField === "memberName"
+      ? { member: { is: { fullName: primaryValue } } }
+      : { [primaryField]: primaryValue }
+  const primaryAfter =
+    primaryField === "memberName"
+      ? {
+          member: { is: { fullName: comparison(primaryValue, sortDirection) } },
+        }
+      : primaryField === "approvedAmount" || primaryField === "itemDescription"
+        ? nullableComparison(primaryField, primaryValue, sortDirection)
+        : { [primaryField]: comparison(primaryValue, sortDirection) }
+
+  return {
+    OR: [
+      ...(primaryAfter ? [primaryAfter] : []),
+      { AND: [primaryEquals, requestedAtTieBreak] },
+    ],
+  }
 }
 
 function getFoodPurchaseApplicationWhere(input: {
@@ -797,7 +1196,6 @@ export async function listFoodPurchaseApplicationPage(
     )
   }
 
-  const page = input.page ?? 1
   const pageSize = input.pageSize ?? input.limit ?? 50
   if (!Number.isInteger(pageSize) || pageSize <= 0) {
     throw ExpectedQueryError.validation(
@@ -806,29 +1204,72 @@ export async function listFoodPurchaseApplicationPage(
   }
 
   const where = getFoodPurchaseApplicationWhere(input)
+  const cursor = input.cursor
+    ? decodeFoodPurchaseApplicationPageCursor(input.cursor, input.sort)
+    : null
+  const pageWhere: any = cursor
+    ? {
+        AND: [
+          where,
+          getFoodPurchaseApplicationPageKeysetWhere({
+            cursor,
+            sort: input.sort,
+          }),
+        ],
+      }
+    : where
   const [applications, total] = await Promise.all([
     prisma.foodPurchaseApplication.findMany({
       include: applicationInclude(),
       orderBy: getFoodPurchaseApplicationOrderBy(input.sort),
-      ...(input.cursor
-        ? { cursor: { id: input.cursor }, skip: 1 }
-        : { skip: (page - 1) * pageSize }),
-      take: pageSize,
-      where,
+      ...(cursor ? {} : { skip: ((input.page ?? 1) - 1) * pageSize }),
+      take: pageSize + 1,
+      where: pageWhere,
     }),
     prisma.foodPurchaseApplication.count({ where }),
   ])
 
+  const data = applications
+    .slice(0, pageSize)
+    .map(normalizeFoodPurchaseApplication)
+
   return {
-    data: applications.map(normalizeFoodPurchaseApplication),
+    data,
     meta: {
       cursor:
-        applications.length === pageSize
-          ? (applications.at(-1)?.id as string | undefined)
+        applications.length > pageSize
+          ? data.at(-1)
+            ? createFoodPurchaseApplicationPageCursor(data.at(-1)!, input.sort)
+            : undefined
           : undefined,
       total,
     },
   }
+}
+
+export async function getFoodPurchaseApplicationSummary(
+  input: { memberId?: string; tenantId: string },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+
+  const where = {
+    tenantId: input.tenantId,
+    ...(input.memberId ? { memberId: input.memberId } : {}),
+  }
+  const [totalApplications, approvedApplications, pendingApplications] =
+    await Promise.all([
+      prisma.foodPurchaseApplication.count({ where }),
+      prisma.foodPurchaseApplication.count({
+        where: { ...where, status: "approved" },
+      }),
+      prisma.foodPurchaseApplication.count({
+        where: { ...where, status: { in: ["submitted", "under_review"] } },
+      }),
+    ])
+
+  return { approvedApplications, pendingApplications, totalApplications }
 }
 
 export async function submitFoodPurchaseApplication(
@@ -841,6 +1282,7 @@ export async function submitFoodPurchaseApplication(
     requestNotes?: string | null
     requestedAmount: number
     requestedPaybackMonths: number
+    submissionKey?: string | null
     tenantId: string
   },
   prismaOverride?: PrismaClient
@@ -857,6 +1299,35 @@ export async function submitFoodPurchaseApplication(
   await assertLiveFinancialWritesOpen(input.tenantId, prisma)
   await assertActorBelongsToTenant(input, prisma)
   await assertMemberBelongsToTenant(input, prisma)
+
+  if (
+    input.submissionKey &&
+    typeof prisma.foodPurchaseApplication?.findFirst === "function"
+  ) {
+    const existingApplication = await prisma.foodPurchaseApplication.findFirst({
+      include: applicationInclude(),
+      where: {
+        memberId: input.memberId,
+        submissionKey: input.submissionKey,
+        submittedByUserId: input.actorUserId,
+        tenantId: input.tenantId,
+      },
+    })
+    if (existingApplication) {
+      return normalizeFoodPurchaseApplication(existingApplication)
+    }
+  }
+  const requestSource = input.requestSource ?? "staff"
+
+  if (requestSource !== "system") {
+    await assertMemberOperationalReadiness(
+      {
+        memberId: input.memberId,
+        tenantId: input.tenantId,
+      },
+      prisma as PrismaClient
+    )
+  }
   assertPositiveAmount(
     input.requestedAmount,
     "Requested Foodstuff Purchase amount"
@@ -877,7 +1348,7 @@ export async function submitFoodPurchaseApplication(
     accessMode: foodPurchaseCapability.accessMode,
     canMemberCreate: foodPurchaseCapability.canMemberCreate,
     canStaffCreate: foodPurchaseCapability.canStaffCreate,
-    requestSource: input.requestSource ?? "staff",
+    requestSource,
   })
   const foodPurchaseMaximumPaybackMonths = Number(
     policy?.foodPurchaseMaximumPaybackMonths ?? 1
@@ -914,81 +1385,128 @@ export async function submitFoodPurchaseApplication(
     )
   }
 
-  return prisma.$transaction(async (tx: any) => {
-    const cycle = await readFoodPurchaseCycle(
-      {
-        cycleId: input.cycleId,
-        tenantId: input.tenantId,
-      },
-      tx
+  try {
+    return await runSerializableTransactionWithRetry(
+      prisma,
+      async (tx: any) => {
+        const cycle = await readFoodPurchaseCycle(
+          {
+            cycleId: input.cycleId,
+            tenantId: input.tenantId,
+          },
+          tx
+        )
+
+        if (foodPurchaseNonAcceptingCycleStatuses.has(cycle.status)) {
+          throw ExpectedQueryError.conflict(
+            "Foodstuff Purchase applications cannot be submitted for a finalized or accounting-submitted cycle."
+          )
+        }
+
+        if (
+          (policy?.foodPurchaseRequiresOpenCycle ?? true) &&
+          cycle.status !== "open"
+        ) {
+          throw ExpectedQueryError.conflict(
+            "Foodstuff Purchase applications can only be submitted for an open cycle."
+          )
+        }
+
+        const cycleClaim = await tx.foodPurchaseCycle.updateMany({
+          data: { status: cycle.status },
+          where: {
+            id: cycle.id,
+            status: cycle.status,
+            tenantId: input.tenantId,
+          },
+        })
+
+        if (cycleClaim.count !== 1) {
+          throw ExpectedQueryError.conflict(
+            "The Foodstuff Purchase cycle changed while this application was being submitted."
+          )
+        }
+
+        const application = await tx.foodPurchaseApplication.create({
+          data: {
+            cycleId: input.cycleId,
+            itemDescription: trimOptional(input.itemDescription),
+            memberId: input.memberId,
+            allowsCommitmentReductionDuringPayback:
+              policy?.foodPurchaseAllowsCommitmentReductionDuringPayback ??
+              false,
+            policyMaximumPaybackMonths: foodPurchaseMaximumPaybackMonths,
+            requestedAmount: input.requestedAmount,
+            requestedPaybackMonths: input.requestedPaybackMonths,
+            requestedAt: new Date(),
+            requestNotes: trimOptional(input.requestNotes),
+            status: "submitted",
+            submissionKey: input.submissionKey ?? null,
+            submittedByUserId: input.actorUserId,
+            tenantId: input.tenantId,
+          },
+          include: applicationInclude(),
+        })
+
+        await createAuditLogEntry(
+          {
+            action: "food_purchase.application_submitted",
+            actorType: "user",
+            actorUserId: input.actorUserId,
+            entityId: application.id,
+            entityType: "FoodPurchaseApplication",
+            metadata: {
+              cycleId: input.cycleId,
+              itemDescription: trimOptional(input.itemDescription),
+              memberId: input.memberId,
+              policyMaximumPaybackMonths: foodPurchaseMaximumPaybackMonths,
+              requestedAmount: input.requestedAmount,
+              requestedPaybackMonths: input.requestedPaybackMonths,
+            },
+            tenantId: input.tenantId,
+          },
+          tx
+        )
+
+        await applyApplicableWorkflowChargesInTransaction(
+          {
+            actorUserId: input.actorUserId,
+            assessedAt: application.requestedAt,
+            basisAmount: Number(application.requestedAmount),
+            foodPurchaseApplicationId: application.id,
+            memberId: application.memberId,
+            notes:
+              "Automatically applied for Foodstuff Purchase application submission.",
+            tenantId: input.tenantId,
+            trigger: "submission",
+            workflow: "food_purchase_application",
+          },
+          tx as PrismaClient
+        )
+
+        return normalizeFoodPurchaseApplication(application)
+      }
     )
+  } catch (error) {
+    if (!input.submissionKey || !isUniqueConstraintError(error)) throw error
 
-    if (
-      (policy?.foodPurchaseRequiresOpenCycle ?? true) &&
-      cycle.status !== "open"
-    ) {
-      throw ExpectedQueryError.conflict(
-        "Foodstuff Purchase applications can only be submitted for an open cycle."
-      )
-    }
-
-    const application = await tx.foodPurchaseApplication.create({
-      data: {
-        cycleId: input.cycleId,
-        itemDescription: trimOptional(input.itemDescription),
+    const existingApplication = await prisma.foodPurchaseApplication.findFirst({
+      include: applicationInclude(),
+      where: {
         memberId: input.memberId,
-        allowsCommitmentReductionDuringPayback:
-          policy?.foodPurchaseAllowsCommitmentReductionDuringPayback ?? false,
-        policyMaximumPaybackMonths: foodPurchaseMaximumPaybackMonths,
-        requestedAmount: input.requestedAmount,
-        requestedPaybackMonths: input.requestedPaybackMonths,
-        requestedAt: new Date(),
-        requestNotes: trimOptional(input.requestNotes),
-        status: "submitted",
+        submissionKey: input.submissionKey,
         submittedByUserId: input.actorUserId,
         tenantId: input.tenantId,
       },
-      include: applicationInclude(),
     })
+    if (existingApplication) {
+      return normalizeFoodPurchaseApplication(existingApplication)
+    }
 
-    await createAuditLogEntry(
-      {
-        action: "food_purchase.application_submitted",
-        actorType: "user",
-        actorUserId: input.actorUserId,
-        entityId: application.id,
-        entityType: "FoodPurchaseApplication",
-        metadata: {
-          cycleId: input.cycleId,
-          itemDescription: trimOptional(input.itemDescription),
-          memberId: input.memberId,
-          policyMaximumPaybackMonths: foodPurchaseMaximumPaybackMonths,
-          requestedAmount: input.requestedAmount,
-          requestedPaybackMonths: input.requestedPaybackMonths,
-        },
-        tenantId: input.tenantId,
-      },
-      tx
+    throw ExpectedQueryError.conflict(
+      "This Foodstuff Purchase submission key has already been used."
     )
-
-    await applyApplicableWorkflowChargesInTransaction(
-      {
-        actorUserId: input.actorUserId,
-        assessedAt: application.requestedAt,
-        basisAmount: Number(application.requestedAmount),
-        foodPurchaseApplicationId: application.id,
-        memberId: application.memberId,
-        notes:
-          "Automatically applied for Foodstuff Purchase application submission.",
-        tenantId: input.tenantId,
-        trigger: "submission",
-        workflow: "food_purchase_application",
-      },
-      tx as PrismaClient
-    )
-
-    return normalizeFoodPurchaseApplication(application)
-  })
+  }
 }
 
 export async function reviewFoodPurchaseApplication(
@@ -997,6 +1515,7 @@ export async function reviewFoodPurchaseApplication(
     applicationId: string
     approvedAmount?: number | null
     approvedPaybackMonths?: number | null
+    expectedStatus?: FoodPurchaseApplicationStatus
     notes?: string | null
     status: "approved" | "rejected" | "under_review"
     tenantId: string
@@ -1009,13 +1528,13 @@ export async function reviewFoodPurchaseApplication(
   await assertLiveFinancialWritesOpen(input.tenantId, prisma)
   await assertActorBelongsToTenant(input, prisma)
 
-  if (!foodPurchaseApplicationStatuses.has(input.status)) {
+  if (!foodPurchaseApplicationReviewStatuses.has(input.status)) {
     throw ExpectedQueryError.validation(
-      "Foodstuff Purchase application status is not supported."
+      "Foodstuff Purchase application review status is not supported."
     )
   }
 
-  return prisma.$transaction(async (tx: any) => {
+  return runSerializableTransactionWithRetry(prisma, async (tx: any) => {
     const existingApplication = await readFoodPurchaseApplication(
       {
         applicationId: input.applicationId,
@@ -1023,6 +1542,14 @@ export async function reviewFoodPurchaseApplication(
       },
       tx
     )
+    if (
+      input.expectedStatus &&
+      existingApplication.status !== input.expectedStatus
+    ) {
+      throw ExpectedQueryError.conflict(
+        `Foodstuff Purchase application changed from ${input.expectedStatus} to ${existingApplication.status}. Refresh before reviewing.`
+      )
+    }
     const policy = await tx.tenantPolicy.findUnique({
       where: { tenantId: input.tenantId },
     })
@@ -1033,6 +1560,12 @@ export async function reviewFoodPurchaseApplication(
     if (!["submitted", "under_review"].includes(existingApplication.status)) {
       throw ExpectedQueryError.conflict(
         "Only pending Foodstuff Purchase applications can be reviewed."
+      )
+    }
+
+    if (existingApplication.status === input.status) {
+      throw ExpectedQueryError.conflict(
+        "Foodstuff Purchase application review must change the current status."
       )
     }
 
@@ -1073,6 +1606,31 @@ export async function reviewFoodPurchaseApplication(
         )
       }
 
+      const foodPurchaseMaximumActiveObligationsPerMember = Number(
+        policy?.foodPurchaseMaximumActiveObligationsPerMember ?? 1
+      )
+      assertPositiveInteger(
+        foodPurchaseMaximumActiveObligationsPerMember,
+        "Foodstuff Purchase active obligation limit"
+      )
+      const activeFoodPurchaseObligationCount =
+        await getActiveFoodPurchaseObligationCount(
+          {
+            memberId: existingApplication.memberId,
+            tenantId: input.tenantId,
+          },
+          tx
+        )
+
+      if (
+        activeFoodPurchaseObligationCount >=
+        foodPurchaseMaximumActiveObligationsPerMember
+      ) {
+        throw ExpectedQueryError.precondition(
+          `This member has reached the active Foodstuff Purchase obligation limit (${foodPurchaseMaximumActiveObligationsPerMember}). Settle an active Foodstuff Purchase obligation before approving another application.`
+        )
+      }
+
       const alreadyApprovedTotal = await getApprovedApplicationTotal(
         {
           cycleId: existingApplication.cycleId,
@@ -1091,6 +1649,27 @@ export async function reviewFoodPurchaseApplication(
       }
     }
 
+    const reviewedAt = new Date()
+    const claimed = await tx.foodPurchaseApplication.updateMany({
+      data: {
+        reviewedAt,
+        reviewedByUserId: input.actorUserId,
+        status: "under_review",
+      },
+      where: {
+        id: existingApplication.id,
+        reviewedAt: existingApplication.reviewedAt,
+        status: existingApplication.status,
+        tenantId: input.tenantId,
+      },
+    })
+
+    if (claimed.count !== 1) {
+      throw ExpectedQueryError.conflict(
+        "This Foodstuff Purchase application was already reviewed by another request."
+      )
+    }
+
     const application = await tx.foodPurchaseApplication.update({
       where: { id: existingApplication.id },
       data: {
@@ -1105,7 +1684,7 @@ export async function reviewFoodPurchaseApplication(
           input.status === "approved"
             ? foodPurchaseMaximumPaybackMonths
             : existingApplication.policyMaximumPaybackMonths,
-        reviewedAt: new Date(),
+        reviewedAt,
         reviewedByUserId: input.actorUserId,
         reviewNotes: trimOptional(input.notes),
         status: input.status,
@@ -1194,7 +1773,7 @@ export async function recordFoodPurchaseAccounting(
     "Foodstuff Purchase operating expense amount"
   )
 
-  return prisma.$transaction(async (tx: any) => {
+  return runSerializableTransactionWithRetry(prisma, async (tx: any) => {
     const existingCycle = await readFoodPurchaseCycle(
       {
         cycleId: input.cycleId,
@@ -1203,15 +1782,32 @@ export async function recordFoodPurchaseAccounting(
       tx
     )
 
-    if (!["accounting_rejected", "open"].includes(existingCycle.status)) {
+    if (
+      !["accounting_rejected", "intake_closed"].includes(existingCycle.status)
+    ) {
       throw ExpectedQueryError.conflict(
-        "Foodstuff Purchase accounting can only be submitted for an open or correction cycle."
+        "Close Foodstuff Purchase intake before submitting accounting, or correct a previously rejected submission."
       )
     }
 
     const operatingExpenseAmount = input.operatingExpenseAmount ?? 0
     const profitAmount =
       input.salesAmount - input.purchaseCostAmount - operatingExpenseAmount
+
+    const claimed = await tx.foodPurchaseCycle.updateMany({
+      data: { status: "accounting_submitted" },
+      where: {
+        id: existingCycle.id,
+        status: existingCycle.status,
+        tenantId: input.tenantId,
+      },
+    })
+
+    if (claimed.count !== 1) {
+      throw ExpectedQueryError.conflict(
+        "This Foodstuff Purchase cycle was already changed by another accounting request."
+      )
+    }
 
     const cycle = await tx.foodPurchaseCycle.update({
       where: { id: existingCycle.id },
@@ -1268,7 +1864,13 @@ export async function reviewFoodPurchaseAccounting(
   await assertLiveFinancialWritesOpen(input.tenantId, prisma)
   await assertActorBelongsToTenant(input, prisma)
 
-  return prisma.$transaction(async (tx: any) => {
+  if (!foodPurchaseAccountingReviewDecisions.has(input.decision)) {
+    throw ExpectedQueryError.validation(
+      "Foodstuff Purchase accounting review decision is not supported."
+    )
+  }
+
+  return runSerializableTransactionWithRetry(prisma, async (tx: any) => {
     const existingCycle = await readFoodPurchaseCycle(
       {
         cycleId: input.cycleId,
@@ -1288,6 +1890,21 @@ export async function reviewFoodPurchaseAccounting(
         ? "accounting_approved"
         : "accounting_rejected"
     const notes = trimOptional(input.notes)
+    const claimed = await tx.foodPurchaseCycle.updateMany({
+      data: { status },
+      where: {
+        id: existingCycle.id,
+        status: "accounting_submitted",
+        tenantId: input.tenantId,
+      },
+    })
+
+    if (claimed.count !== 1) {
+      throw ExpectedQueryError.conflict(
+        "This Foodstuff Purchase accounting was already reviewed by another request."
+      )
+    }
+
     const cycle = await tx.foodPurchaseCycle.update({
       where: { id: existingCycle.id },
       data: {

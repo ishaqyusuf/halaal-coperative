@@ -17,7 +17,7 @@ import { FinanceFilterList } from "@/components/finance-filter-list"
 import { SearchFilterDropdownInput } from "@/components/search-filter-dropdown-input"
 import { usePaymentReceiptFilterParams } from "@/hooks/use-payment-receipt-filter-params"
 
-const statusFilters = [
+export const paymentReceiptStatusFilters = [
   { id: "submitted", name: "Submitted" },
   { id: "under_review", name: "Under review" },
   { id: "correction_requested", name: "Correction requested" },
@@ -71,12 +71,12 @@ export function PaymentReceiptSearchFilter() {
         <FinanceFilterList
           filters={validFilters}
           onRemove={setFilter}
-          options={{ status: statusFilters }}
+          options={{ status: paymentReceiptStatusFilters }}
         />
       </div>
 
       <DropdownMenuContent
-        align="end"
+        align="start"
         alignOffset={-11}
         className="w-[350px]"
         side="bottom"
@@ -93,7 +93,7 @@ export function PaymentReceiptSearchFilter() {
                 className="p-0"
                 sideOffset={14}
               >
-                {statusFilters.map((item) => (
+                {paymentReceiptStatusFilters.map((item) => (
                   <DropdownMenuCheckboxItem
                     checked={filter.status === item.id}
                     key={item.id}

@@ -1,6 +1,9 @@
 /* global process */
 
 import { withSentryConfig } from "@sentry/nextjs"
+import { applyHalaalvestSharedEnv } from "@halaalvest/utils/shared-env"
+
+applyHalaalvestSharedEnv()
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -10,6 +13,7 @@ const nextConfig = {
     // "ibadan-reliable-small-business-savings.halaalvest-dash.localhost",
   ],
   transpilePackages: [
+    "@halaalvest/events",
     "@halaalvest/api",
     "@halaalvest/auth",
     "@halaalvest/db",

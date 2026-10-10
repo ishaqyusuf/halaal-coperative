@@ -1,4 +1,5 @@
 import { z } from "zod"
+import type { FoodPurchaseApplicationRow } from "@halaalvest/db"
 import {
   findFoodPurchaseApplication,
   getMemberByUserId,
@@ -26,17 +27,59 @@ async function getScopedMemberId(ctx: {
   return member?.id ?? "__missing_member_profile__"
 }
 
+function toFoodPurchaseApplicationDto(
+  application: FoodPurchaseApplicationRow,
+  isMember: boolean
+): FoodPurchaseApplicationRow
+function toFoodPurchaseApplicationDto(
+  application: null,
+  isMember: boolean
+): null
+function toFoodPurchaseApplicationDto(
+  application: FoodPurchaseApplicationRow | null,
+  isMember: boolean
+): FoodPurchaseApplicationRow | null
+function toFoodPurchaseApplicationDto(
+  application: FoodPurchaseApplicationRow | null,
+  isMember: boolean
+): FoodPurchaseApplicationRow | null {
+  if (!application || !isMember) return application
+
+  return {
+    ...application,
+    member: {
+      fullName: application.member.fullName,
+      id: application.member.id,
+      memberNumber: application.member.memberNumber,
+    },
+    reviewedByUser: application.reviewedByUser
+      ? {
+          fullName: application.reviewedByUser.fullName,
+          id: application.reviewedByUser.id,
+        }
+      : null,
+    submittedByUser: {
+      fullName: application.submittedByUser.fullName,
+      id: application.submittedByUser.id,
+    },
+  }
+}
+
 export const foodPurchaseRouter = createTRPCRouter({
   get: tenantProcedure
     .input(z.object({ foodPurchaseApplicationId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const scopedMemberId = await getScopedMemberId(ctx)
-
-      return findFoodPurchaseApplication({
+      const application = await findFoodPurchaseApplication({
         applicationId: input.foodPurchaseApplicationId,
         memberId: scopedMemberId,
         tenantId: ctx.tenant.current.id,
       })
+
+      return toFoodPurchaseApplicationDto(
+        application,
+        ctx.auth.activeMembership.role === "member"
+      )
     }),
 
   list: tenantProcedure
@@ -48,18 +91,21 @@ export const foodPurchaseRouter = createTRPCRouter({
         cursor: input?.cursor ?? undefined,
         cycleId: input?.cycleId,
         memberId: scopedMemberId ?? input?.memberId,
-        pageSize: pageSize + 1,
+        pageSize,
         search: input?.q || undefined,
         sort: input?.sort ?? null,
         status: input?.status,
         tenantId: ctx.tenant.current.id,
       })
-      const data = result.data.slice(0, pageSize)
-
       return {
-        data,
+        data: result.data.map((application: FoodPurchaseApplicationRow) =>
+          toFoodPurchaseApplicationDto(
+            application,
+            ctx.auth.activeMembership.role === "member"
+          )
+        ),
         meta: {
-          cursor: result.data.length > pageSize ? data.at(-1)?.id : undefined,
+          cursor: result.meta.cursor,
           total: result.meta.total,
         },
       }

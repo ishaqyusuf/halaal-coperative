@@ -1,0 +1,19 @@
+# Local dependencies, caches, and secrets are never deployment source.
+.git/
+.local/
+.scratch/
+.brain/
+.vercel/
+node_modules/
+**/node_modules/
+**/.next/
+**/.expo/
+apps/marketing/.next/
+apps/dashboard/.next/
+apps/mobile/.expo/
+.env*
+**/.env*
+
+# Expo native outputs belong to EAS, not the dashboard/marketing Vercel apps.
+apps/mobile/android/
+apps/mobile/ios/

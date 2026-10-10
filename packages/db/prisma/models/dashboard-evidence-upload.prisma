@@ -1,0 +1,32 @@
+enum DashboardEvidenceUploadStatus {
+  pending
+  uploaded
+  deleted
+}
+
+model DashboardEvidenceUpload {
+  id             String                        @id @db.Uuid
+  tenantId       String                        @map("tenant_id") @db.Uuid
+  uploaderUserId String?                       @map("uploader_user_id") @db.Uuid
+  purpose        String                        @db.VarChar(40)
+  originalName   String                        @map("original_name") @db.VarChar(120)
+  contentType    String                        @map("content_type") @db.VarChar(80)
+  declaredSize   Int                           @map("declared_size")
+  storedSize     Int?                          @map("stored_size")
+  linkedEntityType String?                      @map("linked_entity_type") @db.VarChar(40)
+  linkedEntityId   String?                      @map("linked_entity_id") @db.Uuid
+  linkedAt         DateTime?                    @map("linked_at") @db.Timestamptz(6)
+  status         DashboardEvidenceUploadStatus @default(pending)
+  createdAt      DateTime                      @default(now()) @map("created_at") @db.Timestamptz(6)
+  uploadedAt     DateTime?                     @map("uploaded_at") @db.Timestamptz(6)
+  deletedAt      DateTime?                     @map("deleted_at") @db.Timestamptz(6)
+
+  // Block tenant teardown until private objects and their metadata are cleaned.
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  uploader User?  @relation(fields: [uploaderUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status, createdAt], map: "dashboard_evidence_uploads_tenant_status_created_idx")
+  @@index([uploaderUserId, createdAt], map: "dashboard_evidence_uploads_uploader_created_idx")
+  @@index([tenantId, linkedEntityType, linkedEntityId], map: "dashboard_evidence_uploads_tenant_link_idx")
+  @@map("dashboard_evidence_uploads")
+}

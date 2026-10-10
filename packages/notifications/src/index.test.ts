@@ -296,6 +296,31 @@ describe("Resend email transport routing", () => {
     })
   })
 
+  test("keeps provider response text and recipients out of failed delivery evidence", async () => {
+    globalThis.fetch = async () =>
+      new Response("Rejected private@example.test with token secret-token", {
+        status: 503,
+      })
+
+    const service = new NotificationService(
+      () => "notification-test",
+      createResendEmailTransport({
+        apiKey: "re_test",
+        deliveryMode: "live",
+        from: "Halaalvest <notifications@example.com>",
+      })
+    )
+    const delivery = await service.tryEmail(testDraft("private@example.test"))
+
+    expect(delivery.status).toBe("failed")
+    expect(delivery.errorMessage).toBe("Email delivery failed.")
+    expect(getNotificationEmailDeliveryErrorCause(delivery)).toMatchObject({
+      message: "Email provider returned HTTP 503.",
+    })
+    expect(delivery.errorMessage).not.toContain("private@example.test")
+    expect(delivery.errorMessage).not.toContain("secret-token")
+  })
+
   test("fails closed with QA routing metadata for an unmatched domain", async () => {
     const service = new NotificationService(
       () => "notification-test",

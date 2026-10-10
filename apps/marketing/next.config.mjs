@@ -1,11 +1,27 @@
 /* global process */
 
 import { withSentryConfig } from "@sentry/nextjs"
+import { applyHalaalvestSharedEnv } from "@halaalvest/utils/shared-env"
+
+applyHalaalvestSharedEnv()
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   allowedDevOrigins: ["*.halaalvest.localhost", "*.halaalvest-dash.localhost"],
+  async headers() {
+    return [
+      {
+        source: "/delete-account/verify",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+        ],
+      },
+    ]
+  },
   transpilePackages: [
+    "@halaalvest/events",
     "@halaalvest/db",
     "@halaalvest/domain",
     "@halaalvest/errors",

@@ -97,12 +97,61 @@ describe("audit activity report", () => {
         id: "audit-1",
         metadataSummary: [
           "Status: pending -> approved",
-          "totalAmount: 45000 -> 50000",
+          "Total Amount: 45000 -> 50000",
           "Adjustment Reason: Wrong split corrected",
-          "Member Id: member-1",
         ],
         occurredAt,
       },
     ])
+  })
+
+  test("redacts sensitive values and excludes arbitrary before-and-after payloads", async () => {
+    const occurredAt = new Date("2026-08-31T10:15:00.000Z")
+    const [event] = await listActivityReportEvents(
+      "tenant-1",
+      { limit: 10 },
+      {
+        auditLog: {
+          findMany: async () => [
+            {
+              action: "member.updated",
+              actorType: "user",
+              actorUser: null,
+              actorUserId: "user-1",
+              createdAt: occurredAt,
+              entityId: "member-1",
+              entityType: "Member",
+              id: "audit-1",
+              metadata: {
+                next: {
+                  email: "member@example.com",
+                  phoneNumber: "+234 801 234 5678",
+                  status: "active",
+                },
+                notes:
+                  "Contact member@example.com or +234 801 234 5678 at https://private.example.test/file",
+                previous: {
+                  email: "old@example.com",
+                  phoneNumber: "+234 800 000 0000",
+                  status: "pending",
+                },
+                previousStatus: "pending",
+                status: "active",
+              },
+              occurredAt,
+              tenantId: "tenant-1",
+            },
+          ],
+        },
+        user: { findMany: async () => [] },
+      } as never,
+    )
+
+    expect(event?.metadataSummary).toEqual([
+      "Status: pending -> active",
+      "Notes: Contact [redacted email] or [redacted phone] at [redacted link]",
+    ])
+    expect(JSON.stringify(event)).not.toContain("member@example.com")
+    expect(JSON.stringify(event)).not.toContain("234 801")
   })
 })

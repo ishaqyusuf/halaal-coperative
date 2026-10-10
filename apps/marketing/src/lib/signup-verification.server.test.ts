@@ -4,10 +4,10 @@ import type { SignupVerificationPayload } from "./signup-flow"
 import { resolveSignupVerification } from "./signup-verification.server"
 
 const verification: SignupVerificationPayload = {
+  cooperativeCodePrefix: "AMN",
   cooperativeName: "Amanah Staff Cooperative",
   expiresAt: new Date(Date.now() + 60_000).toISOString(),
   issuedAt: new Date().toISOString(),
-  memberNumberPrefix: "MEM-",
   primaryContactEmail: "admin@example.test",
   primaryContactFullName: "Amina Bello",
   primaryContactMemberNumber: "0001",
@@ -15,11 +15,16 @@ const verification: SignupVerificationPayload = {
 }
 
 function createDependencies(input?: {
+  cooperativeCodePrefixAvailable?: boolean
   cooperativeNameAvailable?: boolean
   workspaceSlugAvailable?: boolean
 }) {
   return {
     checkAvailability: async () => ({
+      cooperativeCodePrefix: {
+        available: input?.cooperativeCodePrefixAvailable ?? true,
+        normalized: verification.cooperativeCodePrefix,
+      },
       cooperativeName: {
         available: input?.cooperativeNameAvailable ?? true,
         normalized: verification.cooperativeName,

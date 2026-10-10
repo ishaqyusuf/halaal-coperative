@@ -1,12 +1,20 @@
 import { describe, expect, test } from "bun:test"
 import {
   disburseLoan,
+  getLoanRequestChargeQuoteHash,
+  getLoanDetail,
+  getLoanRequestDetail,
+  listLoanRequestsPage,
+  listLoansPage,
   listMemberLoanGuarantorApprovals,
   postRepayment,
+  quoteLoanRequest,
   reviewLoanGuarantorApproval,
   reviewLoanRequest,
   respondMemberLoanGuarantorApproval,
   submitLoanRequest,
+  toMemberSafeLoanRequest,
+  toPlainLoanDto,
 } from "./loans"
 
 function createLockedLoanPrismaStub() {
@@ -80,12 +88,17 @@ function createLockedLoanPrismaStub() {
 
 function createLiveLoanRequestPrismaStub(input?: {
   activeFinancingCount?: number
+  chargeAmount?: number
+  chargeValueType?: "fixed_amount" | "percentage"
   contributions?: Array<{
     amount: number
     committedAmount?: number | null
     extraSavingsAmount?: number | null
   }>
-  existingCycle?: { id: string; status: "closed" | "draft" | "open" | "paused" } | null
+  existingCycle?: {
+    id: string
+    status: "closed" | "draft" | "open" | "paused"
+  } | null
   existingLoanRequests?: Array<{
     amount: number
     loanType: "normal" | "quick"
@@ -110,23 +123,24 @@ function createLiveLoanRequestPrismaStub(input?: {
   const chargeApplicationCreates: any[] = []
   const loanGuarantorApprovalCreates: any[] = []
   const loanRequestCreates: any[] = []
+  const transactionOptions: any[] = []
   const existingCycle =
     input && "existingCycle" in input
       ? input.existingCycle
       : {
-    id: "cycle-1",
-    normalBudgetAmount: 70000,
-    normalAllocationPercentage: 70,
-    periodEnd: new Date("2026-07-31T00:00:00.000Z"),
-    periodStart: new Date("2026-07-01T00:00:00.000Z"),
-    projectedCommitmentAmount: 100000,
-    quickBudgetAmount: 30000,
-    quickAllocationPercentage: 30,
-    receivedContributionAmount: 100000,
-    reserveBufferAmount: 0,
-    status: "open" as const,
-    totalCapacityAmount: 100000,
-  }
+          id: "cycle-1",
+          normalBudgetAmount: 70000,
+          normalAllocationPercentage: 70,
+          periodEnd: new Date("2026-07-31T00:00:00.000Z"),
+          periodStart: new Date("2026-07-01T00:00:00.000Z"),
+          projectedCommitmentAmount: 100000,
+          quickBudgetAmount: 30000,
+          quickAllocationPercentage: 30,
+          receivedContributionAmount: 100000,
+          reserveBufferAmount: 0,
+          status: "open" as const,
+          totalCapacityAmount: 100000,
+        }
 
   const tx = {
     appliedBackfillMonth: {
@@ -152,6 +166,7 @@ function createLiveLoanRequestPrismaStub(input?: {
     },
     chargeDefinition: {
       findFirst: async () => ({
+        code: "LOAN_FEE",
         id: "loan-charge-1",
         isMonthlyLevy: false,
         name: "Loan application fee",
@@ -160,6 +175,7 @@ function createLiveLoanRequestPrismaStub(input?: {
       findMany: async () => [
         {
           appliesToLoanRequests: true,
+          code: "LOAN_FEE",
           createdAt: new Date("2025-01-01T00:00:00.000Z"),
           id: "loan-charge-1",
           isActive: true,
@@ -167,11 +183,14 @@ function createLiveLoanRequestPrismaStub(input?: {
           purpose: "loan_fee",
           versions: [
             {
-              amount: 2500,
-              chargeValueType: "fixed_amount",
+              amount: input?.chargeAmount ?? 2500,
+              chargeValueType: input?.chargeValueType ?? "fixed_amount",
               createdAt: new Date("2025-01-01T00:00:00.000Z"),
               effectiveFrom: new Date("2025-01-01T00:00:00.000Z"),
-              kind: "fixed",
+              kind:
+                input?.chargeValueType === "percentage"
+                  ? "percentage"
+                  : "fixed",
             },
           ],
         },
@@ -205,7 +224,7 @@ function createLiveLoanRequestPrismaStub(input?: {
     },
     loan: {
       count: async (args: any) =>
-        args?.where?.memberId ? input?.activeFinancingCount ?? 0 : 0,
+        args?.where?.memberId ? (input?.activeFinancingCount ?? 0) : 0,
       findMany: async () => [],
     },
     legacyLoanMigrationDraft: {
@@ -251,9 +270,15 @@ function createLiveLoanRequestPrismaStub(input?: {
 
   return {
     ...createLockedLoanPrismaStub(),
-    $transaction: async (callback: (tx: typeof tx) => Promise<unknown>) =>
-      callback(tx),
+    $transaction: async (
+      callback: (tx: typeof tx) => Promise<unknown>,
+      options?: unknown
+    ) => {
+      transactionOptions.push(options)
+      return callback(tx)
+    },
     chargeApplicationCreates,
+    chargeDefinition: tx.chargeDefinition,
     contribution: {
       aggregate: async () => ({ _sum: { amount: 250000 } }),
       findMany: async () =>
@@ -272,7 +297,7 @@ function createLiveLoanRequestPrismaStub(input?: {
     loan: {
       aggregate: async () => ({ _sum: { outstandingPrincipal: 0 } }),
       count: async (args: any) =>
-        args?.where?.memberId ? input?.activeFinancingCount ?? 0 : 0,
+        args?.where?.memberId ? (input?.activeFinancingCount ?? 0) : 0,
       findMany: async () => [],
     },
     loanGuarantorApprovalCreates,
@@ -296,6 +321,7 @@ function createLiveLoanRequestPrismaStub(input?: {
         })),
     },
     loanRequestCreates,
+    transactionOptions,
     member: {
       count: async () => 1,
       findFirst: async () => ({
@@ -305,7 +331,7 @@ function createLiveLoanRequestPrismaStub(input?: {
         totalSavingsSnapshot: 100000,
       }),
       findMany: async (args: any) =>
-        args?.where?.id?.in ? input?.guarantorMembers ?? [] : [],
+        args?.where?.id?.in ? (input?.guarantorMembers ?? []) : [],
     },
     repaymentScheduleItem: {
       count: async () => 0,
@@ -332,20 +358,29 @@ function createLiveLoanRequestPrismaStub(input?: {
 }
 
 function createLiveLoanReviewPrismaStub(input?: {
+  activeFinancingCount?: number
+  eligibleAmountSnapshot?: number
   existingGuarantorApprovals?: Array<{
     id: string
     status: "approved" | "pending" | "rejected"
   }>
-  existingLoanRequestStatus?: "approved" | "rejected" | "submitted" | "under_review"
+  existingLoanRequestStatus?:
+    | "approved"
+    | "rejected"
+    | "submitted"
+    | "under_review"
   requiresDualLoanApproval?: boolean
+  loanType?: "normal" | "quick"
+  productActive?: boolean
 }) {
   const loanApprovals: any[] = []
   const loanRequestUpdates: any[] = []
   const loanUpserts: any[] = []
   const auditLogCreates: any[] = []
   const guarantorApprovalUpdates: any[] = []
+  const transactionOptions: any[] = []
   const existingLoanRequest = {
-    eligibleAmountSnapshot: 200000,
+    eligibleAmountSnapshot: input?.eligibleAmountSnapshot ?? 200000,
     estimatedMonthlyServicing: 10000,
     extraMonthlySavingsAmount: 0,
     id: "loan-request-1",
@@ -356,8 +391,7 @@ function createLiveLoanReviewPrismaStub(input?: {
     status: input?.existingLoanRequestStatus ?? "submitted",
     tenantId: "tenant-1",
   }
-  const existingGuarantorApprovals =
-    input?.existingGuarantorApprovals ?? []
+  const existingGuarantorApprovals = input?.existingGuarantorApprovals ?? []
 
   const tx = {
     auditLog: {
@@ -367,10 +401,22 @@ function createLiveLoanReviewPrismaStub(input?: {
       },
     },
     loan: {
-      upsert: async (input: any) => {
+      count: async () => input?.activeFinancingCount ?? 0,
+      create: async (input: any) => {
         loanUpserts.push(input)
         return input
       },
+    },
+    loanProduct: {
+      findFirst: async () =>
+        input?.productActive === false
+          ? null
+          : {
+              id: "product-1",
+              isActive: true,
+              loanType: input?.loanType ?? "normal",
+              termMonths: 12,
+            },
     },
     loanApproval: {
       create: async (input: any) => {
@@ -490,6 +536,7 @@ function createLiveLoanReviewPrismaStub(input?: {
     },
     tenantPolicy: {
       findUnique: async () => ({
+        activeFinancingBlocksEmergency: true,
         requiresDualLoanApproval: input?.requiresDualLoanApproval ?? false,
       }),
     },
@@ -497,8 +544,13 @@ function createLiveLoanReviewPrismaStub(input?: {
 
   return {
     ...createLockedLoanPrismaStub(),
-    $transaction: async (callback: (tx: typeof tx) => Promise<unknown>) =>
-      callback(tx),
+    $transaction: async (
+      callback: (tx: typeof tx) => Promise<unknown>,
+      options?: unknown
+    ) => {
+      transactionOptions.push(options)
+      return callback(tx)
+    },
     appliedBackfillMonth: {
       findMany: async () => [],
     },
@@ -521,6 +573,7 @@ function createLiveLoanReviewPrismaStub(input?: {
     loanApprovals,
     loanRequestUpdates,
     loanUpserts,
+    transactionOptions,
     shareBusinessProfitEntry: {
       count: async () => 1,
     },
@@ -545,6 +598,7 @@ function createLiveDisbursementPrismaStub(input?: {
   principalAmount?: number
   reserveBufferAmount?: number
   totalContributionAmount?: number
+  status?: "active" | "approved" | "completed" | "disbursed"
 }) {
   const ledgerLookups: unknown[] = []
   const loanLookups: unknown[] = []
@@ -585,8 +639,7 @@ function createLiveDisbursementPrismaStub(input?: {
         args._sum.outstandingPrincipal
           ? {
               _sum: {
-                outstandingPrincipal:
-                  input?.outstandingFinancingAmount ?? 0,
+                outstandingPrincipal: input?.outstandingFinancingAmount ?? 0,
               },
             }
           : {
@@ -598,8 +651,10 @@ function createLiveDisbursementPrismaStub(input?: {
       findFirst: async (lookup: unknown) => {
         loanLookups.push(lookup)
         return {
+          disbursedAt: input?.status === "disbursed" ? new Date() : null,
           id: "loan-1",
           principalAmount,
+          status: input?.status ?? "approved",
           tenantId: "tenant-1",
         }
       },
@@ -631,17 +686,12 @@ function createLiveDisbursementPrismaStub(input?: {
 
 function createLiveRepaymentPrismaStub(input?: {
   outstandingPrincipal?: number
+  repaymentScheduleItem?: { id: string } | null
   scheduleItems?: Array<{
     amountPaid: number
     id: string
     installmentNumber: number
-    status:
-      | "due"
-      | "overdue"
-      | "paid"
-      | "partially_paid"
-      | "pending"
-      | "waived"
+    status: "due" | "overdue" | "paid" | "partially_paid" | "pending" | "waived"
     totalDue: number
   }>
 }) {
@@ -652,6 +702,7 @@ function createLiveRepaymentPrismaStub(input?: {
   const repaymentCreates: any[] = []
   const scheduleItemUpdates: any[] = []
   const scheduleItemUpdateManyCalls: any[] = []
+  const transactionOptions: any[] = []
   const scheduleItems = input?.scheduleItems ?? []
   const loan = {
     id: "loan-1",
@@ -743,6 +794,7 @@ function createLiveRepaymentPrismaStub(input?: {
       },
     },
     repaymentScheduleItem: {
+      findFirst: async () => input?.repaymentScheduleItem ?? null,
       findMany: async (args: any) => {
         const includedStatuses = args.where.status.in
         return scheduleItems
@@ -776,8 +828,13 @@ function createLiveRepaymentPrismaStub(input?: {
   return {
     ...createLockedLoanPrismaStub(),
     ...migrationReadDelegates,
-    $transaction: async (callback: (tx: typeof tx) => Promise<unknown>) =>
-      callback(tx),
+    $transaction: async (
+      callback: (tx: typeof tx) => Promise<unknown>,
+      options?: unknown
+    ) => {
+      transactionOptions.push(options)
+      return callback(tx)
+    },
     auditLogCreates,
     ledgerAccount: {
       findUnique: async (lookup: unknown) => {
@@ -792,10 +849,108 @@ function createLiveRepaymentPrismaStub(input?: {
     scheduleItemUpdateManyCalls,
     scheduleItemUpdates,
     scheduleItems,
+    transactionOptions,
   }
 }
 
+describe("loan DTO serialization", () => {
+  test("recursively converts Decimal values while preserving dates", () => {
+    const occurredAt = new Date("2026-08-11T09:00:00.000Z")
+    const decimal = {
+      d: [1600000],
+      e: 6,
+      s: 1,
+      toNumber: () => 1_600_000,
+    }
+
+    const dto = toPlainLoanDto({
+      loanProduct: { maxSavingsMultiple: decimal },
+      occurredAt,
+      repaymentScheduleItems: [{ amountPaid: decimal, totalDue: decimal }],
+      requestedAmount: decimal,
+    })
+
+    expect(dto).toEqual({
+      loanProduct: { maxSavingsMultiple: 1_600_000 },
+      occurredAt,
+      repaymentScheduleItems: [{ amountPaid: 1_600_000, totalDue: 1_600_000 }],
+      requestedAmount: 1_600_000,
+    })
+    expect(dto.occurredAt).toBe(occurredAt)
+  })
+})
+
 describe("loan live write guards", () => {
+  test("uses bounded keyset loan list queries and member-safe shaping", async () => {
+    const requestQueries: any[] = []
+    const loanQueries: any[] = []
+    const rows = [
+      { id: "request-3", requestedAt: new Date("2026-07-03T00:00:00.000Z") },
+      { id: "request-2", requestedAt: new Date("2026-07-02T00:00:00.000Z") },
+    ]
+    const prisma = {
+      loan: {
+        findFirst: async (args: any) => ({ id: args.where.id }),
+        findMany: async (args: any) => {
+          loanQueries.push(args)
+          return rows.map((row) => ({ ...row, createdAt: row.requestedAt }))
+        },
+      },
+      loanRequest: {
+        findFirst: async (args: any) => ({ id: args.where.id }),
+        findMany: async (args: any) => {
+          requestQueries.push(args)
+          return rows
+        },
+      },
+    }
+
+    const requestPage = await listLoanRequestsPage(
+      "tenant-1",
+      { memberId: "member-1", pageSize: 1, q: "Aisha", status: "submitted" },
+      prisma as never
+    )
+    const loanPage = await listLoansPage(
+      "tenant-1",
+      { memberId: "member-1", pageSize: 1 },
+      prisma as never
+    )
+    await getLoanRequestDetail(
+      { id: "request-1", memberId: "member-1", tenantId: "tenant-1" },
+      prisma as never
+    )
+    await getLoanDetail(
+      { id: "loan-1", memberId: "member-1", tenantId: "tenant-1" },
+      prisma as never
+    )
+
+    expect(requestQueries[0]).toMatchObject({
+      orderBy: [{ requestedAt: "desc" }, { id: "desc" }],
+      take: 2,
+      where: {
+        memberId: "member-1",
+        status: "submitted",
+        tenantId: "tenant-1",
+      },
+    })
+    expect(loanQueries[0]).toMatchObject({
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 2,
+      where: { memberId: "member-1", tenantId: "tenant-1" },
+    })
+    expect(requestPage.meta).toMatchObject({ hasNextPage: true })
+    expect(loanPage.meta).toMatchObject({ hasNextPage: true })
+    expect(
+      toMemberSafeLoanRequest({
+        approvals: [{ actorUser: { email: "staff@example.com" } }],
+        guarantorApprovals: [
+          { guarantorMember: { email: "member@example.com" } },
+        ],
+        id: "request-1",
+      })
+    ).toEqual({ id: "request-1" })
+  })
+
   test("blocks loan requests before live operations", async () => {
     const prisma = createLockedLoanPrismaStub()
 
@@ -809,8 +964,8 @@ describe("loan live write guards", () => {
           requestedTermMonths: 12,
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Live financial record writes are locked")
 
     expect(prisma.memberLookups).toHaveLength(0)
@@ -818,20 +973,25 @@ describe("loan live write guards", () => {
 
   test("posts configured loan fee charge when a live loan request is submitted", async () => {
     const prisma = createLiveLoanRequestPrismaStub()
+    const requestedAt = new Date("2026-07-03T09:15:00.000Z")
 
     await submitLoanRequest(
       {
-          actorUserId: "user-1",
-          loanProductId: "product-1",
-          memberId: "member-1",
-          requestedAmount: 25000,
-          requestedTermMonths: 10,
-          tenantId: "tenant-1",
+        actorUserId: "user-1",
+        loanProductId: "product-1",
+        memberId: "member-1",
+        requestedAt,
+        requestedAmount: 25000,
+        requestedTermMonths: 10,
+        tenantId: "tenant-1",
       },
       prisma as never
     )
 
     expect(prisma.loanRequestCreates).toHaveLength(1)
+    expect(prisma.loanRequestCreates[0]).toMatchObject({
+      data: { requestedAt },
+    })
     expect(prisma.chargeApplicationCreates[0]).toMatchObject({
       data: {
         amount: 2500,
@@ -840,6 +1000,117 @@ describe("loan live write guards", () => {
         memberId: "member-1",
       },
     })
+    expect(prisma.transactionOptions[0]).toMatchObject({
+      isolationLevel: "Serializable",
+    })
+  })
+
+  test("previews the monetary amount of a percentage request charge", async () => {
+    const prisma = createLiveLoanRequestPrismaStub({
+      chargeAmount: 2,
+      chargeValueType: "percentage",
+    })
+
+    const quote = await quoteLoanRequest(
+      {
+        loanProductId: "product-1",
+        memberId: "member-1",
+        requestedAmount: 25000,
+        requestedTermMonths: 10,
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(quote.charges[0]?.amount).toBe(500)
+    expect(quote.feeTotal).toBe(500)
+    expect(quote.chargeQuoteHash).toMatch(/^[a-f0-9]{64}$/)
+  })
+
+  test("rejects a changed member charge quote before creating a loan request", async () => {
+    const prisma = createLiveLoanRequestPrismaStub()
+
+    await expect(
+      submitLoanRequest(
+        {
+          actorUserId: "user-1",
+          expectedChargeQuoteHash: "0".repeat(64),
+          loanProductId: "product-1",
+          memberId: "member-1",
+          requestedAt: new Date("2026-07-03T09:15:00.000Z"),
+          requestedAmount: 25000,
+          requestedTermMonths: 10,
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("Financing charges changed")
+
+    expect(prisma.loanRequestCreates).toHaveLength(0)
+    expect(prisma.chargeApplicationCreates).toHaveLength(0)
+  })
+
+  test("accepts the reviewed member charge quote in the submission transaction", async () => {
+    const prisma = createLiveLoanRequestPrismaStub()
+    const expectedChargeQuoteHash = getLoanRequestChargeQuoteHash(
+      [
+        {
+          amount: 2500,
+          basisAmount: 25000,
+          chargeApplicabilityId: null,
+          chargeDefinitionId: "loan-charge-1",
+          chargeValueType: "fixed_amount",
+          code: "LOAN_FEE",
+          collectionMode: "deduct_from_savings",
+          effectiveAmount: 2500,
+          isRequired: true,
+          name: "Loan application fee",
+          purpose: "loan_fee",
+          trigger: "submission",
+          workflow: "loan_request",
+        },
+      ],
+      25000
+    )
+
+    await submitLoanRequest(
+      {
+        actorUserId: "user-1",
+        expectedChargeQuoteHash,
+        loanProductId: "product-1",
+        memberId: "member-1",
+        requestedAt: new Date("2026-07-03T09:15:00.000Z"),
+        requestedAmount: 25000,
+        requestedTermMonths: 10,
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(prisma.loanRequestCreates).toHaveLength(1)
+    expect(prisma.chargeApplicationCreates).toHaveLength(1)
+  })
+
+  test("rejects non-positive and fractional-cent loan request amounts before writes", async () => {
+    const prisma = createLiveLoanRequestPrismaStub()
+
+    for (const requestedAmount of [0, -1, 1.001, Number.NaN]) {
+      await expect(
+        submitLoanRequest(
+          {
+            actorUserId: "user-1",
+            loanProductId: "product-1",
+            memberId: "member-1",
+            requestedAmount,
+            requestedTermMonths: 10,
+            tenantId: "tenant-1",
+          },
+          prisma as never
+        )
+      ).rejects.toThrow("Requested amount")
+    }
+
+    expect(prisma.loanRequestCreates).toHaveLength(0)
   })
 
   test("blocks loan requests when the monthly financing cycle is missing", async () => {
@@ -855,8 +1126,8 @@ describe("loan live write guards", () => {
           requestedTermMonths: 10,
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Current monthly financing cycle is not open")
 
     expect(prisma.loanRequestCreates).toHaveLength(0)
@@ -880,8 +1151,8 @@ describe("loan live write guards", () => {
           requestedTermMonths: 10,
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Quick financing allocation")
 
     expect(prisma.loanRequestCreates).toHaveLength(0)
@@ -907,8 +1178,8 @@ describe("loan live write guards", () => {
           requestedTermMonths: 10,
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Requested amount exceeds")
 
     expect(prisma.loanRequestCreates).toHaveLength(0)
@@ -930,8 +1201,8 @@ describe("loan live write guards", () => {
           requestedTermMonths: 10,
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("blocks emergency financing")
 
     expect(prisma.loanRequestCreates).toHaveLength(0)
@@ -955,7 +1226,7 @@ describe("loan live write guards", () => {
         requestedTermMonths: 10,
         tenantId: "tenant-1",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(prisma.loanRequestCreates).toHaveLength(1)
@@ -983,7 +1254,7 @@ describe("loan live write guards", () => {
         requestedTermMonths: 10,
         tenantId: "tenant-1",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(prisma.loanGuarantorApprovalCreates).toHaveLength(1)
@@ -996,7 +1267,7 @@ describe("loan live write guards", () => {
       },
     })
     expect(request.guarantorApprovals[0].guarantorMember.fullName).toBe(
-      "Guarantor One",
+      "Guarantor One"
     )
   })
 
@@ -1014,8 +1285,8 @@ describe("loan live write guards", () => {
           requestedTermMonths: 10,
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("cannot guarantee their own")
 
     expect(prisma.loanGuarantorApprovalCreates).toHaveLength(0)
@@ -1034,8 +1305,8 @@ describe("loan live write guards", () => {
           status: "approved",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("until all guarantors approve")
 
     expect(prisma.loanUpserts).toHaveLength(0)
@@ -1045,23 +1316,97 @@ describe("loan live write guards", () => {
     const prisma = createLiveLoanReviewPrismaStub({
       existingGuarantorApprovals: [{ id: "approval-1", status: "approved" }],
     })
+    const reviewedAt = new Date("2026-07-04T11:45:00.000Z")
 
     await reviewLoanRequest(
       {
         actorUserId: "user-1",
         loanRequestId: "loan-request-1",
+        reviewedAt,
         status: "approved",
         tenantId: "tenant-1",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(prisma.loanUpserts).toHaveLength(1)
+    expect(prisma.loanApprovals[0]).toMatchObject({
+      data: { actedAt: reviewedAt },
+    })
+    expect(prisma.auditLogCreates[0]).toMatchObject({
+      data: { occurredAt: reviewedAt },
+    })
     expect(prisma.loanRequestUpdates[0]).toMatchObject({
       data: {
         status: "approved",
       },
+      where: {
+        id: "loan-request-1",
+        status: "submitted",
+      },
     })
+    expect(prisma.transactionOptions[0]).toMatchObject({
+      isolationLevel: "Serializable",
+    })
+  })
+
+  test("blocks final approval when the product is inactive", async () => {
+    const prisma = createLiveLoanReviewPrismaStub({ productActive: false })
+
+    await expect(
+      reviewLoanRequest(
+        {
+          actorUserId: "user-1",
+          loanRequestId: "loan-request-1",
+          status: "approved",
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("product is no longer active")
+
+    expect(prisma.loanUpserts).toHaveLength(0)
+  })
+
+  test("blocks final approval when the request exceeds its eligibility snapshot", async () => {
+    const prisma = createLiveLoanReviewPrismaStub({
+      eligibleAmountSnapshot: 50_000,
+    })
+
+    await expect(
+      reviewLoanRequest(
+        {
+          actorUserId: "user-1",
+          loanRequestId: "loan-request-1",
+          status: "approved",
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("eligibility snapshot")
+
+    expect(prisma.loanUpserts).toHaveLength(0)
+  })
+
+  test("blocks quick financing approval while an active obligation exists", async () => {
+    const prisma = createLiveLoanReviewPrismaStub({
+      activeFinancingCount: 1,
+      loanType: "quick",
+    })
+
+    await expect(
+      reviewLoanRequest(
+        {
+          actorUserId: "user-1",
+          loanRequestId: "loan-request-1",
+          status: "approved",
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("member has active financing")
+
+    expect(prisma.loanUpserts).toHaveLength(0)
   })
 
   test("records guarantor approval evidence with audit metadata", async () => {
@@ -1077,7 +1422,7 @@ describe("loan live write guards", () => {
         status: "approved",
         tenantId: "tenant-1",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(prisma.guarantorApprovalUpdates[0]).toMatchObject({
@@ -1088,8 +1433,31 @@ describe("loan live write guards", () => {
       },
       where: {
         id: "approval-1",
+        status: "pending",
       },
     })
+    expect(prisma.transactionOptions[0]).toMatchObject({
+      isolationLevel: "Serializable",
+    })
+  })
+
+  test("does not permit staff to overwrite answered guarantor evidence", async () => {
+    const prisma = createLiveLoanReviewPrismaStub({
+      existingGuarantorApprovals: [{ id: "approval-1", status: "approved" }],
+    })
+
+    await expect(
+      reviewLoanGuarantorApproval(
+        {
+          actorUserId: "user-1",
+          guarantorApprovalId: "approval-1",
+          status: "rejected",
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("immutable")
+    expect(prisma.guarantorApprovalUpdates).toHaveLength(0)
   })
 
   test("lists guarantor approvals scoped to the linked member", async () => {
@@ -1106,7 +1474,7 @@ describe("loan live write guards", () => {
         status: "pending",
         tenantId: "tenant-1",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(approvals).toHaveLength(1)
@@ -1135,7 +1503,7 @@ describe("loan live write guards", () => {
         status: "approved",
         tenantId: "tenant-1",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(prisma.guarantorApprovalUpdates[0]).toMatchObject({
@@ -1174,7 +1542,7 @@ describe("loan live write guards", () => {
           status: "approved",
           tenantId: "tenant-1",
         },
-        prisma as never,
+        prisma as never
       )
     ).rejects.toThrow("Loan guarantor approval not found")
 
@@ -1199,7 +1567,7 @@ describe("loan live write guards", () => {
         requestedTermMonths: 10,
         tenantId: "tenant-1",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(prisma.loanRequestCreates).toHaveLength(1)
@@ -1215,8 +1583,8 @@ describe("loan live write guards", () => {
           loanId: "loan-1",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Live financial record writes are locked")
 
     expect(prisma.ledgerLookups).toHaveLength(0)
@@ -1237,12 +1605,50 @@ describe("loan live write guards", () => {
           loanId: "loan-1",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Deployable funds are insufficient")
 
     expect(prisma.ledgerLookups).toHaveLength(0)
     expect(prisma.loanLookups).toHaveLength(1)
+  })
+
+  test("requires the first repayment date to follow the server-owned disbursement date", async () => {
+    const prisma = createLiveDisbursementPrismaStub({
+      totalContributionAmount: 200000,
+    })
+    const disbursedAt = new Date("2026-07-06T18:30:00.000Z")
+
+    await expect(
+      disburseLoan(
+        {
+          actorUserId: "user-1",
+          disbursedAt,
+          firstRepaymentDueAt: "2026-07-06",
+          loanId: "loan-1",
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("after the disbursement date")
+
+    expect(prisma.loanLookups).toHaveLength(0)
+    expect(prisma.ledgerLookups).toHaveLength(0)
+  })
+
+  test("rejects repeat or non-approved loan disbursement before money posting", async () => {
+    const prisma = createLiveDisbursementPrismaStub({
+      status: "disbursed",
+      totalContributionAmount: 200000,
+    })
+
+    await expect(
+      disburseLoan(
+        { actorUserId: "user-1", loanId: "loan-1", tenantId: "tenant-1" },
+        prisma as never
+      )
+    ).rejects.toThrow("Only an undisbursed approved loan")
+    expect(prisma.ledgerLookups).toHaveLength(0)
   })
 
   test("blocks repayment posting before live operations", async () => {
@@ -1256,12 +1662,124 @@ describe("loan live write guards", () => {
           loanId: "loan-1",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Live financial record writes are locked")
 
     expect(prisma.ledgerLookups).toHaveLength(0)
     expect(prisma.loanLookups).toHaveLength(0)
+  })
+
+  test("rejects non-positive and fractional-cent repayments before ledger writes", async () => {
+    const prisma = createLiveRepaymentPrismaStub()
+
+    for (const amount of [0, -10, 1.001, Number.NaN]) {
+      await expect(
+        postRepayment(
+          {
+            actorUserId: "user-1",
+            amount,
+            loanId: "loan-1",
+            tenantId: "tenant-1",
+          },
+          prisma as never
+        )
+      ).rejects.toThrow("Repayment amount")
+    }
+    expect(prisma.ledgerLookups).toHaveLength(0)
+  })
+
+  test("serializes repayment posting and derives its schedule link from the first allocation", async () => {
+    const prisma = createLiveRepaymentPrismaStub({
+      scheduleItems: [
+        {
+          amountPaid: 0,
+          id: "schedule-1",
+          installmentNumber: 1,
+          status: "due",
+          totalDue: 100,
+        },
+        {
+          amountPaid: 0,
+          id: "schedule-2",
+          installmentNumber: 2,
+          status: "pending",
+          totalDue: 100,
+        },
+      ],
+    })
+
+    await postRepayment(
+      {
+        actorUserId: "user-1",
+        amount: 100,
+        loanId: "loan-1",
+        // A stale client-supplied target must not become the audit link.
+        repaymentScheduleItemId: "schedule-2",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(prisma.repaymentCreates[0]).toMatchObject({
+      data: { repaymentScheduleItemId: "schedule-1" },
+    })
+    expect(prisma.transactionOptions[0]).toMatchObject({
+      isolationLevel: "Serializable",
+      maxWait: 5_000,
+      timeout: 15_000,
+    })
+  })
+
+  test("rejects a stale outstanding balance before changing principal", async () => {
+    const prisma = createLiveRepaymentPrismaStub({
+      outstandingPrincipal: 25_000,
+    })
+
+    await expect(
+      postRepayment(
+        {
+          actorUserId: "user-1",
+          amount: 5_000,
+          expectedOutstandingPrincipal: 30_000,
+          expectedStatus: "active",
+          loanId: "loan-1",
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("outstanding balance changed")
+
+    expect(prisma.loanUpdates).toHaveLength(0)
+    expect(prisma.repaymentCreates).toHaveLength(0)
+  })
+
+  test("uses the explicitly reviewed repayment date for the financial receipt", async () => {
+    const prisma = createLiveRepaymentPrismaStub({
+      outstandingPrincipal: 25_000,
+    })
+    const paidAt = new Date("2026-08-20T12:00:00.000Z")
+
+    await postRepayment(
+      {
+        actorUserId: "user-1",
+        amount: 5_000,
+        expectedOutstandingPrincipal: 25_000,
+        expectedStatus: "active",
+        loanId: "loan-1",
+        paidAt,
+        reference: "QA-REP-001",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(prisma.repaymentCreates[0]).toMatchObject({
+      data: { paidAt, reference: "QA-REP-001" },
+    })
+    expect(prisma.ledgerTransactionCreates[0]).toMatchObject({
+      data: { postedAt: paidAt, reference: "QA-REP-001" },
+    })
   })
 
   test("stops scheduled servicing when repayment clears the outstanding balance", async () => {
@@ -1293,7 +1811,7 @@ describe("loan live write guards", () => {
         reference: "EARLY-SETTLEMENT-1",
         tenantId: "tenant-1",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(prisma.loanUpdates[0]).toMatchObject({
@@ -1322,6 +1840,9 @@ describe("loan live write guards", () => {
       },
     })
     expect(prisma.ledgerTransactionCreates).toHaveLength(1)
+    expect(prisma.repaymentCreates[0]).toMatchObject({
+      data: { repaymentScheduleItemId: "schedule-1" },
+    })
     expect(prisma.auditLogCreates).toContainEqual(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -1337,7 +1858,7 @@ describe("loan live write guards", () => {
             waivedScheduleOutstandingAmount: 15000,
           }),
         }),
-      }),
+      })
     )
   })
 
@@ -1353,8 +1874,8 @@ describe("loan live write guards", () => {
           sourceType: "import",
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Ledger accounts not initialized")
 
     expect(prisma.ledgerLookups).toHaveLength(2)

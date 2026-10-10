@@ -1,6 +1,7 @@
 "use client"
 
 import { formatCurrency } from "@halaalvest/utils"
+import { cn } from "@halaalvest/ui/lib/utils"
 
 export type WorkflowChargeOption = {
   amount?: number
@@ -29,10 +30,12 @@ function estimateChargeAmount(
 export function WorkflowChargeSummary({
   basisAmount,
   charges,
+  flat = false,
   title = "Applicable charges",
 }: {
   basisAmount: number
   charges: WorkflowChargeOption[]
+  flat?: boolean
   title?: string
 }) {
   const estimatedCharges = charges
@@ -51,7 +54,14 @@ export function WorkflowChargeSummary({
   }
 
   return (
-    <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm">
+    <div
+      className={cn(
+        "text-sm",
+        flat
+          ? "border-t border-border pt-4"
+          : "rounded-lg border border-border/70 bg-muted/30 px-3 py-2"
+      )}
+    >
       <div className="flex items-center justify-between gap-3 font-medium">
         <span>{title}</span>
         <span>{formatCurrency(total)}</span>

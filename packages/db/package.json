@@ -29,6 +29,7 @@
     "seed": "bun run prisma/seed.ts"
   },
   "devDependencies": {
+    "@halaalvest/auth": "workspace:*",
     "@types/node": "^25.1.0",
     "@halaalvest/eslint-config": "workspace:*",
     "@halaalvest/tsconfig": "workspace:*",

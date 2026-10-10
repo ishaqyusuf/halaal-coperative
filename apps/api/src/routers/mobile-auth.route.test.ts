@@ -7,6 +7,7 @@ import {
 import { buildRequestContext } from "../context"
 import { createCallerFactory } from "../lib.trpc"
 import { appRouter } from "./_app"
+import { mobileAuthRouter } from "./mobile-auth.route"
 
 describe("mobileAuthRouter", () => {
   const originalDatabaseUrl = process.env.HALAALVEST_DATABASE_URL
@@ -20,6 +21,16 @@ describe("mobileAuthRouter", () => {
     if (originalDatabaseUrl) {
       process.env.HALAALVEST_DATABASE_URL = originalDatabaseUrl
     }
+  })
+
+  test("exposes recovery but not the retired membership activation API", () => {
+    const procedures = mobileAuthRouter._def.procedures
+
+    expect(Object.keys(procedures)).toContain("recovery.request")
+    expect(Object.keys(procedures)).toContain("recovery.complete")
+    expect(
+      Object.keys(procedures).some((key) => key.startsWith("activation"))
+    ).toBe(false)
   })
 
   test("returns the current mobile session profile from a signed bearer token", async () => {

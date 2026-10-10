@@ -12,6 +12,7 @@ export type DashboardImportKind =
 export type DashboardImportReferenceData = {
   chargeDefinitionCodes: string[]
   deductionSourceNames: string[]
+  loanProductCodes: string[]
   loanProductNames: string[]
   memberNumbers: string[]
 }
@@ -331,16 +332,27 @@ const deductionSourcesRowSchema = z.object({
 })
 
 const loanProductsRowSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => value?.trim().toUpperCase() || undefined),
   loanType: z.enum(["normal", "quick"]),
   maxSavingsMultiple: z
     .string()
     .transform((value, ctx) =>
       parseRequiredNumber(value, ctx, "maxSavingsMultiple")
-    ),
+    )
+    .refine((value) => value > 0, {
+      message: "maxSavingsMultiple must be greater than zero.",
+    }),
   name: z.string().trim().min(1, "name is required."),
   termMonths: z
     .string()
-    .transform((value, ctx) => parseRequiredNumber(value, ctx, "termMonths")),
+    .transform((value, ctx) => parseRequiredNumber(value, ctx, "termMonths"))
+    .refine((value) => Number.isSafeInteger(value) && value > 0, {
+      message: "termMonths must be a positive whole number.",
+    }),
 })
 
 const contributionsRowSchema = z.object({
@@ -482,12 +494,12 @@ export const dashboardImportConfigs: Record<
   loan_products: {
     title: "Loan products",
     description:
-      "Import or refresh supported loan products before loan migration work.",
+      "Create or update interest-free financing product definitions used for eligibility, terms, and legacy matching. This does not create balances or disburse loans.",
     schema: loanProductsRowSchema,
     sampleCsv: [
-      "name,loanType,termMonths,maxSavingsMultiple",
-      "Standard Loan,normal,12,2",
-      "Emergency Support,quick,6,1",
+      "code,name,loanType,termMonths,maxSavingsMultiple",
+      "NOR,Standard Loan,normal,12,2",
+      "EMG,Emergency Support,quick,6,1",
     ].join("\n"),
   },
   contributions: {
@@ -620,6 +632,27 @@ export function getDashboardImportPrimaryValue(
   }
 }
 
+export function getDashboardImportIdentityKeys(
+  kind: DashboardImportKind,
+  row: Record<string, unknown>
+) {
+  const primaryValue = getDashboardImportPrimaryValue(kind, row)?.trim()
+
+  if (kind === "deduction_sources") {
+    return primaryValue ? [`name:${primaryValue.toLowerCase()}`] : []
+  }
+
+  if (kind === "loan_products") {
+    const code = typeof row.code === "string" ? row.code.trim() : ""
+    return [
+      ...(primaryValue ? [`name:${primaryValue.toLowerCase()}`] : []),
+      ...(code ? [`code:${code.toUpperCase()}`] : []),
+    ]
+  }
+
+  return primaryValue ? [`primary:${primaryValue}`] : []
+}
+
 export function getDashboardImportExistingMatches(
   kind: DashboardImportKind,
   referenceData: DashboardImportReferenceData,
@@ -639,11 +672,21 @@ export function getDashboardImportExistingMatches(
         typeof row.name === "string" &&
         referenceData.deductionSourceNames.includes(row.name)
       )
-    case "loan_products":
+    case "loan_products": {
+      const loanProductName =
+        typeof row.name === "string" ? row.name.toLowerCase() : null
       return (
-        typeof row.name === "string" &&
-        referenceData.loanProductNames.includes(row.name)
+        (loanProductName !== null &&
+          referenceData.loanProductNames.some(
+            (name) => name.toLowerCase() === loanProductName
+          )) ||
+        (typeof row.code === "string" &&
+          row.code.trim().length > 0 &&
+          referenceData.loanProductCodes.includes(
+            row.code.trim().toUpperCase()
+          ))
       )
+    }
     case "charges":
       return (
         typeof row.code === "string" &&

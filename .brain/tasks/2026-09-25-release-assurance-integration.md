@@ -1,6 +1,6 @@
 # Release Assurance Integration
 
-- Status: Source Complete — Hosted Activation Pending
+- Status: Superseded — historical source integration; current flow is 2026-10-07-shared-release-direction.md
 - Date: 2026-09-25
 
 ## Delivered
@@ -23,8 +23,8 @@
   `Signed provider evidence key is unavailable.`
 - UI QA: not applicable; no UI behavior changed.
 
-## Remaining Hosted Work
+## Historical Hosted Work
 
-Follow `.brain/runbooks/release-assurance.md`. This source boundary is complete,
+The collector/gate design below was superseded on 7 October; it is not an activation requirement for the current component flow. Follow `.brain/runbooks/release-assurance.md`. This source boundary is complete,
 but Halalvest is not live release-ready until the isolated Preview services and
 trusted collector are provisioned and accepted.

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createTRPCRouter, tenantProcedure, minRoleProcedure } from "../lib.trpc"
+import { createTRPCRouter, minRoleProcedure } from "../lib.trpc"
 import {
   listContributions,
   recordContribution,
@@ -42,7 +42,7 @@ const listContributionsLedgerSchema = z
   .optional()
 
 export const contributionsRouter = createTRPCRouter({
-  ledger: tenantProcedure
+  ledger: minRoleProcedure("operations_officer")
     .input(listContributionsLedgerSchema)
     .query(async ({ ctx, input }) => {
       const pageSize = input?.pageSize ?? 50
@@ -51,34 +51,42 @@ export const contributionsRouter = createTRPCRouter({
         cursor: input?.cursor ?? undefined,
         fromDate: input?.from,
         memberId: input?.memberId,
-        pageSize: pageSize + 1,
+        pageSize,
         search: input?.q || undefined,
         sort: input?.sort ?? null,
         toDate: input?.to,
       })
-      const data = result.items.slice(0, pageSize)
-
       return {
-        data,
+        data: result.items,
         meta: {
-          cursor: result.items.length > pageSize ? data.at(-1)?.id : undefined,
+          cursor: result.nextCursor ?? undefined,
           total: result.total,
         },
       }
     }),
 
-  list: tenantProcedure
+  list: minRoleProcedure("operations_officer")
     .input(
       z
         .object({
           memberId: z.string().uuid().optional(),
-          status: z.enum(["pending", "posted", "failed", "reversed"]).optional(),
-          fromDate: z.string().datetime().transform((s) => new Date(s)).optional(),
-          toDate: z.string().datetime().transform((s) => new Date(s)).optional(),
+          status: z
+            .enum(["pending", "posted", "failed", "reversed"])
+            .optional(),
+          fromDate: z
+            .string()
+            .datetime()
+            .transform((s) => new Date(s))
+            .optional(),
+          toDate: z
+            .string()
+            .datetime()
+            .transform((s) => new Date(s))
+            .optional(),
           page: z.number().int().min(1).optional(),
           pageSize: z.number().int().min(1).max(100).optional(),
         })
-        .optional(),
+        .optional()
     )
     .query(async ({ ctx, input }) => {
       return listContributions(ctx.tenant.current.id, input)
@@ -90,12 +98,15 @@ export const contributionsRouter = createTRPCRouter({
         memberId: z.string().uuid(),
         amount: z.number().positive(),
         channel: z.enum(["payroll", "transfer", "cash", "manual"]),
-        postedAt: z.string().datetime().transform((s) => new Date(s)),
+        postedAt: z
+          .string()
+          .datetime()
+          .transform((s) => new Date(s)),
         contributionPlanId: z.string().uuid().optional(),
         periodLabel: z.string().optional(),
         reference: z.string().optional(),
         notes: z.string().optional(),
-      }),
+      })
     )
     .mutation(async ({ ctx, input }) => {
       return recordContribution({
@@ -112,16 +123,19 @@ export const contributionsRouter = createTRPCRouter({
       })
     }),
 
-  memberHistory: tenantProcedure
+  memberHistory: minRoleProcedure("operations_officer")
     .input(z.object({ memberId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       return getContributionHistory(ctx.tenant.current.id, input.memberId)
     }),
 
-  memberSavings: tenantProcedure
+  memberSavings: minRoleProcedure("operations_officer")
     .input(z.object({ memberId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const total = await getMemberSavingsTotal(ctx.tenant.current.id, input.memberId)
+      const total = await getMemberSavingsTotal(
+        ctx.tenant.current.id,
+        input.memberId
+      )
       return { total }
     }),
 })

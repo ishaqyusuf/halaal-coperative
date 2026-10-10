@@ -8,24 +8,27 @@
     "./tasks": "./src/tasks/index.ts"
   },
   "scripts": {
-    "deploy": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest --mode prod -- sh -c 'node --max-old-space-size=4096 ../../packages/db/node_modules/.bin/prisma generate --config ../../packages/db/prisma.config.ts && node ../../scripts/with-trigger-profile.mjs -- trigger deploy --skip-update-check'",
-    "dev": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest -- node ../../scripts/with-trigger-profile.mjs -- trigger dev",
+    "deploy": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest --mode prod -- sh -c 'node --max-old-space-size=4096 ../../packages/db/node_modules/.bin/prisma generate --config ../../packages/db/prisma.config.ts && APP_ENV=production bun --env-file=/dev/null ../../scripts/with-trigger-profile.mjs -- trigger deploy'",
+    "dev": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest -- bun --env-file=/dev/null ../../scripts/with-trigger-profile.mjs -- trigger dev",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "with-env": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest --",
-    "with-env:prod": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest --mode prod --"
+    "with-env:prod": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest --mode prod --",
+    "deploy:preview": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest --mode preview -- sh -c 'node --max-old-space-size=4096 ../../packages/db/node_modules/.bin/prisma generate --config ../../packages/db/prisma.config.ts && APP_ENV=preview bun --env-file=/dev/null ../../scripts/with-trigger-profile.mjs -- trigger deploy'"
   },
   "dependencies": {
     "@halaalvest/backfill": "workspace:*",
     "@halaalvest/db": "workspace:*",
+    "@halaalvest/domain": "workspace:*",
     "@halaalvest/errors": "workspace:*",
-    "@halaalvest/observability": "workspace:*",
     "@halaalvest/notifications": "workspace:*",
+    "@halaalvest/observability": "workspace:*",
     "@sentry/node": "10.32.1",
-    "@trigger.dev/build": "4.0.1",
-    "@trigger.dev/sdk": "4.0.1",
-    "trigger.dev": "4.0.1"
+    "@trigger.dev/build": "4.5.16",
+    "@trigger.dev/sdk": "4.5.16",
+    "@vercel/blob": "^2.3.0",
+    "trigger.dev": "4.5.16"
   },
   "devDependencies": {
     "@types/node": "^25.1.0",

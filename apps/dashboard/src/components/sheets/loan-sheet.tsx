@@ -15,9 +15,11 @@ import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 function isLoanSheetOpen(type: string | null) {
   return Boolean(
     type === "request" ||
-      type === "review" ||
-      type === "guarantor" ||
-      type === "disburse"
+    type === "request-details" ||
+    type === "review" ||
+    type === "guarantor" ||
+    type === "disburse" ||
+    type === "loan-details"
   )
 }
 
@@ -51,18 +53,20 @@ export function LoanSheet({
   return (
     <WorkflowPresentation
       config={presentation}
+      mobileFullScreen
       open={isOpen}
       onOpenChange={handleOnOpenChange}
     >
-        {isOpen ? (
-          <Suspense
-            fallback={
-              <div className="px-6 text-sm text-muted-foreground">
-                Loading loan form...
-              </div>
-            }
-          >
-            <LoanSheetHeader />
+      {isOpen ? (
+        <Suspense
+          fallback={
+            <div className="px-6 text-sm text-muted-foreground">
+              Loading loan form...
+            </div>
+          }
+        >
+          <LoanSheetHeader />
+          <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
             <LoanContent
               devMode={devMode}
               disabledReason={disabledReason}
@@ -71,8 +75,9 @@ export function LoanSheet({
               loanRequestCharges={loanRequestCharges}
               members={members}
             />
-          </Suspense>
-        ) : null}
+          </div>
+        </Suspense>
+      ) : null}
     </WorkflowPresentation>
   )
 }

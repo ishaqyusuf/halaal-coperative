@@ -9,6 +9,7 @@ export function OpenChargeDefinitionSheet({ disabled }: { disabled?: boolean }) 
 
   return (
     <Button
+      className="h-11 md:h-9"
       disabled={disabled}
       onClick={() =>
         setParams({
@@ -37,6 +38,7 @@ export function OpenChargeApplicationSheet({
 
   return (
     <Button
+      className="h-11 md:h-9"
       disabled={disabled}
       onClick={() =>
         setParams({
@@ -66,6 +68,7 @@ export function OpenChargeWaiveSheet({
 
   return (
     <Button
+      className="h-11 md:h-9"
       onClick={() =>
         setParams({
           chargeApplicationId,
@@ -95,6 +98,7 @@ export function OpenChargeReverseSheet({
 
   return (
     <Button
+      className="h-11 md:h-9"
       onClick={() =>
         setParams({
           chargeApplicationId,

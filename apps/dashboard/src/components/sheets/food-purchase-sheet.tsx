@@ -1,10 +1,8 @@
 "use client"
 
 import { Suspense } from "react"
-import type {
-  FoodPurchaseApplicationRow,
-  FoodPurchaseCycleRow,
-} from "@halaalvest/db"
+import type { FoodPurchaseCycleRow } from "@halaalvest/db"
+import { Button } from "@halaalvest/ui/components/button"
 import { useQuery } from "@tanstack/react-query"
 import {
   FoodPurchaseAccountingContent,
@@ -43,18 +41,15 @@ function isFoodPurchaseSheetType(
   )
 }
 
-const disabledFoodPurchaseApplicationId =
-  "00000000-0000-4000-8000-000000000000"
+const disabledFoodPurchaseApplicationId = "00000000-0000-4000-8000-000000000000"
 
 export function FoodPurchaseSheet({
-  applications = [],
   approvalChargeOptions = [],
   cycles,
   memberOptions = [],
   selfServiceChargeOptions = [],
   submissionChargeOptions = [],
 }: {
-  applications?: FoodPurchaseApplicationRow[]
   approvalChargeOptions?: WorkflowChargeOption[]
   cycles: FoodPurchaseCycleRow[]
   memberOptions?: FoodPurchaseOption[]
@@ -73,26 +68,26 @@ export function FoodPurchaseSheet({
     "foodPurchase",
     foodPurchaseSheetType
   )
-  const selectedRouteApplication = applications.find(
-    (application) => application.id === foodPurchaseApplicationId
-  )
   const shouldLoadSelectedApplication =
     isOpen && Boolean(foodPurchaseApplicationId)
-  const { data: fetchedApplication, isLoading: isSelectedApplicationLoading } =
-    useQuery(
-      trpc.foodPurchase.get.queryOptions(
-        {
-          foodPurchaseApplicationId:
-            foodPurchaseApplicationId ?? disabledFoodPurchaseApplicationId,
-        },
-        { enabled: shouldLoadSelectedApplication }
-      )
+  const {
+    data: selectedApplication,
+    isError: isSelectedApplicationError,
+    isLoading: isSelectedApplicationLoading,
+    refetch: refetchSelectedApplication,
+  } = useQuery(
+    trpc.foodPurchase.get.queryOptions(
+      {
+        foodPurchaseApplicationId:
+          foodPurchaseApplicationId ?? disabledFoodPurchaseApplicationId,
+      },
+      { enabled: shouldLoadSelectedApplication }
     )
-  const selectedApplication = fetchedApplication ?? selectedRouteApplication
+  )
   const selectedCycle = cycles.find((cycle) => cycle.id === foodPurchaseCycleId)
 
-  const closeSheet = () => {
-    void setParams({
+  const closeSheet = async () => {
+    await setParams({
       foodPurchaseApplicationId: null,
       foodPurchaseCycleId: null,
       foodPurchaseSheetType: null,
@@ -102,69 +97,88 @@ export function FoodPurchaseSheet({
   return (
     <WorkflowPresentation
       config={presentation}
+      mobileFullScreen
       open={isOpen}
-      onOpenChange={(open) => !open && closeSheet()}
+      onOpenChange={(open) => !open && void closeSheet()}
     >
-        {isOpen ? (
-          <Suspense
-            fallback={
-              <div className="px-6 text-sm text-muted-foreground">
-                Loading Foodstuff Purchase form...
-              </div>
-            }
-          >
-            <FoodPurchaseSheetHeader
-              application={selectedApplication}
-              cycle={selectedCycle}
-              type={foodPurchaseSheetType}
-            />
-            <div className="px-6">
-              {foodPurchaseSheetType === "release" ? (
-                <FoodPurchaseReleaseContent onClose={closeSheet} />
-              ) : foodPurchaseSheetType === "application" ? (
-                <FoodPurchaseApplicationCreateContent
-                  chargeOptions={submissionChargeOptions}
-                  cycles={cycles}
-                  memberOptions={memberOptions}
-                  onClose={closeSheet}
-                />
-              ) : foodPurchaseSheetType === "self-service" ? (
-                <MemberFoodPurchaseApplicationCreateContent
-                  chargeOptions={selfServiceChargeOptions}
-                  cycles={cycles}
-                  onClose={closeSheet}
-                />
-              ) : foodPurchaseSheetType === "accounting" && selectedCycle ? (
-                <FoodPurchaseAccountingContent
-                  cycle={selectedCycle}
-                  onClose={closeSheet}
-                />
-              ) : foodPurchaseSheetType === "accounting-review" &&
-                selectedCycle ? (
-                <FoodPurchaseAccountingReviewContent
-                  cycle={selectedCycle}
-                  onClose={closeSheet}
-                />
-              ) : shouldLoadSelectedApplication &&
-                isSelectedApplicationLoading ? (
-                <p className="text-sm text-muted-foreground">
-                  Loading Foodstuff Purchase application...
-                </p>
-              ) : foodPurchaseSheetType === "review" &&
-                selectedApplication ? (
-                <FoodPurchaseApplicationReviewContent
-                  application={selectedApplication}
-                  chargeOptions={approvalChargeOptions}
-                  onClose={closeSheet}
-                />
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  This Foodstuff Purchase record could not be found.
-                </p>
-              )}
+      {isOpen ? (
+        <Suspense
+          fallback={
+            <div className="px-6 text-sm text-muted-foreground">
+              Loading Foodstuff Purchase form...
             </div>
-          </Suspense>
-        ) : null}
+          }
+        >
+          <FoodPurchaseSheetHeader
+            application={selectedApplication ?? undefined}
+            cycle={selectedCycle}
+            type={foodPurchaseSheetType}
+          />
+          <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
+            {foodPurchaseSheetType === "release" ? (
+              <FoodPurchaseReleaseContent onClose={closeSheet} />
+            ) : foodPurchaseSheetType === "application" ? (
+              <FoodPurchaseApplicationCreateContent
+                chargeOptions={submissionChargeOptions}
+                cycles={cycles}
+                memberOptions={memberOptions}
+                onClose={closeSheet}
+              />
+            ) : foodPurchaseSheetType === "self-service" ? (
+              <MemberFoodPurchaseApplicationCreateContent
+                chargeOptions={selfServiceChargeOptions}
+                cycles={cycles}
+                onClose={closeSheet}
+              />
+            ) : foodPurchaseSheetType === "accounting" && selectedCycle ? (
+              <FoodPurchaseAccountingContent
+                cycle={selectedCycle}
+                onClose={closeSheet}
+              />
+            ) : foodPurchaseSheetType === "accounting-review" &&
+              selectedCycle ? (
+              <FoodPurchaseAccountingReviewContent
+                cycle={selectedCycle}
+                onClose={closeSheet}
+              />
+            ) : shouldLoadSelectedApplication &&
+              isSelectedApplicationLoading ? (
+              <p className="text-sm text-muted-foreground">
+                Loading Foodstuff Purchase application...
+              </p>
+            ) : shouldLoadSelectedApplication && isSelectedApplicationError ? (
+              <div className="space-y-3 border-y border-border py-5">
+                <div>
+                  <p className="text-sm font-medium">
+                    Could not load this application
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Check your connection and try again.
+                  </p>
+                </div>
+                <Button
+                  className="h-11 md:h-9"
+                  onClick={() => void refetchSelectedApplication()}
+                  type="button"
+                  variant="outline"
+                >
+                  Try again
+                </Button>
+              </div>
+            ) : foodPurchaseSheetType === "review" && selectedApplication ? (
+              <FoodPurchaseApplicationReviewContent
+                application={selectedApplication}
+                chargeOptions={approvalChargeOptions}
+                onClose={closeSheet}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                This Foodstuff Purchase record could not be found.
+              </p>
+            )}
+          </div>
+        </Suspense>
+      ) : null}
     </WorkflowPresentation>
   )
 }

@@ -1,5 +1,5 @@
-import { analyticsBatchSchema } from "@ishaqyusuf/logly-core"
-import { nativeBatchSchema } from "./contracts"
+import { verifyAnalyticsContext } from "./attribution.server"
+import { browserBatchSchema, nativeBatchSchema } from "./contracts"
 import { isAllowedOrigin, safeBatch, safeNativeBatch } from "./policy"
 import { readBatchBody } from "./read-batch-body"
 
@@ -55,13 +55,45 @@ export function createEventsRoute(
             return parsed.success ? safeNativeBatch(parsed.data) : null
           })()
         : (() => {
-            const parsed = analyticsBatchSchema.safeParse(input.body)
+            const parsed = browserBatchSchema.safeParse(input.body)
             return parsed.success
               ? safeBatch(parsed.data, `halaalvest-${surface}`)
               : null
           })()
     if (!batch)
       return Response.json({ error: "Invalid batch" }, { status: 400 })
+    // Ignore arbitrary client actor/groups. Only the signed snapshot supplies attribution.
+    const submitted = (
+      surface === "mobile" ? nativeBatchSchema : browserBatchSchema
+    ).parse(input.body)
+    const contexts = new Map(
+      submitted.events.map((event) => [event.eventId, event.analyticsContext])
+    )
+    let invalidContext = false
+    const attributedBatch = {
+      ...batch,
+      events: batch.events.map((event) => {
+        const token = contexts.get(event.eventId)
+        const attribution = verifyAnalyticsContext(
+          token,
+          `halaalvest-${surface}`,
+          event.occurredAt
+        )
+        if (token && !attribution) invalidContext = true
+        return attribution
+          ? {
+              ...event,
+              ...attribution,
+              properties: { ...event.properties, ...attribution.properties },
+            }
+          : event
+      }),
+    }
+    if (invalidContext)
+      return Response.json(
+        { error: "Invalid analytics context" },
+        { status: 400 }
+      )
     if (!batch.events.length)
       return Response.json({ accepted: 0 }, { status: 202 })
     const country =
@@ -81,7 +113,7 @@ export function createEventsRoute(
               ? { "x-logly-country": country }
               : {}),
           },
-          body: JSON.stringify(batch),
+          body: JSON.stringify(attributedBatch),
           signal: AbortSignal.timeout(4000),
         }
       )

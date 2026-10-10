@@ -4,11 +4,19 @@ import { Button } from "@halaalvest/ui/components/button"
 import { BanknoteIcon, CheckCircle2Icon, HandCoinsIcon, PlusIcon } from "lucide-react"
 import { useLoanParams } from "@/hooks/use-loan-params"
 
-export function OpenLoanRequestSheet({ disabled }: { disabled?: boolean }) {
+export function OpenLoanRequestSheet({
+  disabled,
+  iconOnly = false,
+}: {
+  disabled?: boolean
+  iconOnly?: boolean
+}) {
   const { setParams } = useLoanParams()
 
   return (
     <Button
+      aria-label={iconOnly ? "Request loan" : undefined}
+      className={iconOnly ? "size-11" : undefined}
       disabled={disabled}
       onClick={() =>
         setParams({
@@ -20,10 +28,11 @@ export function OpenLoanRequestSheet({ disabled }: { disabled?: boolean }) {
           loanSheetType: "request",
         })
       }
+      size={iconOnly ? "icon-lg" : undefined}
       type="button"
     >
       <PlusIcon data-icon="inline-start" />
-      Request loan
+      {iconOnly ? <span className="sr-only">Request loan</span> : "Request loan"}
     </Button>
   )
 }

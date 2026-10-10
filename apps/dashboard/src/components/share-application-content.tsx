@@ -7,6 +7,7 @@ import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { formatCurrency } from "@halaalvest/utils"
+import { useQueryClient } from "@tanstack/react-query"
 import type {
   MemberShareApplicationRow,
   TenantSharePolicySettings,
@@ -18,6 +19,7 @@ import {
   reviewMemberShareApplicationAction,
 } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
+import { useTRPC } from "@/trpc/client"
 
 export type ShareApplicationMemberOption = {
   id: string
@@ -29,11 +31,13 @@ export function MemberShareApplicationCreateContent({
   policy,
   remainingOptionalUnits,
 }: {
-  onClose: () => void
+  onClose: () => Promise<unknown> | void
   policy: TenantSharePolicySettings
   remainingOptionalUnits: number
 }) {
   const router = useRouter()
+  const queryClient = useQueryClient()
+  const trpc = useTRPC()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [requestedUnits, setRequestedUnits] = useState(
@@ -56,10 +60,16 @@ export function MemberShareApplicationCreateContent({
             requestedUnits,
           })
         )
+        await queryClient.invalidateQueries(
+          trpc.shareApplications.list.infiniteQueryFilter()
+        )
         setRequestedUnits("")
         setNotes("")
-        onClose()
-        showSuccess("Request submitted", "Your share request is pending review.")
+        await onClose()
+        showSuccess(
+          "Request submitted",
+          "Your share request is pending review."
+        )
         router.refresh()
       } catch (error) {
         showError(
@@ -104,8 +114,9 @@ export function MemberShareApplicationCreateContent({
           value={notes}
         />
       </div>
-      <div className="mt-3 flex justify-end">
+      <div className="mt-4 flex justify-end border-t border-border pt-4">
         <Button
+          className="h-11 w-full md:h-9 md:w-auto"
           disabled={isPending || remainingOptionalUnits === 0 || !canSubmit}
           onClick={createApplication}
           type="button"
@@ -122,9 +133,11 @@ export function ShareApplicationCreateContent({
   onClose,
 }: {
   memberOptions: ShareApplicationMemberOption[]
-  onClose: () => void
+  onClose: () => Promise<unknown> | void
 }) {
   const router = useRouter()
+  const queryClient = useQueryClient()
+  const trpc = useTRPC()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [memberId, setMemberId] = useState(memberOptions[0]?.id ?? "")
@@ -149,9 +162,12 @@ export function ShareApplicationCreateContent({
             requestedUnits,
           })
         )
+        await queryClient.invalidateQueries(
+          trpc.shareApplications.list.infiniteQueryFilter()
+        )
         setRequestedUnits("1")
         setNotes("")
-        onClose()
+        await onClose()
         showSuccess("Request saved", "Share application is pending review.")
         router.refresh()
       } catch (error) {
@@ -220,9 +236,11 @@ export function ShareApplicationReviewContent({
   onClose,
 }: {
   application: MemberShareApplicationRow
-  onClose: () => void
+  onClose: () => Promise<unknown> | void
 }) {
   const router = useRouter()
+  const queryClient = useQueryClient()
+  const trpc = useTRPC()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [reviewNotes, setReviewNotes] = useState("")
@@ -241,12 +259,22 @@ export function ShareApplicationReviewContent({
             reviewNotes,
           })
         )
+        await Promise.all([
+          queryClient.invalidateQueries(
+            trpc.shareApplications.list.infiniteQueryFilter()
+          ),
+          queryClient.invalidateQueries(
+            trpc.shareApplications.get.queryFilter({
+              memberShareApplicationId: application.id,
+            })
+          ),
+        ])
         setReviewNotes("")
         showSuccess(
           decision === "approved" ? "Request approved" : "Request rejected",
           "Share application review was recorded."
         )
-        onClose()
+        await onClose()
         router.refresh()
       } catch (error) {
         showError(
@@ -283,5 +311,69 @@ export function ShareApplicationReviewContent({
         </Button>
       </div>
     </>
+  )
+}
+
+function formatShareApplicationDate(value: Date | string | null) {
+  if (!value) return "Not reviewed"
+
+  return new Date(value).toLocaleDateString("en-NG", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  })
+}
+
+export function MemberShareApplicationDetailsContent({
+  application,
+}: {
+  application: MemberShareApplicationRow
+}) {
+  const facts = [
+    ["Status", application.status],
+    ["Requested units", `${application.requestedUnits} units`],
+    ["Unit amount", formatCurrency(application.unitAmountSnapshot)],
+    ["Request value", formatCurrency(application.shareValueSnapshot)],
+    ["Requested", formatShareApplicationDate(application.createdAt)],
+    ["Reviewed", formatShareApplicationDate(application.reviewedAt)],
+  ]
+
+  return (
+    <div>
+      <dl className="divide-y divide-border border-y border-border">
+        {facts.map(([label, value]) => (
+          <div
+            className="flex items-start justify-between gap-4 py-3"
+            key={label}
+          >
+            <dt className="text-sm text-muted-foreground">{label}</dt>
+            <dd className="text-right text-sm font-medium text-foreground capitalize">
+              {value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <div className="divide-y divide-border">
+        <section className="py-4">
+          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Your note
+          </p>
+          <p className="mt-2 text-sm leading-6 text-foreground">
+            {application.notes || "No note was added."}
+          </p>
+        </section>
+        <section className="py-4">
+          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Finance review
+          </p>
+          <p className="mt-2 text-sm leading-6 text-foreground">
+            {application.reviewNotes ||
+              (application.status === "pending"
+                ? "This request is still waiting for finance review."
+                : "No review note was recorded.")}
+          </p>
+        </section>
+      </div>
+    </div>
   )
 }

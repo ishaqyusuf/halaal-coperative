@@ -1,5 +1,13 @@
 import { createPrismaClient } from "../prisma"
+import {
+  findSeedQaMembershipsForUser,
+  findSeedQaUserById,
+} from "./qa-accelerator"
 import { ExpectedQueryError } from "../query-error"
+import {
+  composeCooperativeAccessCode,
+  normalizeCooperativeAccessCode,
+} from "@halaalvest/utils"
 import { assertQaIdentityLane } from "./qa-maintenance"
 
 const uuidPattern =
@@ -7,6 +15,10 @@ const uuidPattern =
 
 function isUuidLike(value: string | null | undefined) {
   return Boolean(value && uuidPattern.test(value))
+}
+
+function canUseSeedAuth() {
+  return process.env.NODE_ENV !== "production"
 }
 
 export type MembershipRole =
@@ -17,6 +29,7 @@ export type MembershipRole =
   | "member"
 
 export type UserRecord = {
+  cooperativeAccessCode?: string | null
   id: string
   tenantId: string
   email: string
@@ -29,6 +42,64 @@ export type UserCredentialRecord = UserRecord & {
   phoneNumber: string | null
 }
 
+export async function findUserByCooperativeAccessCodeAsync(
+  cooperativeAccessCode: string
+) {
+  const normalizedCode = normalizeCooperativeAccessCode(cooperativeAccessCode)
+  if (!normalizedCode) return null
+
+  const prisma = createPrismaClient()
+  if (!prisma) {
+    if (!canUseSeedAuth()) return null
+    const user =
+      seedUsers.find(
+        (candidate) => candidate.cooperativeAccessCode === normalizedCode
+      ) ?? null
+
+    return user
+      ? ({
+          ...user,
+          passwordHash: null,
+          phoneNumber: null,
+        } satisfies UserCredentialRecord)
+      : null
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { cooperativeAccessCode: normalizedCode },
+  })
+  if (!user || user.deletedAt) return null
+
+  return {
+    cooperativeAccessCode: user.cooperativeAccessCode,
+    email: user.email,
+    fullName: user.fullName,
+    id: user.id,
+    isPlatformOwner: user.isPlatformOwner,
+    passwordHash: user.passwordHash,
+    phoneNumber: user.phoneNumber,
+    tenantId: user.tenantId,
+  } satisfies UserCredentialRecord
+}
+
+export async function findUserByTenantSignInIdentifierAsync(input: {
+  identifier: string
+  tenantId: string
+}) {
+  const identifier = input.identifier.trim()
+  if (!identifier) return null
+
+  if (identifier.includes("@")) {
+    return findUserByEmailAsync({
+      email: identifier,
+      tenantId: input.tenantId,
+    })
+  }
+
+  const user = await findUserByCooperativeAccessCodeAsync(identifier)
+  return user?.tenantId === input.tenantId ? user : null
+}
+
 export type MembershipRecord = {
   id: string
   tenantId: string
@@ -37,8 +108,24 @@ export type MembershipRecord = {
   isDefault: boolean
 }
 
+export function selectActiveMembership(
+  memberships: readonly MembershipRecord[],
+  tenantId?: string | null
+) {
+  const candidates = tenantId
+    ? memberships.filter((membership) => membership.tenantId === tenantId)
+    : memberships
+
+  return (
+    candidates.find((membership) => membership.isDefault) ??
+    candidates[0] ??
+    null
+  )
+}
+
 const seedUsers: UserRecord[] = [
   {
+    cooperativeAccessCode: "AMN-OWNER",
     id: "user-platform-owner",
     tenantId: "tenant-amanah-demo",
     email: "owner@halaalvest.local",
@@ -46,6 +133,7 @@ const seedUsers: UserRecord[] = [
     isPlatformOwner: true,
   },
   {
+    cooperativeAccessCode: "AMN-ADMIN",
     id: "user-tenant-admin-amanah",
     tenantId: "tenant-amanah-demo",
     email: "admin@amanah.local",
@@ -53,6 +141,7 @@ const seedUsers: UserRecord[] = [
     isPlatformOwner: false,
   },
   {
+    cooperativeAccessCode: "BRK-FINANCE",
     id: "user-finance-barakah",
     tenantId: "tenant-barakah-demo",
     email: "finance@barakah.local",
@@ -105,7 +194,9 @@ export function findUserById(userId: string | null | undefined) {
     return null
   }
 
-  return seedUsers.find((user) => user.id === userId) ?? null
+  return (
+    seedUsers.find((user) => user.id === userId) ?? findSeedQaUserById(userId)
+  )
 }
 
 export function findMembershipsForUser(userId: string | null | undefined) {
@@ -113,7 +204,10 @@ export function findMembershipsForUser(userId: string | null | undefined) {
     return []
   }
 
-  return seedMemberships.filter((membership) => membership.userId === userId)
+  return [
+    ...seedMemberships.filter((membership) => membership.userId === userId),
+    ...findSeedQaMembershipsForUser(userId),
+  ]
 }
 
 export function findActiveMembership(input: {
@@ -126,19 +220,7 @@ export function findActiveMembership(input: {
     return null
   }
 
-  if (input.tenantId) {
-    return (
-      memberships.find(
-        (membership) => membership.tenantId === input.tenantId
-      ) ?? null
-    )
-  }
-
-  return (
-    memberships.find((membership) => membership.isDefault) ??
-    memberships[0] ??
-    null
-  )
+  return selectActiveMembership(memberships, input.tenantId)
 }
 
 export async function findUserByIdAsync(userId: string | null | undefined) {
@@ -147,18 +229,19 @@ export async function findUserByIdAsync(userId: string | null | undefined) {
   }
 
   if (!isUuidLike(userId)) {
-    return findUserById(userId)
+    return canUseSeedAuth() ? findUserById(userId) : null
   }
 
   const prisma = createPrismaClient()
 
   if (!prisma) {
-    return findUserById(userId)
+    return canUseSeedAuth() ? findUserById(userId) : null
   }
 
-  const user = await prisma.user.findUnique({
+  const user = await prisma.user.findFirst({
     where: {
       id: userId,
+      deletedAt: null,
     },
   })
 
@@ -188,6 +271,7 @@ export async function findUserByEmailAsync(input: {
   const prisma = createPrismaClient()
 
   if (!prisma) {
+    if (!canUseSeedAuth()) return null
     const user = seedUsers.find(
       (candidate) =>
         candidate.email.toLowerCase() === normalizedEmail &&
@@ -236,13 +320,13 @@ export async function findMembershipsForUserAsync(
   }
 
   if (!isUuidLike(userId)) {
-    return findMembershipsForUser(userId)
+    return canUseSeedAuth() ? findMembershipsForUser(userId) : []
   }
 
   const prisma = createPrismaClient()
 
   if (!prisma) {
-    return findMembershipsForUser(userId)
+    return canUseSeedAuth() ? findMembershipsForUser(userId) : []
   }
 
   const memberships = await prisma.membership.findMany({
@@ -273,19 +357,7 @@ export async function findActiveMembershipAsync(input: {
     return null
   }
 
-  if (input.tenantId) {
-    return (
-      memberships.find(
-        (membership) => membership.tenantId === input.tenantId
-      ) ?? null
-    )
-  }
-
-  return (
-    memberships.find((membership) => membership.isDefault) ??
-    memberships[0] ??
-    null
-  )
+  return selectActiveMembership(memberships, input.tenantId)
 }
 
 export async function listTenantUsersWithMemberships(tenantId: string) {
@@ -377,6 +449,27 @@ export async function provisionTenantUserRole(input: {
       },
     })
 
+    let cooperativeAccessCode = user.cooperativeAccessCode
+
+    if (!cooperativeAccessCode) {
+      const tenant = await tx.tenant.findUnique({
+        where: { id: input.tenantId },
+        select: { cooperativeCodePrefix: true },
+      })
+      if (tenant?.cooperativeCodePrefix) {
+        cooperativeAccessCode = composeCooperativeAccessCode(
+          tenant.cooperativeCodePrefix,
+          `S-${user.id.replace(/-/g, "").slice(0, 8)}`
+        )
+        await tx.user.update({
+          where: { id: user.id },
+          data: {
+            cooperativeAccessCode,
+          },
+        })
+      }
+    }
+
     if (input.makeDefault) {
       await tx.membership.updateMany({
         where: {
@@ -436,6 +529,7 @@ export async function provisionTenantUserRole(input: {
         isDefault: membership.isDefault,
       } satisfies MembershipRecord,
       user: {
+        cooperativeAccessCode,
         id: user.id,
         tenantId: user.tenantId,
         email: user.email,

@@ -23,7 +23,7 @@ export function ChargeOperationSheet({
   devMode,
   members,
 }: {
-  activeCharges: Array<{ code: string; id: string; name: string }>
+  activeCharges: Array<{ amount: number; code: string; id: string; name: string }>
   devMode: boolean
   members: Array<{ fullName: string; id: string; memberNumber: string }>
 }) {
@@ -45,6 +45,11 @@ export function ChargeOperationSheet({
   return (
     <WorkflowPresentation
       config={presentation}
+      mobileFullScreen={
+        chargeOperationSheetType === "application" ||
+        chargeOperationSheetType === "definition" ||
+        chargeOperationSheetType === "version"
+      }
       open={isOpen}
       onOpenChange={handleOnOpenChange}
     >

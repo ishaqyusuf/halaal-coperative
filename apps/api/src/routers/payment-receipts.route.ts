@@ -1,5 +1,6 @@
 import { z } from "zod"
 import {
+  createMemberPaymentReceiptPageCursor,
   getMemberPaymentReceipt,
   getMemberByUserId,
   listMemberPaymentReceiptPage,
@@ -83,25 +84,25 @@ export const paymentReceiptsRouter = createTRPCRouter({
         memberId = member?.id ?? "__missing_member_profile__"
       }
 
-      const result = await listMemberPaymentReceiptPage(
-        ctx.tenant.current.id,
-        {
-          cursor: input?.cursor ?? undefined,
-          memberId,
-          pageSize: pageSize + 1,
-          search: input?.q || undefined,
-          sort: input?.sort ?? null,
-          status: input?.status,
-          submittedFrom: input?.submittedFrom,
-          submittedTo: input?.submittedTo,
-        }
-      )
+      const result = await listMemberPaymentReceiptPage(ctx.tenant.current.id, {
+        cursor: input?.cursor ?? undefined,
+        memberId,
+        pageSize: pageSize + 1,
+        search: input?.q || undefined,
+        sort: input?.sort ?? null,
+        status: input?.status,
+        submittedFrom: input?.submittedFrom,
+        submittedTo: input?.submittedTo,
+      })
       const data = result.items.slice(0, pageSize)
 
       return {
         data,
         meta: {
-          cursor: result.items.length > pageSize ? data.at(-1)?.id : undefined,
+          cursor:
+            result.items.length > pageSize && data.at(-1)
+              ? createMemberPaymentReceiptPageCursor(data.at(-1)!, input?.sort)
+              : undefined,
           total: result.total,
         },
       }

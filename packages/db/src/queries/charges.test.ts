@@ -4,8 +4,45 @@ import {
   applyLoanRequestCharges,
   applyCharge,
   createChargeDefinition,
+  getApplicableChargeQuoteHash,
+  reverseChargeApplication,
+  settleChargeApplication,
   updateChargeDefinition,
+  waiveChargeApplication,
+  type ChargeQuote,
 } from "./charges"
+
+test("reviewed charge fingerprint changes with amount and collection terms", () => {
+  const charge: ChargeQuote = {
+    amount: 125.5,
+    basisAmount: 1000,
+    chargeApplicabilityId: "applicability-1",
+    chargeDefinitionId: "definition-1",
+    chargeValueType: "fixed_amount",
+    code: "PROJECT_REVIEW",
+    collectionMode: "pay_separately",
+    effectiveAmount: 125.5,
+    isRequired: true,
+    name: "Project review",
+    purpose: "general",
+    trigger: "submission",
+    workflow: "project_financing_request",
+  }
+  const reviewedHash = getApplicableChargeQuoteHash([charge], 1000)
+
+  expect(reviewedHash).toMatch(/^[a-f0-9]{64}$/)
+  expect(getApplicableChargeQuoteHash([charge], 1000)).toBe(reviewedHash)
+  expect(getApplicableChargeQuoteHash([charge], 1001)).not.toBe(reviewedHash)
+  expect(
+    getApplicableChargeQuoteHash([{ ...charge, amount: 126 }], 1000)
+  ).not.toBe(reviewedHash)
+  expect(
+    getApplicableChargeQuoteHash(
+      [{ ...charge, collectionMode: "deduct_from_savings" }],
+      1000
+    )
+  ).not.toBe(reviewedHash)
+})
 
 function createChargePrismaStub({
   appliedBackfillBatches = 0,
@@ -278,7 +315,101 @@ function createLoanRequestChargePrismaStub(
   }
 }
 
+function createChargeLifecyclePrismaStub(input: {
+  collectionMode: "deduct_from_savings" | "pay_separately"
+  isMonthlyLevy?: boolean
+  purpose?: string
+  status: "pending" | "posted"
+}) {
+  const ledgerTransactions: any[] = []
+  const memberUpdates: any[] = []
+  const auditLogs: any[] = []
+  const application = {
+    amount: 12_000,
+    chargeDefinition: {
+      isMonthlyLevy: input.isMonthlyLevy ?? false,
+      name: "Operations fee",
+      purpose: input.purpose ?? "general",
+    },
+    collectionMode: input.collectionMode,
+    id: "charge-application-1",
+    memberId: "member-1",
+    notes: null,
+    status: input.status,
+  }
+  const tx = {
+    auditLog: {
+      create: async (value: any) => {
+        auditLogs.push(value)
+        return value
+      },
+    },
+    chargeApplication: {
+      findFirst: async () => ({ ...application }),
+      updateMany: async (value: any) => {
+        if (
+          value.where.id !== application.id ||
+          value.where.tenantId !== "tenant-1" ||
+          value.where.status !== application.status
+        )
+          return { count: 0 }
+        Object.assign(application, value.data)
+        return { count: 1 }
+      },
+      update: async (value: any) => ({ ...application, ...value.data }),
+    },
+    ledgerAccount: {
+      findUnique: async (value: any) => ({
+        id: `account-${value.where.tenantId_code.code}`,
+      }),
+    },
+    ledgerTransaction: {
+      create: async (value: any) => {
+        const transaction = {
+          id: `ledger-${ledgerTransactions.length + 1}`,
+          ...value.data,
+        }
+        ledgerTransactions.push(value)
+        return transaction
+      },
+      findFirst: async () => null,
+    },
+    member: {
+      update: async (value: any) => {
+        memberUpdates.push(value)
+        return value
+      },
+    },
+  }
+  return {
+    $transaction: async (callback: (value: typeof tx) => Promise<unknown>) =>
+      callback(tx),
+    auditLogs,
+    ledgerTransactions,
+    memberUpdates,
+  }
+}
+
 describe("charge migration guards", () => {
+  test("rejects non-positive manual charge amounts before any financial write", async () => {
+    const prisma = createChargePrismaStub()
+
+    await expect(
+      applyCharge(
+        {
+          actorUserId: "user-1",
+          amount: 0,
+          assessedAt: new Date("2025-01-10T00:00:00.000Z"),
+          chargeDefinitionId: "charge-definition-1",
+          memberId: "member-1",
+          sourceType: "backfill",
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("Charge amount must be a positive number")
+  })
+
   test("blocks backdated charge setup after migration finalization", async () => {
     const prisma = createChargePrismaStub({
       initialMigrationStatus: "finalized",
@@ -690,4 +821,213 @@ describe("charge migration guards", () => {
     })
     expect(prisma.chargeApplicationFindFirstCalls).toHaveLength(1)
   })
+
+  test("settles a pending separate-payment charge into cash and charge income", async () => {
+    const prisma = createChargeLifecyclePrismaStub({
+      collectionMode: "pay_separately",
+      status: "pending",
+    })
+
+    const result = await settleChargeApplication(
+      {
+        actorUserId: "finance-user",
+        chargeApplicationId: "charge-application-1",
+        paidAt: new Date("2026-08-30T00:00:00.000Z"),
+        reference: "BANK-CHARGE-001",
+        sourceType: "import",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(result.status).toBe("posted")
+    expect(prisma.ledgerTransactions[0]).toMatchObject({
+      data: {
+        chargeApplicationId: "charge-application-1",
+        entries: {
+          create: [
+            {
+              amount: 12_000,
+              direction: "debit",
+              ledgerAccountId: "account-2000",
+              tenantId: "tenant-1",
+            },
+            {
+              amount: 12_000,
+              direction: "credit",
+              ledgerAccountId: "account-3000",
+              tenantId: "tenant-1",
+            },
+          ],
+        },
+        reference: "BANK-CHARGE-001",
+      },
+    })
+    expect(prisma.memberUpdates).toHaveLength(0)
+    expect(prisma.auditLogs[0]).toMatchObject({
+      data: { action: "charge.settled" },
+    })
+  })
+
+  test("waives a pending separate-payment charge without manufacturing a ledger entry", async () => {
+    const prisma = createChargeLifecyclePrismaStub({
+      collectionMode: "pay_separately",
+      status: "pending",
+    })
+
+    const result = await waiveChargeApplication(
+      {
+        actorUserId: "finance-user",
+        chargeApplicationId: "charge-application-1",
+        reason: "Approved hardship exception.",
+        sourceType: "import",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(result.status).toBe("waived")
+    expect(prisma.ledgerTransactions).toHaveLength(0)
+    expect(prisma.auditLogs[0]).toMatchObject({
+      data: {
+        action: "charge.waived",
+        metadata: {
+          correctiveLedgerTransactionId: null,
+          priorStatus: "pending",
+          reason: "Approved hardship exception.",
+        },
+      },
+    })
+  })
+
+  test("reverses a posted separate payment through cash without changing savings", async () => {
+    const prisma = createChargeLifecyclePrismaStub({
+      collectionMode: "pay_separately",
+      status: "posted",
+    })
+
+    const result = await reverseChargeApplication(
+      {
+        actorUserId: "finance-user",
+        chargeApplicationId: "charge-application-1",
+        reason: "The bank confirmed a duplicated collection.",
+        sourceType: "import",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(result.status).toBe("reversed")
+    expect(prisma.ledgerTransactions[0]).toMatchObject({
+      data: {
+        chargeApplicationId: undefined,
+        entries: {
+          create: [
+            { direction: "debit", ledgerAccountId: "account-3000" },
+            { direction: "credit", ledgerAccountId: "account-2000" },
+          ],
+        },
+      },
+    })
+    expect(prisma.memberUpdates).toHaveLength(0)
+  })
+
+  test("waives a posted savings charge with an opposite ledger entry and savings restoration", async () => {
+    const prisma = createChargeLifecyclePrismaStub({
+      collectionMode: "deduct_from_savings",
+      isMonthlyLevy: true,
+      status: "posted",
+    })
+
+    await waiveChargeApplication(
+      {
+        actorUserId: "finance-user",
+        chargeApplicationId: "charge-application-1",
+        reason: "Committee approved a levy exception.",
+        sourceType: "import",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(prisma.ledgerTransactions[0]).toMatchObject({
+      data: {
+        entries: {
+          create: [
+            { direction: "debit", ledgerAccountId: "account-3100" },
+            { direction: "credit", ledgerAccountId: "account-1000" },
+          ],
+        },
+        transactionType: "levy",
+      },
+    })
+    expect(prisma.memberUpdates[0]).toMatchObject({
+      data: { totalSavingsSnapshot: { increment: 12_000 } },
+    })
+  })
+})
+
+describe("concurrent charge lifecycle claims", () => {
+  for (const pair of [
+    [waiveChargeApplication, waiveChargeApplication],
+    [reverseChargeApplication, reverseChargeApplication],
+    [waiveChargeApplication, reverseChargeApplication],
+  ] as const) {
+    test(`${pair[0].name} competing with ${pair[1].name} restores savings once`, async () => {
+      const prisma = createChargeLifecyclePrismaStub({
+        collectionMode: "deduct_from_savings",
+        status: "posted",
+      })
+      const input = {
+        actorUserId: "finance-user",
+        chargeApplicationId: "charge-application-1",
+        sourceType: "import" as const,
+        tenantId: "tenant-1",
+      }
+      const results = await Promise.allSettled(
+        pair.map((correct) => correct(input, prisma as never))
+      )
+      expect(
+        results.filter((result) => result.status === "fulfilled")
+      ).toHaveLength(1)
+      expect(
+        results.filter((result) => result.status === "rejected")
+      ).toHaveLength(1)
+      expect(prisma.ledgerTransactions).toHaveLength(1)
+      expect(prisma.memberUpdates).toHaveLength(1)
+      expect(prisma.auditLogs).toHaveLength(1)
+    })
+  }
+})
+
+test("settlement competing with pending waiver posts at most one lifecycle result", async () => {
+  const prisma = createChargeLifecyclePrismaStub({
+    collectionMode: "pay_separately",
+    status: "pending",
+  })
+  const input = {
+    actorUserId: "finance-user",
+    chargeApplicationId: "charge-application-1",
+    sourceType: "import" as const,
+    tenantId: "tenant-1",
+  }
+  const results = await Promise.allSettled([
+    settleChargeApplication(
+      { ...input, paidAt: new Date(), reference: "BANK-CONCURRENT" },
+      prisma as never
+    ),
+    waiveChargeApplication(input, prisma as never),
+  ])
+  expect(
+    results.filter((result) => result.status === "fulfilled")
+  ).toHaveLength(1)
+  expect(results.filter((result) => result.status === "rejected")).toHaveLength(
+    1
+  )
+  expect(prisma.auditLogs).toHaveLength(1)
+  expect(prisma.memberUpdates).toHaveLength(0)
+  const winner = results.find((result) => result.status === "fulfilled")!
+  expect(prisma.ledgerTransactions).toHaveLength(
+    winner.status === "fulfilled" && winner.value.status === "posted" ? 1 : 0
+  )
 })

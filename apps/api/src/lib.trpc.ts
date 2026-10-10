@@ -1,8 +1,14 @@
 import { hasActiveMembership } from "@halaalvest/auth"
-import { isRoleAtLeast, type CooperativeRole } from "@halaalvest/auth/roles"
+import {
+  isRoleAtLeast,
+  roleCan,
+  type CooperativeRole,
+  type CooperativeRolePermission,
+} from "@halaalvest/auth/roles"
 import {
   assertMemberOperationalReadiness,
   getMemberByUserId,
+  getMobileAppAccessSnapshot,
 } from "@halaalvest/db"
 import { initTRPC, TRPCError } from "@trpc/server"
 
@@ -28,7 +34,52 @@ const t = initTRPC.context<TRPCContext>().create({
 
 export const createTRPCRouter = t.router
 export const createCallerFactory = t.createCallerFactory
+const mobileRecoveryPaths = [
+  "auth.mobile.",
+  "mobileAppAccess.",
+  "accountPrivacy.",
+  "legal.",
+  "support.",
+  "mobile.member.support.",
+  "mobile.admin.support.",
+] as const
+
+export function mobileAccessPathAllowed(path: string | undefined) {
+  return Boolean(
+    path && mobileRecoveryPaths.some((prefix) => path.startsWith(prefix))
+  )
+}
+
 const withErrorContract = t.middleware(async (opts) => {
+  if (
+    opts.ctx.request.mobileAuthenticated &&
+    !mobileAccessPathAllowed(opts.path)
+  ) {
+    const session = opts.ctx.auth.session
+    const tenant = opts.ctx.tenant.current
+    if (!session || !tenant)
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "Sign in again." })
+    let allowed = false
+    try {
+      const environment = process.env.STORE_BILLING_ENVIRONMENT
+      if (environment !== "sandbox" && environment !== "production")
+        throw new Error("Store environment unavailable")
+      allowed = (
+        await getMobileAppAccessSnapshot({
+          userId: session.user.id,
+          tenantId: tenant.id,
+          environment,
+        })
+      ).accessAllowed
+    } catch {
+      // A provider/database outage cannot create a paid-access grant.
+    }
+    if (!allowed)
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "A current personal mobile app subscription is required.",
+      })
+  }
   const result = await opts.next()
 
   if (!result.ok) {
@@ -170,5 +221,20 @@ export function minRoleProcedure(required: CooperativeRole) {
     return next({
       ctx,
     })
+  })
+}
+
+export function permissionProcedure(
+  required: CooperativeRolePermission["action"]
+) {
+  return tenantProcedure.use(({ ctx, next }) => {
+    if (!roleCan(ctx.auth.activeMembership.role, required)) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: `This action requires the ${required} permission.`,
+      })
+    }
+
+    return next({ ctx })
   })
 }

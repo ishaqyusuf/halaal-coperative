@@ -1,132 +1,57 @@
 "use client"
 
 import { closestCenter, DndContext } from "@dnd-kit/core"
-import { Button } from "@halaalvest/ui/components/button"
 import {
   Table,
   TableBody,
   TableCell,
   TableRow,
 } from "@halaalvest/ui/components/table"
-import { useInfiniteQuery } from "@tanstack/react-query"
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
-import { AnimatePresence } from "framer-motion"
-import { useCallback, useEffect, useMemo, useRef } from "react"
-import { BottomBar, EmptyState, VirtualRow } from "@/components/tables/core"
-import { usePaymentReceiptFilterParams } from "@/hooks/use-payment-receipt-filter-params"
+import { useCallback, useEffect, useRef } from "react"
+import { VirtualRow } from "@/components/tables/core"
 import { usePaymentReceiptParams } from "@/hooks/use-payment-receipt-params"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useScrollHeader } from "@/hooks/use-scroll-header"
-import { useSortParams } from "@/hooks/use-sort-params"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
 import { useTableDnd } from "@/hooks/use-table-dnd"
 import { useTableScroll } from "@/hooks/use-table-scroll"
 import { useTableSettings } from "@/hooks/use-table-settings"
 import { usePaymentReceiptsStore } from "@/store/payment-receipts"
-import { useTRPC } from "@/trpc/client"
-import { getEnumValue } from "@/utils/enum"
 import {
   ROW_HEIGHTS,
   STICKY_COLUMNS,
   SUMMARY_GRID_HEIGHTS,
 } from "@/utils/table-configs"
 import { getColumnIds, type TableSettings } from "@/utils/table-settings"
-import { columns, type PaymentReceipt } from "./columns"
+import { columns } from "./columns"
 import { PaymentReceiptsEmptyState } from "./empty-states"
-import { PaymentReceiptsSkeleton } from "./skeleton"
 import { PaymentReceiptsTableHeader } from "./table-header"
+import { usePaymentReceiptsQuery } from "./use-payment-receipts-query"
 
-const NON_CLICKABLE_COLUMNS = new Set(["select", "actions"])
+const NON_CLICKABLE_COLUMNS = new Set(["actions"])
 const COLUMN_IDS = getColumnIds(columns)
-
-type PaymentReceiptSortField =
-  | "memberName"
-  | "paidAt"
-  | "paymentReference"
-  | "status"
-  | "submittedAt"
-  | "totalAmount"
-
-function getSort(
-  sort?: string[] | null
-): [PaymentReceiptSortField, "asc" | "desc"] | null {
-  if (!sort || sort.length !== 2) return null
-
-  const field = sort[0]
-  const direction = sort[1]
-  if (!field || !direction) return null
-
-  const fieldMap: Record<string, PaymentReceiptSortField> = {
-    amount: "totalAmount",
-    paidAt: "paidAt",
-    receipt: "memberName",
-    reference: "paymentReference",
-    status: "status",
-    submittedAt: "submittedAt",
-    totalAmount: "totalAmount",
-  }
-  const sortField = fieldMap[field]
-
-  if (!sortField) return null
-  if (direction !== "asc" && direction !== "desc") return null
-
-  return [sortField, direction]
-}
 
 type Props = {
   initialSettings?: Partial<TableSettings>
   mode?: "member" | "staff"
-  receipts: PaymentReceipt[]
 }
 
 export function PaymentReceiptsDataTable({
   initialSettings,
   mode = "staff",
-  receipts,
 }: Props) {
-  const trpc = useTRPC()
   const parentRef = useRef<HTMLDivElement>(null)
-  const { filter } = usePaymentReceiptFilterParams()
-  const { params } = useSortParams()
   const { setParams } = usePaymentReceiptParams()
-  const { rowSelection, setColumns, setRowSelection } =
-    usePaymentReceiptsStore()
-  const queryInput = useMemo(
-    () => ({
-      q: filter.q || undefined,
-      sort: getSort(params.sort),
-      status: getEnumValue(filter.status, [
-        "approved",
-        "correction_requested",
-        "rejected",
-        "submitted",
-        "under_review",
-      ] as const),
-    }),
-    [filter.q, filter.status, params.sort]
-  )
-  const infiniteQueryOptions = trpc.paymentReceipts.list.infiniteQueryOptions(
-    queryInput,
-    {
-      getNextPageParam: ({ meta }) => meta?.cursor,
-      refetchInterval: 5000,
-      refetchOnMount: "always",
-      refetchOnWindowFocus: true,
-    }
-  )
+  const { setColumns } = usePaymentReceiptsStore()
   const {
-    data,
     fetchNextPage,
+    hasActiveControls,
     hasNextPage,
-    isError,
     isFetchingNextPage,
-    isPending,
-  } = useInfiniteQuery(infiniteQueryOptions)
-  const tableData = useMemo(
-    () => data?.pages.flatMap((page) => page.data) ?? receipts,
-    [data, receipts]
-  )
+    receipts: tableData,
+  } = usePaymentReceiptsQuery()
 
   useScrollHeader(parentRef, {
     extraOffset: SUMMARY_GRID_HEIGHTS.paymentReceipts,
@@ -150,19 +75,16 @@ export function PaymentReceiptsDataTable({
     columns,
     data: tableData,
     enableColumnResizing: true,
-    enableRowSelection: true,
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.id,
     meta: { mode },
     onColumnOrderChange: setColumnOrder,
     onColumnSizingChange: setColumnSizing,
     onColumnVisibilityChange: setColumnVisibility,
-    onRowSelectionChange: setRowSelection,
     state: {
       columnOrder,
       columnSizing,
       columnVisibility,
-      rowSelection,
     },
   })
 
@@ -223,31 +145,17 @@ export function PaymentReceiptsDataTable({
     threshold: 50,
   })
 
-  if (isPending && !receipts.length) {
-    return <PaymentReceiptsSkeleton />
-  }
-
-  if (isError && !receipts.length) {
-    return (
-      <EmptyState
-        description="Reload the page or adjust the receipt list before trying again."
-        title="Payment receipts could not load."
-      />
-    )
-  }
-
   if (!tableData.length) {
-    return <PaymentReceiptsEmptyState />
+    return <PaymentReceiptsEmptyState filtered={hasActiveControls} />
   }
 
   const virtualItems = rowVirtualizer.getVirtualItems()
-  const selectedRows = table.getSelectedRowModel().rows
 
   return (
     <div className="relative">
       <div className="w-full">
         <div
-          className="overflow-auto overscroll-contain border-x border-b border-border scrollbar-hide"
+          className="scrollbar-hide overflow-auto overscroll-contain border-x border-b border-border"
           ref={(element) => {
             parentRef.current = element
             tableScroll.containerRef.current = element
@@ -287,7 +195,7 @@ export function PaymentReceiptsDataTable({
                         columnVisibility={columnVisibility}
                         getStickyClassName={getStickyClassName}
                         getStickyStyle={getStickyStyle}
-                        isSelected={rowSelection[row.id] ?? false}
+                        isSelected={false}
                         key={row.id}
                         nonClickableColumns={NON_CLICKABLE_COLUMNS}
                         onCellClick={openReceipt}
@@ -316,23 +224,6 @@ export function PaymentReceiptsDataTable({
           />
         </div>
       </div>
-
-      <AnimatePresence>
-        {selectedRows.length ? (
-          <BottomBar
-            selectedCount={selectedRows.length}
-            onDeselect={() => table.toggleAllRowsSelected(false)}
-          >
-            <Button
-              onClick={() => table.toggleAllRowsSelected(false)}
-              size="sm"
-              variant="outline"
-            >
-              Clear selection
-            </Button>
-          </BottomBar>
-        ) : null}
-      </AnimatePresence>
     </div>
   )
 }

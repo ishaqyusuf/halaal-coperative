@@ -90,6 +90,21 @@ describe("email routing configuration", () => {
     ).toBe("console")
   })
 
+  test("rejects Preview and Production deployment identity conflicts", () => {
+    expect(() =>
+      getEmailRoutingConfiguration({
+        APP_ENV: "production",
+        VERCEL_ENV: "preview",
+      })
+    ).toThrow("Email environment does not match the deployment target")
+    expect(() =>
+      getEmailRoutingConfiguration({
+        APP_ENV: "preview",
+        VERCEL_ENV: "production",
+      })
+    ).toThrow("Email environment does not match the deployment target")
+  })
+
   test("rejects mixed legacy overrides and QA routing configuration", () => {
     expect(() =>
       getEmailRoutingConfiguration({

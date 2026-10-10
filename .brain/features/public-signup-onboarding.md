@@ -18,6 +18,7 @@
 - Primary contact email must be captured before onboarding continues.
 - When `MARKETING_EARLY_ACCESS_ENABLED=true`, cooperative setup requires a signed early access approval token before `/api/signup` will create the email-verification link. The flag defaults on in production and can be enabled locally for QA.
 - Marketing early access requests email configured platform admins with a signed approval link; opening that link sends the cooperative primary contact a private setup link.
+- In production, all three signed email handoffs (early-access approval, approved setup, and signup verification) use only a configured HTTPS marketing root origin. Missing/invalid settings or a known Production host in Preview fail before a new link is signed or emailed; `VERCEL_ENV=preview` enforces that rule even when `APP_ENV` is unset. Conflicting Preview/Production labels also fail. Local development retains the request-origin fallback.
 - Verification links are signed and expire after 24 hours.
 - Verification links are single-use at workspace level: once the verified cooperative name or reserved workspace slug has been used to create a tenant, revisiting or resubmitting that link returns the expired-link state.
 - Early access admin approval links are signed and expire after 30 days; approved setup links are signed and expire after 7 days.
@@ -25,12 +26,16 @@
 - The verified email is treated as the authoritative primary contact email when the tenant workspace is created.
 - Public onboarding only collects cooperative profile details; policy defaults are created server-side during workspace bootstrap.
 - Tenant-admin onboarding collects and hashes the first workspace password before tenant bootstrap creates the owner user.
+- Cooperative setup requires a globally unique 3–5-letter alphabetic prefix. It is normalized to uppercase, carried inside the signed verification payload, rechecked during bootstrap, and becomes the stable prefix for cooperative access codes and new member numbers.
 
 ## UI Flow
 
 - Marketing homepage: launch and prelaunch modes share one responsive public experience. The hero leads with trustworthy cooperative records, the sample workspace demonstrates collections, financing safeguards, approvals, and member-visible statements, and the remaining sections explain operating areas, setup, migration, trust, and pricing without invented customer or traction claims.
+- Marketing presentation is versioned independently from launch stage and early-access policy. `MARKETING_EXPERIENCE` selects a typed experience, the production route falls back to `organic-trust-v1` when the requested experience is unknown or not production-ready, and `/preview/marketing/<experience>` renders registered draft experiences for review. Non-production previews are directly available; production previews require the exact `MARKETING_EXPERIENCE_PREVIEW_TOKEN` query token and are marked `noindex`.
+- Every marketing experience consumes the same `isLaunchReady`, `quickFill`, and `signupHref` contract, so a visual redesign cannot fork early-access submission, signup routing, QA Quick Fill, or tenant-onboarding behavior.
 - Production CTAs point to the early access request section instead of direct signup. Launch-ready environments may use the same page structure while sending the primary action to cooperative setup.
 - Public marketing presentation uses the Organic Trust direction: warm off-white surfaces, deep navy editorial typography, restrained cooperative green, subtle ledger grids, and domain-shaped product previews. It must remain inclusive and operator-focused and must not imply that Halaalvest is a lender, bank, or custodian of member funds.
+- The `ramp-v2` presentation is a distinct Ramp-inspired experience rather than an alias of Organic Trust. It uses oversized sans-serif headlines, dotted neutral canvases, electric-lime and periwinkle feature surfaces, squared product frames, a dark trust section, and responsive cooperative workspace, collection, approval, statement, audit, and migration previews. It retains the shared signup target, early-access form, Quick Fill context, plan facts, inclusive posture, and lender/custodian disclaimers.
 - Public marketing links expose an absolute 1200×630 Open Graph image plus matching Open Graph and Twitter title/description metadata, so supported messaging and social clients render a branded Halaalvest preview instead of a text-only link.
 - The homepage keeps pricing concise, while `/pricing` preserves the five-plan capacity bands, feature availability matrix, and fee-separation principles for detailed comparison.
 - Early access form: collect cooperative name, cooperative admin name/email, phone, current member-size range, current record system, target setup timeline, one or more setup areas, and an optional additional note with `useZodForm`; the form explains that this admin receives the setup link and becomes the first workspace owner, and submitting sends platform admins the approval email.
@@ -42,6 +47,7 @@
 - Success state: show the verification email draft and, in dev mode, a direct continue link.
 - `/onboarding?token=...`: validate the token and its still-available cooperative/workspace identity server-side, prefill verified contact details, and submit the simplified cooperative profile with `useZodForm`.
 - Onboarding fields now focus on cooperative name, current size range, office address, city, state, country, cooperative start date, and admin password setup.
+- Signup presents the required cooperative prefix beside the first admin member number, checks it with name/subdomain availability, and explains the resulting account code. Development Quick Fill supplies a valid uppercase prefix and never bypasses the same API checks.
 - `/settings/profile`: presents the persisted tenant profile as always-visible flat identity, office-location, and regional-setting sections. Summary cards are desktop-only, while authorized administrators edit the coupled profile fields from one URL-owned, full-width mobile sheet. The finance start date remains read-only in this workflow and points administrators to Finance Setup because it controls migration calculations.
 - Completion state: show dashboard/site hostnames and a workspace-ready email draft; in development, the Get Started action offers the supported tenant URL variants for local routing checks.
 - After successful workspace creation, the completion state removes the bearer token from browser history. If the completed page is restored through the browser back-forward cache, it reloads the token-free URL into the expired-link state.
@@ -65,9 +71,12 @@
 - Signup verification and onboarding workspace emails are now persisted in `notification_outbox`, which supports nullable `tenantId` so pre-tenant verification delivery can be tracked durably.
 - Tenant-scoped workspace-ready email outcomes are still mirrored into `audit_logs` using `notification.email_sent|queued|failed` actions for operational history inside the tenant workspace.
 - `apps/marketing/.env.example` documents `MARKETING_EARLY_ACCESS_ENABLED`, `SIGNUP_TOKEN_SECRET`, `EARLY_ACCESS_TOKEN_SECRET`, and `MARKETING_ADMIN_EMAILS` for production-safe signing and approval routing.
+- `apps/marketing/.env.example` also documents `MARKETING_EXPERIENCE` and the production-only `MARKETING_EXPERIENCE_PREVIEW_TOKEN`. Promoting or rolling back a production landing experience is an environment change; registered draft experiences remain blocked by the code-owned production-readiness policy.
 - Cooperative profile details beyond tenant name and primary contact are persisted on the tenant record as `currentSize`, `officeAddress`, `city`, `state`, `country`, and `startDate`; `currentSize` is selected from shared range options and stored as the existing representative integer, while `region` is mirrored from `state` for older readers.
 - Dashboard profile edits reuse the existing role-gated, tenant-scoped `updateCooperativeProfileAction` and audited `updateTenantProfile` query. Successful sheet saves close the URL workflow and refresh the server-owned profile snapshot; no profile API or database contract changed in the 2026-08-03 settings-page completion pass.
 - The onboarding API hashes the submitted admin password and stores it on the owner user created during `createTenantWorkspaceBootstrap`.
+- Bootstrap stores `Tenant.cooperativeCodePrefix`, derives the legacy-compatible member-number prefix as `<PREFIX>-`, and assigns the first owner a globally unique cooperative access code composed from that prefix and verified member number.
+- Existing tenants/users keep nullable prefix/access-code fields until a reviewed collision-aware backfill. The distinct prefix field is intentional because legacy free-form member-number prefixes such as `MEM-` are not globally tenant-identifying.
 
 ## Permissions
 
@@ -83,9 +92,11 @@
 - Expired or malformed early access approval tokens should block approval and show a clear browser response.
 - Early-access-gated `/signup` without a valid approval token should redirect to the early access request form, not expose the direct setup form.
 - Duplicate cooperative name-derived slug or primary contact email should return a user-readable onboarding error.
+- Duplicate cooperative prefixes should return a user-readable conflict both during availability checking and authoritative bootstrap.
 - Production must set an explicit token secret instead of using the development fallback.
 
 ## Open Questions
 
 - Whether outbox delivery should later move to an async background worker instead of synchronous route-time sending.
 - Whether the onboarding completion flow should also mint a real authenticated session into the dashboard.
+- How legacy tenant prefixes are assigned, collision-reviewed, communicated, and made immutable before cooperative-code authentication is enabled for those accounts.

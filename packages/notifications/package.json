@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./client": "./src/client.ts",
     "./qa-preview-flash": "./src/qa-preview-flash.ts",
     "./server": "./src/server.ts"
   },
@@ -21,6 +22,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@halaalvest/domain": "workspace:*",
     "@halaalvest/email": "workspace:*",
     "zod": "^4.1.11"
   }

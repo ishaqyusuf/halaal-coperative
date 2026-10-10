@@ -1,5 +1,10 @@
 import { useQueryStates } from "nuqs"
-import { createLoader, parseAsArrayOf, parseAsString } from "nuqs/server"
+import {
+  createLoader,
+  parseAsArrayOf,
+  parseAsString,
+  parseAsStringEnum,
+} from "nuqs/server"
 import { hasActiveFilters } from "@/lib/filters/utils"
 
 export type ContributionsFilterParams = {
@@ -7,13 +12,19 @@ export type ContributionsFilterParams = {
   dateRange: string[] | null
   memberId: string | null
   search: string | null
+  view: "collections" | "commitments" | "ledger" | null
 }
 
-export const contributionsFilterParamsSchema = {
+export const contributionsLedgerFilterParamsSchema = {
   channel: parseAsString,
   dateRange: parseAsArrayOf(parseAsString),
   memberId: parseAsString,
   search: parseAsString,
+}
+
+export const contributionsFilterParamsSchema = {
+  ...contributionsLedgerFilterParamsSchema,
+  view: parseAsStringEnum(["ledger", "commitments", "collections"]),
 }
 
 export function useContributionsFilterParams() {
@@ -26,7 +37,7 @@ export function useContributionsFilterParams() {
 
   return {
     filters,
-    hasFilters: hasActiveFilters(filters, { ignoreKeys: ["search"] }),
+    hasFilters: hasActiveFilters(filters, { ignoreKeys: ["view"] }),
     setFilters,
   }
 }

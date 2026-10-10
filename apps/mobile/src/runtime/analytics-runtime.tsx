@@ -1,3 +1,5 @@
+import { setProductAnalyticsClient } from "@/lib/analytics"
+import { useAuthContext } from "@/hooks/use-auth"
 import { createNativeAnalytics } from "@halaalvest/events/native"
 import * as SecureStore from "expo-secure-store"
 import { useSegments } from "expo-router"
@@ -10,6 +12,13 @@ const keyFor = (key: string) => key.replaceAll(":", ".")
 const createAnalyticsId = () => Crypto.randomUUID()
 
 export function AnalyticsRuntime() {
+  const { profile, initializing, refreshSession } = useAuthContext()
+  const context = profile?.analyticsContext
+  const trackingAllowed =
+    !initializing &&
+    (!profile || (profile.analyticsEnabled === true && !profile.qaAuthorized))
+  const permission = useRef(trackingAllowed)
+  permission.current = trackingAllowed
   const segments = useSegments()
   const route =
     "/" +
@@ -22,6 +31,7 @@ export function AnalyticsRuntime() {
 
   useEffect(() => {
     if (
+      !trackingAllowed ||
       Platform.OS !== "android" ||
       Constants.expoConfig?.extra?.appVariant !== "production" ||
       process.env.EXPO_PUBLIC_LOGLY_ENABLED !== "true" ||
@@ -33,6 +43,8 @@ export function AnalyticsRuntime() {
     const analytics = createNativeAnalytics({
       endpoint,
       enabled: true,
+      permission: () => permission.current,
+      context: context ?? null,
       appVersion: Constants.nativeAppVersion ?? undefined,
       appBuild: Constants.nativeBuildVersion ?? undefined,
       createId: createAnalyticsId,
@@ -46,7 +58,6 @@ export function AnalyticsRuntime() {
     })
     client.current = analytics
     analytics.init()
-    analytics.trackPageView({ route: latestRoute.current })
     const listener = AppState.addEventListener("change", (state) => {
       if (state === "active") {
         analytics.trackPageView({ route: latestRoute.current })
@@ -55,14 +66,58 @@ export function AnalyticsRuntime() {
     })
     return () => {
       listener.remove()
-      void analytics.flush().finally(() => analytics.destroy())
+      setProductAnalyticsClient(null)
+      analytics.destroy()
       client.current = null
     }
-  }, [])
+  }, [
+    trackingAllowed,
+    profile?.user.id,
+    profile?.tenant.id,
+    profile?.activeMembershipId,
+  ])
 
   useEffect(() => {
+    client.current?.setContext(context ?? null)
+    setProductAnalyticsClient(client.current)
     client.current?.trackPageView({ route })
-  }, [route])
+  }, [
+    context,
+    initializing,
+    route,
+    trackingAllowed,
+    profile?.user.id,
+    profile?.tenant.id,
+    profile?.activeMembershipId,
+  ])
+
+  useEffect(() => {
+    if (initializing) return
+    if (profile && profile.analyticsEnabled === undefined) {
+      void refreshSession(true).catch(() => {})
+      return
+    }
+    if (!context || !client.current) return
+    const refresh = () => {
+      if (context.expiresAt - Date.now() <= 60_000)
+        void refreshSession(true).catch(() => {})
+    }
+    refresh()
+    const timer = setInterval(refresh, 60_000)
+    const listener = AppState.addEventListener("change", (state) => {
+      if (state === "active") refresh()
+    })
+    return () => {
+      clearInterval(timer)
+      listener.remove()
+    }
+  }, [
+    context,
+    initializing,
+    profile?.analyticsEnabled,
+    trackingAllowed,
+    refreshSession,
+  ])
 
   return null
 }

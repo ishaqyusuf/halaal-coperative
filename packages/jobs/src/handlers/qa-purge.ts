@@ -7,6 +7,7 @@ import {
   type QaMaintenanceCounts,
 } from "@halaalvest/db"
 import { deleteQaUploads } from "../qa-upload-storage"
+import { deleteQaPrivateUploads } from "../qa-private-blob-storage"
 import {
   deleteQaHostingDomains,
   getQaHostingCredentialBlocker,
@@ -45,11 +46,12 @@ export async function qaPurgeHandler({ runId }: QaPurgePayload) {
   for (const tenant of snapshot.tenants) {
     try {
       const uploads = await deleteQaUploads(tenant.id)
+      const privateUploads = await deleteQaPrivateUploads(tenant.id)
       await deleteQaHostingDomains(tenant.hostnames)
       await deleteQaTenant(tenant.id)
       deletedCounts.workspaces += 1
-      deletedCounts.files += uploads.files
-      deletedCounts.fileBytes += uploads.fileBytes
+      deletedCounts.files += uploads.files + privateUploads.files
+      deletedCounts.fileBytes += uploads.fileBytes + privateUploads.fileBytes
     } catch (error) {
       errors.push(error instanceof Error ? error.name : "unknown_error")
     }

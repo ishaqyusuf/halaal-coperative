@@ -95,6 +95,7 @@
   - `savings_first` sends the remainder to extra savings.
   - `loan_first` sends the remainder to extra loan payoff when a loan is selected, otherwise it falls back to savings.
 - Loan repayments are allocated across the earliest unpaid schedule items first.
+- Direct repayment posting serializes the outstanding-balance claim, allocation, loan decrement, repayment evidence, ledger entry, and audit record in one retry-bounded transaction; an arbitrary client-selected installment cannot redirect the authoritative allocation.
 - Approval does not guarantee disbursement; disbursement can still be blocked when actual deployable funds are below the approved principal.
 - Savings allocations increase `Member.totalSavingsSnapshot`.
 - Loan allocations reduce `Loan.outstandingPrincipal`.
@@ -107,10 +108,15 @@
 - `apps/dashboard/app/payment-receipts/page.tsx`
 - `apps/dashboard/app/loans/page.tsx`
 - `apps/dashboard/app/repayments/page.tsx`
+- `/repayments` is a finance-only, URL-owned Collections/Schedule/History workspace. It mounts one bounded query at a time, uses exact selected-record details, hides summary metrics on small screens, and replaces the desktop table with flat divided mobile items plus bottom-sheet filters and full-screen workflows.
 - `/reports/special-savings-export` exports rows where `Contribution.extraSavingsAmount` is above zero.
-- `/contributions` now includes a current-month staged contribution section sourced from generated monthly-record member rows.
-- `/contributions` includes a Collection Source batch posting panel when the Operation Profile enables source batch posting for staff.
-- Contribution and repayment date filters share the GND Sales Orders preset-and-range control and canonical `dateRange` URL tuple. Each workspace resolves the tuple to its existing contribution-date or repayment-due-date query boundaries, and the contribution current-month staged-row rule uses the same resolver.
+- `/contributions` is a URL-owned Ledger/Commitments/Collections workspace. Only the active view mounts its data surface; the ledger uses one server-prefetched bounded query, while commitment and collection actions remain focused, audited workflows.
+- The dashboard review keeps Ledger/Commitments/Collections in one flat, labelled tab panel, settles URL state before switching the visible server-owned lane, and keeps desktop filters anchored while mobile uses a full-screen workflow plus a flat shadcn filter drawer.
+- Filtered empty states no longer duplicate the toolbar's clear action. Mobile sort choices are one divided radio group instead of bordered option cards, and filter apply/clear waits for URL state before dismissing the drawer.
+- Contribution Quick Fill uses the current UTC accounting date and month, generates a fresh reference, and derives its total from the available allocation targets. When no active loan exists, scheduled and extra loan fields remain empty and disabled rather than preparing an invalid loan allocation.
+- Authenticated Portless QA exercised ledger filters, Ledger/Commitments tab ownership, the full-screen payment and commitment forms through valid populated drafts, and responsive boundaries at 360, 767, 768, and 1440 pixels. No payment or commitment was submitted during the review because both create financial/member obligations.
+- The Collections view appears only when the Operation Profile enables Collection Source batch posting for staff. Current-month staged due records remain owned by `/monthly-records` instead of being duplicated beside the posted contribution ledger.
+- Contribution and repayment date filters share the GND Sales Orders preset-and-range control and canonical `dateRange` URL tuple. Each workspace resolves the tuple to its existing contribution-date or repayment-due-date query boundaries.
 - Staff and member navigation hides disabled, unused Operation Profile service paths while preserving routes that have existing records or pending work.
 - Mobile member home and More surfaces use Operation Profile service visibility for receipts, procurement, Foodstuff Purchase, and support tiles/sections.
 - `/monthly-records` labels pending monthly-record member rows as staged for operators.
@@ -119,6 +125,25 @@
 
 - Receipt allocation entry is available to both staff and linked members, while finance approval remains staff-controlled.
 - Tenant-site publishing is intentionally outside this feature scope for now.
-- Staged monthly rows remain non-posted until a staff action applies them. They appear on the contributions screen only when the date filter is set to the current month.
+- Staged monthly rows remain non-posted until a staff action applies them and are reviewed from `/monthly-records`; `/contributions` shows posted ledger evidence only.
 - Collection Source batch rows remain non-posted until finance staff mark selected rows collected and post them. The tenant/source/period uniqueness guard prevents duplicate source batches for the same month.
 - Payment receipts remain non-posted until finance approval. Approved receipt rows link back to posted contribution/repayment/share records where applicable, and procurement allocations target the schedule row they service.
+
+## Mobile staff operations
+
+- 2026-09-07 source-only refinement: the workspace/payment B/B designs and six
+  additional five-option decisions use flat member/history rows, feature-owned
+  identity/choice primitives, explicit review labels and role-gated commands.
+  Workspace summary totals are server-owned; cursor loading retains existing
+  rows on failure and ignores stale requests. Draft storage includes the target
+  member/row. Collection period is a month calendar, not separate typed values.
+  Tests and native acceptance for this refinement are deferred by the user;
+  historical Ticket 19 evidence below is not new validation.
+
+- Ticket 19 adds the feature-owned `/contributions` mobile staff workspace with mutually exclusive Ledger, Commitments, and Collections lanes. Only the active lane loads; exact member and batch details are independent server reads.
+- `view_contribution_operations` permits every signed staff role to inspect the tenant ledger, commitments, and Collection Source batches. `manage_member_contributions` permits staff commitment, allocation-preference, and individual-payment work. `manage_collection_source_batches` is restricted to finance roles.
+- Long commitment, payment, and batch forms use same-window full-screen keyboard-safe sheets. Compact row corrections, confirmations, reviews, and success evidence use the shared content-aware floating bottom sheet. Browse rows and data-entry forms never share one screen surface.
+- Reads are tenant-scoped and may use visibly stale cache. Every write is disabled offline or on stale data, requires deliberate review, and sends server-owned expected-state plus a tenant-scoped UUID command receipt.
+- Commands use payload fingerprints so an identical retry returns the canonical result while reuse of a command id with different intent fails closed. Posting remains transactional, ledger-compatible, Operation Profile gated, audited, and server-authoritative.
+- Development fixtures and Quick Fill remain build/runtime guarded. Errors use sanitized Sentry source `mobile.contribution_operations`.
+- Pixel 3a API 34 development-client evidence covers populated Light/Dark lanes, full-screen and compact forms, both single-line and multiline keyboard avoidance, confirmations, success, QA-only batch staging, and a QA-only collected-row update. No local financial posting was executed. The manifest is `.scratch/mobile-architecture-hardening-and-feature-completion/screenshots/ticket-19/review-2026-08-30/README.md`.

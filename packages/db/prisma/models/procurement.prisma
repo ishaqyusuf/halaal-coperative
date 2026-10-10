@@ -3,6 +3,7 @@ model ProcurementRequest {
   tenantId                               String                   @map("tenant_id") @db.Uuid
   memberId                               String                   @map("member_id") @db.Uuid
   createdByUserId                        String                   @map("created_by_user_id") @db.Uuid
+  submissionKey                          String?                  @map("submission_key")
   reviewedByUserId                       String?                  @map("reviewed_by_user_id") @db.Uuid
   itemName                               String                   @map("item_name")
   itemDescription                        String?                  @map("item_description")
@@ -34,6 +35,7 @@ model ProcurementRequest {
   repaymentScheduleItems ProcurementRepaymentScheduleItem[]
   openingBalanceSource   MemberOpeningBalance?              @relation("MemberOpeningBalanceAppliedProcurement")
 
+  @@unique([tenantId, submissionKey], map: "procurement_requests_tenant_submission_key")
   @@index([tenantId, status, requestedAt], map: "procurement_requests_tenant_status_requested_idx")
   @@index([tenantId, memberId, status], map: "procurement_requests_tenant_member_status_idx")
   @@map("procurement_requests")

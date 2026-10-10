@@ -250,7 +250,7 @@ function SortButton({
 }) {
   return (
     <Button
-      className="min-w-0 max-w-full space-x-2 p-0 hover:bg-transparent"
+      className="max-w-full min-w-0 space-x-2 p-0 hover:bg-transparent"
       onClick={(event) => {
         event.stopPropagation()
         onSort(sortField)

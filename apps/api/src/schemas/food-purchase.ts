@@ -8,6 +8,17 @@ const foodPurchaseApplicationStatusSchema = z.enum([
   "under_review",
 ])
 
+export const foodPurchaseApplicationReviewStatusSchema = z.enum([
+  "approved",
+  "rejected",
+  "under_review",
+])
+
+export const foodPurchaseAccountingReviewDecisionSchema = z.enum([
+  "approved",
+  "rejected",
+])
+
 const foodPurchaseApplicationSortFieldSchema = z.enum([
   "approvedAmount",
   "itemDescription",

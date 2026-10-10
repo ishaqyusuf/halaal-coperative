@@ -15,7 +15,7 @@ import {
 } from "@halaalvest/domain"
 import { createPrismaClient } from "../prisma"
 import { isPrismaMissingColumnError } from "../prisma-errors"
-import { ExpectedQueryError } from "../query-error"
+import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
 import { getTenantInitialMigrationState } from "./migration"
 import { readOptionalTenantBusinessPolicy } from "./tenant-business-policy"
@@ -208,6 +208,13 @@ export type MemberShareApplicationStatus =
   | "approved"
   | "rejected"
   | "cancelled"
+
+const memberShareApplicationStatuses = new Set<MemberShareApplicationStatus>([
+  "approved",
+  "cancelled",
+  "pending",
+  "rejected",
+])
 
 export type MemberShareApplicationRow = {
   approvedUnits: number | null
@@ -519,6 +526,33 @@ function assertPositiveInteger(value: number, label: string) {
       `${label} must be a positive whole number.`
     )
   }
+}
+
+async function runSerializableTransactionWithRetry<T>(
+  prisma: PrismaClient,
+  callback: (tx: PrismaClient) => Promise<T>,
+  failureMessage: string
+) {
+  const maxAttempts = 3
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return (await prisma.$transaction(callback as never, {
+        isolationLevel: "Serializable",
+        maxWait: 5_000,
+        timeout: 15_000,
+      })) as T
+    } catch (error) {
+      if (
+        (error as { code?: string } | null)?.code !== "P2034" ||
+        attempt === maxAttempts
+      ) {
+        throw error
+      }
+    }
+  }
+
+  throw new QueryInfrastructureError(failureMessage)
 }
 
 function resolveShareUnitSettingsForMode(
@@ -2122,11 +2156,11 @@ export async function findMemberShareApplication(
 function getMemberShareApplicationOrderBy(
   sort?: [MemberShareApplicationSortField, "asc" | "desc"] | null
 ): Prisma.MemberShareApplicationOrderByWithRelationInput[] {
-  if (!sort) {
-    return [{ createdAt: "desc" }, { id: "desc" }]
-  }
+  const [field, direction] = normalizeMemberShareApplicationSort(sort)
 
-  const [field, direction] = sort
+  if (field === "createdAt") {
+    return [{ createdAt: direction }, { id: "desc" }]
+  }
 
   if (field === "memberName") {
     return [
@@ -2136,7 +2170,197 @@ function getMemberShareApplicationOrderBy(
     ]
   }
 
+  if (field === "reviewedAt") {
+    return [
+      { reviewedAt: { nulls: "last", sort: direction } },
+      { createdAt: "desc" },
+      { id: "desc" },
+    ]
+  }
+
   return [{ [field]: direction }, { createdAt: "desc" }, { id: "desc" }]
+}
+
+type MemberShareApplicationPageCursor = {
+  createdAt: string
+  id: string
+  memberName: string
+  requestedUnits: number
+  reviewedAt: string | null
+  shareValueSnapshot: number
+  sortDirection: "asc" | "desc"
+  sortField: MemberShareApplicationSortField
+  status: MemberShareApplicationStatus
+}
+
+function normalizeMemberShareApplicationSort(
+  sort?: [MemberShareApplicationSortField, "asc" | "desc"] | null
+) {
+  return (sort ?? ["createdAt", "desc"]) as [
+    MemberShareApplicationSortField,
+    "asc" | "desc",
+  ]
+}
+
+function encodeMemberShareApplicationPageCursor(
+  cursor: MemberShareApplicationPageCursor
+) {
+  return Buffer.from(JSON.stringify(cursor)).toString("base64url")
+}
+
+function decodeMemberShareApplicationPageCursor(
+  value: string,
+  sort?: [MemberShareApplicationSortField, "asc" | "desc"] | null
+) {
+  try {
+    const cursor = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8")
+    ) as MemberShareApplicationPageCursor
+    const [sortField, sortDirection] = normalizeMemberShareApplicationSort(sort)
+
+    if (
+      !cursor ||
+      cursor.sortField !== sortField ||
+      cursor.sortDirection !== sortDirection ||
+      typeof cursor.id !== "string" ||
+      typeof cursor.memberName !== "string" ||
+      typeof cursor.requestedUnits !== "number" ||
+      typeof cursor.shareValueSnapshot !== "number" ||
+      !memberShareApplicationStatuses.has(cursor.status) ||
+      (typeof cursor.reviewedAt !== "string" && cursor.reviewedAt !== null) ||
+      Number.isNaN(new Date(cursor.createdAt).getTime()) ||
+      (cursor.reviewedAt !== null &&
+        Number.isNaN(new Date(cursor.reviewedAt).getTime()))
+    ) {
+      throw ExpectedQueryError.validation("Invalid cursor")
+    }
+
+    return cursor
+  } catch {
+    throw ExpectedQueryError.validation(
+      "Share application list cursor is invalid."
+    )
+  }
+}
+
+export function createMemberShareApplicationPageCursor(
+  application: MemberShareApplicationRow,
+  sort?: [MemberShareApplicationSortField, "asc" | "desc"] | null
+) {
+  const [sortField, sortDirection] = normalizeMemberShareApplicationSort(sort)
+
+  return encodeMemberShareApplicationPageCursor({
+    createdAt: application.createdAt.toISOString(),
+    id: application.id,
+    memberName: application.memberName,
+    requestedUnits: application.requestedUnits,
+    reviewedAt: application.reviewedAt?.toISOString() ?? null,
+    shareValueSnapshot: application.shareValueSnapshot,
+    sortDirection,
+    sortField,
+    status: application.status,
+  })
+}
+
+function memberShareApplicationCursorComparison<
+  T extends Date | number | string,
+>(value: T, direction: "asc" | "desc") {
+  return direction === "asc" ? { gt: value } : { lt: value }
+}
+
+function getMemberShareApplicationPageKeysetWhere(input: {
+  cursor: MemberShareApplicationPageCursor
+  sort?: [MemberShareApplicationSortField, "asc" | "desc"] | null
+}): Prisma.MemberShareApplicationWhereInput {
+  const [sortField, sortDirection] = normalizeMemberShareApplicationSort(
+    input.sort
+  )
+  const { cursor } = input
+  const createdAt = new Date(cursor.createdAt)
+  const idAfter = { id: { lt: cursor.id } }
+
+  if (sortField === "createdAt") {
+    return {
+      OR: [
+        {
+          createdAt: memberShareApplicationCursorComparison(
+            createdAt,
+            sortDirection
+          ),
+        },
+        { AND: [{ createdAt }, idAfter] },
+      ],
+    }
+  }
+
+  const createdAtTieBreak = {
+    OR: [{ createdAt: { lt: createdAt } }, { AND: [{ createdAt }, idAfter] }],
+  }
+
+  if (sortField === "memberName") {
+    return {
+      OR: [
+        {
+          member: {
+            is: {
+              fullName: memberShareApplicationCursorComparison(
+                cursor.memberName,
+                sortDirection
+              ),
+            },
+          },
+        },
+        {
+          AND: [
+            { member: { is: { fullName: cursor.memberName } } },
+            createdAtTieBreak,
+          ],
+        },
+      ],
+    }
+  }
+
+  if (sortField === "reviewedAt") {
+    const reviewedAt = cursor.reviewedAt ? new Date(cursor.reviewedAt) : null
+    const primaryAfter = reviewedAt
+      ? {
+          OR: [
+            {
+              reviewedAt: memberShareApplicationCursorComparison(
+                reviewedAt,
+                sortDirection
+              ),
+            },
+            { reviewedAt: null },
+          ],
+        }
+      : null
+
+    return {
+      OR: [
+        ...(primaryAfter ? [primaryAfter] : []),
+        {
+          AND: [{ reviewedAt }, createdAtTieBreak],
+        },
+      ],
+    }
+  }
+
+  const primaryValue = cursor[sortField]
+
+  return {
+    OR: [
+      {
+        [sortField]: memberShareApplicationCursorComparison(
+          primaryValue,
+          sortDirection
+        ),
+      },
+      {
+        AND: [{ [sortField]: primaryValue }, createdAtTieBreak],
+      },
+    ],
+  }
 }
 
 function getMemberShareApplicationWhere(
@@ -2179,16 +2403,34 @@ export async function listMemberShareApplicationPage(
   prismaOverride?: PrismaClient
 ): Promise<{
   data: MemberShareApplicationRow[]
-  meta: { cursor?: string; total: number }
+  meta: { cursor?: string; hasNextPage: boolean; total: number }
 }> {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
-  if (!prisma) return { data: [], meta: { total: 0 } }
+  if (!prisma) return { data: [], meta: { hasNextPage: false, total: 0 } }
 
   const pageSize = input.pageSize ?? 50
+  if (!Number.isInteger(pageSize) || pageSize <= 0 || pageSize > 100) {
+    throw ExpectedQueryError.validation(
+      "Share application page size must be between 1 and 100."
+    )
+  }
   const where = getMemberShareApplicationWhere(input)
+  const cursor = input.cursor
+    ? decodeMemberShareApplicationPageCursor(input.cursor, input.sort)
+    : null
+  const pageWhere = cursor
+    ? {
+        AND: [
+          where,
+          getMemberShareApplicationPageKeysetWhere({
+            cursor,
+            sort: input.sort,
+          }),
+        ],
+      }
+    : where
   const [applications, total] = await Promise.all([
     prisma.memberShareApplication.findMany({
-      cursor: input.cursor ? { id: input.cursor } : undefined,
       include: {
         member: {
           select: {
@@ -2199,18 +2441,25 @@ export async function listMemberShareApplicationPage(
         },
       },
       orderBy: getMemberShareApplicationOrderBy(input.sort),
-      skip: input.cursor ? 1 : 0,
-      take: pageSize,
-      where,
+      take: pageSize + 1,
+      where: pageWhere,
     }),
     prisma.memberShareApplication.count({ where }),
   ])
 
+  const data = applications
+    .slice(0, pageSize)
+    .map(normalizeMemberShareApplication)
+  const hasNextPage = applications.length > pageSize
+
   return {
-    data: applications.map(normalizeMemberShareApplication),
+    data,
     meta: {
       cursor:
-        applications.length === pageSize ? applications.at(-1)?.id : undefined,
+        hasNextPage && data.at(-1)
+          ? createMemberShareApplicationPageCursor(data.at(-1)!, input.sort)
+          : undefined,
+      hasNextPage,
       total,
     },
   }
@@ -2300,6 +2549,7 @@ export async function reviewMemberShareApplication(
     approvedUnits?: number
     decision: "approved" | "rejected"
     effectiveDate?: Date
+    expectedStatus?: MemberShareApplicationStatus
     reviewNotes?: string | null
     tenantId: string
   },
@@ -2314,168 +2564,184 @@ export async function reviewMemberShareApplication(
     )
   }
 
-  const application = await prisma.memberShareApplication.findFirst({
-    include: {
-      member: {
-        select: {
-          email: true,
-          fullName: true,
-          memberNumber: true,
-        },
-      },
-    },
-    where: {
-      id: input.applicationId,
-      tenantId: input.tenantId,
-    },
-  })
-
-  if (!application) {
-    throw ExpectedQueryError.notFound("Share application was not found.")
-  }
-
-  if (application.status !== "pending") {
-    throw ExpectedQueryError.conflict(
-      "Only pending share applications can be reviewed."
-    )
-  }
-
   const reviewedAt = new Date()
   const reviewNotes = input.reviewNotes?.trim() || null
 
-  if (input.decision === "rejected") {
-    const rejectedApplication = await prisma.memberShareApplication.update({
-      data: {
-        approvedUnits: null,
-        reviewedAt,
-        reviewedByUserId: input.actorUserId ?? null,
-        reviewNotes,
-        status: "rejected",
-      },
-      include: {
-        member: {
-          select: {
-            email: true,
-            fullName: true,
-            memberNumber: true,
+  return runSerializableTransactionWithRetry(
+    prisma,
+    async (tx: any) => {
+      const application = await tx.memberShareApplication.findFirst({
+        include: {
+          member: {
+            select: {
+              email: true,
+              fullName: true,
+              memberNumber: true,
+            },
           },
         },
-      },
-      where: { id: application.id },
-    })
-
-    await createOptionalAuditLogEntry(
-      {
-        action: "member_share_application.rejected",
-        actorType: "user",
-        actorUserId: input.actorUserId ?? null,
-        entityId: application.id,
-        entityType: "MemberShareApplication",
-        metadata: {
-          memberId: application.memberId,
-          requestedUnits: Number(application.requestedUnits),
-          reviewNotes,
+        where: {
+          id: input.applicationId,
+          tenantId: input.tenantId,
         },
-        tenantId: input.tenantId,
-      },
-      prisma
-    )
+      })
 
-    return normalizeMemberShareApplication(rejectedApplication)
-  }
+      if (!application) {
+        throw ExpectedQueryError.notFound("Share application was not found.")
+      }
 
-  const policy = await assertUnitShareApplicationModelSelected(
-    input.tenantId,
-    prisma
-  )
-  const approvedUnits =
-    input.approvedUnits ?? Number(application.requestedUnits)
-  assertPositiveInteger(approvedUnits, "Approved share units")
+      if (input.expectedStatus && application.status !== input.expectedStatus) {
+        throw ExpectedQueryError.conflict(
+          `Share application changed from ${input.expectedStatus} to ${application.status}. Refresh before reviewing.`
+        )
+      }
 
-  if (approvedUnits > Number(application.requestedUnits)) {
-    throw ExpectedQueryError.validation(
-      "Approved share units cannot exceed requested units."
-    )
-  }
+      if (application.status !== "pending") {
+        throw ExpectedQueryError.conflict(
+          "Only pending share applications can be reviewed."
+        )
+      }
 
-  const totals = await getMemberShareApplicationUnitTotals(
-    {
-      excludeApplicationId: application.id,
-      memberId: application.memberId,
-      tenantId: input.tenantId,
-    },
-    prisma
-  )
+      const nextStatus = input.decision === "approved" ? "approved" : "rejected"
+      const approvedUnits =
+        input.decision === "approved"
+          ? (input.approvedUnits ?? Number(application.requestedUnits))
+          : null
 
-  if (
-    policy.compulsoryShareUnits + totals.approvedOptionalUnits + approvedUnits >
-    policy.maximumShareUnits
-  ) {
-    throw ExpectedQueryError.validation(
-      "Approved shares would exceed the member share cap."
-    )
-  }
+      if (approvedUnits !== null) {
+        assertPositiveInteger(approvedUnits, "Approved share units")
+        if (approvedUnits > Number(application.requestedUnits)) {
+          throw ExpectedQueryError.validation(
+            "Approved share units cannot exceed requested units."
+          )
+        }
 
-  const approvedAmount = roundCurrency(
-    approvedUnits * Number(application.unitAmountSnapshot)
-  )
+        const [policy, totals] = await Promise.all([
+          assertUnitShareApplicationModelSelected(input.tenantId, tx),
+          getMemberShareApplicationUnitTotals(
+            {
+              excludeApplicationId: application.id,
+              memberId: application.memberId,
+              tenantId: input.tenantId,
+            },
+            tx
+          ),
+        ])
 
-  return prisma.$transaction(async (tx: any) => {
-    const approvedApplication = await tx.memberShareApplication.update({
-      data: {
-        approvedUnits,
-        reviewedAt,
-        reviewedByUserId: input.actorUserId ?? null,
-        reviewNotes,
-        status: "approved",
-      },
-      include: {
-        member: {
-          select: {
-            email: true,
-            fullName: true,
-            memberNumber: true,
-          },
-        },
-      },
-      where: { id: application.id },
-    })
+        if (
+          policy.compulsoryShareUnits +
+            totals.approvedOptionalUnits +
+            approvedUnits >
+          policy.maximumShareUnits
+        ) {
+          throw ExpectedQueryError.validation(
+            "Approved shares would exceed the member share cap."
+          )
+        }
+      }
 
-    await createMemberShareLedgerEntry(
-      {
-        amount: approvedAmount,
-        createdByUserId: input.actorUserId ?? undefined,
-        effectiveDate: input.effectiveDate ?? reviewedAt,
-        memberId: application.memberId,
-        notes: reviewNotes ?? "Approved optional share application",
-        sourceId: application.id,
-        sourceType: "share_application",
-        tenantId: input.tenantId,
-      },
-      tx
-    )
-
-    await createOptionalAuditLogEntry(
-      {
-        action: "member_share_application.approved",
-        actorType: "user",
-        actorUserId: input.actorUserId ?? null,
-        entityId: application.id,
-        entityType: "MemberShareApplication",
-        metadata: {
-          approvedAmount,
+      const claim = await tx.memberShareApplication.updateMany({
+        data: {
           approvedUnits,
-          memberId: application.memberId,
-          requestedUnits: Number(application.requestedUnits),
-          unitAmountSnapshot: Number(application.unitAmountSnapshot),
+          reviewedAt,
+          reviewedByUserId: input.actorUserId ?? null,
+          reviewNotes,
+          status: nextStatus,
         },
-        tenantId: input.tenantId,
-      },
-      tx
-    )
+        where: {
+          id: application.id,
+          status: "pending",
+          tenantId: input.tenantId,
+        },
+      })
 
-    return normalizeMemberShareApplication(approvedApplication)
-  })
+      if (claim.count !== 1) {
+        throw ExpectedQueryError.conflict(
+          "Only pending share applications can be reviewed."
+        )
+      }
+
+      const reviewedApplication = await tx.memberShareApplication.findFirst({
+        include: {
+          member: {
+            select: {
+              email: true,
+              fullName: true,
+              memberNumber: true,
+            },
+          },
+        },
+        where: { id: application.id, tenantId: input.tenantId },
+      })
+
+      if (!reviewedApplication) {
+        throw new QueryInfrastructureError(
+          "Reviewed share application could not be reloaded."
+        )
+      }
+
+      if (approvedUnits === null) {
+        await createOptionalAuditLogEntry(
+          {
+            action: "member_share_application.rejected",
+            actorType: "user",
+            actorUserId: input.actorUserId ?? null,
+            entityId: application.id,
+            entityType: "MemberShareApplication",
+            metadata: {
+              memberId: application.memberId,
+              requestedUnits: Number(application.requestedUnits),
+              reviewNotes,
+            },
+            tenantId: input.tenantId,
+          },
+          tx
+        )
+
+        return normalizeMemberShareApplication(reviewedApplication)
+      }
+
+      const approvedAmount = roundCurrency(
+        approvedUnits * Number(application.unitAmountSnapshot)
+      )
+
+      await createMemberShareLedgerEntry(
+        {
+          amount: approvedAmount,
+          createdByUserId: input.actorUserId ?? undefined,
+          effectiveDate: input.effectiveDate ?? reviewedAt,
+          memberId: application.memberId,
+          notes: reviewNotes ?? "Approved optional share application",
+          sourceId: application.id,
+          sourceType: "share_application",
+          tenantId: input.tenantId,
+        },
+        tx
+      )
+
+      await createOptionalAuditLogEntry(
+        {
+          action: "member_share_application.approved",
+          actorType: "user",
+          actorUserId: input.actorUserId ?? null,
+          entityId: application.id,
+          entityType: "MemberShareApplication",
+          metadata: {
+            approvedAmount,
+            approvedUnits,
+            memberId: application.memberId,
+            requestedUnits: Number(application.requestedUnits),
+            unitAmountSnapshot: Number(application.unitAmountSnapshot),
+          },
+          tenantId: input.tenantId,
+        },
+        tx
+      )
+
+      return normalizeMemberShareApplication(reviewedApplication)
+    },
+    "Could not safely complete the share application review transaction"
+  )
 }
 
 export async function listTenantShareStructureVersions(
@@ -2715,6 +2981,19 @@ export async function updateChargeDefinitionVersion(
 
     if (!existing) {
       throw ExpectedQueryError.notFound("Charge version not found")
+    }
+
+    const applicationCount = await tx.chargeApplication.count({
+      where: {
+        chargeDefinitionId: existing.chargeDefinitionId,
+        tenantId: input.tenantId,
+      },
+    })
+
+    if (applicationCount > 0) {
+      throw ExpectedQueryError.conflict(
+        "Charge versions with member applications are immutable. Add a new dated version instead."
+      )
     }
 
     const chargeValueType =
@@ -4128,6 +4407,7 @@ async function rebuildDividendPeriodAllocationsFromPublishedProfit(
 export async function publishShareProfitAllocations(
   input: {
     actorUserId?: string | null
+    expectedStatus?: "approved"
     tenantId: string
     profitEntryId: string
   },
@@ -4144,11 +4424,24 @@ export async function publishShareProfitAllocations(
       },
       include: {
         allocations: true,
+        linkedDividendPeriod: {
+          select: {
+            status: true,
+          },
+        },
       },
     })
 
     if (!profitEntry) {
       throw ExpectedQueryError.notFound("Business profit entry not found")
+    }
+    if (
+      input.expectedStatus &&
+      profitEntry.status !== input.expectedStatus
+    ) {
+      throw ExpectedQueryError.conflict(
+        "Only approved profit entries can be published. Refresh and review the current state."
+      )
     }
     await assertBusinessProfitMutationOpen(
       { sourceType: profitEntry.sourceType, tenantId: input.tenantId },
@@ -4159,10 +4452,35 @@ export async function publishShareProfitAllocations(
         "Link this profit entry to a dividend period before publishing."
       )
     }
+    if (
+      input.expectedStatus &&
+      profitEntry.linkedDividendPeriod?.status !== "approved"
+    ) {
+      throw ExpectedQueryError.precondition(
+        "The linked profit period must be approved before publication."
+      )
+    }
     if (profitEntry.allocations.length === 0) {
       throw ExpectedQueryError.precondition(
         "Generate share profit allocations before publishing."
       )
+    }
+
+    if (input.expectedStatus) {
+      const claim = await tx.shareBusinessProfitEntry.updateMany({
+        data: { status: "completed" },
+        where: {
+          id: input.profitEntryId,
+          status: input.expectedStatus,
+          tenantId: input.tenantId,
+        },
+      })
+
+      if (claim.count !== 1) {
+        throw ExpectedQueryError.conflict(
+          "The profit entry changed before publication. Refresh and try again."
+        )
+      }
     }
 
     await tx.shareProfitAllocation.updateMany({
@@ -4197,6 +4515,7 @@ export async function publishShareProfitAllocations(
           dividendPeriodId: profitEntry.linkedDividendPeriodId,
           dividendPeriodPublished:
             periodAllocationSummary.allLinkedEntriesPublished,
+          profitEntryCompleted: Boolean(input.expectedStatus),
           periodAllocationCount: periodAllocationSummary.periodAllocationCount,
           periodAllocationTotal: periodAllocationSummary.periodAllocationTotal,
         },

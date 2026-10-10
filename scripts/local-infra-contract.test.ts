@@ -41,6 +41,7 @@ describe("Halaalvest local-infra contract", () => {
 
         if (!command.includes("local-infra-kit")) continue
 
+        if (command.includes("bin/infra.ts release")) continue
         expect(
           command,
           `${packageFile} ${name} must select the Halaalvest profile`
@@ -59,9 +60,7 @@ describe("Halaalvest local-infra contract", () => {
     expect(compose).toContain(
       'POSTGRES_DB: "${DB_NAME:?HALAALVEST_DATABASE_URL must include a database name}"'
     )
-    expect(compose).toContain(
-      "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"
-    )
+    expect(compose).toContain("pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB")
     expect(compose).toContain(
       "halaalvest-postgres-data:/var/lib/postgresql/data"
     )

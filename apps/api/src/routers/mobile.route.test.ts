@@ -69,6 +69,34 @@ describe("mobileRouter", () => {
     )
   })
 
+  test("returns dedicated member commitments for the active member workspace", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    const commitments = await caller.mobile.member.commitments()
+
+    expect(commitments.key).toBe("commitments")
+    expect(commitments.generatedAt).toEqual(expect.any(String))
+    expect(commitments.stats.map((stat) => stat.key)).toEqual([
+      "active-commitment",
+      "savings",
+      "special-savings",
+      "contributions",
+    ])
+    expect(commitments.rows[0]?.key).toBe("member-profile")
+  })
+
+  test("rejects dedicated member commitments from a staff workspace", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(caller.mobile.member.commitments()).rejects.toThrow(
+      "Switch to the member workspace"
+    )
+  })
+
   test("returns member more hub for the active member workspace", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin-member",
@@ -123,6 +151,30 @@ describe("mobileRouter", () => {
     )
   })
 
+  test("keeps member statement export self-scoped and rejects staff workspaces", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      caller.mobile.member.statementExport({
+        requestId: "00000000-0000-4000-8000-000000000927",
+      })
+    ).rejects.toThrow("Switch to the member workspace")
+  })
+
+  test("fails member statement export closed when entitlements are unavailable", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.statementExport({
+        requestId: "00000000-0000-4000-8000-000000000928",
+      })
+    ).rejects.toThrow("You do not have permission")
+  })
+
   test("returns member sections for the active member workspace", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin-member",
@@ -159,6 +211,49 @@ describe("mobileRouter", () => {
     ).rejects.toThrow()
   })
 
+  test("returns bounded member activity without a database runtime", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    for (const kind of ["commitments", "shares", "statement"] as const) {
+      const page = await caller.mobile.member.activity({ kind, limit: 20 })
+
+      expect(page).toMatchObject({
+        items: [],
+        kind,
+        nextCursor: null,
+        state: "database_unavailable",
+      })
+    }
+  })
+
+  test("rejects member activity from a staff workspace", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      caller.mobile.member.activity({ kind: "statement" })
+    ).rejects.toThrow("Switch to the member workspace")
+  })
+
+  test("validates member activity kind, cursor, and page size", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.activity({ kind: "receipts" } as never)
+    ).rejects.toThrow()
+    await expect(
+      caller.mobile.member.activity({ kind: "statement", limit: 51 })
+    ).rejects.toThrow()
+    await expect(
+      caller.mobile.member.activity({ cursor: "", kind: "statement" })
+    ).rejects.toThrow()
+  })
+
   test("returns member financing for the active member workspace", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin-member",
@@ -183,13 +278,127 @@ describe("mobileRouter", () => {
     )
   })
 
-  test("validates member financing request create input", async () => {
+  test("validates member financing quote input", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin-member",
     })
 
     await expect(
+      caller.mobile.member.financing.quote({
+        loanProductId: "",
+        requestedAmount: 1000,
+        requestedTermMonths: 3,
+      })
+    ).rejects.toThrow()
+    await expect(
+      caller.mobile.member.financing.quote({
+        loanProductId: "loan-product-1",
+        requestedAmount: 0,
+        requestedTermMonths: 3,
+      })
+    ).rejects.toThrow()
+    await expect(
+      caller.mobile.member.financing.quote({
+        loanProductId: "loan-product-1",
+        requestedAmount: 1000,
+        requestedTermMonths: 0,
+      })
+    ).rejects.toThrow()
+  })
+
+  test("rejects member financing quote without a database runtime", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.financing.quote({
+        extraMonthlySavingsAmount: 100,
+        loanProductId: "loan-product-1",
+        requestedAmount: 1000,
+        requestedTermMonths: 3,
+      })
+    ).rejects.toThrow()
+  })
+
+  test("rejects member financing quote when the active workspace is staff", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      caller.mobile.member.financing.quote({
+        loanProductId: "loan-product-1",
+        requestedAmount: 1000,
+        requestedTermMonths: 3,
+      })
+    ).rejects.toThrow("Switch to the member workspace")
+  })
+
+  test("returns a bounded financing request page without a database runtime", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.financing.requests({ pageSize: 20 })
+    ).resolves.toEqual({
+      data: [],
+      nextCursor: null,
+      state: "database_unavailable",
+    })
+  })
+
+  test("validates member financing request page input", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.financing.requests({ cursor: "" })
+    ).rejects.toThrow()
+    await expect(
+      caller.mobile.member.financing.requests({ pageSize: 51 })
+    ).rejects.toThrow()
+  })
+
+  test("rejects member financing request pages from a staff workspace", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      caller.mobile.member.financing.requests({ pageSize: 20 })
+    ).rejects.toThrow("Switch to the member workspace")
+  })
+
+  test("validates and role-scopes member financing request details", async () => {
+    const memberCaller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+    const staffCaller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      memberCaller.mobile.member.financing.request({ loanRequestId: "" })
+    ).rejects.toThrow()
+    await expect(
+      staffCaller.mobile.member.financing.request({
+        loanRequestId: "loan-request-1",
+      })
+    ).rejects.toThrow("Switch to the member workspace")
+  })
+
+  test("validates member financing request create input", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+    const chargeQuoteHash = "a".repeat(64)
+
+    await expect(
       caller.mobile.member.financing.createRequest({
+        chargeQuoteHash,
         loanProductId: "",
         requestedAmount: 1000,
         requestedTermMonths: 3,
@@ -198,6 +407,7 @@ describe("mobileRouter", () => {
 
     await expect(
       caller.mobile.member.financing.createRequest({
+        chargeQuoteHash,
         loanProductId: "loan-product-1",
         requestedAmount: 0,
         requestedTermMonths: 3,
@@ -206,9 +416,19 @@ describe("mobileRouter", () => {
 
     await expect(
       caller.mobile.member.financing.createRequest({
+        chargeQuoteHash,
         loanProductId: "loan-product-1",
         requestedAmount: 1000,
         requestedTermMonths: 0,
+      })
+    ).rejects.toThrow()
+
+    await expect(
+      caller.mobile.member.financing.createRequest({
+        chargeQuoteHash: "invalid",
+        loanProductId: "loan-product-1",
+        requestedAmount: 1000,
+        requestedTermMonths: 3,
       })
     ).rejects.toThrow()
   })
@@ -220,6 +440,7 @@ describe("mobileRouter", () => {
 
     await expect(
       caller.mobile.member.financing.createRequest({
+        chargeQuoteHash: "a".repeat(64),
         extraMonthlySavingsAmount: 100,
         loanProductId: "loan-product-1",
         purpose: "Emergency cooperative financing",
@@ -294,6 +515,7 @@ describe("mobileRouter", () => {
         itemName: "Rice bags",
         requestedCost: 1000,
         requestedRepaymentMonths: 3,
+        submissionKey: "00000000-0000-4000-8000-000000000101",
         vendorName: "Market vendor",
       })
     ).rejects.toThrow("Procurement requests are unavailable")
@@ -322,10 +544,41 @@ describe("mobileRouter", () => {
     )
   })
 
+  test("validates and member-scopes project financing charge quotes", async () => {
+    const memberCaller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+    const staffCaller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      memberCaller.mobile.member.projectFinancing.quote({ requestedAmount: 0 })
+    ).rejects.toThrow()
+    await expect(
+      staffCaller.mobile.member.projectFinancing.quote({
+        requestedAmount: 1000,
+      })
+    ).rejects.toThrow("Switch to the member workspace")
+    await expect(
+      memberCaller.mobile.member.projectFinancing.quote({
+        requestedAmount: 1000,
+      })
+    ).rejects.toThrow("Project financing is unavailable")
+  })
+
   test("validates member project financing request create input", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin-member",
     })
+
+    await expect(
+      caller.mobile.member.projectFinancing.createRequest({
+        businessName: "Market kiosk",
+        requestedAmount: 1000,
+        submissionKey: "00000000-0000-4000-8000-000000000105",
+      })
+    ).rejects.toThrow("Review the information provided")
 
     await expect(
       caller.mobile.member.projectFinancing.createRequest({
@@ -356,6 +609,25 @@ describe("mobileRouter", () => {
         requestedPaybackMonths: 0,
       })
     ).rejects.toThrow()
+
+    await expect(
+      caller.mobile.member.projectFinancing.createRequest({
+        businessName: "Market kiosk",
+        proposedStructure: "repayable_facility",
+        requestedAmount: 1000,
+        submissionKey: "00000000-0000-4000-8000-000000000102",
+      })
+    ).rejects.toThrow("Review the information provided")
+
+    await expect(
+      caller.mobile.member.projectFinancing.createRequest({
+        businessName: "Market kiosk",
+        proposedStructure: "profit_sharing",
+        requestedAmount: 1000,
+        requestedPaybackMonths: 3,
+        submissionKey: "00000000-0000-4000-8000-000000000103",
+      })
+    ).rejects.toThrow("Review the information provided")
   })
 
   test("rejects member project financing request create without a database runtime", async () => {
@@ -367,10 +639,12 @@ describe("mobileRouter", () => {
       caller.mobile.member.projectFinancing.createRequest({
         businessDescription: "Community food supply expansion.",
         businessName: "Market kiosk",
+        chargeQuoteHash: "a".repeat(64),
         projectPurpose: "Restock inventory",
         proposedStructure: "repayable_facility",
         requestedAmount: 1000,
         requestedPaybackMonths: 3,
+        submissionKey: "00000000-0000-4000-8000-000000000104",
       })
     ).rejects.toThrow("Project financing requests are unavailable")
   })
@@ -442,8 +716,74 @@ describe("mobileRouter", () => {
         requestedAmount: 1000,
         requestedPaybackMonths: 1,
         requestNotes: "Needed for household supplies.",
+        submissionKey: "00000000-0000-4000-8000-000000000105",
       })
     ).rejects.toThrow("Foodstuff Purchase applications are unavailable")
+  })
+
+  test("returns bounded cooperative-service history pages and scoped details", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    const [procurement, foodPurchase, projectFinancing] = await Promise.all([
+      caller.mobile.member.procurement.requests({ pageSize: 20 }),
+      caller.mobile.member.foodPurchase.applications({ pageSize: 20 }),
+      caller.mobile.member.projectFinancing.requests({ pageSize: 20 }),
+    ])
+
+    for (const page of [procurement, foodPurchase, projectFinancing]) {
+      expect(page.state).toBe("database_unavailable")
+      expect(page.data).toEqual([])
+      expect(page.nextCursor).toBeNull()
+    }
+
+    await expect(
+      caller.mobile.member.procurement.request({
+        procurementRequestId: "00000000-0000-4000-8000-000000000201",
+      })
+    ).resolves.toBeNull()
+    await expect(
+      caller.mobile.member.foodPurchase.application({
+        foodPurchaseApplicationId: "00000000-0000-4000-8000-000000000202",
+      })
+    ).resolves.toBeNull()
+    await expect(
+      caller.mobile.member.projectFinancing.request({
+        projectFinancingRequestId: "00000000-0000-4000-8000-000000000203",
+      })
+    ).resolves.toBeNull()
+  })
+
+  test("rejects invalid and staff cooperative-service history access", async () => {
+    const memberCaller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+    const staffCaller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      memberCaller.mobile.member.procurement.requests({ pageSize: 51 })
+    ).rejects.toThrow()
+    await expect(
+      memberCaller.mobile.member.foodPurchase.applications({ cursor: "" })
+    ).rejects.toThrow()
+    await expect(
+      memberCaller.mobile.member.projectFinancing.request({
+        projectFinancingRequestId: "not-a-uuid",
+      })
+    ).rejects.toThrow()
+
+    await expect(
+      staffCaller.mobile.member.procurement.requests({ pageSize: 20 })
+    ).rejects.toThrow("Switch to the member workspace")
+    await expect(
+      staffCaller.mobile.member.foodPurchase.applications({ pageSize: 20 })
+    ).rejects.toThrow("Switch to the member workspace")
+    await expect(
+      staffCaller.mobile.member.projectFinancing.requests({ pageSize: 20 })
+    ).rejects.toThrow("Switch to the member workspace")
   })
 
   test("returns member guarantor approvals for the active member workspace", async () => {
@@ -453,6 +793,7 @@ describe("mobileRouter", () => {
 
     const approvals = await caller.mobile.member.guarantorApprovals.list()
 
+    expect(approvals.state).toBe("database_unavailable")
     expect(approvals.member).toBeNull()
     expect(approvals.approvals).toEqual([])
     expect(approvals.summary.pendingApprovals).toBe(0)
@@ -475,6 +816,7 @@ describe("mobileRouter", () => {
 
     await expect(
       caller.mobile.member.guarantorApprovals.respond({
+        decisionConfirmed: true,
         guarantorApprovalId: "",
         status: "approved",
       })
@@ -482,8 +824,24 @@ describe("mobileRouter", () => {
 
     await expect(
       caller.mobile.member.guarantorApprovals.respond({
+        decisionConfirmed: true,
         guarantorApprovalId: "approval-1",
         status: "pending" as never,
+      })
+    ).rejects.toThrow()
+
+    await expect(
+      caller.mobile.member.guarantorApprovals.respond({
+        guarantorApprovalId: "approval-1",
+        status: "approved",
+      } as never)
+    ).rejects.toThrow()
+
+    await expect(
+      caller.mobile.member.guarantorApprovals.respond({
+        decisionConfirmed: true,
+        guarantorApprovalId: "approval-1",
+        status: "rejected",
       })
     ).rejects.toThrow()
   })
@@ -495,6 +853,7 @@ describe("mobileRouter", () => {
 
     await expect(
       caller.mobile.member.guarantorApprovals.respond({
+        decisionConfirmed: true,
         guarantorApprovalId: "approval-1",
         notes: "I consent to this request.",
         status: "approved",
@@ -512,7 +871,50 @@ describe("mobileRouter", () => {
     expect(shares.state).toBe("database_unavailable")
     expect(shares.member).toBeNull()
     expect(shares.applications).toEqual([])
+    expect(shares.applicationNextCursor).toBeNull()
+    expect(shares.applicationTotal).toBe(0)
     expect(shares.section.key).toBe("shares")
+  })
+
+  test("returns a bounded member share application page", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    const page = await caller.mobile.member.shares.applications({
+      cursor: null,
+      pageSize: 20,
+    })
+
+    expect(page).toEqual({
+      data: [],
+      nextCursor: null,
+      state: "database_unavailable",
+      total: 0,
+    })
+  })
+
+  test("rejects member share application pages from staff workspaces", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      caller.mobile.member.shares.applications({ pageSize: 20 })
+    ).rejects.toThrow("Switch to the member workspace")
+  })
+
+  test("validates member share application page inputs", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.shares.applications({ pageSize: 51 })
+    ).rejects.toThrow()
+    await expect(
+      caller.mobile.member.shares.applications({ cursor: "" })
+    ).rejects.toThrow()
   })
 
   test("rejects member shares when the active workspace is staff", async () => {
@@ -557,9 +959,24 @@ describe("mobileRouter", () => {
 
     const receipts = await caller.mobile.member.receipts.list()
 
+    expect(receipts.canCreateReceipt).toBe(false)
+    expect(receipts.canCreateSupportCase).toBe(false)
+    expect(receipts.categories).toEqual([])
     expect(receipts.member).toBeNull()
+    expect(receipts.nextCursor).toBeNull()
     expect(receipts.receipts).toEqual([])
+    expect(receipts.state).toBe("database_unavailable")
     expect(receipts.summary.pendingReviewReceipts).toBe(0)
+  })
+
+  test("validates member receipt pagination input", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.receipts.list({ cursor: "" })
+    ).rejects.toThrow()
   })
 
   test("rejects member receipts when the active workspace is staff", async () => {
@@ -570,6 +987,22 @@ describe("mobileRouter", () => {
     await expect(caller.mobile.member.receipts.list()).rejects.toThrow(
       "Switch to the member workspace"
     )
+  })
+
+  test("validates and role-scopes member receipt details", async () => {
+    const memberCaller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+    const staffCaller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      memberCaller.mobile.member.receipts.detail({ receiptId: "" })
+    ).rejects.toThrow()
+    await expect(
+      staffCaller.mobile.member.receipts.detail({ receiptId: "receipt-1" })
+    ).rejects.toThrow("Switch to the member workspace")
   })
 
   test("validates member receipt create input", async () => {
@@ -619,9 +1052,22 @@ describe("mobileRouter", () => {
 
     const support = await caller.mobile.member.support.list()
 
+    expect(support.canCreateCase).toBe(false)
     expect(support.member).toBeNull()
+    expect(support.nextCursor).toBeNull()
     expect(support.cases).toEqual([])
+    expect(support.state).toBe("database_unavailable")
     expect(support.summary.openCases).toBe(0)
+  })
+
+  test("validates member support pagination input", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.support.list({ cursor: "" })
+    ).rejects.toThrow()
   })
 
   test("rejects member support list when the active workspace is staff", async () => {
@@ -716,6 +1162,40 @@ describe("mobileRouter", () => {
     ).rejects.toThrow("Support is unavailable")
   })
 
+  test("validates member support detail input", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.support.detail({ supportCaseId: "" })
+    ).rejects.toThrow()
+  })
+
+  test("rejects member support detail when the active workspace is staff", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      caller.mobile.member.support.detail({
+        supportCaseId: "support-case-1",
+      })
+    ).rejects.toThrow("Switch to the member workspace")
+  })
+
+  test("rejects member support detail without a database runtime", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.support.detail({
+        supportCaseId: "support-case-1",
+      })
+    ).rejects.toThrow("Support is unavailable")
+  })
+
   test("returns admin member directory for staff workspaces", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin",
@@ -755,7 +1235,7 @@ describe("mobileRouter", () => {
     })
 
     await expect(caller.mobile.admin.members.list()).rejects.toThrow(
-      "This action requires operations_officer role or above."
+      "You do not have permission to perform this action."
     )
   })
 
@@ -768,7 +1248,26 @@ describe("mobileRouter", () => {
       caller.mobile.admin.members.detail({
         memberId: "member-amanah-missing",
       })
-    ).rejects.toThrow("This action requires operations_officer role or above.")
+    ).rejects.toThrow("You do not have permission to perform this action.")
+  })
+
+  test("rejects admin member lifecycle access from finance-only staff", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-barakah-finance",
+      tenantId: "tenant-barakah-demo",
+      userId: "user-finance-barakah",
+    })
+
+    await expect(caller.mobile.admin.members.list()).rejects.toThrow(
+      "You do not have permission to perform this action."
+    )
+    await expect(
+      caller.mobile.admin.members.updateKyc({
+        kycReviewNotes: "Finance staff must not review member KYC.",
+        kycStatus: "verified",
+        memberId: "member-1",
+      })
+    ).rejects.toThrow("You do not have permission to perform this action.")
   })
 
   test("validates admin member detail input", async () => {
@@ -883,10 +1382,10 @@ describe("mobileRouter", () => {
 
     const finance = await caller.mobile.admin.finance.overview()
 
-    expect(finance.collectionFollowUps).toEqual([])
+    expect(finance.items).toEqual([])
     expect(finance.generatedAt).toEqual(expect.any(String))
-    expect(finance.recentItems).toEqual([])
-    expect(finance.stats.map((stat) => stat.key)).toEqual(["finance-queues"])
+    expect(finance.state).toBe("database_unavailable")
+    expect(finance.stats.map((stat) => stat.key)).toEqual(["visible-work"])
   })
 
   test("rejects admin finance overview from the member workspace", async () => {
@@ -895,7 +1394,7 @@ describe("mobileRouter", () => {
     })
 
     await expect(caller.mobile.admin.finance.overview()).rejects.toThrow(
-      "This action requires operations_officer role or above."
+      "You do not have permission"
     )
   })
 
@@ -927,10 +1426,12 @@ describe("mobileRouter", () => {
 
     await expect(
       caller.mobile.admin.finance.reviewFinancingRequest({
+        commandId: "00000000-0000-4000-8000-000000000901",
+        expectedState: "submitted",
         loanRequestId: "loan-request-1",
         status: "under_review",
       })
-    ).rejects.toThrow("This action requires finance_officer role or above.")
+    ).rejects.toThrow("You do not have permission")
   })
 
   test("routes admin finance review mutations through the database runtime", async () => {
@@ -940,46 +1441,58 @@ describe("mobileRouter", () => {
 
     await expect(
       caller.mobile.admin.finance.reviewReceipt({
+        commandId: "00000000-0000-4000-8000-000000000902",
         decision: "under_review",
+        expectedState: "submitted",
         receiptId: "receipt-1",
       })
-    ).rejects.toThrow("Receipt review is unavailable")
+    ).rejects.toThrow("Something went wrong. Please try again.")
 
     await expect(
       caller.mobile.admin.finance.reviewFinancingRequest({
+        commandId: "00000000-0000-4000-8000-000000000903",
+        expectedState: "submitted",
         loanRequestId: "loan-request-1",
         status: "under_review",
       })
-    ).rejects.toThrow("Financing request review is unavailable")
+    ).rejects.toThrow("Something went wrong. Please try again.")
 
     await expect(
       caller.mobile.admin.finance.reviewProcurementRequest({
+        commandId: "00000000-0000-4000-8000-000000000904",
+        expectedState: "submitted",
         procurementRequestId: "procurement-1",
         status: "under_review",
       })
-    ).rejects.toThrow("Procurement request review is unavailable")
+    ).rejects.toThrow("Something went wrong. Please try again.")
 
     await expect(
       caller.mobile.admin.finance.reviewFoodPurchaseApplication({
         applicationId: "food-application-1",
+        commandId: "00000000-0000-4000-8000-000000000905",
+        expectedState: "submitted",
         status: "under_review",
       })
-    ).rejects.toThrow("Foodstuff Purchase review is unavailable")
+    ).rejects.toThrow("Something went wrong. Please try again.")
 
     await expect(
       caller.mobile.admin.finance.reviewProjectFinancingRequest({
+        commandId: "00000000-0000-4000-8000-000000000906",
+        expectedState: "submitted",
         projectFinancingRequestId: "project-1",
         status: "under_review",
       })
-    ).rejects.toThrow("Project financing review is unavailable")
+    ).rejects.toThrow("Something went wrong. Please try again.")
 
     await expect(
       caller.mobile.admin.finance.recordCollectionFollowUp({
+        commandId: "00000000-0000-4000-8000-000000000907",
+        expectedState: "overdue",
         note: "Called member and agreed next action.",
         repaymentScheduleItemId: "schedule-1",
         status: "reminded",
       })
-    ).rejects.toThrow("Collection follow-up is unavailable")
+    ).rejects.toThrow("Something went wrong. Please try again.")
   })
 
   test("returns admin reports overview for staff workspaces", async () => {
@@ -992,10 +1505,7 @@ describe("mobileRouter", () => {
     expect(reports.activityEvents).toEqual([])
     expect(reports.collectionFollowUps).toEqual([])
     expect(reports.generatedAt).toEqual(expect.any(String))
-    expect(reports.reports.map((report) => report.key)).toContain("members")
-    expect(reports.reports.map((report) => report.exportHref)).toContain(
-      "/reports/members-export"
-    )
+    expect(reports.reports).toEqual([])
     expect(reports.stats.map((stat) => stat.key)).toEqual(["report-count"])
   })
 
@@ -1005,8 +1515,37 @@ describe("mobileRouter", () => {
     })
 
     await expect(caller.mobile.admin.reports.overview()).rejects.toThrow(
-      "This action requires operations_officer role or above."
+      "You do not have permission"
     )
+  })
+
+  test("rejects report generation and activity from member workspaces", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.admin.reports.activity({ limit: 25 })
+    ).rejects.toThrow("You do not have permission")
+    await expect(
+      caller.mobile.admin.reports.generate({
+        key: "members",
+        requestId: "00000000-0000-4000-8000-000000000929",
+      })
+    ).rejects.toThrow("You do not have permission")
+  })
+
+  test("fails audit export closed when report entitlements are unavailable", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+
+    await expect(
+      caller.mobile.admin.reports.generate({
+        key: "audit",
+        requestId: "00000000-0000-4000-8000-000000000930",
+      })
+    ).rejects.toThrow("You do not have permission")
   })
 
   test("returns admin access overview for tenant admin workspaces", async () => {
@@ -1034,7 +1573,7 @@ describe("mobileRouter", () => {
     })
 
     await expect(caller.mobile.admin.access.overview()).rejects.toThrow(
-      "This action requires tenant_admin role or above."
+      "You do not have permission"
     )
   })
 
@@ -1044,7 +1583,7 @@ describe("mobileRouter", () => {
     })
 
     await expect(caller.mobile.admin.access.overview()).rejects.toThrow(
-      "This action requires tenant_admin role or above."
+      "You do not have permission"
     )
   })
 
@@ -1075,7 +1614,7 @@ describe("mobileRouter", () => {
         fullName: "New Operations Officer",
         role: "operations_officer",
       })
-    ).rejects.toThrow("This action requires tenant_admin role or above.")
+    ).rejects.toThrow("You do not have permission")
   })
 
   test("rejects super admin mobile invitations", async () => {
@@ -1098,11 +1637,14 @@ describe("mobileRouter", () => {
     })
 
     await expect(
-      caller.mobile.admin.access.reviewShareApplication({
+      caller.mobile.admin.finance.reviewShareApplication({
         applicationId: "share-application-1",
+        commandId: "00000000-0000-4000-8000-000000000908",
         decision: "rejected",
+        expectedState: "pending",
+        reviewNotes: "Rejected after reviewing member capacity.",
       })
-    ).rejects.toThrow("Share application review is unavailable")
+    ).rejects.toThrow("Something went wrong. Please try again.")
   })
 
   test("routes admin support mutations through the database runtime", async () => {
@@ -1112,17 +1654,22 @@ describe("mobileRouter", () => {
 
     await expect(
       caller.mobile.admin.support.reply({
+        commandId: "00000000-0000-4000-8000-000000000909",
+        expectedState: "open",
         message: "We are reviewing this.",
         supportCaseId: "support-1",
       })
-    ).rejects.toThrow("Support reply is unavailable")
+    ).rejects.toThrow("Something went wrong. Please try again.")
 
     await expect(
       caller.mobile.admin.support.updateStatus({
+        commandId: "00000000-0000-4000-8000-000000000910",
+        expectedState: "open",
+        resolutionSummary: "Reviewing the member evidence.",
         status: "in_progress",
         supportCaseId: "support-1",
       })
-    ).rejects.toThrow("Support status update is unavailable")
+    ).rejects.toThrow("Something went wrong. Please try again.")
   })
 
   test("returns mobile notifications for the active member workspace", async () => {
@@ -1141,6 +1688,7 @@ describe("mobileRouter", () => {
       queued: 0,
       sent: 0,
       totalDeliveries: 0,
+      unread: 0,
     })
   })
 
@@ -1156,36 +1704,28 @@ describe("mobileRouter", () => {
     expect(notifications.summary.totalDeliveries).toBe(0)
   })
 
-  test("routes mobile device registration through the database runtime", async () => {
+  test("validates notification read synchronization and keeps database errors redacted", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin-member",
     })
 
     await expect(
-      caller.mobile.notifications.registerDevice({
-        appVersion: "0.1.0",
-        buildVariant: "development",
-        deviceId: "mobile-test-device",
-        platform: "ios",
-        revocationState: "active",
+      caller.mobile.notifications.markRead({ deliveryIds: [] })
+    ).rejects.toThrow()
+    await expect(
+      caller.mobile.notifications.markRead({
+        deliveryIds: ["00000000-0000-4000-8000-000000000911"],
       })
-    ).rejects.toThrow("Mobile device registration is unavailable")
+    ).rejects.toThrow("Something went wrong. Please try again.")
   })
 
-  test("validates mobile device registration input", async () => {
+  test("keeps device-session rotation outside the notification boundary", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin-member",
     })
 
-    await expect(
-      caller.mobile.notifications.registerDevice({
-        appVersion: "0.1.0",
-        buildVariant: "development",
-        deviceId: "x",
-        platform: "ios",
-        revocationState: "active",
-      })
-    ).rejects.toThrow()
+    expect(caller.mobile.notifications).not.toHaveProperty("registerDevice")
+    await expect(caller.mobile.sessions.list()).rejects.toThrow()
   })
 
   test("returns admin overview for staff workspaces", async () => {
@@ -1198,10 +1738,11 @@ describe("mobileRouter", () => {
     expect(overview.stats.map((stat) => stat.key)).toEqual([
       "deployable-funds",
       "collection-coverage",
-      "action-queue",
+      "portfolio-risk",
     ])
     expect(overview.generatedAt).toEqual(expect.any(String))
-    expect(overview.supportCases).toEqual([])
+    expect(overview.complianceWatch).toEqual([])
+    expect(overview.recentActivity).toEqual([])
     expect(overview.warnings).toEqual([])
   })
 
@@ -1211,7 +1752,7 @@ describe("mobileRouter", () => {
     })
 
     await expect(caller.mobile.admin.overview()).rejects.toThrow(
-      "This action requires operations_officer role or above."
+      "You do not have permission to perform this action."
     )
   })
 })

@@ -9,7 +9,6 @@ import {
   listLoans,
   listMemberContributionPlans,
   listMemberLoans,
-  listMemberPaymentReceipts,
   listMembers,
   listProcurementRequests,
   listProjectFinancingRequests,
@@ -54,7 +53,8 @@ function buildProcurementScheduleOptions(
   return requests.flatMap((request) =>
     request.repaymentScheduleItems
       .filter((schedule) => {
-        const outstanding = Number(schedule.amount) - Number(schedule.paidAmount)
+        const outstanding =
+          Number(schedule.amount) - Number(schedule.paidAmount)
 
         return (
           payableProcurementScheduleStatuses.has(schedule.status) &&
@@ -62,7 +62,8 @@ function buildProcurementScheduleOptions(
         )
       })
       .map((schedule) => {
-        const outstanding = Number(schedule.amount) - Number(schedule.paidAmount)
+        const outstanding =
+          Number(schedule.amount) - Number(schedule.paidAmount)
 
         return {
           id: schedule.id,
@@ -183,9 +184,7 @@ function buildMemberCommitmentPlanOptions(
 
 function buildLoanOptions(loans: Awaited<ReturnType<typeof listLoans>>) {
   return loans
-    .filter((loan) =>
-      ["approved", "disbursed", "active"].includes(loan.status)
-    )
+    .filter((loan) => ["approved", "disbursed", "active"].includes(loan.status))
     .map((loan) => ({
       id: loan.id,
       label: `${loan.member.fullName} - ${loan.loanProduct.name} - ${Number(loan.outstandingPrincipal).toLocaleString("en-NG")}`,
@@ -197,9 +196,7 @@ function buildMemberLoanOptions(
   loans: Awaited<ReturnType<typeof listMemberLoans>>
 ) {
   return loans
-    .filter((loan) =>
-      ["approved", "disbursed", "active"].includes(loan.status)
-    )
+    .filter((loan) => ["approved", "disbursed", "active"].includes(loan.status))
     .map((loan) => ({
       id: loan.id,
       label: `${loan.loanProduct.name} - ${Number(
@@ -239,7 +236,6 @@ export async function loadPaymentReceiptsPageData() {
     }
 
     const [
-      receipts,
       summary,
       plans,
       loans,
@@ -249,7 +245,6 @@ export async function loadPaymentReceiptsPageData() {
       approvedProjectFinancingRequests,
       operationProfile,
     ] = await Promise.all([
-      listMemberPaymentReceipts(tenantId, { memberId: member.id }),
       getMemberScopedPaymentReceiptSummary({
         memberId: member.id,
         tenantId,
@@ -288,9 +283,8 @@ export async function loadPaymentReceiptsPageData() {
       }),
       getTenantOperationProfile(tenantId),
     ])
-    const procurementSchedules = buildProcurementScheduleOptions(
-      procurementRequests
-    )
+    const procurementSchedules =
+      buildProcurementScheduleOptions(procurementRequests)
     const foodPurchaseApplicationOptions = buildFoodPurchaseApplicationOptions(
       foodPurchaseApplications
     )
@@ -315,13 +309,11 @@ export async function loadPaymentReceiptsPageData() {
         ...activeProjectFinancingRequests,
         ...approvedProjectFinancingRequests,
       ]),
-      receipts,
       summary,
     }
   }
 
   const [
-    receipts,
     summary,
     members,
     plans,
@@ -332,7 +324,6 @@ export async function loadPaymentReceiptsPageData() {
     approvedProjectFinancingRequests,
     operationProfile,
   ] = await Promise.all([
-    listMemberPaymentReceipts(tenantId),
     getMemberPaymentReceiptSummary(tenantId),
     listMembers(tenantId, { page: 1, pageSize: 200 }),
     listContributionPlans(tenantId),
@@ -359,17 +350,18 @@ export async function loadPaymentReceiptsPageData() {
     }),
     getTenantOperationProfile(tenantId),
   ])
-  const procurementSchedules = buildProcurementScheduleOptions(
-    procurementRequests
-  )
+  const procurementSchedules =
+    buildProcurementScheduleOptions(procurementRequests)
   const foodPurchaseApplicationOptions = buildFoodPurchaseApplicationOptions(
     foodPurchaseApplications
   )
 
   return {
     state: "staff-ready" as const,
+    canCreateReceipt: operationProfile.services.payment_receipts.canStaffCreate,
     categoryOptions: buildPaymentReceiptCategoryOptions({
-      foodPurchaseAccessMode: operationProfile.services.food_purchase.accessMode,
+      foodPurchaseAccessMode:
+        operationProfile.services.food_purchase.accessMode,
       foodPurchaseApplicationsCount: foodPurchaseApplicationOptions.length,
       procurementAccessMode: operationProfile.services.procurement.accessMode,
       procurementSchedulesCount: procurementSchedules.length,
@@ -386,7 +378,6 @@ export async function loadPaymentReceiptsPageData() {
       ...activeProjectFinancingRequests,
       ...approvedProjectFinancingRequests,
     ]),
-    receipts,
     summary,
   }
 }

@@ -1,8 +1,11 @@
 enum FoodPurchaseCycleStatus {
+  draft
   open
+  intake_closed
   accounting_submitted
   accounting_approved
   accounting_rejected
+  completed
   closed
   cancelled
 }

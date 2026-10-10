@@ -15,6 +15,56 @@
   line-height: 1.65;
 }
 
+.ramp-v2 {
+  --primary: #171717;
+  --primary-foreground: #ffffff;
+  --ring: #4a8c25;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.ramp-v2 .ramp-dot-grid {
+  background-color: #f5f5ef;
+  background-image: radial-gradient(rgb(21 21 21 / 13%) 1px, transparent 1px);
+  background-size: 13px 13px;
+}
+
+.ramp-v2 ::selection {
+  color: #171717;
+  background: #dfff32;
+}
+
+.ramp-v2 .marketing-form [data-slot="card"] {
+  overflow: hidden;
+  border: 1px solid rgb(21 21 21 / 20%);
+  border-radius: 0;
+  background: #f9faf5;
+  box-shadow: 16px 16px 0 rgb(21 21 21 / 12%);
+}
+
+.ramp-v2 .marketing-form [data-slot="card-header"] {
+  border-bottom: 1px solid rgb(21 21 21 / 12%);
+  background: #ffffff;
+}
+
+.ramp-v2 .marketing-form [data-slot="card-footer"] {
+  border-top: 1px solid rgb(21 21 21 / 12%);
+  background: #ffffff;
+}
+
+.ramp-v2 .marketing-form [data-slot="input"],
+.ramp-v2 .marketing-form [data-slot="input-group"],
+.ramp-v2 .marketing-form [data-slot="select-trigger"],
+.ramp-v2 .marketing-form textarea {
+  border-color: rgb(21 21 21 / 18%);
+  border-radius: 0.35rem;
+  background: #ffffff;
+}
+
+.ramp-v2 .marketing-form [data-slot="button"] {
+  border-radius: 0.35rem;
+}
+
 .marketing-site {
   background:
     radial-gradient(circle at 92% 8%, rgb(47 154 86 / 11%), transparent 25rem),

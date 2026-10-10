@@ -1,11 +1,14 @@
 import { useQueryStates } from "nuqs"
-import { createLoader, parseAsString } from "nuqs/server"
+import { createLoader, parseAsString, parseAsStringEnum } from "nuqs/server"
 
 const chargeFilterParamsSchema = {
   frequency: parseAsString,
   q: parseAsString,
   status: parseAsString,
   valueType: parseAsString,
+  view: parseAsStringEnum(["definitions", "applications"]).withDefault(
+    "definitions"
+  ),
 }
 
 export function useChargeFilterParams() {
@@ -13,7 +16,9 @@ export function useChargeFilterParams() {
 
   return {
     filter,
-    hasFilters: Object.values(filter).some((value) => value !== null),
+    hasFilters: Boolean(
+      filter.frequency || filter.q || filter.status || filter.valueType
+    ),
     setFilter,
   }
 }

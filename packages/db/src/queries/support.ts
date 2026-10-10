@@ -1,7 +1,21 @@
+import { ExpectedQueryError } from "../query-error"
 import type { PrismaClient } from "../../generated/prisma/client"
 import { AppError } from "@halaalvest/errors"
+import { isSafeSupportAttachmentUrl } from "@halaalvest/utils"
 import { createPrismaClient } from "../prisma"
 import { createAuditLogEntry } from "./audit"
+import { claimDashboardEvidenceUploadLink } from "./dashboard-evidence-uploads"
+
+function supportAttachmentUrl(value: string | null | undefined): string | null {
+  const url = value?.trim() || null
+  if (url && !isSafeSupportAttachmentUrl(url)) {
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: "Use an HTTPS attachment link or a private upload.",
+    })
+  }
+  return url
+}
 
 export type SupportCaseStatus =
   | "open"
@@ -589,6 +603,204 @@ function getSupportCaseOrderBy(
   ]
 }
 
+type SupportCaseCursor = {
+  createdAt: string
+  direction: "asc" | "desc"
+  id: string
+  primary: string | null
+  sortField: SupportCaseSortField
+  updatedAt: string
+  version: 1
+}
+
+function encodeSupportCaseCursor(
+  supportCase: Record<string, any>,
+  sort?: [SupportCaseSortField, "asc" | "desc"] | null
+) {
+  const [sortField, direction] = sort ?? ["updatedAt", "desc"]
+  const primary =
+    sortField === "assignedToUser"
+      ? (supportCase.assignedToUser?.fullName ?? null)
+      : sortField === "latestReply"
+        ? supportCase.updatedAt
+        : sortField === "linkedRecord"
+          ? supportCase.linkedRecordType
+          : supportCase[sortField]
+
+  const cursor: SupportCaseCursor = {
+    createdAt: new Date(supportCase.createdAt).toISOString(),
+    direction,
+    id: supportCase.id,
+    primary:
+      primary instanceof Date
+        ? primary.toISOString()
+        : primary === null || primary === undefined
+          ? null
+          : String(primary),
+    sortField,
+    updatedAt: new Date(supportCase.updatedAt).toISOString(),
+    version: 1,
+  }
+
+  return Buffer.from(JSON.stringify(cursor)).toString("base64url")
+}
+
+function decodeSupportCaseCursor(
+  value: string,
+  sort?: [SupportCaseSortField, "asc" | "desc"] | null
+) {
+  const [sortField, direction] = sort ?? ["updatedAt", "desc"]
+
+  try {
+    const cursor = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8")
+    ) as Partial<SupportCaseCursor>
+
+    if (
+      cursor.version !== 1 ||
+      cursor.sortField !== sortField ||
+      cursor.direction !== direction ||
+      typeof cursor.id !== "string" ||
+      typeof cursor.createdAt !== "string" ||
+      typeof cursor.updatedAt !== "string" ||
+      (cursor.primary !== null && typeof cursor.primary !== "string") ||
+      Number.isNaN(Date.parse(cursor.createdAt)) ||
+      Number.isNaN(Date.parse(cursor.updatedAt))
+    ) {
+      throw ExpectedQueryError.validation("Invalid support case cursor")
+    }
+
+    return cursor as SupportCaseCursor
+  } catch {
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: "Support case cursor is invalid.",
+    })
+  }
+}
+
+function scalarCursorCondition(
+  field: string,
+  direction: "asc" | "desc",
+  value: string | null,
+  valueType: "date" | "string" = "string"
+) {
+  const cursorValue =
+    value !== null && valueType === "date" ? new Date(value) : value
+
+  if (cursorValue === null) {
+    return direction === "desc" ? { [field]: { not: null } } : null
+  }
+
+  const comparison = {
+    [field]: { [direction === "asc" ? "gt" : "lt"]: cursorValue },
+  }
+
+  return direction === "asc"
+    ? { OR: [comparison, { [field]: null }] }
+    : comparison
+}
+
+function scalarCursorEquality(
+  field: string,
+  value: string | null,
+  valueType: "date" | "string" = "string"
+) {
+  return {
+    [field]: value !== null && valueType === "date" ? new Date(value) : value,
+  }
+}
+
+function assigneeCursorCondition(
+  direction: "asc" | "desc",
+  value: string | null
+) {
+  if (value === null) {
+    return direction === "desc" ? { assignedToUser: { isNot: null } } : null
+  }
+
+  const comparison = {
+    assignedToUser: {
+      is: { fullName: { [direction === "asc" ? "gt" : "lt"]: value } },
+    },
+  }
+
+  return direction === "asc"
+    ? { OR: [comparison, { assignedToUser: { is: null } }] }
+    : comparison
+}
+
+function assigneeCursorEquality(value: string | null) {
+  return value === null
+    ? { assignedToUser: { is: null } }
+    : { assignedToUser: { is: { fullName: value } } }
+}
+
+function getSupportCaseCursorWhere(cursor: SupportCaseCursor) {
+  const primaryField =
+    cursor.sortField === "latestReply" || cursor.sortField === "updatedAt"
+      ? "updatedAt"
+      : cursor.sortField === "linkedRecord"
+        ? "linkedRecordType"
+        : cursor.sortField
+  const primaryType =
+    primaryField === "createdAt" || primaryField === "updatedAt"
+      ? "date"
+      : "string"
+  const primaryDirection = cursor.direction
+  const secondaryDirection =
+    cursor.sortField === "latestReply" || cursor.sortField === "updatedAt"
+      ? cursor.direction
+      : "desc"
+  const idDirection =
+    cursor.sortField === "latestReply" || cursor.sortField === "updatedAt"
+      ? cursor.direction
+      : "desc"
+  const primaryAfter =
+    cursor.sortField === "assignedToUser"
+      ? assigneeCursorCondition(primaryDirection, cursor.primary)
+      : scalarCursorCondition(
+          primaryField,
+          primaryDirection,
+          cursor.primary,
+          primaryType
+        )
+  const primaryEqual =
+    cursor.sortField === "assignedToUser"
+      ? assigneeCursorEquality(cursor.primary)
+      : scalarCursorEquality(primaryField, cursor.primary, primaryType)
+  const secondaryField =
+    cursor.sortField === "latestReply" || cursor.sortField === "updatedAt"
+      ? "createdAt"
+      : "updatedAt"
+  const secondaryValue =
+    secondaryField === "createdAt" ? cursor.createdAt : cursor.updatedAt
+
+  return {
+    OR: [
+      ...(primaryAfter ? [primaryAfter] : []),
+      {
+        AND: [
+          primaryEqual,
+          scalarCursorCondition(
+            secondaryField,
+            secondaryDirection,
+            secondaryValue,
+            "date"
+          ),
+        ],
+      },
+      {
+        AND: [
+          primaryEqual,
+          scalarCursorEquality(secondaryField, secondaryValue, "date"),
+          scalarCursorCondition("id", idDirection, cursor.id),
+        ],
+      },
+    ],
+  }
+}
+
 function getSupportCaseWhere(input: {
   assignedToUserId?: string
   category?: SupportCaseCategory
@@ -699,27 +911,31 @@ export async function listSupportCasePage(
       publicMessage: "Support case page size must be a positive whole number.",
     })
   }
-
-  const where = getSupportCaseWhere(input)
+  const cursor = input.cursor
+    ? decodeSupportCaseCursor(input.cursor, input.sort)
+    : null
+  const baseWhere = getSupportCaseWhere(input)
+  const where = cursor
+    ? { AND: [baseWhere, getSupportCaseCursorWhere(cursor)] }
+    : baseWhere
   const [supportCases, total] = await Promise.all([
     prisma.supportCase.findMany({
       include: supportCaseInclude(),
       orderBy: getSupportCaseOrderBy(input.sort),
-      ...(input.cursor
-        ? { cursor: { id: input.cursor }, skip: 1 }
-        : { skip: (page - 1) * pageSize }),
-      take: pageSize,
+      ...(cursor ? {} : { skip: (page - 1) * pageSize }),
+      take: pageSize + 1,
       where,
     }),
-    prisma.supportCase.count({ where }),
+    prisma.supportCase.count({ where: baseWhere }),
   ])
 
+  const data = supportCases.slice(0, pageSize)
   return {
-    data: supportCases.map(normalizeSupportCase),
+    data: data.map(normalizeSupportCase),
     meta: {
       cursor:
-        supportCases.length === pageSize
-          ? (supportCases.at(-1)?.id as string | undefined)
+        supportCases.length > pageSize && data.length > 0
+          ? encodeSupportCaseCursor(data[data.length - 1], input.sort)
           : undefined,
       total,
     },
@@ -887,6 +1103,7 @@ export async function createSupportCase(
     input.description,
     "Support case description"
   )
+  const attachmentUrl = supportAttachmentUrl(input.attachmentUrl)
   const priority = input.priority ?? "normal"
   const openedByAuthorType =
     input.openedByAuthorType ?? (input.openedByUserId ? "staff" : "system")
@@ -951,9 +1168,9 @@ export async function createSupportCase(
       include: supportCaseInclude(),
     })
 
-    await tx.supportCaseMessage.create({
+    const initialMessage = await tx.supportCaseMessage.create({
       data: {
-        attachmentUrl: input.attachmentUrl?.trim() || null,
+        attachmentUrl,
         authorType: openedByAuthorType,
         authorUserId: input.openedByUserId ?? null,
         message: description,
@@ -961,6 +1178,17 @@ export async function createSupportCase(
         tenantId: input.tenantId,
       },
     })
+
+    await claimDashboardEvidenceUploadLink(
+      {
+        tenantId: input.tenantId,
+        url: attachmentUrl,
+        purpose: "support_attachment",
+        entityId: initialMessage.id,
+        claimantUserId: input.openedByUserId,
+      },
+      tx
+    )
 
     await createAuditLogEntry(
       {
@@ -971,7 +1199,7 @@ export async function createSupportCase(
         entityType: "SupportCase",
         metadata: {
           assignedToUserId: input.assignedToUserId ?? null,
-          attachmentUrl: input.attachmentUrl?.trim() || null,
+          attachmentUrl,
           category: input.category,
           linkedRecordId: input.linkedRecordId ?? null,
           linkedRecordType: input.linkedRecordType ?? null,
@@ -1037,6 +1265,7 @@ export async function addSupportCaseMessage(
     attachmentUrl?: string | null
     authorType?: SupportCaseMessageAuthorType
     authorUserId?: string | null
+    expectedStatus?: SupportCaseStatus
     memberId?: string
     message: string
     supportCaseId: string
@@ -1048,6 +1277,7 @@ export async function addSupportCaseMessage(
   if (!prisma) throw new Error("Database not configured")
 
   const message = trimRequired(input.message, "Support message")
+  const attachmentUrl = supportAttachmentUrl(input.attachmentUrl)
   const authorType =
     input.authorType ?? (input.authorUserId ? "staff" : "system")
   assertChoice(authorType, supportCaseMessageAuthorTypes, "Message author type")
@@ -1062,6 +1292,13 @@ export async function addSupportCaseMessage(
   )
   const supportCase = await readSupportCase(input, prisma)
 
+  if (input.expectedStatus && supportCase.status !== input.expectedStatus) {
+    throw new AppError({
+      code: "CONFLICT",
+      publicMessage: `Support case changed from ${input.expectedStatus} to ${supportCase.status}. Refresh before replying.`,
+    })
+  }
+
   if (supportCase.status === "closed") {
     throw new AppError({
       code: "CONFLICT",
@@ -1069,43 +1306,46 @@ export async function addSupportCaseMessage(
     })
   }
 
-  const created = await prisma.supportCaseMessage.create({
-    data: {
-      attachmentUrl: input.attachmentUrl?.trim() || null,
-      authorType,
-      authorUserId: input.authorUserId ?? null,
-      message,
-      supportCaseId: input.supportCaseId,
-      tenantId: input.tenantId,
-    },
-    include: {
-      authorUser: {
-        select: {
-          email: true,
-          fullName: true,
-          id: true,
+  return prisma.$transaction(async (tx: any) => {
+    const created = await tx.supportCaseMessage.create({
+      data: {
+        attachmentUrl,
+        authorType,
+        authorUserId: input.authorUserId ?? null,
+        message,
+        supportCaseId: input.supportCaseId,
+        tenantId: input.tenantId,
+      },
+      include: {
+        authorUser: {
+          select: { email: true, fullName: true, id: true },
         },
       },
-    },
-  })
-
-  await createAuditLogEntry(
-    {
-      action: "support.message_added",
-      actorType: input.authorUserId ? "user" : "system",
-      actorUserId: input.authorUserId ?? null,
-      entityId: input.supportCaseId,
-      entityType: "SupportCase",
-      metadata: {
-        authorType,
-        messageId: created.id,
+    })
+    await claimDashboardEvidenceUploadLink(
+      {
+        tenantId: input.tenantId,
+        url: attachmentUrl,
+        purpose: "support_attachment",
+        entityId: created.id,
+        claimantUserId: input.authorUserId,
       },
-      tenantId: input.tenantId,
-    },
-    prisma
-  )
-
-  return normalizeSupportCaseMessage(created)
+      tx
+    )
+    await createAuditLogEntry(
+      {
+        action: "support.message_added",
+        actorType: input.authorUserId ? "user" : "system",
+        actorUserId: input.authorUserId ?? null,
+        entityId: input.supportCaseId,
+        entityType: "SupportCase",
+        metadata: { authorType, messageId: created.id },
+        tenantId: input.tenantId,
+      },
+      tx
+    )
+    return normalizeSupportCaseMessage(created)
+  })
 }
 
 export async function addMemberSupportCaseMessage(
@@ -1137,6 +1377,7 @@ export async function updateSupportCaseStatus(
   input: {
     actorUserId?: string | null
     assignedToUserId?: string | null
+    expectedStatus?: SupportCaseStatus
     priority?: SupportCasePriority
     requiresFinancialAdjustment?: boolean
     resolutionSummary?: string | null
@@ -1173,6 +1414,33 @@ export async function updateSupportCaseStatus(
   )
 
   const existing = await readSupportCase(input, prisma)
+
+  if (input.expectedStatus && existing.status !== input.expectedStatus) {
+    throw new AppError({
+      code: "CONFLICT",
+      publicMessage: `Support case changed from ${input.expectedStatus} to ${existing.status}. Refresh before updating it.`,
+    })
+  }
+
+  if (existing.status === "closed" && input.status !== "closed") {
+    throw new AppError({
+      code: "CONFLICT",
+      publicMessage:
+        "Closed support cases cannot be reopened. Open a new linked case instead.",
+    })
+  }
+
+  if (
+    existing.specialSavingsWithdrawal &&
+    input.status !== "resolved" &&
+    input.status !== "closed"
+  ) {
+    throw new AppError({
+      code: "CONFLICT",
+      publicMessage:
+        "A support case with a posted refund cannot return to an active status.",
+    })
+  }
   const resolutionSummary = input.resolutionSummary?.trim() || null
   const now = new Date()
   const resolving = input.status === "resolved" || input.status === "closed"
@@ -1209,41 +1477,64 @@ export async function updateSupportCaseStatus(
     })
   }
 
-  const updated = await prisma.supportCase.update({
-    data: {
-      ...(input.assignedToUserId !== undefined
-        ? { assignedToUserId: input.assignedToUserId }
-        : {}),
-      ...(input.priority ? { priority: input.priority } : {}),
-      ...(input.requiresFinancialAdjustment !== undefined
-        ? {
-            requiresFinancialAdjustment: input.requiresFinancialAdjustment,
-            financialAdjustmentApprovalNotes: input.requiresFinancialAdjustment
-              ? undefined
-              : null,
-            financialAdjustmentApprovalStatus:
-              nextFinancialAdjustmentApprovalStatus,
-            financialAdjustmentApprovedAt: input.requiresFinancialAdjustment
-              ? undefined
-              : null,
-            financialAdjustmentApprovedByUserId:
-              input.requiresFinancialAdjustment ? undefined : null,
-          }
-        : {}),
-      ...(resolutionSummary ? { resolutionSummary } : {}),
-      ...(input.status === "resolved" && !existing.resolvedAt
-        ? { resolvedAt: now }
-        : {}),
-      ...(input.status === "closed" && !existing.closedAt
-        ? { closedAt: now }
-        : {}),
-      status: input.status,
-    },
-    include: supportCaseInclude(),
+  const updateData = {
+    ...(input.assignedToUserId !== undefined
+      ? { assignedToUserId: input.assignedToUserId }
+      : {}),
+    ...(input.priority ? { priority: input.priority } : {}),
+    ...(input.requiresFinancialAdjustment !== undefined
+      ? {
+          requiresFinancialAdjustment: input.requiresFinancialAdjustment,
+          financialAdjustmentApprovalNotes: input.requiresFinancialAdjustment
+            ? undefined
+            : null,
+          financialAdjustmentApprovalStatus:
+            nextFinancialAdjustmentApprovalStatus,
+          financialAdjustmentApprovedAt: input.requiresFinancialAdjustment
+            ? undefined
+            : null,
+          financialAdjustmentApprovedByUserId: input.requiresFinancialAdjustment
+            ? undefined
+            : null,
+        }
+      : {}),
+    ...(resolutionSummary ? { resolutionSummary } : {}),
+    ...(input.status === "resolved" && !existing.resolvedAt
+      ? { resolvedAt: now }
+      : {}),
+    ...(input.status === "closed" && !existing.closedAt
+      ? { closedAt: now }
+      : {}),
+    status: input.status,
+  }
+  const claim = await prisma.supportCase.updateMany({
+    data: updateData,
     where: {
       id: input.supportCaseId,
+      status: existing.status,
+      tenantId: input.tenantId,
     },
   })
+
+  if (claim.count !== 1) {
+    throw new AppError({
+      code: "CONFLICT",
+      publicMessage:
+        "Support case changed during this update. Refresh before retrying.",
+    })
+  }
+
+  const updated = await prisma.supportCase.findFirst({
+    include: supportCaseInclude(),
+    where: { id: input.supportCaseId, tenantId: input.tenantId },
+  })
+
+  if (!updated) {
+    throw new AppError({
+      code: "NOT_FOUND",
+      publicMessage: "Support case was not found.",
+    })
+  }
 
   await createAuditLogEntry(
     {
@@ -1281,6 +1572,8 @@ export async function reviewSupportCaseFinancialAdjustment(
       SupportFinancialAdjustmentApprovalStatus,
       "not_required" | "pending"
     >
+    expectedApprovalStatus?: SupportFinancialAdjustmentApprovalStatus
+    expectedStatus?: SupportCaseStatus
     supportCaseId: string
     tenantId: string
   },
@@ -1316,6 +1609,32 @@ export async function reviewSupportCaseFinancialAdjustment(
   )
   const existing = await readSupportCase(input, prisma)
 
+  if (input.expectedStatus && existing.status !== input.expectedStatus) {
+    throw new AppError({
+      code: "CONFLICT",
+      publicMessage: `Support case changed from ${input.expectedStatus} to ${existing.status}. Refresh before reviewing it.`,
+    })
+  }
+
+  if (
+    input.expectedApprovalStatus &&
+    existing.financialAdjustmentApprovalStatus !== input.expectedApprovalStatus
+  ) {
+    throw new AppError({
+      code: "CONFLICT",
+      publicMessage:
+        "Financial adjustment evidence changed after this review opened. Refresh before deciding.",
+    })
+  }
+
+  if (existing.status === "closed" || existing.specialSavingsWithdrawal) {
+    throw new AppError({
+      code: "CONFLICT",
+      publicMessage:
+        "Financial adjustment review is not available for a completed support case.",
+    })
+  }
+
   if (!existing.requiresFinancialAdjustment) {
     throw new AppError({
       code: "PRECONDITION_FAILED",
@@ -1326,18 +1645,40 @@ export async function reviewSupportCaseFinancialAdjustment(
 
   const approvalNotes = input.approvalNotes?.trim() || null
   const reviewedAt = new Date()
-  const updated = await prisma.supportCase.update({
+  const claim = await prisma.supportCase.updateMany({
     data: {
       financialAdjustmentApprovalNotes: approvalNotes,
       financialAdjustmentApprovalStatus: input.approvalStatus,
       financialAdjustmentApprovedAt: reviewedAt,
       financialAdjustmentApprovedByUserId: input.actorUserId,
     },
-    include: supportCaseInclude(),
     where: {
       id: input.supportCaseId,
+      financialAdjustmentApprovalStatus:
+        existing.financialAdjustmentApprovalStatus,
+      status: existing.status,
+      tenantId: input.tenantId,
     },
   })
+
+  if (claim.count !== 1) {
+    throw new AppError({
+      code: "CONFLICT",
+      publicMessage:
+        "Financial adjustment evidence changed during review. Refresh before retrying.",
+    })
+  }
+
+  const updated = await prisma.supportCase.findFirst({
+    include: supportCaseInclude(),
+    where: { id: input.supportCaseId, tenantId: input.tenantId },
+  })
+  if (!updated) {
+    throw new AppError({
+      code: "NOT_FOUND",
+      publicMessage: "Support case was not found.",
+    })
+  }
 
   await createAuditLogEntry(
     {

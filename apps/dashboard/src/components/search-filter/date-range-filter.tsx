@@ -28,8 +28,10 @@ const Calendar = dynamic(
 export function DateRangeFilter({
   onChange,
   value,
+  mobile = false,
 }: {
   onChange: (value: string[] | null) => void
+  mobile?: boolean
   value: DateFilterValue
 }) {
   const values = Array.isArray(value) ? value : value ? [value] : []
@@ -40,17 +42,30 @@ export function DateRangeFilter({
   const resolved = resolveDateFilter(value)
 
   return (
-    <div className="flex max-w-[calc(100vw-2rem)] overflow-x-auto">
-      <div className="w-40 shrink-0 border-r border-border py-1">
+    <div
+      className={
+        mobile
+          ? "flex min-w-0 flex-col"
+          : "flex max-w-[calc(100vw-2rem)] overflow-x-auto"
+      }
+    >
+      <div
+        className={
+          mobile
+            ? "grid grid-cols-2 gap-1 border-b border-border py-2"
+            : "w-40 shrink-0 border-r border-border py-1"
+        }
+      >
         {dateFilterPresets.map((preset) => {
           const selected = preset === selectedPreset
 
           return (
             <button
               className={cn(
-                "flex h-8 w-full items-center gap-2 px-2 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
+                "flex h-11 w-full items-center gap-2 px-2 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground md:h-8",
                 selected && "bg-accent font-medium text-accent-foreground"
               )}
+              aria-pressed={selected}
               key={preset}
               onClick={() => onChange(createDatePresetSelection(preset))}
               type="button"
@@ -70,8 +85,9 @@ export function DateRangeFilter({
         })}
       </div>
 
-      <div className="min-w-max">
+      <div className={mobile ? "min-w-0" : "min-w-max"}>
         <Calendar
+          className={mobile ? "mx-auto [--cell-size:2.25rem]" : undefined}
           mode="range"
           onSelect={(range) => {
             if (!range) {

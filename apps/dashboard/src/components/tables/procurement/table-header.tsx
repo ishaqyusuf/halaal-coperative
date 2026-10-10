@@ -4,7 +4,6 @@ import {
   horizontalListSortingStrategy,
   SortableContext,
 } from "@dnd-kit/sortable"
-import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import {
   TableHead,
   TableHeader,
@@ -111,9 +110,7 @@ export function ProcurementTableHeader<TData>({
               if (!canReorder) {
                 const stickyClass = getStickyClassName(
                   columnId,
-                  columnId === "select"
-                    ? "group/header relative flex h-full items-center justify-center border-t border-border px-0"
-                    : "group/header relative flex h-full items-center border-t border-border px-4"
+                  "group/header relative flex h-full items-center border-t border-border px-4"
                 )
                 const finalClassName = isActions
                   ? actionsFullWidth
@@ -159,31 +156,6 @@ function renderHeaderContent<TData>(
   table: Table<TData>,
   tableScroll?: TableScrollState
 ) {
-  if (columnId === "select") {
-    const allPageRowsSelected = table.getIsAllPageRowsSelected()
-    const somePageRowsSelected = table.getIsSomePageRowsSelected()
-
-    return (
-      <Checkbox
-        aria-label="Select all visible procurement requests"
-        aria-checked={
-          allPageRowsSelected
-            ? true
-            : somePageRowsSelected
-              ? "mixed"
-              : false
-        }
-        checked={allPageRowsSelected}
-        data-indeterminate={
-          !allPageRowsSelected && somePageRowsSelected ? "" : undefined
-        }
-        onCheckedChange={(checked) => {
-          table.toggleAllPageRowsSelected(checked === true)
-        }}
-      />
-    )
-  }
-
   if (columnId === "actions") {
     return (
       <span className="w-full text-center text-muted-foreground">Actions</span>

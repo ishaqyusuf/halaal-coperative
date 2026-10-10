@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import { useNotifications } from "@halaalvest/notifications-react"
 import {
   Alert,
@@ -35,7 +36,7 @@ import type {
   MemberPaymentReceiptAllocationRow,
   MemberPaymentReceiptRow,
 } from "@halaalvest/db"
-import { ExternalLinkIcon } from "lucide-react"
+import { ExternalLinkIcon, PlusIcon, Trash2Icon } from "lucide-react"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
 import { UploadEvidenceInput } from "@/components/upload-evidence-input"
 import {
@@ -47,6 +48,7 @@ import {
 } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
 import type { PaymentReceiptCategoryOption } from "@/lib/payment-receipts/load-payment-receipts-page"
+import { useTRPC } from "@/trpc/client"
 
 export type PaymentReceiptOption = {
   id: string
@@ -245,6 +247,44 @@ function Field({ children, label }: { children: ReactNode; label: string }) {
   )
 }
 
+function useRefreshPaymentReceipts() {
+  const queryClient = useQueryClient()
+  const trpc = useTRPC()
+
+  return async (receiptId?: string) => {
+    await Promise.all([
+      queryClient.invalidateQueries(
+        trpc.paymentReceipts.list.infiniteQueryFilter()
+      ),
+      ...(receiptId
+        ? [
+            queryClient.invalidateQueries(
+              trpc.paymentReceipts.get.queryFilter({ receiptId })
+            ),
+          ]
+        : []),
+    ])
+  }
+}
+
+function clearIncompatibleTargets(category: AllocationCategory) {
+  return {
+    contributionPlanId:
+      category === "commitment" || category === "special_savings"
+        ? undefined
+        : "",
+    foodPurchaseApplicationId: category === "food_purchase" ? undefined : "",
+    loanId:
+      category === "loan_servicing" || category === "loan_extra_payment"
+        ? undefined
+        : "",
+    projectFinancingRequestId:
+      category === "project_financing" ? undefined : "",
+    procurementRepaymentScheduleItemId:
+      category === "procurement" ? undefined : "",
+  }
+}
+
 export function PaymentReceiptCreateContent({
   categoryOptions,
   commitmentPlans,
@@ -260,11 +300,12 @@ export function PaymentReceiptCreateContent({
   foodPurchaseApplications: PaymentReceiptOption[]
   loans: PaymentReceiptOption[]
   members: PaymentReceiptOption[]
-  onClose: () => void
+  onClose: () => void | Promise<void>
   projectFinancingRequests: PaymentReceiptOption[]
   procurementSchedules: PaymentReceiptOption[]
 }) {
   const router = useRouter()
+  const refreshPaymentReceipts = useRefreshPaymentReceipts()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [memberId, setMemberId] = useState("")
@@ -274,6 +315,7 @@ export function PaymentReceiptCreateContent({
   const [proofDocumentName, setProofDocumentName] = useState("")
   const [proofDocumentUrl, setProofDocumentUrl] = useState("")
   const [memberNotes, setMemberNotes] = useState("")
+  const [receiptAmount, setReceiptAmount] = useState("")
   const [allocations, setAllocations] = useState<AllocationDraft[]>([
     emptyAllocation(),
   ])
@@ -301,10 +343,14 @@ export function PaymentReceiptCreateContent({
     () => members.map((member) => ({ label: member.label, value: member.id })),
     [members]
   )
-  const totalAmount = allocations.reduce(
+  const allocationTotal = allocations.reduce(
     (sum, allocation) => sum + Number(allocation.amount || 0),
     0
   )
+  const totalAmount = Number(receiptAmount || 0)
+  const allocationDifference = totalAmount - allocationTotal
+  const isAllocationBalanced =
+    totalAmount > 0 && Math.abs(allocationDifference) < 0.005
 
   function updateAllocation(index: number, patch: Partial<AllocationDraft>) {
     setAllocations((current) =>
@@ -336,7 +382,9 @@ export function PaymentReceiptCreateContent({
         setPaymentReference("")
         setProofDocumentName("")
         setProofDocumentUrl("")
-        onClose()
+        setReceiptAmount("")
+        await refreshPaymentReceipts()
+        await onClose()
         showSuccess(
           "Receipt submitted",
           "Receipt is waiting for finance review."
@@ -353,16 +401,23 @@ export function PaymentReceiptCreateContent({
 
   return (
     <>
-      <p className="mb-4 text-sm font-medium text-foreground">
-        Total: {formatCurrency(totalAmount)}
-      </p>
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         <Field label="Member">
           <LabeledSelectInput
             disabled={isPending}
             onValueChange={setMemberId}
             options={memberOptions}
             value={memberId}
+          />
+        </Field>
+        <Field label="Receipt amount">
+          <CurrencyInput
+            allowNegative={false}
+            decimalScale={2}
+            disabled={isPending}
+            onValueChange={(values) => setReceiptAmount(values.value)}
+            placeholder="0.00"
+            value={receiptAmount}
           />
         </Field>
         <Field label="Paid date">
@@ -427,32 +482,84 @@ export function PaymentReceiptCreateContent({
           />
         </Field>
       </div>
-      <div className="mt-4 space-y-3">
-        {allocations.map((allocation, index) => (
-          <AllocationEditor
-            allocation={allocation}
-            categoryOptions={categoryOptions}
-            commitmentPlans={selectedMemberPlans}
-            disabled={isPending}
-            foodPurchaseApplications={selectedMemberFoodPurchaseApplications}
-            key={index}
-            loans={selectedMemberLoans}
-            onChange={(patch) => updateAllocation(index, patch)}
-            onRemove={
-              allocations.length > 1
-                ? () =>
-                    setAllocations((current) =>
-                      current.filter(
-                        (_, currentIndex) => currentIndex !== index
+      <section className="mt-6 border-t border-border pt-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h3 className="text-sm font-medium">Allocation</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Split the receipt only across the categories and records it should
+              settle.
+            </p>
+          </div>
+          <dl className="grid grid-cols-3 gap-3 text-right text-xs tabular-nums">
+            <div>
+              <dt className="text-muted-foreground">Receipt</dt>
+              <dd className="font-medium">{formatCurrency(totalAmount)}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Allocated</dt>
+              <dd className="font-medium">{formatCurrency(allocationTotal)}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Remaining</dt>
+              <dd
+                className={
+                  allocationDifference < -0.005
+                    ? "font-medium text-destructive"
+                    : "font-medium"
+                }
+              >
+                {formatCurrency(allocationDifference)}
+              </dd>
+            </div>
+          </dl>
+        </div>
+        {!isAllocationBalanced && totalAmount > 0 ? (
+          <Alert
+            className="mt-4"
+            variant={allocationDifference < 0 ? "destructive" : "default"}
+          >
+            <AlertTitle>
+              {allocationDifference < 0
+                ? "Allocation exceeds receipt"
+                : "Receipt is not fully allocated"}
+            </AlertTitle>
+            <AlertDescription>
+              {allocationDifference < 0
+                ? "Reduce one or more allocation amounts."
+                : `Allocate the remaining ${formatCurrency(allocationDifference)} before submitting.`}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        <div className="mt-4 divide-y divide-border border-y border-border">
+          {allocations.map((allocation, index) => (
+            <AllocationEditor
+              allocation={allocation}
+              categoryOptions={categoryOptions}
+              commitmentPlans={selectedMemberPlans}
+              disabled={isPending}
+              foodPurchaseApplications={selectedMemberFoodPurchaseApplications}
+              index={index}
+              key={index}
+              loans={selectedMemberLoans}
+              onChange={(patch) => updateAllocation(index, patch)}
+              onRemove={
+                allocations.length > 1
+                  ? () =>
+                      setAllocations((current) =>
+                        current.filter(
+                          (_, currentIndex) => currentIndex !== index
+                        )
                       )
-                    )
-                : undefined
-            }
-            projectFinancingRequests={selectedMemberProjectFinancingRequests}
-            procurementSchedules={selectedMemberProcurementSchedules}
-          />
-        ))}
+                  : undefined
+              }
+              projectFinancingRequests={selectedMemberProjectFinancingRequests}
+              procurementSchedules={selectedMemberProcurementSchedules}
+            />
+          ))}
+        </div>
         <Button
+          className="mt-4 h-11 md:h-9"
           disabled={isPending}
           onClick={() =>
             setAllocations((current) => [...current, emptyAllocation()])
@@ -460,12 +567,14 @@ export function PaymentReceiptCreateContent({
           type="button"
           variant="outline"
         >
+          <PlusIcon data-icon="inline-start" />
           Add allocation
         </Button>
-      </div>
-      <div className="mt-4 flex justify-end">
+      </section>
+      <div className="mt-6 flex justify-end border-t border-border pt-4">
         <Button
-          disabled={isPending || !memberId || totalAmount <= 0}
+          className="h-11 w-full sm:w-auto md:h-9"
+          disabled={isPending || !memberId || !isAllocationBalanced}
           onClick={createReceipt}
         >
           Submit receipt
@@ -489,12 +598,13 @@ export function PaymentReceiptReviewContent({
   commitmentPlans: PaymentReceiptOption[]
   foodPurchaseApplications: PaymentReceiptOption[]
   loans: PaymentReceiptOption[]
-  onClose: () => void
+  onClose: () => void | Promise<void>
   projectFinancingRequests: PaymentReceiptOption[]
   procurementSchedules: PaymentReceiptOption[]
   receipt: MemberPaymentReceiptRow
 }) {
   const router = useRouter()
+  const refreshPaymentReceipts = useRefreshPaymentReceipts()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [decision, setDecision] = useState<ReceiptDecision>("under_review")
@@ -581,7 +691,8 @@ export function PaymentReceiptReviewContent({
             reviewNotes,
           })
         )
-        onClose()
+        await refreshPaymentReceipts(receipt.id)
+        await onClose()
         showSuccess("Receipt reviewed", "Receipt status was updated.")
         router.refresh()
       } catch (error) {
@@ -710,7 +821,7 @@ export function PaymentReceiptReviewContent({
               </Alert>
             ) : null}
 
-            <div className="flex flex-col gap-3">
+            <div className="divide-y divide-border border-y border-border">
               {allocations.map((allocation, index) => (
                 <ReviewAllocationEditor
                   allocation={allocation}
@@ -842,7 +953,11 @@ export function PaymentReceiptReviewContent({
       <div className="absolute inset-x-0 bottom-0 bg-popover">
         <Separator />
         <DialogFooter className="px-6 py-4 sm:justify-between">
-          <Button disabled={isPending} onClick={onClose} variant="outline">
+          <Button
+            disabled={isPending}
+            onClick={() => void onClose()}
+            variant="outline"
+          >
             Cancel
           </Button>
           <Button
@@ -936,7 +1051,7 @@ function ReviewAllocationEditor({
   const showsProjectFinancing = allocation.category === "project_financing"
 
   return (
-    <FieldSet className="rounded-none border bg-muted/20 p-4">
+    <FieldSet className="rounded-none border-0 bg-transparent px-0 py-5 first:pt-0 last:pb-0">
       <div className="flex items-center justify-between gap-3">
         <FieldLegend className="mb-0">Allocation {index + 1}</FieldLegend>
         <Badge variant="outline">
@@ -1106,7 +1221,7 @@ export function PaymentReceiptSupportCaseContent({
   onClose,
   receipt,
 }: {
-  onClose: () => void
+  onClose: () => void | Promise<void>
   receipt: MemberPaymentReceiptRow
 }) {
   const router = useRouter()
@@ -1136,7 +1251,7 @@ export function PaymentReceiptSupportCaseContent({
           })
         )
         setSupportDescription("")
-        onClose()
+        await onClose()
         showSuccess("Case opened", "The receipt is linked to a support case.")
         router.refresh()
       } catch (error) {
@@ -1188,11 +1303,12 @@ export function MemberPaymentReceiptCreateContent({
   member: {
     id: string
   }
-  onClose: () => void
+  onClose: () => void | Promise<void>
   projectFinancingRequests: PaymentReceiptOption[]
   procurementSchedules: PaymentReceiptOption[]
 }) {
   const router = useRouter()
+  const refreshPaymentReceipts = useRefreshPaymentReceipts()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [paidAt, setPaidAt] = useState(new Date().toISOString().slice(0, 10))
@@ -1201,6 +1317,7 @@ export function MemberPaymentReceiptCreateContent({
   const [proofDocumentName, setProofDocumentName] = useState("")
   const [proofDocumentUrl, setProofDocumentUrl] = useState("")
   const [memberNotes, setMemberNotes] = useState("")
+  const [receiptAmount, setReceiptAmount] = useState("")
   const [allocations, setAllocations] = useState<AllocationDraft[]>([
     emptyAllocation(),
   ])
@@ -1224,10 +1341,14 @@ export function MemberPaymentReceiptCreateContent({
     () => selectOptionsForMember(procurementSchedules, member.id),
     [member.id, procurementSchedules]
   )
-  const totalAmount = allocations.reduce(
+  const allocationTotal = allocations.reduce(
     (sum, allocation) => sum + Number(allocation.amount || 0),
     0
   )
+  const totalAmount = Number(receiptAmount || 0)
+  const allocationDifference = totalAmount - allocationTotal
+  const isAllocationBalanced =
+    totalAmount > 0 && Math.abs(allocationDifference) < 0.005
 
   function updateAllocation(index: number, patch: Partial<AllocationDraft>) {
     setAllocations((current) =>
@@ -1257,7 +1378,9 @@ export function MemberPaymentReceiptCreateContent({
         setPaymentReference("")
         setProofDocumentName("")
         setProofDocumentUrl("")
-        onClose()
+        setReceiptAmount("")
+        await refreshPaymentReceipts()
+        await onClose()
         showSuccess("Receipt submitted", "Your receipt is waiting for review.")
         router.refresh()
       } catch (error) {
@@ -1271,10 +1394,17 @@ export function MemberPaymentReceiptCreateContent({
 
   return (
     <>
-      <p className="mb-4 text-sm font-medium text-foreground">
-        Total: {formatCurrency(totalAmount)}
-      </p>
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field label="Receipt amount">
+          <CurrencyInput
+            allowNegative={false}
+            decimalScale={2}
+            disabled={isPending}
+            onValueChange={(values) => setReceiptAmount(values.value)}
+            placeholder="0.00"
+            value={receiptAmount}
+          />
+        </Field>
         <Field label="Paid date">
           <Input
             disabled={isPending}
@@ -1337,32 +1467,83 @@ export function MemberPaymentReceiptCreateContent({
           />
         </Field>
       </div>
-      <div className="mt-4 space-y-3">
-        {allocations.map((allocation, index) => (
-          <AllocationEditor
-            allocation={allocation}
-            categoryOptions={categoryOptions}
-            commitmentPlans={planOptions}
-            disabled={isPending}
-            foodPurchaseApplications={foodPurchaseApplicationOptions}
-            key={index}
-            loans={loanOptions}
-            onChange={(patch) => updateAllocation(index, patch)}
-            onRemove={
-              allocations.length > 1
-                ? () =>
-                    setAllocations((current) =>
-                      current.filter(
-                        (_, currentIndex) => currentIndex !== index
+      <section className="mt-6 border-t border-border pt-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h3 className="text-sm font-medium">Allocation</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Tell finance exactly where this payment should be applied.
+            </p>
+          </div>
+          <dl className="grid grid-cols-3 gap-3 text-right text-xs tabular-nums">
+            <div>
+              <dt className="text-muted-foreground">Receipt</dt>
+              <dd className="font-medium">{formatCurrency(totalAmount)}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Allocated</dt>
+              <dd className="font-medium">{formatCurrency(allocationTotal)}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Remaining</dt>
+              <dd
+                className={
+                  allocationDifference < -0.005
+                    ? "font-medium text-destructive"
+                    : "font-medium"
+                }
+              >
+                {formatCurrency(allocationDifference)}
+              </dd>
+            </div>
+          </dl>
+        </div>
+        {!isAllocationBalanced && totalAmount > 0 ? (
+          <Alert
+            className="mt-4"
+            variant={allocationDifference < 0 ? "destructive" : "default"}
+          >
+            <AlertTitle>
+              {allocationDifference < 0
+                ? "Allocation exceeds receipt"
+                : "Receipt is not fully allocated"}
+            </AlertTitle>
+            <AlertDescription>
+              {allocationDifference < 0
+                ? "Reduce one or more allocation amounts."
+                : `Allocate the remaining ${formatCurrency(allocationDifference)} before submitting.`}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        <div className="mt-4 divide-y divide-border border-y border-border">
+          {allocations.map((allocation, index) => (
+            <AllocationEditor
+              allocation={allocation}
+              categoryOptions={categoryOptions}
+              commitmentPlans={planOptions}
+              disabled={isPending}
+              foodPurchaseApplications={foodPurchaseApplicationOptions}
+              index={index}
+              key={index}
+              loans={loanOptions}
+              onChange={(patch) => updateAllocation(index, patch)}
+              onRemove={
+                allocations.length > 1
+                  ? () =>
+                      setAllocations((current) =>
+                        current.filter(
+                          (_, currentIndex) => currentIndex !== index
+                        )
                       )
-                    )
-                : undefined
-            }
-            projectFinancingRequests={projectFinancingRequestOptions}
-            procurementSchedules={procurementScheduleOptions}
-          />
-        ))}
+                  : undefined
+              }
+              projectFinancingRequests={projectFinancingRequestOptions}
+              procurementSchedules={procurementScheduleOptions}
+            />
+          ))}
+        </div>
         <Button
+          className="mt-4 h-11 md:h-9"
           disabled={isPending}
           onClick={() =>
             setAllocations((current) => [...current, emptyAllocation()])
@@ -1370,12 +1551,14 @@ export function MemberPaymentReceiptCreateContent({
           type="button"
           variant="outline"
         >
+          <PlusIcon data-icon="inline-start" />
           Add allocation
         </Button>
-      </div>
-      <div className="mt-4 flex justify-end">
+      </section>
+      <div className="mt-6 flex justify-end border-t border-border pt-4">
         <Button
-          disabled={isPending || totalAmount <= 0}
+          className="h-11 w-full sm:w-auto md:h-9"
+          disabled={isPending || !isAllocationBalanced}
           onClick={createReceipt}
         >
           Submit receipt
@@ -1389,7 +1572,7 @@ export function MemberPaymentReceiptSupportCaseContent({
   onClose,
   receipt,
 }: {
-  onClose: () => void
+  onClose: () => void | Promise<void>
   receipt: MemberPaymentReceiptRow
 }) {
   const router = useRouter()
@@ -1417,7 +1600,7 @@ export function MemberPaymentReceiptSupportCaseContent({
           })
         )
         setSupportDescription("")
-        onClose()
+        await onClose()
         showSuccess("Case opened", "Your receipt is linked to a support case.")
         router.refresh()
       } catch (error) {
@@ -1458,6 +1641,7 @@ function AllocationEditor({
   commitmentPlans,
   disabled,
   foodPurchaseApplications,
+  index,
   loans,
   onChange,
   onRemove,
@@ -1469,6 +1653,7 @@ function AllocationEditor({
   commitmentPlans: Array<{ label: string; value: string }>
   disabled?: boolean
   foodPurchaseApplications: Array<{ label: string; value: string }>
+  index: number
   loans: Array<{ label: string; value: string }>
   onChange: (patch: Partial<AllocationDraft>) => void
   onRemove?: () => void
@@ -1486,115 +1671,157 @@ function AllocationEditor({
           value: allocation.category,
         },
       ]
+  const showsContributionPlan =
+    allocation.category === "commitment" ||
+    allocation.category === "special_savings"
+  const showsLoan =
+    allocation.category === "loan_servicing" ||
+    allocation.category === "loan_extra_payment"
+  const showsProcurement = allocation.category === "procurement"
+  const showsFoodPurchase = allocation.category === "food_purchase"
+  const showsProjectFinancing = allocation.category === "project_financing"
 
   return (
-    <div className="grid gap-3 rounded-lg border border-border bg-background p-3 md:grid-cols-2 xl:grid-cols-9">
-      <Field label="Category">
-        <LabeledSelectInput
-          disabled={disabled}
-          onValueChange={(value) =>
-            onChange({ category: value as AllocationCategory })
-          }
-          options={visibleCategoryOptions}
-          value={allocation.category}
-        />
-      </Field>
-      <Field label="Amount">
-        <Input
-          disabled={disabled}
-          min="0"
-          onChange={(event) => onChange({ amount: event.target.value })}
-          step="0.01"
-          type="number"
-          value={allocation.amount}
-        />
-      </Field>
-      <Field label="Target month">
-        <Input
-          disabled={disabled}
-          onChange={(event) => onChange({ targetMonth: event.target.value })}
-          type="month"
-          value={allocation.targetMonth}
-        />
-      </Field>
-      <Field label="Period">
-        <LabeledSelectInput
-          disabled={disabled}
-          onValueChange={(value) =>
-            onChange({ periodIntent: value as PeriodIntent })
-          }
-          options={periodOptions}
-          value={allocation.periodIntent}
-        />
-      </Field>
-      <Field label="Plan">
-        <LabeledSelectInput
-          disabled={disabled}
-          onValueChange={(value) => onChange({ contributionPlanId: value })}
-          options={[{ label: "Auto", value: "" }, ...commitmentPlans]}
-          value={allocation.contributionPlanId}
-        />
-      </Field>
-      <Field label="Loan">
-        <LabeledSelectInput
-          disabled={disabled}
-          onValueChange={(value) => onChange({ loanId: value })}
-          options={[{ label: "None", value: "" }, ...loans]}
-          value={allocation.loanId}
-        />
-      </Field>
-      <Field label="Procurement">
-        <LabeledSelectInput
-          disabled={disabled}
-          onValueChange={(value) =>
-            onChange({ procurementRepaymentScheduleItemId: value })
-          }
-          options={[{ label: "None", value: "" }, ...procurementSchedules]}
-          value={allocation.procurementRepaymentScheduleItemId}
-        />
-      </Field>
-      <Field label="Foodstuff Purchase">
-        <LabeledSelectInput
-          disabled={disabled}
-          onValueChange={(value) =>
-            onChange({ foodPurchaseApplicationId: value })
-          }
-          options={[{ label: "None", value: "" }, ...foodPurchaseApplications]}
-          value={allocation.foodPurchaseApplicationId}
-        />
-      </Field>
-      <Field label="Project financing">
-        <LabeledSelectInput
-          disabled={disabled}
-          onValueChange={(value) =>
-            onChange({ projectFinancingRequestId: value })
-          }
-          options={[{ label: "None", value: "" }, ...projectFinancingRequests]}
-          value={allocation.projectFinancingRequestId}
-        />
-      </Field>
-      <div className="md:col-span-2 xl:col-span-9">
-        <Field label="Allocation note">
-          <Input
-            disabled={disabled}
-            onChange={(event) => onChange({ notes: event.target.value })}
-            value={allocation.notes}
-          />
-        </Field>
-      </div>
-      {onRemove ? (
-        <div className="md:col-span-2 xl:col-span-9">
+    <div className="py-5 first:pt-0 last:pb-0">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium">Allocation {index + 1}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {categoryLabels[allocation.category]} ·{" "}
+            {formatCurrency(Number(allocation.amount || 0))}
+          </p>
+        </div>
+        {onRemove ? (
           <Button
+            aria-label={`Remove allocation ${index + 1}`}
+            className="size-11 md:size-9"
             disabled={disabled}
             onClick={onRemove}
-            size="sm"
+            size="icon"
             type="button"
             variant="ghost"
           >
-            Remove allocation
+            <Trash2Icon />
           </Button>
+        ) : null}
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field label="Category">
+          <LabeledSelectInput
+            disabled={disabled}
+            onValueChange={(value) => {
+              const category = value as AllocationCategory
+              onChange({ category, ...clearIncompatibleTargets(category) })
+            }}
+            options={visibleCategoryOptions}
+            value={allocation.category}
+          />
+        </Field>
+        <Field label="Amount">
+          <CurrencyInput
+            allowNegative={false}
+            decimalScale={2}
+            disabled={disabled}
+            onValueChange={(values) => onChange({ amount: values.value })}
+            value={allocation.amount}
+          />
+        </Field>
+        <Field label="Target month">
+          <Input
+            disabled={disabled}
+            onChange={(event) => onChange({ targetMonth: event.target.value })}
+            type="month"
+            value={allocation.targetMonth}
+          />
+        </Field>
+        <Field label="Period">
+          <LabeledSelectInput
+            disabled={disabled}
+            onValueChange={(value) =>
+              onChange({ periodIntent: value as PeriodIntent })
+            }
+            options={periodOptions}
+            value={allocation.periodIntent}
+          />
+        </Field>
+        {showsContributionPlan ? (
+          <Field label="Contribution plan">
+            <LabeledSelectInput
+              disabled={disabled}
+              onValueChange={(value) => onChange({ contributionPlanId: value })}
+              options={[
+                { label: "Use active plan", value: "" },
+                ...commitmentPlans,
+              ]}
+              value={allocation.contributionPlanId}
+            />
+          </Field>
+        ) : null}
+        {showsLoan ? (
+          <Field label="Loan">
+            <LabeledSelectInput
+              disabled={disabled}
+              onValueChange={(value) => onChange({ loanId: value })}
+              options={[{ label: "Select loan", value: "" }, ...loans]}
+              value={allocation.loanId}
+            />
+          </Field>
+        ) : null}
+        {showsProcurement ? (
+          <Field label="Procurement repayment">
+            <LabeledSelectInput
+              disabled={disabled}
+              onValueChange={(value) =>
+                onChange({ procurementRepaymentScheduleItemId: value })
+              }
+              options={[
+                { label: "Select repayment item", value: "" },
+                ...procurementSchedules,
+              ]}
+              value={allocation.procurementRepaymentScheduleItemId}
+            />
+          </Field>
+        ) : null}
+        {showsFoodPurchase ? (
+          <Field label="Foodstuff Purchase application">
+            <LabeledSelectInput
+              disabled={disabled}
+              onValueChange={(value) =>
+                onChange({ foodPurchaseApplicationId: value })
+              }
+              options={[
+                { label: "Select application", value: "" },
+                ...foodPurchaseApplications,
+              ]}
+              value={allocation.foodPurchaseApplicationId}
+            />
+          </Field>
+        ) : null}
+        {showsProjectFinancing ? (
+          <Field label="Project financing request">
+            <LabeledSelectInput
+              disabled={disabled}
+              onValueChange={(value) =>
+                onChange({ projectFinancingRequestId: value })
+              }
+              options={[
+                { label: "Select request", value: "" },
+                ...projectFinancingRequests,
+              ]}
+              value={allocation.projectFinancingRequestId}
+            />
+          </Field>
+        ) : null}
+        <div className="md:col-span-2">
+          <Field label="Allocation note">
+            <Input
+              disabled={disabled}
+              onChange={(event) => onChange({ notes: event.target.value })}
+              value={allocation.notes}
+            />
+          </Field>
         </div>
-      ) : null}
+      </div>
     </div>
   )
 }

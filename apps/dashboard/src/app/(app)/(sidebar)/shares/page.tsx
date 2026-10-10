@@ -1,72 +1,15 @@
+import type { Metadata } from "next"
 import type { SearchParams } from "nuqs"
 import { MemberSharesPageView } from "@/components/member-shares-page-view"
 import { loadShareApplicationFilterParams } from "@/hooks/use-share-application-filter-params"
 import { loadSortParams } from "@/hooks/use-sort-params"
 import { loadMemberSharesPageData } from "@/lib/shares/load-member-shares-page"
-import {
-  getQueryClient,
-  getServerCaller,
-  HydrateClient,
-  trpc,
-} from "@/trpc/server"
+import { getShareApplicationListInput } from "@/lib/shares/share-application-list-input"
+import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server"
 import { getInitialTableSettings } from "@/utils/columns"
 
-type ShareApplicationSortField =
-  | "createdAt"
-  | "memberName"
-  | "requestedUnits"
-  | "reviewedAt"
-  | "shareValueSnapshot"
-  | "status"
-
-type ShareApplicationStatus =
-  | "approved"
-  | "cancelled"
-  | "pending"
-  | "rejected"
-
-function getShareApplicationSort(
-  sort?: string[] | null
-): [ShareApplicationSortField, "asc" | "desc"] | null {
-  if (!sort || sort.length !== 2) return null
-
-  const field = sort[0]
-  const direction = sort[1]
-  if (!field || !direction) return null
-
-  const fieldMap: Record<string, ShareApplicationSortField> = {
-    application: "memberName",
-    createdAt: "createdAt",
-    memberName: "memberName",
-    requestedAt: "createdAt",
-    requestedUnits: "requestedUnits",
-    reviewedAt: "reviewedAt",
-    shareValueSnapshot: "shareValueSnapshot",
-    status: "status",
-    units: "requestedUnits",
-    value: "shareValueSnapshot",
-  }
-  const sortField = fieldMap[field]
-
-  if (!sortField) return null
-  if (direction !== "asc" && direction !== "desc") return null
-
-  return [sortField, direction]
-}
-
-function getShareApplicationStatus(
-  value: string | null
-): ShareApplicationStatus | undefined {
-  const validStatuses = new Set<ShareApplicationStatus>([
-    "approved",
-    "cancelled",
-    "pending",
-    "rejected",
-  ])
-
-  return validStatuses.has(value as ShareApplicationStatus)
-    ? (value as ShareApplicationStatus)
-    : undefined
+export const metadata: Metadata = {
+  title: "My shares | HalaalVest",
 }
 
 export default async function MemberSharesPage({
@@ -82,11 +25,7 @@ export default async function MemberSharesPage({
     getInitialTableSettings("shareApplications"),
   ])
 
-  const queryInput = {
-    q: filter.shareApplicationQ ?? undefined,
-    sort: getShareApplicationSort(sort),
-    status: getShareApplicationStatus(filter.shareApplicationStatus),
-  }
+  const queryInput = getShareApplicationListInput({ filter, sort })
   const listOptions = trpc.shareApplications.list.infiniteQueryOptions(
     queryInput,
     {
@@ -95,13 +34,7 @@ export default async function MemberSharesPage({
   )
 
   if (data.state === "ready") {
-    const caller = await getServerCaller()
-    const initialPage = await caller.shareApplications.list(queryInput)
-
-    getQueryClient().setQueryData(listOptions.queryKey, {
-      pageParams: [listOptions.initialPageParam],
-      pages: [initialPage],
-    })
+    await batchPrefetch([listOptions])
   }
 
   return (

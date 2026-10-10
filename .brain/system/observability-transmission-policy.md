@@ -2,6 +2,14 @@
 
 ## Status
 
+Source hardening on 2026-09-07 (verification deferred): outbound events retain
+at most four exception values, 80 frames per exception and 24 additional
+allowlisted scalar keys per tag/extra collection. Non-finite numbers are omitted.
+Machine/container path prefixes are removed while code-relative paths remain.
+A 25 September follow-up now replaces unknown absolute iOS/Android/Windows stack paths and non-build web URL paths with fixed source labels; recognized code-root files and build-owned JavaScript asset paths remain. The focused sanitizer test covers Android app-private cache filenames, a misleading `src/` directory, Windows usernames and a member URL. Package typecheck and tests pass. This is outbound sanitizer evidence, not a captured production Sentry event or vendor-retention proof.
+Mobile setup is idempotent and additionally requires the production app variant;
+smoke emission before enablement is suppressed. No synthetic events were sent.
+
 Approved and implemented behind fail-closed production gates. The project owner explicitly approved external production diagnostics on 2026-08-05. No runtime transmits without its own production environment and DSN, and no source-map upload runs without the complete runtime-specific production credential set.
 
 ## Purpose

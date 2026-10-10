@@ -13,6 +13,7 @@ export const initialMigrationSetupPaths = [
   "/settings/finance/migration",
   "/settings/imports",
   "/settings/profile",
+  "/settings/platform-documents",
 ]
 
 function isMemberMigrationSetupPath(pathname: string) {
@@ -48,6 +49,20 @@ export function resolveInitialMigrationLayoutRedirect(input: {
   return null
 }
 
+export function shouldOpenFirstRunOnboarding(input: {
+  alreadyInOnboarding: boolean
+  canUseLiveWorkspace: boolean
+  isQaAuthorized: boolean
+  isWorkspaceAdmin: boolean
+}) {
+  return (
+    input.canUseLiveWorkspace &&
+    input.isWorkspaceAdmin &&
+    !input.isQaAuthorized &&
+    !input.alreadyInOnboarding
+  )
+}
+
 export async function resolveInitialMigrationSetupGate(input: {
   role: MembershipRole | null | undefined
   tenantId: string | null | undefined
@@ -68,8 +83,7 @@ export async function resolveInitialMigrationSetupGate(input: {
     getTenantOperationProfile(input.tenantId),
     getTenantBusinessProfitPolicy(input.tenantId),
   ])
-  const canUseLiveWorkspace =
-    migrationState.snapshot.canUseLiveFinancialWrites
+  const canUseLiveWorkspace = migrationState.snapshot.canUseLiveFinancialWrites
   const hasCompletedInitialSetup =
     [
       "member_migration_in_progress",

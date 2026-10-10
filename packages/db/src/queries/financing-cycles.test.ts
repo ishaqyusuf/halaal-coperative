@@ -4,6 +4,7 @@ import {
   getTenantFinancingSettingsWorkspace,
   openMonthlyFinancingCycle,
   previewMonthlyFinancingCycle,
+  updateMonthlyFinancingCycleStatus,
   updateLoanProductSettings,
   updateTenantFinancingCyclePolicy,
 } from "./financing-cycles"
@@ -11,11 +12,23 @@ import {
 type PreviewStubInput = {
   approvedHoldAmount?: number
   contributionAmount?: number
-  existingCycle?: (Record<string, unknown> & { id: string; status: "draft" | "open" | "paused" | "closed" }) | null
+  existingCycle?:
+    | (Record<string, unknown> & {
+        id: string
+        status: "draft" | "open" | "paused" | "closed"
+      })
+    | null
   loanRequests?: Array<{
     amount: number
     loanType: "normal" | "quick"
-    status: "approved" | "cancelled" | "draft" | "expired" | "rejected" | "submitted" | "under_review"
+    status:
+      | "approved"
+      | "cancelled"
+      | "draft"
+      | "expired"
+      | "rejected"
+      | "submitted"
+      | "under_review"
   }>
   loanProducts?: Array<{
     code: string | null
@@ -74,7 +87,11 @@ function createPreviewPrismaStub(input: PreviewStubInput = {}) {
     loan: {
       aggregate: async (args: any) =>
         args._sum.outstandingPrincipal
-          ? { _sum: { outstandingPrincipal: input.outstandingFinancingAmount ?? 0 } }
+          ? {
+              _sum: {
+                outstandingPrincipal: input.outstandingFinancingAmount ?? 0,
+              },
+            }
           : { _sum: { principalAmount: input.approvedHoldAmount ?? 0 } },
       findMany: async (args: any) => {
         calls.loanFindMany.push(args)
@@ -118,7 +135,7 @@ describe("monthly financing cycle previews", () => {
         periodStart: new Date("2026-07-14T12:00:00.000Z"),
         tenantId: "tenant-1",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(preview.periodStart.toISOString()).toBe("2026-07-01T00:00:00.000Z")
@@ -136,8 +153,12 @@ describe("monthly financing cycle previews", () => {
     expect(preview.normal.heldAmount).toBe(20000)
     expect(preview.normal.remainingAmount).toBe(110000)
 
-    expect(prisma.calls.contributionPlanAggregate[0].where.tenantId).toBe("tenant-1")
-    expect(prisma.calls.contributionAggregate[0].where.tenantId).toBe("tenant-1")
+    expect(prisma.calls.contributionPlanAggregate[0].where.tenantId).toBe(
+      "tenant-1"
+    )
+    expect(prisma.calls.contributionAggregate[0].where.tenantId).toBe(
+      "tenant-1"
+    )
     expect(prisma.calls.loanRequestFindMany[0].where.tenantId).toBe("tenant-1")
     expect(prisma.calls.loanFindMany[0].where.tenantId).toBe("tenant-1")
   })
@@ -155,8 +176,11 @@ describe("monthly financing cycle previews", () => {
     })
 
     const preview = await previewMonthlyFinancingCycle(
-      { periodStart: new Date("2026-07-01T00:00:00.000Z"), tenantId: "tenant-1" },
-      prisma as never,
+      {
+        periodStart: new Date("2026-07-01T00:00:00.000Z"),
+        tenantId: "tenant-1",
+      },
+      prisma as never
     )
 
     expect(preview.totalCapacityAmount).toBe(90000)
@@ -204,7 +228,7 @@ describe("monthly financing cycle previews", () => {
 
     const workspace = await getTenantFinancingSettingsWorkspace(
       { tenantId: "tenant-1" },
-      prisma as never,
+      prisma as never
     )
 
     expect(workspace.policy).toMatchObject({
@@ -266,7 +290,7 @@ describe("monthly financing cycle previews", () => {
         periodStart: new Date("2026-07-14T12:00:00.000Z"),
         tenantId: "tenant-1",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(health.intakeStatus).toBe("open")
@@ -295,7 +319,7 @@ describe("monthly financing cycle previews", () => {
     })
 
     await expect(
-      previewMonthlyFinancingCycle({ tenantId: "tenant-1" }, prisma as never),
+      previewMonthlyFinancingCycle({ tenantId: "tenant-1" }, prisma as never)
     ).rejects.toThrow("must total 100")
   })
 })
@@ -303,7 +327,8 @@ describe("monthly financing cycle previews", () => {
 describe("monthly financing cycle writes", () => {
   test("opens a cycle with the preview snapshots and audit metadata", async () => {
     const auditCreates: any[] = []
-    const upserts: any[] = []
+    const creates: any[] = []
+    const openedAt = new Date("2026-07-02T09:30:00.000Z")
     const previewPrisma = createPreviewPrismaStub({
       contributionAmount: 25000,
       projectedAmount: 100000,
@@ -319,10 +344,11 @@ describe("monthly financing cycle writes", () => {
             },
           },
           financingCycle: {
-            upsert: async (args: any) => {
-              upserts.push(args)
-              return { id: "cycle-1", ...args.create }
+            create: async (args: any) => {
+              creates.push(args)
+              return { id: "cycle-1", ...args.data }
             },
+            findUnique: async () => null,
           },
         }),
     }
@@ -330,19 +356,21 @@ describe("monthly financing cycle writes", () => {
     const cycle = await openMonthlyFinancingCycle(
       {
         actorUserId: "user-1",
+        openedAt,
         periodStart: new Date("2026-07-01T00:00:00.000Z"),
         statusNote: "Board-approved July cycle.",
         tenantId: "tenant-1",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(cycle.id).toBe("cycle-1")
-    expect(upserts[0].create).toMatchObject({
+    expect(creates[0].data).toMatchObject({
       normalBudgetAmount: 70000,
       projectedCommitmentAmount: 100000,
       quickBudgetAmount: 30000,
       receivedContributionAmount: 25000,
+      openedAt,
       status: "open",
       statusNote: "Board-approved July cycle.",
       tenantId: "tenant-1",
@@ -354,9 +382,94 @@ describe("monthly financing cycle writes", () => {
         actorUserId: "user-1",
         entityId: "cycle-1",
         entityType: "FinancingCycle",
+        occurredAt: openedAt,
         tenantId: "tenant-1",
       },
     })
+  })
+
+  test("resumes a paused cycle without rewriting its capacity snapshot", async () => {
+    const updates: any[] = []
+    const existingCycle = {
+      id: "cycle-1",
+      normalAllocationPercentage: 60,
+      normalBudgetAmount: 54000,
+      periodEnd: new Date("2026-07-31T00:00:00.000Z"),
+      periodStart: new Date("2026-07-01T00:00:00.000Z"),
+      projectedCommitmentAmount: 100000,
+      quickAllocationPercentage: 40,
+      quickBudgetAmount: 36000,
+      receivedContributionAmount: 20000,
+      reserveBufferAmount: 10000,
+      status: "paused" as const,
+      totalCapacityAmount: 90000,
+    }
+    const previewPrisma = createPreviewPrismaStub({
+      existingCycle,
+      policy: {
+        normalLoanAllocationPercentage: 70,
+        quickLoanAllocationPercentage: 30,
+        reserveBufferAmount: 0,
+      },
+      projectedAmount: 250000,
+    })
+    const prisma = {
+      ...previewPrisma,
+      $transaction: async (callback: (tx: any) => Promise<unknown>) =>
+        callback({
+          auditLog: { create: async (args: any) => args },
+          financingCycle: {
+            findUnique: async () => existingCycle,
+            update: async (args: any) => {
+              updates.push(args)
+              return { ...existingCycle, ...args.data }
+            },
+          },
+        }),
+    }
+
+    const cycle = await openMonthlyFinancingCycle(
+      {
+        actorUserId: "user-1",
+        periodStart: new Date("2026-07-01T00:00:00.000Z"),
+        statusNote: "Resume board-approved snapshot.",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(cycle.status).toBe("open")
+    expect(updates[0].data).not.toHaveProperty("projectedCommitmentAmount")
+    expect(updates[0].data).not.toHaveProperty("quickBudgetAmount")
+    expect(updates[0].data).not.toHaveProperty("normalBudgetAmount")
+  })
+
+  test("treats closed cycles as terminal", async () => {
+    const existingCycle = {
+      id: "cycle-1",
+      status: "closed" as const,
+    }
+    const prisma = {
+      $transaction: async (callback: (tx: any) => Promise<unknown>) =>
+        callback({
+          financingCycle: {
+            findFirst: async () => existingCycle,
+          },
+        }),
+    }
+
+    await expect(
+      updateMonthlyFinancingCycleStatus(
+        {
+          actorUserId: "user-1",
+          expectedStatus: "closed",
+          financingCycleId: "cycle-1",
+          status: "open",
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("cannot transition from closed")
   })
 
   test("updates tenant financing cycle policy with validation and audit logging", async () => {
@@ -385,7 +498,8 @@ describe("monthly financing cycle writes", () => {
                   args.update.financingCapacityBasis ??
                   "projected_monthly_commitments",
                 foodPurchaseAllowsCommitmentReductionDuringPayback:
-                  args.update.foodPurchaseAllowsCommitmentReductionDuringPayback ??
+                  args.update
+                    .foodPurchaseAllowsCommitmentReductionDuringPayback ??
                   false,
                 foodPurchaseMaximumPaybackMonths:
                   args.update.foodPurchaseMaximumPaybackMonths ?? 1,
@@ -398,8 +512,8 @@ describe("monthly financing cycle writes", () => {
                   args.update.normalLoanAllocationPercentage,
                 normalLoanTermMonths: args.update.normalLoanTermMonths,
                 procurementAllowsCommitmentReductionDuringPayback:
-                  args.update.procurementAllowsCommitmentReductionDuringPayback ??
-                  false,
+                  args.update
+                    .procurementAllowsCommitmentReductionDuringPayback ?? false,
                 procurementMaximumPaybackMonths:
                   args.update.procurementMaximumPaybackMonths ?? 12,
                 quickLoanAllocationPercentage:
@@ -459,7 +573,7 @@ describe("monthly financing cycle writes", () => {
         strictCommitmentDuringFinancing: false,
         tenantId: "tenant-1",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(policy.id).toBe("policy-1")
@@ -542,7 +656,7 @@ describe("monthly financing cycle writes", () => {
         tenantId: "tenant-1",
         termMonths: 3,
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(product).toMatchObject({
@@ -593,8 +707,8 @@ describe("monthly financing cycle writes", () => {
           tenantId: "tenant-1",
           termMonths: 0,
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("term months")
   })
 })

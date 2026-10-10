@@ -1,9 +1,14 @@
 import { useQueryStates } from "nuqs"
-import { createLoader, parseAsString } from "nuqs/server"
+import { createLoader, parseAsString, parseAsStringEnum } from "nuqs/server"
 
 const shareApplicationParamsSchema = {
   shareApplicationId: parseAsString,
-  shareApplicationSheetType: parseAsString,
+  shareApplicationSheetType: parseAsStringEnum([
+    "create",
+    "details",
+    "member-create",
+    "review",
+  ]),
 }
 
 export function useShareApplicationParams() {

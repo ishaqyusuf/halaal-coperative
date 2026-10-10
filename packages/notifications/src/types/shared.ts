@@ -1,4 +1,3 @@
-import { NotificationEmailTemplate } from "@halaalvest/email/emails/notification"
 import { z } from "zod"
 import type {
   NotificationActionDescriptor,
@@ -109,25 +108,35 @@ export function createDirectRecipient(
 export function createNotificationEmailDraft(input: {
   actionLabel: string
   actionUrl: string
+  amount?: string | null
+  amountLabel?: string
   bodyText: string
+  details?: Array<{ label: string; value: string }>
   eventLabel: string
   notificationType: string
   previewText: string
   recipient: NotificationRecipient
   sender?: NotificationEmailDraft["sender"]
   subject: string
+  variant?: NotificationVariant
 }): NotificationEmailDraft {
   return {
     actionLabel: input.actionLabel,
     actionUrl: input.actionUrl,
-    bodyHtml: NotificationEmailTemplate({
+    bodyTemplate: {
       actionLabel: input.actionLabel,
       actionUrl: input.actionUrl,
+      amount: input.amount,
+      amountLabel: input.amountLabel,
       bodyText: input.bodyText,
+      details: input.details,
       eventLabel: input.eventLabel,
+      organizationName: input.sender?.displayName,
       previewText: input.previewText,
+      recipientName: input.recipient.displayName,
       subject: input.subject,
-    }),
+      variant: input.variant,
+    },
     bodyText: input.bodyText,
     notificationType: input.notificationType,
     previewText: input.previewText,
@@ -135,6 +144,10 @@ export function createNotificationEmailDraft(input: {
     sender: input.sender,
     subject: input.subject,
   }
+}
+
+export function extractDisplayAmount(bodyText: string) {
+  return bodyText.match(/(?:₦|NGN\s*)\d[\d,]*(?:\.\d{1,2})?/i)?.[0] ?? null
 }
 
 export function formatAmount(amount?: number | string | null) {

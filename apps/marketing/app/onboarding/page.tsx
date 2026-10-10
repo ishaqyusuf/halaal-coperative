@@ -1,9 +1,8 @@
 import Link from "next/link"
 import { buttonVariants } from "@halaalvest/ui/components/button"
-import { resolveQaQuickFillContext } from "@halaalvest/utils"
 import { OnboardingForm } from "@/components/signup/onboarding-form"
 import { SignupShell } from "@/components/signup/signup-shell"
-import { getServerQaEmailDomains } from "@/lib/server-notifications"
+import { getMarketingQaQuickFillContext } from "@/lib/qa-form-access.server"
 import { resolveSignupVerification } from "@/lib/signup-verification.server"
 
 export const dynamic = "force-dynamic"
@@ -72,11 +71,7 @@ export default async function OnboardingPage({
   }
 
   const verification = verificationResult.value
-  const quickFill = resolveQaQuickFillContext({
-    authenticatedEmail: verification.primaryContactEmail,
-    configuredDomains: getServerQaEmailDomains(),
-    isDevelopment: process.env.NODE_ENV !== "production",
-  })
+  const quickFill = await getMarketingQaQuickFillContext()
 
   return (
     <SignupShell

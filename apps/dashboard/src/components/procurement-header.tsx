@@ -12,23 +12,13 @@ export function ProcurementHeader({
   hasMemberOptions: boolean
 }) {
   return (
-    <div className="flex flex-col gap-3 border-b border-border bg-background px-4 py-3 md:flex-row md:items-center md:justify-between">
-      <div>
-        <p className="text-sm font-medium text-foreground">
-          Procurement requests
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Review item purchases, approvals, and repayment status.
-        </p>
-      </div>
-      <div className="flex flex-col gap-2 md:flex-row md:items-center">
-        <ProcurementSearchFilter />
-        <div className="flex items-center gap-2">
-          <ProcurementColumnVisibility />
-          {canCreate ? (
-            <OpenProcurementRequestCreateSheet disabled={!hasMemberOptions} />
-          ) : null}
-        </div>
+    <div className="hidden gap-3 border-b border-border bg-background px-4 py-3 md:flex md:items-center md:justify-between">
+      <ProcurementSearchFilter />
+      <div className="flex items-center gap-2">
+        <ProcurementColumnVisibility />
+        {canCreate ? (
+          <OpenProcurementRequestCreateSheet disabled={!hasMemberOptions} />
+        ) : null}
       </div>
     </div>
   )

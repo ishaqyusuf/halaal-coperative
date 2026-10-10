@@ -1,11 +1,16 @@
 # Pricing And Packaging
 
+**Current pricing decision — 7 October 2026:** US$0.99 for six months and US$1.99 for one year are the owner-approved USD base prices, replacing the ₦500/₦1,000 Nigerian targets. Apple saved both United States-anchored schedules with recalculation across 175 territories; saved Nigeria prices are ₦1,500 and ₦3,200. Both subscriptions have all 175 current territories selected, with automatic future-territory inclusion off. Checkout must use store-returned localized prices. Google configuration and signed-device checkout remain unverified here. Older dated observations below are historical and do not override this decision. See [pricing ADR](../decisions/ADR-20261007-usd-personal-mobile-access-prices.md).
+
+**Owner correction, 28 September 2026:** the web dashboard is free; native mobile app access is a separate personal subscription for every mobile user (including staff/admin), with US$0.99 for six months and US$1.99 for one year as USD base prices (updated 7 October 2026). The tenant Starter/Standard/Growth price ranges and plan matrix below describe the existing source/product model and require reconciliation with this new direction before publication or billing. They are **not** mobile subscription prices. See [the per-user app-access ADR](../decisions/ADR-20260928-per-user-mobile-app-access-subscriptions.md) and [catalog](../runbooks/halaalvest-mobile-app-access-catalog.md).
+
 ## Purpose
 - Define the public pricing posture for Halaalvest as an interest-free cooperative SaaS platform.
 - Keep packaging aligned with member trust, predictable cooperative budgets, and non-interest-based finance.
 
 ## Pricing Principle
 - Use tenant subscription tiers with active-member bands.
+- The current marketing price labels are formatted from `SUBSCRIPTION_PLAN_DEFINITIONS` rather than a second per-member rate constant. Both homepage experiences use the same Standard/Free Beta labels. These are public monthly ranges, not approved fixed Apple/Google subscription prices.
 - Internally calculate paid plan bands from the included active-member cap using NGN 50-75 per active member per month.
 - Public pricing should show only the resulting monthly subscription range and included active-member band, not per-seat or per-member billing language.
 - Do not charge a percentage of member savings, financing volume, repayments, dividends, or cooperative profits.

@@ -36,6 +36,7 @@ export function ChargeSheet({
   return (
     <WorkflowPresentation
       config={presentation}
+      mobileFullScreen
       open={isOpen}
       onOpenChange={handleOnOpenChange}
     >

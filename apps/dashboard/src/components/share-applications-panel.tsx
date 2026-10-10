@@ -9,7 +9,7 @@ import { OpenShareApplicationCreateSheet } from "@/components/open-share-applica
 import { ShareApplicationHeader } from "@/components/share-application-header"
 import type { ShareApplicationMemberOption } from "@/components/share-application-content"
 import { ShareApplicationSheet } from "@/components/sheets/share-application-sheet"
-import { ShareApplicationsDataTable } from "@/components/tables/share-applications/data-table"
+import { ShareApplicationsDataView } from "@/components/tables/share-applications/data-view"
 import type { TableSettings } from "@/utils/table-settings"
 
 export function ShareApplicationsPanel({
@@ -45,12 +45,7 @@ export function ShareApplicationsPanel({
           {formatCurrency(policy.unitAmount)}
         </div>
       </div>
-      <ShareApplicationsDataTable
-        applications={applications}
-        canReview
-        initialSettings={initialSettings}
-        remoteRows={remoteRows}
-      />
+      <ShareApplicationsDataView canReview initialSettings={initialSettings} />
     </div>
   )
 }

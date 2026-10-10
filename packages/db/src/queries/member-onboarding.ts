@@ -4,6 +4,7 @@ import type {
 } from "../../generated/prisma/client"
 import { AppError, type ErrorCode } from "@halaalvest/errors"
 import { createPrismaClient } from "../prisma"
+import { composeCooperativeAccessCode } from "@halaalvest/utils"
 import { createMemberWithState, type CreateMemberInput } from "./members"
 import { getTenantInitialMigrationState } from "./migration"
 import { assertQaIdentityLane } from "./qa-maintenance"
@@ -104,6 +105,10 @@ export async function createMemberOnboardingRequest(
   }
 
   return prisma.$transaction(async (tx) => {
+    const tenant = await tx.tenant.findUnique({
+      where: { id: input.tenantId },
+      select: { cooperativeCodePrefix: true },
+    })
     if (input.signupLinkId) {
       const signupLink = await tx.memberSignupLink.findFirst({
         where: {
@@ -213,6 +218,12 @@ export async function createMemberOnboardingRequest(
 
     const user = await tx.user.create({
       data: {
+        cooperativeAccessCode: tenant?.cooperativeCodePrefix
+          ? composeCooperativeAccessCode(
+              tenant.cooperativeCodePrefix,
+              normalizedMemberNumber
+            )
+          : null,
         email: normalizedEmail,
         fullName: normalizedFullName,
         passwordHash: input.passwordHash,

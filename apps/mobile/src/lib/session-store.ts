@@ -1,4 +1,5 @@
 import * as SecureStore from "expo-secure-store"
+import { randomUUID } from "expo-crypto"
 
 export const SESSION_KEY = "halaalvest_mobile_session"
 const PROFILE_KEY = "halaalvest_mobile_profile"
@@ -13,9 +14,15 @@ export type CooperativeRole =
   | "member"
 
 export interface MobileProfile {
+  analyticsEnabled?: boolean
+  analyticsContext?:
+    | import("@halaalvest/events/attribution").AnalyticsContext
+    | null
   activeMembershipId: string
   token: string
   role: MobileRole
+  qaAuthorized?: boolean
+  sessionExpiresAt?: string
   cooperativeRole?: CooperativeRole
   availableRoles?: {
     id: string
@@ -76,12 +83,7 @@ export const deleteSessionProfile = () =>
   SecureStore.deleteItemAsync(PROFILE_KEY)
 
 function createMobileDeviceId() {
-  const randomUuid = globalThis.crypto?.randomUUID?.()
-  const randomId =
-    randomUuid ??
-    `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
-
-  return `mobile-${randomId}`
+  return `mobile-${randomUUID()}`
 }
 
 export const getOrCreateMobileDeviceId = () => {
@@ -95,6 +97,9 @@ export const getOrCreateMobileDeviceId = () => {
   return deviceId
 }
 
+export const clearMobileDeviceId = () =>
+  SecureStore.deleteItemAsync(DEVICE_ID_KEY)
+
 export const clearSession = async () => {
   await Promise.all([deleteToken(), deleteSessionProfile()])
 }
@@ -106,10 +111,16 @@ export const createMockProfile = (role: MobileRole): MobileProfile => ({
   cooperativeRole: role === "admin" ? "tenant_admin" : "member",
   availableRoles: [
     {
-      id: `mock-${role}-membership`,
-      isDefault: true,
-      role: role === "admin" ? "tenant_admin" : "member",
-      workspaceRole: role,
+      id: "mock-member-membership",
+      isDefault: role === "member",
+      role: "member",
+      workspaceRole: "member",
+    },
+    {
+      id: "mock-admin-membership",
+      isDefault: role === "admin",
+      role: "tenant_admin",
+      workspaceRole: "admin",
     },
   ],
   tenant: {
@@ -121,13 +132,13 @@ export const createMockProfile = (role: MobileRole): MobileProfile => ({
     },
     currencyCode: "NGN",
     id: "tenant_halaalvest",
-    name: "Halaalvest Cooperative",
+    name: "HalaalVest Cooperative",
     slug: "halaalvest",
     timezone: "Africa/Lagos",
   },
   user: {
     id: role === "admin" ? "admin_demo" : "member_demo",
-    name: role === "admin" ? "Amina Admin" : "Yusuf Member",
+    name: role === "admin" ? "Amina Bello" : "Yusuf Abdullahi",
     email:
       role === "admin" ? "admin@halaalvest.test" : "member@halaalvest.test",
   },
@@ -139,3 +150,11 @@ export const createMockProfile = (role: MobileRole): MobileProfile => ({
         }
       : undefined,
 })
+
+export function getMockRoleForMembership(
+  membershipId: string
+): MobileRole | null {
+  if (membershipId === "mock-member-membership") return "member"
+  if (membershipId === "mock-admin-membership") return "admin"
+  return null
+}

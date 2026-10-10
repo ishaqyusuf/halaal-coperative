@@ -4,6 +4,7 @@
 
 - Give linked members a first-screen account view after login.
 - Surface the member's profile status, savings, special savings, obligations, receipts, shares, support cases, and recent statement activity without exposing tenant-wide staff data.
+- On native member home, show readiness, money metrics and service shortcuts only from the returned member-home snapshot. An unavailable read shows no sample balance or readiness score, explains the missing position and offers Retry on query failure; a stale returned snapshot retains its cache warning. Disabled native Plans and Shares reads likewise show unavailable states instead of sample arrears or holdings. See [the no-sample-data ADR](../decisions/ADR-20260928-no-sample-member-home-financial-fallback.md).
 
 ## Implemented Behavior
 
@@ -20,11 +21,13 @@
 - Members can request cooperative loan financing from `/loans`; the member view is scoped to their linked profile, their own submitted requests, and their own approved loans.
 - Members can request project financing for their own business from `/project-financing` and see only their own request history.
 - Members can apply for food purchase from `/food-purchase` and see only their own application history.
+- Members use `/shares` as a flat, member-scoped share workspace: a compact desktop-only position summary sits above one query-owned request history, while screens below `md` use a divided Item list, mobile skeleton, search/filter toolbar, and bottom-sheet filters. On desktop, search starts the toolbar at the top left and the request list begins on the following row; column visibility and the create action remain grouped on the right. Request details hydrate independently from `trpc.shareApplications.get`, and request creation/details use a full-screen mobile sheet.
 - The profile status card includes a prefilled `account_update` support request path for profile or document correction requests.
 - If the account is not linked to a member profile, the member sees a scoped empty state instead of tenant-wide data.
 - Linked members may still sign in when readiness is incomplete, but the dashboard clearly marks the account `Action required` and shows a verification alert. Existing records, statements, document remediation, and support remain available.
 - Financial and operational submissions require operational readiness: the member must be active, KYC verified, and complete for any tenant-required historical backfill or brought-forward opening position. Web server actions and mobile mutation procedures enforce the same rule.
 - Request-item, request-business, and Foodstuff Purchase entry actions are suppressed on the member dashboard while readiness is incomplete; support and document update paths remain available so the member can resolve the blocker.
+- Optional-share submission is also disabled while readiness is incomplete. The Shares workspace remains readable and explains the verification or migration blocker rather than hiding existing request history.
 
 ## QA Verification — 2026-08-01
 
@@ -32,6 +35,9 @@
 - The signed-in member received member-only navigation and saw the unit-based share model, NGN 10,000 unit value, and 1 approved compulsory unit.
 - Because Safa uses brought-forward migration, submission actions remain locked until Hauwa's opening position is applied. This is the intended readiness boundary: login, member-scoped reads, support, and remediation remain available.
 - The verified member dashboard and admin re-login produced no browser console errors.
+- The Shares workspace was verified on the Safa Portless route at 360, 390, 767, 768, and 1280 pixels. Mobile analytics remained hidden, the filter opened as a bottom sheet, the blocked request workflow occupied the full viewport, document width never exceeded the viewport, and repeated down/up scrolling returned control to the page.
+- On 2026-08-11, Hauwa's KYC was completed as verified and the already-finalized brought-forward setup was confirmed, removing the operational-readiness blocker. A real one-unit optional-share request was created and remained pending for finance review; no share-capital approval or ledger posting was performed during this member-flow QA.
+- The post-readiness Shares pass confirmed the corrected desktop search-left toolbar/list hierarchy, submitted-search/no-results/clear behavior, exact read-only request details, mobile Item/action drawer, full-screen mobile details, and the single mobile/desktop presentation switch at 767/768 pixels.
 
 ## Boundaries
 

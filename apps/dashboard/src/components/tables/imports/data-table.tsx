@@ -293,11 +293,16 @@ export function DataTable({
   } else if (!batches.length) {
     dataView = (
       <ImportEmptyState
+        description={
+          importKind && !importAvailability[importKind].isAvailable
+            ? importAvailability[importKind].blockedReason
+            : undefined
+        }
         action={
-          importKind ? (
+          importKind && importAvailability[importKind].isAvailable ? (
             <OpenImportSheet
               className="h-11 w-full md:h-9 md:w-auto"
-              disabled={!importAvailability[importKind].isAvailable}
+              disabled={false}
               display="label"
               importKind={importKind}
             />

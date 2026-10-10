@@ -1,5 +1,5 @@
-import { SharesScreen } from "@/screens/shares-screen"
+import { MemberSharesRouteController } from "@/features/shares-profit/routes/member-shares-route-controller"
 
 export default function SharesRoute() {
-  return <SharesScreen />
+  return <MemberSharesRouteController />
 }

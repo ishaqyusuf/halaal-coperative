@@ -9,6 +9,9 @@ import {
 import { DatePickerInput } from "@/components/date-picker-input"
 import { Input } from "@halaalvest/ui/components/input"
 import { useChargeOperationParams } from "@/hooks/use-charge-operation-params"
+import { useQueryClient } from "@tanstack/react-query"
+import { useRouter } from "next/navigation"
+import { useTRPC } from "@/trpc/client"
 import {
   reverseChargeApplicationAction,
   updateChargeDefinitionAction,
@@ -20,7 +23,12 @@ export function ChargeOperationContent({
   devMode,
   members,
 }: {
-  activeCharges: Array<{ code: string; id: string; name: string }>
+  activeCharges: Array<{
+    amount: number
+    code: string
+    id: string
+    name: string
+  }>
   devMode: boolean
   members: Array<{ fullName: string; id: string; memberNumber: string }>
 }) {
@@ -31,29 +39,67 @@ export function ChargeOperationContent({
     chargeKind,
     chargeOperationSheetType,
     chargeValueType,
+    setParams,
   } = useChargeOperationParams()
+  const queryClient = useQueryClient()
+  const router = useRouter()
+  const trpc = useTRPC()
+
+  async function refreshCharges() {
+    await queryClient.invalidateQueries({
+      queryKey: trpc.charges.chargeLibrary.queryKey(),
+    })
+    await setParams(null)
+    router.refresh()
+  }
 
   if (chargeOperationSheetType === "definition") {
     return (
       <div className="px-6">
-        <ChargeDefinitionForm devMode={devMode} />
+        <ChargeDefinitionForm devMode={devMode} onSuccess={refreshCharges} />
       </div>
     )
   }
 
   if (chargeOperationSheetType === "application") {
+    if (!activeCharges.length) {
+      return (
+        <div className="grid gap-4 px-6">
+          <div className="border-y border-border py-5">
+            <h3 className="font-medium">No active fixed charges</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Create or activate a fixed-amount charge before posting a manual
+              charge to a member. Percentage charges are assessed only by their
+              configured workflow.
+            </p>
+          </div>
+          <Button
+            className="h-11 md:h-9"
+            onClick={() =>
+              void setParams({ chargeOperationSheetType: "definition" })
+            }
+            type="button"
+          >
+            New charge
+          </Button>
+        </div>
+      )
+    }
+
     return (
       <div className="px-6">
         <ChargeApplicationForm
           chargeDefinitions={activeCharges.map((charge) => ({
             id: charge.id,
             label: charge.name,
+            amount: charge.amount,
           }))}
           devMode={devMode}
           members={members.map((member) => ({
             id: member.id,
             label: `${member.fullName} (${member.memberNumber})`,
           }))}
+          onSuccess={refreshCharges}
         />
       </div>
     )
@@ -61,7 +107,13 @@ export function ChargeOperationContent({
 
   if (chargeOperationSheetType === "waive") {
     return (
-      <form action={waiveChargeApplicationAction} className="grid gap-4 px-6">
+      <form
+        action={async (formData) => {
+          await waiveChargeApplicationAction(formData)
+          await refreshCharges()
+        }}
+        className="grid gap-4 px-6"
+      >
         <input
           name="chargeApplicationId"
           type="hidden"
@@ -80,7 +132,13 @@ export function ChargeOperationContent({
 
   if (chargeOperationSheetType === "reverse") {
     return (
-      <form action={reverseChargeApplicationAction} className="grid gap-4 px-6">
+      <form
+        action={async (formData) => {
+          await reverseChargeApplicationAction(formData)
+          await refreshCharges()
+        }}
+        className="grid gap-4 px-6"
+      >
         <input
           name="chargeApplicationId"
           type="hidden"
@@ -101,7 +159,13 @@ export function ChargeOperationContent({
     const activating = chargeIsActive === "true"
 
     return (
-      <form action={updateChargeDefinitionAction} className="grid gap-4 px-6">
+      <form
+        action={async (formData) => {
+          await updateChargeDefinitionAction(formData)
+          await refreshCharges()
+        }}
+        className="grid gap-4 px-6"
+      >
         <input
           name="chargeDefinitionId"
           type="hidden"
@@ -126,7 +190,13 @@ export function ChargeOperationContent({
 
   if (chargeOperationSheetType === "version") {
     return (
-      <form action={updateChargeDefinitionAction} className="grid gap-4 px-6">
+      <form
+        action={async (formData) => {
+          await updateChargeDefinitionAction(formData)
+          await refreshCharges()
+        }}
+        className="grid gap-4 px-6"
+      >
         <input
           name="chargeDefinitionId"
           type="hidden"

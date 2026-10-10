@@ -1,30 +1,42 @@
 "use client"
 
-import type { ReactNode } from "react"
-import { OpenSupportCaseCreateSheet } from "@/components/open-support-case-sheet"
+import {
+  OpenMemberSupportCaseCreateSheet,
+  OpenSupportCaseCreateSheet,
+} from "@/components/open-support-case-sheet"
 import { SupportColumnVisibility } from "@/components/support-column-visibility"
+import { SupportMobileToolbar } from "@/components/support-mobile-toolbar"
 import { SupportSearchFilter } from "@/components/support-search-filter"
 
 export function SupportHeader({
-  action,
-  description = "Track service issues, assignments, replies, and finance-adjustment review.",
-  title = "Support cases",
+  assignees,
+  canCreateSupportCases,
+  mode,
 }: {
-  action?: ReactNode
-  description?: string
-  title?: string
+  assignees: Array<{ id: string; label: string }>
+  canCreateSupportCases: boolean
+  mode: "member" | "staff"
 }) {
   return (
-    <div className="flex flex-col gap-3 border-b border-border bg-background px-4 py-3 md:flex-row md:items-center md:justify-between">
-      <div>
-        <p className="text-sm font-medium text-foreground">{title}</p>
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+    <div className="border-y border-border bg-transparent py-3">
+      <div className="md:hidden">
+        <SupportMobileToolbar
+          assignees={assignees}
+          canCreateSupportCases={canCreateSupportCases}
+          mode={mode}
+        />
       </div>
-      <div className="flex flex-col gap-2 md:flex-row md:items-center">
-        <SupportSearchFilter />
+      <div className="hidden items-center justify-between gap-3 md:flex">
+        <SupportSearchFilter assignees={assignees} mode={mode} />
         <div className="flex items-center gap-2">
           <SupportColumnVisibility />
-          {action === undefined ? <OpenSupportCaseCreateSheet /> : action}
+          {canCreateSupportCases ? (
+            mode === "member" ? (
+              <OpenMemberSupportCaseCreateSheet />
+            ) : (
+              <OpenSupportCaseCreateSheet />
+            )
+          ) : null}
         </div>
       </div>
     </div>

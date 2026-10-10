@@ -47,4 +47,15 @@ npm-debug.log*
 
 
 .trigger
-.release/runtime/
+.scratch
+.brain
+.env*
+
+!.env*.example
+
+# Generated native development projects and local QA captures are not release source.
+/apps/mobile/android/
+/apps/mobile/ios/
+/artifacts/
+/.codex/screenshots/
+/Screenshot_*.png

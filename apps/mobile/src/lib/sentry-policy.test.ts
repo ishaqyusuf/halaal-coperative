@@ -8,6 +8,7 @@ import {
 describe("mobile Sentry policy", () => {
   it("requires an explicit mobile flag, production environment, and DSN", () => {
     const production = {
+      appVariant: "production",
       deploymentEnvironment: "production",
       dsn: "https://dsn",
       nodeEnvironment: "production",
@@ -18,6 +19,11 @@ describe("mobile Sentry policy", () => {
     expect(
       isMobileSentryEnabled({ ...production, explicitlyEnabled: "true" })
     ).toBe(true)
+    for (const appVariant of ["development", "preview", undefined]) {
+      expect(isMobileSentryEnabled({
+        ...production, appVariant, explicitlyEnabled: "true",
+      })).toBe(false)
+    }
   })
 
   it("keeps release-safe update tags and removes device and identity data", () => {
@@ -67,6 +73,20 @@ describe("mobile Sentry policy", () => {
     expect(report.captureContext.tags).toMatchObject({
       runtime: "mobile",
       source: "mobile.mutation_cache",
+    })
+  })
+
+  it("never includes a push endpoint in a notification error report", () => {
+    const providerToken = "ExponentPushToken[private-provider-token]"
+    const report = getMobileErrorReport(
+      new Error(`Registration failed for ${providerToken}`),
+      "mobile.notifications.registration"
+    )
+
+    expect(JSON.stringify(report)).not.toContain(providerToken)
+    expect(report.captureContext.tags).toMatchObject({
+      runtime: "mobile",
+      source: "mobile.notifications.registration",
     })
   })
 })

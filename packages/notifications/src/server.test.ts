@@ -7,6 +7,8 @@ import {
 
 const env = process.env as Record<string, string | undefined>
 const originalFetch = globalThis.fetch
+const originalConsoleError = console.error
+const originalConsoleLog = console.log
 
 const originalEnv = {
   appEnv: env.APP_ENV,
@@ -42,6 +44,8 @@ function restoreEnv() {
   restoreEnvValue("TEST_EMAIL", originalEnv.testEmail)
   restoreEnvValue("VERCEL_ENV", originalEnv.vercelEnv)
   globalThis.fetch = originalFetch
+  console.error = originalConsoleError
+  console.log = originalConsoleLog
 }
 
 function testDraft(recipientEmail: string) {
@@ -66,6 +70,39 @@ afterEach(() => {
 })
 
 describe("server notification delivery", () => {
+  test("logs bounded failure details without the recipient or provider response", async () => {
+    const errors: string[] = []
+    console.error = (...values) => errors.push(values.map(String).join(" "))
+    // Keep React's test-process runtime stable; APP_ENV owns routing policy.
+    env.NODE_ENV = "development"
+    env.APP_ENV = "production"
+    env.EMAIL_DELIVERY_MODE = "live"
+    delete env.EMAIL_QA_DOMAIN_ROUTES
+    delete env.EMAIL_TEST_MODE
+    delete env.EMAIL_TEST_RECIPIENT
+    delete env.TEST_EMAIL
+    delete env.VERCEL_ENV
+    env.RESEND_API_KEY = "re_test"
+    env.EMAIL_FROM_ADDRESS = "noreply@example.com"
+    globalThis.fetch = async () =>
+      new Response("Rejected private@example.test with secret-token", {
+        status: 503,
+      })
+
+    const delivery = await createServerNotificationService().tryEmail({
+      ...testDraft("private@example.test"),
+      bodyHtml: "<p>Safe test body.</p>",
+      bodyTemplate: undefined,
+      notificationType: "private@example.test-secret-token",
+    })
+
+    expect(delivery.status).toBe("failed")
+    expect(delivery.errorMessage).toBe("Email delivery failed.")
+    expect(errors).toHaveLength(2)
+    expect(errors.join(" ")).toContain("Email delivery attempt failed.")
+    expect(errors.join(" ")).not.toContain("private@example.test")
+    expect(errors.join(" ")).not.toContain("secret-token")
+  })
   test("uses the platform name instead of a welcome phrase for a bare fallback address", () => {
     env.EMAIL_FROM_ADDRESS = "notifications@halaalvest.com"
 
@@ -106,7 +143,7 @@ describe("server notification delivery", () => {
     let providerPayload: Record<string, unknown> | undefined
 
     env.APP_ENV = "production"
-    env.NODE_ENV = "production"
+    env.NODE_ENV = "development"
     env.EMAIL_DELIVERY_MODE = "live"
     env.EMAIL_QA_DOMAIN_ROUTES = JSON.stringify({
       "ishaq.qa.test": "ishaq@example.com",
@@ -144,7 +181,7 @@ describe("server notification delivery", () => {
     let providerPayload: Record<string, unknown> | undefined
 
     env.APP_ENV = "staging"
-    env.NODE_ENV = "production"
+    env.NODE_ENV = "development"
     env.EMAIL_DELIVERY_MODE = "console"
     env.EMAIL_QA_DOMAIN_ROUTES = JSON.stringify({
       "ishaq.qa.test": "ishaq@example.com",
@@ -169,5 +206,30 @@ describe("server notification delivery", () => {
 
     expect(providerPayload?.to).toEqual(["ishaq@example.com"])
     expect(delivery.routing?.mode).toBe("qa_domain")
+  })
+
+  test("does not log a non-QA verification link in Preview", async () => {
+    const logs: string[] = []
+    console.log = (...values) => logs.push(values.map(String).join(" "))
+    env.APP_ENV = "preview"
+    env.VERCEL_ENV = "preview"
+    env.NODE_ENV = "development"
+    env.EMAIL_DELIVERY_MODE = "console"
+    env.EMAIL_QA_DOMAIN_ROUTES = JSON.stringify({
+      "ishaq.qa.test": "ishaq@example.com",
+    })
+    delete env.EMAIL_TEST_MODE
+    delete env.EMAIL_TEST_RECIPIENT
+    delete env.TEST_EMAIL
+
+    const delivery = await createServerNotificationService().tryEmail({
+      ...testDraft("member@example.com"),
+      actionUrl:
+        "https://halaalvest.com/delete-account/verify#token=private-token",
+    })
+
+    expect(delivery.status).toBe("failed")
+    expect(delivery.errorMessage).toBe("Email delivery failed.")
+    expect(logs).toEqual([])
   })
 })

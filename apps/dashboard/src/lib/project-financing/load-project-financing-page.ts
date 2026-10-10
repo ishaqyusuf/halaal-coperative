@@ -3,7 +3,6 @@ import {
   getMemberByUserId,
   getProjectFinancingSummary,
   listMembers,
-  listProjectFinancingRequests,
   quoteApplicableCharges,
 } from "@halaalvest/db"
 import { getDashboardServerContext } from "@/lib/server-context"
@@ -46,11 +45,8 @@ export async function loadProjectFinancingPageData() {
       return { state: "member-profile-missing" as const }
     }
 
-    const [requests, chargeOptions] = await Promise.all([
-      listProjectFinancingRequests({
-        memberId: member.id,
-        tenantId: context.tenant.id,
-      }),
+    const [summary, chargeOptions] = await Promise.all([
+      getProjectFinancingSummary(context.tenant.id, undefined, member.id),
       quoteApplicableCharges({
         basisAmount: 100,
         tenantId: context.tenant.id,
@@ -61,20 +57,19 @@ export async function loadProjectFinancingPageData() {
 
     return {
       state: "member-ready" as const,
+      canCreate: true,
       chargeOptions,
       member,
-      requests,
+      summary,
     }
   }
 
   const [
-    requests,
     summary,
     members,
     submissionChargeOptions,
     approvalChargeOptions,
   ] = await Promise.all([
-    listProjectFinancingRequests({ tenantId: context.tenant.id }),
     getProjectFinancingSummary(context.tenant.id),
     listMembers(context.tenant.id, { page: 1, pageSize: 200 }),
     quoteApplicableCharges({
@@ -94,12 +89,12 @@ export async function loadProjectFinancingPageData() {
   return {
     state: "staff-ready" as const,
     approvalChargeOptions,
+    canCreate: canSubmit,
     canReview,
     memberOptions: members.items.map((member) => ({
       id: member.id,
       label: `${member.fullName} (${member.memberNumber})`,
     })),
-    requests,
     submissionChargeOptions,
     summary,
   }

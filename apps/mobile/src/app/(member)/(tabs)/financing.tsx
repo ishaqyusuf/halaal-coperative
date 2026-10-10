@@ -1,5 +1,5 @@
-import { FinancingScreen } from "@/screens/financing-screen"
+import { MemberFinancingRouteController } from "@/features/financing/routes/member-financing-route-controller"
 
 export default function FinancingRoute() {
-  return <FinancingScreen />
+  return <MemberFinancingRouteController />
 }

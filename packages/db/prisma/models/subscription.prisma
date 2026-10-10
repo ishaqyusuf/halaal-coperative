@@ -1,0 +1,170 @@
+model SubscriptionPlan {
+  id                         String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                       SubscriptionPlanCode @unique
+  displayName                String               @map("display_name")
+  description                String?
+  currencyCode               String               @default("NGN") @map("currency_code")
+  monthlyPriceMin            Decimal?             @map("monthly_price_min") @db.Decimal(18, 2)
+  monthlyPriceMax            Decimal?             @map("monthly_price_max") @db.Decimal(18, 2)
+  setupFeeMin                Decimal?             @map("setup_fee_min") @db.Decimal(18, 2)
+  setupFeeMax                Decimal?             @map("setup_fee_max") @db.Decimal(18, 2)
+  activeMemberLimit          Int?                 @map("active_member_limit")
+  isPublic                   Boolean              @default(true) @map("is_public")
+  isActive                   Boolean              @default(true) @map("is_active")
+  sortOrder                  Int                  @default(0) @map("sort_order")
+  entitlementDefinition      Json                 @map("entitlement_definition")
+  availableAddonCodes        Json                 @map("available_addon_codes")
+  addonDefinitions           Json                 @default("[]") @map("addon_definitions")
+  passThroughCostDefinitions Json                 @default("[]") @map("pass_through_cost_definitions")
+  metadata                   Json?
+  createdAt                  DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenantSubscriptions TenantSubscription[]
+
+  @@index([isActive, sortOrder], map: "subscription_plans_active_sort_idx")
+  @@map("subscription_plans")
+}
+
+model TenantSubscription {
+  id                        String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                  String                   @unique @map("tenant_id") @db.Uuid
+  planId                    String                   @map("plan_id") @db.Uuid
+  status                    TenantSubscriptionStatus
+  source                    TenantSubscriptionSource
+  providerName              String?                  @map("provider_name")
+  providerCustomerId        String?                  @map("provider_customer_id")
+  providerSubscriptionId    String?                  @map("provider_subscription_id")
+  trialStartsAt             DateTime?                @map("trial_starts_at") @db.Timestamptz(6)
+  trialEndsAt               DateTime?                @map("trial_ends_at") @db.Timestamptz(6)
+  currentPeriodStartsAt     DateTime?                @map("current_period_starts_at") @db.Timestamptz(6)
+  currentPeriodEndsAt       DateTime?                @map("current_period_ends_at") @db.Timestamptz(6)
+  graceEndsAt               DateTime?                @map("grace_ends_at") @db.Timestamptz(6)
+  cancelAtPeriodEnd         Boolean                  @default(false) @map("cancel_at_period_end")
+  cancelledAt               DateTime?                @map("cancelled_at") @db.Timestamptz(6)
+  endedAt                   DateTime?                @map("ended_at") @db.Timestamptz(6)
+  activeMemberLimitOverride Int?                     @map("active_member_limit_override")
+  sourceState               Json?                    @map("source_state")
+  lastProviderEventAt       DateTime?                @map("last_provider_event_at") @db.Timestamptz(6)
+  createdAt                 DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant          Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan            SubscriptionPlan             @relation(fields: [planId], references: [id], onDelete: Restrict)
+  addons          TenantSubscriptionAddon[]
+  checkoutIntents SubscriptionCheckoutIntent[]
+  invoices        SubscriptionInvoice[]
+
+  @@unique([providerName, providerSubscriptionId], map: "tenant_subscriptions_provider_subscription_key")
+  @@index([planId, status], map: "tenant_subscriptions_plan_status_idx")
+  @@index([currentPeriodEndsAt], map: "tenant_subscriptions_period_end_idx")
+  @@map("tenant_subscriptions")
+}
+
+model TenantSubscriptionAddon {
+  id                   String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String                  @map("tenant_id") @db.Uuid
+  tenantSubscriptionId String                  @map("tenant_subscription_id") @db.Uuid
+  code                 String
+  displayName          String                  @map("display_name")
+  status               SubscriptionAddonStatus @default(active)
+  entitlementOverrides Json?                   @map("entitlement_overrides")
+  limitOverrides       Json?                   @map("limit_overrides")
+  priceAmount          Decimal?                @map("price_amount") @db.Decimal(18, 2)
+  currencyCode         String                  @default("NGN") @map("currency_code")
+  providerAddonId      String?                 @map("provider_addon_id")
+  startsAt             DateTime                @default(now()) @map("starts_at") @db.Timestamptz(6)
+  endsAt               DateTime?               @map("ends_at") @db.Timestamptz(6)
+  createdAt            DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscription TenantSubscription @relation(fields: [tenantSubscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantSubscriptionId, code], map: "tenant_subscription_addons_subscription_code_key")
+  @@index([tenantId, status], map: "tenant_subscription_addons_tenant_status_idx")
+  @@map("tenant_subscription_addons")
+}
+
+model SubscriptionCheckoutIntent {
+  id                   String                           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String                           @map("tenant_id") @db.Uuid
+  tenantSubscriptionId String?                          @map("tenant_subscription_id") @db.Uuid
+  requestedPlanCode    SubscriptionPlanCode             @map("requested_plan_code")
+  status               SubscriptionCheckoutIntentStatus @default(pending)
+  providerName         String?                          @map("provider_name")
+  providerIntentId     String?                          @map("provider_intent_id")
+  requestedByUserId    String?                          @map("requested_by_user_id") @db.Uuid
+  idempotencyKey       String                           @map("idempotency_key")
+  checkoutUrl          String?                          @map("checkout_url")
+  expiresAt            DateTime?                        @map("expires_at") @db.Timestamptz(6)
+  completedAt          DateTime?                        @map("completed_at") @db.Timestamptz(6)
+  requestState         Json?                            @map("request_state")
+  createdAt            DateTime                         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime                         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscription TenantSubscription? @relation(fields: [tenantSubscriptionId], references: [id], onDelete: SetNull)
+
+  @@unique([providerName, providerIntentId], map: "subscription_checkout_intents_provider_intent_key")
+  @@unique([tenantId, idempotencyKey], map: "subscription_checkout_intents_tenant_idempotency_key")
+  @@index([tenantId, createdAt], map: "subscription_checkout_intents_tenant_created_idx")
+  @@map("subscription_checkout_intents")
+}
+
+model SubscriptionInvoice {
+  id                   String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String                    @map("tenant_id") @db.Uuid
+  tenantSubscriptionId String                    @map("tenant_subscription_id") @db.Uuid
+  providerName         String?                   @map("provider_name")
+  providerInvoiceId    String?                   @map("provider_invoice_id")
+  invoiceNumber        String?                   @map("invoice_number")
+  status               SubscriptionInvoiceStatus
+  currencyCode         String                    @default("NGN") @map("currency_code")
+  subtotalAmount       Decimal                   @map("subtotal_amount") @db.Decimal(18, 2)
+  taxAmount            Decimal                   @default(0) @map("tax_amount") @db.Decimal(18, 2)
+  totalAmount          Decimal                   @map("total_amount") @db.Decimal(18, 2)
+  amountPaid           Decimal                   @default(0) @map("amount_paid") @db.Decimal(18, 2)
+  periodStartsAt       DateTime?                 @map("period_starts_at") @db.Timestamptz(6)
+  periodEndsAt         DateTime?                 @map("period_ends_at") @db.Timestamptz(6)
+  dueAt                DateTime?                 @map("due_at") @db.Timestamptz(6)
+  paidAt               DateTime?                 @map("paid_at") @db.Timestamptz(6)
+  hostedInvoiceUrl     String?                   @map("hosted_invoice_url")
+  lineItems            Json                      @map("line_items")
+  providerState        Json?                     @map("provider_state")
+  createdAt            DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscription TenantSubscription @relation(fields: [tenantSubscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([providerName, providerInvoiceId], map: "subscription_invoices_provider_invoice_key")
+  @@index([tenantId, createdAt], map: "subscription_invoices_tenant_created_idx")
+  @@index([tenantSubscriptionId, status], map: "subscription_invoices_subscription_status_idx")
+  @@map("subscription_invoices")
+}
+
+model SubscriptionProviderEvent {
+  id              String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String?                         @map("tenant_id") @db.Uuid
+  providerName    String                          @map("provider_name")
+  providerEventId String                          @map("provider_event_id")
+  eventType       String                          @map("event_type")
+  status          SubscriptionProviderEventStatus @default(received)
+  payloadHash     String                          @map("payload_hash")
+  payload         Json?
+  attempts        Int                             @default(0)
+  errorCode       String?                         @map("error_code")
+  errorMessage    String?                         @map("error_message")
+  occurredAt      DateTime                        @map("occurred_at") @db.Timestamptz(6)
+  processedAt     DateTime?                       @map("processed_at") @db.Timestamptz(6)
+  createdAt       DateTime                        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime                        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@unique([providerName, providerEventId], map: "subscription_provider_events_provider_event_key")
+  @@index([tenantId, occurredAt], map: "subscription_provider_events_tenant_occurred_idx")
+  @@index([status, createdAt], map: "subscription_provider_events_status_created_idx")
+  @@map("subscription_provider_events")
+}

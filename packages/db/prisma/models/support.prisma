@@ -31,6 +31,8 @@ model SupportCase {
   messages                          SupportCaseMessage[]
   specialSavingsWithdrawal          MemberSpecialSavingsWithdrawal?
 
+  privacyRequest AccountPrivacyRequest?
+
   @@index([tenantId, status, priority], map: "support_cases_tenant_status_priority_idx")
   @@index([tenantId, memberId, status], map: "support_cases_tenant_member_status_idx")
   @@index([tenantId, assignedToUserId, status], map: "support_cases_tenant_assignee_status_idx")

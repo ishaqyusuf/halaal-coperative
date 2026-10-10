@@ -2,11 +2,10 @@ import {
   createDbRuntime,
   getMonthlyFinancingCycleHealth,
   getMemberByUserId,
+  getMemberOperationalReadiness,
   listChargeDefinitions,
   listLoanProducts,
-  listLoanRequests,
-  listLoans,
-  listMembers,
+  listMembersTable,
 } from "@halaalvest/db"
 import {
   canShowQuickFill,
@@ -18,8 +17,6 @@ import {
   financeManagementRoles,
   hasAnyRole,
 } from "@/lib/workspace-access"
-
-type LoanNumericValue = number | string | { toString(): string }
 
 type LoanProductOptionRow = {
   code?: string | null
@@ -33,6 +30,7 @@ type LoanMemberOptionRow = {
   fullName: string
   id: string
   memberNumber: string
+  operationalReadiness?: { isReady: boolean } | null
 }
 
 type LoanRequestChargeOptionRow = {
@@ -42,51 +40,6 @@ type LoanRequestChargeOptionRow = {
   collectionMode: string
   id: string
   name: string
-}
-
-type LoanRequestRow = {
-  approvals: Array<{
-    action: string
-    actedAt: Date
-    actorUser: { fullName: string }
-    id: string
-    notes?: string | null
-  }>
-  eligibleAmountSnapshot: LoanNumericValue
-  estimatedMonthlyServicing: LoanNumericValue
-  extraMonthlySavingsAmount: LoanNumericValue
-  guarantorApprovals: Array<{
-    guarantorMember: {
-      fullName: string
-      memberNumber: string
-    }
-    id: string
-    requestedAt: Date
-    respondedAt?: Date | null
-    respondedByUser?: { fullName: string } | null
-    responseNotes?: string | null
-    status: "approved" | "pending" | "rejected"
-  }>
-  id: string
-  loanProduct: { name: string }
-  member: { fullName: string; id: string; memberNumber: string }
-  purpose?: string | null
-  requestedAmount: LoanNumericValue
-  requestedTermMonths: number
-  reviewNotes?: string | null
-  status: string
-}
-
-type LoanPortfolioRow = {
-  estimatedMonthlyServicing: LoanNumericValue
-  extraMonthlySavingsAmount: LoanNumericValue
-  id: string
-  loanProduct: { name: string }
-  member: { fullName: string; id: string; memberNumber: string }
-  outstandingPrincipal: LoanNumericValue
-  principalAmount: LoanNumericValue
-  status: string
-  termMonths: number
 }
 
 export type LoansPageData =
@@ -100,13 +53,12 @@ export type LoansPageData =
       financingCycle: Awaited<ReturnType<typeof getMonthlyFinancingCycleHealth>>
       loanProducts: LoanProductOptionRow[]
       loanRequestCharges: LoanRequestChargeOptionRow[]
-      loanRequests: LoanRequestRow[]
-      loans: LoanPortfolioRow[]
       members: {
         items: LoanMemberOptionRow[]
       }
       isMemberView: boolean
       quickFillEnabled: boolean
+      submissionBlockedReason: string | null
       state: "ready"
     }
 
@@ -130,21 +82,22 @@ export async function loadLoansPageData(): Promise<LoansPageData> {
         })
       : null
 
-  const [
-    members,
-    loanProducts,
-    loanRequests,
-    loans,
-    financingCycle,
-    chargeDefinitions,
-  ] = await Promise.all([
-    listMembers(context.tenant.id, { page: 1, pageSize: 100 }),
-    listLoanProducts(context.tenant.id),
-    listLoanRequests(context.tenant.id),
-    listLoans(context.tenant.id),
-    getMonthlyFinancingCycleHealth({ tenantId: context.tenant.id }),
-    listChargeDefinitions(context.tenant.id),
-  ])
+  const actorReadiness = actorMember
+    ? await getMemberOperationalReadiness({
+        memberId: actorMember.id,
+        tenantId: context.tenant.id,
+      })
+    : null
+
+  const [members, loanProducts, financingCycle, chargeDefinitions] =
+    await Promise.all([
+      isMemberView
+        ? Promise.resolve({ data: [] as LoanMemberOptionRow[] })
+        : listMembersTable(context.tenant.id, { pageSize: 100 }),
+      listLoanProducts(context.tenant.id),
+      getMonthlyFinancingCycleHealth({ tenantId: context.tenant.id }),
+      listChargeDefinitions(context.tenant.id),
+    ])
   const loanRequestCharges = (chargeDefinitions as any[])
     .map((definition) => {
       const applicability = definition.applicability?.find(
@@ -177,46 +130,48 @@ export async function loadLoansPageData(): Promise<LoansPageData> {
       } satisfies LoanRequestChargeOptionRow
     })
     .filter((charge): charge is LoanRequestChargeOptionRow => Boolean(charge))
-  const visibleMembers =
-    isMemberView && actorMember
-      ? {
-          items: [
-            {
-              fullName: actorMember.fullName,
-              id: actorMember.id,
-              memberNumber: actorMember.memberNumber,
-            },
-          ],
-        }
-      : members
-  const visibleLoanRequests =
-    isMemberView && actorMember
-      ? (loanRequests as LoanRequestRow[]).filter(
-          (request) => request.member.id === actorMember.id
-        )
-      : (loanRequests as LoanRequestRow[])
-  const visibleLoans =
-    isMemberView && actorMember
-      ? (loans as LoanPortfolioRow[]).filter(
-          (loan) => loan.member.id === actorMember.id
-        )
-      : (loans as LoanPortfolioRow[])
+  const visibleMembers = isMemberView
+    ? {
+        items: actorMember
+          ? [
+              {
+                fullName: actorMember.fullName,
+                id: actorMember.id,
+                memberNumber: actorMember.memberNumber,
+                operationalReadiness: actorReadiness,
+              },
+            ]
+          : [],
+      }
+    : {
+        items: (members.data as LoanMemberOptionRow[]).filter(
+          (member) => member.operationalReadiness?.isReady
+        ),
+      }
+  const submissionBlockedReason = !isMemberView
+    ? null
+    : !actorMember
+      ? "Link your signed-in account to a member profile before requesting financing."
+      : !actorReadiness?.isReady
+        ? "Complete member verification and migration setup before requesting financing."
+        : null
 
   return {
     canReview: hasAnyRole(
       context.auth.membership?.role,
       financeManagementRoles
     ),
-    canSubmit: hasAnyRole(role, allStaffRoles) || Boolean(actorMember),
+    canSubmit:
+      hasAnyRole(role, allStaffRoles) ||
+      Boolean(actorMember && actorReadiness?.isReady),
     dashboard,
     financingCycle,
     loanProducts: loanProducts as LoanProductOptionRow[],
     loanRequestCharges,
-    loanRequests: visibleLoanRequests,
-    loans: visibleLoans,
     members: visibleMembers,
     isMemberView,
     quickFillEnabled: canShowQuickFill(context),
+    submissionBlockedReason,
     state: "ready" as const,
   }
 }

@@ -66,7 +66,9 @@ export const workflowPresentations = {
   loan: {
     disburse: dialog("form"),
     guarantor: dialog("form"),
+    "loan-details": sheet("review"),
     request: sheet("review"),
+    "request-details": sheet("review"),
     review: dialog("review"),
   },
   member: {
@@ -97,7 +99,8 @@ export const workflowPresentations = {
     import: dialog("wide"),
   },
   memberShareApplication: {
-    create: dialog("form"),
+    create: sheet("form"),
+    details: sheet("review"),
   },
   memberSignupLink: {
     access: dialog("form"),
@@ -126,6 +129,7 @@ export const workflowPresentations = {
   },
   procurement: {
     create: sheet("review"),
+    details: sheet("review"),
     purchase: dialog("form"),
     review: dialog("review"),
     "self-service": sheet("review"),
@@ -135,14 +139,17 @@ export const workflowPresentations = {
   },
   projectFinancing: {
     create: sheet("review"),
+    details: sheet("review"),
     disbursement: dialog("form"),
     review: dialog("review"),
     "self-service": sheet("review"),
   },
   repayment: {
-    followUp: dialog("form"),
+    followUp: sheet("form"),
     post: sheet("review"),
+    repaymentDetails: sheet("review"),
     refresh: alertDialog(),
+    scheduleDetails: sheet("review"),
   },
   role: {
     assign: dialog("form"),
@@ -155,6 +162,7 @@ export const workflowPresentations = {
   },
   shareApplication: {
     create: dialog("form"),
+    details: sheet("review"),
     review: dialog("review"),
   },
   support: {

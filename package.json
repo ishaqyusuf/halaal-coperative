@@ -19,13 +19,10 @@
     "dev:services": "bun --env-file=/dev/null scripts/local-infra-command.ts dev-services",
     "dev:services:local": "bun --env-file=/dev/null scripts/local-infra-command.ts dev-services --mode local",
     "dev:services:local-db": "bun --env-file=/dev/null scripts/local-infra-command.ts dev-services --mode local",
-    "eas-build:dev": "bun --env-file=/dev/null ./scripts/eas-account-runner.ts eas-build:dev",
-    "eas-build:preview": "bun --env-file=/dev/null ./scripts/eas-account-runner.ts eas-build:preview",
-    "eas-update:preview": "bun --env-file=/dev/null ./scripts/eas-account-runner.ts update:preview",
+    "eas:build": "bun --env-file=/dev/null ./scripts/eas-account-runner.ts build",
+    "eas:submit": "bun --env-file=/dev/null ./scripts/eas-account-runner.ts submit",
+    "eas:update": "bun --env-file=/dev/null ./scripts/eas-account-runner.ts update",
     "jobs:deploy": "bun run --filter @halaalvest/jobs deploy",
-    "release:plan": "bun scripts/release.ts plan",
-    "release:status": "bun scripts/release.ts status",
-    "release:check": "bun scripts/release.ts ci",
     "kill:ports": "bun --env-file=/dev/null ../local-infra-kit/bin/kill-ports.ts --profile halaalvest",
     "lint": "turbo lint",
     "lint:mobile": "turbo lint --filter=@halaalvest/mobile",
@@ -33,7 +30,11 @@
     "terminal": "bash ./scripts/open-bun-script-terminal.sh",
     "typecheck": "turbo typecheck",
     "typecheck:mobile": "turbo typecheck --filter=@halaalvest/mobile",
-    "test": "turbo test"
+    "test": "turbo test",
+    "release": "bun --env-file=/dev/null ../local-infra-kit/bin/infra.ts release",
+    "jobs:preview:deploy": "bun run --filter @halaalvest/jobs deploy:preview",
+    "eas:auth": "bun --env-file=/dev/null ./scripts/eas-account-runner.ts auth",
+    "eas:update:prepare": "node ./apps/mobile/scripts/eas-update.mjs --prepare-only"
   },
   "devDependencies": {
     "@halaalvest/eslint-config": "workspace:*",
@@ -52,6 +53,22 @@
     "packages/*"
   ],
   "overrides": {
-    "lightningcss": "1.30.1"
+    "@expo/plist>@xmldom/xmldom": "0.8.15",
+    "@react-email/ui>next": "16.3.6",
+    "browserslist": "4.28.7",
+    "engine.io-client>ws": "8.21.3",
+    "expo-constants": "18.0.14",
+    "express-rate-limit": "8.7.0",
+    "fast-uri": "3.1.7",
+    "hono": "4.13.10",
+    "ip-address": "10.7.2",
+    "lightningcss": "1.30.1",
+    "nanoid": "3.3.18",
+    "plist>@xmldom/xmldom": "0.9.12",
+    "proxy-addr": "2.0.8",
+    "sharp": "0.35.5",
+    "shell-quote": "1.11.0",
+    "socket.io-parser": "4.2.7",
+    "tar": "7.5.21"
   }
 }

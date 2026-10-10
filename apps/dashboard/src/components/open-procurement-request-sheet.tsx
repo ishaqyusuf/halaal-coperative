@@ -11,14 +11,18 @@ import { useProcurementParams } from "@/hooks/use-procurement-params"
 
 export function OpenProcurementRequestCreateSheet({
   disabled,
+  iconOnly = false,
 }: {
   disabled?: boolean
+  iconOnly?: boolean
 }) {
   const { setParams } = useProcurementParams()
 
   return (
     <Button
       disabled={disabled}
+      aria-label="New procurement request"
+      className={iconOnly ? "size-11" : undefined}
       onClick={() =>
         setParams({
           procurementRequestId: null,
@@ -26,18 +30,25 @@ export function OpenProcurementRequestCreateSheet({
         })
       }
       type="button"
+      size={iconOnly ? "icon-lg" : "default"}
     >
       <PlusIcon data-icon="inline-start" />
-      New request
+      {iconOnly ? <span className="sr-only">New request</span> : "New request"}
     </Button>
   )
 }
 
-export function OpenMemberProcurementRequestCreateSheet() {
+export function OpenMemberProcurementRequestCreateSheet({
+  iconOnly = false,
+}: {
+  iconOnly?: boolean
+}) {
   const { setParams } = useProcurementParams()
 
   return (
     <Button
+      aria-label="Request item purchase"
+      className={iconOnly ? "size-11" : undefined}
       onClick={() =>
         setParams({
           procurementRequestId: null,
@@ -45,9 +56,14 @@ export function OpenMemberProcurementRequestCreateSheet() {
         })
       }
       type="button"
+      size={iconOnly ? "icon-lg" : "default"}
     >
       <ShoppingBagIcon data-icon="inline-start" />
-      Request purchase
+      {iconOnly ? (
+        <span className="sr-only">Request purchase</span>
+      ) : (
+        "Request purchase"
+      )}
     </Button>
   )
 }

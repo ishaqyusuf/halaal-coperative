@@ -62,7 +62,7 @@ const importPageCopy: Record<
   },
   loan_products: {
     description:
-      "Stage and review loan product definitions used by legacy loan records.",
+      "Stage interest-free financing product definitions used for eligibility, terms, and legacy matching. This does not create balances or disburse loans.",
     title: "Loan products",
   },
   members: {

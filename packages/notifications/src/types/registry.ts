@@ -58,8 +58,13 @@ import {
 } from "./support"
 import {
   createNotificationEmailDraft,
+  extractDisplayAmount,
   type HalaalVestNotificationDefinition,
 } from "./shared"
+import {
+  notificationEmailPresentationByType,
+  type NotificationEmailPresentation,
+} from "./email-presentation"
 
 export const halaalVestNotificationTypes = {
   "charge.applied": chargeApplied,
@@ -158,6 +163,8 @@ export function createEmailDraftFromType<
   const actionUrl = template?.actionUrl ?? definition.buildLink(parsed) ?? "/"
   const subject = template?.subject ?? "Notification"
   const previewText = template?.previewText ?? bodyText
+  const presentation: NotificationEmailPresentation =
+    notificationEmailPresentationByType[type]
   const sender =
     template?.sender ??
     (typeof parsed === "object" &&
@@ -175,13 +182,22 @@ export function createEmailDraftFromType<
   return createNotificationEmailDraft({
     actionLabel,
     actionUrl,
+    amount: extractDisplayAmount(bodyText),
+    amountLabel: presentation.amountLabel,
     bodyText,
-    eventLabel: type,
+    details: [
+      { label: "Activity", value: presentation.familyLabel },
+      ...(sender
+        ? [{ label: "Cooperative", value: sender.displayName }]
+        : []),
+    ],
+    eventLabel: presentation.eyebrow,
     notificationType: type,
     previewText,
     recipient,
     sender,
     subject,
+    variant: typeof definition.variant === "string" ? definition.variant : "info",
   })
 }
 
@@ -190,6 +206,7 @@ export function getDefaultNotificationRoles(type: HalaalVestNotificationType) {
 }
 
 export * from "./finance"
+export * from "./email-presentation"
 export * from "./food-purchase"
 export * from "./member"
 export * from "./onboarding"

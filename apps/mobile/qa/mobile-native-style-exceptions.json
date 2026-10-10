@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "exceptions": [
+    {
+      "file": "src/components/app/dev-quick-fill.tsx",
+      "allow": ["native-inline-style"],
+      "reason": "Floating placement keeps position:absolute with its runtime safe-area offset. Android footer-baseline-v2 measures a stable 116px form-footer displacement when NativeWind positioning alone leaves the 48dp control in flow. Classes retain size, shape and semantic colors; footer placement stays in flow."
+    },
+    {
+      "file": "src/app/_layout.tsx",
+      "allow": ["native-inline-style"],
+      "reason": "GestureHandlerRootView requires a native flex style before NativeWind providers mount."
+    },
+    {
+      "file": "src/components/app-auto-update-modal.tsx",
+      "allow": ["native-inline-style", "native-style-sheet"],
+      "reason": "Expo Updates progress and status-bar native APIs require animated/runtime style props; ticket 09 owns its feature migration."
+    },
+    {
+      "file": "src/components/floating-bottom-sheet.tsx",
+      "allow": ["native-inline-style", "native-style-sheet"],
+      "reason": "Gorhom Bottom Sheet background, container, handle, and detached sheet APIs require native style objects. The current-detent outer clip follows measured library geometry on the UI thread, preserving the inner keyboard scroll viewport."
+    },
+    {
+      "file": "src/components/ui/modal.tsx",
+      "allow": ["native-inline-style"],
+      "reason": "The Gorhom animated backdrop requires a native runtime style; its color comes from the semantic overlay theme token."
+    },
+    {
+      "file": "src/features/subscription/screens/subscription-screen.tsx",
+      "allow": ["native-inline-style"],
+      "reason": "Subscription exception copy uses a dedicated native-text boundary with semantic theme colors and proportional runtime line heights so Android large-text settings do not clip multi-line recovery content; no element combines style with className."
+    }
+  ]
+}

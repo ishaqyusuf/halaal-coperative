@@ -738,17 +738,9 @@ export function MemberKycForm({
             </p>
           </div>
           {devMode ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                applyDashboardDevFormFill(form, "member_kyc", {
-                  memberId: defaultValues.memberId,
-                })
-              }
-            >
-              Quick fill
-            </Button>
+            <p className="text-xs text-muted-foreground">
+              Quick Fill is unavailable for identity and compliance decisions.
+            </p>
           ) : null}
         </div>
 

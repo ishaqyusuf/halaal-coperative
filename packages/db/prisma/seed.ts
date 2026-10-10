@@ -1,5 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg"
-import { PrismaClient } from "@prisma/client"
+import { hashQaAcceleratorEvidence } from "@halaalvest/auth"
+import { SUBSCRIPTION_PLAN_DEFINITIONS } from "@halaalvest/domain/subscriptions"
+import { PrismaClient } from "../generated/prisma/client"
 import { buildTenantSiteHostname } from "@halaalvest/utils"
 import { normalizePostgresConnectionString } from "../src/postgres-connection"
 
@@ -11,10 +13,163 @@ if (!HALAALVEST_DATABASE_URL) {
 const prisma = new PrismaClient({
   adapter: new PrismaPg({
     connectionString: normalizePostgresConnectionString(
-      HALAALVEST_DATABASE_URL,
+      HALAALVEST_DATABASE_URL
     ),
   }),
 })
+
+async function seedQaAcceleratorFixtures() {
+  const qaDomain = "safa.qa.test"
+  const tenant = await prisma.tenant.upsert({
+    where: { slug: "safa-qa" },
+    update: {
+      dataClassification: "qa",
+      qaSourceDomain: qaDomain,
+      status: "active",
+    },
+    create: {
+      city: "Kaduna North",
+      country: "Nigeria",
+      currencyCode: "NGN",
+      dataClassification: "qa",
+      name: "Safa Multipurpose Cooperative",
+      qaMarkedAt: new Date(),
+      qaSourceDomain: qaDomain,
+      region: "Kaduna",
+      slug: "safa-qa",
+      state: "Kaduna",
+      status: "active",
+      timezone: "Africa/Lagos",
+    },
+  })
+
+  const standardDefinition = SUBSCRIPTION_PLAN_DEFINITIONS.standard
+  const standardPlan = await prisma.subscriptionPlan.upsert({
+    where: { code: "standard" },
+    update: {},
+    create: {
+      activeMemberLimit: standardDefinition.activeMemberLimit,
+      addonDefinitions: standardDefinition.addonDefinitions,
+      availableAddonCodes: standardDefinition.availableAddonCodes,
+      code: "standard",
+      currencyCode: "NGN",
+      description: standardDefinition.description,
+      displayName: standardDefinition.displayName,
+      entitlementDefinition: standardDefinition.entitlements,
+      isPublic: true,
+      monthlyPriceMax: standardDefinition.monthlyPrice.maximum,
+      monthlyPriceMin: standardDefinition.monthlyPrice.minimum,
+      passThroughCostDefinitions: standardDefinition.passThroughCostDefinitions,
+      setupFeeMax: standardDefinition.setupFee.maximum,
+      setupFeeMin: standardDefinition.setupFee.minimum,
+      sortOrder: standardDefinition.sortOrder,
+    },
+  })
+  await prisma.tenantSubscription.upsert({
+    where: { tenantId: tenant.id },
+    update: { planId: standardPlan.id, status: "manual" },
+    create: {
+      planId: standardPlan.id,
+      source: "manual",
+      sourceState: { initializedBy: "qa_accelerator_seed" },
+      status: "manual",
+      tenantId: tenant.id,
+    },
+  })
+
+  const identities = [
+    {
+      email: `admin@${qaDomain}`,
+      fullName: "Safa Cooperative Admin",
+      role: "tenant_admin" as const,
+    },
+    {
+      email: `zainab@${qaDomain}`,
+      fullName: "Zainab Musa",
+      role: "member" as const,
+    },
+    {
+      email: `finance@${qaDomain}`,
+      fullName: "Hauwa Usman",
+      role: "finance_officer" as const,
+    },
+  ]
+  let qaAdminUserId: string | null = null
+  for (const identity of identities) {
+    const user = await prisma.user.upsert({
+      where: { tenantId_email: { email: identity.email, tenantId: tenant.id } },
+      update: { deletedAt: null, fullName: identity.fullName },
+      create: {
+        email: identity.email,
+        fullName: identity.fullName,
+        tenantId: tenant.id,
+      },
+    })
+    if (identity.role === "tenant_admin") qaAdminUserId = user.id
+    await prisma.membership.upsert({
+      where: {
+        tenantId_userId_role: {
+          role: identity.role,
+          tenantId: tenant.id,
+          userId: user.id,
+        },
+      },
+      update: { isDefault: true },
+      create: {
+        isDefault: true,
+        role: identity.role,
+        tenantId: tenant.id,
+        userId: user.id,
+      },
+    })
+    if (identity.role === "member") {
+      await prisma.member.upsert({
+        where: { userId: user.id },
+        update: {
+          email: identity.email,
+          fullName: identity.fullName,
+          status: "active",
+        },
+        create: {
+          email: identity.email,
+          fullName: identity.fullName,
+          joinedAt: new Date("2026-08-01T00:00:00.000Z"),
+          memberNumber: "KAD-0042",
+          memberType: "individual",
+          status: "active",
+          tenantId: tenant.id,
+          userId: user.id,
+        },
+      })
+    }
+  }
+  const configuredCredential =
+    process.env.QA_ACCELERATOR_TESTER_CREDENTIAL?.trim()
+  if (configuredCredential && qaAdminUserId) {
+    const credentialDigest = hashQaAcceleratorEvidence(
+      `qa-credential:${configuredCredential}`
+    )
+    await prisma.qaTesterCredential.upsert({
+      where: { credentialDigest },
+      update: {
+        expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+        failedAttemptCount: 0,
+        lockedUntil: null,
+        qaDomain,
+        revokedAt: null,
+        testerLabel: "Configured local QA tester",
+      },
+      create: {
+        createdByUserId: qaAdminUserId,
+        credentialDigest,
+        expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+        qaDomain,
+        testerLabel: "Configured local QA tester",
+      },
+    })
+  }
+  console.log(`  QA accelerator workspace: ${tenant.id} (${qaDomain})`)
+}
 
 async function main() {
   console.log("Seeding database...")
@@ -109,8 +264,18 @@ async function main() {
 
   // Tenant Domains
   const domainData = [
-    { tenantId: amanah.id, hostname: buildTenantSiteHostname("amanah"), kind: "site" as const, isPrimary: true },
-    { tenantId: barakah.id, hostname: buildTenantSiteHostname("barakah"), kind: "site" as const, isPrimary: true },
+    {
+      tenantId: amanah.id,
+      hostname: buildTenantSiteHostname("amanah"),
+      kind: "site" as const,
+      isPrimary: true,
+    },
+    {
+      tenantId: barakah.id,
+      hostname: buildTenantSiteHostname("barakah"),
+      kind: "site" as const,
+      isPrimary: true,
+    },
   ]
 
   for (const domain of domainData) {
@@ -125,7 +290,9 @@ async function main() {
 
   // Users
   const platformOwner = await prisma.user.upsert({
-    where: { tenantId_email: { tenantId: amanah.id, email: "owner@halaalvest.local" } },
+    where: {
+      tenantId_email: { tenantId: amanah.id, email: "owner@halaalvest.local" },
+    },
     update: {},
     create: {
       tenantId: amanah.id,
@@ -136,7 +303,9 @@ async function main() {
   })
 
   const amanahAdmin = await prisma.user.upsert({
-    where: { tenantId_email: { tenantId: amanah.id, email: "admin@amanah.local" } },
+    where: {
+      tenantId_email: { tenantId: amanah.id, email: "admin@amanah.local" },
+    },
     update: {},
     create: {
       tenantId: amanah.id,
@@ -147,7 +316,9 @@ async function main() {
   })
 
   const barakahFinance = await prisma.user.upsert({
-    where: { tenantId_email: { tenantId: barakah.id, email: "finance@barakah.local" } },
+    where: {
+      tenantId_email: { tenantId: barakah.id, email: "finance@barakah.local" },
+    },
     update: {},
     create: {
       tenantId: barakah.id,
@@ -157,11 +328,19 @@ async function main() {
     },
   })
 
-  console.log(`  Users: ${platformOwner.id}, ${amanahAdmin.id}, ${barakahFinance.id}`)
+  console.log(
+    `  Users: ${platformOwner.id}, ${amanahAdmin.id}, ${barakahFinance.id}`
+  )
 
   // Memberships
   await prisma.membership.upsert({
-    where: { tenantId_userId_role: { tenantId: amanah.id, userId: platformOwner.id, role: "super_admin" } },
+    where: {
+      tenantId_userId_role: {
+        tenantId: amanah.id,
+        userId: platformOwner.id,
+        role: "super_admin",
+      },
+    },
     update: {},
     create: {
       tenantId: amanah.id,
@@ -172,7 +351,13 @@ async function main() {
   })
 
   await prisma.membership.upsert({
-    where: { tenantId_userId_role: { tenantId: amanah.id, userId: amanahAdmin.id, role: "tenant_admin" } },
+    where: {
+      tenantId_userId_role: {
+        tenantId: amanah.id,
+        userId: amanahAdmin.id,
+        role: "tenant_admin",
+      },
+    },
     update: {},
     create: {
       tenantId: amanah.id,
@@ -183,7 +368,13 @@ async function main() {
   })
 
   await prisma.membership.upsert({
-    where: { tenantId_userId_role: { tenantId: barakah.id, userId: barakahFinance.id, role: "finance_officer" } },
+    where: {
+      tenantId_userId_role: {
+        tenantId: barakah.id,
+        userId: barakahFinance.id,
+        role: "finance_officer",
+      },
+    },
     update: {},
     create: {
       tenantId: barakah.id,
@@ -252,13 +443,48 @@ async function main() {
 
   // Ledger Accounts (Chart of Accounts per tenant)
   const chartOfAccounts = [
-    { code: "1000", name: "Member Savings", accountType: "liability" as const, isSystem: true },
-    { code: "1100", name: "Loan Receivable", accountType: "asset" as const, isSystem: true },
-    { code: "2000", name: "Cash / Bank", accountType: "asset" as const, isSystem: true },
-    { code: "3000", name: "Charge Income", accountType: "income" as const, isSystem: true },
-    { code: "3100", name: "Levy Income", accountType: "income" as const, isSystem: true },
-    { code: "3200", name: "Member Share Capital", accountType: "equity" as const, isSystem: true },
-    { code: "4000", name: "Cooperative Equity", accountType: "equity" as const, isSystem: true },
+    {
+      code: "1000",
+      name: "Member Savings",
+      accountType: "liability" as const,
+      isSystem: true,
+    },
+    {
+      code: "1100",
+      name: "Loan Receivable",
+      accountType: "asset" as const,
+      isSystem: true,
+    },
+    {
+      code: "2000",
+      name: "Cash / Bank",
+      accountType: "asset" as const,
+      isSystem: true,
+    },
+    {
+      code: "3000",
+      name: "Charge Income",
+      accountType: "income" as const,
+      isSystem: true,
+    },
+    {
+      code: "3100",
+      name: "Levy Income",
+      accountType: "income" as const,
+      isSystem: true,
+    },
+    {
+      code: "3200",
+      name: "Member Share Capital",
+      accountType: "equity" as const,
+      isSystem: true,
+    },
+    {
+      code: "4000",
+      name: "Cooperative Equity",
+      accountType: "equity" as const,
+      isSystem: true,
+    },
   ]
 
   for (const tenant of [amanah, barakah]) {
@@ -312,6 +538,8 @@ async function main() {
   })
 
   console.log("  Charge definitions created")
+
+  await seedQaAcceleratorFixtures()
 
   console.log("Seeding complete!")
 }

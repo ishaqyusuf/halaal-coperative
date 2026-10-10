@@ -4,9 +4,18 @@ import {
 } from "@ishaqyusuf/logly-core"
 import { z } from "zod"
 
+export const browserEventSchema = analyticsEventSchema.extend({
+  analyticsContext: z.string().max(4096).optional(),
+})
+export const browserBatchSchema = analyticsBatchSchema.extend({
+  events: z.array(browserEventSchema).min(1).max(25),
+})
+export type BrowserBatch = z.infer<typeof browserBatchSchema>
+
 // Logly's deployed native contract (core 0.3.0) is not yet published on npm.
 // Extend the published 0.2.0 validation locally until that release is available.
 export const nativeEventSchema = analyticsEventSchema.extend({
+  analyticsContext: z.string().max(4096).optional(),
   source: z.literal("mobile"),
   platform: z.literal("android"),
   appVersion: z.string().min(1).max(64).optional(),

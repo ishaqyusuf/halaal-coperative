@@ -1,3 +1,4 @@
+import { storeNotifications } from "./billing/store-notifications"
 import "./instrument"
 
 import { serve } from "@hono/node-server"
@@ -10,7 +11,9 @@ import { handleTrpcRequest } from "./internal-api"
 import { captureApiError } from "./observability/sentry"
 import { getSafeObservabilityRequestId } from "./observability/sentry-policy"
 import { getRestErrorResponse } from "./rest/error-response"
+import { assertQaAcceleratorStartupSafety } from "./qa-accelerator-config"
 
+assertQaAcceleratorStartupSafety()
 const app = new Hono()
 const dashboardOrigin = process.env.DASHBOARD_APP_URL ?? "http://localhost:1441"
 
@@ -67,6 +70,8 @@ app.use(
     origin: dashboardOrigin,
   })
 )
+
+app.route("/billing/store-notifications", storeNotifications)
 
 app.get("/", (c) => {
   return c.json({

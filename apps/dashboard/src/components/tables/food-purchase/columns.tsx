@@ -1,7 +1,6 @@
 "use client"
 
 import { Badge } from "@halaalvest/ui/components/badge"
-import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import { formatCurrency } from "@halaalvest/utils"
 import type { FoodPurchaseApplicationRow } from "@halaalvest/db"
 import type { ColumnDef } from "@tanstack/react-table"
@@ -14,7 +13,7 @@ type FoodPurchaseTableMeta = {
   canReviewApplications: boolean
 }
 
-function formatDate(value: Date | string) {
+export function formatFoodPurchaseDate(value: Date | string) {
   const date = value instanceof Date ? value : new Date(value)
 
   return date.toLocaleDateString("en-NG", {
@@ -24,7 +23,7 @@ function formatDate(value: Date | string) {
   })
 }
 
-function formatMonth(value: Date | string) {
+export function formatFoodPurchaseMonth(value: Date | string) {
   const date = value instanceof Date ? value : new Date(value)
 
   return date.toLocaleDateString("en-NG", {
@@ -33,7 +32,7 @@ function formatMonth(value: Date | string) {
   })
 }
 
-function displayEnum(value: string) {
+export function formatFoodPurchaseLabel(value: string) {
   return value.replaceAll("_", " ")
 }
 
@@ -49,7 +48,9 @@ function statusClassName(status: string) {
   return "border-amber-200 bg-amber-50 text-amber-700"
 }
 
-function outstandingAmount(application: FoodPurchaseApplication) {
+export function getFoodPurchaseOutstandingAmount(
+  application: FoodPurchaseApplication
+) {
   const approvedAmount = application.approvedAmount ?? 0
 
   return Math.max(approvedAmount - application.paidAmount, 0)
@@ -62,7 +63,7 @@ const ApplicationCell = memo(
         {application.member.fullName}
       </p>
       <p className="mt-1 truncate text-xs text-muted-foreground">
-        {formatMonth(application.cycle.periodMonth)} ·{" "}
+        {formatFoodPurchaseMonth(application.cycle.periodMonth)} ·{" "}
         {application.itemDescription ?? "Foodstuff Purchase request"}
       </p>
     </div>
@@ -71,37 +72,17 @@ const ApplicationCell = memo(
 
 ApplicationCell.displayName = "ApplicationCell"
 
-const StatusBadge = memo(({ status }: { status: string }) => (
-  <Badge className={statusClassName(status)} variant="outline">
-    {displayEnum(status)}
-  </Badge>
-))
+export const FoodPurchaseStatusBadge = memo(
+  ({ status }: { status: string }) => (
+    <Badge className={statusClassName(status)} variant="outline">
+      {formatFoodPurchaseLabel(status)}
+    </Badge>
+  )
+)
 
-StatusBadge.displayName = "StatusBadge"
+FoodPurchaseStatusBadge.displayName = "FoodPurchaseStatusBadge"
 
 export const columns: ColumnDef<FoodPurchaseApplication>[] = [
-  {
-    cell: ({ row }) => (
-      <Checkbox
-        aria-label={`Select ${row.original.member.fullName}`}
-        checked={row.getIsSelected()}
-        onCheckedChange={(checked) => row.toggleSelected(checked === true)}
-      />
-    ),
-    enableHiding: false,
-    enableResizing: false,
-    enableSorting: false,
-    id: "select",
-    maxSize: 50,
-    meta: {
-      className:
-        "w-[50px] min-w-[50px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20 justify-center",
-      skeleton: { type: "checkbox" },
-      sticky: true,
-    },
-    minSize: 50,
-    size: 50,
-  },
   {
     cell: ({ row }) => <ApplicationCell application={row.original} />,
     enableResizing: true,
@@ -120,7 +101,7 @@ export const columns: ColumnDef<FoodPurchaseApplication>[] = [
   },
   {
     accessorKey: "status",
-    cell: ({ row }) => <StatusBadge status={row.original.status} />,
+    cell: ({ row }) => <FoodPurchaseStatusBadge status={row.original.status} />,
     enableResizing: true,
     header: "Status",
     id: "status",
@@ -190,11 +171,10 @@ export const columns: ColumnDef<FoodPurchaseApplication>[] = [
   {
     cell: ({ row }) => (
       <div>
-        <p className="font-medium">
-          {formatCurrency(row.original.paidAmount)}
-        </p>
+        <p className="font-medium">{formatCurrency(row.original.paidAmount)}</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          {formatCurrency(outstandingAmount(row.original))} outstanding
+          {formatCurrency(getFoodPurchaseOutstandingAmount(row.original))}{" "}
+          outstanding
         </p>
       </div>
     ),
@@ -214,9 +194,9 @@ export const columns: ColumnDef<FoodPurchaseApplication>[] = [
     accessorKey: "requestedAt",
     cell: ({ row }) => (
       <div>
-        <p>{formatDate(row.original.requestedAt)}</p>
+        <p>{formatFoodPurchaseDate(row.original.requestedAt)}</p>
         <p className="mt-1 truncate text-xs text-muted-foreground">
-          {formatMonth(row.original.cycle.periodMonth)}
+          {formatFoodPurchaseMonth(row.original.cycle.periodMonth)}
         </p>
       </div>
     ),

@@ -140,6 +140,7 @@ export type MonthlyFinancingCycleInput = {
 
 export type MonthlyFinancingCycleStatusInput = {
   actorUserId: string
+  expectedStatus?: FinancingCycleStatus
   financingCycleId: string
   status: Extract<FinancingCycleStatus, "closed" | "open" | "paused">
   statusNote?: string
@@ -195,7 +196,7 @@ export type DeployableFundsInput = {
   tenantId: string
 }
 
-const DEFAULT_FINANCING_POLICY: FinancingPolicySnapshot = {
+export const DEFAULT_FINANCING_POLICY: FinancingPolicySnapshot = {
   activeFinancingBlocksEmergency: true,
   activeFinancingBlocksProcurement: true,
   disbursementRequiresDeployableFunds: true,
@@ -214,6 +215,16 @@ const DEFAULT_FINANCING_POLICY: FinancingPolicySnapshot = {
   reserveBufferAmount: 0,
   specialSavingsCountsForEligibility: true,
   strictCommitmentDuringFinancing: true,
+}
+
+export async function getTenantFinancingPolicySnapshot(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+): Promise<FinancingPolicySnapshot> {
+  const prisma = getPrisma(prismaOverride)
+  const policy = await prisma.tenantPolicy.findUnique({ where: { tenantId } })
+
+  return normalizePolicy(policy)
 }
 
 const REQUEST_RESERVED_STATUSES: LoanRequestStatus[] = [
@@ -1016,6 +1027,8 @@ export async function getTenantFinancingSettingsWorkspace(
 export async function openMonthlyFinancingCycle(
   input: MonthlyFinancingCycleInput & {
     actorUserId: string
+    /** Server-owned clock override for deterministic internal workflows. */
+    openedAt?: Date
     statusNote?: string
   },
   prismaOverride?: PrismaClient
@@ -1024,43 +1037,8 @@ export async function openMonthlyFinancingCycle(
   const preview = await previewMonthlyFinancingCycle(input, prisma)
 
   return prisma.$transaction(async (tx) => {
-    const now = new Date()
-    const cycle = await tx.financingCycle.upsert({
-      create: {
-        tenantId: input.tenantId,
-        periodStart: preview.periodStart,
-        periodEnd: preview.periodEnd,
-        status: "open",
-        capacityBasis: preview.capacityBasis,
-        intakeReservationMode: preview.intakeReservationMode,
-        projectedCommitmentAmount: preview.projectedCommitmentAmount,
-        receivedContributionAmount: preview.receivedContributionAmount,
-        reserveBufferAmount: preview.reserveBufferAmount,
-        totalCapacityAmount: preview.totalCapacityAmount,
-        quickAllocationPercentage: preview.quickAllocationPercentage,
-        normalAllocationPercentage: preview.normalAllocationPercentage,
-        quickBudgetAmount: preview.quick.budgetAmount,
-        normalBudgetAmount: preview.normal.budgetAmount,
-        openedAt: now,
-        statusNote: input.statusNote ?? null,
-      },
-      update: {
-        status: "open",
-        capacityBasis: preview.capacityBasis,
-        intakeReservationMode: preview.intakeReservationMode,
-        projectedCommitmentAmount: preview.projectedCommitmentAmount,
-        receivedContributionAmount: preview.receivedContributionAmount,
-        reserveBufferAmount: preview.reserveBufferAmount,
-        totalCapacityAmount: preview.totalCapacityAmount,
-        quickAllocationPercentage: preview.quickAllocationPercentage,
-        normalAllocationPercentage: preview.normalAllocationPercentage,
-        quickBudgetAmount: preview.quick.budgetAmount,
-        normalBudgetAmount: preview.normal.budgetAmount,
-        openedAt: now,
-        pausedAt: null,
-        closedAt: null,
-        statusNote: input.statusNote ?? null,
-      },
+    const now = input.openedAt ?? new Date()
+    const existingCycle = await tx.financingCycle.findUnique({
       where: {
         tenantId_periodStart_periodEnd: {
           tenantId: input.tenantId,
@@ -1069,6 +1047,74 @@ export async function openMonthlyFinancingCycle(
         },
       },
     })
+
+    if (existingCycle?.status === "closed") {
+      throw ExpectedQueryError.conflict(
+        "Closed financing cycles are final and cannot be reopened."
+      )
+    }
+
+    if (existingCycle?.status === "open") {
+      throw ExpectedQueryError.conflict(
+        "This financing cycle is already open. Refresh before continuing."
+      )
+    }
+
+    const cycle = existingCycle
+      ? await tx.financingCycle.update({
+          data:
+            existingCycle.status === "draft"
+              ? {
+                  status: "open",
+                  capacityBasis: preview.capacityBasis,
+                  intakeReservationMode: preview.intakeReservationMode,
+                  projectedCommitmentAmount: preview.projectedCommitmentAmount,
+                  receivedContributionAmount:
+                    preview.receivedContributionAmount,
+                  reserveBufferAmount: preview.reserveBufferAmount,
+                  totalCapacityAmount: preview.totalCapacityAmount,
+                  quickAllocationPercentage: preview.quickAllocationPercentage,
+                  normalAllocationPercentage:
+                    preview.normalAllocationPercentage,
+                  quickBudgetAmount: preview.quick.budgetAmount,
+                  normalBudgetAmount: preview.normal.budgetAmount,
+                  openedAt: now,
+                  pausedAt: null,
+                  closedAt: null,
+                  statusNote: input.statusNote ?? null,
+                }
+              : {
+                  status: "open",
+                  openedAt: now,
+                  pausedAt: null,
+                  closedAt: null,
+                  statusNote: input.statusNote ?? null,
+                },
+          where: {
+            id: existingCycle.id,
+            tenantId: input.tenantId,
+          },
+        })
+      : await tx.financingCycle.create({
+          data: {
+            tenantId: input.tenantId,
+            periodStart: preview.periodStart,
+            periodEnd: preview.periodEnd,
+            status: "open",
+            capacityBasis: preview.capacityBasis,
+            intakeReservationMode: preview.intakeReservationMode,
+            projectedCommitmentAmount: preview.projectedCommitmentAmount,
+            receivedContributionAmount: preview.receivedContributionAmount,
+            reserveBufferAmount: preview.reserveBufferAmount,
+            totalCapacityAmount: preview.totalCapacityAmount,
+            quickAllocationPercentage: preview.quickAllocationPercentage,
+            normalAllocationPercentage: preview.normalAllocationPercentage,
+            quickBudgetAmount: preview.quick.budgetAmount,
+            normalBudgetAmount: preview.normal.budgetAmount,
+            openedAt: now,
+            statusNote: input.statusNote ?? null,
+          },
+        })
 
     await tx.auditLog.create({
       data: {
@@ -1086,6 +1132,7 @@ export async function openMonthlyFinancingCycle(
           quickBudgetAmount: preview.quick.budgetAmount,
           receivedContributionAmount: preview.receivedContributionAmount,
           reserveBufferAmount: preview.reserveBufferAmount,
+          resumedWithoutSnapshotRewrite: existingCycle?.status === "paused",
           statusNote: input.statusNote ?? null,
           totalCapacityAmount: preview.totalCapacityAmount,
         },
@@ -1102,15 +1149,45 @@ export async function updateMonthlyFinancingCycleStatus(
   prismaOverride?: PrismaClient
 ) {
   const prisma = getPrisma(prismaOverride)
-  const timestampField =
-    input.status === "paused"
-      ? { pausedAt: new Date() }
-      : input.status === "closed"
-        ? { closedAt: new Date() }
-        : { openedAt: new Date(), pausedAt: null, closedAt: null }
-
   return prisma.$transaction(async (tx) => {
-    const cycle = await tx.financingCycle.update({
+    const existingCycle = await tx.financingCycle.findFirst({
+      where: {
+        id: input.financingCycleId,
+        tenantId: input.tenantId,
+      },
+    })
+    if (!existingCycle) {
+      throw ExpectedQueryError.notFound("Financing cycle not found.")
+    }
+    if (input.expectedStatus && existingCycle.status !== input.expectedStatus) {
+      throw ExpectedQueryError.conflict(
+        `Financing cycle changed from ${input.expectedStatus} to ${existingCycle.status}. Refresh before continuing.`
+      )
+    }
+
+    const allowedTransitions: Record<
+      FinancingCycleStatus,
+      FinancingCycleStatus[]
+    > = {
+      draft: ["open"],
+      open: ["paused", "closed"],
+      paused: ["open", "closed"],
+      closed: [],
+    }
+    if (!allowedTransitions[existingCycle.status].includes(input.status)) {
+      throw ExpectedQueryError.conflict(
+        `Financing cycle cannot transition from ${existingCycle.status} to ${input.status}.`
+      )
+    }
+
+    const now = new Date()
+    const timestampField =
+      input.status === "paused"
+        ? { pausedAt: now }
+        : input.status === "closed"
+          ? { closedAt: now }
+          : { openedAt: now, pausedAt: null, closedAt: null }
+    const claimed = await tx.financingCycle.updateMany({
       data: {
         ...timestampField,
         status: input.status,
@@ -1119,8 +1196,18 @@ export async function updateMonthlyFinancingCycleStatus(
       where: {
         id: input.financingCycleId,
         tenantId: input.tenantId,
+        status: existingCycle.status,
       },
     })
+    if (claimed.count !== 1) {
+      throw ExpectedQueryError.conflict(
+        "Financing cycle changed while this command was processing. Refresh before continuing."
+      )
+    }
+    const cycle = await tx.financingCycle.findFirst({
+      where: { id: input.financingCycleId, tenantId: input.tenantId },
+    })
+    if (!cycle) throw ExpectedQueryError.notFound("Financing cycle not found.")
 
     await tx.auditLog.create({
       data: {
@@ -1131,6 +1218,7 @@ export async function updateMonthlyFinancingCycleStatus(
         entityType: "FinancingCycle",
         entityId: cycle.id,
         metadata: {
+          previousStatus: existingCycle.status,
           status: input.status,
           statusNote: input.statusNote ?? null,
         },

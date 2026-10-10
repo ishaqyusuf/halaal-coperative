@@ -1,8 +1,5 @@
-import { AdminMemberDetailScreen } from "@/screens/admin-member-detail-screen"
-import { useLocalSearchParams } from "expo-router"
+import { AdminMemberDetailRouteController } from "@/features/admin-member-lifecycle/routes/admin-member-detail-route-controller"
 
 export default function AdminMemberDetailRoute() {
-  const { memberId } = useLocalSearchParams<{ memberId?: string }>()
-
-  return <AdminMemberDetailScreen memberId={memberId ?? ""} />
+  return <AdminMemberDetailRouteController />
 }

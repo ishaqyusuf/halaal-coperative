@@ -8,7 +8,7 @@ import {
   type NotificationStore,
   type NotificationVariant,
   type QaNotificationPreview,
-} from "@halaalvest/notifications"
+} from "@halaalvest/notifications/client"
 import { Badge } from "@halaalvest/ui/components/badge"
 import { Button } from "@halaalvest/ui/components/button"
 import {

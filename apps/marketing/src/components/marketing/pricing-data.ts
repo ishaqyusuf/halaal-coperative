@@ -1,6 +1,14 @@
-const planRateRange = { low: 50, high: 75 } as const
+import {
+  SUBSCRIPTION_PLAN_DEFINITIONS,
+  type SubscriptionPlanCode,
+} from "@halaalvest/domain/subscriptions"
 
-function formatPlanPrice(memberCap: number) {
+function formatPlanPrice(planCode: SubscriptionPlanCode) {
+  const { currencyCode, minimum, maximum } =
+    SUBSCRIPTION_PLAN_DEFINITIONS[planCode].monthlyPrice
+  if (minimum === null && maximum === null) return "Custom"
+  if (minimum === null || maximum === null)
+    throw new Error(`Incomplete public price for ${planCode}.`)
   const formatValue = (value: number) => {
     if (value < 1000) return value.toLocaleString("en-NG")
 
@@ -8,15 +16,18 @@ function formatPlanPrice(memberCap: number) {
     return `${Number.isInteger(thousands) ? thousands : thousands.toFixed(2).replace(/\.?0+$/, "")}k`
   }
 
-  return `NGN ${formatValue(memberCap * planRateRange.low)}–${formatValue(
-    memberCap * planRateRange.high
-  )}`
+  return minimum === maximum
+    ? `${currencyCode} ${formatValue(minimum)}`
+    : `${currencyCode} ${formatValue(minimum)}–${formatValue(maximum)}`
 }
+
+export const freeBetaMonthlyPriceLabel = formatPlanPrice("free_beta")
+export const standardMonthlyPriceLabel = formatPlanPrice("standard")
 
 export const pricingPlans = [
   {
     name: "Free Beta",
-    price: "NGN 0",
+    price: freeBetaMonthlyPriceLabel,
     cadence: "while beta is active",
     members: "Up to 100 active members",
     description:
@@ -30,7 +41,7 @@ export const pricingPlans = [
   },
   {
     name: "Starter",
-    price: formatPlanPrice(250),
+    price: formatPlanPrice("starter"),
     cadence: "per month",
     members: "Up to 250 active members",
     description:
@@ -44,7 +55,7 @@ export const pricingPlans = [
   },
   {
     name: "Standard",
-    price: formatPlanPrice(1000),
+    price: standardMonthlyPriceLabel,
     cadence: "per month",
     members: "Up to 1,000 active members",
     description:
@@ -58,7 +69,7 @@ export const pricingPlans = [
   },
   {
     name: "Growth",
-    price: formatPlanPrice(3000),
+    price: formatPlanPrice("growth"),
     cadence: "per month",
     members: "Up to 3,000 active members",
     description:
@@ -72,7 +83,7 @@ export const pricingPlans = [
   },
   {
     name: "Enterprise",
-    price: "Custom",
+    price: formatPlanPrice("enterprise"),
     cadence: "quoted monthly",
     members: "Custom active-member band",
     description:

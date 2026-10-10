@@ -4,7 +4,11 @@ import {
   isCooperativeCountry,
   parseCooperativeSizeRangeValue,
 } from "@halaalvest/domain"
-import { isReservedTenantSubdomainLabel } from "@halaalvest/utils"
+import {
+  cooperativeMemberNumberPrefix,
+  isReservedTenantSubdomainLabel,
+  normalizeCooperativeCodePrefix,
+} from "@halaalvest/utils"
 
 export function normalizeWorkspaceSlug(value: string) {
   return value
@@ -50,12 +54,11 @@ const workspaceSlugSchema = z
     "That workspace subdomain is reserved."
   )
 
-const memberNumberPrefixSchema = z
+const cooperativeCodePrefixSchema = z
   .string()
   .trim()
-  .max(12, "Keep the member number prefix short.")
-  .regex(/^[a-zA-Z0-9-]*$/, "Use letters, numbers, and hyphens only.")
-  .transform((value) => normalizeMemberNumberPrefix(value) ?? "")
+  .regex(/^[a-zA-Z]{3,5}$/, "Use a unique prefix of 3 to 5 letters.")
+  .transform(normalizeCooperativeCodePrefix)
 
 const memberNumberSchema = z
   .string()
@@ -84,8 +87,8 @@ const requiredProfileTextField = (message: string) =>
   z.string().trim().min(1, message)
 
 export const signupIntentSchema = z.object({
+  cooperativeCodePrefix: cooperativeCodePrefixSchema,
   cooperativeName: z.string().trim().min(2, "Enter the cooperative name."),
-  memberNumberPrefix: memberNumberPrefixSchema.optional().default(""),
   primaryContactEmail: z.email("Enter a valid email address."),
   primaryContactFullName: z
     .string()
@@ -100,10 +103,10 @@ export const signupRequestSchema = signupIntentSchema.extend({
 })
 
 export const signupVerificationPayloadSchema = z.object({
+  cooperativeCodePrefix: cooperativeCodePrefixSchema,
   cooperativeName: z.string().trim().min(2),
   expiresAt: z.string().datetime(),
   issuedAt: z.string().datetime(),
-  memberNumberPrefix: memberNumberPrefixSchema.optional().default(""),
   primaryContactEmail: z.email(),
   primaryContactFullName: z.string().trim().min(2),
   primaryContactMemberNumber: memberNumberSchema,
@@ -112,15 +115,16 @@ export const signupVerificationPayloadSchema = z.object({
 
 export const onboardingFormSchema = z
   .object({
+    legalAcknowledgement: z.object({confirmed:z.literal(true),documents:z.array(z.object({documentType:z.enum(["terms","privacy"]),documentVersion:z.string().min(1).max(80),contentHash:z.string().regex(/^[a-f0-9]{64}$/)}).strict()).length(2)}).strict().optional(),
     city: requiredProfileTextField("Enter the cooperative city."),
     confirmPassword: z.string().min(8, "Confirm your password."),
     country: requiredProfileTextField("Select the cooperative country.").refine(
       isCooperativeCountry,
       "Select a valid cooperative country."
     ),
+    cooperativeCodePrefix: cooperativeCodePrefixSchema,
     cooperativeName: z.string().trim().min(2, "Enter the cooperative name."),
     currentSize: cooperativeSizeRangeField,
-    memberNumberPrefix: memberNumberPrefixSchema.optional().default(""),
     officeAddress: z
       .string()
       .trim()
@@ -198,14 +202,18 @@ export function createSignupVerificationPayload(
 ): SignupVerificationPayload {
   const issuedAt = new Date()
   const expiresAt = new Date(issuedAt.getTime() + 1000 * 60 * 60 * 24)
-  const memberNumberPrefix =
-    normalizeMemberNumberPrefix(input.memberNumberPrefix) ?? ""
+  const cooperativeCodePrefix = normalizeCooperativeCodePrefix(
+    input.cooperativeCodePrefix
+  )
+  const memberNumberPrefix = cooperativeMemberNumberPrefix(
+    cooperativeCodePrefix
+  )
 
   return {
+    cooperativeCodePrefix,
     expiresAt: expiresAt.toISOString(),
     issuedAt: issuedAt.toISOString(),
     cooperativeName: input.cooperativeName.trim(),
-    memberNumberPrefix,
     primaryContactEmail: input.primaryContactEmail.trim().toLowerCase(),
     primaryContactFullName: input.primaryContactFullName.trim(),
     primaryContactMemberNumber: getMemberNumberSuffix(
@@ -221,17 +229,17 @@ export function getOnboardingDefaultsFromVerification(
 ) {
   return {
     city: "",
+    cooperativeCodePrefix: payload.cooperativeCodePrefix,
     cooperativeName: payload.cooperativeName,
     currentSize: "",
     confirmPassword: "",
     country: defaultCooperativeCountry,
-    memberNumberPrefix: payload.memberNumberPrefix,
     officeAddress: "",
     password: "",
     primaryContactEmail: payload.primaryContactEmail,
     primaryContactFullName: payload.primaryContactFullName,
     primaryContactMemberNumber: getMemberNumberSuffix(
-      payload.memberNumberPrefix,
+      cooperativeMemberNumberPrefix(payload.cooperativeCodePrefix),
       payload.primaryContactMemberNumber
     ),
     state: "",

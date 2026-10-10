@@ -85,10 +85,11 @@ export function ProjectFinancingPageView({
         description="Request cooperative business funding and track finance review."
       >
         <MemberProjectFinancingRequestsView
+          canCreate={data.canCreate}
           chargeOptions={data.chargeOptions}
           initialSettings={projectFinancingInitialSettings}
           member={data.member}
-          requests={data.requests}
+          summary={data.summary}
         />
       </WorkspacePageShell>
     )
@@ -102,10 +103,10 @@ export function ProjectFinancingPageView({
     >
       <ProjectFinancingRequestsView
         approvalChargeOptions={data.approvalChargeOptions}
+        canCreate={data.canCreate}
         canReview={data.canReview}
         initialSettings={projectFinancingInitialSettings}
         memberOptions={data.memberOptions}
-        requests={data.requests}
         submissionChargeOptions={data.submissionChargeOptions}
         summary={data.summary}
       />

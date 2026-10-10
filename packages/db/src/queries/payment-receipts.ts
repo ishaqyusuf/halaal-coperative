@@ -1,3 +1,4 @@
+import { QueryInfrastructureError } from "../query-error"
 import type {
   ContributionChannel,
   MemberPaymentReceiptAllocationCategory,
@@ -6,10 +7,13 @@ import type {
   PrismaClient,
 } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { claimDashboardEvidenceUploadLink } from "./dashboard-evidence-uploads"
 import { ExpectedQueryError } from "../query-error"
 import { recordMemberPaymentMutation } from "./contributions"
 import { getTenantInitialMigrationState } from "./migration"
 import { createMemberShareLedgerEntry } from "./tenant-finance"
+
+export type { MemberPaymentReceiptStatus }
 
 export type PaymentReceiptAllocationInput = {
   amount: number
@@ -187,6 +191,92 @@ function normalizeAmount(value: number, label: string) {
   return Math.round(value * 100) / 100
 }
 
+function assertAllocationTargetShape(input: {
+  category: MemberPaymentReceiptAllocationCategory
+  contributionPlanId: string | null
+  foodPurchaseApplicationId: string | null
+  index: number
+  loanId: string | null
+  projectFinancingRequestId: string | null
+  procurementRepaymentScheduleItemId: string | null
+}) {
+  const targets = {
+    contributionPlanId: input.contributionPlanId,
+    foodPurchaseApplicationId: input.foodPurchaseApplicationId,
+    loanId: input.loanId,
+    projectFinancingRequestId: input.projectFinancingRequestId,
+    procurementRepaymentScheduleItemId:
+      input.procurementRepaymentScheduleItemId,
+  }
+  const allowedTargets = contributionCategories.has(input.category)
+    ? new Set(["contributionPlanId"])
+    : loanCategories.has(input.category)
+      ? new Set(["loanId"])
+      : procurementCategories.has(input.category)
+        ? new Set(["procurementRepaymentScheduleItemId"])
+        : foodPurchaseCategories.has(input.category)
+          ? new Set(["foodPurchaseApplicationId"])
+          : projectFinancingCategories.has(input.category)
+            ? new Set(["projectFinancingRequestId"])
+            : new Set<string>()
+
+  const invalidTarget = Object.entries(targets).find(
+    ([key, value]) => value && !allowedTargets.has(key)
+  )
+
+  if (invalidTarget) {
+    throw ExpectedQueryError.validation(
+      `Allocation ${input.index + 1} cannot use ${invalidTarget[0]} for ${input.category}.`
+    )
+  }
+}
+
+async function assertPaidAtOnOrAfterTenantStartDate(input: {
+  paidAt: Date
+  prisma: PrismaClient
+  tenantId: string
+}) {
+  if (Number.isNaN(input.paidAt.getTime())) {
+    throw ExpectedQueryError.validation("Receipt payment date is required.")
+  }
+
+  // The optional chain preserves lightweight query stubs used by isolated tests;
+  // Prisma clients always expose this delegate in production.
+  const tenant = await (input.prisma as any).tenant?.findUnique?.({
+    select: { startDate: true },
+    where: { id: input.tenantId },
+  })
+  const startDate = tenant?.startDate as Date | null | undefined
+
+  if (startDate && input.paidAt.getTime() < startDate.getTime()) {
+    throw ExpectedQueryError.precondition(
+      `Receipt payment date cannot be before the cooperative start date (${startDate.toISOString().slice(0, 10)}).`
+    )
+  }
+}
+
+async function runSerializableTransactionWithRetry<T>(
+  prisma: PrismaClient,
+  callback: (tx: PrismaClient) => Promise<T>
+) {
+  const maxAttempts = 3
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return (await prisma.$transaction(callback as never, {
+        isolationLevel: "Serializable",
+        maxWait: 5_000,
+        timeout: 15_000,
+      })) as T
+    } catch (error) {
+      const code = (error as { code?: string } | null)?.code
+      if (code !== "P2034" || attempt === maxAttempts) throw error
+    }
+  }
+
+  throw new QueryInfrastructureError("Could not safely complete the payment receipt transaction")
+}
+
 function roundMoney(value: number) {
   return Math.round(value * 100) / 100
 }
@@ -267,6 +357,16 @@ function normalizeAllocationInput(
       `Allocation ${index + 1} needs a project financing request before it can be posted.`
     )
   }
+
+  assertAllocationTargetShape({
+    category: allocation.category,
+    contributionPlanId: normalizeOptionalString(allocation.contributionPlanId),
+    foodPurchaseApplicationId,
+    index,
+    loanId: normalizeOptionalString(allocation.loanId),
+    projectFinancingRequestId,
+    procurementRepaymentScheduleItemId,
+  })
 
   return {
     amount: normalizeAmount(
@@ -1118,6 +1218,179 @@ function getPaymentReceiptOrderBy(
   ]
 }
 
+type PaymentReceiptPageCursor = {
+  createdAt: string
+  id: string
+  memberName: string
+  paidAt: string
+  paymentReference: string | null
+  sortDirection: "asc" | "desc"
+  sortField: MemberPaymentReceiptSortField
+  status: MemberPaymentReceiptStatus
+  submittedAt: string
+  totalAmount: number
+}
+
+function normalizePaymentReceiptSort(
+  sort?: [MemberPaymentReceiptSortField, "asc" | "desc"] | null
+) {
+  return sort ?? (["submittedAt", "desc"] as const)
+}
+
+function encodePaymentReceiptPageCursor(cursor: PaymentReceiptPageCursor) {
+  return Buffer.from(JSON.stringify(cursor)).toString("base64url")
+}
+
+function decodePaymentReceiptPageCursor(
+  value: string,
+  sort?: [MemberPaymentReceiptSortField, "asc" | "desc"] | null
+) {
+  try {
+    const cursor = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8")
+    ) as PaymentReceiptPageCursor
+    const [sortField, sortDirection] = normalizePaymentReceiptSort(sort)
+
+    if (
+      !cursor ||
+      cursor.sortField !== sortField ||
+      cursor.sortDirection !== sortDirection ||
+      typeof cursor.id !== "string" ||
+      typeof cursor.memberName !== "string" ||
+      (typeof cursor.paymentReference !== "string" &&
+        cursor.paymentReference !== null) ||
+      typeof cursor.status !== "string" ||
+      typeof cursor.totalAmount !== "number" ||
+      Number.isNaN(new Date(cursor.createdAt).getTime()) ||
+      Number.isNaN(new Date(cursor.paidAt).getTime()) ||
+      Number.isNaN(new Date(cursor.submittedAt).getTime())
+    ) {
+      throw ExpectedQueryError.validation("Invalid cursor")
+    }
+
+    return cursor
+  } catch {
+    throw ExpectedQueryError.validation("Payment receipt cursor is invalid.")
+  }
+}
+
+export function createMemberPaymentReceiptPageCursor(
+  receipt: MemberPaymentReceiptRow,
+  sort?: [MemberPaymentReceiptSortField, "asc" | "desc"] | null
+) {
+  const [sortField, sortDirection] = normalizePaymentReceiptSort(sort)
+
+  return encodePaymentReceiptPageCursor({
+    createdAt: receipt.createdAt.toISOString(),
+    id: receipt.id,
+    memberName: receipt.member.fullName,
+    paidAt: receipt.paidAt.toISOString(),
+    paymentReference: receipt.paymentReference,
+    sortDirection,
+    sortField,
+    status: receipt.status,
+    submittedAt: receipt.submittedAt.toISOString(),
+    totalAmount: receipt.totalAmount,
+  })
+}
+
+function comparison(value: any, direction: "asc" | "desc") {
+  return direction === "asc" ? { gt: value } : { lt: value }
+}
+
+function getPaymentReceiptPageKeysetWhere(input: {
+  cursor: PaymentReceiptPageCursor
+  sort?: [MemberPaymentReceiptSortField, "asc" | "desc"] | null
+}): any {
+  const [sortField, sortDirection] = normalizePaymentReceiptSort(input.sort)
+  const cursor = input.cursor
+  const submittedAtTieBreak = {
+    OR: [
+      { submittedAt: comparison(new Date(cursor.submittedAt), "desc") },
+      {
+        AND: [
+          { submittedAt: new Date(cursor.submittedAt) },
+          { id: comparison(cursor.id, "desc") },
+        ],
+      },
+    ],
+  }
+
+  if (sortField === "submittedAt") {
+    return {
+      OR: [
+        {
+          submittedAt: comparison(new Date(cursor.submittedAt), sortDirection),
+        },
+        {
+          AND: [
+            { submittedAt: new Date(cursor.submittedAt) },
+            {
+              createdAt: comparison(new Date(cursor.createdAt), sortDirection),
+            },
+          ],
+        },
+        {
+          AND: [
+            { submittedAt: new Date(cursor.submittedAt) },
+            { createdAt: new Date(cursor.createdAt) },
+            { id: comparison(cursor.id, sortDirection) },
+          ],
+        },
+      ],
+    }
+  }
+
+  const primaryField =
+    sortField === "memberName"
+      ? "memberName"
+      : sortField === "paidAt"
+        ? "paidAt"
+        : sortField === "paymentReference"
+          ? "paymentReference"
+          : sortField === "status"
+            ? "status"
+            : "totalAmount"
+  const primaryValue =
+    sortField === "memberName"
+      ? cursor.memberName
+      : sortField === "paidAt"
+        ? new Date(cursor.paidAt)
+        : sortField === "paymentReference"
+          ? cursor.paymentReference
+          : sortField === "status"
+            ? cursor.status
+            : cursor.totalAmount
+  const primaryEquals =
+    primaryField === "memberName"
+      ? { member: { is: { fullName: primaryValue } } }
+      : { [primaryField]: primaryValue }
+  const primaryAfter =
+    primaryField === "memberName"
+      ? {
+          member: { is: { fullName: comparison(primaryValue, sortDirection) } },
+        }
+      : primaryField === "paymentReference" && primaryValue === null
+        ? sortDirection === "desc"
+          ? { paymentReference: { not: null } }
+          : null
+        : primaryField === "paymentReference" && sortDirection === "asc"
+          ? {
+              OR: [
+                { paymentReference: comparison(primaryValue, sortDirection) },
+                { paymentReference: null },
+              ],
+            }
+          : { [primaryField]: comparison(primaryValue, sortDirection) }
+
+  return {
+    OR: [
+      ...(primaryAfter ? [primaryAfter] : []),
+      { AND: [primaryEquals, submittedAtTieBreak] },
+    ],
+  }
+}
+
 function getPaymentReceiptWhere(
   tenantId: string,
   filters?: ListMemberPaymentReceiptPageFilters
@@ -1192,15 +1465,24 @@ export async function listMemberPaymentReceiptPage(
   }
 
   const where = getPaymentReceiptWhere(tenantId, filters)
+  const cursor = filters?.cursor
+    ? decodePaymentReceiptPageCursor(filters.cursor, filters.sort)
+    : null
+  const pageWhere: any = cursor
+    ? {
+        AND: [
+          where,
+          getPaymentReceiptPageKeysetWhere({ cursor, sort: filters?.sort }),
+        ],
+      }
+    : where
   const [rows, total] = await Promise.all([
     prisma.memberPaymentReceipt.findMany({
       include: receiptInclude(),
       orderBy: getPaymentReceiptOrderBy(filters?.sort),
-      ...(filters?.cursor
-        ? { cursor: { id: filters.cursor }, skip: 1 }
-        : { skip: (page - 1) * pageSize }),
+      ...(cursor ? {} : { skip: (page - 1) * pageSize }),
       take: pageSize,
-      where,
+      where: pageWhere,
     }),
     prisma.memberPaymentReceipt.count({ where }),
   ])
@@ -1326,6 +1608,12 @@ export async function createMemberPaymentReceipt(
   const paymentReference = normalizeOptionalString(input.paymentReference)
   const proofDocumentUrl = normalizeOptionalString(input.proofDocumentUrl)
 
+  await assertPaidAtOnOrAfterTenantStartDate({
+    paidAt: input.paidAt,
+    prisma,
+    tenantId: input.tenantId,
+  })
+
   const member = await prisma.member.findFirst({
     select: { id: true },
     where: {
@@ -1363,41 +1651,41 @@ export async function createMemberPaymentReceipt(
     tenantId: input.tenantId,
   })
 
-  if (paymentReference) {
-    const duplicate = await prisma.memberPaymentReceipt.findFirst({
-      select: { id: true },
-      where: {
-        paymentReference,
-        status: { not: "rejected" },
-        tenantId: input.tenantId,
-      },
-    })
+  return runSerializableTransactionWithRetry(prisma, async (tx) => {
+    if (paymentReference) {
+      const duplicate = await tx.memberPaymentReceipt.findFirst({
+        select: { id: true },
+        where: {
+          paymentReference,
+          status: { not: "rejected" },
+          tenantId: input.tenantId,
+        },
+      })
 
-    if (duplicate) {
-      throw ExpectedQueryError.conflict(
-        "A non-rejected receipt already uses this payment reference."
-      )
+      if (duplicate) {
+        throw ExpectedQueryError.conflict(
+          "A non-rejected receipt already uses this payment reference."
+        )
+      }
     }
-  }
 
-  if (proofDocumentUrl) {
-    const duplicate = await prisma.memberPaymentReceipt.findFirst({
-      select: { id: true },
-      where: {
-        proofDocumentUrl,
-        status: { not: "rejected" },
-        tenantId: input.tenantId,
-      },
-    })
+    if (proofDocumentUrl) {
+      const duplicate = await tx.memberPaymentReceipt.findFirst({
+        select: { id: true },
+        where: {
+          proofDocumentUrl,
+          status: { not: "rejected" },
+          tenantId: input.tenantId,
+        },
+      })
 
-    if (duplicate) {
-      throw ExpectedQueryError.conflict(
-        "A non-rejected receipt already uses this proof document."
-      )
+      if (duplicate) {
+        throw ExpectedQueryError.conflict(
+          "A non-rejected receipt already uses this proof document."
+        )
+      }
     }
-  }
 
-  return prisma.$transaction(async (tx) => {
     const receipt = await tx.memberPaymentReceipt.create({
       data: {
         channel: input.channel ?? "transfer",
@@ -1431,6 +1719,12 @@ export async function createMemberPaymentReceipt(
       include: receiptInclude(),
     })
 
+    await claimDashboardEvidenceUploadLink({
+      tenantId: input.tenantId, url: proofDocumentUrl,
+      purpose: "payment_receipt_proof", entityId: receipt.id,
+      claimantUserId: input.submittedByUserId,
+    }, tx)
+
     await tx.auditLog.create({
       data: {
         action: "member_payment_receipt.submitted",
@@ -1461,6 +1755,7 @@ export async function reviewMemberPaymentReceipt(
     adjustedAllocations?: PaymentReceiptAllocationInput[]
     adjustmentReason?: string | null
     decision: MemberPaymentReceiptStatus
+    expectedStatus?: MemberPaymentReceiptStatus
     receiptId: string
     reviewNotes?: string | null
     tenantId: string
@@ -1506,6 +1801,18 @@ export async function reviewMemberPaymentReceipt(
   if (!existing) {
     throw ExpectedQueryError.notFound("Receipt submission not found.")
   }
+
+  if (input.expectedStatus && existing.status !== input.expectedStatus) {
+    throw ExpectedQueryError.conflict(
+      `Receipt changed from ${input.expectedStatus} to ${existing.status}. Refresh before reviewing.`
+    )
+  }
+
+  await assertPaidAtOnOrAfterTenantStartDate({
+    paidAt: existing.paidAt,
+    prisma,
+    tenantId: input.tenantId,
+  })
 
   if (existing.status === "approved" || existing.status === "rejected") {
     throw ExpectedQueryError.conflict(
@@ -1563,7 +1870,31 @@ export async function reviewMemberPaymentReceipt(
     tenantId: input.tenantId,
   })
 
-  return prisma.$transaction(async (tx) => {
+  return runSerializableTransactionWithRetry(prisma, async (tx) => {
+    const receiptDelegate = tx.memberPaymentReceipt as any
+    const claimTime = new Date()
+    const claimed = receiptDelegate.updateMany
+      ? await receiptDelegate.updateMany({
+          data: {
+            reviewedAt: claimTime,
+            reviewedByUserId: input.actorUserId,
+            status: "under_review",
+          },
+          where: {
+            id: existing.id,
+            reviewedAt: existing.reviewedAt,
+            status: existing.status,
+            tenantId: input.tenantId,
+          },
+        })
+      : { count: 1 }
+
+    if (claimed.count !== 1) {
+      throw ExpectedQueryError.conflict(
+        "This receipt was already finalized by another review."
+      )
+    }
+
     if (allocationsChanged) {
       await replaceAllocations({
         allocations: nextAllocations,

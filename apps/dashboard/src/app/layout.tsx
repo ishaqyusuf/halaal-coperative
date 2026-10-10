@@ -1,5 +1,5 @@
-import "@halaalvest/ui/globals.css"
 import { EventsProvider } from "@halaalvest/events/client"
+import "@halaalvest/ui/globals.css"
 import { NotificationsProvider } from "@halaalvest/notifications-react"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { Inter } from "next/font/google"
@@ -63,14 +63,16 @@ export default async function RootLayout({
         <NuqsAdapter>
           <TRPCReactProvider>
             <ThemeProvider>
-              <NotificationsProvider>
-                <QaQuickFillProvider
-                  previewKey={qaPreviewKey}
-                  value={quickFill}
-                >
-                  <EventsProvider surface="dashboard">{children}</EventsProvider>
-                </QaQuickFillProvider>
-              </NotificationsProvider>
+              <EventsProvider surface="dashboard">
+                <NotificationsProvider>
+                  <QaQuickFillProvider
+                    previewKey={qaPreviewKey}
+                    value={quickFill}
+                  >
+                    {children}
+                  </QaQuickFillProvider>
+                </NotificationsProvider>
+              </EventsProvider>
             </ThemeProvider>
           </TRPCReactProvider>
         </NuqsAdapter>

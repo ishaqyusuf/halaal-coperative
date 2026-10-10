@@ -2,6 +2,7 @@ model Tenant {
   id                                 String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   slug                               String                 @unique
   name                               String
+  cooperativeCodePrefix              String?                @unique @map("cooperative_code_prefix") @db.VarChar(5)
   memberNumberPrefix                 String?                @map("member_number_prefix")
   currentSize                        Int?                   @map("current_size")
   officeAddress                      String?                @map("office_address")
@@ -37,9 +38,20 @@ model Tenant {
   createdAt                          DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  privacyRequests AccountPrivacyRequest[]
+  legalAcceptances LegalAcceptance[]
+  dashboardEvidenceUploads DashboardEvidenceUpload[]
+
   policies                              TenantPolicy?
   broughtForwardSnapshot                TenantBroughtForwardSnapshot?
   operationProfile                      TenantOperationProfile?
+  subscription                          TenantSubscription?
+  subscriptionAddons                    TenantSubscriptionAddon[]
+  subscriptionCheckoutIntents           SubscriptionCheckoutIntent[]
+  subscriptionInvoices                  SubscriptionInvoice[]
+  subscriptionProviderEvents            SubscriptionProviderEvent[]
+  mobileAppAccessPurchases              MobileAppAccessPurchase[]
+  mobileAppReviewGrants                 MobileAppReviewGrant[]
   serviceSettings                       TenantServiceSetting[]
   businessPolicy                        TenantBusinessPolicy?
   domains                               TenantDomain[]
@@ -93,8 +105,13 @@ model Tenant {
   offlineSyncEvents                     OfflineSyncEvent[]
   auditLogs                             AuditLog[]
   notificationPreferences               NotificationPreference[]
+  mobilePushRegistrations               MobilePushRegistration[]
+  mobileUserNotificationPreferences     MobileUserNotificationPreference[]
   memberOnboardingRequests              MemberOnboardingRequest[]
   memberSignupLinks                     MemberSignupLink[]
+  authChallenges                        AuthChallenge[]
+  authRateLimitBuckets                  AuthRateLimitBucket[]
+  mobileDeviceSessions                  MobileDeviceSession[]
   monthlyRecordSetting                  MonthlyRecordSetting?
   monthlyRecords                        MonthlyRecord[]
   monthlyRecordMembers                  MonthlyRecordMember[]

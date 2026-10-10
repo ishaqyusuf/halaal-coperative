@@ -1,9 +1,15 @@
 import { useQueryStates } from "nuqs"
-import { createLoader, parseAsString } from "nuqs/server"
+import { createLoader, parseAsString, parseAsStringEnum } from "nuqs/server"
 
 const procurementParamsSchema = {
   procurementRequestId: parseAsString,
-  procurementSheetType: parseAsString,
+  procurementSheetType: parseAsStringEnum([
+    "create",
+    "details",
+    "purchase",
+    "review",
+    "self-service",
+  ]),
 }
 
 export function useProcurementParams() {

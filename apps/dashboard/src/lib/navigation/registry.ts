@@ -94,8 +94,9 @@ export const dashboardNavRegistry: NavModule[] = [
         ReportsIcon,
         "/reports",
         [
-          createNavSubLink("Activity report", "/reports/audit")
-            .title("Activity report").data,
+          createNavSubLink("Activity report", "/reports/audit").title(
+            "Activity report"
+          ).data,
         ],
         [role.in(...adminRoles)]
       )
@@ -240,6 +241,13 @@ export const dashboardNavRegistry: NavModule[] = [
   createNavModule("Settings", SettingsIcon, "Profile and roles", [
     createNavSection("configuration", "Configuration", [
       createNavLink(
+        "Platform Documents",
+        TrustReadinessIcon,
+        "/settings/platform-documents",
+        [],
+        [role.in(...allStaffRoles, "member")]
+      ).title("Platform documents").data,
+      createNavLink(
         "Cooperative Profile",
         CooperativeProfileIcon,
         "/settings/profile",
@@ -291,19 +299,15 @@ export const dashboardNavRegistry: NavModule[] = [
           createNavSubLink("Overview", "/settings/imports").data,
           createNavSubLink("Batches", "/settings/imports/batches").data,
           createNavSubLink("Members", "/settings/imports/members").data,
-          createNavSubLink(
-            "Contributions",
-            "/settings/imports/contributions"
-          ).data,
+          createNavSubLink("Contributions", "/settings/imports/contributions")
+            .data,
           createNavSubLink("Charges", "/settings/imports/charges").data,
           createNavSubLink(
             "Deduction sources",
             "/settings/imports/deduction-sources"
           ).data,
-          createNavSubLink(
-            "Loan products",
-            "/settings/imports/loan-products"
-          ).data,
+          createNavSubLink("Loan products", "/settings/imports/loan-products")
+            .data,
           createNavSubLink(
             "Loan migrations",
             "/settings/imports/loan-migrations"

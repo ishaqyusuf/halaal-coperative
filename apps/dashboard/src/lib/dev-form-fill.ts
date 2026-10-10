@@ -1,6 +1,7 @@
 "use client"
 
 import { buildQaEmail, normalizeCooperativeQaSlug } from "@halaalvest/utils"
+import { createQaMemberFixture } from "@halaalvest/domain"
 
 type FieldValues = Record<string, unknown>
 
@@ -21,23 +22,69 @@ function formatDate(year: number, month: number, day: number) {
 }
 
 function randomRecentDate(yearStart: number, yearEnd: number) {
-  return formatDate(randomInt(yearStart, yearEnd), randomInt(1, 12), randomInt(1, 28))
+  return formatDate(
+    randomInt(yearStart, yearEnd),
+    randomInt(1, 12),
+    randomInt(1, 28)
+  )
 }
 
-const memberFirstNames = ["Amina", "Zainab", "Fatima", "Maryam", "Khadija", "Hauwa", "Musa", "Ibrahim", "Yusuf", "Sadiq"]
-const memberLastNames = ["Yusuf", "Bello", "Garba", "Muhammad", "Sule", "Usman", "Abdullahi", "Ilyas", "Kabir", "Lawal"]
+function currentUtcDate() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function currentUtcMonthLabel() {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    timeZone: "UTC",
+    year: "numeric",
+  }).format(new Date())
+}
+
+const memberFirstNames = [
+  "Amina",
+  "Zainab",
+  "Fatima",
+  "Maryam",
+  "Khadija",
+  "Hauwa",
+  "Musa",
+  "Ibrahim",
+  "Yusuf",
+  "Sadiq",
+]
+const memberLastNames = [
+  "Yusuf",
+  "Bello",
+  "Garba",
+  "Muhammad",
+  "Sule",
+  "Usman",
+  "Abdullahi",
+  "Ilyas",
+  "Kabir",
+  "Lawal",
+]
 const memberTypes = ["individual", "civil_servant", "business"] as const
 
 function createRandomMemberCreateDefaults() {
   const fullName = `${randomItem(memberFirstNames)} ${randomItem(memberLastNames)}`
   const memberNumber = String(randomInt(1000, 9999))
   const joinedAt = randomRecentDate(2021, 2026)
-  const monthlyCommitment = String(randomItem([10000, 15000, 20000, 25000, 30000, 50000]))
+  const monthlyCommitment = String(
+    randomItem([10000, 15000, 20000, 25000, 30000, 50000])
+  )
   const email = `${fullName.toLowerCase().replace(/\s+/g, ".")}@example.com`
   const profileDefaults = {
     address: `${randomInt(1, 48)} Cooperative Road, Kaduna`,
     email,
-    occupation: randomItem(["Trader", "Teacher", "Civil servant", "Business owner", "Tailor"]),
+    occupation: randomItem([
+      "Trader",
+      "Teacher",
+      "Civil servant",
+      "Business owner",
+      "Tailor",
+    ]),
     phoneNumber: `+23480${randomInt(10000000, 99999999)}`,
   }
 
@@ -116,20 +163,10 @@ const dashboardDevFormDefaults = {
     phoneNumber: "+234 800 000 0000",
   },
   member_signup: {
-    confirmPassword: "password123",
     email: "amina.yusuf@example.com",
     fullName: "Amina Yusuf",
     memberNumber: "1024",
-    password: "password123",
     phoneNumber: "+234 800 000 0000",
-  },
-  member_kyc: {
-    governmentIdNumber: "NIN-12345678901",
-    kycDocumentType: "National ID",
-    kycDocumentUrl: "https://example.com/kyc/aminateam.pdf",
-    kycReviewNotes: "Identity document received and awaiting final review.",
-    kycStatus: "pending",
-    memberId: "",
   },
   member_payment: {
     channel: "transfer",
@@ -161,26 +198,58 @@ const dashboardDevFormDefaults = {
 
 export type DashboardDevFormKind = keyof typeof dashboardDevFormDefaults
 
-export function getDashboardRandomDevFormFill<
-  TFieldValues extends FieldValues,
->(
+export function getDashboardRandomDevFormFill<TFieldValues extends FieldValues>(
   kind: DashboardDevFormKind,
-  options?: { emailDomain?: string },
+  options?: { emailDomain?: string }
 ) {
   const defaults =
-    kind === "member_create"
-      ? createRandomMemberCreateDefaults()
-      : dashboardDevFormDefaults[kind]
+    kind === "member_create" && options?.emailDomain
+      ? createQaMemberFixture({
+          currencyCode: "NGN",
+          invocation: randomInt(1, 999_999),
+          qaDomain: options.emailDomain,
+          seed: "dashboard-member-create",
+          timezone: "Africa/Lagos",
+        })
+      : kind === "member_create"
+        ? createRandomMemberCreateDefaults()
+        : kind === "charge_definition"
+          ? {
+              ...dashboardDevFormDefaults.charge_definition,
+              effectiveFrom: currentUtcDate(),
+            }
+          : kind === "charge_application"
+            ? {
+                ...dashboardDevFormDefaults.charge_application,
+                assessedAt: currentUtcDate(),
+              }
+            : kind === "contribution_plan"
+              ? {
+                  ...dashboardDevFormDefaults.contribution_plan,
+                  startsAt: currentUtcDate(),
+                }
+              : kind === "member_payment"
+                ? {
+                    ...dashboardDevFormDefaults.member_payment,
+                    periodLabel: currentUtcMonthLabel(),
+                    postedAt: currentUtcDate(),
+                    reference: `TRX-${currentUtcDate().replaceAll("-", "")}-${randomInt(1000, 9999)}`,
+                  }
+                : dashboardDevFormDefaults[kind]
   const emailDomain = options?.emailDomain
 
-  if (emailDomain && "email" in defaults && typeof defaults.email === "string") {
+  if (
+    emailDomain &&
+    "email" in defaults &&
+    typeof defaults.email === "string"
+  ) {
     const fullName =
       "fullName" in defaults && typeof defaults.fullName === "string"
         ? defaults.fullName
         : "qa-user"
     const uniqueLocalPart = `${normalizeCooperativeQaSlug(fullName)}-${randomInt(
       1000,
-      999999,
+      999999
     )}`
 
     return {
@@ -196,22 +265,24 @@ export function applyDashboardDevFormFill<TFieldValues extends FieldValues>(
   form: DashboardFormReset<TFieldValues>,
   kind: DashboardDevFormKind,
   overrides?: Partial<TFieldValues>,
-  options?: { emailDomain?: string },
+  options?: { emailDomain?: string }
 ) {
-  form.reset(({
+  form.reset({
     ...getDashboardRandomDevFormFill(kind, options),
     ...overrides,
-  } as unknown) as TFieldValues)
+  } as unknown as TFieldValues)
 }
 
-export function applyDashboardRandomDevFormFill<TFieldValues extends FieldValues>(
+export function applyDashboardRandomDevFormFill<
+  TFieldValues extends FieldValues,
+>(
   form: DashboardFormReset<TFieldValues>,
   kind: DashboardDevFormKind,
   overrides?: Partial<TFieldValues>,
-  options?: { emailDomain?: string },
+  options?: { emailDomain?: string }
 ) {
-  form.reset(({
+  form.reset({
     ...getDashboardRandomDevFormFill<TFieldValues>(kind, options),
     ...overrides,
-  } as unknown) as TFieldValues)
+  } as unknown as TFieldValues)
 }

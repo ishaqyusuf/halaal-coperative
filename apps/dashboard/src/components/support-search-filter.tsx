@@ -12,12 +12,11 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@halaalvest/ui/components/dropdown-menu"
-import { Input } from "@halaalvest/ui/components/input"
 import { FinanceFilterList } from "@/components/finance-filter-list"
 import { SearchFilterDropdownInput } from "@/components/search-filter-dropdown-input"
 import { useSupportFilterParams } from "@/hooks/use-support-filter-params"
 
-const statusFilters = [
+export const supportStatusFilters = [
   { id: "open", name: "Open" },
   { id: "in_progress", name: "In progress" },
   { id: "waiting_on_member", name: "Waiting on member" },
@@ -25,14 +24,31 @@ const statusFilters = [
   { id: "closed", name: "Closed" },
 ]
 
-const priorityFilters = [
+export const supportPriorityFilters = [
   { id: "low", name: "Low" },
   { id: "normal", name: "Normal" },
   { id: "high", name: "High" },
   { id: "urgent", name: "Urgent" },
 ]
 
-export function SupportSearchFilter() {
+export const supportCategoryFilters = [
+  { id: "payment_issue", name: "Payment issue" },
+  { id: "account_update", name: "Account update" },
+  { id: "shares", name: "Shares" },
+  { id: "financing", name: "Financing" },
+  { id: "procurement", name: "Procurement" },
+  { id: "feature_request", name: "Feature request" },
+  { id: "technical", name: "Technical" },
+  { id: "other", name: "Other" },
+]
+
+export function SupportSearchFilter({
+  assignees,
+  mode,
+}: {
+  assignees: Array<{ id: string; label: string }>
+  mode: "member" | "staff"
+}) {
   const { filter, setFilter } = useSupportFilterParams()
   const [input, setInput] = useState(filter.q ?? "")
   const [isOpen, setIsOpen] = useState(false)
@@ -53,10 +69,18 @@ export function SupportSearchFilter() {
     setFilter({ q: input.length > 0 ? input : null })
   }
 
-  const validFilters = {
-    priority: filter.priority,
-    status: filter.status,
-  }
+  const validFilters =
+    mode === "staff"
+      ? {
+          assignedToUserId: filter.assignedToUserId,
+          category: filter.category,
+          priority: filter.priority,
+          status: filter.status,
+        }
+      : {
+          priority: filter.priority,
+          status: filter.status,
+        }
   const hasValidFilters = Object.values(validFilters).some(
     (value) => value !== null
   )
@@ -81,12 +105,20 @@ export function SupportSearchFilter() {
         <FinanceFilterList
           filters={validFilters}
           onRemove={setFilter}
-          options={{ priority: priorityFilters, status: statusFilters }}
+          options={{
+            assignedToUserId: assignees.map((assignee) => ({
+              id: assignee.id,
+              name: assignee.label,
+            })),
+            category: supportCategoryFilters,
+            priority: supportPriorityFilters,
+            status: supportStatusFilters,
+          }}
         />
       </div>
 
       <DropdownMenuContent
-        align="end"
+        align="start"
         alignOffset={-11}
         className="w-[350px]"
         side="bottom"
@@ -103,7 +135,7 @@ export function SupportSearchFilter() {
                 className="p-0"
                 sideOffset={14}
               >
-                {statusFilters.map((item) => (
+                {supportStatusFilters.map((item) => (
                   <DropdownMenuCheckboxItem
                     checked={filter.status === item.id}
                     key={item.id}
@@ -129,7 +161,7 @@ export function SupportSearchFilter() {
                 className="p-0"
                 sideOffset={14}
               >
-                {priorityFilters.map((item) => (
+                {supportPriorityFilters.map((item) => (
                   <DropdownMenuCheckboxItem
                     checked={filter.priority === item.id}
                     key={item.id}
@@ -144,6 +176,66 @@ export function SupportSearchFilter() {
               </DropdownMenuSubContent>
             </DropdownMenuPortal>
           </DropdownMenuSub>
+
+          {mode === "staff" ? (
+            <>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <span>Category</span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent
+                    alignOffset={-4}
+                    className="p-0"
+                    sideOffset={14}
+                  >
+                    {supportCategoryFilters.map((item) => (
+                      <DropdownMenuCheckboxItem
+                        checked={filter.category === item.id}
+                        key={item.id}
+                        onCheckedChange={(checked) => {
+                          setFilter({ category: checked ? item.id : null })
+                          setIsOpen(false)
+                        }}
+                      >
+                        {item.name}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
+
+              {assignees.length ? (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <span>Assignee</span>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuPortal>
+                    <DropdownMenuSubContent
+                      alignOffset={-4}
+                      className="max-h-72 overflow-y-auto p-0"
+                      sideOffset={14}
+                    >
+                      {assignees.map((assignee) => (
+                        <DropdownMenuCheckboxItem
+                          checked={filter.assignedToUserId === assignee.id}
+                          key={assignee.id}
+                          onCheckedChange={(checked) => {
+                            setFilter({
+                              assignedToUserId: checked ? assignee.id : null,
+                            })
+                            setIsOpen(false)
+                          }}
+                        >
+                          {assignee.label}
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuPortal>
+                </DropdownMenuSub>
+              ) : null}
+            </>
+          ) : null}
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>

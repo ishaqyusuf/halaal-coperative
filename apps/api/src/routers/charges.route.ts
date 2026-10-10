@@ -75,6 +75,7 @@ type ChargeLibraryVersionRow = {
 
 type ChargeLibraryRow = {
   amount: number
+  chargeFrequency: ChargeFrequency
   chargeValueType: ChargeValueType
   code: string
   currentEffectiveFrom: string | null
@@ -149,6 +150,7 @@ function mapChargeLibraryRows(
       amount: currentVersion
         ? Number(currentVersion.amount)
         : Number(charge.amount),
+      chargeFrequency: charge.chargeFrequency ?? "recurring_monthly",
       chargeValueType:
         charge.chargeValueType ??
         (charge.kind === "percentage" ? "percentage" : "fixed_amount"),
@@ -176,6 +178,37 @@ function mapChargeLibraryRows(
         })
       ),
     }
+  })
+}
+
+function filterChargeLibraryRows(
+  rows: ReturnType<typeof mapChargeLibraryRows>,
+  input: NonNullable<z.infer<typeof listChargeLibrarySchema>>
+) {
+  const query = (input.q ?? "").trim().toLowerCase()
+
+  return rows.filter((row) => {
+    if (
+      input.status &&
+      (input.status === "active" ? !row.isActive : row.isActive)
+    ) {
+      return false
+    }
+    if (input.frequency && row.chargeFrequency !== input.frequency) return false
+    if (input.valueType && row.chargeValueType !== input.valueType) return false
+    if (!query) return true
+
+    return [
+      row.name,
+      row.code,
+      row.kind,
+      row.chargeFrequency,
+      row.chargeValueType,
+      row.isActive ? "active" : "inactive",
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(query)
   })
 }
 
@@ -452,23 +485,19 @@ export const chargesRouter = createTRPCRouter({
   chargeLibrary: tenantProcedure
     .input(listChargeLibrarySchema)
     .query(async ({ ctx, input }) => {
-      const pageSize = input?.pageSize ?? 50
       const rows = sortChargeLibraryRows(
-        mapChargeLibraryRows(
-          await listChargeDefinitions(ctx.tenant.current.id)
+        filterChargeLibraryRows(
+          mapChargeLibraryRows(
+            await listChargeDefinitions(ctx.tenant.current.id)
+          ),
+          input ?? {}
         ),
         input?.sort ?? null
       )
-      const startIndex = input?.cursor
-        ? rows.findIndex((row) => row.id === input.cursor) + 1
-        : 0
-      const data = rows.slice(startIndex, startIndex + pageSize)
-      const next = rows[startIndex + pageSize]
 
       return {
-        data,
+        data: rows,
         meta: {
-          cursor: next?.id,
           total: rows.length,
         },
       }

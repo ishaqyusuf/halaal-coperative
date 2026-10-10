@@ -1,0 +1,24 @@
+import { mkdir, writeFile } from "node:fs/promises"
+import path from "node:path"
+
+import { runProductionQaReadOnlyProcurementProof } from "../src/qa/production-qa-read-only-procurement-proof"
+
+const evidenceDirectory = process.env.PRODUCTION_QA_EVIDENCE_DIRECTORY?.trim()
+const runId = process.env.PRODUCTION_QA_RUN_ID?.trim()
+if (!evidenceDirectory || !runId) {
+  throw new Error("An explicit evidence directory and run ID are required.")
+}
+
+await mkdir(evidenceDirectory, { recursive: true })
+const result = await runProductionQaReadOnlyProcurementProof({
+  environment: process.env.HALAALVEST_ENV ?? "local",
+  qaDomain: process.env.PRODUCTION_QA_DOMAIN ?? "ishaq.qa.test",
+  runId,
+})
+await writeFile(
+  path.join(evidenceDirectory, "receipt.json"),
+  JSON.stringify(result, null, 2)
+)
+console.log(JSON.stringify(result, null, 2))
+// API-only execution intentionally cannot complete the Android checkpoint.
+process.exitCode = result.complete ? 0 : 1

@@ -16,6 +16,8 @@ export function usePaymentReceiptFilterParams() {
   }
 }
 
+export const clearedPaymentReceiptFilters = { q: null, status: null }
+
 export const loadPaymentReceiptFilterParams = createLoader(
   paymentReceiptFilterParamsSchema
 )

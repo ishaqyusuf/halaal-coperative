@@ -1,4 +1,5 @@
 import type { AnalyticsBatch } from "@ishaqyusuf/logly-core"
+import { safeProperties } from "./attribution"
 
 const routeNames = new Set([
   "",
@@ -34,22 +35,18 @@ export function safeBatch(
   return {
     sentAt: batch.sentAt,
     sdk: batch.sdk,
-    events: batch.events
-      .filter(
-        (event) => event.name === "site_visit" || event.name === "page_view"
-      )
-      .map((event) => ({
-        eventId: event.eventId,
-        project,
-        name: event.name,
-        version: 1,
-        source: "browser",
-        occurredAt: event.occurredAt,
-        visitorId: event.visitorId,
-        visitKind: event.visitKind,
-        route: safeRoute(event.route),
-        properties: {},
-      })),
+    events: batch.events.map((event) => ({
+      eventId: event.eventId,
+      project,
+      name: event.name,
+      version: 1,
+      source: "browser",
+      occurredAt: event.occurredAt,
+      visitorId: event.visitorId,
+      visitKind: event.visitKind,
+      route: safeRoute(event.route),
+      properties: safeProperties(event.properties),
+    })),
   }
 }
 
@@ -72,24 +69,20 @@ export function safeNativeBatch(
   return {
     sentAt: batch.sentAt,
     sdk: { name: "@ishaqyusuf/logly-core", version: "0.3.0" },
-    events: batch.events
-      .filter(
-        (event) => event.name === "app_session" || event.name === "screen_view"
-      )
-      .map((event) => ({
-        eventId: event.eventId,
-        project: "halaalvest-mobile",
-        name: event.name,
-        version: 1,
-        source: "mobile",
-        platform: "android",
-        occurredAt: event.occurredAt,
-        visitorId: event.visitorId,
-        visitKind: event.visitKind,
-        appVersion: event.appVersion,
-        appBuild: event.appBuild,
-        route: safeRoute(event.route),
-        properties: {},
-      })),
+    events: batch.events.map((event) => ({
+      eventId: event.eventId,
+      project: "halaalvest-mobile",
+      name: event.name,
+      version: 1,
+      source: "mobile",
+      platform: "android",
+      occurredAt: event.occurredAt,
+      visitorId: event.visitorId,
+      visitKind: event.visitKind,
+      appVersion: event.appVersion,
+      appBuild: event.appBuild,
+      route: safeRoute(event.route),
+      properties: safeProperties(event.properties),
+    })),
   }
 }

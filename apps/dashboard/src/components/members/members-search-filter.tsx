@@ -35,6 +35,7 @@ import { SearchFilterDropdownInput } from "@/components/search-filter-dropdown-i
 import { DateRangeFilter } from "@/components/search-filter/date-range-filter"
 import type { MembersFilterParams } from "@/hooks/use-members-filter-params"
 import { useMembersFilterParams } from "@/hooks/use-members-filter-params"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { hasActiveMemberFilters } from "@/lib/members/member-filters"
 
 type FilterMenuItemProps = {
@@ -99,6 +100,7 @@ export function MembersSearchFilter({
   migrationSetupMode?: TenantMigrationSetupMode
 }) {
   const [isOpen, setIsOpen] = useState(false)
+  const isMobile = useIsMobile()
   const { filters, setFilters } = useMembersFilterParams()
   const hasFilters = hasActiveMemberFilters(filters)
   const migrationLabel =
@@ -107,6 +109,7 @@ export function MembersSearchFilter({
 
   useHotkeys("esc", () => setFilters({ q: null }, { shallow: false }), {
     enableOnFormTags: true,
+    enabled: !isMobile,
   })
 
   function setMemberFilter(

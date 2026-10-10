@@ -3,7 +3,7 @@
 import { Badge } from "@halaalvest/ui/components/badge"
 import { formatCurrency } from "@halaalvest/utils"
 import type { ColumnDef } from "@tanstack/react-table"
-import { OpenChargeToggleSheet } from "@/components/open-charge-operation-sheet"
+import { ChargeLibraryActionsMenu } from "./actions-menu"
 import type { ChargeLibraryRow } from "./data-table"
 
 export const columns: ColumnDef<ChargeLibraryRow>[] = [
@@ -107,26 +107,22 @@ export const columns: ColumnDef<ChargeLibraryRow>[] = [
         canManageCharges: boolean
       }
 
-      return meta.canManageCharges ? (
-        <div className="flex justify-end">
-          <OpenChargeToggleSheet
-            chargeDefinitionId={row.original.id}
-            isActive={row.original.isActive}
-          />
-        </div>
-      ) : (
-        <span className="text-sm text-muted-foreground">View only</span>
+      return (
+        <ChargeLibraryActionsMenu
+          canManageCharges={meta.canManageCharges}
+          row={row.original}
+        />
       )
     },
     enableHiding: false,
     header: "Actions",
     id: "actions",
-    maxSize: 180,
+    maxSize: 80,
     meta: {
-      className: "w-[160px] min-w-[140px] justify-end",
+      className: "w-[72px] min-w-[72px] justify-end",
       headerLabel: "Actions",
     },
-    minSize: 140,
-    size: 160,
+    minSize: 72,
+    size: 72,
   },
 ]

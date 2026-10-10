@@ -8,9 +8,11 @@
     ".env.production"
   ],
   "globalEnv": [
+    "ADB_PATH",
     "APP_ROOT_DOMAIN",
     "DASHBOARD_APP_URL",
     "HALAALVEST_DATABASE_URL",
+    "HALAALVEST_MOBILE_URL_SCHEME",
     "EMAIL_DELIVERY_MODE",
     "EMAIL_FROM_ADDRESS",
     "EMAIL_QA_DOMAIN_ROUTES",
@@ -21,21 +23,48 @@
     "EXPO_PUBLIC_APP_VARIANT",
     "EXPO_PUBLIC_DASHBOARD_URL",
     "APP_ENV",
+    "APP_VARIANT",
     "AUTH_SECRET",
     "EXPO_PORT",
     "HALAALVEST_DB_MODE",
     "HALAALVEST_ENV_MODE",
+    "HALAALVEST_ENV",
     "HALAALVEST_DASHBOARD_PROD_PORT",
     "LOCAL_HOSTNAME",
     "DASHBOARD_ROOT_DOMAIN",
     "DASHBOARD_DEV_URL_VARIANT_HOSTS",
     "DASHBOARD_PORT",
+    "DEPLOYMENT_ENVIRONMENT",
     "LOCAL_DASHBOARD_PROXY_TARGET",
     "MARKETING_STAGE",
+    "MARKETING_EARLY_ACCESS_ENABLED",
+    "MARKETING_EXPERIENCE",
+    "MARKETING_EXPERIENCE_PREVIEW_TOKEN",
     "MARKETING_ADMIN_EMAILS",
     "PLATFORM_ADMIN_EMAILS",
     "PLATFORM_APP_HOSTNAME",
     "PLATFORM_ROOT_DOMAIN",
+    "PRODUCTION_QA_CLEANUP_CONFIRMATION",
+    "PRODUCTION_QA_CLEANUP_EXECUTE",
+    "PRODUCTION_QA_CLEANUP_FINGERPRINT",
+    "PRODUCTION_QA_CLEANUP_REHEARSE",
+    "PRODUCTION_QA_DOMAIN",
+    "PRODUCTION_QA_ANDROID_EVIDENCE_DIRECTORY",
+    "PRODUCTION_QA_ANDROID_EXERCISE_DRAFT",
+    "PRODUCTION_QA_ANDROID_EXERCISE_INPUTS",
+    "PRODUCTION_QA_ANDROID_INSPECT_FOOTER",
+    "PRODUCTION_QA_ANDROID_PRESENTATION_ONLY",
+    "PRODUCTION_QA_ANDROID_ACCESSIBILITY_MATRIX",
+    "PRODUCTION_QA_ANDROID_LAUNCH_URL",
+    "PRODUCTION_QA_ANDROID_PACKAGE",
+    "PRODUCTION_QA_ANDROID_SERIAL",
+    "PRODUCTION_QA_EVIDENCE_DIRECTORY",
+    "PRODUCTION_QA_INVITATION_CONFIRM",
+    "PRODUCTION_QA_RUN_ID",
+    "QA_ACCELERATOR_CLIENT_KINDS",
+    "QA_ACCELERATOR_ENABLED",
+    "QA_ACCELERATOR_SECRET",
+    "QA_ACCELERATOR_TESTER_CREDENTIAL",
     "RESEND_API_KEY",
     "SENTRY_AUTH_TOKEN",
     "SENTRY_ORG",
@@ -84,13 +113,16 @@
     "EXPO_PUBLIC_SENTRY_ENVIRONMENT_MOBILE",
     "EXPO_PUBLIC_SENTRY_RELEASE_MOBILE",
     "EXPO_PUBLIC_SENTRY_SMOKE_TEST_MOBILE",
-    "EXPO_PUBLIC_LOGLY_ENABLED",
-    "EXPO_PUBLIC_LOGLY_ENDPOINT",
-    "LOGLY_COLLECTOR_URL",
-    "LOGLY_MOBILE_PROJECT_KEY",
     "PORT",
     "PORTLESS_APP_PORT",
     "SHOW_HOME_PAGE",
+    "STORE_BILLING_ENVIRONMENT",
+    "STORE_BILLING_CATALOG",
+    "STORE_BILLING_SALES_ENABLED",
+    "MOBILE_APP_BILLING_CATALOG",
+    "MOBILE_APP_BILLING_SALES_ENABLED",
+    "STORE_REFUND_REVIEW_ACTIVE_KEY_ID",
+    "STORE_REFUND_REVIEW_KEYS_JSON",
     "TENANT_SITE_APP_URL",
     "TENANT_URL_PROJECT_SLUG",
     "TEST_DATABASE_URL",
@@ -101,21 +133,32 @@
     "NEXT_PUBLIC_LOGLY_PROJECT_DASHBOARD",
     "NEXT_PUBLIC_LOGLY_ENABLED_MARKETING",
     "NEXT_PUBLIC_LOGLY_PROJECT_MARKETING",
+    "LOGLY_COLLECTOR_URL",
     "LOGLY_DASHBOARD_PROJECT_KEY",
     "LOGLY_MARKETING_PROJECT_KEY",
     "LOGLY_DASHBOARD_ALLOWED_ORIGINS",
     "LOGLY_MARKETING_ALLOWED_ORIGINS",
+    "LOGLY_MOBILE_PROJECT_KEY",
     "LOGLY_MOBILE_ORIGIN",
+    "EXPO_PUBLIC_LOGLY_ENABLED",
+    "EXPO_PUBLIC_LOGLY_ENDPOINT",
     "EXPO_PUBLIC_LOGLY_PROJECT"
   ],
   "ui": "tui",
   "tasks": {
     "topo": {
-      "dependsOn": ["^topo"]
+      "dependsOn": [
+        "^topo"
+      ]
     },
     "build": {
-      "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*"
+      ],
       "outputs": [
         ".next/**",
         "!.next/cache/**",
@@ -128,20 +171,29 @@
       ]
     },
     "lint": {
-      "dependsOn": ["^topo"]
+      "dependsOn": [
+        "^topo"
+      ]
     },
     "format": {
-      "dependsOn": ["^format"]
+      "dependsOn": [
+        "^format"
+      ]
     },
     "typecheck": {
       "outputs": []
     },
     "db:generate": {
       "cache": false,
-      "outputs": ["generated/**"]
+      "outputs": [
+        "generated/**"
+      ]
     },
     "dev": {
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*"
+      ],
       "cache": false,
       "persistent": true
     },

@@ -21,7 +21,7 @@ This file tracks coding expectations for maintainability, safety, and clarity.
 - Keep authorization checks close to entry points and service boundaries.
 - Import browser-safe role metadata from `@halaalvest/auth/roles`; reserve `@halaalvest/auth` for server-side session, cookie, and token helpers.
 - The root `bun run dev` router, dev-run bridge, service readiness, kill-port discovery, and root-level environment wrapper are owned by `/Users/M1PRO/Documents/code/local-infra-kit`; invoke the toolkit with `--profile halaalvest` and keep the command contract aligned with School Clerk. Halaalvest's thin `scripts/local-infra-command.ts` launcher may only replace Bun-preloaded values with the selected standard mode file, validate the database target and port ownership, and forward arguments to those shared entrypoints.
-- Inspect deployment obligations with `bun run release:status --env preview|production`. Treat `bun run release:check --env ...` as fail-closed unless signed provider evidence proves every required database, Vercel, Expo, and jobs action for the exact revision. Never weaken missing or stale evidence into a warning.
+- Inspect deployment obligations with `bun release plan --preview|--production` and environment names with `bun release env --preview|--production`. These can query providers and switch EAS account; they are not offline checks. Actual `bun release` performs schema/Git/provider effects. Keep clean expected-commit mobile commands, isolated Preview targets and existing source/legal/artifact guards. Follow `../runbooks/release-assurance.md` before the first release.
 - Invoke toolkit entry points through `bun --env-file=/dev/null` so Bun does not preload `.env.local` and override an explicit preview or production mode.
 - Workspace development wrappers must inherit `HALAALVEST_ENV_MODE` when the root router selected preview or production mode.
 - Prisma and local-infra use only the root files `.env`, `.env.local`, `.env.dev`, `.env.preview`, and `.env.production`. They load `.env` plus exactly one selected profile; Halaalvest owns `HALAALVEST_DATABASE_URL` and application code must not fall back to `DATABASE_URL`. The shared toolkit resolves `<PROFILE>_DATABASE_URL` first and retains `DATABASE_URL` only for other unmigrated projects. Do not add filename aliases, package-local lookup, or cross-mode fallback to database tooling. Deployment-specific EAS credential loading remains a separate contract.
@@ -29,6 +29,8 @@ This file tracks coding expectations for maintainability, safety, and clarity.
 - `bun run kill:ports` discovers numeric env variables ending in `_PORT` while excluding infrastructure ports such as Portless and databases. Keep project-owned application ports declared as individual `*_PORT` values.
 - Use `MARKETING_PORT` and `DASHBOARD_PORT` as the canonical application-port variables. Do not introduce app-qualified aliases; `PORTLESS_APP_PORT` remains the Portless process-level bridge.
 - For mobile styling or NativeWind issues that do not resolve after normal debugging, use the working GRD project as the fallback reference and align this project to its theme configuration, styling implementation, NativeWind version, and mobile UI setup.
+- Mobile full-screen forms keep the action footer mounted through `KeyboardStickyView`, measure the footer for scroll clearance, and avoid manual `Keyboard.metrics()`/listener positioning. The executable mobile UI and keyboard coverage checks must enforce this shared contract.
+- Deterministic mobile screenshot states may use development-only route parameters, but production builds must ignore them and all signed QA fixtures must still pass through the ordinary tenant/session boundary.
 
 ## Financial Safety Rules
 - Never trust client-supplied balances.
@@ -42,6 +44,7 @@ This file tracks coding expectations for maintainability, safety, and clarity.
 - Canonical Next.js/App Router/web rules: `/Users/M1PRO/.me/coding-standards/nextjs.md`
 - Canonical Expo/React Native/mobile rules: `/Users/M1PRO/.me/coding-standards/expo.md`
 - Treat these files as the source of truth for personal coding standards; do not copy full rule text into project Brain docs.
+- Treat active rules as non-negotiable; project-specific exceptions require an ADR in `.brain/decisions/`.
 <!-- END: global-personal-coding-rules -->
 
 ## Midday Standard
@@ -56,3 +59,14 @@ This file tracks coding expectations for maintainability, safety, and clarity.
 - Forms must follow Midday validation, error handling, and mutation patterns.
 - Data fetching and mutations must use the standard Midday tRPC patterns, including invalidation, loading states, errors, and caching behavior.
 - Prisma schema changes must be followed by root `bun db:migrate` and `bun run db:push` when those scripts exist. Select non-local targets with `--dev`, `--preview`, or `--prod`; do not manually create migration files.
+
+<!-- personal-coding-rules:start -->
+## Global Personal Coding Rules
+
+Agents must treat these global coding rule references as non-negotiable:
+
+- `/Users/M1PRO/.me/coding-standards/global.md`
+- `/Users/M1PRO/.me/coding-standards/expo.md`
+
+Project-specific exceptions require an ADR in `.brain/decisions/` before agents may diverge.
+<!-- personal-coding-rules:end -->

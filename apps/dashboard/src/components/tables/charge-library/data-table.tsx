@@ -7,27 +7,29 @@ import {
   TableCell,
   TableRow,
 } from "@halaalvest/ui/components/table"
-import { useInfiniteQuery } from "@tanstack/react-query"
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
-import { useEffect, useMemo, useRef } from "react"
-import { EmptyState, VirtualRow } from "@/components/tables/core"
-import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
-import { useSortParams } from "@/hooks/use-sort-params"
+import { useEffect, useRef } from "react"
+import { VirtualRow } from "@/components/tables/core"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
 import { useTableDnd } from "@/hooks/use-table-dnd"
 import { useTableScroll } from "@/hooks/use-table-scroll"
 import { useTableSettings } from "@/hooks/use-table-settings"
 import { useChargeLibraryTableStore } from "@/store/charge-library"
-import { useTRPC } from "@/trpc/client"
 import { ROW_HEIGHTS, STICKY_COLUMNS } from "@/utils/table-configs"
 import { getColumnIds, type TableSettings } from "@/utils/table-settings"
 import { columns } from "./columns"
-import { ChargeLibrarySkeleton } from "./skeleton"
 import { ChargeLibraryTableHeader } from "./table-header"
+import { ChargeLibraryEmptyState } from "./empty-states"
+import { useChargeLibraryQuery } from "./use-charge-library-query"
 
 export type ChargeLibraryRow = {
   amount: number
+  chargeFrequency:
+    | "manual"
+    | "one_time"
+    | "per_contribution"
+    | "recurring_monthly"
   chargeValueType: "fixed_amount" | "percentage"
   code: string
   currentEffectiveFrom: string | null
@@ -45,37 +47,7 @@ export type ChargeLibraryRow = {
   }>
 }
 
-type ChargeLibrarySortField =
-  | "amount"
-  | "currentEffectiveFrom"
-  | "isActive"
-  | "kind"
-  | "name"
-
 const COLUMN_IDS = getColumnIds(columns)
-
-function getSort(
-  sort?: string[] | null
-): [ChargeLibrarySortField, "asc" | "desc"] | null {
-  if (!sort || sort.length !== 2) return null
-
-  const field = sort[0]
-  const direction = sort[1]
-  if (!field || !direction) return null
-
-  const validFields = new Set<string>([
-    "amount",
-    "currentEffectiveFrom",
-    "isActive",
-    "kind",
-    "name",
-  ])
-
-  if (!validFields.has(field)) return null
-  if (direction !== "asc" && direction !== "desc") return null
-
-  return [field as ChargeLibrarySortField, direction]
-}
 
 export function ChargeLibraryDataTable({
   canManageCharges,
@@ -84,37 +56,9 @@ export function ChargeLibraryDataTable({
   canManageCharges: boolean
   initialSettings?: Partial<TableSettings>
 }) {
-  const trpc = useTRPC()
-  const { params } = useSortParams()
   const parentRef = useRef<HTMLDivElement>(null)
   const { setColumns } = useChargeLibraryTableStore()
-  const queryInput = useMemo(
-    () => ({
-      sort: getSort(params.sort),
-    }),
-    [params.sort]
-  )
-  const infiniteQueryOptions = trpc.charges.chargeLibrary.infiniteQueryOptions(
-    queryInput,
-    {
-      getNextPageParam: ({ meta }) => meta?.cursor,
-      refetchInterval: 5000,
-      refetchOnMount: "always",
-      refetchOnWindowFocus: true,
-    }
-  )
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isError,
-    isFetchingNextPage,
-    isPending,
-  } = useInfiniteQuery(infiniteQueryOptions)
-  const tableData = useMemo(
-    () => data?.pages.flatMap((page) => page.data) ?? [],
-    [data]
-  )
+  const { hasActiveControls, rows: tableData } = useChargeLibraryQuery()
 
   const {
     columnOrder,
@@ -175,36 +119,8 @@ export function ChargeLibraryDataTable({
     overscan: 10,
   })
 
-  useInfiniteScroll<HTMLDivElement>({
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    rowCount: rows.length,
-    rowVirtualizer,
-    scrollRef: parentRef,
-    threshold: 50,
-  })
-
-  if (isPending) {
-    return <ChargeLibrarySkeleton />
-  }
-
-  if (isError) {
-    return (
-      <EmptyState
-        description="Reload the page before trying to review charge definitions again."
-        title="Charge definitions could not load."
-      />
-    )
-  }
-
   if (!tableData.length) {
-    return (
-      <EmptyState
-        description="Create reusable charges before posting member charges."
-        title="No charge definitions yet."
-      />
-    )
+    return <ChargeLibraryEmptyState filtered={hasActiveControls} />
   }
 
   const virtualItems = rowVirtualizer.getVirtualItems()
@@ -213,7 +129,7 @@ export function ChargeLibraryDataTable({
     <div className="relative">
       <div className="w-full">
         <div
-          className="overflow-auto overscroll-contain border-x border-b border-border scrollbar-hide"
+          className="scrollbar-hide overflow-auto overscroll-contain border-x border-b border-border"
           ref={(element) => {
             parentRef.current = element
             tableScroll.containerRef.current = element

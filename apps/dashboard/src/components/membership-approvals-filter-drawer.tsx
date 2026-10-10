@@ -1,11 +1,15 @@
 "use client"
 
 import {
+  MobileFilterGroup,
+  filterOptionSummary,
+} from "@/components/search-filter/mobile-filter-group"
+
+import {
   RadioGroup,
   RadioGroupItem,
 } from "@halaalvest/ui/components/radio-group"
-import { Separator } from "@halaalvest/ui/components/separator"
-import { useState, type ReactNode } from "react"
+import { useState } from "react"
 import {
   membershipApprovalSortOptions,
   membershipApprovalStatusFilters,
@@ -13,21 +17,6 @@ import {
 import { MobileFilterDrawer } from "@/components/search-filter/mobile-filter-drawer"
 import { useMembershipApprovalsFilterParams } from "@/hooks/use-membership-approvals-filter-params"
 import { useSortParams } from "@/hooks/use-sort-params"
-
-function FilterSection({
-  children,
-  title,
-}: {
-  children: ReactNode
-  title: string
-}) {
-  return (
-    <section className="space-y-3">
-      <h3 className="text-xs font-medium text-foreground">{title}</h3>
-      {children}
-    </section>
-  )
-}
 
 export function MembershipApprovalsFilterDrawer({
   onOpenChange,
@@ -41,24 +30,18 @@ export function MembershipApprovalsFilterDrawer({
   const [status, setStatus] = useState(filter.status)
   const [sort, setSort] = useState(params.sort?.join(",") ?? "submittedAt,desc")
 
-  function applyFilters() {
-    void Promise.all([
+  async function applyFilters() {
+    await Promise.all([
       setFilter({ status }),
       setParams({
         sort: sort === "submittedAt,desc" ? null : sort.split(","),
       }),
     ])
-    onOpenChange(false)
   }
 
   function clearFilters() {
     setStatus(null)
     setSort("submittedAt,desc")
-    void Promise.all([
-      setFilter({ search: null, status: null }),
-      setParams({ sort: null }),
-    ])
-    onOpenChange(false)
   }
 
   return (
@@ -70,8 +53,14 @@ export function MembershipApprovalsFilterDrawer({
       open={open}
       title="Filter membership approvals"
     >
-      <div className="space-y-6">
-        <FilterSection title="Request status">
+      <div className="space-y-0">
+        <MobileFilterGroup
+          title="Request status"
+          summary={filterOptionSummary(
+            status ?? "all",
+            membershipApprovalStatusFilters
+          )}
+        >
           <RadioGroup
             onValueChange={(value) => setStatus(value === "all" ? null : value)}
             value={status ?? "all"}
@@ -93,11 +82,12 @@ export function MembershipApprovalsFilterDrawer({
               </label>
             ))}
           </RadioGroup>
-        </FilterSection>
+        </MobileFilterGroup>
 
-        <Separator />
-
-        <FilterSection title="Sort by">
+        <MobileFilterGroup
+          title="Sort by"
+          summary={filterOptionSummary(sort, membershipApprovalSortOptions)}
+        >
           <RadioGroup onValueChange={setSort} value={sort}>
             {membershipApprovalSortOptions.map((option) => (
               <label
@@ -113,7 +103,7 @@ export function MembershipApprovalsFilterDrawer({
               </label>
             ))}
           </RadioGroup>
-        </FilterSection>
+        </MobileFilterGroup>
       </div>
     </MobileFilterDrawer>
   )

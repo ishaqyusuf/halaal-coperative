@@ -23,6 +23,11 @@ export function TrustSection() {
           <h2 className="marketing-serif mt-7 max-w-3xl text-4xl leading-[1.02] tracking-[-0.035em] sm:text-5xl lg:text-6xl">
             Interest-free by design. Transparent by default.
           </h2>
+          <p className="mt-6 max-w-2xl text-base leading-7 text-white/70">
+            The software does not calculate financing interest. Cooperatives may
+            assess separate charges; members should review the total payable and
+            repayment terms before accepting financing.
+          </p>
         </div>
         <div className="grid gap-px overflow-hidden rounded-2xl bg-white/12 sm:grid-cols-2">
           <TrustCard
@@ -114,12 +119,17 @@ export function MarketingFooter() {
           <Link className="hover:text-[#0B1F36]" href="/#early-access">
             Early access
           </Link>
-          <a
-            className="hover:text-[#0B1F36]"
-            href="mailto:hello@halaalvest.com"
-          >
-            Contact
-          </a>
+          {[
+            ["/terms", "Terms"],
+            ["/privacy", "Privacy"],
+            ["/support", "Support"],
+            ["/delete-account", "Delete account"],
+            ["/cooperative-disclosures", "Cooperative disclosures"],
+          ].map(([href, label]) => (
+            <Link className="inline-flex min-h-11 items-center hover:text-[#0B1F36]" href={href!} key={href}>
+              {label}
+            </Link>
+          ))}
         </div>
       </div>
     </footer>

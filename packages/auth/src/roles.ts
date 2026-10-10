@@ -64,7 +64,57 @@ export const cooperativeRolePermissions = [
     action: "review_receipts",
     allowedRoles: financeRoles,
     module: "payments",
-    summary: "Approve, reject, request correction, and adjust receipt allocations.",
+    summary:
+      "Approve, reject, request correction, and adjust receipt allocations.",
+  },
+  {
+    action: "view_admin_work_queue",
+    allowedRoles: staffRoles,
+    module: "payments",
+    summary:
+      "View the combined finance, collections, and support operations queue.",
+  },
+  {
+    action: "view_contribution_operations",
+    allowedRoles: staffRoles,
+    module: "payments",
+    summary:
+      "View the contribution ledger, member commitments, and Collection Source batches.",
+  },
+  {
+    action: "manage_member_contributions",
+    allowedRoles: staffRoles,
+    module: "payments",
+    summary:
+      "Manage member commitments, allocation preferences, and individual contribution postings.",
+  },
+  {
+    action: "manage_collection_source_batches",
+    allowedRoles: financeRoles,
+    module: "payments",
+    summary:
+      "Stage, resolve, review, and post Collection Source contribution batches.",
+  },
+  {
+    action: "view_charge_operations",
+    allowedRoles: staffRoles,
+    module: "payments",
+    summary:
+      "View tenant-scoped charge applications, monthly levies, rules, and audit evidence.",
+  },
+  {
+    action: "manage_charge_operations",
+    allowedRoles: financeRoles,
+    module: "payments",
+    summary:
+      "Apply supported member charges and settle separate-payment charges.",
+  },
+  {
+    action: "correct_charge_operations",
+    allowedRoles: financeRoles,
+    module: "payments",
+    summary:
+      "Waive or reverse charges with explicit reasons and corrective accounting evidence.",
   },
   {
     action: "submit_financing",
@@ -77,6 +127,12 @@ export const cooperativeRolePermissions = [
     allowedRoles: financeRoles,
     module: "financing",
     summary: "Review, approve, disburse, and service member financing.",
+  },
+  {
+    action: "record_collection_follow_up",
+    allowedRoles: staffRoles,
+    module: "financing",
+    summary: "Record collection contact evidence without posting a repayment.",
   },
   {
     action: "respond_as_guarantor",
@@ -94,7 +150,8 @@ export const cooperativeRolePermissions = [
     action: "review_procurement",
     allowedRoles: financeRoles,
     module: "procurement",
-    summary: "Review procurement requests, record purchase evidence, and service schedules.",
+    summary:
+      "Review procurement requests, record purchase evidence, and service schedules.",
   },
   {
     action: "submit_share_request",
@@ -107,6 +164,27 @@ export const cooperativeRolePermissions = [
     allowedRoles: financeRoles,
     module: "shares",
     summary: "Review optional share requests and post approved share capital.",
+  },
+  {
+    action: "view_share_profit_governance",
+    allowedRoles: staffRoles,
+    module: "shares",
+    summary:
+      "View tenant-scoped share capital and profit-distribution governance records.",
+  },
+  {
+    action: "approve_profit_distribution",
+    allowedRoles: financeRoles,
+    module: "shares",
+    summary:
+      "Approve reviewed business-profit entries after allocations reconcile.",
+  },
+  {
+    action: "publish_profit_distribution",
+    allowedRoles: financeRoles,
+    module: "shares",
+    summary:
+      "Publish approved member profit allocations and rebuild period evidence.",
   },
   {
     action: "apply_food_purchase",
@@ -124,7 +202,8 @@ export const cooperativeRolePermissions = [
     action: "review_food_purchase_applications",
     allowedRoles: staffRoles,
     module: "food_purchase",
-    summary: "Review member food-purchase applications on behalf of the committee.",
+    summary:
+      "Review member food-purchase applications on behalf of the committee.",
   },
   {
     action: "submit_food_purchase_accounting",
@@ -148,19 +227,22 @@ export const cooperativeRolePermissions = [
     action: "review_project_financing",
     allowedRoles: financeRoles,
     module: "project_financing",
-    summary: "Review project financing requests and capture approved structure.",
+    summary:
+      "Review project financing requests and capture approved structure.",
   },
   {
     action: "manage_support",
     allowedRoles: staffRoles,
     module: "support",
-    summary: "Manage member support cases, replies, assignment, and resolution evidence.",
+    summary:
+      "Manage member support cases, replies, assignment, and resolution evidence.",
   },
   {
     action: "approve_money_impact_support",
     allowedRoles: financeRoles,
     module: "support",
-    summary: "Approve support-case resolutions that require financial adjustment.",
+    summary:
+      "Approve support-case resolutions that require financial adjustment.",
   },
   {
     action: "view_reports",
@@ -172,19 +254,35 @@ export const cooperativeRolePermissions = [
     action: "manage_finance_settings",
     allowedRoles: financeRoles,
     module: "settings",
-    summary: "Manage finance policy, shares, charges, loans, migration, and business settings.",
+    summary:
+      "Manage finance policy, shares, charges, loans, migration, and business settings.",
   },
   {
     action: "manage_roles",
     allowedRoles: adminRoles,
     module: "settings",
-    summary: "Provision users, assign workspace roles, and set default memberships.",
+    summary:
+      "Provision users, assign workspace roles, and set default memberships.",
+  },
+  {
+    action: "manage_subscription",
+    allowedRoles: adminRoles,
+    module: "settings",
+    summary: "View subscription commercial details and request plan changes.",
+  },
+  {
+    action: "manage_operation_profile",
+    allowedRoles: adminRoles,
+    module: "settings",
+    summary:
+      "Review and change which cooperative services are available to staff and members.",
   },
   {
     action: "manage_trust_and_domains",
     allowedRoles: ["super_admin", "tenant_admin", "operations_officer"],
     module: "settings",
-    summary: "Manage trust readiness, tenant profile, and domain configuration.",
+    summary:
+      "Manage trust readiness, tenant profile, and domain configuration.",
   },
 ] as const satisfies readonly CooperativeRolePermission[]
 
@@ -231,9 +329,7 @@ export function getRolePermissions(role: CooperativeRole) {
   )
 }
 
-export function getPermissionModuleLabel(
-  module: CooperativePermissionModule
-) {
+export function getPermissionModuleLabel(module: CooperativePermissionModule) {
   switch (module) {
     case "members":
       return "Members"
@@ -269,9 +365,7 @@ export function roleCan(
   )
 }
 
-export function getRoleDisplayName(
-  role: CooperativeRole | null | undefined
-) {
+export function getRoleDisplayName(role: CooperativeRole | null | undefined) {
   switch (role) {
     case "super_admin":
       return "Super Admin"
@@ -288,9 +382,7 @@ export function getRoleDisplayName(
   }
 }
 
-export function getRoleScopeSummary(
-  role: CooperativeRole | null | undefined
-) {
+export function getRoleScopeSummary(role: CooperativeRole | null | undefined) {
   switch (role) {
     case "super_admin":
       return "Platform-level oversight across cooperative workspaces."

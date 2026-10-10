@@ -1,8 +1,7 @@
 "use client"
 
 import { Suspense } from "react"
-import type { SupportCaseRow } from "@halaalvest/db"
-import { useQuery } from "@tanstack/react-query"
+import { useSuspenseQuery } from "@tanstack/react-query"
 import {
   MemberSupportCaseCreateContent,
   MemberSupportCaseReplyContent,
@@ -40,114 +39,143 @@ function isSupportCaseSheetType(
   )
 }
 
-const disabledSupportCaseId = "00000000-0000-4000-8000-000000000000"
+function SelectedSupportCaseContent({
+  assignees,
+  onClose,
+  supportCaseId,
+  type,
+}: {
+  assignees: SupportCaseOption[]
+  onClose: () => void | Promise<void>
+  supportCaseId: string
+  type: Exclude<SupportCaseSheetType, "create" | "member-create">
+}) {
+  const trpc = useTRPC()
+  const { data: supportCase } = useSuspenseQuery(
+    trpc.support.get.queryOptions({ supportCaseId })
+  )
+
+  if (!supportCase) {
+    return (
+      <>
+        <SupportCaseSheetHeader type={type} />
+        <p className="px-4 text-sm text-muted-foreground md:px-6">
+          This support case could not be found.
+        </p>
+      </>
+    )
+  }
+
+  return (
+    <>
+      <SupportCaseSheetHeader supportCase={supportCase} type={type} />
+      <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-6">
+        {type === "update" ? (
+          <SupportCaseUpdateContent
+            assignees={assignees}
+            onClose={onClose}
+            supportCase={supportCase}
+          />
+        ) : type === "adjustment-review" ? (
+          <SupportCaseFinancialAdjustmentReviewContent
+            onClose={onClose}
+            supportCase={supportCase}
+          />
+        ) : type === "reply" ? (
+          <SupportCaseReplyContent
+            onClose={onClose}
+            supportCase={supportCase}
+          />
+        ) : (
+          <MemberSupportCaseReplyContent
+            onClose={onClose}
+            supportCase={supportCase}
+          />
+        )}
+      </div>
+    </>
+  )
+}
 
 export function SupportCaseSheet({
   assignees = [],
-  cases,
+  canCreateSupportCases = true,
   initialCase,
   memberOptions = [],
 }: {
   assignees?: SupportCaseOption[]
-  cases: SupportCaseRow[]
+  canCreateSupportCases?: boolean
   initialCase?: MemberSupportCaseInitialValues
   memberOptions?: SupportCaseOption[]
 }) {
-  const trpc = useTRPC()
-  const {
-    setParams,
-    supportCaseId: selectedSupportCaseId,
-    supportCaseSheetType,
-  } = useSupportCaseParams()
+  const { setParams, supportCaseId, supportCaseSheetType } =
+    useSupportCaseParams()
   const isOpen = isSupportCaseSheetType(supportCaseSheetType)
   const presentation = getWorkflowPresentation("support", supportCaseSheetType)
-  const selectedRouteCase = cases.find((supportCase) => {
-    return supportCase.id === selectedSupportCaseId
-  })
-  const shouldLoadSelectedCase =
-    isOpen &&
-    Boolean(selectedSupportCaseId) &&
-    supportCaseSheetType !== "create" &&
-    supportCaseSheetType !== "member-create"
-  const { data: fetchedCase, isLoading: isSelectedCaseLoading } = useQuery(
-    trpc.support.get.queryOptions(
-      { supportCaseId: selectedSupportCaseId ?? disabledSupportCaseId },
-      { enabled: shouldLoadSelectedCase }
-    )
-  )
-  const selectedCase = fetchedCase ?? selectedRouteCase
 
-  const closeSheet = () => {
-    void setParams({
-      supportCaseId: null,
-      supportCaseSheetType: null,
-    })
+  async function closeSheet() {
+    await setParams({ supportCaseId: null, supportCaseSheetType: null })
   }
+
+  const isCreate =
+    supportCaseSheetType === "create" ||
+    supportCaseSheetType === "member-create"
 
   return (
     <WorkflowPresentation
       config={presentation}
+      mobileFullScreen
+      onOpenChange={(open) => !open && void closeSheet()}
       open={isOpen}
-      onOpenChange={(open) => !open && closeSheet()}
     >
-        {isOpen ? (
-          <Suspense
-            fallback={
-              <div className="px-6 text-sm text-muted-foreground">
-                Loading support case...
-              </div>
-            }
-          >
-            <SupportCaseSheetHeader
-              supportCase={selectedCase}
-              type={supportCaseSheetType}
-            />
-            <div className="px-6">
-              {supportCaseSheetType === "create" ? (
+      {isOpen ? (
+        isCreate ? (
+          <>
+            <SupportCaseSheetHeader type={supportCaseSheetType} />
+            <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-6">
+              {!canCreateSupportCases ? (
+                <p className="border-y border-border py-4 text-sm text-muted-foreground">
+                  Opening new support cases is not enabled by this
+                  cooperative&apos;s Operation Profile.
+                </p>
+              ) : supportCaseSheetType === "create" ? (
                 <SupportCaseCreateContent
                   assignees={assignees}
                   memberOptions={memberOptions}
                   onClose={closeSheet}
                 />
-              ) : supportCaseSheetType === "member-create" ? (
+              ) : (
                 <MemberSupportCaseCreateContent
                   initialCase={initialCase}
                   onClose={closeSheet}
                 />
-              ) : shouldLoadSelectedCase && isSelectedCaseLoading ? (
-                <p className="text-sm text-muted-foreground">
-                  Loading support case...
-                </p>
-              ) : supportCaseSheetType === "update" && selectedCase ? (
-                <SupportCaseUpdateContent
-                  assignees={assignees}
-                  onClose={closeSheet}
-                  supportCase={selectedCase}
-                />
-              ) : supportCaseSheetType === "adjustment-review" &&
-                selectedCase ? (
-                <SupportCaseFinancialAdjustmentReviewContent
-                  onClose={closeSheet}
-                  supportCase={selectedCase}
-                />
-              ) : supportCaseSheetType === "reply" && selectedCase ? (
-                <SupportCaseReplyContent
-                  onClose={closeSheet}
-                  supportCase={selectedCase}
-                />
-              ) : supportCaseSheetType === "member-reply" && selectedCase ? (
-                <MemberSupportCaseReplyContent
-                  onClose={closeSheet}
-                  supportCase={selectedCase}
-                />
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  This support case could not be found.
-                </p>
               )}
             </div>
+          </>
+        ) : supportCaseId ? (
+          <Suspense
+            fallback={
+              <div className="px-4 text-sm text-muted-foreground md:px-6">
+                Loading support case...
+              </div>
+            }
+          >
+            <SelectedSupportCaseContent
+              assignees={assignees}
+              onClose={closeSheet}
+              supportCaseId={supportCaseId}
+              type={supportCaseSheetType}
+            />
           </Suspense>
-        ) : null}
+        ) : (
+          <>
+            <SupportCaseSheetHeader type={supportCaseSheetType} />
+            <p className="px-4 text-sm text-muted-foreground md:px-6">
+              Select a support case to continue.
+            </p>
+          </>
+        )
+      ) : null}
     </WorkflowPresentation>
   )
 }

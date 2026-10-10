@@ -1,11 +1,8 @@
-import { listTenants } from "@halaalvest/db"
-import { resolveQaQuickFillContext } from "@halaalvest/utils"
 import { redirect } from "next/navigation"
-import { DevTenantFab } from "@/components/marketing/dev-tenant-fab"
-import { MarketingLanding } from "@/components/marketing/marketing-landing"
+import { MarketingPageView } from "@/components/marketing/marketing-page-view"
 import { getMarketingConfig } from "@/lib/marketing-config"
-import { getSignupHref } from "@/lib/runtime-url"
-import { getServerQaEmailDomains } from "@/lib/server-notifications"
+import { resolveActiveMarketingExperienceId } from "@/lib/marketing-experience-policy"
+import { loadMarketingPageData } from "@/lib/load-marketing-page"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -17,34 +14,11 @@ export default async function Page() {
     redirect("/signup")
   }
 
-  const tenants =
-    process.env.NODE_ENV !== "production" ? await listTenants() : []
-  const signupHref = marketing.earlyAccessModeEnabled
-    ? "#early-access"
-    : await getSignupHref()
-  const quickFill = resolveQaQuickFillContext({
-    authenticatedEmail: null,
-    configuredDomains: getServerQaEmailDomains(),
-    isDevelopment: process.env.NODE_ENV !== "production",
+  const pageData = await loadMarketingPageData(marketing)
+  const experienceId = resolveActiveMarketingExperienceId({
+    isProduction: process.env.NODE_ENV === "production",
+    requestedExperienceId: marketing.experience,
   })
 
-  return (
-    <>
-      <MarketingLanding
-        isLaunchReady={marketing.isLaunchReady}
-        quickFill={quickFill}
-        signupHref={signupHref}
-      />
-      {process.env.NODE_ENV !== "production" ? (
-        <DevTenantFab
-          tenants={tenants.map((tenant) => ({
-            id: tenant.id,
-            memberCount: tenant.memberCount,
-            name: tenant.name,
-            slug: tenant.slug,
-          }))}
-        />
-      ) : null}
-    </>
-  )
+  return <MarketingPageView experienceId={experienceId} {...pageData} />
 }

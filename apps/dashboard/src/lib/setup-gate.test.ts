@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
   isInitialMigrationSetupPath,
   resolveInitialMigrationLayoutRedirect,
+  shouldOpenFirstRunOnboarding,
 } from "./setup-gate"
 import { getVisibleDashboardNav } from "./navigation/lib"
 
@@ -12,12 +13,33 @@ describe("initial migration setup gate", () => {
     )
   })
 
+  test("allows platform document review during initial migration", () => {
+    expect(isInitialMigrationSetupPath("/settings/platform-documents")).toBe(
+      true
+    )
+    expect(
+      resolveInitialMigrationLayoutRedirect({
+        pathname: "/settings/platform-documents",
+        shouldRedirectAdminToSetup: true,
+        shouldRedirectAdminToSuccess: false,
+      })
+    ).toBeNull()
+    expect(
+      shouldOpenFirstRunOnboarding({
+        alreadyInOnboarding: true,
+        canUseLiveWorkspace: true,
+        isQaAuthorized: false,
+        isWorkspaceAdmin: true,
+      })
+    ).toBe(false)
+  })
+
   test("allows member backfill workflow during initial setup", () => {
     expect(isInitialMigrationSetupPath("/members")).toBe(true)
     expect(isInitialMigrationSetupPath("/members/member-123")).toBe(true)
-    expect(
-      isInitialMigrationSetupPath("/members/member-123/backfill")
-    ).toBe(true)
+    expect(isInitialMigrationSetupPath("/members/member-123/backfill")).toBe(
+      true
+    )
     expect(
       isInitialMigrationSetupPath("/members/member-123/backfill/review")
     ).toBe(true)
@@ -28,9 +50,9 @@ describe("initial migration setup gate", () => {
   })
 
   test("does not allow unrelated member sub-workspaces during initial setup", () => {
-    expect(
-      isInitialMigrationSetupPath("/members/member-123/activity")
-    ).toBe(false)
+    expect(isInitialMigrationSetupPath("/members/member-123/activity")).toBe(
+      false
+    )
   })
 
   test("does not trap completed setup admins on onboarding success", () => {
@@ -83,5 +105,25 @@ describe("initial migration setup gate", () => {
         shouldRedirectAdminToSuccess: false,
       })
     ).toBe("/getting-started")
+  })
+
+  test("does not hijack QA-authorized workspace verification", () => {
+    expect(
+      shouldOpenFirstRunOnboarding({
+        alreadyInOnboarding: false,
+        canUseLiveWorkspace: true,
+        isQaAuthorized: true,
+        isWorkspaceAdmin: true,
+      })
+    ).toBe(false)
+
+    expect(
+      shouldOpenFirstRunOnboarding({
+        alreadyInOnboarding: false,
+        canUseLiveWorkspace: true,
+        isQaAuthorized: false,
+        isWorkspaceAdmin: true,
+      })
+    ).toBe(true)
   })
 })

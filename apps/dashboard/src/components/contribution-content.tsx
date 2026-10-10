@@ -1,5 +1,7 @@
 "use client"
 
+import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
 import { Textarea } from "@halaalvest/ui/components/textarea"
@@ -18,6 +20,7 @@ import {
   stageCollectionSourceContributionBatchAction,
   updateCollectionSourceContributionBatchRowsAction,
 } from "@/lib/dashboard-actions"
+import { useTRPC } from "@/trpc/client"
 
 export type ContributionMemberOption = {
   id: string
@@ -76,6 +79,27 @@ export type CollectionSourceBatchSheetOption = {
   rows: CollectionSourceBatchRowOption[]
 }
 
+function useCompleteContributionWorkflow() {
+  const queryClient = useQueryClient()
+  const router = useRouter()
+  const trpc = useTRPC()
+  const { setParams } = useContributionParams()
+
+  return async () => {
+    await queryClient.invalidateQueries(
+      trpc.contributions.ledger.infiniteQueryFilter()
+    )
+    await setParams({
+      contributionSheetType: null,
+      selectedCollectionBatchId: null,
+      selectedCollectionRowId: null,
+      selectedContributionMemberId: null,
+      selectedContributionPlanId: null,
+    })
+    router.refresh()
+  }
+}
+
 export function ContributionContent({
   activeCommitmentPlans,
   activeLoans,
@@ -91,9 +115,9 @@ export function ContributionContent({
   members: ContributionMemberOption[]
   selectedCollectionSourceBatch?: CollectionSourceBatchSheetOption | null
 }) {
+  const completeContributionWorkflow = useCompleteContributionWorkflow()
   const {
     contributionSheetType,
-    selectedCollectionBatchId,
     selectedCollectionRowId,
     selectedContributionMemberId,
     selectedContributionPlanId,
@@ -120,10 +144,7 @@ export function ContributionContent({
   const now = new Date()
   const currentBatchYear = now.getUTCFullYear()
   const currentBatchMonth = now.getUTCMonth() + 1
-  const selectedBatch =
-    selectedCollectionSourceBatch?.id === selectedCollectionBatchId
-      ? selectedCollectionSourceBatch
-      : selectedCollectionSourceBatch
+  const selectedBatch = selectedCollectionSourceBatch
   const selectedBatchRow = selectedBatch?.rows.find(
     (row) => row.id === selectedCollectionRowId
   )
@@ -132,60 +153,60 @@ export function ContributionContent({
 
   if (contributionSheetType === "plan") {
     return (
-      <div className="px-6">
-        <ContributionPlanForm devMode={devMode} members={memberOptions} />
-      </div>
+      <ContributionPlanForm
+        devMode={devMode}
+        members={memberOptions}
+        onSuccess={completeContributionWorkflow}
+      />
     )
   }
 
   if (contributionSheetType === "payment") {
     return (
-      <div className="px-6">
-        <MemberPaymentForm
-          commitmentPlans={commitmentPlanOptions}
-          devMode={devMode}
-          loans={loanOptions}
-          members={memberOptions}
-        />
-      </div>
+      <MemberPaymentForm
+        commitmentPlans={commitmentPlanOptions}
+        devMode={devMode}
+        loans={loanOptions}
+        members={memberOptions}
+        onSuccess={completeContributionWorkflow}
+      />
     )
   }
 
   if (contributionSheetType === "preference") {
     if (!selectedMember) {
       return (
-        <div className="px-6 text-sm text-muted-foreground">
+        <div className="text-sm text-muted-foreground">
           Select a member before changing payment preference.
         </div>
       )
     }
 
     return (
-      <div className="px-6">
-        <MemberPaymentPreferenceForm
-          defaultValues={{
-            memberId: selectedMember.id,
-            preference:
-              selectedMember.paymentAllocationPreference ?? "manual_split",
-          }}
-          title={selectedMember.label}
-        />
-      </div>
+      <MemberPaymentPreferenceForm
+        defaultValues={{
+          memberId: selectedMember.id,
+          preference:
+            selectedMember.paymentAllocationPreference ?? "manual_split",
+        }}
+        onSuccess={completeContributionWorkflow}
+        title={selectedMember.label}
+      />
     )
   }
 
   if (contributionSheetType === "editPlan") {
     if (!selectedPlan) {
       return (
-        <div className="px-6 text-sm text-muted-foreground">
+        <div className="text-sm text-muted-foreground">
           Commitment plan could not be loaded.
         </div>
       )
     }
 
     return (
-      <div className="grid gap-4 px-6">
-        <div className="rounded-lg border p-4">
+      <div className="grid gap-4">
+        <div className="border-y border-border py-4">
           <p className="font-medium text-foreground">
             {selectedPlan.member.fullName}
           </p>
@@ -199,8 +220,12 @@ export function ContributionContent({
             name: selectedPlan.name ?? "",
             planId: selectedPlan.id,
           }}
+          onSuccess={completeContributionWorkflow}
         />
-        <ContributionPlanCloseForm planId={selectedPlan.id} />
+        <ContributionPlanCloseForm
+          onSuccess={completeContributionWorkflow}
+          planId={selectedPlan.id}
+        />
       </div>
     )
   }
@@ -208,8 +233,11 @@ export function ContributionContent({
   if (contributionSheetType === "stageBatch") {
     return (
       <form
-        action={stageCollectionSourceContributionBatchAction}
-        className="grid gap-4 px-6"
+        action={async (formData) => {
+          await stageCollectionSourceContributionBatchAction(formData)
+          await completeContributionWorkflow()
+        }}
+        className="grid gap-4"
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="grid gap-2 text-sm font-medium text-foreground">
@@ -239,9 +267,7 @@ export function ContributionContent({
             name="deductionSourceId"
             options={collectionSourceBatchOptions.map((source) => ({
               label: `${source.label}${
-                source.externalReference
-                  ? ` · ${source.externalReference}`
-                  : ""
+                source.externalReference ? ` · ${source.externalReference}` : ""
               }`,
               value: source.id,
             }))}
@@ -258,6 +284,7 @@ export function ContributionContent({
           <Textarea name="notes" />
         </label>
         <Button
+          className="h-11 w-full sm:w-auto"
           disabled={collectionSourceBatchOptions.length === 0}
           type="submit"
         >
@@ -270,14 +297,17 @@ export function ContributionContent({
   if (contributionSheetType === "postBatchRows") {
     return (
       <form
-        action={postCollectionSourceContributionBatchRowsAction}
-        className="grid gap-4 px-6"
+        action={async (formData) => {
+          await postCollectionSourceContributionBatchRowsAction(formData)
+          await completeContributionWorkflow()
+        }}
+        className="grid gap-4"
       >
         <input name="batchId" type="hidden" value={selectedBatch?.id ?? ""} />
         {collectedRows.map((row) => (
           <input key={row.id} name="rowId" type="hidden" value={row.id} />
         ))}
-        <div className="rounded-lg border p-4">
+        <div className="border-y border-border py-4">
           <p className="font-medium text-foreground">
             {selectedBatch?.deductionSource.name ?? "Collection source batch"}
           </p>
@@ -291,6 +321,7 @@ export function ContributionContent({
           <Input name="reference" placeholder="Posting reference" />
         </label>
         <Button
+          className="h-11 w-full sm:w-auto"
           disabled={!selectedBatch?.id || collectedRows.length === 0}
           type="submit"
         >
@@ -303,13 +334,16 @@ export function ContributionContent({
   if (contributionSheetType === "markBatchRowCollected") {
     return (
       <form
-        action={updateCollectionSourceContributionBatchRowsAction}
-        className="grid gap-4 px-6"
+        action={async (formData) => {
+          await updateCollectionSourceContributionBatchRowsAction(formData)
+          await completeContributionWorkflow()
+        }}
+        className="grid gap-4"
       >
         <input name="batchId" type="hidden" value={selectedBatch?.id ?? ""} />
         <input name="rowId" type="hidden" value={selectedBatchRow?.id ?? ""} />
         <input name="status" type="hidden" value="collected" />
-        <div className="rounded-lg border p-4">
+        <div className="border-y border-border py-4">
           <p className="font-medium text-foreground">
             {selectedBatchRow?.memberName ?? "Batch row"}
           </p>
@@ -330,7 +364,11 @@ export function ContributionContent({
           Variance note
           <Input name="exceptionReason" placeholder="Variance note" />
         </label>
-        <Button disabled={!selectedBatch?.id || !selectedBatchRow?.id} type="submit">
+        <Button
+          className="h-11 w-full sm:w-auto"
+          disabled={!selectedBatch?.id || !selectedBatchRow?.id}
+          type="submit"
+        >
           Mark collected
         </Button>
       </form>
@@ -340,13 +378,16 @@ export function ContributionContent({
   if (contributionSheetType === "markBatchRowException") {
     return (
       <form
-        action={updateCollectionSourceContributionBatchRowsAction}
-        className="grid gap-4 px-6"
+        action={async (formData) => {
+          await updateCollectionSourceContributionBatchRowsAction(formData)
+          await completeContributionWorkflow()
+        }}
+        className="grid gap-4"
       >
         <input name="batchId" type="hidden" value={selectedBatch?.id ?? ""} />
         <input name="rowId" type="hidden" value={selectedBatchRow?.id ?? ""} />
         <input name="status" type="hidden" value="exception" />
-        <div className="rounded-lg border p-4">
+        <div className="border-y border-border py-4">
           <p className="font-medium text-foreground">
             {selectedBatchRow?.memberName ?? "Batch row"}
           </p>
@@ -359,6 +400,7 @@ export function ContributionContent({
           <Input name="exceptionReason" placeholder="Reason" required />
         </label>
         <Button
+          className="h-11 w-full sm:w-auto"
           disabled={!selectedBatch?.id || !selectedBatchRow?.id}
           type="submit"
           variant="outline"
@@ -372,12 +414,15 @@ export function ContributionContent({
   if (contributionSheetType === "postBatchRow") {
     return (
       <form
-        action={postCollectionSourceContributionBatchRowsAction}
-        className="grid gap-4 px-6"
+        action={async (formData) => {
+          await postCollectionSourceContributionBatchRowsAction(formData)
+          await completeContributionWorkflow()
+        }}
+        className="grid gap-4"
       >
         <input name="batchId" type="hidden" value={selectedBatch?.id ?? ""} />
         <input name="rowId" type="hidden" value={selectedBatchRow?.id ?? ""} />
-        <div className="rounded-lg border p-4">
+        <div className="border-y border-border py-4">
           <p className="font-medium text-foreground">
             {selectedBatchRow?.memberName ?? "Batch row"}
           </p>
@@ -385,7 +430,11 @@ export function ContributionContent({
             Post this collected row into the member contribution ledger.
           </p>
         </div>
-        <Button disabled={!selectedBatch?.id || !selectedBatchRow?.id} type="submit">
+        <Button
+          className="h-11 w-full sm:w-auto"
+          disabled={!selectedBatch?.id || !selectedBatchRow?.id}
+          type="submit"
+        >
           Post row
         </Button>
       </form>
@@ -393,7 +442,7 @@ export function ContributionContent({
   }
 
   return (
-    <div className="px-6">
+    <div>
       <Button onClick={() => setParams({ contributionSheetType: "plan" })}>
         Start with a commitment
       </Button>

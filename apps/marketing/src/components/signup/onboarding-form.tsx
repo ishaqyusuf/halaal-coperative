@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import type { LegalAcknowledgement } from "@halaalvest/db"
+import { PlatformLegalAcceptance } from "./platform-legal-acceptance"
 import Link from "next/link"
 import type { QaNotificationPreview } from "@halaalvest/notifications"
 import {
@@ -124,6 +126,7 @@ export function OnboardingForm({
   const [result, setResult] = useState<OnboardingResult | null>(null)
   useSignupJourneyStage(result ? "ready" : "profile")
   const [submitting, setSubmitting] = useState(false)
+  const [legalState, setLegalState] = useState<{ready:boolean;acknowledgement?:LegalAcknowledgement}>({ready:false})
 
   useEffect(() => {
     if (!result) {
@@ -150,6 +153,7 @@ export function OnboardingForm({
   }, [result])
 
   async function onSubmit(values: OnboardingFormInput) {
+    if (!legalState.ready) return
     try {
       setSubmitting(true)
 
@@ -158,7 +162,7 @@ export function OnboardingForm({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(values),
+        body: JSON.stringify({...values, legalAcknowledgement:legalState.acknowledgement}),
       })
 
       const payload = (await response.json()) as
@@ -334,10 +338,10 @@ export function OnboardingForm({
                     "onboarding",
                     {
                       cooperativeName: verification.cooperativeName,
+                      cooperativeCodePrefix: verification.cooperativeCodePrefix,
                       primaryContactEmail: verification.primaryContactEmail,
                       primaryContactFullName:
                         verification.primaryContactFullName,
-                      memberNumberPrefix: verification.memberNumberPrefix,
                       primaryContactMemberNumber:
                         verification.primaryContactMemberNumber,
                       token: form.getValues("token"),
@@ -373,8 +377,8 @@ export function OnboardingForm({
             />
             <input
               type="hidden"
-              value={verification.memberNumberPrefix}
-              {...form.register("memberNumberPrefix")}
+              value={verification.cooperativeCodePrefix}
+              {...form.register("cooperativeCodePrefix")}
             />
             <input
               type="hidden"
@@ -578,8 +582,10 @@ export function OnboardingForm({
 
             <Separator />
 
+            <PlatformLegalAcceptance onChange={setLegalState} />
+
             <div className="flex flex-wrap items-center gap-3">
-              <Button size="lg" disabled={submitting} type="submit">
+              <Button size="lg" disabled={submitting || !legalState.ready} type="submit">
                 {submitting ? (
                   <>
                     <Spinner data-icon="inline-start" />

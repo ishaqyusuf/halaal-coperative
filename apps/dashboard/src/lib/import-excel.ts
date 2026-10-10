@@ -1,5 +1,8 @@
 import * as XLSX from "xlsx"
-import { dashboardImportConfigs, type DashboardImportKind } from "@/lib/import-csv"
+import {
+  dashboardImportConfigs,
+  type DashboardImportKind,
+} from "@/lib/import-csv"
 
 function parseCsvRows(csvText: string) {
   const rows: string[][] = []
@@ -11,9 +14,9 @@ function parseCsvRows(csvText: string) {
     const character = csvText[index]
     const nextCharacter = csvText[index + 1]
 
-    if (character === "\"") {
-      if (inQuotes && nextCharacter === "\"") {
-        currentCell += "\""
+    if (character === '"') {
+      if (inQuotes && nextCharacter === '"') {
+        currentCell += '"'
         index += 1
       } else {
         inQuotes = !inQuotes
@@ -79,7 +82,7 @@ function projectTemplateRows(rows: string[][], columns?: string[]) {
   ]
 }
 
-export function downloadDashboardImportTemplate(
+export function createDashboardImportTemplateWorkbook(
   kind: DashboardImportKind,
   columns?: string[]
 ) {
@@ -93,6 +96,14 @@ export function downloadDashboardImportTemplate(
   }))
 
   XLSX.utils.book_append_sheet(workbook, worksheet, config.title.slice(0, 31))
+  return workbook
+}
+
+export function downloadDashboardImportTemplate(
+  kind: DashboardImportKind,
+  columns?: string[]
+) {
+  const workbook = createDashboardImportTemplateWorkbook(kind, columns)
   XLSX.writeFile(workbook, getTemplateFilename(kind), { bookType: "xlsx" })
 }
 

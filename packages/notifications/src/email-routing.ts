@@ -50,7 +50,9 @@ function parseDeliveryMode(
     return isProductionRuntime(environment) ? "live" : "console"
   }
 
-  const parsedMode = z.enum(acceptedEmailDeliveryModes).safeParse(normalizedValue)
+  const parsedMode = z
+    .enum(acceptedEmailDeliveryModes)
+    .safeParse(normalizedValue)
 
   if (!parsedMode.success) {
     throw new Error(
@@ -159,6 +161,14 @@ function getEmailDomain(email: string) {
 export function getEmailRoutingConfiguration(
   environment: EmailEnvironment = process.env
 ): EmailRoutingConfiguration {
+  const appEnvironment = normalizeEnvironmentValue(environment.APP_ENV)
+  const vercelEnvironment = normalizeEnvironmentValue(environment.VERCEL_ENV)
+  if (
+    (appEnvironment === "preview" && vercelEnvironment === "production") ||
+    (appEnvironment === "production" && vercelEnvironment === "preview")
+  ) {
+    throw new Error("Email environment does not match the deployment target.")
+  }
   const deliveryMode = parseDeliveryMode(
     environment.EMAIL_DELIVERY_MODE,
     environment

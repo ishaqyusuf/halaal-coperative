@@ -4,13 +4,12 @@ import {
   AlertTitle,
 } from "@halaalvest/ui/components/alert"
 import { redirect } from "next/navigation"
-import { resolveQaQuickFillContext } from "@halaalvest/utils"
 import { EarlyAccessForm } from "@/components/marketing/early-access-form"
 import { SignupForm } from "@/components/signup/signup-form"
 import { SignupShell } from "@/components/signup/signup-shell"
 import { verifySignedSignupApprovalToken } from "@/lib/early-access"
 import { getMarketingConfig } from "@/lib/marketing-config"
-import { getServerQaEmailDomains } from "@/lib/server-notifications"
+import { getMarketingQaQuickFillContext } from "@/lib/qa-form-access.server"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -86,15 +85,7 @@ export default async function SignupPage({
       }
     }
   })()
-  const devMode = process.env.NODE_ENV !== "production"
-  const quickFill = resolveQaQuickFillContext({
-    authenticatedEmail:
-      approvalResult.status === "valid"
-        ? approvalResult.value.primaryContactEmail
-        : null,
-    configuredDomains: getServerQaEmailDomains(),
-    isDevelopment: devMode,
-  })
+  const quickFill = await getMarketingQaQuickFillContext()
   const workspaceUrlSuffix = getWorkspaceUrlSuffix()
 
   if (requiresApproval && approvalResult.status === "missing") {

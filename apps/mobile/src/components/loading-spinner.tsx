@@ -1,4 +1,4 @@
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, View } from "react-native"
 
 export function LoadingSpinner() {
   //   const rotate = useSharedValue(0);
@@ -16,8 +16,8 @@ export function LoadingSpinner() {
   //     />
   //   );
   return (
-    <View className="py-4 items-center justify-center">
+    <View className="items-center justify-center py-4">
       <ActivityIndicator size="small" />
     </View>
-  );
+  )
 }

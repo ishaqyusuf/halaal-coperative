@@ -1,6 +1,7 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { AppError } from "@halaalvest/errors"
 import { createPrismaClient } from "../prisma"
+import { ExpectedQueryError, isUniqueConstraintError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
 import { applyApplicableWorkflowChargesInTransaction } from "./charges"
 import { getTenantInitialMigrationState } from "./migration"
@@ -78,6 +79,7 @@ export type ProcurementSummary = {
   overdueScheduleItems: number
   pendingRequests: number
   rejectedRequests: number
+  totalRequests: number
   totalApprovedCost: number
   totalRequestedCost: number
 }
@@ -479,7 +481,7 @@ export async function getProcurementRequest(
 function getProcurementRequestOrderBy(
   sort?: [ProcurementRequestSortField, "asc" | "desc"] | null
 ) {
-  const [sortField, direction] = sort ?? ["requestedAt", "desc"]
+  const [sortField, direction] = normalizeProcurementRequestSort(sort)
 
   if (sortField === "memberName") {
     return [
@@ -489,16 +491,12 @@ function getProcurementRequestOrderBy(
     ]
   }
 
-  if (sortField === "vendorName") {
+  if (sortField === "vendorName" || sortField === "approvedCost") {
     return [
-      { vendorName: direction },
+      { [sortField]: { nulls: "last" as const, sort: direction } },
       { requestedAt: "desc" as const },
       { id: "desc" as const },
     ]
-  }
-
-  if (sortField === "outstandingAmount") {
-    return [{ requestedAt: direction }, { id: direction }]
   }
 
   if (sortField === "requestedAt") {
@@ -514,6 +512,193 @@ function getProcurementRequestOrderBy(
     { requestedAt: "desc" as const },
     { id: "desc" as const },
   ]
+}
+
+type ProcurementRequestPageCursor = {
+  approvedCost: number | null
+  createdAt: string
+  estimatedMonthlyRepayment: number
+  id: string
+  itemName: string
+  memberName: string
+  requestedAt: string
+  requestedCost: number
+  sortDirection: "asc" | "desc"
+  sortField: Exclude<
+    ProcurementRequestSortField,
+    "outstandingAmount" | "status"
+  >
+  status: ProcurementRequestStatus
+  vendorName: string | null
+}
+
+function normalizeProcurementRequestSort(
+  sort?: [ProcurementRequestSortField, "asc" | "desc"] | null
+) {
+  const [sortField, direction] = sort ?? ["requestedAt", "desc"]
+
+  const normalizedSortField =
+    sortField === "outstandingAmount" || sortField === "status"
+      ? "requestedAt"
+      : sortField
+
+  return [normalizedSortField, direction] as const
+}
+
+function encodeProcurementRequestPageCursor(
+  cursor: ProcurementRequestPageCursor
+) {
+  return Buffer.from(JSON.stringify(cursor)).toString("base64url")
+}
+
+function decodeProcurementRequestPageCursor(
+  value: string,
+  sort?: [ProcurementRequestSortField, "asc" | "desc"] | null
+) {
+  try {
+    const cursor = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8")
+    ) as ProcurementRequestPageCursor
+    const [sortField, sortDirection] = normalizeProcurementRequestSort(sort)
+
+    if (
+      !cursor ||
+      cursor.sortField !== sortField ||
+      cursor.sortDirection !== sortDirection ||
+      typeof cursor.id !== "string" ||
+      typeof cursor.itemName !== "string" ||
+      typeof cursor.memberName !== "string" ||
+      typeof cursor.estimatedMonthlyRepayment !== "number" ||
+      typeof cursor.requestedCost !== "number" ||
+      typeof cursor.status !== "string" ||
+      (typeof cursor.approvedCost !== "number" &&
+        cursor.approvedCost !== null) ||
+      (typeof cursor.vendorName !== "string" && cursor.vendorName !== null) ||
+      Number.isNaN(new Date(cursor.createdAt).getTime()) ||
+      Number.isNaN(new Date(cursor.requestedAt).getTime())
+    ) {
+      throw ExpectedQueryError.validation("Invalid cursor")
+    }
+
+    return cursor
+  } catch {
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: "Procurement request cursor is invalid.",
+    })
+  }
+}
+
+export function createProcurementRequestPageCursor(
+  request: ProcurementRequestRow,
+  sort?: [ProcurementRequestSortField, "asc" | "desc"] | null
+) {
+  const [sortField, sortDirection] = normalizeProcurementRequestSort(sort)
+
+  return encodeProcurementRequestPageCursor({
+    approvedCost: request.approvedCost,
+    createdAt: request.createdAt.toISOString(),
+    estimatedMonthlyRepayment: request.estimatedMonthlyRepayment,
+    id: request.id,
+    itemName: request.itemName,
+    memberName: request.member.fullName,
+    requestedAt: request.requestedAt.toISOString(),
+    requestedCost: request.requestedCost,
+    sortDirection,
+    sortField,
+    status: request.status,
+    vendorName: request.vendorName,
+  })
+}
+
+function cursorComparison(value: unknown, direction: "asc" | "desc") {
+  return direction === "asc" ? { gt: value } : { lt: value }
+}
+
+function nullableCursorComparison(
+  field: "approvedCost" | "vendorName",
+  value: number | string | null,
+  direction: "asc" | "desc"
+) {
+  if (value === null) return null
+
+  return {
+    OR: [{ [field]: cursorComparison(value, direction) }, { [field]: null }],
+  }
+}
+
+function getProcurementRequestPageKeysetWhere(input: {
+  cursor: ProcurementRequestPageCursor
+  sort?: [ProcurementRequestSortField, "asc" | "desc"] | null
+}): any {
+  const [sortField, sortDirection] = normalizeProcurementRequestSort(input.sort)
+  const cursor = input.cursor
+
+  if (sortField === "requestedAt") {
+    return {
+      OR: [
+        {
+          requestedAt: cursorComparison(
+            new Date(cursor.requestedAt),
+            sortDirection
+          ),
+        },
+        {
+          AND: [
+            { requestedAt: new Date(cursor.requestedAt) },
+            {
+              createdAt: cursorComparison(
+                new Date(cursor.createdAt),
+                sortDirection
+              ),
+            },
+          ],
+        },
+        {
+          AND: [
+            { requestedAt: new Date(cursor.requestedAt) },
+            { createdAt: new Date(cursor.createdAt) },
+            { id: cursorComparison(cursor.id, sortDirection) },
+          ],
+        },
+      ],
+    }
+  }
+
+  const requestedAtTieBreak = {
+    OR: [
+      { requestedAt: cursorComparison(new Date(cursor.requestedAt), "desc") },
+      {
+        AND: [
+          { requestedAt: new Date(cursor.requestedAt) },
+          { id: cursorComparison(cursor.id, "desc") },
+        ],
+      },
+    ],
+  }
+  const primaryValue =
+    sortField === "memberName" ? cursor.memberName : cursor[sortField]
+  const primaryEquals =
+    sortField === "memberName"
+      ? { member: { is: { fullName: primaryValue } } }
+      : { [sortField]: primaryValue }
+  const primaryAfter =
+    sortField === "memberName"
+      ? {
+          member: {
+            is: { fullName: cursorComparison(primaryValue, sortDirection) },
+          },
+        }
+      : sortField === "approvedCost" || sortField === "vendorName"
+        ? nullableCursorComparison(sortField, primaryValue, sortDirection)
+        : { [sortField]: cursorComparison(primaryValue, sortDirection) }
+
+  return {
+    OR: [
+      ...(primaryAfter ? [primaryAfter] : []),
+      { AND: [primaryEquals, requestedAtTieBreak] },
+    ],
+  }
 }
 
 function getProcurementRequestWhere(input: {
@@ -587,7 +772,6 @@ export async function listProcurementRequestPage(
     })
   }
 
-  const page = input.page ?? 1
   const pageSize = input.pageSize ?? input.limit ?? 50
   if (!Number.isInteger(pageSize) || pageSize <= 0) {
     throw new AppError({
@@ -597,25 +781,40 @@ export async function listProcurementRequestPage(
   }
 
   const where = getProcurementRequestWhere(input)
+  const cursor = input.cursor
+    ? decodeProcurementRequestPageCursor(input.cursor, input.sort)
+    : null
+  const pageWhere: any = cursor
+    ? {
+        AND: [
+          where,
+          getProcurementRequestPageKeysetWhere({ cursor, sort: input.sort }),
+        ],
+      }
+    : where
   const [requests, total] = await Promise.all([
     prisma.procurementRequest.findMany({
       include: procurementInclude(),
       orderBy: getProcurementRequestOrderBy(input.sort),
-      ...(input.cursor
-        ? { cursor: { id: input.cursor }, skip: 1 }
-        : { skip: (page - 1) * pageSize }),
-      take: pageSize,
-      where,
+      ...(cursor ? {} : { skip: ((input.page ?? 1) - 1) * pageSize }),
+      take: pageSize + 1,
+      where: pageWhere,
     }),
     prisma.procurementRequest.count({ where }),
   ])
 
+  const data = requests
+    .slice(0, pageSize)
+    .map((request: any) => normalizeProcurementRequest(request))
+
   return {
-    data: requests.map((request: any) => normalizeProcurementRequest(request)),
+    data,
     meta: {
       cursor:
-        requests.length === pageSize
-          ? (requests.at(-1)?.id as string | undefined)
+        requests.length > pageSize
+          ? data.at(-1)
+            ? createProcurementRequestPageCursor(data.at(-1)!, input.sort)
+            : undefined
           : undefined,
       total,
     },
@@ -624,7 +823,8 @@ export async function listProcurementRequestPage(
 
 export async function getProcurementSummary(
   tenantId: string,
-  prismaOverride?: PrismaClient
+  prismaOverride?: PrismaClient,
+  memberId?: string
 ): Promise<ProcurementSummary> {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) {
@@ -636,6 +836,7 @@ export async function getProcurementSummary(
       overdueScheduleItems: 0,
       pendingRequests: 0,
       rejectedRequests: 0,
+      totalRequests: 0,
       totalApprovedCost: 0,
       totalRequestedCost: 0,
     }
@@ -643,7 +844,10 @@ export async function getProcurementSummary(
 
   const today = startOfDayUtc(new Date())
   const tomorrow = addDaysUtc(today, 1)
+  const requestScope = { tenantId, ...(memberId ? { memberId } : {}) }
+  const scheduleScope = { tenantId, ...(memberId ? { memberId } : {}) }
   const [
+    totalRequests,
     pendingRequests,
     approvedRequests,
     rejectedRequests,
@@ -654,17 +858,24 @@ export async function getProcurementSummary(
     requestedTotals,
     approvedTotals,
   ] = await Promise.all([
+    prisma.procurementRequest.count({ where: requestScope }),
     prisma.procurementRequest.count({
-      where: { status: { in: [...pendingProcurementStatuses] }, tenantId },
+      where: {
+        ...requestScope,
+        status: { in: [...pendingProcurementStatuses] },
+      },
     }),
     prisma.procurementRequest.count({
-      where: { status: "approved", tenantId },
+      where: { ...requestScope, status: "approved" },
     }),
     prisma.procurementRequest.count({
-      where: { status: "rejected", tenantId },
+      where: { ...requestScope, status: "rejected" },
     }),
     prisma.procurementRequest.count({
-      where: { status: { in: ["purchased", "active"] }, tenantId },
+      where: {
+        ...requestScope,
+        status: { in: ["purchased", "active"] },
+      },
     }),
     prisma.procurementRepaymentScheduleItem.count({
       where: {
@@ -673,30 +884,33 @@ export async function getProcurementSummary(
           lt: tomorrow,
         },
         status: { in: [...payableScheduleStatuses] },
-        tenantId,
+        ...scheduleScope,
       },
     }),
     prisma.procurementRepaymentScheduleItem.count({
       where: {
         dueDate: { lt: today },
         status: { in: [...payableScheduleStatuses] },
-        tenantId,
+        ...scheduleScope,
       },
     }),
     prisma.procurementRepaymentScheduleItem.aggregate({
       _sum: { amount: true, paidAmount: true },
       where: {
         status: { in: [...payableScheduleStatuses] },
-        tenantId,
+        ...scheduleScope,
       },
     }),
     prisma.procurementRequest.aggregate({
       _sum: { requestedCost: true },
-      where: { tenantId },
+      where: requestScope,
     }),
     prisma.procurementRequest.aggregate({
       _sum: { approvedCost: true },
-      where: { status: { in: ["approved", "purchased", "active"] }, tenantId },
+      where: {
+        ...requestScope,
+        status: { in: ["approved", "purchased", "active"] },
+      },
     }),
   ])
 
@@ -711,6 +925,7 @@ export async function getProcurementSummary(
     overdueScheduleItems,
     pendingRequests,
     rejectedRequests,
+    totalRequests,
     totalApprovedCost: Number(approvedTotals._sum.approvedCost ?? 0),
     totalRequestedCost: Number(requestedTotals._sum.requestedCost ?? 0),
   }
@@ -725,6 +940,7 @@ export async function createProcurementRequest(
     requestSource?: ProcurementRequestSource
     requestedCost: number
     requestedRepaymentMonths: number
+    submissionKey?: string | null
     tenantId: string
     vendorName?: string | null
   },
@@ -733,6 +949,22 @@ export async function createProcurementRequest(
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
   await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+
+  if (
+    input.submissionKey &&
+    typeof prisma.procurementRequest?.findFirst === "function"
+  ) {
+    const existingRequest = await prisma.procurementRequest.findFirst({
+      include: procurementInclude(),
+      where: {
+        createdByUserId: input.actorUserId,
+        memberId: input.memberId,
+        submissionKey: input.submissionKey,
+        tenantId: input.tenantId,
+      },
+    })
+    if (existingRequest) return normalizeProcurementRequest(existingRequest)
+  }
 
   const itemName = trimRequired(input.itemName, "Procurement item")
   assertPositiveAmount(input.requestedCost, "Requested cost")
@@ -836,64 +1068,84 @@ export async function createProcurementRequest(
     input.requestedRepaymentMonths
   )
 
-  return prisma.$transaction(async (tx: any) => {
-    const request = await tx.procurementRequest.create({
-      data: {
-        createdByUserId: input.actorUserId,
-        estimatedMonthlyRepayment,
-        itemDescription: input.itemDescription?.trim() || null,
-        itemName,
-        memberId: input.memberId,
-        allowsCommitmentReductionDuringPayback:
-          policy?.procurementAllowsCommitmentReductionDuringPayback ?? false,
-        policyMaximumPaybackMonths: procurementMaximumPaybackMonths,
-        requestedAt: new Date(),
-        requestedCost: input.requestedCost,
-        requestedRepaymentMonths: input.requestedRepaymentMonths,
-        status: "submitted",
-        tenantId: input.tenantId,
-        vendorName: input.vendorName?.trim() || null,
-      },
-      include: procurementInclude(),
-    })
-
-    await createAuditLogEntry(
-      {
-        action: "procurement.request_submitted",
-        actorType: "user",
-        actorUserId: input.actorUserId,
-        entityId: request.id,
-        entityType: "ProcurementRequest",
-        metadata: {
+  try {
+    return await prisma.$transaction(async (tx: any) => {
+      const request = await tx.procurementRequest.create({
+        data: {
+          createdByUserId: input.actorUserId,
+          estimatedMonthlyRepayment,
+          itemDescription: input.itemDescription?.trim() || null,
           itemName,
           memberId: input.memberId,
+          allowsCommitmentReductionDuringPayback:
+            policy?.procurementAllowsCommitmentReductionDuringPayback ?? false,
           policyMaximumPaybackMonths: procurementMaximumPaybackMonths,
+          requestedAt: new Date(),
           requestedCost: input.requestedCost,
           requestedRepaymentMonths: input.requestedRepaymentMonths,
+          status: "submitted",
+          submissionKey: input.submissionKey ?? null,
+          tenantId: input.tenantId,
           vendorName: input.vendorName?.trim() || null,
         },
+        include: procurementInclude(),
+      })
+
+      await createAuditLogEntry(
+        {
+          action: "procurement.request_submitted",
+          actorType: "user",
+          actorUserId: input.actorUserId,
+          entityId: request.id,
+          entityType: "ProcurementRequest",
+          metadata: {
+            itemName,
+            memberId: input.memberId,
+            policyMaximumPaybackMonths: procurementMaximumPaybackMonths,
+            requestedCost: input.requestedCost,
+            requestedRepaymentMonths: input.requestedRepaymentMonths,
+            vendorName: input.vendorName?.trim() || null,
+          },
+          tenantId: input.tenantId,
+        },
+        tx
+      )
+
+      await applyApplicableWorkflowChargesInTransaction(
+        {
+          actorUserId: input.actorUserId,
+          assessedAt: request.requestedAt,
+          basisAmount: Number(request.requestedCost),
+          memberId: request.memberId,
+          notes: "Automatically applied for procurement request submission.",
+          procurementRequestId: request.id,
+          tenantId: input.tenantId,
+          trigger: "submission",
+          workflow: "procurement_request",
+        },
+        tx as PrismaClient
+      )
+
+      return normalizeProcurementRequest(request)
+    })
+  } catch (error) {
+    if (!input.submissionKey || !isUniqueConstraintError(error)) throw error
+
+    const existingRequest = await prisma.procurementRequest.findFirst({
+      include: procurementInclude(),
+      where: {
+        createdByUserId: input.actorUserId,
+        memberId: input.memberId,
+        submissionKey: input.submissionKey,
         tenantId: input.tenantId,
       },
-      tx
-    )
+    })
+    if (existingRequest) return normalizeProcurementRequest(existingRequest)
 
-    await applyApplicableWorkflowChargesInTransaction(
-      {
-        actorUserId: input.actorUserId,
-        assessedAt: request.requestedAt,
-        basisAmount: Number(request.requestedCost),
-        memberId: request.memberId,
-        notes: "Automatically applied for procurement request submission.",
-        procurementRequestId: request.id,
-        tenantId: input.tenantId,
-        trigger: "submission",
-        workflow: "procurement_request",
-      },
-      tx as PrismaClient
+    throw ExpectedQueryError.conflict(
+      "This procurement submission key has already been used."
     )
-
-    return normalizeProcurementRequest(request)
-  })
+  }
 }
 
 export async function reviewProcurementRequest(
@@ -901,6 +1153,7 @@ export async function reviewProcurementRequest(
     actorUserId: string
     approvedCost?: number | null
     approvedRepaymentMonths?: number | null
+    expectedStatus?: ProcurementRequestStatus
     notes?: string | null
     procurementRequestId: string
     status: "approved" | "rejected" | "under_review"
@@ -927,6 +1180,14 @@ export async function reviewProcurementRequest(
       },
       tx
     )
+    if (
+      input.expectedStatus &&
+      existingRequest.status !== input.expectedStatus
+    ) {
+      throw ExpectedQueryError.conflict(
+        `Procurement request changed from ${input.expectedStatus} to ${existingRequest.status}. Refresh before reviewing.`
+      )
+    }
     const policy = await tx.tenantPolicy.findUnique({
       where: { tenantId: input.tenantId },
     })
@@ -970,8 +1231,12 @@ export async function reviewProcurementRequest(
       )
     }
 
-    const request = await tx.procurementRequest.update({
-      where: { id: existingRequest.id },
+    const claim = await tx.procurementRequest.updateMany({
+      where: {
+        id: existingRequest.id,
+        status: existingRequest.status,
+        tenantId: input.tenantId,
+      },
       data: {
         approvedCost,
         approvedMonthlyRepayment,
@@ -990,8 +1255,21 @@ export async function reviewProcurementRequest(
         reviewNotes: input.notes?.trim() || null,
         status: input.status,
       },
-      include: procurementInclude(),
     })
+
+    if (claim.count !== 1) {
+      throw ExpectedQueryError.conflict(
+        "Procurement request changed during review. Refresh before retrying."
+      )
+    }
+
+    const request = await tx.procurementRequest.findFirst({
+      include: procurementInclude(),
+      where: { id: existingRequest.id, tenantId: input.tenantId },
+    })
+    if (!request) {
+      throw ExpectedQueryError.notFound("Procurement request was not found.")
+    }
 
     await createAuditLogEntry(
       {
@@ -1046,6 +1324,7 @@ export async function reviewProcurementRequest(
 export async function recordProcurementPurchase(
   input: {
     actorUserId: string
+    expectedStatus?: ProcurementRequestStatus
     firstDueDate?: Date | null
     procurementRequestId: string
     purchaseDate: Date
@@ -1082,6 +1361,15 @@ export async function recordProcurementPurchase(
       },
       tx
     )
+
+    if (
+      input.expectedStatus &&
+      existingRequest.status !== input.expectedStatus
+    ) {
+      throw ExpectedQueryError.conflict(
+        `Procurement request changed from ${input.expectedStatus} to ${existingRequest.status}. Refresh before recording the purchase.`
+      )
+    }
 
     if (existingRequest.status !== "approved") {
       throw new AppError({
@@ -1125,7 +1413,7 @@ export async function recordProcurementPurchase(
       approvedRepaymentMonths
     )
 
-    const request = await tx.procurementRequest.update({
+    const claim = await tx.procurementRequest.updateMany({
       data: {
         purchaseNotes,
         purchaseReference,
@@ -1133,9 +1421,18 @@ export async function recordProcurementPurchase(
         purchasedByUserId: input.actorUserId,
         status: "active",
       },
-      include: procurementInclude(),
-      where: { id: existingRequest.id },
+      where: {
+        id: existingRequest.id,
+        status: existingRequest.status,
+        tenantId: input.tenantId,
+      },
     })
+
+    if (claim.count !== 1) {
+      throw ExpectedQueryError.conflict(
+        "Procurement request changed during purchase activation. Refresh before retrying."
+      )
+    }
 
     await tx.procurementRepaymentScheduleItem.createMany({
       data: scheduleAmounts.map((amount, index) => ({
@@ -1154,13 +1451,13 @@ export async function recordProcurementPurchase(
         action: "procurement.purchase_recorded",
         actorType: "user",
         actorUserId: input.actorUserId,
-        entityId: request.id,
+        entityId: existingRequest.id,
         entityType: "ProcurementRequest",
         metadata: {
           approvedCost,
           approvedRepaymentMonths,
           firstDueDate: firstDueDate.toISOString(),
-          memberId: request.memberId,
+          memberId: existingRequest.memberId,
           previousStatus: existingRequest.status,
           purchaseDate: purchaseDate.toISOString(),
           purchaseReference,
@@ -1174,7 +1471,12 @@ export async function recordProcurementPurchase(
     )
 
     return normalizeProcurementRequest({
-      ...request,
+      ...existingRequest,
+      purchaseNotes,
+      purchaseReference,
+      purchasedAt: purchaseDate,
+      purchasedByUserId: input.actorUserId,
+      status: "active",
       repaymentScheduleItems: scheduleAmounts.map((amount, index) => ({
         amount,
         dueDate: addMonthsUtc(firstDueDate, index),

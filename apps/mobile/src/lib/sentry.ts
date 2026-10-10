@@ -26,9 +26,11 @@ function getRuntimeTags() {
 }
 
 export function initializeMobileSentry() {
+  if (enabled) return true
   const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN_MOBILE
   const environment = process.env.EXPO_PUBLIC_SENTRY_ENVIRONMENT_MOBILE
   enabled = isMobileSentryEnabled({
+    appVariant: Constants.expoConfig?.extra?.appVariant,
     deploymentEnvironment: environment,
     dsn,
     explicitlyEnabled: process.env.EXPO_PUBLIC_SENTRY_ENABLED_MOBILE,
@@ -83,7 +85,7 @@ export function captureMobileError(error: unknown, source: MobileErrorSource) {
 
 export function runMobileObservabilitySmokeTest() {
   if (
-    smokeTestSent ||
+    !enabled || smokeTestSent ||
     process.env.EXPO_PUBLIC_SENTRY_SMOKE_TEST_MOBILE !== "true"
   ) {
     return

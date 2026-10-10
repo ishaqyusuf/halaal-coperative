@@ -1,11 +1,17 @@
 "use client"
 
+import { formatDateFilterValue } from "@/components/search-filter/search-filter-utils"
+
+import {
+  MobileFilterGroup,
+  filterOptionSummary,
+} from "@/components/search-filter/mobile-filter-group"
+
 import {
   RadioGroup,
   RadioGroupItem,
 } from "@halaalvest/ui/components/radio-group"
-import { Separator } from "@halaalvest/ui/components/separator"
-import { useState, type ReactNode } from "react"
+import { useState } from "react"
 import {
   businessHasProfitEntryFilters,
   businessProfitStatusFilters,
@@ -27,21 +33,6 @@ type BusinessFilterDraft = {
   sort: string[] | null
   sourceType: string | null
   status: string | null
-}
-
-function FilterSection({
-  children,
-  title,
-}: {
-  children: ReactNode
-  title: string
-}) {
-  return (
-    <section className="space-y-3">
-      <h3 className="text-xs font-medium text-foreground">{title}</h3>
-      {children}
-    </section>
-  )
 }
 
 function FilterRadioGroup({
@@ -96,42 +87,27 @@ export function BusinessFilterDrawer({
   })
   const sortValue = draft.sort?.join(",") ?? "startDate,desc"
 
-  function applyFilters() {
+  async function applyFilters() {
     const { sort, ...nextFilters } = draft
-    void Promise.all([
-      setFilter(nextFilters),
+    await Promise.all([
+      setFilter({ ...nextFilters, q: filter.q }),
       setParams({
         sort: sortValue === "startDate,desc" ? null : sort,
       }),
     ])
-    onOpenChange(false)
   }
 
   function clearFilters() {
-    const cleared: BusinessFilterDraft = {
+    setDraft({
       dateRange: null,
       dividendPeriodId: null,
       hasProfitEntries: null,
       profitStatus: null,
-      q: null,
+      q: filter.q,
       sort: null,
       sourceType: null,
       status: null,
-    }
-    setDraft(cleared)
-    void Promise.all([
-      setFilter({
-        dateRange: null,
-        dividendPeriodId: null,
-        hasProfitEntries: null,
-        profitStatus: null,
-        q: null,
-        sourceType: null,
-        status: null,
-      }),
-      setParams({ sort: null }),
-    ])
-    onOpenChange(false)
+    })
   }
 
   return (
@@ -143,8 +119,11 @@ export function BusinessFilterDrawer({
       open={open}
       title="Filter businesses"
     >
-      <div className="space-y-6">
-        <FilterSection title="Business status">
+      <div className="space-y-0">
+        <MobileFilterGroup
+          title="Business status"
+          summary={filterOptionSummary(draft.status, businessStatusFilters)}
+        >
           <FilterRadioGroup
             idPrefix="status"
             onValueChange={(status) =>
@@ -153,11 +132,15 @@ export function BusinessFilterDrawer({
             options={businessStatusFilters}
             value={draft.status}
           />
-        </FilterSection>
+        </MobileFilterGroup>
 
-        <Separator />
-
-        <FilterSection title="Latest profit status">
+        <MobileFilterGroup
+          title="Latest profit status"
+          summary={filterOptionSummary(
+            draft.profitStatus,
+            businessProfitStatusFilters
+          )}
+        >
           <FilterRadioGroup
             idPrefix="profit-status"
             onValueChange={(profitStatus) =>
@@ -166,11 +149,17 @@ export function BusinessFilterDrawer({
             options={businessProfitStatusFilters}
             value={draft.profitStatus}
           />
-        </FilterSection>
+        </MobileFilterGroup>
 
-        <Separator />
-
-        <FilterSection title="Profit evidence">
+        <MobileFilterGroup
+          title="Profit evidence"
+          summary={filterOptionSummary(
+            draft.hasProfitEntries === null
+              ? null
+              : String(draft.hasProfitEntries),
+            businessHasProfitEntryFilters
+          )}
+        >
           <FilterRadioGroup
             idPrefix="profit-entry"
             onValueChange={(value) =>
@@ -186,11 +175,15 @@ export function BusinessFilterDrawer({
                 : String(draft.hasProfitEntries)
             }
           />
-        </FilterSection>
+        </MobileFilterGroup>
 
-        <Separator />
-
-        <FilterSection title="Source">
+        <MobileFilterGroup
+          title="Source"
+          summary={filterOptionSummary(
+            draft.sourceType,
+            businessSourceTypeFilters
+          )}
+        >
           <FilterRadioGroup
             idPrefix="source"
             onValueChange={(sourceType) =>
@@ -199,12 +192,20 @@ export function BusinessFilterDrawer({
             options={businessSourceTypeFilters}
             value={draft.sourceType}
           />
-        </FilterSection>
+        </MobileFilterGroup>
 
         {dividendPeriods.length ? (
           <>
-            <Separator />
-            <FilterSection title="Dividend period">
+            <MobileFilterGroup
+              title="Dividend period"
+              summary={filterOptionSummary(
+                draft.dividendPeriodId,
+                dividendPeriods.map((period) => ({
+                  id: period.id,
+                  name: period.label,
+                }))
+              )}
+            >
               <FilterRadioGroup
                 idPrefix="dividend-period"
                 onValueChange={(dividendPeriodId) =>
@@ -219,26 +220,29 @@ export function BusinessFilterDrawer({
                 }))}
                 value={draft.dividendPeriodId}
               />
-            </FilterSection>
+            </MobileFilterGroup>
           </>
         ) : null}
 
-        <Separator />
-
-        <FilterSection title="Business start date">
+        <MobileFilterGroup
+          title="Business start date"
+          summary={formatDateFilterValue(draft.dateRange)}
+        >
           <div className="border border-border">
             <DateRangeFilter
+              mobile
               onChange={(dateRange) =>
                 setDraft((current) => ({ ...current, dateRange }))
               }
               value={draft.dateRange}
             />
           </div>
-        </FilterSection>
+        </MobileFilterGroup>
 
-        <Separator />
-
-        <FilterSection title="Sort by">
+        <MobileFilterGroup
+          title="Sort by"
+          summary={filterOptionSummary(sortValue, businessSortOptions)}
+        >
           <RadioGroup
             onValueChange={(nextSort) =>
               setDraft((current) => ({
@@ -263,7 +267,7 @@ export function BusinessFilterDrawer({
               </label>
             ))}
           </RadioGroup>
-        </FilterSection>
+        </MobileFilterGroup>
       </div>
     </MobileFilterDrawer>
   )

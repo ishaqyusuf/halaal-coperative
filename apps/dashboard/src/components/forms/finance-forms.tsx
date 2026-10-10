@@ -41,10 +41,12 @@ import {
 } from "@/lib/dashboard-actions"
 
 function CurrencyFormInput({
+  disabled = false,
   onChange,
   placeholder,
   value,
 }: {
+  disabled?: boolean
   onChange: (value: string) => void
   placeholder?: string
   value?: string
@@ -53,6 +55,7 @@ function CurrencyFormInput({
     <CurrencyInput
       allowNegative={false}
       decimalScale={2}
+      disabled={disabled}
       inputMode="decimal"
       placeholder={placeholder}
       value={value ?? ""}
@@ -74,9 +77,11 @@ type ContributionPlanValues = z.infer<typeof contributionPlanSchema>
 export function ContributionPlanForm({
   devMode,
   members,
+  onSuccess,
 }: {
   devMode: boolean
   members: Array<{ id: string; label: string }>
+  onSuccess?: () => Promise<void> | void
 }) {
   const form = useZodForm<ContributionPlanValues>(contributionPlanSchema, {
     defaultValues: {
@@ -100,6 +105,7 @@ export function ContributionPlanForm({
           name: "",
           startsAt: "",
         })
+        await onSuccess?.()
       } catch (error) {
         showError(
           "Could not save commitment",
@@ -112,19 +118,11 @@ export function ContributionPlanForm({
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
+        className="grid gap-4 pb-6 md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="flex items-start justify-between gap-4 md:col-span-2">
-          <div>
-            <h3 className="text-lg font-semibold text-foreground">
-              Set monthly commitment
-            </h3>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Commitments are member-specific and can change over time.
-            </p>
-          </div>
-          {devMode ? (
+        {devMode ? (
+          <div className="flex justify-end md:col-span-2">
             <Button
               type="button"
               variant="outline"
@@ -136,8 +134,8 @@ export function ContributionPlanForm({
             >
               Quick fill
             </Button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         <FormField
           control={form.control}
@@ -207,7 +205,11 @@ export function ContributionPlanForm({
           )}
         />
         <div className="md:col-span-2">
-          <Button disabled={isPending} type="submit">
+          <Button
+            className="h-11 w-full sm:w-auto"
+            disabled={isPending}
+            type="submit"
+          >
             Save commitment plan
           </Button>
         </div>
@@ -240,11 +242,13 @@ export function MemberPaymentForm({
   devMode,
   loans,
   members,
+  onSuccess,
 }: {
   commitmentPlans: Array<{ id: string; label: string }>
   devMode: boolean
   loans: Array<{ id: string; label: string }>
   members: Array<{ id: string; label: string }>
+  onSuccess?: () => Promise<void> | void
 }) {
   const form = useZodForm<MemberPaymentValues>(memberPaymentSchema, {
     defaultValues: {
@@ -264,6 +268,7 @@ export function MemberPaymentForm({
   })
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
+  const selectedLoanId = form.watch("loanId")
 
   function onSubmit(values: MemberPaymentValues) {
     startTransition(async () => {
@@ -284,6 +289,7 @@ export function MemberPaymentForm({
           scheduledLoanServicingAmount: "",
           totalAmount: "",
         })
+        await onSuccess?.()
       } catch (error) {
         showError(
           "Could not record payment",
@@ -296,35 +302,31 @@ export function MemberPaymentForm({
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
+        className="grid gap-4 pb-6 md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="flex items-start justify-between gap-4 md:col-span-2">
-          <div>
-            <h3 className="text-lg font-semibold text-foreground">
-              Record member payment
-            </h3>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              One payment can include savings, scheduled loan servicing, and
-              extra payoff.
-            </p>
-          </div>
-          {devMode ? (
+        {devMode ? (
+          <div className="flex justify-end md:col-span-2">
             <Button
               type="button"
               variant="outline"
-              onClick={() =>
+              onClick={() => {
+                const loanId = loans[0]?.id ?? ""
+
                 applyDashboardDevFormFill(form, "member_payment", {
                   contributionPlanId: commitmentPlans[0]?.id ?? "",
-                  loanId: loans[0]?.id ?? "",
+                  extraLoanPaymentAmount: loanId ? "5000" : "",
+                  loanId,
                   memberId: members[0]?.id ?? "",
+                  scheduledLoanServicingAmount: loanId ? "15000" : "",
+                  totalAmount: loanId ? "50000" : "30000",
                 })
-              }
+              }}
             >
               Quick fill
             </Button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         <FormField
           control={form.control}
@@ -373,7 +375,16 @@ export function MemberPaymentForm({
             <FormItem>
               <FormLabel>Loan</FormLabel>
               <FormControl>
-                <NativeSelect {...field}>
+                <NativeSelect
+                  {...field}
+                  onChange={(event) => {
+                    field.onChange(event)
+                    if (!event.target.value) {
+                      form.setValue("extraLoanPaymentAmount", "")
+                      form.setValue("scheduledLoanServicingAmount", "")
+                    }
+                  }}
+                >
                   <option value="">No loan allocation</option>
                   {loans.map((loan) => (
                     <option key={loan.id} value={loan.id}>
@@ -402,6 +413,11 @@ export function MemberPaymentForm({
                 <FormLabel>{label}</FormLabel>
                 <FormControl>
                   <CurrencyFormInput
+                    disabled={
+                      (name === "scheduledLoanServicingAmount" ||
+                        name === "extraLoanPaymentAmount") &&
+                      !selectedLoanId
+                    }
                     onChange={field.onChange}
                     value={field.value as string | undefined}
                     placeholder={placeholder}
@@ -482,7 +498,11 @@ export function MemberPaymentForm({
           )}
         />
         <div className="md:col-span-2">
-          <Button disabled={isPending} type="submit">
+          <Button
+            className="h-11 w-full sm:w-auto"
+            disabled={isPending}
+            type="submit"
+          >
             Record payment allocation
           </Button>
         </div>
@@ -507,7 +527,13 @@ const chargeDefinitionSchema = z.object({
 
 type ChargeDefinitionValues = z.infer<typeof chargeDefinitionSchema>
 
-export function ChargeDefinitionForm({ devMode }: { devMode: boolean }) {
+export function ChargeDefinitionForm({
+  devMode,
+  onSuccess,
+}: {
+  devMode: boolean
+  onSuccess?: () => Promise<void> | void
+}) {
   const form = useZodForm<ChargeDefinitionValues>(chargeDefinitionSchema, {
     defaultValues: {
       amount: "",
@@ -540,6 +566,7 @@ export function ChargeDefinitionForm({ devMode }: { devMode: boolean }) {
           name: "",
           purpose: "general",
         })
+        await onSuccess?.()
       } catch (error) {
         showError(
           "Could not create charge",
@@ -552,14 +579,11 @@ export function ChargeDefinitionForm({ devMode }: { devMode: boolean }) {
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
+        className="grid gap-5 pb-6 md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="flex items-start justify-between gap-4 md:col-span-2">
-          <h3 className="text-lg font-semibold text-foreground">
-            Create charge definition
-          </h3>
-          {devMode ? (
+        {devMode ? (
+          <div className="flex justify-end md:col-span-2">
             <Button
               type="button"
               variant="outline"
@@ -569,8 +593,8 @@ export function ChargeDefinitionForm({ devMode }: { devMode: boolean }) {
             >
               Quick fill
             </Button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
         <FormField
           control={form.control}
           name="name"
@@ -701,7 +725,6 @@ export function ChargeDefinitionForm({ devMode }: { devMode: boolean }) {
 }
 
 const chargeApplicationSchema = z.object({
-  amount: z.string().min(1, "Amount is required."),
   assessedAt: z.string().min(1, "Assessed date is required."),
   chargeDefinitionId: z.string().min(1, "Charge definition is required."),
   memberId: z.string().min(1, "Member is required."),
@@ -714,14 +737,15 @@ export function ChargeApplicationForm({
   chargeDefinitions,
   devMode,
   members,
+  onSuccess,
 }: {
-  chargeDefinitions: Array<{ id: string; label: string }>
+  chargeDefinitions: Array<{ amount: number; id: string; label: string }>
   devMode: boolean
   members: Array<{ id: string; label: string }>
+  onSuccess?: () => Promise<void> | void
 }) {
   const form = useZodForm<ChargeApplicationValues>(chargeApplicationSchema, {
     defaultValues: {
-      amount: "",
       assessedAt: "",
       chargeDefinitionId: "",
       memberId: "",
@@ -737,12 +761,12 @@ export function ChargeApplicationForm({
         await applyChargeAction(objectToFormData(values))
         showSuccess("Charge applied", "Charge application recorded.")
         form.reset({
-          amount: "",
           assessedAt: "",
           chargeDefinitionId: "",
           memberId: "",
           notes: "",
         })
+        await onSuccess?.()
       } catch (error) {
         showError(
           "Could not apply charge",
@@ -752,17 +776,18 @@ export function ChargeApplicationForm({
     })
   }
 
+  const selectedCharge = chargeDefinitions.find(
+    (charge) => charge.id === form.watch("chargeDefinitionId")
+  )
+
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2"
+        className="grid gap-5 pb-6 md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="flex items-start justify-between gap-4 md:col-span-2">
-          <h3 className="text-lg font-semibold text-foreground">
-            Apply charge
-          </h3>
-          {devMode ? (
+        {devMode ? (
+          <div className="flex justify-end md:col-span-2">
             <Button
               type="button"
               variant="outline"
@@ -775,8 +800,8 @@ export function ChargeApplicationForm({
             >
               Quick fill
             </Button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
         <FormField
           control={form.control}
           name="chargeDefinitionId"
@@ -817,19 +842,17 @@ export function ChargeApplicationForm({
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="amount"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Amount</FormLabel>
-              <FormControl>
-                <CurrencyFormInput {...field} placeholder="2500" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="border-y border-border py-3">
+          <p className="text-xs text-muted-foreground">Amount to post</p>
+          <p className="mt-1 text-lg font-semibold">
+            {selectedCharge
+              ? formatCurrency(selectedCharge.amount)
+              : "Select a charge"}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            The server uses the effective dated amount for the assessed date.
+          </p>
+        </div>
         <FormField
           control={form.control}
           name="assessedAt"
@@ -894,6 +917,7 @@ export function LoanRequestForm({
   loanRequestCharges,
   loanProducts,
   members,
+  onSuccess,
 }: {
   devMode: boolean
   disabledReason?: string | null
@@ -908,6 +932,7 @@ export function LoanRequestForm({
   }>
   loanProducts: Array<{ id: string; label: string }>
   members: Array<{ id: string; label: string }>
+  onSuccess?: () => Promise<void> | void
 }) {
   const form = useZodForm<LoanRequestValues>(loanRequestSchema, {
     defaultValues: {
@@ -952,6 +977,7 @@ export function LoanRequestForm({
           requestedAmount: "",
           requestedTermMonths: "",
         })
+        await onSuccess?.()
       } catch (error) {
         showError(
           "Could not submit loan request",
@@ -964,20 +990,11 @@ export function LoanRequestForm({
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2 xl:grid-cols-6"
+        className="grid gap-5 pb-[max(1rem,env(safe-area-inset-bottom))] md:grid-cols-2 xl:grid-cols-6"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="flex items-start justify-between gap-4 xl:col-span-6">
-          <div>
-            <h3 className="text-lg font-semibold text-foreground">
-              Submit loan request
-            </h3>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Repayment duration drives the estimated servicing amount while
-              extra monthly savings stays in the member account.
-            </p>
-          </div>
-          {devMode ? (
+        {devMode ? (
+          <div className="flex justify-end xl:col-span-6">
             <Button
               disabled={Boolean(disabledReason)}
               type="button"
@@ -991,10 +1008,10 @@ export function LoanRequestForm({
             >
               Quick fill
             </Button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
         {disabledReason ? (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 md:col-span-2 xl:col-span-6">
+          <div className="border-y border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-950 md:col-span-2 xl:col-span-6">
             <p className="font-medium">Loan request intake unavailable</p>
             <p className="mt-1">{disabledReason}</p>
           </div>
@@ -1007,7 +1024,7 @@ export function LoanRequestForm({
               <FormLabel>Member</FormLabel>
               <FormControl>
                 {fixedMember ? (
-                  <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm font-medium text-foreground">
+                  <div className="border-y border-border py-3 text-sm font-medium text-foreground">
                     <input {...field} type="hidden" value={fixedMember.id} />
                     {fixedMember.label}
                   </div>
@@ -1100,7 +1117,7 @@ export function LoanRequestForm({
           )}
         />
         {estimatedLoanRequestCharges.length > 0 ? (
-          <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm xl:col-span-2">
+          <div className="border-y border-border py-3 text-sm xl:col-span-2">
             <div className="flex items-center justify-between gap-3 font-medium">
               <span>Applicable charges</span>
               <span>{formatCurrency(estimatedLoanRequestChargeTotal)}</span>
@@ -1165,8 +1182,12 @@ export function LoanRequestForm({
             </FormItem>
           )}
         />
-        <div className="xl:col-span-6">
-          <Button disabled={isPending || Boolean(disabledReason)} type="submit">
+        <div className="border-t border-border pt-4 xl:col-span-6">
+          <Button
+            className="h-11 w-full sm:w-auto"
+            disabled={isPending || Boolean(disabledReason)}
+            type="submit"
+          >
             Submit loan request
           </Button>
         </div>
@@ -1176,29 +1197,35 @@ export function LoanRequestForm({
 }
 
 const repaymentPostSchema = z.object({
-  amount: z.string().min(1, "Amount is required."),
+  amount: z
+    .string()
+    .min(1, "Amount is required.")
+    .refine((value) => {
+      const amount = Number(value)
+      return Number.isFinite(amount) && amount > 0
+    }, "Enter a positive repayment amount."),
   loanId: z.string().min(1, "Loan is required."),
   reference: z.string().optional(),
-  repaymentScheduleItemId: z.string().optional(),
 })
 
 type RepaymentPostValues = z.infer<typeof repaymentPostSchema>
 
 export function RepaymentPostForm({
+  defaultLoanId,
   devMode,
   loans,
-  scheduleItems,
+  onSuccess,
 }: {
+  defaultLoanId?: string
   devMode: boolean
   loans: Array<{ id: string; label: string }>
-  scheduleItems: Array<{ id: string; label: string }>
+  onSuccess?: () => Promise<void> | void
 }) {
   const form = useZodForm<RepaymentPostValues>(repaymentPostSchema, {
     defaultValues: {
       amount: "",
-      loanId: "",
+      loanId: defaultLoanId ?? "",
       reference: "",
-      repaymentScheduleItemId: "",
     },
   })
   const { showError, showSuccess } = useNotifications()
@@ -1211,10 +1238,10 @@ export function RepaymentPostForm({
         showSuccess("Repayment posted", "Repayment recorded successfully.")
         form.reset({
           amount: "",
-          loanId: "",
+          loanId: defaultLoanId ?? "",
           reference: "",
-          repaymentScheduleItemId: "",
         })
+        await onSuccess?.()
       } catch (error) {
         showError(
           "Could not post repayment",
@@ -1227,13 +1254,20 @@ export function RepaymentPostForm({
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2 xl:grid-cols-4"
+        className="grid gap-5 md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="flex items-start justify-between gap-4 xl:col-span-4">
-          <h3 className="text-lg font-semibold text-foreground">
-            Post repayment
-          </h3>
+        <div className="flex items-start justify-between gap-4 md:col-span-2">
+          <div>
+            <h3 className="text-base font-semibold text-foreground">
+              Repayment evidence
+            </h3>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              The amount is automatically applied to the earliest unpaid
+              installments. Posting is final and creates ledger and audit
+              evidence.
+            </p>
+          </div>
           {devMode ? (
             <Button
               type="button"
@@ -1241,7 +1275,6 @@ export function RepaymentPostForm({
               onClick={() =>
                 applyDashboardDevFormFill(form, "repayment_post", {
                   loanId: loans[0]?.id ?? "",
-                  repaymentScheduleItemId: scheduleItems[0]?.id ?? "",
                 })
               }
             >
@@ -1261,26 +1294,6 @@ export function RepaymentPostForm({
                   {loans.map((loan) => (
                     <option key={loan.id} value={loan.id}>
                       {loan.label}
-                    </option>
-                  ))}
-                </NativeSelect>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="repaymentScheduleItemId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Schedule item</FormLabel>
-              <FormControl>
-                <NativeSelect {...field}>
-                  <option value="">No linked schedule item</option>
-                  {scheduleItems.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.label}
                     </option>
                   ))}
                 </NativeSelect>
@@ -1319,8 +1332,12 @@ export function RepaymentPostForm({
             </FormItem>
           )}
         />
-        <div className="xl:col-span-4">
-          <Button disabled={isPending} type="submit">
+        <div className="border-t border-border pt-4 md:col-span-2">
+          <Button
+            className="h-11 w-full md:h-9 md:w-auto"
+            disabled={isPending}
+            type="submit"
+          >
             Post repayment
           </Button>
         </div>
@@ -1338,9 +1355,11 @@ type PaymentPreferenceValues = z.infer<typeof paymentPreferenceSchema>
 
 export function MemberPaymentPreferenceForm({
   defaultValues,
+  onSuccess,
   title,
 }: {
   defaultValues: PaymentPreferenceValues
+  onSuccess?: () => Promise<void> | void
   title: string
 }) {
   const form = useZodForm<PaymentPreferenceValues>(paymentPreferenceSchema, {
@@ -1356,6 +1375,7 @@ export function MemberPaymentPreferenceForm({
           objectToFormData(values)
         )
         showSuccess("Preset saved", "Member payment preset updated.")
+        await onSuccess?.()
       } catch (error) {
         showError(
           "Could not save preset",
@@ -1368,7 +1388,7 @@ export function MemberPaymentPreferenceForm({
   return (
     <Form {...form}>
       <form
-        className="grid gap-3 rounded-lg border border-border/60 p-4 md:grid-cols-[minmax(0,1fr)_220px_auto]"
+        className="grid gap-3 border-y border-border py-4 md:grid-cols-[minmax(0,1fr)_220px_auto]"
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <div>
@@ -1392,6 +1412,7 @@ export function MemberPaymentPreferenceForm({
         />
         <div className="flex items-center">
           <Button
+            className="h-11 md:h-9"
             disabled={isPending}
             size="sm"
             type="submit"
@@ -1415,8 +1436,10 @@ type ContributionPlanUpdateValues = z.infer<typeof contributionPlanUpdateSchema>
 
 export function ContributionPlanUpdateForm({
   defaultValues,
+  onSuccess,
 }: {
   defaultValues: ContributionPlanUpdateValues
+  onSuccess?: () => Promise<void> | void
 }) {
   const form = useZodForm<ContributionPlanUpdateValues>(
     contributionPlanUpdateSchema,
@@ -1430,6 +1453,7 @@ export function ContributionPlanUpdateForm({
       try {
         await updateContributionPlanAction(objectToFormData(values))
         showSuccess("Plan updated", "Commitment plan updated.")
+        await onSuccess?.()
       } catch (error) {
         showError(
           "Could not update plan",
@@ -1469,7 +1493,13 @@ export function ContributionPlanUpdateForm({
             </FormItem>
           )}
         />
-        <Button disabled={isPending} size="sm" type="submit" variant="outline">
+        <Button
+          className="h-11 md:h-9"
+          disabled={isPending}
+          size="sm"
+          type="submit"
+          variant="outline"
+        >
           Update plan
         </Button>
       </form>
@@ -1484,7 +1514,13 @@ const contributionPlanCloseSchema = z.object({
 
 type ContributionPlanCloseValues = z.infer<typeof contributionPlanCloseSchema>
 
-export function ContributionPlanCloseForm({ planId }: { planId: string }) {
+export function ContributionPlanCloseForm({
+  onSuccess,
+  planId,
+}: {
+  onSuccess?: () => Promise<void> | void
+  planId: string
+}) {
   const form = useZodForm<ContributionPlanCloseValues>(
     contributionPlanCloseSchema,
     {
@@ -1502,6 +1538,7 @@ export function ContributionPlanCloseForm({ planId }: { planId: string }) {
       try {
         await closeContributionPlanAction(objectToFormData(values))
         showSuccess("Plan closed", "Commitment plan closed.")
+        await onSuccess?.()
       } catch (error) {
         showError(
           "Could not close plan",
@@ -1533,7 +1570,13 @@ export function ContributionPlanCloseForm({ planId }: { planId: string }) {
             </FormItem>
           )}
         />
-        <Button disabled={isPending} size="sm" type="submit" variant="outline">
+        <Button
+          className="h-11 md:h-9"
+          disabled={isPending}
+          size="sm"
+          type="submit"
+          variant="outline"
+        >
           Close plan
         </Button>
       </form>
@@ -1552,10 +1595,12 @@ type LoanReviewValues = z.infer<typeof loanReviewSchema>
 export function LoanReviewForm({
   defaultValues,
   label,
+  onSuccess,
   variant = "default",
 }: {
   defaultValues: LoanReviewValues
   label: string
+  onSuccess?: () => Promise<void> | void
   variant?: "default" | "outline"
 }) {
   const form = useZodForm<LoanReviewValues>(loanReviewSchema, { defaultValues })
@@ -1570,6 +1615,7 @@ export function LoanReviewForm({
           "Review saved",
           `Loan request marked ${values.status.replace(/_/g, " ")}.`
         )
+        await onSuccess?.()
       } catch (error) {
         showError(
           "Could not save review",
@@ -1582,7 +1628,7 @@ export function LoanReviewForm({
   return (
     <Form {...form}>
       <form
-        className="flex flex-wrap gap-2"
+        className="grid gap-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:grid-cols-[minmax(0,1fr)_auto]"
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <FormField
@@ -1601,7 +1647,13 @@ export function LoanReviewForm({
             </FormItem>
           )}
         />
-        <Button disabled={isPending} size="xs" type="submit" variant={variant}>
+        <Button
+          className="h-11 w-full sm:h-9 sm:w-auto"
+          disabled={isPending}
+          size="xs"
+          type="submit"
+          variant={variant}
+        >
           {label}
         </Button>
       </form>
@@ -1620,10 +1672,12 @@ type LoanGuarantorReviewValues = z.infer<typeof loanGuarantorReviewSchema>
 export function LoanGuarantorReviewForm({
   defaultValues,
   label,
+  onSuccess,
   variant = "default",
 }: {
   defaultValues: LoanGuarantorReviewValues
   label: string
+  onSuccess?: () => Promise<void> | void
   variant?: "default" | "outline"
 }) {
   const form = useZodForm<LoanGuarantorReviewValues>(
@@ -1641,6 +1695,7 @@ export function LoanGuarantorReviewForm({
           "Guarantor response saved",
           `Guarantor marked ${values.status}.`
         )
+        await onSuccess?.()
       } catch (error) {
         showError(
           "Could not save guarantor response",
@@ -1653,7 +1708,7 @@ export function LoanGuarantorReviewForm({
   return (
     <Form {...form}>
       <form
-        className="flex flex-wrap gap-2"
+        className="grid gap-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:grid-cols-[minmax(0,1fr)_auto]"
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <FormField
@@ -1672,7 +1727,13 @@ export function LoanGuarantorReviewForm({
             </FormItem>
           )}
         />
-        <Button disabled={isPending} size="xs" type="submit" variant={variant}>
+        <Button
+          className="h-11 w-full sm:h-9 sm:w-auto"
+          disabled={isPending}
+          size="xs"
+          type="submit"
+          variant={variant}
+        >
           {label}
         </Button>
       </form>
@@ -1687,7 +1748,13 @@ const loanDisbursementSchema = z.object({
 
 type LoanDisbursementValues = z.infer<typeof loanDisbursementSchema>
 
-export function LoanDisbursementForm({ loanId }: { loanId: string }) {
+export function LoanDisbursementForm({
+  loanId,
+  onSuccess,
+}: {
+  loanId: string
+  onSuccess?: () => Promise<void> | void
+}) {
   const form = useZodForm<LoanDisbursementValues>(loanDisbursementSchema, {
     defaultValues: {
       firstRepaymentDueAt: "",
@@ -1702,6 +1769,7 @@ export function LoanDisbursementForm({ loanId }: { loanId: string }) {
       try {
         await disburseLoanAction(objectToFormData(values))
         showSuccess("Loan disbursed", "Loan disbursement posted.")
+        await onSuccess?.()
       } catch (error) {
         showError(
           "Could not disburse loan",
@@ -1714,7 +1782,7 @@ export function LoanDisbursementForm({ loanId }: { loanId: string }) {
   return (
     <Form {...form}>
       <form
-        className="flex flex-wrap items-end gap-3"
+        className="grid gap-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <FormField
@@ -1737,7 +1805,12 @@ export function LoanDisbursementForm({ loanId }: { loanId: string }) {
             </FormItem>
           )}
         />
-        <Button disabled={isPending} size="xs" type="submit">
+        <Button
+          className="h-11 w-full sm:h-9 sm:w-auto"
+          disabled={isPending}
+          size="xs"
+          type="submit"
+        >
           Disburse loan
         </Button>
       </form>
@@ -1761,9 +1834,11 @@ type CollectionFollowUpValues = z.infer<typeof collectionFollowUpSchema>
 
 export function CollectionFollowUpForm({
   assignees,
+  onSuccess,
   repaymentScheduleItemId,
 }: {
   assignees: Array<{ id: string; label: string }>
+  onSuccess?: () => Promise<void> | void
   repaymentScheduleItemId: string
 }) {
   const form = useZodForm<CollectionFollowUpValues>(collectionFollowUpSchema, {
@@ -1798,6 +1873,7 @@ export function CollectionFollowUpForm({
           resolutionStatus: values.resolutionStatus,
           status: values.status,
         })
+        await onSuccess?.()
       } catch (error) {
         showError(
           "Could not save follow-up",
@@ -1810,14 +1886,24 @@ export function CollectionFollowUpForm({
   return (
     <Form {...form}>
       <form
-        className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-[170px_170px_170px_170px_170px_minmax(0,1fr)_auto]"
+        className="grid gap-5 md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
+        <div className="md:col-span-2">
+          <h3 className="text-base font-semibold text-foreground">
+            Outcome and ownership
+          </h3>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            Record what happened, who owns the next action, and whether the
+            collection case remains open.
+          </p>
+        </div>
         <FormField
           control={form.control}
           name="status"
           render={({ field }) => (
             <FormItem>
+              <FormLabel>Contact outcome</FormLabel>
               <FormControl>
                 <NativeSelect {...field}>
                   <option value="reminded">Reminded</option>
@@ -1835,6 +1921,7 @@ export function CollectionFollowUpForm({
           name="caseStage"
           render={({ field }) => (
             <FormItem>
+              <FormLabel>Case stage</FormLabel>
               <FormControl>
                 <NativeSelect {...field}>
                   <option value="active">Active</option>
@@ -1852,6 +1939,7 @@ export function CollectionFollowUpForm({
           name="priority"
           render={({ field }) => (
             <FormItem>
+              <FormLabel>Priority</FormLabel>
               <FormControl>
                 <NativeSelect {...field}>
                   <option value="low">Low priority</option>
@@ -1868,6 +1956,7 @@ export function CollectionFollowUpForm({
           name="resolutionStatus"
           render={({ field }) => (
             <FormItem>
+              <FormLabel>Resolution</FormLabel>
               <FormControl>
                 <NativeSelect {...field}>
                   <option value="open">Open</option>
@@ -1883,6 +1972,7 @@ export function CollectionFollowUpForm({
           name="assignedToUserId"
           render={({ field }) => (
             <FormItem>
+              <FormLabel>Assigned staff</FormLabel>
               <FormControl>
                 <NativeSelect {...field}>
                   <option value="">Unassigned</option>
@@ -1902,6 +1992,7 @@ export function CollectionFollowUpForm({
           name="nextActionAt"
           render={({ field }) => (
             <FormItem>
+              <FormLabel>Next action date</FormLabel>
               <FormControl>
                 <DatePickerInput
                   {...field}
@@ -1918,6 +2009,7 @@ export function CollectionFollowUpForm({
           name="promiseToPayAt"
           render={({ field }) => (
             <FormItem>
+              <FormLabel>Promise-to-pay date</FormLabel>
               <FormControl>
                 <DatePickerInput
                   {...field}
@@ -1933,17 +2025,29 @@ export function CollectionFollowUpForm({
           control={form.control}
           name="note"
           render={({ field }) => (
-            <FormItem>
+            <FormItem className="md:col-span-2">
+              <FormLabel>Follow-up note</FormLabel>
               <FormControl>
-                <Input {...field} placeholder="Follow-up note" />
+                <Textarea
+                  {...field}
+                  className="min-h-24"
+                  placeholder="Summarize the conversation and agreed next step."
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button disabled={isPending} size="sm" type="submit" variant="outline">
-          Save follow-up
-        </Button>
+        <div className="border-t border-border pt-4 md:col-span-2">
+          <Button
+            className="h-11 w-full md:h-9 md:w-auto"
+            disabled={isPending}
+            type="submit"
+            variant="outline"
+          >
+            Save follow-up
+          </Button>
+        </div>
       </form>
     </Form>
   )

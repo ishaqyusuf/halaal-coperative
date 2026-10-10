@@ -18,6 +18,13 @@
     "typescript": "^5.9.3"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./mobile-notifications": "./src/modules/mobile-notifications.ts",
+    "./mobile-reports": "./src/modules/mobile-reports.ts",
+    "./subscriptions": "./src/modules/subscriptions.ts",
+    "./public-policies": "./src/modules/public-policies.ts",
+    "./account-privacy-notice": "./src/modules/account-privacy-notice.ts",
+    "./legal-reminder": "./src/modules/legal-reminder.ts",
+    "./ios-release-identity": "./src/modules/ios-release-identity.ts"
   }
 }

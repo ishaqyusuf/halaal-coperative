@@ -45,23 +45,23 @@ export const supportRouter = createTRPCRouter({
       const pageSize = input?.pageSize ?? 50
       const scopedMemberId = await getScopedMemberId(ctx)
       const result = await listSupportCasePage({
-        assignedToUserId: input?.assignedToUserId,
-        category: input?.category,
+        assignedToUserId: scopedMemberId
+          ? undefined
+          : input?.assignedToUserId,
+        category: scopedMemberId ? undefined : input?.category,
         cursor: input?.cursor ?? undefined,
         memberId: scopedMemberId ?? input?.memberId,
-        pageSize: pageSize + 1,
+        pageSize,
         priority: input?.priority,
         search: input?.q || undefined,
         sort: input?.sort ?? null,
         status: input?.status,
         tenantId: ctx.tenant.current.id,
       })
-      const data = result.data.slice(0, pageSize)
-
       return {
-        data,
+        data: result.data,
         meta: {
-          cursor: result.data.length > pageSize ? data.at(-1)?.id : undefined,
+          cursor: result.meta.cursor,
           total: result.meta.total,
         },
       }

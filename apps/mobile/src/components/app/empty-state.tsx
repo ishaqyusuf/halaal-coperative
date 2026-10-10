@@ -17,12 +17,12 @@ export function EmptyState({
   return (
     <View
       className={cn(
-        "min-h-[132px] items-center justify-center gap-3 rounded-md border border-dashed border-border bg-secondary/60 p-5",
+        "min-h-[132px] items-center justify-center gap-3 py-8",
         className
       )}
     >
-      <View className="h-11 w-11 items-center justify-center rounded-md bg-card">
-        <Icon name={icon} className="size-base text-muted-foreground" />
+      <View className="h-11 w-11 items-center justify-center rounded-lg bg-accent">
+        <Icon name={icon} className="size-base text-accent-foreground" />
       </View>
       <View className="items-center gap-1">
         <Text className="text-center text-sm leading-5 font-semibold text-foreground">

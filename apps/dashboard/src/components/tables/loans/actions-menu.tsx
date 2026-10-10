@@ -10,17 +10,15 @@ import {
 import { MoreHorizontal } from "lucide-react"
 import { memo } from "react"
 import { useLoanParams } from "@/hooks/use-loan-params"
+import {
+  canFinalizeLoanRequest,
+  canMarkLoanRequestUnderReview,
+} from "@/lib/loans/loan-action-guards"
 import type { LoanPortfolioRow } from "./portfolio-table"
 import type { LoanRequestRow } from "./requests-table"
 
 export const LoanPortfolioActionsMenu = memo(
-  ({
-    canReview,
-    loan,
-  }: {
-    canReview: boolean
-    loan: LoanPortfolioRow
-  }) => {
+  ({ canReview, loan }: { canReview: boolean; loan: LoanPortfolioRow }) => {
     const { setParams } = useLoanParams()
     const canDisburse = canReview && loan.status === "approved"
 
@@ -34,6 +32,20 @@ export const LoanPortfolioActionsMenu = memo(
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem
+            onClick={() =>
+              setParams({
+                guarantorApprovalId: null,
+                guarantorReviewStatus: null,
+                loanId: loan.id,
+                loanRequestId: null,
+                loanReviewStatus: null,
+                loanSheetType: "loan-details",
+              })
+            }
+          >
+            View details
+          </DropdownMenuItem>
           <DropdownMenuItem
             disabled={!canDisburse}
             onClick={() =>
@@ -58,13 +70,7 @@ export const LoanPortfolioActionsMenu = memo(
 LoanPortfolioActionsMenu.displayName = "LoanPortfolioActionsMenu"
 
 export const LoanRequestActionsMenu = memo(
-  ({
-    canReview,
-    request,
-  }: {
-    canReview: boolean
-    request: LoanRequestRow
-  }) => {
+  ({ canReview, request }: { canReview: boolean; request: LoanRequestRow }) => {
     const { setParams } = useLoanParams()
     const pendingGuarantor = request.guarantorApprovals.find(
       (approval) => approval.status === "pending"
@@ -81,7 +87,21 @@ export const LoanRequestActionsMenu = memo(
 
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuItem
-            disabled={!canReview || request.status === "approved"}
+            onClick={() =>
+              setParams({
+                guarantorApprovalId: null,
+                guarantorReviewStatus: null,
+                loanId: null,
+                loanRequestId: request.id,
+                loanReviewStatus: null,
+                loanSheetType: "request-details",
+              })
+            }
+          >
+            View details
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={!canReview || !canFinalizeLoanRequest(request.status)}
             onClick={() =>
               setParams({
                 guarantorApprovalId: null,
@@ -96,7 +116,7 @@ export const LoanRequestActionsMenu = memo(
             Approve request
           </DropdownMenuItem>
           <DropdownMenuItem
-            disabled={!canReview || request.status === "rejected"}
+            disabled={!canReview || !canFinalizeLoanRequest(request.status)}
             onClick={() =>
               setParams({
                 guarantorApprovalId: null,
@@ -111,7 +131,9 @@ export const LoanRequestActionsMenu = memo(
             Reject request
           </DropdownMenuItem>
           <DropdownMenuItem
-            disabled={!canReview || request.status !== "submitted"}
+            disabled={
+              !canReview || !canMarkLoanRequestUnderReview(request.status)
+            }
             onClick={() =>
               setParams({
                 guarantorApprovalId: null,

@@ -2,8 +2,16 @@ import { useQueryStates } from "nuqs"
 import { createLoader, parseAsString, parseAsStringEnum } from "nuqs/server"
 
 export const repaymentParamsSchema = {
+  loanId: parseAsString,
+  repaymentId: parseAsString,
   repaymentScheduleItemId: parseAsString,
-  repaymentSheetType: parseAsStringEnum(["refresh", "post", "followUp"]),
+  repaymentSheetType: parseAsStringEnum([
+    "refresh",
+    "post",
+    "followUp",
+    "scheduleDetails",
+    "repaymentDetails",
+  ]),
 }
 
 export function useRepaymentParams() {

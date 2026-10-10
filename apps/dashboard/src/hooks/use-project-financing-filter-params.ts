@@ -1,9 +1,17 @@
 import { useQueryStates } from "nuqs"
-import { createLoader, parseAsString } from "nuqs/server"
+import { createLoader, parseAsString, parseAsStringEnum } from "nuqs/server"
 
 const projectFinancingFilterParamsSchema = {
   q: parseAsString,
-  status: parseAsString,
+  status: parseAsStringEnum([
+    "active",
+    "approved",
+    "cancelled",
+    "completed",
+    "rejected",
+    "submitted",
+    "under_review",
+  ]),
 }
 
 export function useProjectFinancingFilterParams() {

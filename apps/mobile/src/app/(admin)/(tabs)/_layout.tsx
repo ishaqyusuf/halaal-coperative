@@ -1,9 +1,19 @@
 import { Icon } from "@/components/ui/icon"
+import { useFullScreenFormVisibility } from "@/components/app/full-screen-form-visibility"
+import { TabBarLabel } from "@/components/app/tab-bar-label"
+import { canViewMobileAdminReports } from "@/features/admin-reports-access/model/admin-reports-access-policy"
+import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
 import { Tabs } from "expo-router"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { resolveTabBarGeometry } from "@/lib/tab-bar-geometry"
 
 export default function AdminTabsLayout() {
   const colors = useColors()
+  const insets = useSafeAreaInsets()
+  const { profile } = useAuthContext()
+  const { hideTabBar } = useFullScreenFormVisibility()
+  const canViewReports = canViewMobileAdminReports(profile?.cooperativeRole)
 
   return (
     <Tabs
@@ -15,16 +25,11 @@ export default function AdminTabsLayout() {
           minHeight: 56,
           paddingVertical: 6,
         },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: "600",
-        },
         tabBarStyle: {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
-          minHeight: 64,
-          paddingBottom: 6,
-          paddingTop: 6,
+          display: hideTabBar ? "none" : "flex",
+          ...resolveTabBarGeometry(insets.bottom),
         },
       }}
     >
@@ -32,6 +37,9 @@ export default function AdminTabsLayout() {
         name="index"
         options={{
           tabBarAccessibilityLabel: "Admin overview tab",
+          tabBarLabel: ({ color }) => (
+            <TabBarLabel color={color} label="Overview" />
+          ),
           title: "Overview",
           tabBarIcon: ({ color }) => (
             <Icon color={color} name="LayoutDashboard" className="size-base" />
@@ -42,6 +50,9 @@ export default function AdminTabsLayout() {
         name="members"
         options={{
           tabBarAccessibilityLabel: "Admin members tab",
+          tabBarLabel: ({ color }) => (
+            <TabBarLabel color={color} label="Members" />
+          ),
           title: "Members",
           tabBarIcon: ({ color }) => (
             <Icon color={color} name="Users" className="size-base" />
@@ -52,6 +63,9 @@ export default function AdminTabsLayout() {
         name="finance"
         options={{
           tabBarAccessibilityLabel: "Admin finance tab",
+          tabBarLabel: ({ color }) => (
+            <TabBarLabel color={color} label="Finance" />
+          ),
           title: "Finance",
           tabBarIcon: ({ color }) => (
             <Icon color={color} name="Wallet" className="size-base" />
@@ -61,7 +75,11 @@ export default function AdminTabsLayout() {
       <Tabs.Screen
         name="reports"
         options={{
+          href: canViewReports ? undefined : null,
           tabBarAccessibilityLabel: "Admin reports tab",
+          tabBarLabel: ({ color }) => (
+            <TabBarLabel color={color} label="Reports" />
+          ),
           title: "Reports",
           tabBarIcon: ({ color }) => (
             <Icon color={color} name="FileText" className="size-base" />
@@ -72,6 +90,9 @@ export default function AdminTabsLayout() {
         name="more"
         options={{
           tabBarAccessibilityLabel: "More admin services tab",
+          tabBarLabel: ({ color }) => (
+            <TabBarLabel color={color} label="More" />
+          ),
           title: "More",
           tabBarIcon: ({ color }) => (
             <Icon color={color} name="Menu" className="size-base" />

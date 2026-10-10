@@ -5,12 +5,25 @@ import {
   SheetTitle,
 } from "@halaalvest/ui/components/sheet"
 
-type ProcurementSheetType = "create" | "purchase" | "review" | "self-service"
+type ProcurementSheetType =
+  | "create"
+  | "details"
+  | "purchase"
+  | "review"
+  | "self-service"
 
 function getHeaderCopy(
   type: ProcurementSheetType,
   request?: ProcurementRequestRow
 ) {
+  if (type === "details") {
+    return {
+      description:
+        "Review request, approval, purchase, and repayment schedule evidence.",
+      title: request ? request.itemName : "Procurement details",
+    }
+  }
+
   if (type === "review") {
     return {
       description:

@@ -9,11 +9,13 @@ export async function handleSignupAvailabilityRequest(
 ) {
   try {
     const url = new URL(request.url)
+    const cooperativeCodePrefix = url.searchParams.get("cooperativeCodePrefix")
     const cooperativeName = url.searchParams.get("cooperativeName")
     const workspaceSlug = normalizeWorkspaceSlug(
       url.searchParams.get("workspaceSlug") ?? ""
     )
     const availability = await checkAvailability({
+      cooperativeCodePrefix,
       cooperativeName,
       workspaceSlug,
     })

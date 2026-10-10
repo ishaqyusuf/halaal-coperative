@@ -76,10 +76,7 @@ describe("ledger transaction migration guards", () => {
     const prisma = createLockedLedgerPrismaStub()
 
     await expect(
-      postLedgerTransaction(
-        balancedLedgerTransactionInput,
-        prisma as never,
-      ),
+      postLedgerTransaction(balancedLedgerTransactionInput, prisma as never)
     ).rejects.toThrow("Ledger transaction writes are locked")
 
     expect(prisma.ledgerTransactionCreates).toHaveLength(0)
@@ -93,7 +90,21 @@ describe("ledger transaction migration guards", () => {
         ...balancedLedgerTransactionInput,
         sourceType: "import",
       },
-      prisma as never,
+      prisma as never
+    )
+
+    expect(prisma.ledgerTransactionCreates).toHaveLength(1)
+  })
+
+  test("does not repeat a migration guard already validated by the caller", async () => {
+    const prisma = createLockedLedgerPrismaStub()
+
+    await postLedgerTransaction(
+      {
+        ...balancedLedgerTransactionInput,
+        migrationWriteGuardValidated: true,
+      },
+      prisma as never
     )
 
     expect(prisma.ledgerTransactionCreates).toHaveLength(1)

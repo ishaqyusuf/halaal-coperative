@@ -1,4 +1,4 @@
-import type { PrismaClient } from "../../generated/prisma/client"
+import type { PrismaClient, TenantBusinessPolicy } from "../../generated/prisma/client"
 import {
   buildInitialMigrationSnapshot,
   getBusinessProfitSeasonPeriod,
@@ -168,17 +168,20 @@ export async function getTenantInitialMigrationState(
     }
   }
 
-  const businessProfitPolicy = await readOptionalTenantBusinessPolicy(
-    prisma,
-    (tenantBusinessPolicy) =>
-      tenantBusinessPolicy.findUnique({
-        select: {
-          financialYearStartMonth: true,
-          historicalProfitMigrationMode: true,
-          profitDistributionFrequency: true,
-        },
-        where: { tenantId },
-      })
+  const businessProfitPolicy = await readOptionalTenantBusinessPolicy<Pick<
+    TenantBusinessPolicy,
+    | "financialYearStartMonth"
+    | "historicalProfitMigrationMode"
+    | "profitDistributionFrequency"
+  > | null>(prisma, (tenantBusinessPolicy) =>
+    tenantBusinessPolicy.findUnique({
+      select: {
+        financialYearStartMonth: true,
+        historicalProfitMigrationMode: true,
+        profitDistributionFrequency: true,
+      },
+      where: { tenantId },
+    })
   )
   const currentProfitSeason = getBusinessProfitSeasonPeriod(startOfTodayUtc(), {
     financialYearStartMonth: Number(

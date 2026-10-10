@@ -33,6 +33,7 @@ model FoodPurchaseApplication {
   cycleId                                String                        @map("cycle_id") @db.Uuid
   memberId                               String                        @map("member_id") @db.Uuid
   submittedByUserId                      String                        @map("submitted_by_user_id") @db.Uuid
+  submissionKey                          String?                       @map("submission_key")
   reviewedByUserId                       String?                       @map("reviewed_by_user_id") @db.Uuid
   itemDescription                        String?                       @map("item_description")
   requestNotes                           String?                       @map("request_notes")
@@ -60,6 +61,7 @@ model FoodPurchaseApplication {
   paymentReceiptAllocations MemberPaymentReceiptAllocation[]
   openingBalanceSource      MemberOpeningBalance?            @relation("MemberOpeningBalanceAppliedFoodPurchase")
 
+  @@unique([tenantId, submissionKey], map: "food_purchase_applications_tenant_submission_key")
   @@index([tenantId, cycleId, status], map: "food_purchase_applications_tenant_cycle_status_idx")
   @@index([tenantId, memberId, status], map: "food_purchase_applications_tenant_member_status_idx")
   @@map("food_purchase_applications")

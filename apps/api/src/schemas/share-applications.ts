@@ -18,10 +18,10 @@ const shareApplicationSortFieldSchema = z.enum([
 
 export const listShareApplicationsSchema = z
   .object({
-    cursor: z.string().nullable().optional(),
+    cursor: z.string().min(1).nullable().optional(),
     memberId: z.string().uuid().optional(),
     pageSize: z.coerce.number().int().min(1).max(100).optional(),
-    q: z.string().nullable().optional(),
+    q: z.string().trim().max(200).nullable().optional(),
     sort: z
       .tuple([shareApplicationSortFieldSchema, z.enum(["asc", "desc"])])
       .nullable()

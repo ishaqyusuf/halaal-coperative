@@ -2,9 +2,12 @@ import { describe, expect, test } from "bun:test"
 import {
   createMember,
   createMemberDocument,
+  assertMemberKycTransition,
+  assertMemberStatusTransition,
   ensureMemberPortalAccess,
   getMemberRegistrySummary,
   getMemberStatementDetail,
+  getMemberStatementSummary,
   listMemberStatementSummaries,
   listMembersTable,
   updateMember,
@@ -12,6 +15,67 @@ import {
   updateMemberKyc,
   updateMemberStatus,
 } from "./members"
+
+describe("member lifecycle transitions", () => {
+  test("allows deliberate member status transitions", () => {
+    expect(() =>
+      assertMemberStatusTransition("pending", "active")
+    ).not.toThrow()
+    expect(() =>
+      assertMemberStatusTransition("active", "suspended")
+    ).not.toThrow()
+    expect(() =>
+      assertMemberStatusTransition("suspended", "active")
+    ).not.toThrow()
+  })
+
+  test("rejects invalid and terminal member status transitions", () => {
+    expect(() => assertMemberStatusTransition("pending", "exited")).toThrow(
+      "cannot change from pending to exited"
+    )
+    expect(() => assertMemberStatusTransition("exited", "active")).toThrow(
+      "cannot change from exited to active"
+    )
+  })
+
+  test("requires KYC review and resubmission stages", () => {
+    expect(() =>
+      assertMemberKycTransition("not_started", "pending")
+    ).not.toThrow()
+    expect(() => assertMemberKycTransition("pending", "verified")).not.toThrow()
+    expect(() => assertMemberKycTransition("rejected", "pending")).not.toThrow()
+    expect(() => assertMemberKycTransition("not_started", "verified")).toThrow(
+      "cannot change from not started to verified"
+    )
+    expect(() => assertMemberKycTransition("verified", "rejected")).toThrow(
+      "cannot change from verified to rejected"
+    )
+  })
+})
+
+describe("member identity conflicts", () => {
+  test("returns a user-correctable duplicate member identity error", async () => {
+    const prisma = {
+      $transaction: async () => {
+        throw { code: "P2002" }
+      },
+    }
+
+    await expect(
+      createMember(
+        {
+          actorUserId: "user-1",
+          fullName: "Aisha Bello",
+          joinedAt: new Date("2025-01-01T00:00:00.000Z"),
+          memberNumber: "MBR-001",
+          memberType: "individual",
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("member number or linked login already exists")
+  })
+})
 
 describe("member registry summary", () => {
   function createRegistrySummaryPrismaStub() {
@@ -132,6 +196,7 @@ function createMemberPortalAccessPrismaStub() {
       },
     },
     member: {
+      count: async () => 4,
       findFirst: async (input: {
         include?: unknown
         select?: unknown
@@ -165,7 +230,12 @@ function createMemberPortalAccessPrismaStub() {
         return input
       },
     },
+    subscriptionInvoice: {
+      findMany: async () => [],
+    },
+    tenant: { findUnique: async () => ({ cooperativeCodePrefix: "HAL" }) },
     user: {
+      update: async (input: unknown) => input,
       upsert: async (input: unknown) => {
         userUpserts.push(input)
 
@@ -269,6 +339,7 @@ function createMemberPrismaStub({
       count: async () => 0,
     },
     member: {
+      count: async () => 4,
       create: async (input: {
         data: {
           address?: string | null
@@ -339,6 +410,9 @@ function createMemberPrismaStub({
     shareBusinessProfitEntry: {
       count: async () => shareBusinessProfitEntries,
     },
+    subscriptionInvoice: {
+      findMany: async () => [],
+    },
     tenant: {
       findUnique: async () => ({
         id: "tenant-1",
@@ -383,6 +457,24 @@ function createMemberPrismaStub({
     },
     tenantShareStructureVersion: {
       count: async () => shareStructureVersions,
+    },
+    tenantSubscription: {
+      findUnique: async () => ({
+        activeMemberLimitOverride: null,
+        addons: [],
+        cancelAtPeriodEnd: false,
+        currentPeriodEndsAt: null,
+        currentPeriodStartsAt: null,
+        graceEndsAt: null,
+        id: "subscription-1",
+        plan: { code: "standard" },
+        source: "manual",
+        sourceState: {},
+        status: "active",
+        trialEndsAt: null,
+        trialStartsAt: null,
+        updatedAt: new Date("2026-08-01T00:00:00.000Z"),
+      }),
     },
   }
 
@@ -1224,6 +1316,77 @@ function createMemberStatementPrismaStub() {
 }
 
 describe("member statement dividend allocations", () => {
+  test("scopes a mobile summary to the signed-in tenant member", async () => {
+    const observedWhere: unknown[] = []
+    const prisma = createMemberStatementPrismaStub()
+    const scopedPrisma = {
+      ...prisma,
+      contribution: {
+        ...prisma.contribution,
+        groupBy: async (args: { where: unknown }) => {
+          observedWhere.push(args.where)
+          return prisma.contribution.groupBy()
+        },
+      },
+      dividendAllocation: {
+        ...prisma.dividendAllocation,
+        groupBy: async (args: { where: unknown }) => {
+          observedWhere.push(args.where)
+          return prisma.dividendAllocation.groupBy()
+        },
+      },
+      loan: {
+        ...prisma.loan,
+        groupBy: async (args: { where: unknown }) => {
+          observedWhere.push(args.where)
+          return prisma.loan.groupBy()
+        },
+      },
+      member: {
+        ...prisma.member,
+        findMany: async (args: { where: unknown }) => {
+          observedWhere.push(args.where)
+          return prisma.member.findMany()
+        },
+      },
+      repayment: {
+        ...prisma.repayment,
+        groupBy: async (args: { where: unknown }) => {
+          observedWhere.push(args.where)
+          return prisma.repayment.groupBy()
+        },
+      },
+    }
+
+    const summary = await getMemberStatementSummary(
+      "tenant-1",
+      "member-1",
+      scopedPrisma as never
+    )
+
+    expect(summary?.memberId).toBe("member-1")
+    expect(observedWhere).toHaveLength(5)
+    expect(
+      observedWhere.every(
+        (where) =>
+          typeof where === "object" &&
+          where !== null &&
+          ("id" in where
+            ? where.id === "member-1"
+            : "memberId" in where && where.memberId === "member-1")
+      )
+    ).toBe(true)
+    expect(observedWhere).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "member-1", tenantId: "tenant-1" }),
+        expect.objectContaining({
+          memberId: "member-1",
+          tenantId: "tenant-1",
+        }),
+      ])
+    )
+  })
+
   test("summarizes published dividend allocations", async () => {
     const summaries = await listMemberStatementSummaries(
       "tenant-1",

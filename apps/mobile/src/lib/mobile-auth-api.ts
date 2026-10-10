@@ -2,13 +2,27 @@ import { createMobileTrpcClient } from "@/lib/mobile-trpc-client"
 import { type MobileProfile } from "@/lib/session-store"
 
 export type MobileSignInCredentials = {
-  email: string
+  // API field name remains stable; the product-facing label is Cooperative number.
+  cooperativeAccessCode: string
   password: string
-  tenantSlug: string
 }
 
 export type MobileSwitchRoleInput = {
   membershipId: string
+}
+
+export type MobileRecoveryRequestInput = {
+  cooperativeNumber: string
+  deviceId: string
+  email: string
+}
+
+export type MobileRecoveryCompleteInput = {
+  challengeId: string
+  code: string
+  cooperativeNumber: string
+  deviceId: string
+  password: string
 }
 
 type MobileSignInResponse = {
@@ -45,4 +59,16 @@ export async function signOutMobileAuth() {
   const client = createMobileTrpcClient()
 
   return client.auth.mobile.signOut.mutate()
+}
+
+export async function requestMobilePasswordRecovery(
+  input: MobileRecoveryRequestInput
+) {
+  return createMobileTrpcClient().auth.mobile.recovery.request.mutate(input)
+}
+
+export async function completeMobilePasswordRecovery(
+  input: MobileRecoveryCompleteInput
+) {
+  return createMobileTrpcClient().auth.mobile.recovery.complete.mutate(input)
 }

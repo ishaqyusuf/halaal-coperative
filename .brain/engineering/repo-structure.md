@@ -25,6 +25,9 @@ This file documents how the repository is organized and what belongs where.
 - Avoid circular dependencies between packages.
 - Treat `packages/domain` as the home for cooperative calculations and policy logic.
 - Co-locate tests with the units they verify when practical.
+- Expo feature screens that combine browsable records with create/edit actions keep the browse surface read-focused and place short forms in the shared compact sheet or long forms in the shared full-screen form sheet. Feature-owned models, adapters, and screens live under `apps/mobile/src/features/<feature>/`; route files and legacy compatibility re-exports must not regain business orchestration.
+- Mobile reports/access and notifications use `apps/mobile/src/features/admin-reports-access/` and `apps/mobile/src/features/notifications/` for typed policies, models, and API adapters. Corresponding API procedures live in `apps/api/src/routers/mobile-admin-reports-access-notifications.route.ts`, and database ownership lives in `packages/db/src/queries/mobile-admin-reports-access.ts` plus `packages/db/src/queries/mobile-notifications.ts`.
+- Ticket 10 removed `apps/mobile/src/lib/mobile-home-api.ts`, all generic production screen files, and `packages/db/src/queries/mobile.ts`. `apps/api/src/routers/mobile.route.ts` is intentionally retained as a thin public tRPC namespace composer only. Device sessions and settings access now use named route/query modules, and the architecture contract rejects legacy modules or router growth beyond 60 lines.
 
 ## Required Folder And Route Conventions
 - `components/sheets/global-sheets.tsx`
@@ -42,3 +45,14 @@ This file documents how the repository is organized and what belongs where.
 - `app/[...slug]/page.tsx`
 - `(sidebar)/layout.tsx`
 - `(sidebar)/error.tsx`
+
+<!-- personal-coding-rules:start -->
+## Global Personal Coding Rules
+
+Agents must treat these global coding rule references as non-negotiable:
+
+- `/Users/M1PRO/.me/coding-standards/global.md`
+- `/Users/M1PRO/.me/coding-standards/expo.md`
+
+Project-specific exceptions require an ADR in `.brain/decisions/` before agents may diverge.
+<!-- personal-coding-rules:end -->

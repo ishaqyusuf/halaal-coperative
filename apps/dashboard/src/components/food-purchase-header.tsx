@@ -12,23 +12,13 @@ export function FoodPurchaseHeader({
   hasOpenCycle: boolean
 }) {
   return (
-    <div className="flex flex-col gap-3 border-b border-border bg-background px-4 py-3 md:flex-row md:items-center md:justify-between">
-      <div>
-        <p className="text-sm font-medium text-foreground">
-          Foodstuff Purchase applications
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Review member food applications, approved value, and repayment status.
-        </p>
-      </div>
-      <div className="flex flex-col gap-2 md:flex-row md:items-center">
-        <FoodPurchaseSearchFilter />
-        <div className="flex items-center gap-2">
-          <FoodPurchaseColumnVisibility />
-          {canSubmitApplications ? (
-            <OpenFoodPurchaseApplicationSheet disabled={!hasOpenCycle} />
-          ) : null}
-        </div>
+    <div className="hidden border-b border-border bg-background px-4 py-3 md:flex md:items-center md:justify-between md:gap-3">
+      <FoodPurchaseSearchFilter />
+      <div className="flex items-center gap-2">
+        <FoodPurchaseColumnVisibility />
+        {canSubmitApplications ? (
+          <OpenFoodPurchaseApplicationSheet disabled={!hasOpenCycle} />
+        ) : null}
       </div>
     </div>
   )

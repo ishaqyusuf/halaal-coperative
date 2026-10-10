@@ -1,9 +1,10 @@
-import "@halaalvest/ui/globals.css"
 import { EventsProvider } from "@halaalvest/events/client"
+import "@halaalvest/ui/globals.css"
 import { NotificationsProvider } from "@halaalvest/notifications-react"
 import type { Metadata } from "next"
 import { Hedvig_Letters_Sans, Hedvig_Letters_Serif } from "next/font/google"
 import { QaPreviewFlashConsumer } from "@/components/qa-preview-flash-consumer"
+import { QaFormAccess } from "@/components/qa-form-access"
 import { getMarketingConfig } from "@/lib/marketing-config"
 import {
   createMarketingSocialMetadata,
@@ -44,9 +45,9 @@ const title = !marketing.showHomePage
     ? "halaalvest"
     : "halaalvest | Pre-Launch"
 const description = !marketing.showHomePage
-  ? "Early access request entry for halaalvest, the interest-free cooperative operations platform."
+  ? "Early access for HalaalVest cooperative records and interest-free financing with separately shown charges."
   : marketing.isLaunchReady
-    ? "Launch marketing site for halaalvest, the interest-free cooperative operations platform."
+    ? "HalaalVest helps cooperatives manage contributions, interest-free financing with separately shown charges, and member records."
     : "Pre-launch landing page for halaalvest. Join early access before the cooperative platform goes live."
 
 export const metadata: Metadata = {
@@ -81,6 +82,7 @@ export default function RootLayout({
       >
         <NotificationsProvider>
           <EventsProvider surface="marketing">{children}</EventsProvider>
+          <QaFormAccess />
           <QaPreviewFlashConsumer />
         </NotificationsProvider>
       </body>

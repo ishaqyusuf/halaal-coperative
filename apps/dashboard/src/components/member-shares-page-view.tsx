@@ -3,9 +3,7 @@ import { MemberSharesView } from "@/components/member-shares-view"
 import type { loadMemberSharesPageData } from "@/lib/shares/load-member-shares-page"
 import type { TableSettings } from "@/utils/table-settings"
 
-type MemberSharesPageData = Awaited<
-  ReturnType<typeof loadMemberSharesPageData>
->
+type MemberSharesPageData = Awaited<ReturnType<typeof loadMemberSharesPageData>>
 
 export function MemberSharesPageView({
   data,
@@ -96,10 +94,9 @@ export function MemberSharesPageView({
       title="My shares"
     >
       <MemberSharesView
-        applications={data.applications}
-        member={data.member}
         policy={data.policy}
         position={data.position}
+        requestBlockedReason={data.requestBlockedReason}
         shareApplicationInitialSettings={shareApplicationInitialSettings}
       />
     </WorkspacePageShell>

@@ -44,3 +44,8 @@
 - Dashboard and database typechecks pass.
 - Focused dashboard lint passes; database lint has zero errors and retains its existing warning backlog.
 - Authenticated Portless QA covers the tenant report page, filters, date popover, compact exports, responsive breakpoints, overflow, metadata, and console health.
+
+
+## Expandable mobile filter sheet — 6 October 2026
+
+Below `md`, filters now use the shared expandable-category sheet: selections are drafts until Apply; Reset clears drafts; dismissal discards edits; search stays intact. Desktop controls and typed URL/query ownership remain unchanged. See [shared behavior and coverage](dashboard-mobile-filter-sheets.md) and [validation boundaries](../tasks/2026-10-06-mobile-filter-sheets.md).

@@ -19,24 +19,56 @@ function useOpenPaymentReceiptSheet() {
     })
 }
 
-export function OpenPaymentReceiptCreateSheet() {
+export function OpenPaymentReceiptCreateSheet({
+  iconOnly = false,
+}: {
+  iconOnly?: boolean
+}) {
   const openSheet = useOpenPaymentReceiptSheet()
 
   return (
-    <Button onClick={() => openSheet("create")} type="button">
-      <ReceiptTextIcon data-icon="inline-start" />
-      Stage receipt
+    <Button
+      aria-label={iconOnly ? "Stage payment receipt" : undefined}
+      className={iconOnly ? "size-11" : undefined}
+      onClick={() => openSheet("create")}
+      size={iconOnly ? "icon-lg" : "default"}
+      type="button"
+    >
+      {iconOnly ? (
+        <PlusIcon />
+      ) : (
+        <ReceiptTextIcon data-icon="inline-start" />
+      )}
+      {iconOnly ? (
+        <span className="sr-only">Stage receipt</span>
+      ) : (
+        "Stage receipt"
+      )}
     </Button>
   )
 }
 
-export function OpenMemberPaymentReceiptCreateSheet() {
+export function OpenMemberPaymentReceiptCreateSheet({
+  iconOnly = false,
+}: {
+  iconOnly?: boolean
+}) {
   const openSheet = useOpenPaymentReceiptSheet()
 
   return (
-    <Button onClick={() => openSheet("member-create")} type="button">
-      <PlusIcon data-icon="inline-start" />
-      Submit receipt
+    <Button
+      aria-label={iconOnly ? "Submit payment receipt" : undefined}
+      className={iconOnly ? "size-11" : undefined}
+      onClick={() => openSheet("member-create")}
+      size={iconOnly ? "icon-lg" : "default"}
+      type="button"
+    >
+      <PlusIcon data-icon={iconOnly ? undefined : "inline-start"} />
+      {iconOnly ? (
+        <span className="sr-only">Submit receipt</span>
+      ) : (
+        "Submit receipt"
+      )}
     </Button>
   )
 }

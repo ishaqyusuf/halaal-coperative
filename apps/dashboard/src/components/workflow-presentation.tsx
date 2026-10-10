@@ -43,6 +43,16 @@ const sheetWidthClasses: Record<WorkflowPresentationWidth, string> = {
   wide: "sm:max-w-[92rem]!",
 }
 
+const mobileFullScreenSheetWidthClasses: Record<
+  WorkflowPresentationWidth,
+  string
+> = {
+  compact: "md:max-w-[455px]!",
+  form: "md:max-w-2xl!",
+  review: "md:max-w-3xl!",
+  wide: "md:max-w-[92rem]!",
+}
+
 export function WorkflowPresentation({
   children,
   className,
@@ -125,7 +135,11 @@ export function WorkflowPresentation({
           <SheetContent
             className={cn(
               "max-h-dvh w-full! overflow-y-auto",
-              sheetWidthClasses[config.width],
+              mobileFullScreen
+                ? mobileFullScreenSheetWidthClasses[config.width]
+                : sheetWidthClasses[config.width],
+              mobileFullScreen &&
+                "inset-0! h-dvh! max-h-dvh! w-screen! max-w-none! border-0! md:inset-y-0! md:right-0! md:left-auto! md:h-full! md:w-3/4! md:border-l!",
               className
             )}
           >

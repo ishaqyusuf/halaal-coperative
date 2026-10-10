@@ -1,9 +1,18 @@
 import { useQueryStates } from "nuqs"
-import { createLoader, parseAsString } from "nuqs/server"
+import { createLoader, parseAsString, parseAsStringEnum } from "nuqs/server"
 
 const procurementFilterParamsSchema = {
   q: parseAsString,
-  status: parseAsString,
+  status: parseAsStringEnum([
+    "active",
+    "approved",
+    "cancelled",
+    "completed",
+    "purchased",
+    "rejected",
+    "submitted",
+    "under_review",
+  ]),
 }
 
 export function useProcurementFilterParams() {

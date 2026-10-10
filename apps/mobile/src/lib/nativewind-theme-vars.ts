@@ -1,7 +1,7 @@
-import { THEME } from "@/lib/theme";
+import { THEME } from "@/lib/theme"
 
-type ColorScheme = "dark" | "light";
-type ThemeVariables = Record<`--${string}`, string>;
+type ColorScheme = "dark" | "light"
+type ThemeVariables = Record<`--${string}`, string>
 
 const TAILWIND_COLOR_VARIABLES = {
   "--color-black": "#000000",
@@ -248,10 +248,10 @@ const TAILWIND_COLOR_VARIABLES = {
   "--color-rose-800": "#a50036",
   "--color-rose-900": "#8b0836",
   "--color-rose-950": "#4d0218",
-} as const satisfies ThemeVariables;
+} as const satisfies ThemeVariables
 
 export function nativewindThemeVars(colorScheme: ColorScheme) {
-  const colors = colorScheme === "dark" ? THEME.dark : THEME.light;
+  const colors = colorScheme === "dark" ? THEME.dark : THEME.light
 
   return {
     ...TAILWIND_COLOR_VARIABLES,
@@ -259,6 +259,13 @@ export function nativewindThemeVars(colorScheme: ColorScheme) {
     "--accent-foreground": colors.accentForeground,
     "--background": colors.background,
     "--border": colors.border,
+    "--brand": colors.brand,
+    "--brand-contrast": colors.brandContrast,
+    "--brand-foreground": colors.brandForeground,
+    "--brand-surface": colors.brandSurface,
+    "--brand-surface-foreground": colors.brandSurfaceForeground,
+    "--brand-vivid": colors.brandVivid,
+    "--brand-warm": colors.brandWarm,
     "--card": colors.card,
     "--card-foreground": colors.cardForeground,
     "--destructive": colors.destructive,
@@ -267,6 +274,7 @@ export function nativewindThemeVars(colorScheme: ColorScheme) {
     "--input": colors.input,
     "--muted": colors.muted,
     "--muted-foreground": colors.mutedForeground,
+    "--overlay": colors.overlay,
     "--popover": colors.popover,
     "--popover-foreground": colors.popoverForeground,
     "--primary": colors.primary,
@@ -278,5 +286,5 @@ export function nativewindThemeVars(colorScheme: ColorScheme) {
     "--success-foreground": colors.successForeground,
     "--warn": colors.warn,
     "--warn-foreground": colors.warnForeground,
-  } satisfies ThemeVariables;
+  } satisfies ThemeVariables
 }

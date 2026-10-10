@@ -2,10 +2,12 @@
 
 import { useState, useTransition, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
 import { Textarea } from "@halaalvest/ui/components/textarea"
+import { formatCurrency } from "@halaalvest/utils"
 import type { ProcurementRequestRow } from "@halaalvest/db"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
 import {
@@ -19,6 +21,7 @@ import {
   reviewProcurementRequestAction,
 } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
+import { useTRPC } from "@/trpc/client"
 
 export type ProcurementMemberOption = {
   id: string
@@ -44,6 +47,36 @@ function Field({
   )
 }
 
+function useRefreshProcurement() {
+  const queryClient = useQueryClient()
+  const router = useRouter()
+  const trpc = useTRPC()
+
+  return async (
+    onClose: () => Promise<void>,
+    procurementRequestId?: string
+  ) => {
+    await onClose()
+
+    const invalidations = [
+      queryClient.invalidateQueries(
+        trpc.procurement.list.infiniteQueryFilter()
+      ),
+    ]
+
+    if (procurementRequestId) {
+      invalidations.push(
+        queryClient.invalidateQueries(
+          trpc.procurement.get.queryFilter({ procurementRequestId })
+        )
+      )
+    }
+
+    await Promise.all(invalidations)
+    router.refresh()
+  }
+}
+
 export function ProcurementRequestCreateContent({
   chargeOptions,
   memberOptions,
@@ -51,9 +84,9 @@ export function ProcurementRequestCreateContent({
 }: {
   chargeOptions: WorkflowChargeOption[]
   memberOptions: ProcurementMemberOption[]
-  onClose: () => void
+  onClose: () => Promise<void>
 }) {
-  const router = useRouter()
+  const refreshProcurement = useRefreshProcurement()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [memberId, setMemberId] = useState("")
@@ -89,9 +122,8 @@ export function ProcurementRequestCreateContent({
         setRequestedCost("")
         setRequestedRepaymentMonths("")
         setVendorName("")
-        onClose()
         showSuccess("Procurement request saved", "Request is pending review.")
-        router.refresh()
+        await refreshProcurement(onClose)
       } catch (error) {
         showError(
           "Could not save procurement request",
@@ -156,7 +188,12 @@ export function ProcurementRequestCreateContent({
         />
       </div>
       <div className="md:col-span-2">
-        <Button disabled={isPending} onClick={submitRequest} type="button">
+        <Button
+          className="h-11 w-full md:h-9 md:w-auto"
+          disabled={isPending}
+          onClick={submitRequest}
+          type="button"
+        >
           Save request
         </Button>
       </div>
@@ -169,9 +206,9 @@ export function MemberProcurementRequestCreateContent({
   onClose,
 }: {
   chargeOptions: WorkflowChargeOption[]
-  onClose: () => void
+  onClose: () => Promise<void>
 }) {
-  const router = useRouter()
+  const refreshProcurement = useRefreshProcurement()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [itemName, setItemName] = useState("")
@@ -197,9 +234,8 @@ export function MemberProcurementRequestCreateContent({
         setRequestedCost("")
         setRequestedRepaymentMonths("")
         setVendorName("")
-        onClose()
         showSuccess("Procurement request sent", "Request is pending review.")
-        router.refresh()
+        await refreshProcurement(onClose)
       } catch (error) {
         showError(
           "Could not send procurement request",
@@ -256,10 +292,174 @@ export function MemberProcurementRequestCreateContent({
         />
       </div>
       <div className="md:col-span-2">
-        <Button disabled={isPending} onClick={submitRequest} type="button">
+        <Button
+          className="h-11 w-full md:h-9 md:w-auto"
+          disabled={isPending}
+          onClick={submitRequest}
+          type="button"
+        >
           Send request
         </Button>
       </div>
+    </div>
+  )
+}
+
+function formatProcurementEvidenceDate(value: Date | string | null) {
+  if (!value) return "Not recorded"
+
+  return new Date(value).toLocaleDateString("en-NG", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  })
+}
+
+export function ProcurementRequestDetailsContent({
+  request,
+}: {
+  request: ProcurementRequestRow
+}) {
+  return (
+    <div className="space-y-6">
+      <section className="border-y border-border py-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="font-medium text-foreground">{request.itemName}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {request.member.fullName} · {request.member.memberNumber}
+            </p>
+          </div>
+          <span className="border border-border px-2 py-1 text-xs capitalize">
+            {request.status.replaceAll("_", " ")}
+          </span>
+        </div>
+        {request.itemDescription ? (
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            {request.itemDescription}
+          </p>
+        ) : null}
+      </section>
+
+      <DetailsSection title="Request and approval">
+        <DetailsGrid>
+          <Detail
+            label="Requested cost"
+            value={formatCurrency(request.requestedCost)}
+          />
+          <Detail
+            label="Requested term"
+            value={`${request.requestedRepaymentMonths} months`}
+          />
+          <Detail
+            label="Approved cost"
+            value={
+              request.approvedCost
+                ? formatCurrency(request.approvedCost)
+                : "Not approved"
+            }
+          />
+          <Detail
+            label="Approved term"
+            value={
+              request.approvedRepaymentMonths
+                ? `${request.approvedRepaymentMonths} months`
+                : "Not approved"
+            }
+          />
+          <Detail label="Vendor" value={request.vendorName ?? "Not provided"} />
+          <Detail
+            label="Requested on"
+            value={formatProcurementEvidenceDate(request.requestedAt)}
+          />
+        </DetailsGrid>
+        {request.reviewNotes ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            Review note: {request.reviewNotes}
+          </p>
+        ) : null}
+      </DetailsSection>
+
+      <DetailsSection title="Purchase evidence">
+        <DetailsGrid>
+          <Detail
+            label="Purchased on"
+            value={formatProcurementEvidenceDate(request.purchasedAt)}
+          />
+          <Detail
+            label="Reference"
+            value={request.purchaseReference ?? "Not recorded"}
+          />
+        </DetailsGrid>
+        {request.purchaseNotes ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            {request.purchaseNotes}
+          </p>
+        ) : null}
+      </DetailsSection>
+
+      <DetailsSection title="Repayment schedule">
+        {request.repaymentScheduleItems.length ? (
+          <div className="divide-y divide-border border-y border-border">
+            {request.repaymentScheduleItems.map((item) => (
+              <div
+                className="grid grid-cols-[1fr_auto] gap-3 py-3 text-sm"
+                key={item.id}
+              >
+                <div>
+                  <p className="font-medium">
+                    Installment {item.installmentNumber}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Due {formatProcurementEvidenceDate(item.dueDate)} ·{" "}
+                    <span className="capitalize">
+                      {item.status.replaceAll("_", " ")}
+                    </span>
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p>{formatCurrency(item.amount)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {formatCurrency(item.paidAmount)} paid
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="border-y border-border py-4 text-sm text-muted-foreground">
+            Repayment schedule has not started.
+          </p>
+        )}
+      </DetailsSection>
+    </div>
+  )
+}
+
+function DetailsSection({
+  children,
+  title,
+}: {
+  children: ReactNode
+  title: string
+}) {
+  return (
+    <section>
+      <h3 className="mb-3 text-sm font-medium text-foreground">{title}</h3>
+      {children}
+    </section>
+  )
+}
+
+function DetailsGrid({ children }: { children: ReactNode }) {
+  return <dl className="grid gap-3 sm:grid-cols-2">{children}</dl>
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-1 text-sm text-foreground">{value}</dd>
     </div>
   )
 }
@@ -270,10 +470,10 @@ export function ProcurementRequestReviewContent({
   request,
 }: {
   chargeOptions: WorkflowChargeOption[]
-  onClose: () => void
+  onClose: () => Promise<void>
   request: ProcurementRequestRow
 }) {
-  const router = useRouter()
+  const refreshProcurement = useRefreshProcurement()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [approvedCost, setApprovedCost] = useState("")
@@ -296,8 +496,7 @@ export function ProcurementRequestReviewContent({
           "Procurement review saved",
           `Request marked ${status.replace(/_/g, " ")}.`
         )
-        onClose()
-        router.refresh()
+        await refreshProcurement(onClose, request.id)
       } catch (error) {
         showError(
           "Could not save procurement review",
@@ -309,39 +508,55 @@ export function ProcurementRequestReviewContent({
 
   return (
     <div className="grid gap-3">
+      <section className="border-y border-border py-4">
+        <p className="font-medium text-foreground">{request.itemName}</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {request.member.fullName} · {request.member.memberNumber}
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Requested {formatCurrency(request.requestedCost)} over{" "}
+          {request.requestedRepaymentMonths} months
+        </p>
+      </section>
       <div className="grid gap-2 sm:grid-cols-2">
-        <Input
-          disabled={isPending}
-          inputMode="decimal"
-          onChange={(event) => setApprovedCost(event.target.value)}
-          placeholder={`Cost ${request.requestedCost}`}
-          value={approvedCost}
-        />
-        <Input
-          disabled={isPending}
-          inputMode="numeric"
-          onChange={(event) => setApprovedMonths(event.target.value)}
-          placeholder={`Months ${request.requestedRepaymentMonths}`}
-          value={approvedMonths}
-        />
+        <Field label="Approved cost">
+          <Input
+            disabled={isPending}
+            inputMode="decimal"
+            onChange={(event) => setApprovedCost(event.target.value)}
+            placeholder={request.requestedCost.toString()}
+            value={approvedCost}
+          />
+        </Field>
+        <Field label="Approved repayment months">
+          <Input
+            disabled={isPending}
+            inputMode="numeric"
+            onChange={(event) => setApprovedMonths(event.target.value)}
+            placeholder={request.requestedRepaymentMonths.toString()}
+            value={approvedMonths}
+          />
+        </Field>
       </div>
       <WorkflowChargeSummary
         basisAmount={Number(approvedCost) || request.requestedCost}
         charges={chargeOptions}
         title="Approval charges"
       />
-      <Input
-        disabled={isPending}
-        onChange={(event) => setNotes(event.target.value)}
-        placeholder="Review note"
-        value={notes}
-      />
-      <div className="flex flex-wrap gap-2">
+      <Field label="Review note">
+        <Textarea
+          disabled={isPending}
+          onChange={(event) => setNotes(event.target.value)}
+          placeholder="Explain the review decision"
+          value={notes}
+        />
+      </Field>
+      <div className="grid gap-2 sm:flex sm:flex-wrap">
         {request.status === "submitted" ? (
           <Button
             disabled={isPending}
             onClick={() => reviewRequest("under_review")}
-            size="sm"
+            className="h-11 w-full sm:h-9 sm:w-auto"
             type="button"
             variant="outline"
           >
@@ -351,7 +566,7 @@ export function ProcurementRequestReviewContent({
         <Button
           disabled={isPending}
           onClick={() => reviewRequest("approved")}
-          size="sm"
+          className="h-11 w-full sm:h-9 sm:w-auto"
           type="button"
         >
           Approve
@@ -359,7 +574,7 @@ export function ProcurementRequestReviewContent({
         <Button
           disabled={isPending}
           onClick={() => reviewRequest("rejected")}
-          size="sm"
+          className="h-11 w-full sm:h-9 sm:w-auto"
           type="button"
           variant="outline"
         >
@@ -374,10 +589,10 @@ export function ProcurementPurchaseContent({
   onClose,
   request,
 }: {
-  onClose: () => void
+  onClose: () => Promise<void>
   request: ProcurementRequestRow
 }) {
-  const router = useRouter()
+  const refreshProcurement = useRefreshProcurement()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [purchaseDate, setPurchaseDate] = useState("")
@@ -401,8 +616,7 @@ export function ProcurementPurchaseContent({
           "Procurement purchase recorded",
           "Repayment schedule is now active."
         )
-        onClose()
-        router.refresh()
+        await refreshProcurement(onClose, request.id)
       } catch (error) {
         showError(
           "Could not record procurement purchase",
@@ -414,36 +628,51 @@ export function ProcurementPurchaseContent({
 
   return (
     <div className="grid gap-3">
+      <section className="border-y border-border py-4">
+        <p className="font-medium text-foreground">{request.itemName}</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {request.member.fullName} · approved for{" "}
+          {formatCurrency(request.approvedCost ?? 0)}
+        </p>
+      </section>
       <div className="grid gap-2 sm:grid-cols-2">
-        <Input
-          disabled={isPending}
-          onChange={(event) => setPurchaseDate(event.target.value)}
-          type="date"
-          value={purchaseDate}
-        />
-        <Input
-          disabled={isPending}
-          onChange={(event) => setFirstDueDate(event.target.value)}
-          type="date"
-          value={firstDueDate}
-        />
+        <Field label="Purchase date">
+          <Input
+            disabled={isPending}
+            onChange={(event) => setPurchaseDate(event.target.value)}
+            type="date"
+            value={purchaseDate}
+          />
+        </Field>
+        <Field label="First repayment due date">
+          <Input
+            disabled={isPending}
+            onChange={(event) => setFirstDueDate(event.target.value)}
+            type="date"
+            value={firstDueDate}
+          />
+        </Field>
       </div>
-      <Input
-        disabled={isPending}
-        onChange={(event) => setPurchaseReference(event.target.value)}
-        placeholder="Invoice/reference"
-        value={purchaseReference}
-      />
-      <Input
-        disabled={isPending}
-        onChange={(event) => setPurchaseNotes(event.target.value)}
-        placeholder="Purchase note"
-        value={purchaseNotes}
-      />
+      <Field label="Invoice or purchase reference">
+        <Input
+          disabled={isPending}
+          onChange={(event) => setPurchaseReference(event.target.value)}
+          placeholder="Enter invoice or receipt reference"
+          value={purchaseReference}
+        />
+      </Field>
+      <Field label="Purchase note">
+        <Textarea
+          disabled={isPending}
+          onChange={(event) => setPurchaseNotes(event.target.value)}
+          placeholder="Add purchase or fulfilment notes"
+          value={purchaseNotes}
+        />
+      </Field>
       <Button
         disabled={isPending || !purchaseDate || !firstDueDate}
         onClick={recordPurchase}
-        size="sm"
+        className="h-11 w-full md:h-9 md:w-auto"
         type="button"
       >
         Record purchase

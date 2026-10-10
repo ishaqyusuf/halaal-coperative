@@ -19,24 +19,44 @@ function useOpenSupportCaseSheet() {
     })
 }
 
-export function OpenSupportCaseCreateSheet() {
+export function OpenSupportCaseCreateSheet({
+  iconOnly = false,
+}: {
+  iconOnly?: boolean
+}) {
   const openSheet = useOpenSupportCaseSheet()
 
   return (
-    <Button onClick={() => openSheet("create")} type="button">
+    <Button
+      aria-label={iconOnly ? "Open support case" : undefined}
+      className={iconOnly ? "size-11" : undefined}
+      onClick={() => openSheet("create")}
+      size={iconOnly ? "icon-lg" : "default"}
+      type="button"
+    >
       <PlusIcon data-icon="inline-start" />
-      Open case
+      {iconOnly ? null : "Open case"}
     </Button>
   )
 }
 
-export function OpenMemberSupportCaseCreateSheet() {
+export function OpenMemberSupportCaseCreateSheet({
+  iconOnly = false,
+}: {
+  iconOnly?: boolean
+}) {
   const openSheet = useOpenSupportCaseSheet()
 
   return (
-    <Button onClick={() => openSheet("member-create")} type="button">
+    <Button
+      aria-label={iconOnly ? "Open support case" : undefined}
+      className={iconOnly ? "size-11" : undefined}
+      onClick={() => openSheet("member-create")}
+      size={iconOnly ? "icon-lg" : "default"}
+      type="button"
+    >
       <PlusIcon data-icon="inline-start" />
-      Open case
+      {iconOnly ? null : "Open case"}
     </Button>
   )
 }

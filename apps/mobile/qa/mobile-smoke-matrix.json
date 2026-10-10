@@ -5,28 +5,48 @@
       "platform": "ios",
       "width": 320,
       "height": 568,
-      "checks": ["safe-area", "bottom-tabs", "sheet-fit", "long-label-fit"]
+      "checks": [
+        "safe-area",
+        "bottom-tabs",
+        "sheet-fit",
+        "long-label-fit"
+      ]
     },
     {
       "id": "typical-ios",
       "platform": "ios",
       "width": 390,
       "height": 844,
-      "checks": ["safe-area", "bottom-tabs", "form-states", "status-badges"]
+      "checks": [
+        "safe-area",
+        "bottom-tabs",
+        "form-states",
+        "status-badges"
+      ]
     },
     {
       "id": "compact-android",
       "platform": "android",
       "width": 360,
       "height": 640,
-      "checks": ["safe-area", "bottom-tabs", "sheet-fit", "long-label-fit"]
+      "checks": [
+        "safe-area",
+        "bottom-tabs",
+        "sheet-fit",
+        "long-label-fit"
+      ]
     },
     {
       "id": "typical-android",
       "platform": "android",
       "width": 412,
       "height": 915,
-      "checks": ["safe-area", "bottom-tabs", "form-states", "status-badges"]
+      "checks": [
+        "safe-area",
+        "bottom-tabs",
+        "form-states",
+        "status-badges"
+      ]
     },
     {
       "id": "wide-layout",
@@ -48,13 +68,18 @@
     "login-development-admin",
     "logout",
     "role-switch",
+    "device-session-revocation",
     "member-tabs",
     "admin-tabs",
     "receipt-form-state",
     "support-form-state",
     "financing-request-state",
     "admin-review-state",
+    "admin-contribution-operations",
+    "admin-charge-operations",
     "stale-cache-banner",
-    "virtualized-long-lists"
+    "virtualized-long-lists",
+    "account-privacy-request-tracking",
+    "platform-legal-document-acceptance"
   ]
 }

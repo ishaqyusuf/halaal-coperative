@@ -98,12 +98,12 @@ export function FoodPurchasePageView({
         description="Apply for an open monthly Foodstuff Purchase cycle and track committee review."
       >
         <MemberFoodPurchaseView
-          applications={data.applications}
           canCreateApplication={data.canCreateApplication}
           chargeOptions={data.chargeOptions}
           cycles={data.cycles}
           initialSettings={foodPurchaseInitialSettings}
           member={data.member}
+          summary={data.summary}
         />
       </WorkspacePageShell>
     )
@@ -116,7 +116,6 @@ export function FoodPurchasePageView({
       description="Manage committee fund releases, member Foodstuff Purchase applications, and month-end accounting."
     >
       <FoodPurchaseView
-        applications={data.applications}
         approvalChargeOptions={data.approvalChargeOptions}
         canRecordAccounting={data.canRecordAccounting}
         canReleaseFunds={data.canReleaseFunds}

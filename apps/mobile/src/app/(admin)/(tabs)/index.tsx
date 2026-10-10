@@ -1,5 +1,5 @@
-import { AdminHomeScreen } from "@/screens/admin-home-screen";
+import { AdminOverviewRouteController } from "@/features/admin-member-lifecycle/routes/admin-overview-route-controller"
 
 export default function AdminHomeRoute() {
-  return <AdminHomeScreen />;
+  return <AdminOverviewRouteController />
 }

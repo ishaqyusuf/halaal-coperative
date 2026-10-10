@@ -226,3 +226,126 @@ test("collector errors are generic and transport failures are bounded", async ()
   )
   expect((await POST(request())).status).toBe(502)
 })
+
+test("verified context forwards group metadata and never leaks its signature token", async () => {
+  const { issueAnalyticsContext } = await import("./attribution.server")
+  configure()
+  const oldSecret = process.env.LOGLY_ATTRIBUTION_SECRET
+  process.env.LOGLY_ATTRIBUTION_SECRET =
+    "test-attribution-secret-minimum-32-characters"
+  try {
+    const context = issueAnalyticsContext({
+      project: "halaalvest-dashboard",
+      user: { id: "user-A" },
+      tenant: { id: "tenant-A", name: "Example" },
+    })!
+    const input = request()
+    const body = await input.json()
+    body.events[0].analyticsContext = context.token
+    body.events[0].actorId = "forged"
+    body.events[0].groups = { business: { key: "forged" } }
+    globalThis.fetch = (async (_url, init) => {
+      const event = JSON.parse(String(init?.body)).events[0]
+      expect(event.groups.business.properties.name).toBe("Example")
+      expect(event.groups.business.key).not.toBe("forged")
+      expect(event.actorId).not.toBe("forged")
+      expect(event.analyticsContext).toBeUndefined()
+      expect(event.properties.email).toBeUndefined()
+      return Response.json({ accepted: 1 }, { status: 202 })
+    }) as typeof fetch
+    expect(
+      (
+        await POST(
+          new Request(input.url, {
+            method: "POST",
+            headers: input.headers,
+            body: JSON.stringify(body),
+          })
+        )
+      ).status
+    ).toBe(202)
+  } finally {
+    if (oldSecret === undefined) delete process.env.LOGLY_ATTRIBUTION_SECRET
+    else process.env.LOGLY_ATTRIBUTION_SECRET = oldSecret
+  }
+})
+
+test("rejects a forged context instead of accepting attributed client fields", async () => {
+  configure()
+  const input = request()
+  const body = await input.json()
+  body.events[0].analyticsContext = "forged.signature"
+  globalThis.fetch = Object.assign(
+    async () => {
+      throw Error("must not forward")
+    },
+    { preconnect: originalFetch.preconnect }
+  )
+  expect(
+    (
+      await POST(
+        new Request(input.url, {
+          method: "POST",
+          headers: input.headers,
+          body: JSON.stringify(body),
+        })
+      )
+    ).status
+  ).toBe(400)
+})
+
+test("custom browser and native events reach collector with verified audience/group precedence", async () => {
+  const { issueAnalyticsContext } = await import("./attribution.server")
+  configure()
+  process.env.LOGLY_MOBILE_PROJECT_KEY = "test-mobile-key"
+  const oldSecret = process.env.LOGLY_ATTRIBUTION_SECRET
+  process.env.LOGLY_ATTRIBUTION_SECRET =
+    "test-attribution-secret-minimum-32-characters"
+  try {
+    for (const surface of ["dashboard", "mobile"] as const) {
+      const input =
+        surface === "mobile" ? await nativeRequestForTest() : request()
+      const body = await input.json()
+      body.events[0].name = "application_started"
+      body.events[0].properties = {
+        channel: "web",
+        audience: "internal",
+        workspace_role: "forged",
+        email: "private",
+      }
+      body.events[0].analyticsContext = issueAnalyticsContext({
+        project: `halaalvest-${surface}`,
+        user: { id: "U" },
+        tenant: { id: "T", name: "Cooperative" },
+        role: "member",
+      })!.token
+      globalThis.fetch = (async (_url, init) => {
+        const event = JSON.parse(String(init?.body)).events[0]
+        expect(event.name).toBe("application_started")
+        expect(event.properties).toMatchObject({
+          channel: "web",
+          audience: "business",
+          workspace_role: "member",
+        })
+        expect(event.properties.email).toBeUndefined()
+        expect(event.groups.business.properties.name).toBe("Cooperative")
+        expect(event.analyticsContext).toBeUndefined()
+        return Response.json({ accepted: 1 }, { status: 202 })
+      }) as typeof fetch
+      expect(
+        (
+          await createEventsRoute(surface)(
+            new Request(input.url, {
+              method: "POST",
+              headers: input.headers,
+              body: JSON.stringify(body),
+            })
+          )
+        ).status
+      ).toBe(202)
+    }
+  } finally {
+    if (oldSecret === undefined) delete process.env.LOGLY_ATTRIBUTION_SECRET
+    else process.env.LOGLY_ATTRIBUTION_SECRET = oldSecret
+  }
+})

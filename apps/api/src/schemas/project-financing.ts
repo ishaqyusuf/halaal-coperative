@@ -18,7 +18,6 @@ const projectFinancingRequestSortFieldSchema = z.enum([
   "memberName",
   "requestedAmount",
   "requestedAt",
-  "status",
 ])
 
 export const listProjectFinancingRequestsSchema = z

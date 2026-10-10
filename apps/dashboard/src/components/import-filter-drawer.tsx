@@ -1,6 +1,11 @@
 "use client"
 
 import {
+  MobileFilterGroup,
+  filterOptionSummary,
+} from "@/components/search-filter/mobile-filter-group"
+
+import {
   RadioGroup,
   RadioGroupItem,
 } from "@halaalvest/ui/components/radio-group"
@@ -33,15 +38,12 @@ export function ImportFilterDrawer({
     ? getDashboardImportBatchLabel(importKind)
     : "import"
 
-  function applyFilters() {
-    void setFilter({ status: status === "all" ? null : status })
-    onOpenChange(false)
+  async function applyFilters() {
+    await setFilter({ status: status === "all" ? null : status })
   }
 
   function clearFilters() {
     setStatus("all")
-    void setFilter({ q: null, status: null })
-    onOpenChange(false)
   }
 
   return (
@@ -53,8 +55,10 @@ export function ImportFilterDrawer({
       open={open}
       title="Filter import batches"
     >
-      <section className="space-y-3">
-        <h3 className="text-xs font-medium text-foreground">Batch status</h3>
+      <MobileFilterGroup
+        title="Batch status"
+        summary={filterOptionSummary(status, statusFilters)}
+      >
         <RadioGroup onValueChange={setStatus} value={status}>
           {[{ id: "all", name: "Any status" }, ...statusFilters].map(
             (option) => (
@@ -72,7 +76,7 @@ export function ImportFilterDrawer({
             )
           )}
         </RadioGroup>
-      </section>
+      </MobileFilterGroup>
     </MobileFilterDrawer>
   )
 }

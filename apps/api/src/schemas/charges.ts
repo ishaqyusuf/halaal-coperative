@@ -10,12 +10,14 @@ const chargeLibrarySortFieldSchema = z.enum([
 
 export const listChargeLibrarySchema = z
   .object({
-    cursor: z.string().nullable().optional(),
-    pageSize: z.coerce.number().int().min(1).max(100).optional(),
+    frequency: z.string().nullable().optional(),
+    q: z.string().nullable().optional(),
     sort: z
       .tuple([chargeLibrarySortFieldSchema, z.enum(["asc", "desc"])])
       .nullable()
       .optional(),
+    status: z.string().nullable().optional(),
+    valueType: z.string().nullable().optional(),
   })
   .optional()
 

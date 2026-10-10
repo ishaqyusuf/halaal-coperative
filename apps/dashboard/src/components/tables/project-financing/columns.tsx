@@ -1,7 +1,6 @@
 "use client"
 
 import { Badge } from "@halaalvest/ui/components/badge"
-import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import { formatCurrency } from "@halaalvest/utils"
 import type {
   ProjectFinancingRequestRow,
@@ -9,10 +8,7 @@ import type {
 } from "@halaalvest/db"
 import type { ColumnDef } from "@tanstack/react-table"
 import { memo } from "react"
-import {
-  OpenProjectFinancingDisbursementSheet,
-  OpenProjectFinancingReviewSheet,
-} from "@/components/open-project-financing-sheet"
+import { ProjectFinancingActionsMenu } from "./actions-menu"
 
 export type ProjectFinancingRequest = ProjectFinancingRequestRow
 
@@ -20,7 +16,7 @@ type ProjectFinancingTableMeta = {
   canReview: boolean
 }
 
-function formatDate(value: Date | string) {
+export function formatProjectFinancingDate(value: Date | string) {
   const date = value instanceof Date ? value : new Date(value)
 
   return date.toLocaleDateString("en-NG", {
@@ -30,7 +26,9 @@ function formatDate(value: Date | string) {
   })
 }
 
-function formatStructure(value: ProjectFinancingStructure | null) {
+export function formatProjectFinancingStructure(
+  value: ProjectFinancingStructure | null
+) {
   if (!value) return "Not set"
 
   return value.replace(/_/g, " ")
@@ -55,7 +53,7 @@ const RequestCell = memo(
         {request.businessName}
       </p>
       <p className="mt-1 truncate text-xs text-muted-foreground">
-        {request.member.fullName} · {formatStructure(request.proposedStructure)}
+        {request.member.fullName} · {formatProjectFinancingStructure(request.proposedStructure)}
       </p>
     </div>
   )
@@ -63,7 +61,7 @@ const RequestCell = memo(
 
 RequestCell.displayName = "RequestCell"
 
-const StatusBadge = memo(
+export const ProjectFinancingStatusBadge = memo(
   ({ status }: { status: ProjectFinancingRequest["status"] }) => (
     <Badge className={statusClassName(status)} variant="outline">
       {status.replaceAll("_", " ")}
@@ -71,31 +69,9 @@ const StatusBadge = memo(
   )
 )
 
-StatusBadge.displayName = "StatusBadge"
+ProjectFinancingStatusBadge.displayName = "ProjectFinancingStatusBadge"
 
 export const columns: ColumnDef<ProjectFinancingRequest>[] = [
-  {
-    cell: ({ row }) => (
-      <Checkbox
-        aria-label={`Select ${row.original.businessName}`}
-        checked={row.getIsSelected()}
-        onCheckedChange={(checked) => row.toggleSelected(checked === true)}
-      />
-    ),
-    enableHiding: false,
-    enableResizing: false,
-    enableSorting: false,
-    id: "select",
-    maxSize: 50,
-    meta: {
-      className:
-        "w-[50px] min-w-[50px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20 justify-center",
-      skeleton: { type: "checkbox" },
-      sticky: true,
-    },
-    minSize: 50,
-    size: 50,
-  },
   {
     cell: ({ row }) => <RequestCell request={row.original} />,
     enableResizing: true,
@@ -114,7 +90,7 @@ export const columns: ColumnDef<ProjectFinancingRequest>[] = [
   },
   {
     accessorKey: "status",
-    cell: ({ row }) => <StatusBadge status={row.original.status} />,
+    cell: ({ row }) => <ProjectFinancingStatusBadge status={row.original.status} />,
     enableResizing: true,
     header: "Status",
     id: "status",
@@ -162,7 +138,7 @@ export const columns: ColumnDef<ProjectFinancingRequest>[] = [
             : "Not approved"}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          {formatStructure(row.original.approvedStructure)}
+          {formatProjectFinancingStructure(row.original.approvedStructure)}
         </p>
       </div>
     ),
@@ -207,7 +183,7 @@ export const columns: ColumnDef<ProjectFinancingRequest>[] = [
     accessorKey: "requestedAt",
     cell: ({ row }) => (
       <div>
-        <p>{formatDate(row.original.requestedAt)}</p>
+        <p>{formatProjectFinancingDate(row.original.requestedAt)}</p>
         <p className="mt-1 truncate text-xs text-muted-foreground">
           {row.original.createdByUser.fullName}
         </p>
@@ -227,7 +203,9 @@ export const columns: ColumnDef<ProjectFinancingRequest>[] = [
   },
   {
     cell: ({ row }) =>
-      row.original.disbursedAt ? formatDate(row.original.disbursedAt) : "No",
+      row.original.disbursedAt
+        ? formatProjectFinancingDate(row.original.disbursedAt)
+        : "No",
     enableResizing: true,
     header: "Disbursed",
     id: "disbursed",
@@ -243,21 +221,12 @@ export const columns: ColumnDef<ProjectFinancingRequest>[] = [
   {
     cell: ({ row, table }) => {
       const meta = table.options.meta as ProjectFinancingTableMeta
-      const request = row.original
-
-      if (!meta.canReview) {
-        return <span className="text-xs text-muted-foreground">Read only</span>
-      }
-
-      if (["submitted", "under_review"].includes(request.status)) {
-        return <OpenProjectFinancingReviewSheet requestId={request.id} />
-      }
-
-      if (request.status === "approved") {
-        return <OpenProjectFinancingDisbursementSheet requestId={request.id} />
-      }
-
-      return <span className="text-xs text-muted-foreground">No action</span>
+      return (
+        <ProjectFinancingActionsMenu
+          canReview={meta.canReview}
+          request={row.original}
+        />
+      )
     },
     enableHiding: false,
     enableResizing: false,

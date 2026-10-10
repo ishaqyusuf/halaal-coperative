@@ -3,48 +3,9 @@ import { PaymentReceiptsPageView } from "@/components/payment-receipts-page-view
 import { loadPaymentReceiptFilterParams } from "@/hooks/use-payment-receipt-filter-params"
 import { loadSortParams } from "@/hooks/use-sort-params"
 import { loadPaymentReceiptsPageData } from "@/lib/payment-receipts/load-payment-receipts-page"
-import {
-  getQueryClient,
-  getServerCaller,
-  HydrateClient,
-  trpc,
-} from "@/trpc/server"
+import { getPaymentReceiptListInput } from "@/lib/payment-receipts/payment-receipt-list-input"
+import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server"
 import { getInitialTableSettings } from "@/utils/columns"
-import { getEnumValue } from "@/utils/enum"
-
-type PaymentReceiptSortField =
-  | "memberName"
-  | "paidAt"
-  | "paymentReference"
-  | "status"
-  | "submittedAt"
-  | "totalAmount"
-
-function getPaymentReceiptSort(
-  sort?: string[] | null
-): [PaymentReceiptSortField, "asc" | "desc"] | null {
-  if (!sort || sort.length !== 2) return null
-
-  const field = sort[0]
-  const direction = sort[1]
-  if (!field || !direction) return null
-
-  const fieldMap: Record<string, PaymentReceiptSortField> = {
-    amount: "totalAmount",
-    paidAt: "paidAt",
-    receipt: "memberName",
-    reference: "paymentReference",
-    status: "status",
-    submittedAt: "submittedAt",
-    totalAmount: "totalAmount",
-  }
-  const sortField = fieldMap[field]
-
-  if (!sortField) return null
-  if (direction !== "asc" && direction !== "desc") return null
-
-  return [sortField, direction]
-}
 
 export default async function PaymentReceiptsPage({
   searchParams,
@@ -54,22 +15,11 @@ export default async function PaymentReceiptsPage({
   const resolvedSearchParams = await searchParams
   const filter = loadPaymentReceiptFilterParams(resolvedSearchParams)
   const { sort } = loadSortParams(resolvedSearchParams)
-  const [data, initialSettings, caller] = await Promise.all([
+  const [data, initialSettings] = await Promise.all([
     loadPaymentReceiptsPageData(),
     getInitialTableSettings("paymentReceipts"),
-    getServerCaller(),
   ])
-  const queryInput = {
-    q: filter.q || undefined,
-    sort: getPaymentReceiptSort(sort),
-    status: getEnumValue(filter.status, [
-      "approved",
-      "correction_requested",
-      "rejected",
-      "submitted",
-      "under_review",
-    ] as const),
-  }
+  const queryInput = getPaymentReceiptListInput(filter, sort)
   const listOptions = trpc.paymentReceipts.list.infiniteQueryOptions(
     queryInput,
     {
@@ -78,12 +28,7 @@ export default async function PaymentReceiptsPage({
   )
 
   if (data.state === "staff-ready" || data.state === "member-ready") {
-    const initialPage = await caller.paymentReceipts.list(queryInput)
-
-    getQueryClient().setQueryData(listOptions.queryKey, {
-      pageParams: [listOptions.initialPageParam],
-      pages: [initialPage],
-    })
+    await batchPrefetch([listOptions])
   }
 
   return (

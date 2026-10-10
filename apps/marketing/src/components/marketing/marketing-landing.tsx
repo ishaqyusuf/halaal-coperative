@@ -1,5 +1,5 @@
-import type { QaQuickFillContext } from "@halaalvest/utils"
 import { LandingHero } from "./landing-hero"
+import type { MarketingExperienceProps } from "./marketing-experience-contract"
 import { MarketingHeader } from "./marketing-header"
 import { PricingSection } from "./pricing-section"
 import { ProductStorySection } from "./product-story-section"
@@ -14,11 +14,7 @@ export function MarketingLanding({
   isLaunchReady,
   quickFill,
   signupHref,
-}: {
-  isLaunchReady: boolean
-  quickFill: QaQuickFillContext
-  signupHref: string
-}) {
+}: MarketingExperienceProps) {
   return (
     <main
       id="top"

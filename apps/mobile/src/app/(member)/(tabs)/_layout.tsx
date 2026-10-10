@@ -1,9 +1,15 @@
 import { Icon } from "@/components/ui/icon"
+import { useFullScreenFormVisibility } from "@/components/app/full-screen-form-visibility"
+import { TabBarLabel } from "@/components/app/tab-bar-label"
 import { useColors } from "@/hooks/use-color"
 import { Tabs } from "expo-router"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { resolveTabBarGeometry } from "@/lib/tab-bar-geometry"
 
 export default function MemberTabsLayout() {
   const colors = useColors()
+  const insets = useSafeAreaInsets()
+  const { hideTabBar } = useFullScreenFormVisibility()
 
   return (
     <Tabs
@@ -15,16 +21,11 @@ export default function MemberTabsLayout() {
           minHeight: 56,
           paddingVertical: 6,
         },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: "600",
-        },
         tabBarStyle: {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
-          minHeight: 64,
-          paddingBottom: 6,
-          paddingTop: 6,
+          display: hideTabBar ? "none" : "flex",
+          ...resolveTabBarGeometry(insets.bottom),
         },
       }}
     >
@@ -32,6 +33,9 @@ export default function MemberTabsLayout() {
         name="index"
         options={{
           tabBarAccessibilityLabel: "Member home tab",
+          tabBarLabel: ({ color }) => (
+            <TabBarLabel color={color} label="Home" />
+          ),
           title: "Home",
           tabBarIcon: ({ color }) => (
             <Icon color={color} name="Home" className="size-base" />
@@ -41,8 +45,11 @@ export default function MemberTabsLayout() {
       <Tabs.Screen
         name="commitments"
         options={{
-          tabBarAccessibilityLabel: "Commitments tab",
-          title: "Commitments",
+          tabBarAccessibilityLabel: "Commitments and savings tab",
+          tabBarLabel: ({ color }) => (
+            <TabBarLabel color={color} label="Plans" />
+          ),
+          title: "Plans",
           tabBarIcon: ({ color }) => (
             <Icon color={color} name="BadgeCheck" className="size-base" />
           ),
@@ -52,7 +59,10 @@ export default function MemberTabsLayout() {
         name="financing"
         options={{
           tabBarAccessibilityLabel: "Financing tab",
-          title: "Financing",
+          tabBarLabel: ({ color }) => (
+            <TabBarLabel color={color} label="Finance" />
+          ),
+          title: "Finance",
           tabBarIcon: ({ color }) => (
             <Icon color={color} name="HandCoins" className="size-base" />
           ),
@@ -62,6 +72,9 @@ export default function MemberTabsLayout() {
         name="shares"
         options={{
           tabBarAccessibilityLabel: "Shares tab",
+          tabBarLabel: ({ color }) => (
+            <TabBarLabel color={color} label="Shares" />
+          ),
           title: "Shares",
           tabBarIcon: ({ color }) => (
             <Icon color={color} name="PieChart" className="size-base" />
@@ -72,6 +85,9 @@ export default function MemberTabsLayout() {
         name="more"
         options={{
           tabBarAccessibilityLabel: "More member services tab",
+          tabBarLabel: ({ color }) => (
+            <TabBarLabel color={color} label="More" />
+          ),
           title: "More",
           tabBarIcon: ({ color }) => (
             <Icon color={color} name="Menu" className="size-base" />

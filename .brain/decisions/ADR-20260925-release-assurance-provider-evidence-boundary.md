@@ -1,6 +1,6 @@
 # ADR: Release Assurance Uses Pinned Logic And Trusted Provider Evidence
 
-- Status: Accepted
+- Status: Superseded by ADR-20261007-shared-component-release-flow.md
 - Date: 2026-09-25
 
 ## Context

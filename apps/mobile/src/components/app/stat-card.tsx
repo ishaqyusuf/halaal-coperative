@@ -16,7 +16,7 @@ export function StatCard({
   return (
     <View
       className={cn(
-        "min-h-[136px] min-w-[148px] flex-1 justify-between gap-3 rounded-md border border-border bg-card p-4 shadow-sm shadow-black/5",
+        "min-w-[148px] flex-1 gap-1.5 border-b border-border px-1 py-4",
         className
       )}
     >
@@ -28,7 +28,7 @@ export function StatCard({
       </Text>
       <Text
         adjustsFontSizeToFit
-        className="text-2xl leading-8 font-bold text-foreground"
+        className="text-2xl leading-8 font-extrabold tracking-tight text-foreground"
         minimumFontScale={0.72}
         numberOfLines={1}
       >

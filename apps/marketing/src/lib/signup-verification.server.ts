@@ -46,10 +46,12 @@ export async function resolveSignupVerification(
   }
 
   const availability = await dependencies.checkAvailability({
+    cooperativeCodePrefix: verification.cooperativeCodePrefix,
     cooperativeName: verification.cooperativeName,
     workspaceSlug: verification.workspaceSlug,
   })
   const workspaceIsAvailable =
+    availability.cooperativeCodePrefix.available &&
     availability.cooperativeName.available &&
     availability.workspaceSlug.available
 

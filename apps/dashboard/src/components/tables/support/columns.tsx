@@ -1,16 +1,10 @@
 "use client"
 
 import { Badge } from "@halaalvest/ui/components/badge"
-import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import type { SupportCaseRow, SupportCaseStatus } from "@halaalvest/db"
 import type { ColumnDef } from "@tanstack/react-table"
 import { memo } from "react"
-import {
-  OpenMemberSupportCaseReplySheet,
-  OpenSupportCaseAdjustmentReviewSheet,
-  OpenSupportCaseReplySheet,
-  OpenSupportCaseUpdateSheet,
-} from "@/components/open-support-case-sheet"
+import { SupportActionsMenu } from "./actions-menu"
 
 export type SupportCase = SupportCaseRow
 
@@ -19,11 +13,11 @@ type SupportTableMeta = {
   mode: "member" | "staff"
 }
 
-function labelFromValue(value: string) {
+export function labelFromValue(value: string) {
   return value.replace(/_/g, " ")
 }
 
-function formatDate(value: Date | string) {
+export function formatSupportDate(value: Date | string) {
   const date = value instanceof Date ? value : new Date(value)
 
   return date.toLocaleDateString("en-NG", {
@@ -49,7 +43,7 @@ function latestMessage(caseRow: SupportCase) {
   return caseRow.messages.at(-1)
 }
 
-function linkedRecordLabel(caseRow: SupportCase) {
+export function linkedRecordLabel(caseRow: SupportCase) {
   if (!caseRow.linkedRecordId || !caseRow.linkedRecordType) {
     return "No linked record"
   }
@@ -77,37 +71,17 @@ const CaseCell = memo(({ supportCase }: { supportCase: SupportCase }) => (
 
 CaseCell.displayName = "CaseCell"
 
-const StatusBadge = memo(({ status }: { status: SupportCaseStatus }) => (
-  <Badge className={statusClassName(status)} variant="outline">
-    {labelFromValue(status)}
-  </Badge>
-))
+export const SupportStatusBadge = memo(
+  ({ status }: { status: SupportCaseStatus }) => (
+    <Badge className={statusClassName(status)} variant="outline">
+      {labelFromValue(status)}
+    </Badge>
+  )
+)
 
-StatusBadge.displayName = "StatusBadge"
+SupportStatusBadge.displayName = "SupportStatusBadge"
 
 export const columns: ColumnDef<SupportCase>[] = [
-  {
-    cell: ({ row }) => (
-      <Checkbox
-        aria-label={`Select ${row.original.subject}`}
-        checked={row.getIsSelected()}
-        onCheckedChange={(checked) => row.toggleSelected(checked === true)}
-      />
-    ),
-    enableHiding: false,
-    enableResizing: false,
-    enableSorting: false,
-    id: "select",
-    maxSize: 50,
-    meta: {
-      className:
-        "w-[50px] min-w-[50px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20 justify-center",
-      skeleton: { type: "checkbox" },
-      sticky: true,
-    },
-    minSize: 50,
-    size: 50,
-  },
   {
     cell: ({ row }) => <CaseCell supportCase={row.original} />,
     enableResizing: true,
@@ -126,7 +100,7 @@ export const columns: ColumnDef<SupportCase>[] = [
   },
   {
     accessorKey: "status",
-    cell: ({ row }) => <StatusBadge status={row.original.status} />,
+    cell: ({ row }) => <SupportStatusBadge status={row.original.status} />,
     enableResizing: true,
     header: "Status",
     id: "status",
@@ -171,8 +145,7 @@ export const columns: ColumnDef<SupportCase>[] = [
   },
   {
     accessorKey: "assignedToUser",
-    cell: ({ row }) =>
-      row.original.assignedToUser?.fullName ?? "Unassigned",
+    cell: ({ row }) => row.original.assignedToUser?.fullName ?? "Unassigned",
     enableResizing: true,
     header: "Assignee",
     id: "assignee",
@@ -198,7 +171,7 @@ export const columns: ColumnDef<SupportCase>[] = [
           <p className="truncate">{message.message}</p>
           <p className="mt-1 truncate text-xs text-muted-foreground">
             {message.authorUser?.fullName ?? message.authorType} ·{" "}
-            {formatDate(message.createdAt)}
+            {formatSupportDate(message.createdAt)}
           </p>
         </div>
       )
@@ -231,7 +204,7 @@ export const columns: ColumnDef<SupportCase>[] = [
   },
   {
     accessorKey: "createdAt",
-    cell: ({ row }) => formatDate(row.original.createdAt),
+    cell: ({ row }) => formatSupportDate(row.original.createdAt),
     enableResizing: true,
     header: "Opened",
     id: "createdAt",
@@ -248,28 +221,12 @@ export const columns: ColumnDef<SupportCase>[] = [
     cell: ({ row, table }) => {
       const meta = table.options.meta as SupportTableMeta
       const supportCase = row.original
-
-      if (meta.mode === "member") {
-        return supportCase.status !== "closed" ? (
-          <OpenMemberSupportCaseReplySheet supportCaseId={supportCase.id} />
-        ) : (
-          <span className="text-xs text-muted-foreground">Closed</span>
-        )
-      }
-
       return (
-        <div className="flex flex-wrap justify-end gap-1">
-          <OpenSupportCaseUpdateSheet supportCaseId={supportCase.id} />
-          {supportCase.requiresFinancialAdjustment &&
-          meta.canReviewFinancialAdjustments ? (
-            <OpenSupportCaseAdjustmentReviewSheet
-              supportCaseId={supportCase.id}
-            />
-          ) : null}
-          {supportCase.status !== "closed" ? (
-            <OpenSupportCaseReplySheet supportCaseId={supportCase.id} />
-          ) : null}
-        </div>
+        <SupportActionsMenu
+          canReviewFinancialAdjustments={meta.canReviewFinancialAdjustments}
+          mode={meta.mode}
+          supportCase={supportCase}
+        />
       )
     },
     enableHiding: false,
@@ -277,7 +234,7 @@ export const columns: ColumnDef<SupportCase>[] = [
     enableSorting: false,
     header: "Actions",
     id: "actions",
-    maxSize: 260,
+    maxSize: 80,
     meta: {
       className:
         "text-right sticky right-0 bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-30 justify-center !border-l !border-border",
@@ -285,7 +242,7 @@ export const columns: ColumnDef<SupportCase>[] = [
       skeleton: { type: "icon" },
       sticky: true,
     },
-    minSize: 220,
-    size: 220,
+    minSize: 72,
+    size: 72,
   },
 ]

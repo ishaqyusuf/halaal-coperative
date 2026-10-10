@@ -92,7 +92,8 @@ describe("member workspace Midday conformance", () => {
     expect(mobileItem).toContain("<KycBadge")
     expect(mobileItem).toContain("<MemberMobileActionsDrawer")
     expect(mobileActions).toContain('from "@halaalvest/ui/components/drawer"')
-    expect(mobileFilters).toContain('from "@halaalvest/ui/components/drawer"')
+    expect(mobileFilters).toContain('from "@halaalvest/ui/components/sheet"')
+    expect(mobileFilters).toContain('side="bottom"')
   })
 
   test("keeps mobile member filters and sort URL-addressable", () => {

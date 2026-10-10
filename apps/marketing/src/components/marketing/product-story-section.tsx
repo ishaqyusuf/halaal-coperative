@@ -31,7 +31,7 @@ const productStories: {
     eyebrow: "Finance with controls",
     title:
       "Make interest-free financing decisions the cooperative can explain.",
-    body: "Keep member eligibility separate from available pool liquidity, guarantor evidence, approval authority, disbursement, and principal repayment.",
+    body: "Keep member eligibility separate from available pool liquidity, guarantor evidence, approval authority, disbursement, principal repayment, and any separately assessed charges.",
     icon: HandCoinsIcon,
     points: [
       "Eligibility and liquidity checks",

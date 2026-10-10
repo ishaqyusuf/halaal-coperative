@@ -1,7 +1,6 @@
 "use client"
 
 import { Badge } from "@halaalvest/ui/components/badge"
-import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import { formatCurrency } from "@halaalvest/utils"
 import type { MemberPaymentReceiptRow } from "@halaalvest/db"
 import type { ColumnDef } from "@tanstack/react-table"
@@ -18,7 +17,7 @@ type PaymentReceiptTableMeta = {
   mode: "member" | "staff"
 }
 
-function formatDate(value: Date | string) {
+export function formatPaymentReceiptDate(value: Date | string) {
   const date = value instanceof Date ? value : new Date(value)
 
   return date.toLocaleDateString("en-NG", {
@@ -28,7 +27,7 @@ function formatDate(value: Date | string) {
   })
 }
 
-function labelFromValue(value: string) {
+export function paymentReceiptLabelFromValue(value: string) {
   return value.replace(/_/g, " ")
 }
 
@@ -61,37 +60,17 @@ const ReceiptCell = memo(({ receipt }: { receipt: PaymentReceipt }) => (
 
 ReceiptCell.displayName = "ReceiptCell"
 
-const StatusBadge = memo(({ status }: { status: PaymentReceipt["status"] }) => (
-  <Badge className={statusClassName(status)} variant="outline">
-    {labelFromValue(status)}
-  </Badge>
-))
+export const PaymentReceiptStatusBadge = memo(
+  ({ status }: { status: PaymentReceipt["status"] }) => (
+    <Badge className={statusClassName(status)} variant="outline">
+      {paymentReceiptLabelFromValue(status)}
+    </Badge>
+  )
+)
 
-StatusBadge.displayName = "StatusBadge"
+PaymentReceiptStatusBadge.displayName = "PaymentReceiptStatusBadge"
 
 export const columns: ColumnDef<PaymentReceipt>[] = [
-  {
-    cell: ({ row }) => (
-      <Checkbox
-        aria-label={`Select ${row.original.member.fullName}`}
-        checked={row.getIsSelected()}
-        onCheckedChange={(checked) => row.toggleSelected(checked === true)}
-      />
-    ),
-    enableHiding: false,
-    enableResizing: false,
-    enableSorting: false,
-    id: "select",
-    maxSize: 50,
-    meta: {
-      className:
-        "w-[50px] min-w-[50px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20 justify-center",
-      skeleton: { type: "checkbox" },
-      sticky: true,
-    },
-    minSize: 50,
-    size: 50,
-  },
   {
     cell: ({ row }) => <ReceiptCell receipt={row.original} />,
     enableResizing: true,
@@ -110,7 +89,9 @@ export const columns: ColumnDef<PaymentReceipt>[] = [
   },
   {
     accessorKey: "status",
-    cell: ({ row }) => <StatusBadge status={row.original.status} />,
+    cell: ({ row }) => (
+      <PaymentReceiptStatusBadge status={row.original.status} />
+    ),
     enableResizing: true,
     header: "Status",
     id: "status",
@@ -144,7 +125,7 @@ export const columns: ColumnDef<PaymentReceipt>[] = [
   },
   {
     accessorKey: "paidAt",
-    cell: ({ row }) => formatDate(row.original.paidAt),
+    cell: ({ row }) => formatPaymentReceiptDate(row.original.paidAt),
     enableResizing: true,
     header: "Paid at",
     id: "paidAt",
@@ -159,7 +140,7 @@ export const columns: ColumnDef<PaymentReceipt>[] = [
   },
   {
     accessorKey: "submittedAt",
-    cell: ({ row }) => formatDate(row.original.submittedAt),
+    cell: ({ row }) => formatPaymentReceiptDate(row.original.submittedAt),
     enableResizing: true,
     header: "Submitted",
     id: "submittedAt",

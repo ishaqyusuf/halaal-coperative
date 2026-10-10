@@ -2,19 +2,9 @@ import { randomUUID } from "node:crypto"
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { getQaUploadRoots } from "@halaalvest/jobs"
+import { DASHBOARD_UPLOAD_MAX_SIZE_LABEL, MAX_DASHBOARD_UPLOAD_BYTES, isDashboardUploadStorageUnavailable, isSupportedDashboardUploadContentType, type DashboardUploadPurpose } from "./upload-policy"
 
-const maxUploadBytes = 10 * 1024 * 1024
 const uploadIdPattern = /^[a-f0-9-]{36}$/
-
-const allowedContentTypes = new Set([
-  "application/pdf",
-  "image/gif",
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "text/csv",
-  "text/plain",
-])
 
 const extensionByContentType = new Map([
   ["application/pdf", ".pdf"],
@@ -25,12 +15,6 @@ const extensionByContentType = new Map([
   ["text/csv", ".csv"],
   ["text/plain", ".txt"],
 ])
-
-export type DashboardUploadPurpose =
-  | "member_document"
-  | "opening_balance_source"
-  | "payment_receipt_proof"
-  | "support_attachment"
 
 type UploadMetadata = {
   contentType: string
@@ -74,17 +58,6 @@ async function ensureUploadRoot() {
   return root
 }
 
-export function isSupportedDashboardUploadPurpose(
-  value: string
-): value is DashboardUploadPurpose {
-  return [
-    "member_document",
-    "opening_balance_source",
-    "payment_receipt_proof",
-    "support_attachment",
-  ].includes(value)
-}
-
 export async function saveDashboardUpload({
   file,
   purpose,
@@ -96,15 +69,18 @@ export async function saveDashboardUpload({
   tenantId: string
   userId: string
 }) {
+  if (isDashboardUploadStorageUnavailable()) {
+    throw new Error("File uploads are unavailable until persistent storage is configured.")
+  }
   if (file.size <= 0) {
     throw new Error("Upload file is empty.")
   }
 
-  if (file.size > maxUploadBytes) {
-    throw new Error("Upload file is larger than 10 MB.")
+  if (file.size > MAX_DASHBOARD_UPLOAD_BYTES) {
+    throw new Error(`Upload file is larger than ${DASHBOARD_UPLOAD_MAX_SIZE_LABEL}.`)
   }
 
-  if (file.type && !allowedContentTypes.has(file.type)) {
+  if (file.type && !isSupportedDashboardUploadContentType(file.type)) {
     throw new Error("Upload file type is not supported.")
   }
 
@@ -113,7 +89,9 @@ export async function saveDashboardUpload({
   const safeName = sanitizeFilename(file.name)
   const extension = getSafeExtension(file)
   const storedFileName = `${id}${extension}`
-  const filePath = path.join(root, storedFileName)
+  // This adapter is blocked in production; avoid tracing a development-only
+  // dynamic upload root into the Vercel Function bundle.
+  const filePath = path.join(/* turbopackIgnore: true */ root, storedFileName)
   const metadataPath = path.join(root, `${id}.json`)
   const bytes = Buffer.from(await file.arrayBuffer())
   const metadata: UploadMetadata = {
@@ -149,15 +127,15 @@ export async function readDashboardUpload(id: string) {
   const metadataPath = path.join(root, `${id}.json`)
   const rawMetadata = await readFile(metadataPath, "utf8")
   const metadata = JSON.parse(rawMetadata) as UploadMetadata
-  const filePath = path.join(root, metadata.storedFileName)
-  const fileStat = await stat(filePath)
+  const filePath = path.join(/* turbopackIgnore: true */ root, metadata.storedFileName)
+  const fileStat = await stat(/* turbopackIgnore: true */ filePath)
 
   if (!fileStat.isFile()) {
     return null
   }
 
   return {
-    bytes: await readFile(filePath),
+    bytes: await readFile(/* turbopackIgnore: true */ filePath),
     metadata,
   }
 }

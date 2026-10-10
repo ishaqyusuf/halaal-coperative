@@ -2,7 +2,6 @@
 
 import type { MemberShareApplicationRow } from "@halaalvest/db"
 import { Badge } from "@halaalvest/ui/components/badge"
-import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import { formatCurrency } from "@halaalvest/utils"
 import type { ColumnDef } from "@tanstack/react-table"
 import { memo } from "react"
@@ -10,7 +9,7 @@ import { OpenShareApplicationReviewSheet } from "@/components/open-share-applica
 
 export type ShareApplication = MemberShareApplicationRow
 
-function formatDate(value: Date | string) {
+export function formatShareApplicationDate(value: Date | string) {
   const date = value instanceof Date ? value : new Date(value)
 
   return date.toLocaleDateString("en-NG", {
@@ -61,7 +60,7 @@ const ApplicationCell = memo(
 
 ApplicationCell.displayName = "ApplicationCell"
 
-const StatusBadge = memo(
+export const ShareApplicationStatusBadge = memo(
   ({ status }: { status: ShareApplication["status"] }) => (
     <Badge className={statusClassName(status)} variant="outline">
       {statusLabel(status)}
@@ -69,31 +68,9 @@ const StatusBadge = memo(
   )
 )
 
-StatusBadge.displayName = "StatusBadge"
+ShareApplicationStatusBadge.displayName = "ShareApplicationStatusBadge"
 
 export const columns: ColumnDef<ShareApplication>[] = [
-  {
-    cell: ({ row }) => (
-      <Checkbox
-        aria-label={`Select ${row.original.memberName}`}
-        checked={row.getIsSelected()}
-        onCheckedChange={(checked) => row.toggleSelected(checked === true)}
-      />
-    ),
-    enableHiding: false,
-    enableResizing: false,
-    enableSorting: false,
-    id: "select",
-    maxSize: 50,
-    meta: {
-      className:
-        "w-[50px] min-w-[50px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20 justify-center",
-      skeleton: { type: "checkbox" },
-      sticky: true,
-    },
-    minSize: 50,
-    size: 50,
-  },
   {
     cell: ({ row }) => <ApplicationCell application={row.original} />,
     enableResizing: true,
@@ -112,7 +89,7 @@ export const columns: ColumnDef<ShareApplication>[] = [
   },
   {
     accessorKey: "status",
-    cell: ({ row }) => <StatusBadge status={row.original.status} />,
+    cell: ({ row }) => <ShareApplicationStatusBadge status={row.original.status} />,
     enableResizing: true,
     header: "Status",
     id: "status",
@@ -161,7 +138,7 @@ export const columns: ColumnDef<ShareApplication>[] = [
   },
   {
     accessorKey: "createdAt",
-    cell: ({ row }) => formatDate(row.original.createdAt),
+    cell: ({ row }) => formatShareApplicationDate(row.original.createdAt),
     enableResizing: true,
     header: "Requested",
     id: "requestedAt",

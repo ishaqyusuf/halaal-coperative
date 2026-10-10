@@ -41,6 +41,33 @@ function getCollectionSourcePayload(payload: unknown) {
   }
 }
 
+function getLoanProductPayload(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null
+  }
+
+  const value = payload as Record<string, unknown>
+  return {
+    code:
+      typeof value.code === "string" && value.code
+        ? value.code
+        : "No code",
+    loanType:
+      value.loanType === "quick"
+        ? "Quick"
+        : value.loanType === "normal"
+          ? "Normal"
+          : "Unknown type",
+    maxSavingsMultiple:
+      typeof value.maxSavingsMultiple === "number"
+        ? value.maxSavingsMultiple
+        : null,
+    name: typeof value.name === "string" ? value.name : "Unnamed product",
+    termMonths:
+      typeof value.termMonths === "number" ? value.termMonths : null,
+  }
+}
+
 export function ImportContent({
   activeKind,
   batches,
@@ -158,8 +185,39 @@ export function ImportContent({
               selectedBatch.importType === "deduction_sources"
                 ? getCollectionSourcePayload(row.payload)
                 : null
+            const loanProduct =
+              selectedBatch.importType === "loan_products"
+                ? getLoanProductPayload(row.payload)
+                : null
 
-            return source ? (
+            return loanProduct ? (
+              <div className="grid gap-2 px-1 py-3 text-xs" key={row.id}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-foreground">
+                      {loanProduct.name}
+                    </p>
+                    <p className="mt-1 text-muted-foreground">
+                      Code: {loanProduct.code}
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-muted-foreground">
+                    {loanProduct.loanType}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
+                  <span>
+                    Term: {loanProduct.termMonths ?? "Not provided"} months
+                  </span>
+                  <span>
+                    Limit: {loanProduct.maxSavingsMultiple ?? "Not provided"}×
+                    savings
+                  </span>
+                  {row.existingMatch ? <span>Existing policy update</span> : null}
+                  {row.duplicateInFile ? <span>Duplicate in file</span> : null}
+                </div>
+              </div>
+            ) : source ? (
               <div className="grid gap-2 px-1 py-3 text-xs" key={row.id}>
                 <div className="flex items-start justify-between gap-3">
                   <p className="font-medium text-foreground">{source.name}</p>

@@ -45,16 +45,18 @@ export async function POST(request: Request) {
 
     const verification = verificationResult.value
     const result = await createTenantWorkspaceBootstrap({
+      legalAcknowledgement: input.legalAcknowledgement,
+      cooperativeCodePrefix: verification.cooperativeCodePrefix,
       city: input.city,
       country: input.country,
       currentSize: input.currentSize,
       name: verification.cooperativeName,
       officeAddress: input.officeAddress,
-      memberNumberPrefix: verification.memberNumberPrefix || null,
+      memberNumberPrefix: `${verification.cooperativeCodePrefix}-`,
       ownerEmail: verification.primaryContactEmail,
       ownerFullName: verification.primaryContactFullName,
       ownerMemberNumber: composeMemberNumber(
-        verification.memberNumberPrefix,
+        `${verification.cooperativeCodePrefix}-`,
         verification.primaryContactMemberNumber
       ),
       ownerPasswordHash: hashPassword(input.password),

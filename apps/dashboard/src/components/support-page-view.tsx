@@ -97,10 +97,9 @@ export function SupportPageView({
         }
       >
         <MemberSupportCasesView
-          cases={data.cases}
+          canCreateSupportCases={data.canCreateSupportCases}
           initialCase={data.initialCase}
           initialSettings={supportInitialSettings}
-          member={data.member}
           summary={data.summary}
         />
       </WorkspacePageShell>
@@ -118,8 +117,8 @@ export function SupportPageView({
     >
       <SupportCasesView
         assignees={data.assignees}
+        canCreateSupportCases={data.canCreateSupportCases}
         canReviewFinancialAdjustments={data.canReviewFinancialAdjustments}
-        cases={data.cases}
         initialSettings={supportInitialSettings}
         memberOptions={data.memberOptions}
         summary={data.summary}

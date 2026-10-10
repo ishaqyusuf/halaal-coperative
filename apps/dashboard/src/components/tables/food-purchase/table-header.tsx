@@ -21,10 +21,7 @@ import {
 import { DraggableHeader } from "@/components/tables/draggable-header"
 import { ResizeHandle } from "@/components/tables/resize-handle"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
-import {
-  NON_REORDERABLE_COLUMNS,
-  STICKY_COLUMNS,
-} from "@/utils/table-configs"
+import { NON_REORDERABLE_COLUMNS, STICKY_COLUMNS } from "@/utils/table-configs"
 
 interface Props<TData> {
   loading?: boolean
@@ -167,11 +164,7 @@ function renderHeaderContent<TData>(
       <Checkbox
         aria-label="Select all visible Foodstuff Purchase applications"
         aria-checked={
-          allPageRowsSelected
-            ? true
-            : somePageRowsSelected
-              ? "mixed"
-              : false
+          allPageRowsSelected ? true : somePageRowsSelected ? "mixed" : false
         }
         checked={allPageRowsSelected}
         data-indeterminate={

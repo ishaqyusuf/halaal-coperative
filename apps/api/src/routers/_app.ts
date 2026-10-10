@@ -1,3 +1,5 @@
+import { legalRouter } from "./legal.route"
+import { accountPrivacyRouter } from "./account-privacy.route"
 import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server"
 import { createTRPCRouter } from "../lib.trpc"
 import { healthRouter } from "./health.route"
@@ -20,13 +22,20 @@ import { monthlyRecordsRouter } from "./monthly-records.route"
 import { paymentReceiptsRouter } from "./payment-receipts.route"
 import { procurementRouter } from "./procurement.route"
 import { projectFinancingRouter } from "./project-financing.route"
+import { repaymentsRouter } from "./repayments.route"
 import { shareApplicationsRouter } from "./share-applications.route"
 import { supportRouter } from "./support.route"
 import { mobileAuthRouter } from "./mobile-auth.route"
 import { mobileRouter } from "./mobile.route"
 import { qaMaintenanceRouter } from "./qa-maintenance.route"
+import { subscriptionsRouter } from "./subscriptions.route"
+import { mobileAppAccessRouter } from "./mobile-app-access.route"
+import { storeRefundReviewsRouter } from "./store-refund-reviews.route"
+import { qaAcceleratorRouter } from "./qa-accelerator.route"
 
 export const appRouter = createTRPCRouter({
+  legal: legalRouter,
+  accountPrivacy: accountPrivacyRouter,
   analytics: analyticsRouter,
   business: businessRouter,
   foodPurchase: foodPurchaseRouter,
@@ -40,9 +49,14 @@ export const appRouter = createTRPCRouter({
   paymentReceipts: paymentReceiptsRouter,
   procurement: procurementRouter,
   projectFinancing: projectFinancingRouter,
+  repayments: repaymentsRouter,
   qaMaintenance: qaMaintenanceRouter,
+  qaAccelerator: qaAcceleratorRouter,
   shareApplications: shareApplicationsRouter,
   support: supportRouter,
+  subscriptions: subscriptionsRouter,
+  mobileAppAccess: mobileAppAccessRouter,
+  storeRefundReviews: storeRefundReviewsRouter,
   overview: overviewRouter,
   notifications: notificationsRouter,
   workspace: workspaceRouter,

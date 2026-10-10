@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import {
+  createMemberPaymentReceiptPageCursor,
   createMemberPaymentReceipt,
   getMemberScopedPaymentReceiptSummary,
+  listMemberPaymentReceiptPage,
   listMemberPaymentReceipts,
   reviewMemberPaymentReceipt,
 } from "./payment-receipts"
@@ -140,6 +142,7 @@ describe("member payment receipt queries", () => {
               },
             },
             memberPaymentReceipt: {
+              findFirst: async () => null,
               create: async (input: any) => {
                 receiptCreates.push(input)
                 return receiptRow({
@@ -229,6 +232,14 @@ describe("member payment receipt queries", () => {
           totalAmount: 15000,
         },
         {
+          $transaction: async (
+            callback: (transactionClient: unknown) => Promise<unknown>
+          ) =>
+            callback({
+              memberPaymentReceipt: {
+                findFirst: async () => ({ id: "receipt-existing" }),
+              },
+            }),
           contributionPlan: {
             count: async () => 0,
           },
@@ -244,6 +255,109 @@ describe("member payment receipt queries", () => {
         } as never
       )
     ).rejects.toThrow("already uses this payment reference")
+  })
+
+  test("rejects receipt payment dates before the cooperative start date", async () => {
+    await expect(
+      createMemberPaymentReceipt(
+        {
+          allocations: [{ amount: 15000, category: "commitment" }],
+          memberId: "member-1",
+          paidAt: new Date("2025-12-31T00:00:00.000Z"),
+          tenantId: "tenant-1",
+          totalAmount: 15000,
+        },
+        {
+          tenant: {
+            findUnique: async () => ({
+              startDate: new Date("2026-01-01T00:00:00.000Z"),
+            }),
+          },
+        } as never
+      )
+    ).rejects.toThrow("cannot be before the cooperative start date")
+  })
+
+  test("rejects allocation targets that do not match their category", async () => {
+    await expect(
+      createMemberPaymentReceipt(
+        {
+          allocations: [
+            {
+              amount: 15000,
+              category: "commitment",
+              loanId: "loan-1",
+            },
+          ],
+          memberId: "member-1",
+          paidAt: new Date("2026-07-08T00:00:00.000Z"),
+          tenantId: "tenant-1",
+          totalAmount: 15000,
+        },
+        {} as never
+      )
+    ).rejects.toThrow("cannot use loanId for commitment")
+  })
+
+  test("rejects project financing allocations to non-repayable or cross-tenant targets", async () => {
+    let validatedWhere: unknown
+
+    await expect(
+      createMemberPaymentReceipt(
+        {
+          allocations: [
+            {
+              amount: 15000,
+              category: "project_financing",
+              projectFinancingRequestId: "partnership-1",
+            },
+          ],
+          memberId: "member-1",
+          paidAt: new Date("2026-07-08T00:00:00.000Z"),
+          tenantId: "tenant-1",
+          totalAmount: 15000,
+        },
+        {
+          member: { findFirst: async () => ({ id: "member-1" }) },
+          projectFinancingRequest: {
+            count: async (input: unknown) => {
+              validatedWhere = input
+              return 0
+            },
+          },
+          tenant: {
+            findUnique: async () => ({
+              startDate: new Date("2026-01-01T00:00:00.000Z"),
+            }),
+          },
+        } as never
+      )
+    ).rejects.toMatchObject({ code: "PERMISSION_DENIED" })
+
+    expect(validatedWhere).toMatchObject({
+      where: {
+        approvedStructure: "repayable_facility",
+        id: { in: ["partnership-1"] },
+        memberId: "member-1",
+        status: { in: ["approved", "active"] },
+        tenantId: "tenant-1",
+      },
+    })
+  })
+
+  test("rejects receipt allocations whose total does not match the receipt", async () => {
+    await expect(
+      createMemberPaymentReceipt(
+        {
+          allocations: [{ amount: 10000, category: "commitment" }],
+          memberId: "member-1",
+          paidAt: new Date("2026-07-08T00:00:00.000Z"),
+          tenantId: "tenant-1",
+          totalAmount: 15000,
+        },
+        {} as never
+      )
+    ).rejects.toThrow("allocation total must match")
   })
 
   test("summarizes payment receipts within a member boundary", async () => {
@@ -318,6 +432,100 @@ describe("member payment receipt queries", () => {
           lte: submittedTo,
         },
         tenantId: "tenant-1",
+      },
+    })
+  })
+
+  test("uses an opaque submitted-date keyset cursor with stable tie breakers", async () => {
+    const reads: Record<string, unknown>[] = []
+    const first = receiptRow({
+      createdAt: new Date("2026-07-08T10:00:00.000Z"),
+      id: "receipt-2",
+      submittedAt: new Date("2026-07-08T10:00:00.000Z"),
+    })
+    const cursor = createMemberPaymentReceiptPageCursor(first, [
+      "submittedAt",
+      "desc",
+    ])
+
+    await listMemberPaymentReceiptPage(
+      "tenant-1",
+      { cursor, pageSize: 20, sort: ["submittedAt", "desc"] },
+      {
+        memberPaymentReceipt: {
+          count: async () => 1,
+          findMany: async (input: Record<string, unknown>) => {
+            reads.push(input)
+            return []
+          },
+        },
+      } as never
+    )
+
+    expect(cursor).not.toBe(first.id)
+    expect(reads[0]).toMatchObject({
+      orderBy: [{ submittedAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+      where: {
+        AND: [
+          { tenantId: "tenant-1" },
+          {
+            OR: expect.any(Array),
+          },
+        ],
+      },
+    })
+    expect(reads[0]).not.toHaveProperty("cursor")
+  })
+
+  test("uses member-name keyset values instead of an id cursor", async () => {
+    const reads: Record<string, unknown>[] = []
+    const cursor = createMemberPaymentReceiptPageCursor(
+      receiptRow({
+        id: "receipt-2",
+        member: {
+          email: "zainab@example.com",
+          fullName: "Zainab Yusuf",
+          id: "member-2",
+          memberNumber: "M-002",
+        },
+      }),
+      ["memberName", "asc"]
+    )
+
+    await listMemberPaymentReceiptPage(
+      "tenant-1",
+      { cursor, pageSize: 20, sort: ["memberName", "asc"] },
+      {
+        memberPaymentReceipt: {
+          count: async () => 1,
+          findMany: async (input: Record<string, unknown>) => {
+            reads.push(input)
+            return []
+          },
+        },
+      } as never
+    )
+
+    expect(reads[0]).toMatchObject({
+      orderBy: [
+        { member: { fullName: "asc" } },
+        { submittedAt: "desc" },
+        { id: "desc" },
+      ],
+      where: {
+        AND: [
+          { tenantId: "tenant-1" },
+          {
+            OR: [
+              {
+                member: {
+                  is: { fullName: { gt: "Zainab Yusuf" } },
+                },
+              },
+              expect.anything(),
+            ],
+          },
+        ],
       },
     })
   })
@@ -462,6 +670,63 @@ describe("member payment receipt queries", () => {
               targetPeriodStart: "2026-07-01T00:00:00.000Z",
             },
           ],
+        },
+      },
+    })
+  })
+
+  test("records a correction request without rewriting staged allocations", async () => {
+    const auditCreates: Record<string, unknown>[] = []
+
+    const receipt = await reviewMemberPaymentReceipt(
+      {
+        actorUserId: "finance-1",
+        decision: "correction_requested",
+        receiptId: "receipt-1",
+        reviewNotes: "Upload a clearer transfer reference.",
+        tenantId: "tenant-1",
+      },
+      {
+        $transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
+          callback({
+            auditLog: {
+              create: async (input: Record<string, unknown>) => {
+                auditCreates.push(input)
+                return input
+              },
+            },
+            memberPaymentReceipt: {
+              update: async (input: any) =>
+                receiptRow({
+                  ...input.data,
+                  reviewedByUserId: "finance-1",
+                }),
+              updateMany: async () => ({ count: 1 }),
+            },
+          }),
+        contributionPlan: {
+          count: async () => 0,
+        },
+        loan: {
+          count: async () => 0,
+        },
+        memberPaymentReceipt: {
+          findFirst: async () => receiptRow(),
+        },
+        user: {
+          findFirst: async () => ({ id: "finance-1" }),
+        },
+      } as never
+    )
+
+    expect(receipt.status).toBe("correction_requested")
+    expect(receipt.reviewNotes).toBe("Upload a clearer transfer reference.")
+    expect(auditCreates[0]).toMatchObject({
+      data: {
+        action: "member_payment_receipt.correction_requested",
+        metadata: {
+          allocationsChanged: false,
+          reviewNotes: "Upload a clearer transfer reference.",
         },
       },
     })
@@ -643,8 +908,9 @@ describe("member payment receipt queries", () => {
       },
       {
         ...liveMigrationDelegates(),
-        $transaction: async (callback: (transactionClient: unknown) => Promise<unknown>) =>
-          callback(tx),
+        $transaction: async (
+          callback: (transactionClient: unknown) => Promise<unknown>
+        ) => callback(tx),
         contributionPlan: {
           count: async () => 0,
         },
@@ -699,7 +965,12 @@ describe("member payment receipt queries", () => {
         },
       },
     ])
-    expect(auditCreates.some((entry) => (entry as any).data.action === "member_payment_receipt.approved")).toBe(true)
+    expect(
+      auditCreates.some(
+        (entry) =>
+          (entry as any).data.action === "member_payment_receipt.approved"
+      )
+    ).toBe(true)
   })
 
   test("approves food purchase receipt allocations against approved applications", async () => {
@@ -776,8 +1047,9 @@ describe("member payment receipt queries", () => {
       },
       {
         ...liveMigrationDelegates(),
-        $transaction: async (callback: (transactionClient: unknown) => Promise<unknown>) =>
-          callback(tx),
+        $transaction: async (
+          callback: (transactionClient: unknown) => Promise<unknown>
+        ) => callback(tx),
         contributionPlan: {
           count: async () => 0,
         },
@@ -823,7 +1095,12 @@ describe("member payment receipt queries", () => {
         where: { id: "food-application-1" },
       },
     ])
-    expect(auditCreates.some((entry) => (entry as any).data.action === "member_payment_receipt.approved")).toBe(true)
+    expect(
+      auditCreates.some(
+        (entry) =>
+          (entry as any).data.action === "member_payment_receipt.approved"
+      )
+    ).toBe(true)
   })
 
   test("approves project financing receipt allocations against repayable facilities", async () => {
@@ -850,6 +1127,7 @@ describe("member payment receipt queries", () => {
       tenantId: "tenant-1",
     }
 
+    let currentPaidAmount = 100000
     const tx = {
       ...liveMigrationDelegates(),
       auditLog: {
@@ -883,10 +1161,11 @@ describe("member payment receipt queries", () => {
         findFirst: async () => ({
           approvedAmount: 750000,
           id: "project-financing-1",
-          paidAmount: 500000,
+          paidAmount: currentPaidAmount,
         }),
         update: async (input: Record<string, unknown>) => {
           projectFinancingUpdates.push(input)
+          currentPaidAmount = (input as any).data.paidAmount
           return input
         },
       },
@@ -901,8 +1180,9 @@ describe("member payment receipt queries", () => {
       },
       {
         ...liveMigrationDelegates(),
-        $transaction: async (callback: (transactionClient: unknown) => Promise<unknown>) =>
-          callback(tx),
+        $transaction: async (
+          callback: (transactionClient: unknown) => Promise<unknown>
+        ) => callback(tx),
         contributionPlan: {
           count: async () => 0,
         },
@@ -940,17 +1220,59 @@ describe("member payment receipt queries", () => {
     )
 
     expect(receipt.status).toBe("approved")
-    expect(projectFinancingUpdates).toEqual([
-      {
-        data: {
-          paidAmount: 750000,
-          paidAt: new Date("2026-07-08T00:00:00.000Z"),
-          status: "completed",
-        },
-        where: { id: "project-financing-1" },
+    expect(projectFinancingUpdates.at(-1)).toEqual({
+      data: {
+        paidAmount: 350000,
+        paidAt: null,
+        status: "active",
       },
-    ])
-    expect(auditCreates.some((entry) => (entry as any).data.action === "member_payment_receipt.approved")).toBe(true)
+      where: { id: "project-financing-1" },
+    })
+
+    projectFinancingAllocation.amount = 400000
+    const completedReceipt = await reviewMemberPaymentReceipt(
+      {
+        actorUserId: "finance-1",
+        decision: "approved",
+        receiptId: "receipt-2",
+        tenantId: "tenant-1",
+      },
+      {
+        ...liveMigrationDelegates(),
+        $transaction: async (
+          callback: (transactionClient: unknown) => Promise<unknown>
+        ) => callback(tx),
+        contributionPlan: { count: async () => 0 },
+        loan: { count: async () => 0 },
+        member: { findMany: async () => [] },
+        memberPaymentReceipt: {
+          findFirst: async () =>
+            receiptRow({
+              allocations: [projectFinancingAllocation],
+              id: "receipt-2",
+              totalAmount: 400000,
+            }),
+        },
+        projectFinancingRequest: { count: async () => 1 },
+        user: { findFirst: async () => ({ id: "finance-1" }) },
+      } as never
+    )
+
+    expect(completedReceipt.status).toBe("approved")
+    expect(projectFinancingUpdates.at(-1)).toEqual({
+      data: {
+        paidAmount: 750000,
+        paidAt: new Date("2026-07-08T00:00:00.000Z"),
+        status: "completed",
+      },
+      where: { id: "project-financing-1" },
+    })
+    expect(
+      auditCreates.some(
+        (entry) =>
+          (entry as any).data.action === "member_payment_receipt.approved"
+      )
+    ).toBe(true)
   })
 
   test("approves supported receipt allocations through member payment posting", async () => {
@@ -992,7 +1314,9 @@ describe("member payment receipt queries", () => {
         count: async () => 0,
       },
       member: {
-        findFirst: async () => ({ paymentAllocationPreference: "manual_split" }),
+        findFirst: async () => ({
+          paymentAllocationPreference: "manual_split",
+        }),
         findMany: async () => [],
         update: async (input: unknown) => input,
       },
@@ -1060,8 +1384,9 @@ describe("member payment receipt queries", () => {
       },
       {
         ...liveMigrationDelegates(),
-        $transaction: async (callback: (transactionClient: unknown) => Promise<unknown>) =>
-          callback(tx),
+        $transaction: async (
+          callback: (transactionClient: unknown) => Promise<unknown>
+        ) => callback(tx),
         contributionPlan: {
           count: async () => 0,
         },
@@ -1105,7 +1430,12 @@ describe("member payment receipt queries", () => {
     expect(allocationUpdates[0]).toMatchObject({
       data: { postedContributionId: "contribution-1" },
     })
-    expect(auditCreates.some((entry) => (entry as any).data.action === "member_payment_receipt.approved")).toBe(true)
+    expect(
+      auditCreates.some(
+        (entry) =>
+          (entry as any).data.action === "member_payment_receipt.approved"
+      )
+    ).toBe(true)
   })
 
   test("waives remaining unpaid loan schedule rows when a receipt payoff clears the loan", async () => {
@@ -1169,7 +1499,9 @@ describe("member payment receipt queries", () => {
         },
       },
       member: {
-        findFirst: async () => ({ paymentAllocationPreference: "manual_split" }),
+        findFirst: async () => ({
+          paymentAllocationPreference: "manual_split",
+        }),
         findMany: async () => [],
         update: async (input: unknown) => input,
       },
@@ -1247,8 +1579,9 @@ describe("member payment receipt queries", () => {
       },
       {
         ...liveMigrationDelegates(),
-        $transaction: async (callback: (transactionClient: unknown) => Promise<unknown>) =>
-          callback(tx),
+        $transaction: async (
+          callback: (transactionClient: unknown) => Promise<unknown>
+        ) => callback(tx),
         contributionPlan: {
           count: async () => 0,
         },
@@ -1330,6 +1663,7 @@ describe("member payment receipt queries", () => {
     const shareLedgerCreates: Record<string, unknown>[] = []
     const allocationUpdates: Record<string, unknown>[] = []
     const auditCreates: Record<string, unknown>[] = []
+    const receiptClaims: Record<string, unknown>[] = []
     const shareAllocation = {
       amount: 10000,
       category: "shares",
@@ -1365,6 +1699,10 @@ describe("member payment receipt queries", () => {
         findMany: async () => [],
       },
       memberPaymentReceipt: {
+        updateMany: async (input: Record<string, unknown>) => {
+          receiptClaims.push(input)
+          return { count: 1 }
+        },
         update: async (input: any) =>
           receiptRow({
             ...input.data,
@@ -1399,8 +1737,9 @@ describe("member payment receipt queries", () => {
       },
       {
         ...liveMigrationDelegates(),
-        $transaction: async (callback: (transactionClient: unknown) => Promise<unknown>) =>
-          callback(tx),
+        $transaction: async (
+          callback: (transactionClient: unknown) => Promise<unknown>
+        ) => callback(tx),
         contributionPlan: {
           count: async () => 0,
         },
@@ -1424,6 +1763,20 @@ describe("member payment receipt queries", () => {
     )
 
     expect(receipt.status).toBe("approved")
+    expect(receiptClaims).toHaveLength(1)
+    expect(receiptClaims[0]).toMatchObject({
+      data: {
+        reviewedByUserId: "finance-1",
+        status: "under_review",
+      },
+      where: {
+        id: "receipt-1",
+        reviewedAt: null,
+        status: "submitted",
+        tenantId: "tenant-1",
+      },
+    })
+    expect((receiptClaims[0] as any).data.reviewedAt).toBeInstanceOf(Date)
     expect(shareLedgerCreates).toHaveLength(1)
     expect(shareLedgerCreates[0]).toMatchObject({
       data: {
@@ -1442,6 +1795,11 @@ describe("member payment receipt queries", () => {
         where: { id: "allocation-share-1" },
       },
     ])
-    expect(auditCreates.some((entry) => (entry as any).data.action === "member_payment_receipt.approved")).toBe(true)
+    expect(
+      auditCreates.some(
+        (entry) =>
+          (entry as any).data.action === "member_payment_receipt.approved"
+      )
+    ).toBe(true)
   })
 })

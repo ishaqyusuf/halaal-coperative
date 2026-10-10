@@ -1,5 +1,5 @@
-import { ReceiptsScreen } from "@/screens/receipts-screen"
+import { MemberReceiptsRouteController } from "@/features/receipts/routes/member-receipts-route-controller"
 
 export default function ReceiptsRoute() {
-  return <ReceiptsScreen />
+  return <MemberReceiptsRouteController />
 }

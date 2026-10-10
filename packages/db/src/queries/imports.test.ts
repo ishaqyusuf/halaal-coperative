@@ -77,8 +77,8 @@ describe("import batch queries", () => {
           ],
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("Remove duplicate collection-source names")
 
     expect(transactionCalls).toBe(0)
@@ -142,7 +142,7 @@ describe("import batch queries", () => {
         ],
         tenantId: "tenant-1",
       },
-      prisma as never,
+      prisma as never
     )
 
     expect(result).toEqual({ processed: 2 })
@@ -200,8 +200,8 @@ describe("import batch queries", () => {
           ],
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("already has collection batches")
 
     expect(updateCalls).toBe(0)
@@ -229,7 +229,7 @@ describe("import batch queries", () => {
             }
           },
         },
-      } as never,
+      } as never
     )
 
     expect(batch.id).toBe("batch-1")
@@ -259,7 +259,7 @@ describe("import batch queries", () => {
             }
           },
         },
-      } as never,
+      } as never
     )
 
     expect(importType).toBe("charges")
@@ -276,8 +276,8 @@ describe("import batch queries", () => {
           importBatch: {
             findFirst: async () => null,
           },
-        } as never,
-      ),
+        } as never
+      )
     ).rejects.toThrow("Import batch not found")
   })
 
@@ -303,9 +303,11 @@ describe("import batch queries", () => {
           tenantId: "tenant-1",
           validRows: 1,
         },
-        prisma as never,
-      ),
-    ).rejects.toThrow("Member record imports are locked because initial migration is finalized")
+        prisma as never
+      )
+    ).rejects.toThrow(
+      "Member record imports are locked because initial migration is finalized"
+    )
 
     expect(prisma.transactions).toHaveLength(0)
     expect(prisma.importBatchCreates).toHaveLength(0)
@@ -328,15 +330,29 @@ describe("import batch queries", () => {
           ],
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
-    ).rejects.toThrow("Member record imports are locked because initial migration is finalized")
+        prisma as never
+      )
+    ).rejects.toThrow(
+      "Member record imports are locked because initial migration is finalized"
+    )
 
     expect(prisma.memberUpserts).toHaveLength(0)
   })
 
   test("imports loan product codes as normalized identifiers", async () => {
-    const loanProductUpserts: any[] = []
+    const loanProductCreates: unknown[] = []
+    const tx = {
+      auditLog: {
+        create: async (input: unknown) => input,
+      },
+      loanProduct: {
+        create: async (input: unknown) => {
+          loanProductCreates.push(input)
+          return { id: "product-created" }
+        },
+        findMany: async () => [],
+      },
+    }
 
     await importLoanProducts(
       {
@@ -353,32 +369,325 @@ describe("import batch queries", () => {
         tenantId: "tenant-1",
       },
       {
+        $transaction: async (
+          callback: (value: typeof tx) => Promise<unknown>
+        ) => callback(tx),
         appliedBackfillMonth: {
           findMany: async () => [],
-        },
-        auditLog: {
-          create: async (input: unknown) => input,
         },
         backfillBatch: {
           findMany: async () => [],
         },
-        loanProduct: {
-          upsert: async (input: unknown) => {
-            loanProductUpserts.push(input)
-            return input
-          },
-        },
-      } as never,
+      } as never
     )
 
-    expect(loanProductUpserts[0]).toMatchObject({
-      create: {
+    expect(loanProductCreates[0]).toMatchObject({
+      data: {
         code: "EMG",
         name: "Emergency Support",
       },
-      update: {
-        code: "EMG",
+    })
+  })
+
+  test("rejects invalid loan product policy values before writing", async () => {
+    let transactionCalls = 0
+    const prisma = {
+      $transaction: async () => {
+        transactionCalls += 1
       },
+      appliedBackfillMonth: { findMany: async () => [] },
+      backfillBatch: { findMany: async () => [] },
+    }
+
+    await expect(
+      importLoanProducts(
+        {
+          actorUserId: "user-1",
+          rows: [
+            {
+              code: "BAD",
+              loanType: "normal",
+              maxSavingsMultiple: 0,
+              name: "Invalid product",
+              termMonths: 1.5,
+            },
+          ],
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("positive whole number")
+
+    expect(transactionCalls).toBe(0)
+  })
+
+  test("rejects duplicate loan product codes before writing", async () => {
+    let transactionCalls = 0
+    const prisma = {
+      $transaction: async () => {
+        transactionCalls += 1
+      },
+      appliedBackfillMonth: { findMany: async () => [] },
+      backfillBatch: { findMany: async () => [] },
+    }
+
+    await expect(
+      importLoanProducts(
+        {
+          actorUserId: "user-1",
+          rows: [
+            {
+              code: "NOR",
+              loanType: "normal",
+              maxSavingsMultiple: 2,
+              name: "Standard",
+              termMonths: 12,
+            },
+            {
+              code: "nor",
+              loanType: "quick",
+              maxSavingsMultiple: 1,
+              name: "Express",
+              termMonths: 3,
+            },
+          ],
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("duplicate loan-product codes")
+
+    expect(transactionCalls).toBe(0)
+  })
+
+  test("protects loan product policy after loan records exist", async () => {
+    let updateCalls = 0
+    const tx = {
+      loanProduct: {
+        findMany: async () => [
+          {
+            _count: { loanRequests: 1, loans: 0 },
+            code: "NOR",
+            id: "product-existing",
+            isActive: true,
+            loanType: "normal",
+            maxSavingsMultiple: 2,
+            name: "Standard",
+            termMonths: 12,
+          },
+        ],
+        update: async () => {
+          updateCalls += 1
+        },
+      },
+    }
+    const prisma = {
+      $transaction: async (callback: (value: typeof tx) => Promise<unknown>) =>
+        callback(tx),
+      appliedBackfillMonth: { findMany: async () => [] },
+      backfillBatch: { findMany: async () => [] },
+    }
+
+    await expect(
+      importLoanProducts(
+        {
+          actorUserId: "user-1",
+          rows: [
+            {
+              code: "NOR",
+              loanType: "normal",
+              maxSavingsMultiple: 3,
+              name: "Standard",
+              termMonths: 18,
+            },
+          ],
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("already used by loan records")
+
+    expect(updateCalls).toBe(0)
+  })
+
+  test("rejects ambiguous case-only loan product identities already in storage", async () => {
+    const tx = {
+      loanProduct: {
+        findMany: async () => [
+          {
+            _count: { loanRequests: 0, loans: 0 },
+            code: "NOR-1",
+            id: "product-1",
+            isActive: true,
+            loanType: "normal",
+            maxSavingsMultiple: 2,
+            name: "Standard Loan",
+            termMonths: 12,
+          },
+          {
+            _count: { loanRequests: 0, loans: 0 },
+            code: "NOR-2",
+            id: "product-2",
+            isActive: true,
+            loanType: "normal",
+            maxSavingsMultiple: 2,
+            name: "standard loan",
+            termMonths: 12,
+          },
+        ],
+      },
+    }
+    const prisma = {
+      $transaction: async (callback: (value: typeof tx) => Promise<unknown>) =>
+        callback(tx),
+      appliedBackfillMonth: { findMany: async () => [] },
+      backfillBatch: { findMany: async () => [] },
+    }
+
+    await expect(
+      importLoanProducts(
+        {
+          actorUserId: "user-1",
+          rows: [
+            {
+              code: "NOR-1",
+              loanType: "normal",
+              maxSavingsMultiple: 2,
+              name: "Standard Loan",
+              termMonths: 12,
+            },
+          ],
+          tenantId: "tenant-1",
+        },
+        prisma as never,
+      ),
+    ).rejects.toThrow("ambiguous after case normalization")
+  })
+
+  test("applies loan-product rows and batch status in one transaction", async () => {
+    const transactionBatchUpdates: unknown[] = []
+    const transactionBatchClaims: unknown[] = []
+    const productCreates: unknown[] = []
+    const outsideBatchUpdates: unknown[] = []
+    const tx = {
+      auditLog: { create: async (input: unknown) => input },
+      importBatch: {
+        update: async (input: unknown) => {
+          transactionBatchUpdates.push(input)
+          return input
+        },
+        updateMany: async (input: unknown) => {
+          transactionBatchClaims.push(input)
+          return { count: 1 }
+        },
+      },
+      loanProduct: {
+        create: async (input: unknown) => {
+          productCreates.push(input)
+          return { id: "product-created" }
+        },
+        findMany: async () => [],
+      },
+    }
+    const prisma = {
+      $transaction: async (callback: (value: typeof tx) => Promise<unknown>) =>
+        callback(tx),
+      appliedBackfillMonth: { findMany: async () => [] },
+      backfillBatch: { findMany: async () => [] },
+      importBatch: {
+        findFirst: async () => ({
+          id: "batch-1",
+          importType: "loan_products",
+          rows: [
+            {
+              payload: {
+                code: "NOR",
+                loanType: "normal",
+                maxSavingsMultiple: 2,
+                name: "Standard",
+                termMonths: 12,
+              },
+            },
+          ],
+          status: "draft",
+        }),
+        updateMany: async (input: unknown) => {
+          outsideBatchUpdates.push(input)
+          return { count: 0 }
+        },
+      },
+    }
+
+    await expect(
+      applyImportBatch(
+        {
+          actorUserId: "user-1",
+          batchId: "batch-1",
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).resolves.toEqual({ processed: 1 })
+
+    expect(productCreates).toHaveLength(1)
+    expect(transactionBatchClaims).toHaveLength(1)
+    expect(transactionBatchClaims[0]).toMatchObject({
+      where: { id: "batch-1", status: { in: ["draft", "failed"] } },
+    })
+    expect(transactionBatchUpdates).toHaveLength(1)
+    expect(transactionBatchUpdates[0]).toMatchObject({
+      data: { status: "applied" },
+    })
+    expect(outsideBatchUpdates).toHaveLength(0)
+  })
+
+  test("does not reapply a loan-product batch that another request claimed", async () => {
+    let productLookups = 0
+    const failureUpdates: unknown[] = []
+    const tx = {
+      importBatch: {
+        updateMany: async () => ({ count: 0 }),
+      },
+      loanProduct: {
+        findMany: async () => {
+          productLookups += 1
+          return []
+        },
+      },
+    }
+    const prisma = {
+      $transaction: async (callback: (value: typeof tx) => Promise<unknown>) =>
+        callback(tx),
+      appliedBackfillMonth: { findMany: async () => [] },
+      backfillBatch: { findMany: async () => [] },
+      importBatch: {
+        findFirst: async () => ({
+          id: "batch-1",
+          importType: "loan_products",
+          rows: [],
+          status: "draft",
+        }),
+        updateMany: async (input: unknown) => {
+          failureUpdates.push(input)
+          return { count: 0 }
+        },
+      },
+    }
+
+    await expect(
+      applyImportBatch(
+        {
+          actorUserId: "user-1",
+          batchId: "batch-1",
+          tenantId: "tenant-1",
+        },
+        prisma as never,
+      ),
+    ).rejects.toThrow("already been applied or is being applied")
+
+    expect(productLookups).toBe(0)
+    expect(failureUpdates[0]).toMatchObject({
+      where: { id: "batch-1", status: { not: "applied" } },
     })
   })
 
@@ -412,8 +721,8 @@ describe("import batch queries", () => {
               return input
             },
           },
-        } as never,
-      ),
+        } as never
+      )
     ).rejects.toThrow("Member record imports are locked")
     expect(memberUpserts).toHaveLength(0)
   })
@@ -459,7 +768,7 @@ describe("import batch queries", () => {
             return input
           },
         },
-      } as never,
+      } as never
     )
 
     expect(memberUpserts[0]).toMatchObject({
@@ -518,8 +827,8 @@ describe("import batch queries", () => {
               return null
             },
           },
-        } as never,
-      ),
+        } as never
+      )
     ).rejects.toThrow("Member record imports are locked")
     expect(memberLookups).toHaveLength(0)
   })
@@ -556,8 +865,8 @@ describe("import batch queries", () => {
               return input
             },
           },
-        } as never,
-      ),
+        } as never
+      )
     ).rejects.toThrow("Member record imports are locked")
     expect(chargeDefinitionUpserts).toHaveLength(0)
   })
@@ -596,8 +905,8 @@ describe("import batch queries", () => {
               return input
             },
           },
-        } as never,
-      ),
+        } as never
+      )
     ).rejects.toThrow("Member record imports are locked")
     expect(loanProductUpserts).toHaveLength(0)
   })
@@ -676,7 +985,7 @@ describe("import batch queries", () => {
             migrationFinalizedAt: null,
           }),
         },
-      } as never,
+      } as never
     )
 
     expect(result.processed).toBe(1)
@@ -719,8 +1028,8 @@ describe("import batch queries", () => {
               return null
             },
           },
-        } as never,
-      ),
+        } as never
+      )
     ).rejects.toThrow("Member record imports are locked")
     expect(loanLookups).toHaveLength(0)
   })
@@ -779,8 +1088,8 @@ describe("import batch queries", () => {
               return input
             },
           },
-        } as never,
-      ),
+        } as never
+      )
     ).rejects.toThrow("Member record imports are locked")
 
     expect(memberUpserts).toHaveLength(0)
@@ -832,9 +1141,11 @@ describe("import batch queries", () => {
               migrationFinalizedAt: new Date("2026-01-31T00:00:00.000Z"),
             }),
           },
-        } as never,
-      ),
-    ).rejects.toThrow("Member record imports are locked because initial migration is finalized")
+        } as never
+      )
+    ).rejects.toThrow(
+      "Member record imports are locked because initial migration is finalized"
+    )
 
     expect(memberUpserts).toHaveLength(0)
     expect(batchUpdates).toHaveLength(0)

@@ -5,7 +5,7 @@ describe("signup availability API error contract", () => {
   test("returns the shared safe envelope when availability lookup fails", async () => {
     const response = await handleSignupAvailabilityRequest(
       new Request(
-        "https://halaalvest.test/api/signup/availability?cooperativeName=Test&workspaceSlug=test"
+        "https://halaalvest.test/api/signup/availability?cooperativeCodePrefix=TST&cooperativeName=Test&workspaceSlug=test"
       ),
       async () => {
         throw Object.assign(

@@ -2,33 +2,25 @@
 
 import { formatCurrency } from "@halaalvest/utils"
 import type {
-  MemberShareApplicationRow,
   MemberUnitSharePosition,
   TenantSharePolicySettings,
 } from "@halaalvest/db"
 import { OpenMemberShareApplicationSheet } from "@/components/open-share-application-sheet"
 import { ShareApplicationHeader } from "@/components/share-application-header"
+import { ShareApplicationMobileToolbar } from "@/components/share-application-mobile-toolbar"
 import { MemberShareApplicationSheet } from "@/components/sheets/member-share-application-sheet"
-import { ShareApplicationsDataTable } from "@/components/tables/share-applications/data-table"
+import { ShareApplicationsDataView } from "@/components/tables/share-applications/data-view"
 import type { TableSettings } from "@/utils/table-settings"
 
-type MemberSummary = {
-  fullName: string
-  id: string
-  memberNumber: string
-}
-
 export function MemberSharesView({
-  applications,
-  member,
   policy,
   position,
+  requestBlockedReason,
   shareApplicationInitialSettings,
 }: {
-  applications: MemberShareApplicationRow[]
-  member: MemberSummary
   policy: TenantSharePolicySettings
   position: MemberUnitSharePosition
+  requestBlockedReason: string | null
   shareApplicationInitialSettings?: Partial<TableSettings>
 }) {
   const remainingOptionalUnits = Math.max(
@@ -37,14 +29,25 @@ export function MemberSharesView({
   )
 
   return (
-    <div className="space-y-6">
+    <div>
       <MemberShareApplicationSheet
         policy={policy}
         remainingOptionalUnits={remainingOptionalUnits}
+        requestBlockedReason={requestBlockedReason}
       />
-      <section className="grid gap-4 md:grid-cols-4">
+      {requestBlockedReason ? (
+        <div
+          className="border-y border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 md:px-5 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
+          role="alert"
+        >
+          {requestBlockedReason}
+        </div>
+      ) : null}
+      <section className="hidden border-y border-border md:grid md:grid-cols-4 md:divide-x md:divide-border">
         <SummaryTile
-          detail={formatCurrency(position.compulsoryUnits * position.unitAmount)}
+          detail={formatCurrency(
+            position.compulsoryUnits * position.unitAmount
+          )}
           label="Compulsory"
           value={`${position.compulsoryUnits} units`}
         />
@@ -69,35 +72,26 @@ export function MemberSharesView({
         />
       </section>
 
-      <section className="rounded-lg border border-border bg-card p-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-foreground">
-              Request optional shares
-            </p>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              {member.fullName} ({member.memberNumber})
-            </p>
-          </div>
-          <div className="rounded-md border border-border px-3 py-2 text-xs text-muted-foreground">
-            {formatCurrency(policy.unitAmount)} per share
-          </div>
-        </div>
-
-        <div className="mt-4 flex justify-end">
-          <OpenMemberShareApplicationSheet
-            disabled={remainingOptionalUnits === 0}
+      <section className="overflow-hidden border-b border-border md:border-y md:border-t-0">
+        <ShareApplicationHeader
+          action={
+            <OpenMemberShareApplicationSheet
+              disabled={
+                remainingOptionalUnits === 0 || Boolean(requestBlockedReason)
+              }
+            />
+          }
+        />
+        <div className="px-4 py-3 md:hidden">
+          <ShareApplicationMobileToolbar
+            canCreate
+            createDisabled={
+              remainingOptionalUnits === 0 || Boolean(requestBlockedReason)
+            }
+            createSheetType="member-create"
           />
         </div>
-      </section>
-
-      <section className="overflow-hidden rounded-md border border-border bg-card">
-        <ShareApplicationHeader
-          description="Track optional share requests and finance review status."
-          title="My share requests"
-        />
-        <ShareApplicationsDataTable
-          applications={applications}
+        <ShareApplicationsDataView
           initialSettings={shareApplicationInitialSettings}
         />
       </section>
@@ -115,10 +109,10 @@ function SummaryTile({
   value: string
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="px-5 py-4">
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
-      <p className="mt-2 text-xs leading-5 text-muted-foreground">{detail}</p>
+      <p className="mt-1 text-xl font-semibold text-foreground">{value}</p>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">{detail}</p>
     </div>
   )
 }

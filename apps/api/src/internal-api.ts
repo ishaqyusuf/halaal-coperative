@@ -18,6 +18,7 @@ export async function handleTrpcRequest(
   headers.set("x-request-id", requestId)
   const correlatedRequest = new Request(request, { headers })
   const response = await fetchRequestHandler({
+    allowMethodOverride: true,
     endpoint,
     req: correlatedRequest,
     router: appRouter,

@@ -102,6 +102,32 @@ describe("dashboard CSV imports", () => {
     })
   })
 
+  test("rejects non-positive or fractional loan product policy values", () => {
+    const invalidTerm = parseDashboardImportCsv(
+      "loan_products",
+      [
+        "code,name,loan_type,term_months,max_savings_multiple",
+        "BAD,Invalid term,normal,1.5,2",
+      ].join("\n")
+    )
+    const invalidMultiple = parseDashboardImportCsv(
+      "loan_products",
+      [
+        "code,name,loan_type,term_months,max_savings_multiple",
+        "BAD,Invalid multiple,quick,6,0",
+      ].join("\n")
+    )
+
+    expect(invalidTerm.ok).toBe(false)
+    expect(invalidTerm.errors.join(" ")).toContain(
+      "termMonths must be a positive whole number"
+    )
+    expect(invalidMultiple.ok).toBe(false)
+    expect(invalidMultiple.errors.join(" ")).toContain(
+      "maxSavingsMultiple must be greater than zero"
+    )
+  })
+
   test("parses editable member import grid with canonical template columns", () => {
     const grid = parseDashboardImportGrid(
       "members",

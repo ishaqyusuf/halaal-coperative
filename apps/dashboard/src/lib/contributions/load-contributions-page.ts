@@ -4,35 +4,17 @@ import {
   getTenantOperationProfile,
   listContributionPlans,
   listCollectionSourceContributionBatches,
-  listContributions,
-  listCurrentMonthStagedContributions,
   listActiveDeductionSources,
   listLoans,
   listMembers,
 } from "@halaalvest/db"
-import type {
-  CollectionSourceBatchView,
-  StagedMonthlyContributionRow,
-} from "@halaalvest/db"
-import { resolveDateFilter } from "@halaalvest/utils"
+import type { CollectionSourceBatchView } from "@halaalvest/db"
 import type { ContributionsFilterParams } from "@/hooks/use-contributions-filter-params"
 import {
   canShowQuickFill,
   getDashboardServerContext,
 } from "@/lib/server-context"
 import { allStaffRoles, hasAnyRole } from "@/lib/workspace-access"
-
-type ContributionLedgerRow = {
-  amount: number | string | { toString(): string }
-  committedAmount: number | string | { toString(): string } | null
-  extraSavingsAmount: number | string | { toString(): string } | null
-  id: string
-  member?: {
-    fullName?: string | null
-    memberNumber?: string | null
-  } | null
-  postedAt: Date
-}
 
 type ContributionMemberRow = {
   fullName: string
@@ -42,7 +24,7 @@ type ContributionMemberRow = {
 }
 
 type ContributionPlanRow = {
-  amount: number | string | { toString(): string }
+  amount: number
   id: string
   isActive: boolean
   member: {
@@ -61,18 +43,6 @@ type ContributionLoanRow = {
     fullName: string
   }
   status: string
-}
-
-type ContributionListResult = {
-  items: ContributionLedgerRow[]
-  total: number
-}
-
-type CurrentMonthFilter = {
-  from: string
-  isActive: boolean
-  label: string
-  to: string
 }
 
 export type CollectionSourceBatchOption = {
@@ -96,8 +66,6 @@ export type ContributionsPageData =
       commitmentPlans: ContributionPlanRow[]
       collectionSourceBatchOptions: CollectionSourceBatchOption[]
       collectionSourceBatches: Array<Omit<CollectionSourceBatchView, "rows">>
-      contributions: ContributionListResult
-      currentMonthFilter: CurrentMonthFilter
       filters: ContributionsFilterParams
       loans: ContributionLoanRow[]
       members: {
@@ -105,37 +73,8 @@ export type ContributionsPageData =
       }
       quickFillEnabled: boolean
       selectedCollectionSourceBatch: CollectionSourceBatchView | null
-      stagedContributions: StagedMonthlyContributionRow[]
       state: "ready"
     }
-
-function getCurrentMonthFilter(now = new Date()): CurrentMonthFilter {
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
-  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0))
-  const from = start.toISOString().slice(0, 10)
-  const to = end.toISOString().slice(0, 10)
-
-  return {
-    from,
-    isActive: false,
-    label: new Intl.DateTimeFormat("en", {
-      month: "long",
-      timeZone: "UTC",
-      year: "numeric",
-    }).format(start),
-    to,
-  }
-}
-
-function isCurrentMonthDateFilter(
-  filters: ContributionsFilterParams,
-  currentMonth: Pick<CurrentMonthFilter, "from" | "to">
-) {
-  const dateRange = resolveDateFilter(filters.dateRange)
-  return (
-    dateRange?.from === currentMonth.from && dateRange.to === currentMonth.to
-  )
-}
 
 export async function loadContributionsPageData(
   filters: ContributionsFilterParams,
@@ -150,12 +89,6 @@ export async function loadContributionsPageData(
     allStaffRoles
   )
   const quickFillEnabled = canShowQuickFill(context)
-  const currentMonthFilter = getCurrentMonthFilter()
-  currentMonthFilter.isActive = isCurrentMonthDateFilter(
-    filters,
-    currentMonthFilter
-  )
-  const dateRange = resolveDateFilter(filters.dateRange)
 
   if (!context.tenant || runtime.status !== "database-configured") {
     return {
@@ -173,39 +106,15 @@ export async function loadContributionsPageData(
     operationProfile.services.collection_source_batch_posting.canStaffCreate
 
   const [
-    contributions,
     members,
     commitmentPlans,
     loans,
-    stagedContributions,
     collectionSourceOptions,
     collectionSourceBatches,
   ] = await Promise.all([
-    listContributions(context.tenant.id, {
-      channel:
-        filters.channel === "payroll" ||
-        filters.channel === "transfer" ||
-        filters.channel === "cash" ||
-        filters.channel === "manual"
-          ? filters.channel
-          : undefined,
-      fromDate: dateRange?.from
-        ? new Date(`${dateRange.from}T00:00:00.000Z`)
-        : undefined,
-      memberId: filters.memberId ?? undefined,
-      page: 1,
-      pageSize: 20,
-      search: filters.search ?? undefined,
-      toDate: dateRange?.to
-        ? new Date(`${dateRange.to}T23:59:59.999Z`)
-        : undefined,
-    }),
     listMembers(context.tenant.id, { page: 1, pageSize: 100 }),
     listContributionPlans(context.tenant.id),
     listLoans(context.tenant.id),
-    currentMonthFilter.isActive
-      ? listCurrentMonthStagedContributions(context.tenant.id)
-      : Promise.resolve([]),
     canUseCollectionSourceBatches
       ? listActiveDeductionSources(context.tenant.id)
       : Promise.resolve([]),
@@ -213,8 +122,7 @@ export async function loadContributionsPageData(
       ? listCollectionSourceContributionBatches(context.tenant.id)
       : Promise.resolve([]),
   ])
-  const selectedBatchId =
-    input?.selectedBatchId ?? collectionSourceBatches[0]?.id
+  const selectedBatchId = input?.selectedBatchId
   const selectedCollectionSourceBatch =
     canUseCollectionSourceBatches && selectedBatchId
       ? await getCollectionSourceContributionBatch(
@@ -226,7 +134,14 @@ export async function loadContributionsPageData(
   return {
     canRecordContributions,
     canUseCollectionSourceBatches,
-    commitmentPlans: commitmentPlans as ContributionPlanRow[],
+    commitmentPlans: commitmentPlans.map((plan) => ({
+      amount: Number(plan.amount),
+      id: plan.id,
+      isActive: plan.isActive,
+      member: { fullName: plan.member.fullName },
+      name: plan.name,
+      startsAt: plan.startsAt,
+    })),
     collectionSourceBatchOptions: collectionSourceOptions.map((source) => ({
       externalReference: source.externalReference,
       id: source.id,
@@ -234,14 +149,23 @@ export async function loadContributionsPageData(
       type: source.type,
     })),
     collectionSourceBatches,
-    contributions: contributions as ContributionListResult,
-    currentMonthFilter,
     filters,
-    loans: loans as ContributionLoanRow[],
-    members: members as { items: ContributionMemberRow[] },
+    loans: loans.map((loan) => ({
+      id: loan.id,
+      loanProduct: { name: loan.loanProduct.name },
+      member: { fullName: loan.member.fullName },
+      status: loan.status,
+    })),
+    members: {
+      items: members.items.map((member) => ({
+        fullName: member.fullName,
+        id: member.id,
+        memberNumber: member.memberNumber,
+        paymentAllocationPreference: member.paymentAllocationPreference,
+      })),
+    },
     quickFillEnabled,
     selectedCollectionSourceBatch,
-    stagedContributions,
     state: "ready" as const,
   }
 }

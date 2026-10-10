@@ -4,7 +4,6 @@ import {
   getTenantOperationProfile,
   getProcurementSummary,
   listMembers,
-  listProcurementRequests,
   quoteApplicableCharges,
 } from "@halaalvest/db"
 import { getDashboardServerContext } from "@/lib/server-context"
@@ -49,14 +48,15 @@ export async function loadProcurementPageData() {
       return { state: "member-profile-missing" as const }
     }
 
-    const requests = await listProcurementRequests({
-      memberId: member.id,
-      tenantId: context.tenant.id,
-    })
+    const summary = await getProcurementSummary(
+      context.tenant.id,
+      undefined,
+      member.id
+    )
 
     if (
       procurementCapability.accessMode === "disabled" &&
-      requests.length === 0
+      summary.totalRequests === 0
     ) {
       return { state: "service-disabled" as const }
     }
@@ -71,18 +71,16 @@ export async function loadProcurementPageData() {
       }),
       canCreate: procurementCapability.canMemberCreate,
       member,
-      requests,
+      summary,
     }
   }
 
   const [
-    requests,
     summary,
     members,
     submissionChargeOptions,
     approvalChargeOptions,
   ] = await Promise.all([
-    listProcurementRequests({ tenantId: context.tenant.id }),
     getProcurementSummary(context.tenant.id),
     listMembers(context.tenant.id, { page: 1, pageSize: 200 }),
     quoteApplicableCharges({
@@ -101,7 +99,7 @@ export async function loadProcurementPageData() {
 
   if (
     procurementCapability.accessMode === "disabled" &&
-    requests.length === 0
+    summary.totalRequests === 0
   ) {
     return { state: "service-disabled" as const }
   }
@@ -115,7 +113,6 @@ export async function loadProcurementPageData() {
       id: member.id,
       label: `${member.fullName} (${member.memberNumber})`,
     })),
-    requests,
     submissionChargeOptions,
     summary,
   }

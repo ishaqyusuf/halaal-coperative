@@ -4,7 +4,7 @@ import Link from "next/link"
 import { WorkspacePreview } from "./workspace-preview"
 
 const trustPrinciples = [
-  ["Interest-free by design", "No time-based or compounding interest logic"],
+  ["Interest-free by design", "No interest calculation; cooperative charges stay separate"],
   [
     "Approval-led operations",
     "Eligibility, liquidity, and authority stay distinct",
@@ -37,9 +37,9 @@ export function LandingHero({
             </h1>
 
             <p className="mt-7 max-w-2xl text-lg leading-8 text-[#0B1F36]/68 sm:text-xl sm:leading-9">
-              Contributions, interest-free financing, approvals, repayments,
-              member statements, and operational services in one auditable
-              workspace.
+              Contributions, interest-free cooperative financing with charges
+              shown separately, approvals, repayments, member statements, and
+              operational services in one auditable workspace.
             </p>
 
             <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">

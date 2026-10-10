@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
 import { AppError } from "@halaalvest/errors"
-import { checkTenantSignupAvailability } from "@halaalvest/db"
+import {
+  checkTenantSignupAvailability,
+  getPublishedLegalBundle,
+} from "@halaalvest/db"
 import {
   createQaNotificationPreviews,
   createSignupVerificationEmail,
@@ -17,7 +20,7 @@ import {
 } from "@/lib/signup-flow"
 import { verifySignedSignupApprovalToken } from "@/lib/early-access"
 import { getMarketingConfig } from "@/lib/marketing-config"
-import { getMarketingAppOrigin } from "@/lib/runtime-url"
+import { getMarketingEmailOrigin } from "@/lib/marketing-email-origin"
 import { getMarketingErrorResponse } from "@/lib/error-response"
 import { getMarketingServerErrorResponse } from "@/lib/error-response.server"
 import { parseMarketingJson } from "@/lib/parse-json.server"
@@ -72,15 +75,25 @@ function verifyEarlyAccessApproval(input: {
 export async function POST(request: Request) {
   try {
     const input = signupRequestSchema.parse(await parseMarketingJson(request))
+    const legalBundle = getPublishedLegalBundle()
+    if (legalBundle.acceptanceRequired && !legalBundle.available)
+      throw new AppError({
+        code: "PRECONDITION_FAILED",
+        publicMessage:
+          "Approved platform terms and privacy notice are not yet available for signup.",
+      })
+    const emailOrigin = getMarketingEmailOrigin(request.url)
     verifyEarlyAccessApproval(input)
     const emailDeliveryConfigured = isServerEmailDeliveryConfigured()
     const availability = await checkTenantSignupAvailability({
+      cooperativeCodePrefix: input.cooperativeCodePrefix,
       cooperativeName: input.cooperativeName,
       workspaceSlug: input.workspaceSlug,
     })
 
     if (
       !availability.cooperativeName.available ||
+      !availability.cooperativeCodePrefix.available ||
       !availability.workspaceSlug.available
     ) {
       const response = getMarketingErrorResponse(
@@ -88,7 +101,9 @@ export async function POST(request: Request) {
           code: "CONFLICT",
           publicMessage: !availability.cooperativeName.available
             ? "That cooperative name is already in use."
-            : "That workspace subdomain is not available.",
+            : !availability.cooperativeCodePrefix.available
+              ? "That cooperative prefix is already in use."
+              : "That workspace subdomain is not available.",
         })
       )
       return NextResponse.json(
@@ -110,10 +125,7 @@ export async function POST(request: Request) {
 
     const payload = createSignupVerificationPayload(input)
     const token = createSignedSignupToken(payload)
-    const onboardingUrl = new URL(
-      "/onboarding",
-      getMarketingAppOrigin(request.url)
-    )
+    const onboardingUrl = new URL("/onboarding", emailOrigin)
     onboardingUrl.searchParams.set("token", token)
     const verificationEmail = createSignupVerificationEmail({
       expiresAt: payload.expiresAt,

@@ -1,5 +1,5 @@
+import type { Metadata } from "next"
 import { getContributionFilterMetadata } from "@halaalvest/db"
-import { resolveDateFilter } from "@halaalvest/utils"
 import {
   ContributionsPageView,
   ContributionsUnavailableView,
@@ -8,44 +8,15 @@ import { loadContributionParams } from "@/hooks/use-contribution-params"
 import { loadContributionsFilterParams } from "@/hooks/use-contributions-filter-params"
 import { loadSortParams } from "@/hooks/use-sort-params"
 import { loadContributionsPageData } from "@/lib/contributions"
+import { getContributionListInput } from "@/lib/contributions/contribution-list-input"
 import { getDashboardServerContext } from "@/lib/server-context"
-import {
-  getQueryClient,
-  getServerCaller,
-  HydrateClient,
-  trpc,
-} from "@/trpc/server"
+import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server"
 import { getInitialTableSettings } from "@/utils/columns"
-import { getEnumValue } from "@/utils/enum"
 
-type ContributionSortField =
-  | "amount"
-  | "committedAmount"
-  | "extraSavingsAmount"
-  | "memberName"
-  | "postedAt"
-
-function getSort(
-  sort?: string[] | null
-): [ContributionSortField, "asc" | "desc"] | null {
-  if (!sort || sort.length !== 2) return null
-
-  const field = sort[0]
-  const direction = sort[1]
-  if (!field || !direction) return null
-
-  const validFields = new Set<string>([
-    "amount",
-    "committedAmount",
-    "extraSavingsAmount",
-    "memberName",
-    "postedAt",
-  ])
-
-  if (!validFields.has(field)) return null
-  if (direction !== "asc" && direction !== "desc") return null
-
-  return [field as ContributionSortField, direction]
+export const metadata: Metadata = {
+  description:
+    "Review contribution evidence, member commitments, and source collections.",
+  title: "Contributions",
 }
 
 export default async function ContributionsPage({
@@ -55,51 +26,36 @@ export default async function ContributionsPage({
 }) {
   const params = await searchParams
   const filters = loadContributionsFilterParams(params)
-  loadContributionParams(params)
+  const contributionParams = loadContributionParams(params)
   const { sort } = loadSortParams(params)
-  const selectedBatchId =
-    typeof params.batchId === "string" ? params.batchId : undefined
   const context = await getDashboardServerContext()
-  const [data, filterList, contributionTableSettings, caller] =
-    await Promise.all([
-      loadContributionsPageData(filters, { selectedBatchId }),
-      context.tenant
-        ? getContributionFilterMetadata(context.tenant.id)
-        : Promise.resolve([]),
-      getInitialTableSettings("contributions"),
-      getServerCaller(),
-    ])
+  const [data, filterList, contributionTableSettings] = await Promise.all([
+    loadContributionsPageData(filters, {
+      selectedBatchId: contributionParams.batchId ?? undefined,
+    }),
+    context.tenant
+      ? getContributionFilterMetadata(context.tenant.id)
+      : Promise.resolve([]),
+    getInitialTableSettings("contributions"),
+  ])
 
   if (data.state !== "ready") {
     return <ContributionsUnavailableView />
   }
 
-  const dateRange = resolveDateFilter(filters.dateRange)
-  const ledgerInput = {
-    channel: getEnumValue(filters.channel, [
-      "cash",
-      "manual",
-      "payroll",
-      "transfer",
-    ] as const),
-    from: dateRange?.from,
-    memberId: filters.memberId ?? undefined,
-    q: filters.search ?? undefined,
-    sort: getSort(sort),
-    to: dateRange?.to,
-  }
-  const ledgerOptions = trpc.contributions.ledger.infiniteQueryOptions(
-    ledgerInput,
-    {
-      getNextPageParam: ({ meta }) => meta?.cursor,
-    }
-  )
-  const initialLedgerPage = await caller.contributions.ledger(ledgerInput)
+  const activeView =
+    filters.view === "collections" && !data.canUseCollectionSourceBatches
+      ? "ledger"
+      : (filters.view ?? "ledger")
 
-  getQueryClient().setQueryData(ledgerOptions.queryKey, {
-    pageParams: [ledgerOptions.initialPageParam],
-    pages: [initialLedgerPage],
-  })
+  if (activeView === "ledger") {
+    const ledgerInput = getContributionListInput(filters, sort)
+    await batchPrefetch([
+      trpc.contributions.ledger.infiniteQueryOptions(ledgerInput, {
+        getNextPageParam: ({ meta }) => meta?.cursor,
+      }),
+    ])
+  }
 
   return (
     <HydrateClient>

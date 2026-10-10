@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
   createProcurementRequest,
   getProcurementSummary,
+  listProcurementRequestPage,
   listProcurementRequests,
   recordProcurementPurchase,
   reviewProcurementRequest,
@@ -73,6 +74,7 @@ function createProcurementPrismaStub(input?: {
   activeFinancingCount?: number
   activeProcurementObligationCount?: number
   canUseLiveWrites?: boolean
+  existingSubmission?: boolean
   existingRequestOverrides?: Record<string, unknown>
   procurementAccessMode?:
     | "disabled"
@@ -105,7 +107,7 @@ function createProcurementPrismaStub(input?: {
       : null,
     startDate: new Date("2025-01-01T00:00:00.000Z"),
   }
-  const existingProcurementRequest = {
+  let existingProcurementRequest = {
     approvedCost: null,
     approvedMonthlyRepayment: null,
     approvedRepaymentMonths: null,
@@ -166,7 +168,7 @@ function createProcurementPrismaStub(input?: {
       findFirst: async () => existingProcurementRequest,
       update: async (args: any) => {
         procurementRequestUpdates.push(args)
-        return {
+        existingProcurementRequest = {
           ...existingProcurementRequest,
           ...args.data,
           reviewedByUser: {
@@ -175,6 +177,23 @@ function createProcurementPrismaStub(input?: {
             id: args.data.reviewedByUserId,
           },
         }
+        return existingProcurementRequest
+      },
+      updateMany: async (args: any) => {
+        procurementRequestUpdates.push(args)
+        if (args.where.status !== existingProcurementRequest.status) {
+          return { count: 0 }
+        }
+        existingProcurementRequest = {
+          ...existingProcurementRequest,
+          ...args.data,
+          reviewedByUser: {
+            email: "reviewer@example.com",
+            fullName: "Reviewer",
+            id: args.data.reviewedByUserId,
+          },
+        }
+        return { count: 1 }
       },
     },
     procurementRepaymentScheduleItem: {
@@ -227,6 +246,8 @@ function createProcurementPrismaStub(input?: {
 
         return input?.activeProcurementObligationCount ?? 0
       },
+      findFirst: async () =>
+        input?.existingSubmission ? existingProcurementRequest : null,
     },
     procurementRequestCreates,
     procurementRequestCounts,
@@ -380,6 +401,26 @@ describe("procurement request workflow", () => {
       },
     })
     expect(request.estimatedMonthlyRepayment).toBe(25000)
+  })
+
+  test("returns the canonical procurement request for a duplicate submission key", async () => {
+    const prisma = createProcurementPrismaStub({ existingSubmission: true })
+
+    const request = await createProcurementRequest(
+      {
+        actorUserId: "user-1",
+        itemName: "Refrigerator",
+        memberId: "member-1",
+        requestedCost: 150000,
+        requestedRepaymentMonths: 6,
+        submissionKey: "00000000-0000-4000-8000-000000000301",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(request.id).toBe("procurement-1")
+    expect(prisma.procurementRequestCreates).toHaveLength(0)
   })
 
   test("blocks member-created procurement when service is office-only", async () => {
@@ -675,6 +716,59 @@ describe("procurement request workflow", () => {
     expect(requests[0].outstandingAmount).toBe(55000)
   })
 
+  test("uses an ordering-aware cursor for procurement pages", async () => {
+    const findManyInputs: any[] = []
+    let call = 0
+    const first = procurementRequestRow({
+      id: "procurement-1",
+      requestedAt: new Date("2026-07-08T00:00:00.000Z"),
+    })
+    const second = procurementRequestRow({
+      id: "procurement-2",
+      requestedAt: new Date("2026-07-07T00:00:00.000Z"),
+    })
+    const prisma = {
+      procurementRequest: {
+        count: async () => 2,
+        findMany: async (input: any) => {
+          findManyInputs.push(input)
+          call += 1
+          return call === 1 ? [first, second] : [second]
+        },
+      },
+    }
+
+    const firstPage = await listProcurementRequestPage(
+      {
+        pageSize: 1,
+        sort: ["requestedAt", "desc"],
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+    const secondPage = await listProcurementRequestPage(
+      {
+        cursor: firstPage.meta.cursor,
+        pageSize: 1,
+        sort: ["requestedAt", "desc"],
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(firstPage.data.map((request) => request.id)).toEqual([
+      "procurement-1",
+    ])
+    expect(firstPage.meta.cursor).toBeString()
+    expect(firstPage.meta.cursor).not.toBe("procurement-1")
+    expect(secondPage.data.map((request) => request.id)).toEqual([
+      "procurement-2",
+    ])
+    expect(findManyInputs[0]).toMatchObject({ take: 2 })
+    expect(findManyInputs[1].where).toHaveProperty("AND")
+    expect(findManyInputs[1]).not.toHaveProperty("cursor")
+  })
+
   test("summarizes due, overdue, and outstanding procurement schedules", async () => {
     const scheduleCountWheres: unknown[] = []
 
@@ -806,5 +900,33 @@ describe("procurement request workflow", () => {
         },
       },
     })
+  })
+
+  test("rejects stale purchase activation before creating a schedule", async () => {
+    const prisma = createProcurementPrismaStub({
+      existingRequestOverrides: {
+        approvedCost: 180000,
+        approvedMonthlyRepayment: 20000,
+        approvedRepaymentMonths: 9,
+        status: "active",
+      },
+    })
+
+    await expect(
+      recordProcurementPurchase(
+        {
+          actorUserId: "buyer-1",
+          expectedStatus: "approved",
+          firstDueDate: new Date("2026-08-31T00:00:00.000Z"),
+          procurementRequestId: "procurement-1",
+          purchaseDate: new Date("2026-07-31T10:00:00.000Z"),
+          purchaseReference: "INV-STALE",
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+    ).rejects.toThrow("changed from approved to active")
+
+    expect((prisma as any).procurementRepaymentScheduleCreates).toHaveLength(0)
   })
 })

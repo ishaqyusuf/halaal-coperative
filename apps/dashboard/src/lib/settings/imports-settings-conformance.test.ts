@@ -98,4 +98,29 @@ describe("imports settings Midday conformance", () => {
     expect(skeleton).toContain('className="hidden md:block"')
     expect(view).toContain("<Suspense fallback={<ImportTableLoading />}")
   })
+
+  test("shows loan-product policy consequences before apply", () => {
+    const form = read("../../components/forms/import-forms.tsx")
+    const content = read("../../components/import-content.tsx")
+    const view = read("../../components/imports-settings-view.tsx")
+
+    expect(form).toContain("Matching loan-product names or codes")
+    expect(form).toContain("does not create balances or disburse loans")
+    expect(form).toContain("positive whole months")
+    expect(content).toContain("getLoanProductPayload")
+    expect(content).toContain("Existing policy update")
+    expect(content).toContain("maxSavingsMultiple")
+    expect(view).toContain("interest-free financing product definitions")
+  })
+
+  test("explains locked imports instead of showing a dead empty-state action", () => {
+    const table = read("../../components/tables/imports/data-table.tsx")
+    const emptyState = read(
+      "../../components/tables/imports/empty-states.tsx"
+    )
+
+    expect(table).toContain("blockedReason")
+    expect(table).toContain("importAvailability[importKind].isAvailable ?")
+    expect(emptyState).toContain("description")
+  })
 })

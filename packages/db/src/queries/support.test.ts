@@ -7,10 +7,38 @@ import {
   getMemberSupportCaseSummary,
   getSupportCase,
   getSupportCaseSummary,
+  listSupportCasePage,
   listSupportCases,
   reviewSupportCaseFinancialAdjustment,
   updateSupportCaseStatus,
 } from "./support"
+
+test("rejects unsafe support attachment links before creating records", async () => {
+  await expect(
+    createSupportCase(
+      {
+        attachmentUrl: "javascript:alert(1)",
+        category: "technical",
+        description: "An issue with the account.",
+        subject: "Account issue",
+        tenantId: "tenant-1",
+      },
+      {} as never
+    )
+  ).rejects.toThrow("Use an HTTPS attachment link")
+
+  await expect(
+    addSupportCaseMessage(
+      {
+        attachmentUrl: "data:text/html,unsafe",
+        message: "See attachment",
+        supportCaseId: "support-1",
+        tenantId: "tenant-1",
+      },
+      {} as never
+    )
+  ).rejects.toThrow("Use an HTTPS attachment link")
+})
 
 function supportCaseRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -50,6 +78,102 @@ function supportCaseRow(overrides: Record<string, unknown> = {}) {
 }
 
 describe("support case queries", () => {
+  test("paginates sorted support cases with an ordering-aware cursor", async () => {
+    const reads: Record<string, any>[] = []
+    const firstPage = await listSupportCasePage(
+      {
+        pageSize: 2,
+        sort: ["priority", "desc"],
+        tenantId: "tenant-1",
+      },
+      {
+        supportCase: {
+          count: async () => 8,
+          findMany: async (input: Record<string, any>) => {
+            reads.push(input)
+            return [
+              supportCaseRow({ id: "support-1", priority: "urgent" }),
+              supportCaseRow({ id: "support-2", priority: "high" }),
+              supportCaseRow({ id: "support-3", priority: "normal" }),
+            ]
+          },
+        },
+      } as never
+    )
+
+    expect(reads[0]).toMatchObject({
+      skip: 0,
+      take: 3,
+      where: { tenantId: "tenant-1" },
+    })
+    expect(firstPage.data.map((supportCase) => supportCase.id)).toEqual([
+      "support-1",
+      "support-2",
+    ])
+    expect(firstPage.meta.cursor).toBeString()
+
+    await listSupportCasePage(
+      {
+        cursor: firstPage.meta.cursor,
+        pageSize: 2,
+        sort: ["priority", "desc"],
+        tenantId: "tenant-1",
+      },
+      {
+        supportCase: {
+          count: async () => 8,
+          findMany: async (input: Record<string, any>) => {
+            reads.push(input)
+            return []
+          },
+        },
+      } as never
+    )
+
+    expect(reads[1].skip).toBeUndefined()
+    expect(reads[1].where).toMatchObject({
+      AND: [
+        { tenantId: "tenant-1" },
+        {
+          OR: [
+            { priority: { lt: "high" } },
+            {
+              AND: [
+                { priority: "high" },
+                { updatedAt: { lt: new Date("2026-07-08T10:00:00.000Z") } },
+              ],
+            },
+            {
+              AND: [
+                { priority: "high" },
+                { updatedAt: new Date("2026-07-08T10:00:00.000Z") },
+                { id: { lt: "support-2" } },
+              ],
+            },
+          ],
+        },
+      ],
+    })
+  })
+
+  test("rejects malformed support pagination cursors", async () => {
+    await expect(
+      listSupportCasePage(
+        {
+          cursor: "not-a-cursor",
+          pageSize: 20,
+          tenantId: "tenant-1",
+        },
+        {
+          supportCase: {
+            count: async () => 0,
+            findMany: async () => [],
+          },
+        } as never
+      )
+    ).rejects.toThrow("Support case cursor is invalid")
+  })
+
   test("lists support cases with tenant and created-date export filters", async () => {
     const reads: Record<string, unknown>[] = []
     const fromDate = new Date("2026-07-01T00:00:00.000Z")
@@ -677,6 +801,33 @@ describe("support case queries", () => {
     const caseReads: Record<string, unknown>[] = []
     const messageCreates: Record<string, unknown>[] = []
 
+    const db = {
+      auditLog: { create: async () => ({}) },
+      supportCase: {
+        findFirst: async (input: Record<string, unknown>) => {
+          caseReads.push(input)
+          return supportCaseRow()
+        },
+      },
+      supportCaseMessage: {
+        create: async (input: Record<string, unknown>) => {
+          messageCreates.push(input)
+          return {
+            ...input.data,
+            authorUser: {
+              email: "member@example.com",
+              fullName: "Aisha Bello",
+              id: "member-user-1",
+            },
+            createdAt: new Date("2026-07-08T10:05:00.000Z"),
+            id: "message-2",
+          }
+        },
+      },
+      user: { findFirst: async () => ({ id: "member-user-1" }) },
+      $transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
+        callback(db),
+    }
     const message = await addMemberSupportCaseMessage(
       {
         authorUserId: "member-user-1",
@@ -685,35 +836,7 @@ describe("support case queries", () => {
         supportCaseId: "support-1",
         tenantId: "tenant-1",
       },
-      {
-        auditLog: {
-          create: async () => ({}),
-        },
-        supportCase: {
-          findFirst: async (input: Record<string, unknown>) => {
-            caseReads.push(input)
-            return supportCaseRow()
-          },
-        },
-        supportCaseMessage: {
-          create: async (input: Record<string, unknown>) => {
-            messageCreates.push(input)
-            return {
-              ...input.data,
-              authorUser: {
-                email: "member@example.com",
-                fullName: "Aisha Bello",
-                id: "member-user-1",
-              },
-              createdAt: new Date("2026-07-08T10:05:00.000Z"),
-              id: "message-2",
-            }
-          },
-        },
-        user: {
-          findFirst: async () => ({ id: "member-user-1" }),
-        },
-      } as never
+      db as never
     )
 
     expect(caseReads[0]).toMatchObject({
@@ -838,9 +961,34 @@ describe("support case queries", () => {
     expect(updates).toHaveLength(0)
   })
 
+  test("blocks reopening a closed support case", async () => {
+    await expect(
+      updateSupportCaseStatus(
+        {
+          actorUserId: "user-1",
+          status: "open",
+          supportCaseId: "support-1",
+          tenantId: "tenant-1",
+        },
+        {
+          supportCase: {
+            findFirst: async () => supportCaseRow({ status: "closed" }),
+          },
+          user: {
+            findFirst: async () => ({ id: "user-1" }),
+          },
+        } as never
+      )
+    ).rejects.toThrow("Closed support cases cannot be reopened")
+  })
+
   test("reviews financial adjustment requests with audit evidence", async () => {
     const auditCreates: Record<string, unknown>[] = []
     const updates: Record<string, unknown>[] = []
+    let storedSupportCase = supportCaseRow({
+      financialAdjustmentApprovalStatus: "pending",
+      requiresFinancialAdjustment: true,
+    })
 
     const supportCase = await reviewSupportCaseFinancialAdjustment(
       {
@@ -858,18 +1006,15 @@ describe("support case queries", () => {
           },
         },
         supportCase: {
-          findFirst: async () =>
-            supportCaseRow({
-              financialAdjustmentApprovalStatus: "pending",
-              requiresFinancialAdjustment: true,
-            }),
-          update: async (input: any) => {
+          findFirst: async () => storedSupportCase,
+          updateMany: async (input: any) => {
             updates.push(input)
-            return supportCaseRow({
+            storedSupportCase = supportCaseRow({
               ...input.data,
               id: "support-1",
               requiresFinancialAdjustment: true,
             })
+            return { count: 1 }
           },
         },
         user: {
@@ -915,6 +1060,10 @@ describe("support case queries", () => {
   test("resolves approved financial adjustment support cases without posting money", async () => {
     const auditCreates: Record<string, unknown>[] = []
     const updates: Record<string, unknown>[] = []
+    let storedSupportCase = supportCaseRow({
+      financialAdjustmentApprovalStatus: "approved",
+      requiresFinancialAdjustment: true,
+    })
 
     const supportCase = await updateSupportCaseStatus(
       {
@@ -933,20 +1082,17 @@ describe("support case queries", () => {
           },
         },
         supportCase: {
-          findFirst: async () =>
-            supportCaseRow({
-              financialAdjustmentApprovalStatus: "approved",
-              requiresFinancialAdjustment: true,
-            }),
-          update: async (input: any) => {
+          findFirst: async () => storedSupportCase,
+          updateMany: async (input: any) => {
             updates.push(input)
-            return supportCaseRow({
+            storedSupportCase = supportCaseRow({
               ...input.data,
               financialAdjustmentApprovalStatus: "approved",
               id: "support-1",
               requiresFinancialAdjustment: true,
               status: "resolved",
             })
+            return { count: 1 }
           },
         },
         user: {

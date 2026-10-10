@@ -4,7 +4,6 @@ import {
   horizontalListSortingStrategy,
   SortableContext,
 } from "@dnd-kit/sortable"
-import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import {
   TableHead,
   TableHeader,
@@ -159,31 +158,6 @@ function renderHeaderContent<TData>(
   table: Table<TData>,
   tableScroll?: TableScrollState
 ) {
-  if (columnId === "select") {
-    const allPageRowsSelected = table.getIsAllPageRowsSelected()
-    const somePageRowsSelected = table.getIsSomePageRowsSelected()
-
-    return (
-      <Checkbox
-        aria-label="Select all visible support cases"
-        aria-checked={
-          allPageRowsSelected
-            ? true
-            : somePageRowsSelected
-              ? "mixed"
-              : false
-        }
-        checked={allPageRowsSelected}
-        data-indeterminate={
-          !allPageRowsSelected && somePageRowsSelected ? "" : undefined
-        }
-        onCheckedChange={(checked) => {
-          table.toggleAllPageRowsSelected(checked === true)
-        }}
-      />
-    )
-  }
-
   if (columnId === "actions") {
     return (
       <span className="w-full text-center text-muted-foreground">Actions</span>

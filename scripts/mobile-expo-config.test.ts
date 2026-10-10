@@ -18,7 +18,7 @@ function readExpoConfig(env: Record<string, string>) {
       cmd: [
         "sh",
         "-c",
-        'node "$1" config --json > "$2"',
+        'node --no-experimental-strip-types "$1" config --json > "$2"',
         "sh",
         expoCli,
         outputPath,

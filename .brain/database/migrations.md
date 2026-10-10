@@ -172,3 +172,7 @@ Prisma generated and applied local migration `20260924203711_dashboard_evidence_
 ## 10 October 2026 — release readiness check
 
 Ran root `bun db:migrate` and then `bun db:push` against explicitly local `127.0.0.1:55434/halaalvest`; both report schema synchronized, with no pending migration. No reset, migration file, schema edit or hosted write occurred. Six local account/session/evidence integration tests passed and cleaned their own uniquely named fixtures. Hosted schema rollout remains pending secure target configuration; see [release task](../tasks/2026-10-10-release-and-android-testing.md).
+
+## Preview release synchronization — 10 October 2026
+
+The release engine ran `bun db:push --preview` for source `b9993265` against the isolated Neon dev endpoint. Prisma reports synchronized schema in 16.97 seconds. No reset or data-loss override was used. Earlier local `db:migrate` and `db:push` checks passed. Production schema rollout is still pending.

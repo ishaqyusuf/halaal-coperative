@@ -55,6 +55,9 @@ export default defineConfig({
     },
   },
   build: {
+    // Preserve the plugin package boundary so optional macOS dependencies are not
+    // promoted to required Linux worker dependencies by the config bundler.
+    external: ["@sentry/esbuild-plugin"],
     extensions: [
       syncEnvVars(() => syncedTriggerJobEnvironment(process.env), {
         override: true,

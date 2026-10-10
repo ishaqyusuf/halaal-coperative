@@ -43,3 +43,5 @@ The [release audit](../tasks/2026-10-10-release-and-android-testing.md) confirms
 ### Trigger key compatibility (10 October 2026)
 
 Hosted worker key validation accepts both legacy `tr_prod_` and newer `tr_prod_sk_` keys. Trigger API returned legacy keys for both selected HalaalVest projects; read-only runs API authentication verified them. Development/Staging/Preview-branch keys and personal tokens are still rejected as worker keys. Separate-project and database/secret isolation checks remain enforced. Preview project reference: `proj_fzczxiaelzyrkydqfrrw`; Production remains `proj_ajaddxidcuphhhckxwja`.
+
+Cloud portability: Expo config's shared publisher identity is a plain CommonJS runtime module with TypeScript declarations; it must evaluate on EAS Node 20 without native TS stripping. Trigger keeps the Sentry build plugin external so platform-optional watcher dependencies are resolved by npm on the Linux worker, rather than promoted from a macOS bundle. Verify generated worker dependencies omit required `fsevents`.

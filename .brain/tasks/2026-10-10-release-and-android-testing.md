@@ -1,6 +1,6 @@
 # Release and Android testing — 10 October 2026
 
-Status: In progress; hosted release and installable build await owner configuration.
+Status: Preview web/workers and signed APK available; Production email approval and rollout remain pending.
 
 ## Requested scope
 
@@ -82,3 +82,13 @@ Trigger's first upload failed with HTTP 400; the official CLI project-client dia
 ### Hosted worker acceptance and APK toolchain alignment
 
 Preview worker version `20261010.2` deployed successfully at `9398684a54dc9b34d5145f6713d0b95cc515aa48`. Official Trigger client readback matches selected Preview settings; absent optional credentials are cleared. APK retry `f2d53185-96d1-4132-b00f-2548a926b60b` passed app-config evaluation but failed runtime fingerprint verification. Cloud logs show Bun 1.2.20 installing hoisted dependencies while the local repository uses Bun 1.3.0 with isolated dependencies. All EAS build profiles now explicitly pin Bun 1.3.0, matching root packageManager. Runtime verification remains enabled; another cloud build must establish acceptance. Production email sharing is awaiting explicit owner approval after automatic approval review rejected the credential copy; no email changes were applied.
+
+### Preview APK accepted — 11 October readback
+
+EAS build `1dc8fc4a-5047-4a7d-a83e-9c68dec9911f` finished successfully at 10 October 21:24 UTC, from commit `c7da21af80e6baa5778676d2a49d5160b2d71522`. Android package `com.halaalvest.mobile.preview`, version 0.2.0, versionCode 6. APK v2 signature verifies with one signer. SHA-256: `52312f3ead2f9c0dd5a3ce56c2295bcd3369f59659c0b895b651e0c97245613c`. Download: https://expo.dev/artifacts/eas/NhQInfN9R8MtOkekXHTIrzUKjZir0ioWHHOwuo_2dQE.apk . Local copy: `artifacts/android-preview/halaalvest-preview-0.2.0-6.apk` (ignored).
+
+Bun 1.3.0 cloud installation passed runtime fingerprint verification, JS bundling and Gradle. Config confirms Preview identity and expected Expo project. Hermes disassembly confirms exact Preview Dashboard/API origin and legal origin `https://halaalvest.com`; Production API origin is absent. The generic binary regex origin reader falsely reported missing URLs because Hermes packs adjacent string data; exact string-table inspection establishes the artifact evidence. Expo Doctor remains nonblocking but could not run through npm because root uses Bun-specific override names. No real-device install, login or transaction acceptance is claimed.
+
+Vercel readback confirms Dashboard `dpl_92GS4RBuoJ4oAecin5Ea8bKZ3Eop` and Marketing `dpl_BR3jzNgsmMN9PyUYwtnx3eABc6zN` READY at the APK commit. Preview API health responds `ok` (not authenticated DB-flow acceptance). The release waiter became stale and was stopped; web component tags were reconciled from direct provider evidence. Worker component remains accepted at `9398684a` with unchanged worker inputs. A concurrent unrelated `.claude/launch.json` workshop edit was preserved.
+
+Production has not been released. Explicit approval to share Production Resend settings and remove conflicting TEST_EMAIL remains outstanding after automatic approval review rejected that credential copy. Six public policies remain drafts; no Play app submission occurred.

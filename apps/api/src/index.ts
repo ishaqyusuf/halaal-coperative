@@ -1,3 +1,4 @@
+import { handleAppUpdateRequest } from "./app-update/handler"
 import { storeNotifications } from "./billing/store-notifications"
 import "./instrument"
 
@@ -70,6 +71,11 @@ app.use(
     origin: dashboardOrigin,
   })
 )
+
+app.all("/api/internal/mobile/builds*", (c) =>
+  handleAppUpdateRequest(c.req.raw)
+)
+app.get("/api/mobile/builds/check", (c) => handleAppUpdateRequest(c.req.raw))
 
 app.route("/billing/store-notifications", storeNotifications)
 

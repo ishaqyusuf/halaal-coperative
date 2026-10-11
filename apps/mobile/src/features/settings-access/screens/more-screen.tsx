@@ -1,3 +1,4 @@
+import { QaAccessPanel } from "@/features/auth/public/qa-access"
 import { LegalLinks } from "@/components/app/legal-links"
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { DevQuickFill } from "@/components/app/dev-quick-fill"
@@ -329,6 +330,7 @@ export function MoreScreen({
         }
         footer={
           <>
+            <QaAccessPanel inline />
             <LegalLinks />
             {signOutError ? (
               <Text className="text-sm font-medium text-destructive">

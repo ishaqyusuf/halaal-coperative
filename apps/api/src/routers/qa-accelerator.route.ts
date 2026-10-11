@@ -5,6 +5,7 @@ import {
 } from "@halaalvest/auth"
 import {
   authorizeQaClient,
+  authorizeQaDomainClient,
   createQaTesterCredential,
   getQaAuthorizationByToken,
   listQaAccessProfiles,
@@ -20,6 +21,7 @@ import {
 } from "../lib.trpc"
 import {
   getConfiguredLocalQaCredential,
+  isConfiguredQaEntryDomain,
   getQaAcceleratorCapability,
 } from "../qa-accelerator-config"
 import {
@@ -159,28 +161,53 @@ export const qaAcceleratorRouter = createTRPCRouter({
       }
       const authorizationToken = randomCredential("hqa_auth")
       const configuredCredential = getConfiguredLocalQaCredential()
-      const authorization = await authorizeQaClient({
+      if (!input.credential && !isConfiguredQaEntryDomain(qaDomain)) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "This domain is not set up for QA on this server.",
+        })
+      }
+      const common = {
         clientKind: input.clientKind,
         clientSignalHash: clientSignal(input, ctx),
         contractVersion: capability.contractVersion,
-        credentialDigest: hashQaAcceleratorEvidence(
-          `qa-credential:${input.credential}`
-        ),
         environment: capability.environment,
         expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000),
-        fallbackCredentialDigest: configuredCredential
-          ? hashQaAcceleratorEvidence(`qa-credential:${configuredCredential}`)
-          : null,
         qaDomain,
         tokenHash: hashQaAcceleratorEvidence(
           `qa-authorization:${authorizationToken}`
         ),
-      })
+      }
+      const authorization = !input.credential
+        ? await authorizeQaDomainClient({
+            ...common,
+            receiptDigest: hashQaAcceleratorEvidence(
+              `qa-domain-entry:${qaDomain}:${input.clientKind}:${common.clientSignalHash}:${Math.floor(Date.now() / (8 * 60 * 60 * 1000))}`
+            ),
+          })
+        : await authorizeQaClient({
+            clientKind: input.clientKind,
+            clientSignalHash: clientSignal(input, ctx),
+            contractVersion: capability.contractVersion,
+            credentialDigest: hashQaAcceleratorEvidence(
+              `qa-credential:${input.credential}`
+            ),
+            environment: capability.environment,
+            expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000),
+            fallbackCredentialDigest: configuredCredential
+              ? hashQaAcceleratorEvidence(
+                  `qa-credential:${configuredCredential}`
+                )
+              : null,
+            qaDomain,
+            tokenHash: hashQaAcceleratorEvidence(
+              `qa-authorization:${authorizationToken}`
+            ),
+          })
       if (!authorization) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
-          message:
-            "The QA Domain or tester credential could not be authorized.",
+          message: "The QA Domain could not be authorized.",
         })
       }
       return {

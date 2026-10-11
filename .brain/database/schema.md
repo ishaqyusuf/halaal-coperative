@@ -157,3 +157,12 @@ The acceptance-history query first verifies that the signed user has active memb
 `dashboard_evidence_uploads` records a UUID, tenant, nullable uploader, purpose, original name, MIME, declared/stored byte sizes, pending/uploaded/deleted status, and created/uploaded/deleted times. It stores lifecycle metadata, not provider tokens or file bytes. Uploaded state and `file.uploaded` audit commit in one Serializable transaction; repeated finalization does not duplicate audit. A pending record is required before token issuance, and upload intent creation is blocked after QA purge marking. Linked business-record ownership is still derived from saved URLs rather than a foreign key.
 
 The lifecycle row also stores nullable `linked_entity_type`, `linked_entity_id` and `linked_at`. A private upload is claimed once by a matching saved member document, opening balance, payment receipt or support message; type and ID are then required by GET. No provider bytes or tokens are stored.
+
+
+## Preview build registry — 11 October 2026
+
+`MobileBuildRegistry` is global delivery metadata with primary key `key`, validated JSON `value` and integer `revision`. It has no tenant/account relationships. Only the Android Preview key is accepted by the query boundary. Advisory locking serializes first insert and replacement; expected revision and increasing native build numbers prevent lost updates.
+
+### System QA domain receipts (11 October 2026)
+
+`QaTesterCredential.createdByUserId` is nullable for server-created domain-entry receipts (`testerLabel: system-domain-entry`). Human-issued legacy credentials keep their issuer. Receipt digests are keyed by domain, client signal/kind and an eight-hour window. Revoked receipts are not revived; derived authorization expiry cannot exceed receipt expiry.

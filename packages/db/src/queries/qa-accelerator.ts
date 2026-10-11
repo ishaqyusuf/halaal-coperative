@@ -367,3 +367,40 @@ export async function listQaAccessProfiles(qaDomain: string) {
       }) satisfies QaAccessProfileRecord
   )
 }
+
+/** Server-authorized domain entry uses an expiring system receipt, never a client credential. */
+export async function authorizeQaDomainClient(
+  input: Omit<
+    Parameters<typeof authorizeQaClient>[0],
+    "credentialDigest" | "fallbackCredentialDigest"
+  > & { receiptDigest: string }
+) {
+  if (!["local", "development", "preview"].includes(input.environment))
+    return null
+  if (!(await listQaAccessProfiles(input.qaDomain)).length) return null
+  const prisma = createPrismaClient()
+  let expiresAt = input.expiresAt
+  if (prisma) {
+    const grant = await prisma.qaTesterCredential.upsert({
+      where: { credentialDigest: input.receiptDigest },
+      create: {
+        credentialDigest: input.receiptDigest,
+        qaDomain: input.qaDomain,
+        testerLabel: "system-domain-entry",
+        createdByUserId: null,
+        expiresAt: input.expiresAt,
+      },
+      update: {},
+    })
+    if (grant.revokedAt || grant.expiresAt <= new Date()) return null
+    expiresAt = new Date(
+      Math.min(expiresAt.getTime(), grant.expiresAt.getTime())
+    )
+  }
+  return authorizeQaClient({
+    ...input,
+    expiresAt,
+    credentialDigest: input.receiptDigest,
+    fallbackCredentialDigest: input.receiptDigest,
+  })
+}

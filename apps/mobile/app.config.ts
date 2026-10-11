@@ -199,6 +199,7 @@ const config: ExpoConfig = {
     output: "single",
   },
   plugins: [
+    "./plugins/with-app-update.cjs",
     ...sentryPlugins,
     "expo-router",
     "expo-iap",

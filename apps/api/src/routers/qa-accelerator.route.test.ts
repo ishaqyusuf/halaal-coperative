@@ -133,6 +133,60 @@ describe("qaAcceleratorRouter", () => {
     }
   })
 
+  test("domain-only entry accepts an exact configured QA domain without exposing a credential", async () => {
+    const oldRoutes = process.env.EMAIL_QA_DOMAIN_ROUTES
+    const oldSecret = process.env.QA_ACCELERATOR_SECRET
+    try {
+      process.env.QA_ACCELERATOR_SECRET =
+        "synthetic-domain-entry-signing-secret-32-chars"
+      process.env.EMAIL_QA_DOMAIN_ROUTES = JSON.stringify({
+        "safa.qa.test": "qa@example.org",
+      })
+      const client = await caller()
+      const input = {
+        clientId: "domain-only-device",
+        clientKind: "mobile" as const,
+        contractVersion: 1,
+      }
+      await expect(
+        client.qaAccelerator.authorize({
+          ...input,
+          qaDomain: "other.safa.qa.test",
+        })
+      ).rejects.toThrow()
+      const auth = await client.qaAccelerator.authorize({
+        ...input,
+        qaDomain: "SAFA.QA.TEST.",
+      })
+      expect(auth).not.toHaveProperty("credential")
+      const profiles = await client.qaAccelerator.profiles({
+        ...input,
+        authorizationToken: auth.authorizationToken,
+      })
+      expect(profiles.profiles).toHaveLength(3)
+      const entered = await client.qaAccelerator.enterProfile({
+        ...input,
+        authorizationToken: auth.authorizationToken,
+        selectionRef: profiles.profiles[1]!.selectionRef,
+      })
+      expect(entered.clientKind).toBe("mobile")
+      if (entered.clientKind === "mobile")
+        expect(entered.profile.cooperativeRole).toBe("member")
+      process.env.EMAIL_QA_DOMAIN_ROUTES = "{}"
+      await expect(
+        client.qaAccelerator.authorize({ ...input, qaDomain: "safa.qa.test" })
+      ).rejects.toThrow()
+      process.env.EMAIL_QA_DOMAIN_ROUTES = "invalid"
+      await expect(
+        client.qaAccelerator.authorize({ ...input, qaDomain: "safa.qa.test" })
+      ).rejects.toThrow()
+    } finally {
+      if (oldRoutes === undefined) delete process.env.EMAIL_QA_DOMAIN_ROUTES
+      else process.env.EMAIL_QA_DOMAIN_ROUTES = oldRoutes
+      process.env.QA_ACCELERATOR_SECRET = oldSecret
+    }
+  })
+
   test("fails closed in production even with forged client inputs", async () => {
     process.env.HALAALVEST_ENV = "production"
     const capability = await (
@@ -145,6 +199,14 @@ describe("qaAcceleratorRouter", () => {
       available: false,
       status: "unavailable",
     })
+    await expect(
+      (await caller()).qaAccelerator.authorize({
+        clientKind: "mobile",
+        clientId: "production-domain-entry-device",
+        contractVersion: 1,
+        qaDomain: "safa.qa.test",
+      })
+    ).rejects.toThrow()
     process.env.HALAALVEST_ENV = "local"
   })
 

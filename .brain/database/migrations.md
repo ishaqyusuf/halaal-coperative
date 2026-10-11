@@ -176,3 +176,12 @@ Ran root `bun db:migrate` and then `bun db:push` against explicitly local `127.0
 ## Preview release synchronization — 10 October 2026
 
 The release engine ran `bun db:push --preview` for source `b9993265` against the isolated Neon dev endpoint. Prisma reports synchronized schema in 16.97 seconds. No reset or data-loss override was used. Earlier local `db:migrate` and `db:push` checks passed. Production schema rollout is still pending.
+
+
+## 11 October 2026 — Preview build registry
+
+Prisma generated and applied `20261011112654_preview_mobile_build_registry` through root `bun db:migrate`; root `bun db:push` confirmed local schema synchronization. Hosted Preview migration remains a release step. No manual migration file was authored.
+
+### 20261011113609_qa_domain_entry_receipts
+
+Prisma-generated migration makes `QaTesterCredential.createdByUserId` nullable for system-issued domain-entry receipts. Applied locally with `bun db:migrate`; required `bun db:push` and client generation succeeded. Hosted migration remains pending alongside the Preview registry migration.

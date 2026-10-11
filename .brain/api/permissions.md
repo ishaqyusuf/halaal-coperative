@@ -243,3 +243,12 @@ Dashboard upload intent, token, finalize and GET require an active membership ma
 ## Logly attribution — 1 October 2026
 
 Analytics group keys are not access tokens. Dashboard identity comes from its existing verified host/session context and active membership or platform-owner status; public tenant website traffic may have a host-derived group without an account. Native identity comes from the authenticated profile builder after ordinary tenant/membership checks. Clients cannot choose actor/group IDs in the ingestion payload. Signed capture tokens only authorize analytics attribution for their fixed project; they grant no tenant business or reporting access. Future merchant analytics must enforce tenant scope on every read, aggregate and export server-side.
+
+
+## Preview build delivery — 11 October 2026
+
+Public checks expose only validated public APK metadata. Registry writes require a dedicated 32+ character publisher token and matching local/Preview backend header; Production identities disable this facility. No cooperative role grants publication authority. QA configuration now treats Vercel/explicit Production deployment identity as authoritative over a conflicting Preview flag.
+
+### Domain-only QA entry (11 October 2026)
+
+Current QA clients require no tester credential. An enabled non-Production server permits exact domains from `EMAIL_QA_DOMAIN_ROUTES` only, with a signing secret of at least 32 characters and active QA memberships. Knowledge of a configured QA domain permits selection among that domain's eligible QA identities; this deliberate convenience is limited to QA data. Production capability guards remain mandatory. Ordinary signed sessions, authorization expiry/revocation and workspace permissions remain authoritative.

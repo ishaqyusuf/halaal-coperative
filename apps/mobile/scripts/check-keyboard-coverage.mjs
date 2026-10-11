@@ -79,11 +79,8 @@ checkMarkers("src/features/auth/components/qa-access-panel.tsx", [
   'position: "absolute"',
   'className="h-11 w-11 rounded-full border border-border bg-card p-0"',
   'accessibilityLabel="QA Domain"',
-  'accessibilityLabel="Tester credential"',
-  'onSubmitEditing={() => KeyboardController.setFocusTo("next")}',
-  'returnKeyType="next"',
   'returnKeyType="go"',
-  'submitBehavior="submit"',
+  'submitBehavior="blurAndSubmit"',
 ])
 checkMarkers("src/features/auth/components/auth-screen-shell.tsx", [
   "AppKeyboardAwareScrollView",

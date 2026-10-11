@@ -1,6 +1,10 @@
+import {
+  checkNativeBuild,
+  installedBuild,
+  withAppUpdateLock,
+} from "@/lib/app-update-client"
 import config from "@root/app.config"
-import { useLocalSearchParams } from "expo-router"
-import { useRouter } from "expo-router"
+import { useLocalSearchParams, useRouter } from "expo-router"
 import * as Updates from "expo-updates"
 import { useCallback, useMemo, useState } from "react"
 import {
@@ -78,8 +82,7 @@ export function UpdatesRouteController() {
   const effectiveError = qaError ?? error ?? nativeError
   const effectiveHasCheckedSuccessfully =
     resolvedQaState === "current" ? true : hasCheckedSuccessfully
-  const effectiveIsChecking =
-    resolvedQaState === "checking" ? true : isChecking
+  const effectiveIsChecking = resolvedQaState === "checking" ? true : isChecking
   const effectiveIsDownloading =
     resolvedQaState === "downloading" ? true : isDownloading
   const effectiveIsRollbackAvailable =
@@ -89,7 +92,9 @@ export function UpdatesRouteController() {
   const effectiveIsUpdatePending =
     resolvedQaState === "pending" ? true : isUpdatePending
   const effectiveUpdatesEnabled =
-    resolvedQaState === "disabled" ? false : Updates.isEnabled
+    resolvedQaState === "disabled"
+      ? false
+      : Updates.isEnabled || installedBuild() !== null
   const qaMessage =
     resolvedQaState === "available"
       ? "A newer published update is ready to download."
@@ -154,6 +159,12 @@ export function UpdatesRouteController() {
     setMessage("Checking the matching update channel for this build.")
 
     try {
+      if (await checkNativeBuild(true)) return
+      if (!Updates.isEnabled) {
+        setHasCheckedSuccessfully(true)
+        setMessage("No newer native build is available.")
+        return
+      }
       const result = await Updates.checkForUpdateAsync()
       setHasCheckedSuccessfully(true)
       if (result.isAvailable) {
@@ -215,14 +226,14 @@ export function UpdatesRouteController() {
   const runPrimaryAction = useCallback(() => {
     if (!primaryAction || primaryAction.disabled || resolvedQaState) return
     if (primaryAction.kind === "download") {
-      void downloadUpdate()
+      void withAppUpdateLock(downloadUpdate)
       return
     }
     if (primaryAction.kind === "restart") {
-      void restartIntoUpdate()
+      void withAppUpdateLock(restartIntoUpdate)
       return
     }
-    void checkForUpdate()
+    void withAppUpdateLock(checkForUpdate)
   }, [
     checkForUpdate,
     downloadUpdate,

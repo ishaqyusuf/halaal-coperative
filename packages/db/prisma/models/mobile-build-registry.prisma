@@ -1,0 +1,6 @@
+// Global delivery metadata; contains no tenant or account information.
+model MobileBuildRegistry {
+  key String @id
+  value Json
+  revision Int @default(1)
+}

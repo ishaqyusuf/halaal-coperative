@@ -1,3 +1,5 @@
+import { isUnauthorizedMobileSessionError } from "@/runtime/mobile-runtime-state"
+import Constants from "expo-constants"
 import { CompactFormSheet } from "@/components/app/compact-form-sheet"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
@@ -19,10 +21,14 @@ import { captureMobileError } from "@/lib/sentry"
 import { cn } from "@/lib/utils"
 import { useEffect, useState } from "react"
 import { Keyboard, Pressable, TextInput, View } from "react-native"
-import { KeyboardController } from "react-native-keyboard-controller"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-export function QaAccessPanel() {
+export function QaAccessPanel({ inline = false }: { inline?: boolean }) {
+  if (Constants.expoConfig?.extra?.qaAcceleratorClient !== true) return null
+  return <EnabledQaAccessPanel inline={inline} />
+}
+
+function EnabledQaAccessPanel({ inline }: { inline: boolean }) {
   const { acceptServerProfile } = useAuthContext()
   const insets = useSafeAreaInsets()
   const largeTextLayout = useLargeTextLayout()
@@ -30,9 +36,9 @@ export function QaAccessPanel() {
   const [environment, setEnvironment] = useState("")
   const [authorization, setAuthorization] =
     useState<MobileQaAuthorization | null>(null)
+  const [search, setSearch] = useState("")
   const [profiles, setProfiles] = useState<MobileQaProfile[]>([])
   const [qaDomain, setQaDomain] = useState("")
-  const [credential, setCredential] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const [sheetVisible, setSheetVisible] = useState(false)
@@ -44,7 +50,17 @@ export function QaAccessPanel() {
       setProfiles([])
       return
     }
-    const response = await listMobileQaProfiles(current)
+    setProfiles([])
+    let response
+    try {
+      response = await listMobileQaProfiles(current)
+    } catch (error) {
+      if (isUnauthorizedMobileSessionError(error)) {
+        await clearMobileQaAuthorization()
+        setAuthorization(null)
+      }
+      throw error
+    }
     setQaDomain(response.qaDomain)
     setProfiles(response.profiles)
   }
@@ -59,10 +75,10 @@ export function QaAccessPanel() {
         setEnvironment(capability.environment)
         await refresh()
       } catch {
-        await clearMobileQaAuthorization()
         if (!mounted) return
-        setAuthorization(null)
-        setProfiles([])
+        setError(
+          "QA access could not be loaded. Check your connection and reopen QA access."
+        )
       }
     })()
     return () => {
@@ -72,16 +88,15 @@ export function QaAccessPanel() {
 
   if (!available) return null
 
-  const canAuthorize =
-    !pending && qaDomain.trim().length >= 3 && credential.length >= 16
+  const canAuthorize = !pending && qaDomain.trim().length >= 3
 
   async function authorize() {
+    if (pending) return
     Keyboard.dismiss()
     setPending(true)
     setError(null)
     try {
-      const next = await authorizeMobileQa({ credential, qaDomain })
-      setCredential("")
+      const next = await authorizeMobileQa({ qaDomain })
       await refresh(next)
     } catch (authorizationError) {
       captureMobileError(authorizationError, "mobile.auth.qa_access")
@@ -96,7 +111,7 @@ export function QaAccessPanel() {
   }
 
   async function enter(profile: MobileQaProfile) {
-    if (!authorization) return
+    if (!authorization || pending) return
     Keyboard.dismiss()
     setPending(true)
     setError(null)
@@ -107,6 +122,8 @@ export function QaAccessPanel() {
       })
       if (response.clientKind !== "mobile") throw new Error("Invalid QA client")
       await acceptServerProfile(response.profile)
+      setSheetVisible(false)
+      setPending(false)
     } catch (handoffError) {
       captureMobileError(handoffError, "mobile.auth.qa_access")
       setError(
@@ -123,7 +140,6 @@ export function QaAccessPanel() {
     setAuthorization(null)
     setProfiles([])
     setQaDomain("")
-    setCredential("")
     setError(null)
   }
 
@@ -132,12 +148,16 @@ export function QaAccessPanel() {
     Keyboard.dismiss()
     setError(null)
     setSheetVisible(true)
+    void refresh().catch(() =>
+      setError(
+        "QA access could not be loaded. Check the connection or change QA Domain."
+      )
+    )
   }
 
   function closeSheet() {
     TextInput.State.currentlyFocusedInput()?.blur()
     Keyboard.dismiss()
-    setCredential("")
     setError(null)
     if (!authorization) setQaDomain("")
     setSheetVisible(false)
@@ -145,30 +165,37 @@ export function QaAccessPanel() {
 
   return (
     <>
-      <View
-        className="absolute z-20 h-11 w-11"
-        pointerEvents="box-none"
-        style={{
-          bottom: Math.max(insets.bottom, 16) + 12,
-          left: 24,
-          position: "absolute",
-        }}
-      >
-        <Button
-          accessibilityLabel={
-            authorization ? "Update QA access" : "Open QA access"
-          }
-          accessibilityHint="Opens optional tester access in a floating bottom sheet"
-          className="h-11 w-11 rounded-full border border-border bg-card p-0"
-          onPress={openSheet}
-          size="icon"
-          variant="link"
-        >
-          <Icon className="size-sm text-brand" name="KeyRound" />
+      {inline ? (
+        <Button className="my-3 min-h-11" variant="outline" onPress={openSheet}>
+          <Text>QA workspace</Text>
         </Button>
-      </View>
+      ) : (
+        <View
+          className="absolute z-20 h-11 w-11"
+          pointerEvents="box-none"
+          style={{
+            bottom: Math.max(insets.bottom, 16) + 12,
+            left: 24,
+            position: "absolute",
+          }}
+        >
+          <Button
+            accessibilityLabel={
+              authorization ? "Update QA access" : "Open QA access"
+            }
+            accessibilityHint="Opens optional tester access in a floating bottom sheet"
+            className="h-11 w-11 rounded-full border border-border bg-card p-0"
+            onPress={openSheet}
+            size="icon"
+            variant="link"
+          >
+            <Icon className="size-sm text-brand" name="KeyRound" />
+          </Button>
+        </View>
+      )}
 
       <CompactFormSheet
+        isSubmitting={pending}
         onClose={closeSheet}
         title={authorization ? "Update QA access" : "Set up QA access"}
         visible={sheetVisible}
@@ -201,56 +228,79 @@ export function QaAccessPanel() {
             <Text className="text-sm leading-5 text-muted-foreground">
               Choose a test profile.
             </Text>
+            <Input
+              accessibilityLabel="Search QA profiles"
+              placeholder="Cooperative, name or role"
+              value={search}
+              onChangeText={setSearch}
+              autoCapitalize="none"
+            />
+            {profiles.length === 0 ? (
+              <Text className="mt-3 text-sm text-muted-foreground">
+                No eligible profiles are available for this QA Domain.
+              </Text>
+            ) : null}
             <View className="mt-4 overflow-hidden rounded-lg border border-border">
-              {profiles.map((profile, index) => (
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={pending || !profile.eligible}
-                  key={profile.selectionRef}
-                  onPress={() => void enter(profile)}
-                  className={cn(
-                    "min-h-16 gap-3 px-3 py-3 active:bg-muted",
-                    largeTextLayout ? "items-start" : "flex-row items-center",
-                    index > 0 && "border-t border-border"
-                  )}
-                >
-                  <View className="size-9 items-center justify-center rounded-md bg-muted">
-                    <Text className="text-xs font-black">
-                      {profile.identityLabel
-                        .split(/\s+/)
-                        .map((part) => part[0])
-                        .slice(0, 2)
-                        .join("")}
-                    </Text>
-                  </View>
-                  <View className="min-w-0 flex-1">
-                    <Text
-                      className="font-bold"
-                      numberOfLines={largeTextLayout ? undefined : 1}
-                    >
-                      {profile.identityLabel}
-                    </Text>
-                    <Text
-                      className="text-xs text-muted-foreground"
-                      numberOfLines={largeTextLayout ? undefined : 1}
-                    >
-                      {profile.cooperativeName}
-                      {profile.memberCode ? ` · ${profile.memberCode}` : ""}
-                    </Text>
-                    {largeTextLayout ? (
-                      <Text className="mt-1 text-xs font-bold text-muted-foreground uppercase">
+              {profiles
+                .filter((profile) =>
+                  [
+                    profile.identityLabel,
+                    profile.cooperativeName,
+                    profile.role,
+                    profile.memberCode,
+                  ].some((value) =>
+                    value?.toLowerCase().includes(search.trim().toLowerCase())
+                  )
+                )
+                .map((profile, index) => (
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={pending || !profile.eligible}
+                    key={profile.selectionRef}
+                    onPress={() => void enter(profile)}
+                    className={cn(
+                      "min-h-16 gap-3 px-3 py-3 active:bg-muted",
+                      largeTextLayout ? "items-start" : "flex-row items-center",
+                      index > 0 && "border-t border-border"
+                    )}
+                  >
+                    <View className="size-9 items-center justify-center rounded-md bg-muted">
+                      <Text className="text-xs font-black">
+                        {profile.identityLabel
+                          .split(/\s+/)
+                          .map((part) => part[0])
+                          .slice(0, 2)
+                          .join("")}
+                      </Text>
+                    </View>
+                    <View className="min-w-0 flex-1">
+                      <Text
+                        className="font-bold"
+                        numberOfLines={largeTextLayout ? undefined : 1}
+                      >
+                        {profile.identityLabel}
+                      </Text>
+                      <Text
+                        className="text-xs text-muted-foreground"
+                        numberOfLines={largeTextLayout ? undefined : 1}
+                      >
+                        {profile.cooperativeName}
+                        {profile.memberCode ? ` · ${profile.memberCode}` : ""}
+                      </Text>
+                      {largeTextLayout ? (
+                        <Text className="mt-1 text-xs font-bold text-muted-foreground uppercase">
+                          {profile.role.replaceAll("_", " ")}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {largeTextLayout ? null : (
+                      <Text className="text-[10px] font-bold text-muted-foreground uppercase">
                         {profile.role.replaceAll("_", " ")}
                       </Text>
-                    ) : null}
-                  </View>
-                  {largeTextLayout ? null : (
-                    <Text className="text-[10px] font-bold text-muted-foreground uppercase">
-                      {profile.role.replaceAll("_", " ")}
-                    </Text>
-                  )}
-                  <Text accessible={false}>→</Text>
-                </Pressable>
-              ))}
+                    )}
+                    <Text accessible={false}>→</Text>
+                  </Pressable>
+                ))}
             </View>
             {error ? (
               <Text
@@ -275,7 +325,7 @@ export function QaAccessPanel() {
         ) : (
           <View className="gap-4">
             <Text className="text-sm leading-5 text-muted-foreground">
-              Use the exact assigned domain and tester credential.
+              Enter your assigned QA Domain.
             </Text>
             <View className="gap-2">
               <Text className="text-sm font-semibold">QA Domain</Text>
@@ -284,28 +334,14 @@ export function QaAccessPanel() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 onChangeText={setQaDomain}
-                onSubmitEditing={() => KeyboardController.setFocusTo("next")}
-                placeholder="ishaq.qa.test"
-                returnKeyType="next"
-                submitBehavior="submit"
-                value={qaDomain}
-              />
-            </View>
-            <View className="gap-2">
-              <Text className="text-sm font-semibold">Tester credential</Text>
-              <Input
-                accessibilityLabel="Tester credential"
-                autoCapitalize="none"
-                autoCorrect={false}
-                onChangeText={setCredential}
                 onSubmitEditing={() => {
                   Keyboard.dismiss()
                   if (canAuthorize) void authorize()
                 }}
+                placeholder="ishaq.qa.test"
                 returnKeyType="go"
-                secureTextEntry
                 submitBehavior="blurAndSubmit"
-                value={credential}
+                value={qaDomain}
               />
             </View>
             {error ? (
@@ -326,7 +362,8 @@ export function QaAccessPanel() {
               </Text>
             </Button>
             <Text className="text-xs leading-5 text-muted-foreground">
-              The credential is discarded after server authorization.
+              QA access expires automatically and retains ordinary role
+              permissions.
             </Text>
           </View>
         )}

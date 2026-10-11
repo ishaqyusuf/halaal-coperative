@@ -9,7 +9,7 @@ export const qaCapabilityInput = z.object({
 
 export const qaAuthorizeInput = qaCapabilityInput.extend({
   clientId: z.string().trim().min(8).max(160),
-  credential: z.string().trim().min(16).max(256),
+  credential: z.string().trim().min(16).max(256).optional(),
   qaDomain: z.string().trim().min(3).max(253),
 })
 

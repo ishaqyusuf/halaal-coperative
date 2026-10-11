@@ -1,3 +1,4 @@
+import { QaAccessPanel } from "@/features/auth/public/qa-access"
 import { useState } from "react"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useMobileAppAccess } from "@/runtime/mobile-app-access-provider"
@@ -160,6 +161,7 @@ export function MobileAppAccessRouteController() {
           to cancel it separately. If a charge is missing, Restore or contact
           support before buying again.
         </Text>
+        <QaAccessPanel inline />
         <LegalLinks />
       </ScrollView>
     </SafeArea>

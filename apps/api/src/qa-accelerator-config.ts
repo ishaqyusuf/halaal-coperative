@@ -1,3 +1,4 @@
+import { parseQaDomainRoutes } from "@halaalvest/notifications"
 import {
   normalizeQaAcceleratorEnvironment,
   resolveQaAcceleratorCapability,
@@ -5,6 +6,12 @@ import {
 } from "@halaalvest/domain"
 
 function getEnvironment() {
+  if (
+    process.env.VERCEL_ENV === "production" ||
+    process.env.DEPLOYMENT_ENVIRONMENT === "production"
+  )
+    return "production"
+
   return normalizeQaAcceleratorEnvironment(
     process.env.HALAALVEST_ENV ??
       process.env.DEPLOYMENT_ENVIRONMENT ??
@@ -52,5 +59,16 @@ export function assertQaAcceleratorStartupSafety() {
     throw new Error(
       "QA_ACCELERATOR_ENABLED cannot be true in the production API environment."
     )
+  }
+}
+
+export function isConfiguredQaEntryDomain(domain: string) {
+  try {
+    return (
+      (process.env.QA_ACCELERATOR_SECRET?.trim().length ?? 0) >= 32 &&
+      parseQaDomainRoutes(process.env.EMAIL_QA_DOMAIN_ROUTES).has(domain)
+    )
+  } catch {
+    return false
   }
 }

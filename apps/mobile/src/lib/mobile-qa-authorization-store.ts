@@ -14,7 +14,14 @@ export async function loadMobileQaAuthorization() {
 
   try {
     const authorization = JSON.parse(value) as MobileQaAuthorization
-    if (new Date(authorization.expiresAt).getTime() <= Date.now()) {
+    if (
+      typeof authorization.authorizationToken !== "string" ||
+      !authorization.authorizationToken ||
+      typeof authorization.qaDomain !== "string" ||
+      !authorization.qaDomain ||
+      !Number.isFinite(Date.parse(authorization.expiresAt)) ||
+      Date.parse(authorization.expiresAt) <= Date.now()
+    ) {
       await clearMobileQaAuthorization()
       return null
     }

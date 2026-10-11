@@ -39,6 +39,7 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./test-utils": "./src/test-utils.ts"
+    "./test-utils": "./src/test-utils.ts",
+    "./app-update": "./src/queries/app-update.ts"
   }
 }

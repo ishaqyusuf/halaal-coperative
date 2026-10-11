@@ -63,7 +63,6 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as {
     action?: "authorize" | "clear" | "enter"
-    credential?: string
     qaDomain?: string
     selectionRef?: string
   }
@@ -81,7 +80,6 @@ export async function POST(request: NextRequest) {
       clientId,
       clientKind: "web",
       contractVersion: 1,
-      credential: body.credential ?? "",
       qaDomain: body.qaDomain ?? "",
     })
     const response = NextResponse.json({

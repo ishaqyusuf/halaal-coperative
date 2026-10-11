@@ -825,3 +825,7 @@ Dashboard and Marketing `GET /api/analytics/context` return a private, no-store 
 ## Release error-contract integration — 10 October 2026
 
 Remaining database query failures use the existing explicit error boundary. Invalid pagination remains validation failure. Private evidence record association now returns expected not-found, permission, precondition or conflict classifications; cross-tenant/uploader access is still rejected, and repeat/concurrent claims cannot be silently accepted. Configuration failures and failed QA fixture invariants use reportable `QueryInfrastructureError` without exposing their internal detail. Evidence permission/conflict tests and local concurrent-finalization tests pass. No endpoint, role grant, payload or ledger calculation changed.
+
+## Domain-only QA authorization — 11 October 2026
+
+`qaAccelerator.authorize.credential` is optional for compatibility. Current Mobile, Dashboard and Marketing submit domain/client identity/contract version only. Omission selects exact server-configured domain authorization with an expiring system receipt; it does not bypass capability, rate limits, eligible QA profile checks or client-bound authorization. Legacy credential input remains accepted. The response remains `{ authorizationToken, expiresAt, qaDomain }`. Production fails closed.

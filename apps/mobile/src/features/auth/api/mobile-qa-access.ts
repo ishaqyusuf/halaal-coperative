@@ -31,10 +31,7 @@ export async function getMobileQaCapability() {
 
 export { clearMobileQaAuthorization, loadMobileQaAuthorization }
 
-export async function authorizeMobileQa(input: {
-  credential: string
-  qaDomain: string
-}) {
+export async function authorizeMobileQa(input: { qaDomain: string }) {
   const authorization =
     await createMobileTrpcClient().qaAccelerator.authorize.mutate({
       ...input,

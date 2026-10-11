@@ -25,7 +25,9 @@ async function getAuthorizedDomain(request: NextRequest) {
   const authorizationToken = request.cookies.get(qaAuthorizationCookie)?.value
   const clientId = request.cookies.get(qaClientCookie)?.value
   if (!authorizationToken || !clientId) return null
-  const profiles = await (await callerFor(request)).qaAccelerator.profiles({
+  const profiles = await (
+    await callerFor(request)
+  ).qaAccelerator.profiles({
     authorizationToken,
     clientId,
     clientKind: "web",
@@ -57,7 +59,6 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as {
     action?: "authorize" | "clear"
-    credential?: string
     qaDomain?: string
   }
   if (body.action === "clear") {
@@ -77,7 +78,6 @@ export async function POST(request: NextRequest) {
     clientId,
     clientKind: "web",
     contractVersion: 1,
-    credential: body.credential ?? "",
     qaDomain: body.qaDomain ?? "",
   })
   const response = NextResponse.json({

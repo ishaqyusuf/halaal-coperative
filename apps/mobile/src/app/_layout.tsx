@@ -1,3 +1,4 @@
+import { AppBuildUpdate } from "@/components/app-build-update"
 import { AnalyticsRuntime } from "@/runtime/analytics-runtime"
 import "react-native-reanimated"
 
@@ -148,33 +149,36 @@ function RootLayoutNav() {
                   <MobileAppAccessProvider>
                     <AnalyticsRuntime />
                     <PaidNotificationRuntime>
-                    <AppLockRuntime>
-                      <MobileRuntimeProvider>
-                        <ModalAccessibilityProvider>
-                          <BottomSheetModalProvider>
-                            <FullScreenFormVisibilityProvider>
-                              <AppAccessibilityBackground>
-                                <FlashMessage position="top" />
-                                <MobileRuntimeGate>
-                                  <MobileRuntimeBanner />
-                                  <AppAutoUpdateModal />
-                                  <StatusBar
-                                    backgroundColor={colors.background}
-                                    style={
-                                      colorScheme === "dark" ? "light" : "dark"
-                                    }
-                                  />
-                                  <RoleProtectedStack />
-                                </MobileRuntimeGate>
-                                <Toast />
-                                <DevQuickFillLayer />
-                              </AppAccessibilityBackground>
-                              <FullScreenFormSheetLayer />
-                            </FullScreenFormVisibilityProvider>
-                          </BottomSheetModalProvider>
-                        </ModalAccessibilityProvider>
-                      </MobileRuntimeProvider>
-                    </AppLockRuntime>
+                      <AppLockRuntime>
+                        <MobileRuntimeProvider>
+                          <ModalAccessibilityProvider>
+                            <BottomSheetModalProvider>
+                              <FullScreenFormVisibilityProvider>
+                                <AppAccessibilityBackground>
+                                  <FlashMessage position="top" />
+                                  <MobileRuntimeGate>
+                                    <MobileRuntimeBanner />
+                                    <AppAutoUpdateModal />
+                                    <AppBuildUpdate />
+                                    <StatusBar
+                                      backgroundColor={colors.background}
+                                      style={
+                                        colorScheme === "dark"
+                                          ? "light"
+                                          : "dark"
+                                      }
+                                    />
+                                    <RoleProtectedStack />
+                                  </MobileRuntimeGate>
+                                  <Toast />
+                                  <DevQuickFillLayer />
+                                </AppAccessibilityBackground>
+                                <FullScreenFormSheetLayer />
+                              </FullScreenFormVisibilityProvider>
+                            </BottomSheetModalProvider>
+                          </ModalAccessibilityProvider>
+                        </MobileRuntimeProvider>
+                      </AppLockRuntime>
                     </PaidNotificationRuntime>
                   </MobileAppAccessProvider>
                 </AuthProvider>

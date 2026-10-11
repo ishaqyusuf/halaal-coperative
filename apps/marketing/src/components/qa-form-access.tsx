@@ -13,7 +13,6 @@ export function QaFormAccess() {
   const [state, setState] = useState<QaAccessState | null>(null)
   const [expanded, setExpanded] = useState(false)
   const [qaDomain, setQaDomain] = useState("")
-  const [credential, setCredential] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -37,19 +36,17 @@ export function QaFormAccess() {
       const response = await fetch("/api/qa-access", {
         body: JSON.stringify({
           action: "authorize",
-          credential,
           qaDomain,
         }),
         headers: { "content-type": "application/json" },
         method: "POST",
       })
       if (!response.ok) throw new Error("authorize")
-      setCredential("")
       await refresh()
       setExpanded(false)
       window.location.reload()
     } catch {
-      setError("The QA Domain or tester credential could not be authorized.")
+      setError("The QA Domain could not be authorized.")
     } finally {
       setPending(false)
     }
@@ -93,7 +90,11 @@ export function QaFormAccess() {
               <p className="text-sm text-neutral-600">
                 Typed Quick Fill is enabled only for this exact QA Domain.
               </p>
-              <Button onClick={() => void clear()} type="button" variant="outline">
+              <Button
+                onClick={() => void clear()}
+                type="button"
+                variant="outline"
+              >
                 Change QA Domain
               </Button>
             </>
@@ -107,24 +108,14 @@ export function QaFormAccess() {
                   value={qaDomain}
                 />
               </label>
-              <label className="grid gap-1 text-sm font-medium">
-                Tester credential
-                <Input
-                  autoComplete="off"
-                  onChange={(event) => setCredential(event.target.value)}
-                  type="password"
-                  value={credential}
-                />
-              </label>
+
               {error ? (
                 <p className="text-sm text-red-700" role="alert">
                   {error}
                 </p>
               ) : null}
               <Button
-                disabled={
-                  pending || qaDomain.trim().length < 3 || credential.length < 16
-                }
+                disabled={pending || qaDomain.trim().length < 3}
                 onClick={() => void authorize()}
                 type="button"
               >

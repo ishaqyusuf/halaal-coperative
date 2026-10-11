@@ -21,6 +21,7 @@
   "exports": {
     "./shared-env": "./src/shared-env.mjs",
     ".": "./src/index.ts",
-    "./runtime-url": "./src/runtime-url.ts"
+    "./runtime-url": "./src/runtime-url.ts",
+    "./app-update": "./src/app-update.ts"
   }
 }

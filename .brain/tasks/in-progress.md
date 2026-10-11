@@ -849,3 +849,8 @@ Source and focused component QA are complete across the dashboard search/filter 
 ## Release and Android testing — 10 October 2026
 
 Owner selected all current work for review/release. Local builds, tests, typechecks, mobile contracts and local schema checks pass after integration corrections. Hosted rollout awaits separate rotated DB credentials, Trigger configuration, isolated mobile origins and exact source selection. The currently signed-in Play publisher is now an Organization account with no apps. See [release audit and remaining actions](2026-10-10-release-and-android-testing.md). No cloud release or installable artifact was produced.
+
+
+## Android Preview updates and QA alignment — 11 October 2026
+
+Source implementation and local verification are complete, including domain-only QA entry without tester credentials; hosted activation and signed Preview upgrade acceptance remain open. See [delivery evidence and remaining gates](2026-10-11-preview-build-updates.md).

@@ -395,3 +395,8 @@ The emailed link sends the challenge ID as a query parameter and the token as a 
 - Dashboard `GET /api/analytics/context`: host-derived tenant plus verified session/membership account attribution, private/no-store; public tenant pages receive group-only context. No request tenant/account parameter is accepted.
 - Existing `auth.mobile.signIn`, `auth.mobile.me`, `auth.mobile.switchRole`, and profile refresh paths return optional signed `analyticsContext` via the shared profile builder.
 - Existing browser/native ingest routes verify each event's capture context before forwarding. No merchant reporting/read route was added. [Contract](contracts.md#logly-generic-business-attribution--1-october-2026).
+
+
+## Preview build delivery — 11 October 2026
+
+`GET /api/mobile/builds/check` accepts exact Preview application/platform/channel/distribution/native build query values and returns `{build}` or null. `GET/POST /api/internal/mobile/builds` and `POST /api/internal/mobile/builds/withdraw` use a dedicated publisher bearer and exact `x-app-update-backend`. Hosted Dashboard and standalone API share handlers. Marketing `GET /apk` returns a no-store 307 to the active validated APK, 404 when absent/withdrawn/non-Preview, or generic 503 on registry failure.

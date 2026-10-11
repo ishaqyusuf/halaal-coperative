@@ -34,7 +34,8 @@
     "release": "bun --env-file=/dev/null ../local-infra-kit/bin/infra.ts release",
     "jobs:preview:deploy": "bun run --filter @halaalvest/jobs deploy:preview",
     "eas:auth": "bun --env-file=/dev/null ./scripts/eas-account-runner.ts auth",
-    "eas:update:prepare": "node ./apps/mobile/scripts/eas-update.mjs --prepare-only"
+    "eas:update:prepare": "node ./apps/mobile/scripts/eas-update.mjs --prepare-only",
+    "app:update": "bun --env-file=/dev/null ../local-infra-kit/bin/app-update.ts"
   },
   "devDependencies": {
     "@halaalvest/eslint-config": "workspace:*",

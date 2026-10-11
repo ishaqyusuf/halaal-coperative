@@ -1,4 +1,8 @@
 import {
+  assertPreviewPublisherReady,
+  runPreviewBuildAndPublish,
+} from "./release-app-update"
+import {
   access,
   mkdir,
   mkdtemp,
@@ -262,10 +266,39 @@ try {
   }
 
   if (expectedCommit) assertCommittedMobileSource(REPO_DIR, expectedCommit)
-  exitCode = await runCommand(
-    [...getActionCommand(operation, target, buildPlatform), ...forwardedArgs],
-    { cwd: APP_DIR, env, stdio: "inherit" }
-  )
+  const command = [
+    ...getActionCommand(operation, target, buildPlatform),
+    ...forwardedArgs,
+  ]
+  if (
+    operation === "build" &&
+    target === "preview" &&
+    buildPlatform === "android"
+  ) {
+    await assertPreviewPublisherReady(REPO_DIR, forwardedArgs)
+    exitCode = await runPreviewBuildAndPublish({
+      command,
+      root: REPO_DIR,
+      expectedCommit: expectedCommit!,
+      runJson: async (cmd) => {
+        const child = Bun.spawn({
+          cmd,
+          cwd: APP_DIR,
+          env,
+          stdout: "pipe",
+          stderr: "inherit",
+        })
+        const output = await new Response(child.stdout).text()
+        return { code: await child.exited, output }
+      },
+    })
+  } else {
+    exitCode = await runCommand(command, {
+      cwd: APP_DIR,
+      env,
+      stdio: "inherit",
+    })
+  }
 } finally {
   await rm(isolatedHome, { recursive: true, force: true })
 }

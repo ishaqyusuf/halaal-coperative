@@ -26,7 +26,6 @@ type QaState = {
 export function QaAccessPanel() {
   const [state, setState] = useState<QaState | null>(null)
   const [qaDomain, setQaDomain] = useState("")
-  const [credential, setCredential] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -48,15 +47,14 @@ export function QaAccessPanel() {
     setError(null)
     try {
       const response = await fetch("/auth/qa", {
-        body: JSON.stringify({ action: "authorize", credential, qaDomain }),
+        body: JSON.stringify({ action: "authorize", qaDomain }),
         headers: { "content-type": "application/json" },
         method: "POST",
       })
       if (!response.ok) throw new Error("authorize")
-      setCredential("")
       await refresh()
     } catch {
-      setError("The QA Domain or tester credential could not be authorized.")
+      setError("The QA Domain could not be authorized.")
     } finally {
       setPending(false)
     }
@@ -166,8 +164,7 @@ export function QaAccessPanel() {
       ) : (
         <div className="grid gap-4 p-4">
           <p className="text-sm leading-6 text-muted-foreground">
-            Authorize the exact QA Domain with the tester credential issued to
-            you.
+            Enter your assigned QA Domain.
           </p>
           <label className="grid gap-1.5 text-sm font-medium">
             QA Domain
@@ -177,31 +174,22 @@ export function QaAccessPanel() {
               value={qaDomain}
             />
           </label>
-          <label className="grid gap-1.5 text-sm font-medium">
-            Tester credential
-            <Input
-              autoComplete="off"
-              onChange={(event) => setCredential(event.target.value)}
-              type="password"
-              value={credential}
-            />
-          </label>
+
           {error ? (
             <p className="text-sm text-destructive" role="alert">
               {error}
             </p>
           ) : null}
           <Button
-            disabled={
-              pending || qaDomain.trim().length < 3 || credential.length < 16
-            }
+            disabled={pending || qaDomain.trim().length < 3}
             onClick={() => void authorize()}
             type="button"
           >
             {pending ? "Authorizing" : "Authorize this browser"}
           </Button>
           <p className="text-xs text-muted-foreground">
-            The credential is discarded after server authorization.
+            QA access expires automatically and retains ordinary role
+            permissions.
           </p>
         </div>
       )}

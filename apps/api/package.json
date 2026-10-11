@@ -19,7 +19,8 @@
     "./trpc/init": "./src/lib.trpc.ts",
     "./trpc/transformer": "./src/transformer.ts",
     "./trpc/routers/_app": "./src/routers/_app.ts",
-    "./trpc/routers/dashboard-actions": "./src/routers/dashboard-actions.route.ts"
+    "./trpc/routers/dashboard-actions": "./src/routers/dashboard-actions.route.ts",
+    "./app-update": "./src/app-update/handler.ts"
   },
   "dependencies": {
     "@apple/app-store-server-library": "3.1.0",

@@ -1,3 +1,4 @@
+import { checkNativeBuild, withAppUpdateLock } from "@/lib/app-update-client"
 import {
   type LaunchAutoUpdatePhase,
   isLaunchAutoUpdateModalVisible,
@@ -59,68 +60,87 @@ export function useLaunchAutoUpdate() {
       if (!cancelled) setPhase(nextPhase)
     }
 
-    const runUpdateCheck = async (force = false) => {
-      if (isCheckingRef.current) return
+    const runUpdateCheck = async (force = false) =>
+      withAppUpdateLock(async () => {
+        if (isCheckingRef.current) return
 
-      const now = Date.now()
-      if (!force && now - lastCheckAtRef.current < foregroundCheckCooldownMs) {
-        return
-      }
+        const now = Date.now()
+        if (
+          !force &&
+          now - lastCheckAtRef.current < foregroundCheckCooldownMs
+        ) {
+          return
+        }
 
-      const canRun = shouldRunLaunchAutoUpdate({
-        appVariant: String(extra?.appVariant ?? ""),
-        isDev: __DEV__,
-        updatesEnabled: Updates.isEnabled,
-      })
-      if (!canRun) return
+        const canRun = shouldRunLaunchAutoUpdate({
+          appVariant: String(extra?.appVariant ?? ""),
+          isDev: __DEV__,
+          updatesEnabled: true,
+        })
+        if (!canRun) return
 
-      isCheckingRef.current = true
-      lastCheckAtRef.current = now
-      setPhaseIfMounted("checking")
+        isCheckingRef.current = true
+        lastCheckAtRef.current = now
+        setPhaseIfMounted("checking")
 
-      let checkResult: Updates.UpdateCheckResult
-      try {
-        checkResult = await Updates.checkForUpdateAsync()
-      } catch (error) {
-        console.warn("[updates] launch check failed", error)
-        setPhaseIfMounted("idle")
-        isCheckingRef.current = false
-        return
-      }
+        try {
+          if (await checkNativeBuild()) {
+            setPhaseIfMounted("idle")
+            isCheckingRef.current = false
+            return
+          }
+        } catch {
+          /* A registry outage must not prevent compatible OTA. */
+        }
 
-      if (!checkResult.isAvailable && !checkResult.isRollBackToEmbedded) {
-        setPhaseIfMounted("idle")
-        isCheckingRef.current = false
-        return
-      }
-
-      setErrorMessage(null)
-      setPhaseIfMounted("downloading")
-
-      try {
-        const fetchResult = await Updates.fetchUpdateAsync()
-
-        if (!fetchResult.isNew && !fetchResult.isRollBackToEmbedded) {
+        if (!Updates.isEnabled) {
+          setPhaseIfMounted("idle")
+          isCheckingRef.current = false
+          return
+        }
+        let checkResult: Updates.UpdateCheckResult
+        try {
+          checkResult = await Updates.checkForUpdateAsync()
+        } catch (error) {
+          console.warn("[updates] launch check failed", error)
           setPhaseIfMounted("idle")
           isCheckingRef.current = false
           return
         }
 
-        setPhaseIfMounted("updating")
-        await delay(STEP_DELAY_MS)
-        setPhaseIfMounted("restarting")
-        await delay(STEP_DELAY_MS)
-        await Updates.reloadAsync()
-      } catch (error) {
-        console.warn("[updates] launch update failed", error)
-        if (!cancelled) {
-          setErrorMessage(getErrorMessage(error))
-          setPhase("failed")
+        if (!checkResult.isAvailable && !checkResult.isRollBackToEmbedded) {
+          setPhaseIfMounted("idle")
+          isCheckingRef.current = false
+          return
         }
-      } finally {
-        isCheckingRef.current = false
-      }
-    }
+
+        setErrorMessage(null)
+        setPhaseIfMounted("downloading")
+
+        try {
+          const fetchResult = await Updates.fetchUpdateAsync()
+
+          if (!fetchResult.isNew && !fetchResult.isRollBackToEmbedded) {
+            setPhaseIfMounted("idle")
+            isCheckingRef.current = false
+            return
+          }
+
+          setPhaseIfMounted("updating")
+          await delay(STEP_DELAY_MS)
+          setPhaseIfMounted("restarting")
+          await delay(STEP_DELAY_MS)
+          await Updates.reloadAsync()
+        } catch (error) {
+          console.warn("[updates] launch update failed", error)
+          if (!cancelled) {
+            setErrorMessage(getErrorMessage(error))
+            setPhase("failed")
+          }
+        } finally {
+          isCheckingRef.current = false
+        }
+      })
 
     void runUpdateCheck(true)
 

@@ -212,3 +212,12 @@ enablement or live-provider effects.
   label `Halaalvest Preview`, version code `2`, and deep-link scheme
   `halaalvest-preview`. The managed prebuild and remote EAS environment also
   confirm QA accelerator enablement and isolated preview API/dashboard URLs.
+
+
+## 11 October 2026 alignment
+
+QA profile selection is now reachable from mobile More and the personal-access recovery gate as well as sign-in, with cooperative/name/role search. Switching still uses `acceptServerProfile`, which clears scoped drafts/files/read caches before persisting the ordinary signed profile. Transient refresh failures retain SecureStore authorization; rejected, expired or malformed authorization is cleared. Production config hides the panel before its network effect; conflicting Production deployment identity disables server capability. See [Preview updates](preview-build-updates.md).
+
+## Domain-only QA entry — 11 October 2026
+
+At the user's request, Mobile, Dashboard and Marketing no longer ask for or send a tester credential. Entry requires the exact normalized domain in server-owned `EMAIL_QA_DOMAIN_ROUTES`, a signing secret of at least 32 characters, enabled non-Production capability, and eligible active QA profiles. The server creates an expiring system receipt and returns the existing client-bound authorization token. Existing credential API support remains for older clients; no credential is embedded in clients. See ADR-20261011-domain-only-qa-entry.

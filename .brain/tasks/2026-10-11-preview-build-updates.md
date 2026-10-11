@@ -54,3 +54,5 @@ Brain files updated in this delivery:
 Provider plan readback confirms owned Preview projects/aliases and reports the dirty-source guard plus local Bun 1.3.9 versus pinned 1.3.0. A temporary Bun 1.3.0 runtime is ready for the release checkout. Current hosted Preview has four exact QA domain mappings; no new domain was invented. App publisher and QA capability settings are not yet configured.
 
 Automatic approval review rejected remote Preview environment mutation for lack of explicit authorization for the settings/access scope. A precise Preview-only rollout approval is pending. No remote environment settings, schema, source deployment or cloud build changed in this continuation. Local review added preflight rejection tests for local/no-wait builds and removed a nonexistent resume route.
+
+The Preview example environment now documents domain-only entry and the private publisher settings, without a tester-credential requirement.

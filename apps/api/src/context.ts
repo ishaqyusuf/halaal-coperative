@@ -6,7 +6,6 @@ import {
   resolveRequestSessionScope,
   verifySignedSessionToken,
 } from "@halaalvest/auth"
-import { normalizeRole } from "@halaalvest/auth/roles"
 import {
   createDbRuntime,
   findMembershipsForUserAsync,
@@ -72,15 +71,24 @@ export async function buildRequestContext(headers: Headers) {
     expectedScope: sessionScope ?? platformSessionScope,
     token: cookieSessionToken,
   })
-  const cookieQaAuthorizationInvalid = Boolean(
-    verifiedSignedCookieSession?.qaAuthorizationId &&
-    !(await isQaAuthorizationActive(
-      verifiedSignedCookieSession.qaAuthorizationId
-    ))
-  )
-  const signedCookieSession = cookieQaAuthorizationInvalid
-    ? null
-    : verifiedSignedCookieSession
+  // The unsigned user cookie is only a consistency hint: the signed payload
+  // names the user, and a contradicting hint invalidates the session.
+  const cookieUserHint = verifiedSignedCookieSession
+    ? getUserIdFromCookieHeader({
+        cookieHeader: headers.get("cookie"),
+        host: requestHost,
+        explicitScope: sessionScope ?? platformSessionScope,
+      })
+    : null
+  const signedCookieSession =
+    !verifiedSignedCookieSession ||
+    (cookieUserHint && cookieUserHint !== verifiedSignedCookieSession.userId) ||
+    (verifiedSignedCookieSession.qaAuthorizationId &&
+      !(await isQaAuthorizationActive(
+        verifiedSignedCookieSession.qaAuthorizationId
+      )))
+      ? null
+      : verifiedSignedCookieSession
   const mobileDeviceId = headers.get("x-mobile-device-id")?.trim() || null
   const durableMobileSession =
     bearerToken &&
@@ -108,20 +116,10 @@ export async function buildRequestContext(headers: Headers) {
       : durableMobileSession || canUseNonDurableMobileSession
         ? signedBearerSession
         : null
-  const requestedUserId = bearerToken
-    ? (bearerSession?.userId ?? null)
-    : cookieQaAuthorizationInvalid
-      ? null
-      : (headers.get("x-user-id") ??
-        getUserIdFromCookieHeader({
-          cookieHeader: headers.get("cookie"),
-          host: requestHost,
-          explicitScope: sessionScope ?? platformSessionScope,
-        }))
-  const userRoleOverride = bearerToken
-    ? null
-    : normalizeRole(headers.get("x-user-role"))
-  const user = await findUserByIdAsync(requestedUserId)
+  // Identity and role come only from a verified signed session. Client headers
+  // such as x-user-id, x-session-token and x-user-role are never trusted.
+  const signedSession = bearerSession ?? signedCookieSession
+  const user = await findUserByIdAsync(signedSession?.userId ?? null)
   const tenantResolution = await resolveTenantAsync({
     fallbackTenantId:
       bearerSession?.tenantId ??
@@ -161,40 +159,21 @@ export async function buildRequestContext(headers: Headers) {
           userId: user.id,
         } satisfies MembershipRecord)
       : null)
-  const sessionToken = bearerToken
-    ? bearerSession
-      ? bearerToken
+  const sessionToken = bearerSession
+    ? bearerToken
+    : signedCookieSession
+      ? cookieSessionToken
       : null
-    : cookieQaAuthorizationInvalid
-      ? null
-      : (headers.get("x-session-token") ?? cookieSessionToken)
   return {
     auth: {
-      activeMembership: membership
-        ? {
-            ...membership,
-            role: userRoleOverride ?? membership.role,
-          }
-        : null,
+      activeMembership: membership,
       session:
-        user && sessionToken
+        user && signedSession && sessionToken
           ? {
-              scope:
-                bearerSession?.scope ??
-                signedCookieSession?.scope ??
-                sessionScope ??
-                platformSessionScope,
-              ...((bearerSession ?? signedCookieSession)
-                ? {
-                    sessionExpiresAt: (bearerSession ?? signedCookieSession)
-                      ?.expiresAt,
-                  }
-                : {}),
-              ...((bearerSession ?? signedCookieSession)?.qaAuthorizationId
-                ? {
-                    qaAuthorizationId: (bearerSession ?? signedCookieSession)
-                      ?.qaAuthorizationId,
-                  }
+              scope: signedSession.scope,
+              sessionExpiresAt: signedSession.expiresAt,
+              ...(signedSession.qaAuthorizationId
+                ? { qaAuthorizationId: signedSession.qaAuthorizationId }
                 : {}),
               token: sessionToken,
               user,

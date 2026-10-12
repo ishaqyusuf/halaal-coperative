@@ -1,5 +1,14 @@
 # Done
 
+## 2026-10-12 — API cookie-session and role-header hardening
+
+- `buildRequestContext` no longer trusts unsigned identity. The cookie path requires a verified signed session for the host scope and takes the user from it. `x-user-id`, `x-session-token` and `x-user-role` are ignored, and `x-user-role` is removed from CORS. Bearer and mobile paths are unchanged.
+- The exploit was confirmed on the hosted-API code path (the dashboard `/api/trpc` route) with synthetic demo identities. Before the fix: header identity gave 200, unsigned cookie identity gave 200, and a finance session with `x-user-role` passed `manage_subscription`. After the fix: 401, 401 and 403.
+- `context.test.ts` passes 19 of 19, with 9 new cases that failed before the fix.
+- `bun test apps/api/src` passes 358 of 359. The one failure is `mobile-device-session.route.integration.test.ts`, which fails identically on unmodified HEAD because of a local-database foreign-key error in its setup.
+- The API, dashboard and marketing typechecks pass.
+- Not released. Deployment and the `AUTH_SECRET` rotation decision are open in the [bug record](../bugs/2026-10-12-api-unsigned-cookie-and-role-header-trust.md).
+
 ## 2026-10-07 — Shared release direction source implementation
 
 - Replaced the old assurance layer with the current GND/EwaTrade `release.config.ts` / sibling local-infra-kit component engine, separate-project Trigger Preview deployment and fingerprint-native mobile flow. Local regression/type checks pass; no release was run. Provider/ENV setup and first live acceptance are recorded separately in [the task](2026-10-07-shared-release-direction.md).

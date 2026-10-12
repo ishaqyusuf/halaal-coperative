@@ -51,7 +51,7 @@
 - UI visibility is role-based; a deeper permission system is deferred.
 - Authenticated dashboard routes are prefiltered by `apps/dashboard/src/proxy.ts` and then enforced again by the protected `(sidebar)` layout.
 - The protected layout also applies the navigation registry's role rules as a server-side route gate, so hidden staff/admin pages cannot be opened directly by URL.
-- Dashboard sessions are signed, expiring, and scoped to the current platform or tenant host; client-supplied `x-user-id` and `x-session-token` headers are not trusted.
+- Dashboard sessions are signed, expiring, and scoped to the current platform or tenant host. Pages and the `/api/trpc` API context both require the verified signed cookie and take the user from it. Client-supplied `x-user-id`, `x-session-token` and `x-user-role` headers are ignored (ADR-20261012).
 - The shell now uses a Midday-style density target: fixed hover-expand sidebar, compact sticky topbar, tokenized section cards, KPI strips, and flatter table/list surfaces.
 - `/` now acts as the primary UI reference page for the dashboard system, while the main operational, reporting, experience, settings, and member-detail routes now reuse the same primitives.
 - Member detail, printable statement, and the audit viewer now also follow the same Midday-inspired drill-down layout language instead of falling back to the earlier page-specific card stack.

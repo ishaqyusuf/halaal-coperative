@@ -1,10 +1,195 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import {
   createSignedSessionToken,
+  getScopedAuthSessionCookieName,
+  getScopedAuthUserCookieName,
   platformSessionScope,
 } from "@halaalvest/auth"
 
 import { buildRequestContext } from "./context"
+
+const barakahHost = "barakah.halaalvest-dash.localhost"
+const barakahScope = "barakah"
+
+function barakahCookieHeaders(input: {
+  extra?: Record<string, string>
+  sessionToken: string
+  userId?: string
+}) {
+  return new Headers({
+    cookie: [
+      `${getScopedAuthSessionCookieName(barakahScope)}=${input.sessionToken}`,
+      ...(input.userId
+        ? [`${getScopedAuthUserCookieName(barakahScope)}=${input.userId}`]
+        : []),
+    ].join("; "),
+    host: barakahHost,
+    "x-tenant-subdomain": "barakah",
+    ...input.extra,
+  })
+}
+
+describe("buildRequestContext web cookie sessions", () => {
+  const originalDatabaseUrl = process.env.HALAALVEST_DATABASE_URL
+
+  beforeAll(() => {
+    delete process.env.HALAALVEST_DATABASE_URL
+  })
+
+  afterAll(() => {
+    if (originalDatabaseUrl) {
+      process.env.HALAALVEST_DATABASE_URL = originalDatabaseUrl
+    }
+  })
+
+  test("derives the user and role from a signed scoped cookie", async () => {
+    const token = await createSignedSessionToken({
+      scope: barakahScope,
+      userId: "user-finance-barakah",
+    })
+    const context = await buildRequestContext(
+      barakahCookieHeaders({
+        sessionToken: token,
+        userId: "user-finance-barakah",
+      })
+    )
+
+    expect(context.auth.session?.token).toBe(token)
+    expect(context.auth.session?.scope).toBe(barakahScope)
+    expect(context.auth.session?.user.id).toBe("user-finance-barakah")
+    expect(context.auth.activeMembership?.role).toBe("finance_officer")
+    expect(context.tenant.current?.slug).toBe("barakah")
+  })
+
+  test("accepts a signed cookie without the user hint cookie", async () => {
+    const token = await createSignedSessionToken({
+      scope: barakahScope,
+      userId: "user-finance-barakah",
+    })
+    const context = await buildRequestContext(
+      barakahCookieHeaders({ sessionToken: token })
+    )
+
+    expect(context.auth.session?.user.id).toBe("user-finance-barakah")
+  })
+
+  test("rejects x-user-id with an arbitrary x-session-token", async () => {
+    const context = await buildRequestContext(
+      new Headers({
+        host: barakahHost,
+        "x-session-token": "anything",
+        "x-tenant-subdomain": "barakah",
+        "x-user-id": "user-finance-barakah",
+      })
+    )
+
+    expect(context.auth.session).toBeNull()
+    expect(context.auth.activeMembership).toBeNull()
+  })
+
+  test("rejects an unsigned user cookie with an arbitrary session cookie", async () => {
+    const context = await buildRequestContext(
+      barakahCookieHeaders({
+        sessionToken: "anything",
+        userId: "user-finance-barakah",
+      })
+    )
+
+    expect(context.auth.session).toBeNull()
+    expect(context.auth.activeMembership).toBeNull()
+  })
+
+  test("rejects a signed cookie when the user hint names another user", async () => {
+    const token = await createSignedSessionToken({
+      scope: barakahScope,
+      userId: "user-finance-barakah",
+    })
+    const context = await buildRequestContext(
+      barakahCookieHeaders({
+        sessionToken: token,
+        userId: "user-platform-owner",
+      })
+    )
+
+    expect(context.auth.session).toBeNull()
+    expect(context.auth.activeMembership).toBeNull()
+  })
+
+  test("ignores x-user-id and x-session-token beside a signed cookie", async () => {
+    const token = await createSignedSessionToken({
+      scope: barakahScope,
+      userId: "user-finance-barakah",
+    })
+    const context = await buildRequestContext(
+      barakahCookieHeaders({
+        extra: {
+          "x-session-token": "anything",
+          "x-user-id": "user-platform-owner",
+        },
+        sessionToken: token,
+        userId: "user-finance-barakah",
+      })
+    )
+
+    expect(context.auth.session?.token).toBe(token)
+    expect(context.auth.session?.user.id).toBe("user-finance-barakah")
+    expect(context.auth.activeMembership?.role).toBe("finance_officer")
+  })
+
+  test.each(["super_admin", "tenant_admin"])(
+    "ignores an x-user-role %s header on a signed cookie session",
+    async (role) => {
+      const token = await createSignedSessionToken({
+        scope: barakahScope,
+        userId: "user-finance-barakah",
+      })
+      const context = await buildRequestContext(
+        barakahCookieHeaders({
+          extra: { "x-user-role": role },
+          sessionToken: token,
+          userId: "user-finance-barakah",
+        })
+      )
+
+      expect(context.auth.session?.user.id).toBe("user-finance-barakah")
+      expect(context.auth.activeMembership?.role).toBe("finance_officer")
+    }
+  )
+
+  test("rejects a signed cookie minted for another session scope", async () => {
+    const token = await createSignedSessionToken({
+      scope: platformSessionScope,
+      userId: "user-finance-barakah",
+    })
+    const context = await buildRequestContext(
+      new Headers({
+        cookie: `${getScopedAuthSessionCookieName(platformSessionScope)}=${token}; ${getScopedAuthUserCookieName(platformSessionScope)}=user-finance-barakah`,
+        host: barakahHost,
+        "x-tenant-subdomain": "barakah",
+      })
+    )
+
+    expect(context.auth.session).toBeNull()
+    expect(context.auth.activeMembership).toBeNull()
+  })
+
+  test("rejects an expired signed cookie", async () => {
+    const token = await createSignedSessionToken({
+      expiresAt: Date.now() - 1000,
+      scope: barakahScope,
+      userId: "user-finance-barakah",
+    })
+    const context = await buildRequestContext(
+      barakahCookieHeaders({
+        sessionToken: token,
+        userId: "user-finance-barakah",
+      })
+    )
+
+    expect(context.auth.session).toBeNull()
+    expect(context.auth.activeMembership).toBeNull()
+  })
+})
 
 describe("buildRequestContext mobile bearer sessions", () => {
   const originalDatabaseUrl = process.env.HALAALVEST_DATABASE_URL

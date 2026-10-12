@@ -1,5 +1,15 @@
 # API Permissions
 
+API identity (12 October 2026): every API caller is identified only by a verified signed session. This covers the dashboard `/api/trpc` route, dashboard server tRPC, marketing in-process callers and the local Hono server.
+
+- **Web cookie path.** The scoped session cookie must pass `verifySignedSessionToken` for the request host's scope, and the user comes from its payload. The unsigned `halaalvest_user_<scope>` cookie is only a hint: if it names a different user, the session is rejected.
+- **Rejected sessions.** These are rejected: expired tokens, cross-scope tokens (for example, a platform cookie on a tenant host) and tokens tied to an inactive QA authorization.
+- **Ignored headers.** `x-user-id`, `x-session-token` and `x-user-role` are never read. They grant no identity, session or role. CORS no longer allows `x-user-role`.
+- **Role.** The active role is always the resolved membership's stored role.
+- **Unchanged.** Bearer, durable mobile-session and QA bearer rules are unchanged.
+
+See [ADR-20261012](../decisions/ADR-20261012-api-identity-from-signed-sessions-only.md).
+
 Store-review grant (29 September): only a current platform owner can issue/renew or revoke a personal mobile review grant. Persistence rechecks the actor and permits only a non-owner user confined to one active QA-classified tenant with a QA source domain. The grant is usable only in that selected tenant and server store environment until expiry or revocation, and never adds cooperative role or finance permissions. Ordinary member/staff/admin accounts cannot issue grants; an unpaid reviewer account remains behind the normal mobile gate.
 
 Signed mobile bearer sessions now require a current personal app-access snapshot for ordinary tRPC feature calls, independent of role. The classification comes from the verified signed session kind, not a caller-controlled source header. Billing/Restore, mobile auth, legal, account privacy and named support paths remain available without paid access. Existing tenant membership, member profile/readiness, operation permissions and finance checks still run after paid access. Web sessions do not require a personal mobile subscription. The former tenant subscription no longer blocks member sign-in or portal provisioning; legacy cooperative capacity/operation rules remain pending owner clarification.
@@ -187,7 +197,7 @@ This file documents who can do what across the platform.
 - Dashboard navigation, mobile member tiles, overview queues, and report export cards hide disabled service surfaces when there are no records or pending work to preserve.
 - Highly sensitive actions should be audit logged.
 - HTTP health routes are public.
-- `tenantProcedure` in `apps/api/src/lib.trpc.ts` requires a signed-in session and active tenant context.
+- `tenantProcedure` in `apps/api/src/lib.trpc.ts` requires a signed-in session and active tenant context. `authenticatedProcedure` relies on `buildRequestContext` building `auth.session` only from a verified signed bearer or cookie session.
 - Tenant-scoped tRPC routes should derive tenant context from request or session state, not untrusted payload input.
 - Role checks should use shared role hierarchy helpers from `packages/auth` rather than app-local rank maps.
 - Dashboard server context now drops a non-platform user if the resolved tenant does not match the user’s tenant, instead of allowing the route tree to proceed with a cross-tenant mismatch.

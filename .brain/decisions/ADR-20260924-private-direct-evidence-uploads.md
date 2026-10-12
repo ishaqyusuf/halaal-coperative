@@ -1,9 +1,0 @@
-# ADR — Private direct evidence uploads in Frankfurt
-
-Status: accepted for implementation; live enablement gated.
-
-The owner selected Vercel Private Blob in Frankfurt (`fra1`) with separate Preview and Production stores. The dashboard's 10 MB evidence allowance cannot pass through Vercel's 4.5 MB Function body limit, and local Function files are not durable. The browser therefore uploads directly to a private store after the server issues a tenant/uploader/purpose/path-bound intent and five-minute provider token to a current active member. Finalization verifies the stored object. Active-member server reads require a matching linked business record and enforce staff or member ownership access; direct Blob links are not exposed. Local filesystem uploads remain development-only; Production stays fail-closed until private store credentials and the retention, deletion, and QA gates in [`../runbooks/private-upload-storage-readiness.md`](../runbooks/private-upload-storage-readiness.md) are complete.
-
-Implementation follow-up: a `DashboardEvidenceUpload` row is created before provider token issuance. The pending-to-uploaded transition and audit insert share a Serializable transaction; tenant deletion is Restrict-protected until private bytes and metadata are removed. A bounded pending-orphan sweep and QA purge ordering are implemented but disabled/unscheduled for live data. Retention periods and deletion of finalized unlinked files remain approval gates.
-
-A later source-level decision binds each uploaded object to one exact member document, opening balance, payment receipt or support message with a tenant/purpose-checked compare-and-set in the business write transaction. Private GET requires this claim and the saved URL. Retention periods, deletion of finalized unlinked or detached files, and live-store QA remain activation gates.

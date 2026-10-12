@@ -59,3 +59,15 @@ npm-debug.log*
 /artifacts/
 /.codex/screenshots/
 /Screenshot_*.png
+
+# Local project memory, design/review material, and agent state (matches ewatrade).
+# Keep .github/ and source config tracked.
+.brain/
+.design/
+.designs/
+.scratch/
+.claude/
+.codex/
+.agents/
+/output/
+/outputs/

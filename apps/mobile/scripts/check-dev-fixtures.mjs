@@ -141,10 +141,12 @@ assertIncludes("src/features/auth/components/qa-access-panel.tsx", [
   "authorizeMobileQa",
   "listMobileQaProfiles",
   "enterMobileQaProfile",
-  'accessibilityHint="Opens optional tester access in a floating bottom sheet"',
   "Keyboard.dismiss()",
-  "Choose a test profile.",
-  "No password is returned, displayed, or filled.",
+  "acceptServerProfile(response.profile)",
+])
+assertIncludes("src/features/auth/components/qa-profile-chooser.tsx", [
+  "No password is",
+  "returned, displayed, or filled.",
 ])
 assertExcludes("src/features/auth/components/qa-access-panel.tsx", [
   "invalidateLocalSession",

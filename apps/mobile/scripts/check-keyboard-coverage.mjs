@@ -70,17 +70,26 @@ checkMarkers("src/features/auth/components/sign-in-form.tsx", [
   'submitBehavior="blurAndSubmit"',
 ])
 checkMarkers("src/features/auth/components/qa-access-panel.tsx", [
-  "CompactFormSheet",
-  "visible={sheetVisible}",
-  'accessibilityHint="Opens optional tester access in a floating bottom sheet"',
-  'className="absolute z-20 h-11 w-11"',
-  "bottom: Math.max(insets.bottom, 16) + 12",
-  "left: 24",
+  "<QaFloatingButton",
+  "if (hidden || keyboardVisible) return null",
+  "bottom: Math.max(insets.bottom, 12) + 16",
+  "right: Math.max(insets.right, 16)",
   'position: "absolute"',
-  'className="h-11 w-11 rounded-full border border-border bg-card p-0"',
+  "<QaDomainComposer",
+  "<QaProfileChooser",
+])
+checkMarkers("src/features/auth/components/qa-domain-composer.tsx", [
+  "<KeyboardStickyView",
+  "FULL_SCREEN_FORM_PORTAL_HOST",
+  'Keyboard.addListener("keyboardDidHide"',
   'accessibilityLabel="QA Domain"',
   'returnKeyType="go"',
-  'submitBehavior="blurAndSubmit"',
+])
+checkMarkers("src/features/auth/components/qa-profile-chooser.tsx", [
+  "<CompactFormSheet",
+  "<FullScreenFormSheet",
+  'accessibilityLabel="Search QA profiles"',
+  "qaChooserLayout(props.profiles.length)",
 ])
 checkMarkers("src/features/auth/components/auth-screen-shell.tsx", [
   "AppKeyboardAwareScrollView",
@@ -142,9 +151,14 @@ for (const filePath of findTsxFiles(join(SOURCE_DIR, "features"))) {
       signInScreenSource.includes("AppKeyboardAwareScrollView") &&
       signInScreenSource.includes("<SignInForm")) ||
     (toMobilePath(filePath) ===
-      "src/features/auth/components/qa-access-panel.tsx" &&
-      source.includes("export function QaAccessPanel") &&
-      source.includes("CompactFormSheet")) ||
+      "src/features/auth/components/qa-domain-composer.tsx" &&
+      source.includes("export function QaDomainComposer") &&
+      source.includes("<KeyboardStickyView")) ||
+    (toMobilePath(filePath) ===
+      "src/features/auth/components/qa-profile-chooser.tsx" &&
+      source.includes("export function QaProfileChooser") &&
+      source.includes("<CompactFormSheet") &&
+      source.includes("<FullScreenFormSheet")) ||
     (toMobilePath(filePath) ===
       "src/features/food-purchase/components/member-food-purchase-application-form.tsx" &&
       source.includes("export function MemberFoodPurchaseApplicationForm")) ||

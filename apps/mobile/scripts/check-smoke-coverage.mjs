@@ -108,12 +108,18 @@ assertIncludes("src/features/auth/components/sign-in-form.tsx", [
 ])
 
 assertIncludes("src/features/auth/components/qa-access-panel.tsx", [
-  'accessibilityHint="Opens optional tester access in a floating bottom sheet"',
-  "Choose a test profile.",
+  '"Opens QA Domain setup above the keyboard"',
+  '"Set up QA access"',
+  "Open ${count} QA profiles",
   "Keyboard.dismiss()",
-  "Update QA access",
-  "CompactFormSheet",
-  "visible={sheetVisible}",
+  "visible={composerOpen}",
+  "visible={chooserOpen}",
+])
+assertIncludes("src/features/auth/components/qa-profile-chooser.tsx", [
+  "qaChooserLayout",
+  "<CompactFormSheet",
+  "<FullScreenFormSheet",
+  "Change QA Domain",
 ])
 
 assertIncludes("src/features/auth/screens/recovery-screen.tsx", [

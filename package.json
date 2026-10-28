@@ -55,7 +55,7 @@
   ],
   "overrides": {
     "@expo/plist>@xmldom/xmldom": "0.8.15",
-    "@react-email/ui>next": "16.3.6",
+    "@react-email/ui>next": "16.4.3",
     "browserslist": "4.28.7",
     "engine.io-client>ws": "8.21.3",
     "expo-constants": "18.0.14",

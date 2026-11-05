@@ -432,9 +432,8 @@ async function loadApplicableChargeQuoter(
             })
           )
           .filter(
-            (
-              quote: ResolvedChargeQuote | null
-            ): quote is ResolvedChargeQuote => Boolean(quote)
+            (quote: ResolvedChargeQuote | null): quote is ResolvedChargeQuote =>
+              Boolean(quote)
           )
     }
   }

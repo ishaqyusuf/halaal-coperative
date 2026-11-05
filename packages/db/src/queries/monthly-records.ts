@@ -1082,7 +1082,9 @@ export function pageMonthlyRecordRows(
         row.memberName.toLowerCase().includes(query) ||
         row.memberNumber.toLowerCase().includes(query))
   )
-  const sorted = input.sort ? sortMonthlyRecordRows(filtered, input.sort) : filtered
+  const sorted = input.sort
+    ? sortMonthlyRecordRows(filtered, input.sort)
+    : filtered
   const startIndex = input.cursor
     ? sorted.findIndex((row) => row.id === input.cursor) + 1
     : 0
@@ -1152,7 +1154,9 @@ export async function applyMonthlyRecordMember(
       })
 
       if (!row) {
-        throw ExpectedQueryError.notFound("Monthly record member row not found.")
+        throw ExpectedQueryError.notFound(
+          "Monthly record member row not found."
+        )
       }
       if (row.status === "applied")
         throw ExpectedQueryError.conflict(

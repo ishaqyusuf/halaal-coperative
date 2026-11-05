@@ -1,4 +1,3 @@
-import type { MemberLedgerBackfillRow } from "@halaalvest/backfill"
 import type {
   TenantBusinessProfitPolicySettings,
   TenantMigrationSetupMode,
@@ -8,7 +7,6 @@ import type {
 } from "@halaalvest/db"
 import type { InitialMigrationSnapshot } from "@halaalvest/domain"
 import type { GettingStartedStepKey } from "@/hooks/use-getting-started-params"
-import type { OperationProfileStepKey } from "./operation-profile-flow"
 
 export type GettingStartedChargeDefinitionRow = {
   appliesToLoanRequests?: boolean
@@ -180,32 +178,24 @@ export type GettingStartedProfitMigrationOptionRow = {
 
 export type GettingStartedPageViewProps = {
   activeStep: GettingStartedStepKey
-  adminMember: GettingStartedMemberSummary | null
   businessPolicy: TenantBusinessProfitPolicySettings
   businessProfitSeasons: GettingStartedBusinessProfitSeasonRow[]
   chargeDefinitions: GettingStartedChargeDefinitionRow[]
   dividendPeriods: GettingStartedDividendPeriodRow[]
-  generatedLedgerError?: string | null
-  generatedLedgerRows?: MemberLedgerBackfillRow[]
-  legacyLoanDrafts: GettingStartedLegacyLoanDraftRow[]
-  memberActivityEvents: GettingStartedMemberActivityEventRow[]
-  memberAmountLogs: GettingStartedMemberAmountLogRow[]
   memberNumberPrefix?: string | null
-  memberOptions: GettingStartedMemberOption[]
-  migrationMemberReview: GettingStartedMigrationMemberReviewRow[]
   migrationSnapshot: InitialMigrationSnapshot
   migrationSetup: TenantMigrationSetupSettings
+  // Step 5 switching locks once member records have been applied.
+  modeLocked: boolean
   operationProfile: TenantOperationProfileReadModel
-  operationProfileStep: OperationProfileStepKey
-  profitMigrationOptions: GettingStartedProfitMigrationOptionRow[]
   quickFillEnabled: boolean
+  recommendationReason: { members: number; years: number } | null
   recommendedMigrationSetupMode: TenantMigrationSetupMode | null
   requiresHistoricalBackfill?: boolean
-  selectedMigrationMemberId?: string | null
-  selectedMigrationMemberLabel?: string | null
   shareBusinesses: GettingStartedShareBusinessRow[]
   sharePolicy: TenantSharePolicySettings
   shareStructureVersions: GettingStartedShareStructureVersionRow[]
+  tenantHost: string | null
   tenantName: string
   tenantStartDate: string | null
 }

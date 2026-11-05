@@ -157,6 +157,7 @@ export async function FinanceSettingsRoute({
       financingSettings={toFinancingSettingsView(financingSettings)}
       generatedLedgerRows={generatedLedgerRows}
       initialMigrationSnapshot={migrationState.snapshot}
+      tenantName={context.tenant.name}
       legacyLoanDrafts={toLegacyLoanDraftRows(legacyLoanDrafts)}
       memberActivityEvents={toMemberActivityEventRows(
         selectedMemberActivityEvents

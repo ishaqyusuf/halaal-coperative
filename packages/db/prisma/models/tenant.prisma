@@ -172,6 +172,9 @@ model TenantPolicy {
   foodPurchaseMaximumActiveObligationsPerMember      Int                       @default(1) @map("food_purchase_maximum_active_obligations_per_member")
   monthlyLevyAmount                                  Decimal?                  @map("monthly_levy_amount") @db.Decimal(18, 2)
   migrationSetupMode                                 TenantMigrationSetupMode  @default(historical_backfill) @map("migration_setup_mode")
+  // One Path Done markers: set when the admin saves step 5 / the share policy.
+  migrationSetupConfirmedAt                          DateTime?                 @map("migration_setup_confirmed_at") @db.Timestamptz(6)
+  sharePolicyConfirmedAt                             DateTime?                 @map("share_policy_confirmed_at") @db.Timestamptz(6)
   shareUnitAmount                                    Decimal                   @default(10000) @map("share_unit_amount") @db.Decimal(18, 2)
   compulsoryShareUnits                               Int                       @default(1) @map("compulsory_share_units")
   maximumShareUnits                                  Int                       @default(20) @map("maximum_share_units")

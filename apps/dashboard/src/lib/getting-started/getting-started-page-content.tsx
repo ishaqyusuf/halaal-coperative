@@ -1,21 +1,10 @@
-import {
-  buildBackfillDraft,
-  projectBackfillDraftToMemberLedgerRows,
-  type MemberLedgerBackfillRow,
-} from "@halaalvest/backfill"
+import { headers } from "next/headers"
 import type { SearchParams } from "nuqs"
 import {
-  buildBackfillDraftInputForMember,
   createDbRuntime,
   getTenantFinanceSetup,
   getTenantInitialMigrationState,
   getTenantOperationProfile,
-  listInitialMigrationMemberReview,
-  listLegacyLoanMigrationDrafts,
-  listMigrationProfitAdjustmentOptions,
-  listMemberActivityEvents,
-  listMemberAmountLogs,
-  listMembers,
   recommendTenantMigrationSetupMode,
 } from "@halaalvest/db"
 import {
@@ -26,7 +15,12 @@ import {
   type GettingStartedStepKey,
   loadGettingStartedParams,
 } from "@/hooks/use-getting-started-params"
-import { resolveOperationProfileStep } from "@/lib/getting-started/operation-profile-flow"
+import {
+  getGettingStartedStepHref,
+  resolveGettingStartedResumeStep,
+  resolveLegacyGettingStartedStep,
+  toGettingStartedProgressInput,
+} from "@/lib/getting-started/getting-started-step-model"
 import type {
   GettingStartedChargeDefinitionRow,
   GettingStartedShareBusinessRow,
@@ -36,6 +30,7 @@ import {
   canShowQuickFill,
   getDashboardServerContext,
 } from "@/lib/server-context"
+import { getPublicRequestHost } from "@/lib/request-host"
 import { tenantRedirect } from "@/utils/tenant-redirect"
 
 type FinanceSetupCharge = Omit<
@@ -93,44 +88,6 @@ type FinanceSetupShareStructureVersion = Omit<
   effectiveFrom: Date
 }
 
-function resolveDefaultStep(
-  hasMigrationSetupMode: boolean,
-  missingStepKeys: string[],
-  needsOperationProfileReview: boolean,
-  needsProfitPolicy: boolean,
-  migrationSetupMode?: string | null
-): GettingStartedStepKey {
-  const isBroughtForwardSetup = migrationSetupMode === "brought_forward"
-
-  if (!hasMigrationSetupMode) return "setup-mode"
-  if (needsOperationProfileReview) return "operation-profile"
-  if (missingStepKeys.includes("finance_start_date")) return "start-date"
-  if (missingStepKeys.includes("charge_schedules")) return "charges"
-  if (needsProfitPolicy) return "profit-policy"
-  if (
-    !isBroughtForwardSetup &&
-    missingStepKeys.includes("business_profit_pools")
-  ) {
-    return "business"
-  }
-  if (
-    !isBroughtForwardSetup &&
-    missingStepKeys.includes("business_profit_seasons")
-  ) {
-    return "profit-seasons"
-  }
-  if (
-    missingStepKeys.some((stepKey) =>
-      ["member_profiles", "legacy_loans", "member_ledger_backfill"].includes(
-        stepKey
-      )
-    )
-  ) {
-    return "admin-member"
-  }
-  return "review"
-}
-
 function toDateString(value: Date | string | null | undefined) {
   if (!value) return null
 
@@ -170,19 +127,25 @@ export async function GettingStartedPageContent({
     )
   }
 
+  const legacyRedirect = resolveLegacyGettingStartedStep(
+    gettingStartedParams.step
+  )
+
+  if (legacyRedirect) {
+    await tenantRedirect(getGettingStartedStepHref(legacyRedirect))
+  }
+
   const requestedStep =
     gettingStartedParams.step as GettingStartedStepKey | null
-  const operationProfileStep = resolveOperationProfileStep(
-    gettingStartedParams.profileStep
-  )
-  const requestedMigrationMemberId = gettingStartedParams.migrationMemberId
   const [data, migrationState, operationProfile] = await Promise.all([
     getTenantFinanceSetup(context.tenant.id),
     getTenantInitialMigrationState(context.tenant.id),
     getTenantOperationProfile(context.tenant.id),
   ])
+  const isMemberMigration =
+    migrationState.snapshot.status === "member_migration_in_progress"
   const shouldShowOnboardingSuccess =
-    migrationState.snapshot.status === "member_migration_in_progress" &&
+    isMemberMigration &&
     Boolean(data.businessPolicy.id) &&
     Boolean(operationProfile.reviewedAt)
 
@@ -190,113 +153,40 @@ export async function GettingStartedPageContent({
     await tenantRedirect("/")
   }
 
-  if (shouldShowOnboardingSuccess) {
+  // During member migration the members checklist is the landing page. Setup
+  // steps 5–9 stay reachable on purpose (Review setup links back to them);
+  // Go live only opens once every member is ready.
+  if (
+    shouldShowOnboardingSuccess &&
+    (!requestedStep || requestedStep === "review")
+  ) {
     await tenantRedirect("/onboarding-success")
   }
 
+  const progress = toGettingStartedProgressInput({
+    financeSetup: data,
+    operationProfileReviewedAt: operationProfile.reviewedAt,
+    snapshot: migrationState.snapshot,
+  })
   const activeStep: GettingStartedStepKey =
-    requestedStep ??
-    resolveDefaultStep(
-      Boolean(data.migrationSetup.id),
-      migrationState.snapshot.missingStepKeys,
-      !operationProfile.reviewedAt,
-      !data.businessPolicy.id,
-      data.migrationSetup.mode
-    )
-  const [legacyLoanDrafts, memberOptions, migrationMemberReview] =
-    activeStep === "admin-member"
-      ? await Promise.all([
-          listLegacyLoanMigrationDrafts(context.tenant.id),
-          listMembers(context.tenant.id, { page: 1, pageSize: 200 }),
-          listInitialMigrationMemberReview(context.tenant.id),
-        ])
-      : [[], { items: [] }, []]
-  const adminMember =
-    memberOptions.items.find(
-      (member) => member.user?.id === context.auth.user?.id
-    ) ??
-    memberOptions.items.find(
-      (member) =>
-        member.user?.email && member.user.email === context.auth.user?.email
-    ) ??
-    null
-  const selectedMember =
-    (requestedMigrationMemberId
-      ? memberOptions.items.find(
-          (member) => member.id === requestedMigrationMemberId
-        )
-      : null) ??
-    adminMember ??
-    memberOptions.items[0] ??
-    null
-  const canGenerateMemberBackfillPreview =
-    selectedMember &&
-    !migrationState.snapshot.missingStepKeys.some((stepKey) =>
-      ["finance_start_date", "charge_schedules", "member_profiles"]
-        .concat(
-          data.migrationSetup.mode === "brought_forward"
-            ? []
-            : ["business_profit_pools", "business_profit_seasons"]
-        )
-        .includes(stepKey)
-    )
-  let generatedLedgerRows: MemberLedgerBackfillRow[] | undefined
-  let generatedLedgerError: string | null = null
+    requestedStep ?? resolveGettingStartedResumeStep(progress)
 
-  if (canGenerateMemberBackfillPreview && selectedMember) {
-    try {
-      generatedLedgerRows = projectBackfillDraftToMemberLedgerRows(
-        buildBackfillDraft(
-          await buildBackfillDraftInputForMember({
-            memberId: selectedMember.id,
-            tenantId: context.tenant.id,
-          })
-        )
-      )
-    } catch (error) {
-      generatedLedgerError =
-        error instanceof Error
-          ? error.message
-          : "Could not generate the member ledger preview."
-      generatedLedgerRows = undefined
-    }
+  if (activeStep === "admin-member") {
+    await tenantRedirect("/onboarding-success")
   }
-  const selectedMemberMigrationInputs = selectedMember
-    ? await Promise.all([
-        listMemberAmountLogs({
-          memberId: selectedMember.id,
-          tenantId: context.tenant.id,
-        }),
-        listMemberActivityEvents({
-          memberId: selectedMember.id,
-          tenantId: context.tenant.id,
-        }),
-        listMigrationProfitAdjustmentOptions(
-          context.tenant.id,
-          undefined,
-          selectedMember.id
-        ),
-      ])
-    : null
-  const selectedMemberAmountLogs = selectedMemberMigrationInputs?.[0] ?? []
-  const selectedMemberActivityEvents = selectedMemberMigrationInputs?.[1] ?? []
-  const profitMigrationOptions = selectedMemberMigrationInputs?.[2] ?? []
+
   const today = new Date()
+  const tenantStartDate = toDateString(data.tenant?.startDate)
+  const memberCount = data.tenant?.currentSize ?? null
+  const recordYears = tenantStartDate
+    ? (today.getTime() -
+        new Date(`${tenantStartDate}T00:00:00.000Z`).getTime()) /
+      (365.25 * 24 * 60 * 60 * 1000)
+    : null
 
   return (
     <GettingStartedPageView
       activeStep={activeStep}
-      adminMember={
-        adminMember
-          ? {
-              email: adminMember.user?.email ?? null,
-              fullName: adminMember.fullName,
-              id: adminMember.id,
-              joinedAt: adminMember.joinedAt.toISOString().slice(0, 10),
-              memberNumber: adminMember.memberNumber,
-            }
-          : null
-      }
       chargeDefinitions={(data.chargeDefinitions as FinanceSetupCharge[]).map(
         (charge) => {
           const currentVersion =
@@ -370,74 +260,11 @@ export async function GettingStartedPageContent({
         profitEntryCount: season.profitEntryCount,
         status: season.status,
       }))}
-      generatedLedgerError={generatedLedgerError}
-      generatedLedgerRows={generatedLedgerRows}
-      legacyLoanDrafts={legacyLoanDrafts.map((draft) => ({
-        closedAt: toDateString(draft.closedAt),
-        guarantorOneMemberId: draft.guarantorOneMemberId,
-        guarantorTwoMemberId: draft.guarantorTwoMemberId,
-        id: draft.id,
-        loanLabel: draft.loanLabel,
-        memberId: draft.memberId,
-        memberName: draft.member.fullName,
-        memberNumber: draft.member.memberNumber,
-        openedAt: draft.openedAt.toISOString().slice(0, 10),
-        outstandingPrincipalBalance: draft.outstandingPrincipalBalance,
-        principalAmount: draft.principalAmount,
-        savingsDuringLoan: draft.savingsDuringLoan,
-        scheduledMonthlyPrincipalRepayment:
-          draft.scheduledMonthlyPrincipalRepayment,
-      }))}
-      memberActivityEvents={selectedMemberActivityEvents.map(
-        (event: {
-          effectiveMonth: Date
-          id: string
-          notes?: string | null
-          reason?: string | null
-          status: string
-        }) => ({
-          effectiveMonth: event.effectiveMonth.toISOString().slice(0, 10),
-          id: event.id,
-          notes: event.notes,
-          reason: event.reason,
-          status: event.status === "inactive" ? "inactive" : "active",
-        })
-      )}
-      memberAmountLogs={selectedMemberAmountLogs.map((row) => ({
-        amount: row.amount,
-        effectiveFrom: row.effectiveFrom.toISOString().slice(0, 10),
-        id: row.id,
-        notes: row.notes,
-      }))}
       memberNumberPrefix={context.tenant.memberNumberPrefix}
-      memberOptions={memberOptions.items.map((member) => ({
-        id: member.id,
-        label: `${member.fullName} (${member.memberNumber})`,
-      }))}
-      migrationMemberReview={migrationMemberReview.map((row) => ({
-        ...row,
-        joinedAt: row.joinedAt.toISOString().slice(0, 10),
-      }))}
       migrationSnapshot={migrationState.snapshot}
       requiresHistoricalBackfill={migrationState.requiresHistoricalBackfill}
       migrationSetup={data.migrationSetup}
       operationProfile={operationProfile}
-      operationProfileStep={operationProfileStep}
-      recommendedMigrationSetupMode={recommendTenantMigrationSetupMode({
-        memberCount: data.tenant?.currentSize ?? memberOptions.items.length,
-        startDate: data.tenant?.startDate ?? null,
-      })}
-      profitMigrationOptions={profitMigrationOptions.map((option) => ({
-        ...option,
-        profitDate: option.profitDate.toISOString().slice(0, 10),
-        seasonPeriodEnd: toDateString(option.seasonPeriodEnd),
-      }))}
-      selectedMigrationMemberId={selectedMember?.id ?? null}
-      selectedMigrationMemberLabel={
-        selectedMember
-          ? `${selectedMember.fullName} (${selectedMember.memberNumber})`
-          : null
-      }
       sharePolicy={data.sharePolicy}
       shareBusinesses={(data.shareBusinesses as FinanceSetupBusiness[]).map(
         (business) => ({
@@ -475,9 +302,24 @@ export async function GettingStartedPageContent({
         notes: version.notes,
         valueType: version.valueType ?? "fixed_amount",
       }))}
+      modeLocked={
+        migrationState.counts.appliedBackfillMembers > 0 ||
+        migrationState.counts.appliedBackfillBatches > 0 ||
+        migrationState.counts.appliedBackfillMonths > 0
+      }
       quickFillEnabled={canShowQuickFill(context)}
+      recommendationReason={
+        memberCount !== null && recordYears !== null
+          ? { members: memberCount, years: recordYears }
+          : null
+      }
+      recommendedMigrationSetupMode={recommendTenantMigrationSetupMode({
+        memberCount: memberCount ?? 0,
+        startDate: data.tenant?.startDate ?? null,
+      })}
+      tenantHost={getPublicRequestHost(await headers())}
+      tenantStartDate={tenantStartDate}
       tenantName={data.tenant?.name ?? context.tenant.name}
-      tenantStartDate={toDateString(data.tenant?.startDate)}
     />
   )
 }

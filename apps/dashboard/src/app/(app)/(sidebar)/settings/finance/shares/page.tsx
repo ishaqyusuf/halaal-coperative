@@ -51,6 +51,7 @@ const demoShareVersions = [
 const demoSharePolicy = {
   configurationMode: "monthly_history" as const,
   compulsoryShareUnits: 1,
+  confirmedAt: null,
   id: null,
   maximumShareUnits: 20,
   unitAmount: 10000,

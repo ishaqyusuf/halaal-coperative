@@ -64,11 +64,15 @@ export default async function SidebarLayout({
     await tenantRedirect("/")
   }
 
+  // Reused by the sidebar to label the destinations this gate redirects.
+  let shouldRedirectAdminToSetup = false
+
   if (context.tenant) {
     const setupGate = await resolveInitialMigrationSetupGate({
       role: context.auth.membership?.role,
       tenantId: context.tenant.id,
     })
+    shouldRedirectAdminToSetup = setupGate.shouldRedirectAdminToSetup
     const setupRedirect = resolveInitialMigrationLayoutRedirect({
       pathname: nextPath,
       shouldRedirectAdminToSetup: setupGate.shouldRedirectAdminToSetup,
@@ -180,6 +184,7 @@ export default async function SidebarLayout({
       <DashboardShellClient
         hiddenNavPaths={hiddenNavPaths}
         role={role}
+        shouldRedirectAdminToSetup={shouldRedirectAdminToSetup}
         showLegalReminder={showLegalReminder}
         tenantName={tenantName}
         userName={userName}

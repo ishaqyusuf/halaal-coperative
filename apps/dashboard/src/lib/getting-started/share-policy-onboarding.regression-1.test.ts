@@ -1,24 +1,35 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 
+function read(path: string) {
+  return readFileSync(new URL(path, import.meta.url), "utf8")
+}
+
 describe("Getting Started share policy controls", () => {
   // Regression: ISSUE-004 — selecting unit-based shares hid the only explicit save action
   // Found by /qa on 2026-07-31
   // Report: .gstack/qa-reports/qa-report-halaalvest-localhost-2026-07-31.md
-  test("keeps Save policy available until the selected share model is persisted", () => {
-    const source = readFileSync(
-      new URL("../../components/share-model-workspace.tsx", import.meta.url),
-      "utf8"
+  test("Continue always persists the selected share model before charges", () => {
+    // One Path step 7 has no separate "Save policy" button: the one Continue
+    // saves whichever share model is selected, then the charges.
+    const fields = read("../../components/getting-started/share-model-fields.tsx")
+    const step = read("../../components/getting-started/shares-charges-step.tsx")
+    const workspace = read("../../components/share-model-workspace.tsx")
+
+    const policySave = fields.indexOf("await persistSharePolicy(values)")
+    const historySave = fields.indexOf(
+      "await persistShareHistoryRows(sortedHistoryRows)"
     )
 
-    expect(source).toContain(
-      "showSubmitButton={hasUnsavedModeChange || selectedMonthlyHistory}"
+    expect(policySave).toBeGreaterThan(-1)
+    expect(historySave).toBeGreaterThan(policySave)
+    expect(step.indexOf("shareDraft.prepareSave")).toBeLessThan(
+      step.indexOf("chargeDraft.prepareChargeSave(")
     )
-    expect(source).toContain(
-      "!hasUnsavedModeChange && !selectedMonthlyHistory"
-    )
-    expect(source).not.toContain(
-      "showSubmitButton={selectedMonthlyHistory}"
-    )
+
+    for (const source of [fields, step, workspace]) {
+      expect(source).not.toContain("Save policy")
+      expect(source).not.toContain("Save the active share model first")
+    }
   })
 })

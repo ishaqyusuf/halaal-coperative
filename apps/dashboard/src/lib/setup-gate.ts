@@ -6,48 +6,13 @@ import {
 } from "@halaalvest/db"
 import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
 
-export const initialMigrationSetupPaths = [
-  "/getting-started",
-  "/onboarding-success",
-  "/settings/operation-profile",
-  "/settings/finance/migration",
-  "/settings/imports",
-  "/settings/profile",
-  "/settings/platform-documents",
-]
-
-function isMemberMigrationSetupPath(pathname: string) {
-  return (
-    pathname === "/members" ||
-    /^\/members\/[^/]+$/.test(pathname) ||
-    /^\/members\/[^/]+\/backfill(?:\/|$)/.test(pathname)
-  )
-}
-
-export function isInitialMigrationSetupPath(pathname: string) {
-  return (
-    isMemberMigrationSetupPath(pathname) ||
-    initialMigrationSetupPaths.some(
-      (setupPath) =>
-        pathname === setupPath || pathname.startsWith(`${setupPath}/`)
-    )
-  )
-}
-
-export function resolveInitialMigrationLayoutRedirect(input: {
-  pathname: string
-  shouldRedirectAdminToSetup: boolean
-  shouldRedirectAdminToSuccess: boolean
-}) {
-  if (
-    input.shouldRedirectAdminToSetup &&
-    !isInitialMigrationSetupPath(input.pathname)
-  ) {
-    return "/getting-started"
-  }
-
-  return null
-}
+export {
+  getNavigationLockLabel,
+  initialMigrationSetupPaths,
+  isInitialMigrationSetupPath,
+  navigationLockedAfterSetupLabel,
+  resolveInitialMigrationLayoutRedirect,
+} from "./setup-gate-routing"
 
 export function shouldOpenFirstRunOnboarding(input: {
   alreadyInOnboarding: boolean
@@ -73,6 +38,7 @@ export async function resolveInitialMigrationSetupGate(input: {
       hasCompletedInitialSetup: true,
       isWorkspaceAdmin: false,
       migrationState: null,
+      operationProfile: null,
       shouldRedirectAdminToSetup: false,
       shouldRedirectAdminToSuccess: false,
     }
@@ -104,6 +70,9 @@ export async function resolveInitialMigrationSetupGate(input: {
     hasCompletedInitialSetup,
     isWorkspaceAdmin,
     migrationState,
+    // Returned so callers (the members checklist) reuse it instead of a
+    // second identical query.
+    operationProfile,
     shouldRedirectAdminToSetup:
       isWorkspaceAdmin &&
       !canUseLiveWorkspace &&

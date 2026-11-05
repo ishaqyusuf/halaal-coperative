@@ -26,6 +26,11 @@ import {
 } from "@halaalvest/ui/components/alert-dialog"
 import { Button } from "@halaalvest/ui/components/button"
 import { Checkbox } from "@halaalvest/ui/components/checkbox"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@halaalvest/ui/components/collapsible"
 import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
 import { Field, FieldGroup, FieldLabel } from "@halaalvest/ui/components/field"
 import {
@@ -60,6 +65,10 @@ import { LabeledSelectInput } from "@/components/labeled-select-input"
 import { QuickFill } from "@/components/quick-fill"
 import { objectToFormData } from "@/lib/form-submit"
 import { navigateWithFreshWizardState } from "@/lib/getting-started/navigate-with-fresh-state"
+import {
+  fillFirstRowEffectiveFrom,
+  type OnePathSavePreparer,
+} from "@/lib/getting-started/one-path-finance"
 import type {
   LoanProductSettingsRow,
   TenantBusinessProfitPolicySettings,
@@ -90,7 +99,7 @@ import {
   updateTenantSharePolicyAction,
 } from "@/lib/dashboard-actions"
 
-function DeleteInlineRowButton({
+export function DeleteInlineRowButton({
   disabled,
   label,
   onDelete,
@@ -142,7 +151,7 @@ function DeleteInlineRowButton({
   )
 }
 
-function AddInlineRowButton({
+export function AddInlineRowButton({
   disabled,
   label,
   onAdd,
@@ -165,7 +174,7 @@ function AddInlineRowButton({
   )
 }
 
-function CurrencyFormInput({
+export function CurrencyFormInput({
   className,
   disabled,
   id,
@@ -196,7 +205,7 @@ function CurrencyFormInput({
   )
 }
 
-function PercentageFormInput({
+export function PercentageFormInput({
   disabled,
   id,
   onChange,
@@ -228,7 +237,7 @@ function PercentageFormInput({
   )
 }
 
-function SelectFormInput({
+export function SelectFormInput({
   disabled,
   onChange,
   options,
@@ -257,7 +266,7 @@ function SelectFormInput({
   )
 }
 
-function isBeforeFinanceStartDate(
+export function isBeforeFinanceStartDate(
   value: string | undefined,
   min?: string | null
 ) {
@@ -366,11 +375,11 @@ export function FinanceStartDateForm({
   )
 }
 
-const businessProfitPolicySchema = z
+export const businessProfitPolicySchema = z
   .object({
     defaultDistributablePercentage: z
       .string()
-      .min(1, "Distributable percentage is required."),
+      .min(1, "Enter the percentage shared with members."),
     distributionBasis: z.enum(["share_capital_balance"]),
     expenseTreatment: z.enum(["deduct_reviewed_expenses_before_distribution"]),
     financialYearStartMonth: z
@@ -414,7 +423,8 @@ const businessProfitPolicySchema = z
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Distributable percentage must be between 0 and 100.",
+        message:
+          "The percentage shared with members must be between 0 and 100.",
         path: ["defaultDistributablePercentage"],
       })
     }
@@ -422,7 +432,7 @@ const businessProfitPolicySchema = z
     if (!Number.isFinite(reserve) || reserve < 0 || reserve > 100) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Reserve retention must be between 0 and 100.",
+        message: "The percentage kept in reserve must be between 0 and 100.",
         path: ["reserveRetentionPercentage"],
       })
     }
@@ -434,13 +444,15 @@ const businessProfitPolicySchema = z
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Distributable plus reserve must equal 100%.",
+        message: "Shared with members and kept in reserve must add up to 100%.",
         path: ["reserveRetentionPercentage"],
       })
     }
   })
 
-type BusinessProfitPolicyValues = z.infer<typeof businessProfitPolicySchema>
+export type BusinessProfitPolicyValues = z.infer<
+  typeof businessProfitPolicySchema
+>
 
 const distributionFrequencyOptions = [
   { label: "Annual", value: "annual" },
@@ -758,7 +770,7 @@ export function BusinessProfitPolicyForm({
   )
 }
 
-const sharePolicySchema = z
+export const sharePolicySchema = z
   .object({
     configurationMode: z.enum(["monthly_history", "unit_based"]),
     compulsoryShareUnits: z.string().optional(),
@@ -811,12 +823,23 @@ const sharePolicySchema = z
     }
   })
 
-type SharePolicyValues = z.infer<typeof sharePolicySchema>
+export type SharePolicyValues = z.infer<typeof sharePolicySchema>
 
 const shareConfigurationModeOptions = [
   { label: "Monthly share history model", value: "monthly_history" },
   { label: "Unit-based shareholding model", value: "unit_based" },
 ]
+
+// Saves the active share model. Unit terms are sent only for the unit model,
+// so the two models stay mutually exclusive.
+export async function persistSharePolicy(values: SharePolicyValues) {
+  const payload =
+    values.configurationMode === "unit_based"
+      ? values
+      : { configurationMode: values.configurationMode }
+
+  await updateTenantSharePolicyAction(objectToFormData(payload))
+}
 
 export function SharePolicyForm({
   defaultPolicy,
@@ -867,12 +890,7 @@ export function SharePolicyForm({
   function onSubmit(values: SharePolicyValues) {
     startTransition(async () => {
       try {
-        const payload =
-          values.configurationMode === "unit_based"
-            ? values
-            : { configurationMode: values.configurationMode }
-
-        await updateTenantSharePolicyAction(objectToFormData(payload))
+        await persistSharePolicy(values)
         showSuccess("Policy saved", "Share configuration updated.")
         clearPreservedFormState()
         if (redirectTo) {
@@ -1774,9 +1792,9 @@ const shareStructureVersionSchema = z.object({
 
 type ShareStructureVersionValues = z.infer<typeof shareStructureVersionSchema>
 
-type ShareRuleValueType = "fixed_amount" | "percentage"
+export type ShareRuleValueType = "fixed_amount" | "percentage"
 
-type ShareHistoryRow = {
+export type ShareHistoryRow = {
   amount: string
   effectiveFrom: string
   id: string
@@ -1790,7 +1808,7 @@ type ShareStructureVersionInitialVersion = {
   valueType: ShareRuleValueType
 }
 
-function createShareHistoryRow(id?: string): ShareHistoryRow {
+export function createShareHistoryRow(id?: string): ShareHistoryRow {
   return {
     amount: "",
     effectiveFrom: "",
@@ -1801,13 +1819,13 @@ function createShareHistoryRow(id?: string): ShareHistoryRow {
   }
 }
 
-function shareHistoryRowHasValue(row: ShareHistoryRow) {
+export function shareHistoryRowHasValue(row: ShareHistoryRow) {
   return Boolean(
     row.amount || row.effectiveFrom || row.valueType !== "fixed_amount"
   )
 }
 
-function normalizeShareHistoryRows(rows: ShareHistoryRow[]) {
+export function normalizeShareHistoryRows(rows: ShareHistoryRow[]) {
   const compactRows = rows.filter(
     (row, index) => shareHistoryRowHasValue(row) || index === rows.length - 1
   )
@@ -1819,7 +1837,10 @@ function shareHistoryRowIsComplete(row: ShareHistoryRow) {
   return Boolean(row.amount && row.effectiveFrom && row.valueType)
 }
 
-function sortShareHistoryRowsByDate(a: ShareHistoryRow, b: ShareHistoryRow) {
+export function sortShareHistoryRowsByDate(
+  a: ShareHistoryRow,
+  b: ShareHistoryRow
+) {
   if (a.effectiveFrom && b.effectiveFrom) {
     return a.effectiveFrom.localeCompare(b.effectiveFrom)
   }
@@ -1835,7 +1856,61 @@ function sortShareHistoryRowsByDate(a: ShareHistoryRow, b: ShareHistoryRow) {
   return a.id.localeCompare(b.id)
 }
 
-function buildShareHistoryRows(
+export type ShareHistoryValidation =
+  | { ok: true; rows: ShareHistoryRow[] }
+  | { message: string; ok: false; title: string }
+
+// Started share history rows must be complete and on or after the start date.
+// Returns the complete rows sorted by date (possibly none).
+export function validateShareHistoryRows(
+  rows: ShareHistoryRow[],
+  financeStartDate?: string | null
+): ShareHistoryValidation {
+  const startedRows = rows.filter(shareHistoryRowHasValue)
+
+  if (startedRows.some((row) => !shareHistoryRowIsComplete(row))) {
+    return {
+      message: "Each share history row needs a date, rule, and value.",
+      ok: false,
+      title: "Complete share history",
+    }
+  }
+
+  const sortedRows = [...startedRows].sort(sortShareHistoryRowsByDate)
+
+  if (
+    sortedRows.some((row) =>
+      isBeforeFinanceStartDate(row.effectiveFrom, financeStartDate)
+    )
+  ) {
+    return {
+      message: `Share history date cannot be before the cooperative start date (${financeStartDate}).`,
+      ok: false,
+      title: "Date before start",
+    }
+  }
+
+  return { ok: true, rows: sortedRows }
+}
+
+export async function persistShareHistoryRows(
+  sortedHistoryRows: ShareHistoryRow[],
+  notes?: string
+) {
+  await createTenantShareStructureVersionAction(
+    objectToFormData({
+      amount: sortedHistoryRows[0]?.amount,
+      effectiveFrom: sortedHistoryRows[0]?.effectiveFrom,
+      historyAmount: sortedHistoryRows.map((row) => row.amount),
+      historyEffectiveFrom: sortedHistoryRows.map((row) => row.effectiveFrom),
+      historyValueType: sortedHistoryRows.map((row) => row.valueType),
+      notes,
+      valueType: sortedHistoryRows[0]?.valueType,
+    })
+  )
+}
+
+export function buildShareHistoryRows(
   initialVersions: ShareStructureVersionInitialVersion[] | undefined
 ): ShareHistoryRow[] {
   const savedRows =
@@ -1904,12 +1979,19 @@ export function ShareStructureVersionForm({
   })
 
   function onSubmit(values: ShareStructureVersionValues) {
-    const startedRows = shareHistoryRows.filter(shareHistoryRowHasValue)
-    const incompleteRow = startedRows.find(
-      (row) => !shareHistoryRowIsComplete(row)
+    const validation = validateShareHistoryRows(
+      shareHistoryRows,
+      financeStartDate
     )
 
-    if (startedRows.length === 0) {
+    if (!validation.ok) {
+      showError(validation.title, validation.message)
+      return
+    }
+
+    const sortedHistoryRows = validation.rows
+
+    if (sortedHistoryRows.length === 0) {
       if (allowEmptyHistory && redirectTo) {
         clearPreservedFormState()
         clearPreservedShareHistoryRows()
@@ -1924,44 +2006,9 @@ export function ShareStructureVersionForm({
       return
     }
 
-    if (incompleteRow) {
-      showError(
-        "Complete share history",
-        "Each share history row needs a date, rule, and value."
-      )
-      return
-    }
-
-    const sortedHistoryRows = startedRows
-      .filter(shareHistoryRowIsComplete)
-      .sort(sortShareHistoryRowsByDate)
-    const rowBeforeStartDate = sortedHistoryRows.find((row) =>
-      isBeforeFinanceStartDate(row.effectiveFrom, financeStartDate)
-    )
-
-    if (rowBeforeStartDate) {
-      showError(
-        "Date before start",
-        `Share history date cannot be before the cooperative start date (${financeStartDate}).`
-      )
-      return
-    }
-
     startTransition(async () => {
       try {
-        await createTenantShareStructureVersionAction(
-          objectToFormData({
-            ...values,
-            amount: sortedHistoryRows[0]?.amount,
-            effectiveFrom: sortedHistoryRows[0]?.effectiveFrom,
-            historyAmount: sortedHistoryRows.map((row) => row.amount),
-            historyEffectiveFrom: sortedHistoryRows.map(
-              (row) => row.effectiveFrom
-            ),
-            historyValueType: sortedHistoryRows.map((row) => row.valueType),
-            valueType: sortedHistoryRows[0]?.valueType,
-          })
-        )
+        await persistShareHistoryRows(sortedHistoryRows, values.notes)
         showSuccess(
           "Share update saved",
           "Cooperative default share history updated."
@@ -2184,7 +2231,7 @@ const chargeDefinitionSchema = z.object({
   ]),
 })
 
-type ChargeDefinitionValues = z.infer<typeof chargeDefinitionSchema>
+export type ChargeDefinitionValues = z.infer<typeof chargeDefinitionSchema>
 
 const chargeApplicabilityOptions = [
   {
@@ -2213,35 +2260,56 @@ const chargeApplicabilityOptions = [
   },
 ] as const
 
-function ChargeApplicabilityCombobox({
+export function ChargeApplicabilityCombobox({
   disabled,
   onChange,
   value,
+  variant = "field",
 }: {
   disabled: boolean
   onChange: (value: string, checked: boolean) => void
   value: string[]
+  variant?: "chip" | "field"
 }) {
   const selectedLabels = chargeApplicabilityOptions
     .filter((option) => value.includes(option.value))
     .map((option) => option.label)
+  const isUnset = selectedLabels.length === 0
 
   return (
     <Popover>
       <PopoverTrigger
         render={
-          <Button
-            className="h-9 w-full justify-start overflow-hidden px-3 font-normal"
-            disabled={disabled}
-            type="button"
-            variant="outline"
-          />
+          variant === "chip" ? (
+            <Button
+              aria-invalid={isUnset || undefined}
+              className={cn(
+                "max-w-full justify-start overflow-hidden font-normal",
+                isUnset &&
+                  "border-amber-400 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:border-amber-500/60 dark:bg-amber-500/10 dark:text-amber-200"
+              )}
+              data-charge-applies-to={isUnset ? "unset" : "set"}
+              disabled={disabled}
+              size="sm"
+              type="button"
+              variant="outline"
+            />
+          ) : (
+            <Button
+              className="h-9 w-full justify-start overflow-hidden px-3 font-normal"
+              disabled={disabled}
+              type="button"
+              variant="outline"
+            />
+          )
         }
       >
         <span className="truncate">
-          {selectedLabels.length > 0
-            ? selectedLabels.join(", ")
-            : "Select workflows"}
+          {variant === "chip"
+            ? `Applies to: ${isUnset ? "choose…" : selectedLabels.join(", ")}`
+            : isUnset
+              ? "Select workflows"
+              : selectedLabels.join(", ")}
         </span>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64 gap-1 p-1">
@@ -2315,7 +2383,7 @@ function getChargeKindForValueType(
   return chargeValueType === "percentage" ? "percentage" : "fixed"
 }
 
-type ChargeHistoryRow = {
+export type ChargeHistoryRow = {
   amount: string
   effectiveFrom: string
   id: string
@@ -2357,7 +2425,7 @@ function sortChargeHistoryRowsByDate(a: ChargeHistoryRow, b: ChargeHistoryRow) {
   return a.id.localeCompare(b.id)
 }
 
-type ChargeDefinitionInitialDefinition = {
+export type ChargeDefinitionInitialDefinition = {
   appliesToLoanRequests?: boolean
   appliesToLoans?: boolean
   appliesToMembers?: boolean
@@ -2382,7 +2450,7 @@ type ChargeDefinitionInitialDefinition = {
   }>
 }
 
-type ChargeDefinitionInputRow = ChargeDefinitionValues & {
+export type ChargeDefinitionInputRow = ChargeDefinitionValues & {
   chargeDefinitionId: string
   code: string
   historyRows: ChargeHistoryRow[]
@@ -2571,7 +2639,7 @@ function buildChargeDefinitionRows(
     : [createChargeDefinitionRow("charge-definition-initial")]
 }
 
-function chargeDefinitionRowHasValue(row: ChargeDefinitionInputRow) {
+export function chargeDefinitionRowHasValue(row: ChargeDefinitionInputRow) {
   return Boolean(row.name || row.historyRows.some(chargeHistoryRowHasValue))
 }
 
@@ -2591,30 +2659,185 @@ function normalizeChargeDefinitionRows(rows: ChargeDefinitionInputRow[]) {
   return compactRows.length > 0 ? compactRows : [createChargeDefinitionRow()]
 }
 
-export function ChargeDefinitionForm({
-  devMode = false,
-  financeStartDate,
-  formId,
-  initialDefinitions,
-  onSuccess,
-  preserveDraftKey,
-  redirectTo,
-  showSubmitButton = true,
-  stayOnStepHref,
-}: {
-  devMode?: boolean
+export type ChargeDefinitionValidation =
+  | { ok: true; rows: ChargeDefinitionInputRow[] }
+  | { message: string; ok: false; title: string }
+
+// The client rules for saving charges: at least one complete charge, and
+// every started row needs a name, a target, and dated amounts on or after
+// the cooperative start date.
+export function validateChargeDefinitionRows(
+  chargeRows: ChargeDefinitionInputRow[],
   financeStartDate?: string | null
-  formId?: string
+): ChargeDefinitionValidation {
+  const startedRows = chargeRows
+    .filter(chargeDefinitionRowHasValue)
+    .map((chargeRow) => ({
+      ...chargeRow,
+      kind: getChargeKindForValueType(chargeRow.chargeValueType),
+    }))
+
+  if (startedRows.length === 0) {
+    return {
+      message: "Add at least one charge, for example a registration fee.",
+      ok: false,
+      title: "Charge required",
+    }
+  }
+
+  for (const chargeRow of startedRows) {
+    const result = chargeDefinitionSchema.safeParse(chargeRow)
+
+    if (!result.success) {
+      return {
+        message:
+          "Each charge needs a name, when it is paid, a value type and a purpose.",
+        ok: false,
+        title: "Complete charge row",
+      }
+    }
+
+    if (chargeRow.applicability.length === 0) {
+      return {
+        message: 'Choose at least one "Applies to" option for each charge.',
+        ok: false,
+        title: "Choose what each charge applies to",
+      }
+    }
+
+    const startedHistoryRows = chargeRow.historyRows.filter(
+      chargeHistoryRowHasValue
+    )
+
+    if (startedHistoryRows.length === 0) {
+      return {
+        message: "Each charge needs an amount.",
+        ok: false,
+        title: "Charge history required",
+      }
+    }
+
+    if (startedHistoryRows.some((row) => !chargeHistoryRowIsComplete(row))) {
+      return {
+        message: "Each charge amount needs both a date and an amount.",
+        ok: false,
+        title: "Complete charge history",
+      }
+    }
+
+    if (
+      startedHistoryRows.some((row) =>
+        isBeforeFinanceStartDate(row.effectiveFrom, financeStartDate)
+      )
+    ) {
+      return {
+        message: `Charge history date cannot be before the cooperative start date (${financeStartDate}).`,
+        ok: false,
+        title: "Date before start",
+      }
+    }
+  }
+
+  return {
+    ok: true,
+    rows: startedRows.map((chargeRow) => ({
+      ...chargeRow,
+      historyRows: chargeRow.historyRows
+        .filter(chargeHistoryRowIsComplete)
+        .sort(sortChargeHistoryRowsByDate),
+    })),
+  }
+}
+
+// Saves validated charge rows in order: saved charges are updated with their
+// dated amounts, new charges are created with their full history.
+export async function persistChargeDefinitionRows(
+  validChargeRows: ChargeDefinitionInputRow[]
+) {
+  for (const chargeRow of validChargeRows) {
+    const chargeKind = getChargeKindForValueType(chargeRow.chargeValueType)
+    const legacyApplicabilityFlags = getLegacyApplicabilityFlags(
+      chargeRow.applicability
+    )
+
+    if (chargeRow.saved) {
+      await updateChargeDefinitionAction(
+        objectToFormData({
+          applicability: chargeRow.applicability,
+          appliesToLoanRequests: String(
+            legacyApplicabilityFlags.appliesToLoanRequests
+          ),
+          appliesToLoans: String(legacyApplicabilityFlags.appliesToLoans),
+          appliesToMembers: String(legacyApplicabilityFlags.appliesToMembers),
+          chargeDefinitionId: chargeRow.chargeDefinitionId,
+          chargeFrequency: chargeRow.chargeFrequency,
+          isActive: String(chargeRow.isActive),
+          isMonthlyLevy: String(chargeRow.isMonthlyLevy),
+          name: chargeRow.name,
+          purpose: chargeRow.purpose,
+        })
+      )
+
+      for (const historyRow of chargeRow.historyRows) {
+        if (historyRow.versionId) {
+          await updateChargeDefinitionVersionAction(
+            objectToFormData({
+              amount: historyRow.amount,
+              chargeDefinitionVersionId: historyRow.versionId,
+              chargeValueType: chargeRow.chargeValueType,
+              effectiveFrom: historyRow.effectiveFrom,
+            })
+          )
+          continue
+        }
+
+        await createChargeDefinitionVersionAction(
+          objectToFormData({
+            amount: historyRow.amount,
+            chargeDefinitionId: chargeRow.chargeDefinitionId,
+            chargeValueType: chargeRow.chargeValueType,
+            effectiveFrom: historyRow.effectiveFrom,
+            kind: chargeKind,
+          })
+        )
+      }
+
+      continue
+    }
+
+    await createChargeDefinitionAction(
+      objectToFormData({
+        amount: chargeRow.historyRows[0]?.amount,
+        applicability: chargeRow.applicability,
+        appliesToLoanRequests: legacyApplicabilityFlags.appliesToLoanRequests,
+        appliesToLoans: legacyApplicabilityFlags.appliesToLoans,
+        appliesToMembers: legacyApplicabilityFlags.appliesToMembers,
+        chargeFrequency: chargeRow.chargeFrequency,
+        chargeValueType: chargeRow.chargeValueType,
+        effectiveFrom: chargeRow.historyRows[0]?.effectiveFrom,
+        historyAmount: chargeRow.historyRows.map((row) => row.amount),
+        historyEffectiveFrom: chargeRow.historyRows.map(
+          (row) => row.effectiveFrom
+        ),
+        isMonthlyLevy: chargeRow.isMonthlyLevy,
+        kind: chargeKind,
+        name: chargeRow.name,
+        purpose: chargeRow.purpose,
+      })
+    )
+  }
+}
+
+export function useChargeDefinitionRows({
+  financeStartDate,
+  initialDefinitions,
+  preserveDraftKey,
+}: {
+  financeStartDate?: string | null
   initialDefinitions?: ChargeDefinitionInitialDefinition[]
-  onSuccess?: () => void
   preserveDraftKey?: string
-  redirectTo?: string
-  showSubmitButton?: boolean
-  stayOnStepHref?: string
 }) {
   const router = useTenantRouter()
-  const fallbackFormId = useId()
-  const resolvedFormId = formId ?? fallbackFormId
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [chargeRows, setChargeRows] = useState<ChargeDefinitionInputRow[]>(() =>
@@ -2892,176 +3115,113 @@ export function ChargeDefinitionForm({
     )
   }
 
-  function getValidChargeRows() {
-    const startedRows = chargeRows
-      .filter(chargeDefinitionRowHasValue)
-      .map((chargeRow) => ({
-        ...chargeRow,
-        kind: getChargeKindForValueType(chargeRow.chargeValueType),
-      }))
+  // Validates the rows (showing the first problem) and returns the save to
+  // run, or null. `defaultEffectiveFrom` fills an undated first amount when the
+  // screen shows a default date (brought-forward setup).
+  function prepareChargeSave({
+    defaultEffectiveFrom,
+  }: { defaultEffectiveFrom?: string | null } = {}) {
+    const rows = defaultEffectiveFrom
+      ? chargeRows.map((row) => ({
+          ...row,
+          historyRows: fillFirstRowEffectiveFrom(
+            row.historyRows,
+            defaultEffectiveFrom
+          ),
+        }))
+      : chargeRows
+    const validation = validateChargeDefinitionRows(rows, financeStartDate)
 
-    if (startedRows.length === 0) {
-      showError("Charge required", "Add at least one charge and history row.")
+    if (!validation.ok) {
+      showError(validation.title, validation.message)
       return null
     }
 
-    for (const chargeRow of startedRows) {
-      const result = chargeDefinitionSchema.safeParse(chargeRow)
-
-      if (!result.success) {
-        showError(
-          "Complete charge row",
-          "Each started charge row needs a charge name, frequency, value, and purpose."
-        )
-        return null
-      }
-
-      if (chargeRow.applicability.length === 0) {
-        showError(
-          "Select charge target",
-          "Each started charge row needs at least one workflow target."
-        )
-        return null
-      }
-
-      const startedHistoryRows = chargeRow.historyRows.filter(
-        chargeHistoryRowHasValue
-      )
-
-      if (startedHistoryRows.length === 0) {
-        showError(
-          "Charge history required",
-          "Each started charge needs at least one history row."
-        )
-        return null
-      }
-
-      const incompleteRow = startedHistoryRows.find(
-        (row) => !chargeHistoryRowIsComplete(row)
-      )
-
-      if (incompleteRow) {
-        showError(
-          "Complete charge history",
-          "Each charge history row needs both a date and an amount."
-        )
-        return null
-      }
-
-      const rowBeforeStartDate = startedHistoryRows.find((row) =>
-        isBeforeFinanceStartDate(row.effectiveFrom, financeStartDate)
-      )
-
-      if (rowBeforeStartDate) {
-        showError(
-          "Date before start",
-          `Charge history date cannot be before the cooperative start date (${financeStartDate}).`
-        )
-        return null
-      }
+    return async () => {
+      await persistChargeDefinitionRows(validation.rows)
+      clearPreservedChargeRows()
     }
-
-    return startedRows.map((chargeRow) => ({
-      ...chargeRow,
-      historyRows: chargeRow.historyRows
-        .filter(chargeHistoryRowIsComplete)
-        .sort(sortChargeHistoryRowsByDate),
-    }))
   }
 
-  function submitChargeRows() {
-    const validChargeRows = getValidChargeRows()
+  return {
+    addChargeHistoryRow,
+    addChargeRow,
+    chargeRows,
+    deleteChargeHistoryRow,
+    deleteChargeRow,
+    isPending,
+    prepareChargeSave,
+    quickFillChargeRows,
+    resetChargeRows,
+    setChargeRows,
+    startTransition,
+    updateChargeApplicability,
+    updateChargeHistoryRow,
+    updateChargeRow,
+  }
+}
 
-    if (!validChargeRows) {
+export function ChargeDefinitionForm({
+  devMode = false,
+  financeStartDate,
+  formId,
+  initialDefinitions,
+  onSuccess,
+  preserveDraftKey,
+  redirectTo,
+  showSubmitButton = true,
+  stayOnStepHref,
+}: {
+  devMode?: boolean
+  financeStartDate?: string | null
+  formId?: string
+  initialDefinitions?: ChargeDefinitionInitialDefinition[]
+  onSuccess?: () => void
+  preserveDraftKey?: string
+  redirectTo?: string
+  showSubmitButton?: boolean
+  stayOnStepHref?: string
+}) {
+  const router = useTenantRouter()
+  const fallbackFormId = useId()
+  const resolvedFormId = formId ?? fallbackFormId
+  const { showError, showSuccess } = useNotifications()
+  const {
+    addChargeHistoryRow,
+    addChargeRow,
+    chargeRows,
+    deleteChargeHistoryRow,
+    deleteChargeRow,
+    isPending,
+    prepareChargeSave,
+    quickFillChargeRows,
+    resetChargeRows,
+    setChargeRows,
+    startTransition,
+    updateChargeApplicability,
+    updateChargeHistoryRow,
+    updateChargeRow,
+  } = useChargeDefinitionRows({
+    financeStartDate,
+    initialDefinitions,
+    preserveDraftKey,
+  })
+
+  function submitChargeRows() {
+    const saveCharges = prepareChargeSave()
+
+    if (!saveCharges) {
       return
     }
 
     startTransition(async () => {
       try {
-        for (const chargeRow of validChargeRows) {
-          const chargeKind = getChargeKindForValueType(
-            chargeRow.chargeValueType
-          )
-          const legacyApplicabilityFlags = getLegacyApplicabilityFlags(
-            chargeRow.applicability
-          )
-
-          if (chargeRow.saved) {
-            await updateChargeDefinitionAction(
-              objectToFormData({
-                applicability: chargeRow.applicability,
-                appliesToLoanRequests: String(
-                  legacyApplicabilityFlags.appliesToLoanRequests
-                ),
-                appliesToLoans: String(legacyApplicabilityFlags.appliesToLoans),
-                appliesToMembers: String(
-                  legacyApplicabilityFlags.appliesToMembers
-                ),
-                chargeDefinitionId: chargeRow.chargeDefinitionId,
-                chargeFrequency: chargeRow.chargeFrequency,
-                isActive: String(chargeRow.isActive),
-                isMonthlyLevy: String(chargeRow.isMonthlyLevy),
-                name: chargeRow.name,
-                purpose: chargeRow.purpose,
-              })
-            )
-
-            for (const historyRow of chargeRow.historyRows) {
-              if (historyRow.versionId) {
-                await updateChargeDefinitionVersionAction(
-                  objectToFormData({
-                    amount: historyRow.amount,
-                    chargeDefinitionVersionId: historyRow.versionId,
-                    chargeValueType: chargeRow.chargeValueType,
-                    effectiveFrom: historyRow.effectiveFrom,
-                  })
-                )
-                continue
-              }
-
-              await createChargeDefinitionVersionAction(
-                objectToFormData({
-                  amount: historyRow.amount,
-                  chargeDefinitionId: chargeRow.chargeDefinitionId,
-                  chargeValueType: chargeRow.chargeValueType,
-                  effectiveFrom: historyRow.effectiveFrom,
-                  kind: chargeKind,
-                })
-              )
-            }
-
-            continue
-          }
-
-          await createChargeDefinitionAction(
-            objectToFormData({
-              amount: chargeRow.historyRows[0]?.amount,
-              applicability: chargeRow.applicability,
-              appliesToLoanRequests:
-                legacyApplicabilityFlags.appliesToLoanRequests,
-              appliesToLoans: legacyApplicabilityFlags.appliesToLoans,
-              appliesToMembers: legacyApplicabilityFlags.appliesToMembers,
-              chargeFrequency: chargeRow.chargeFrequency,
-              chargeValueType: chargeRow.chargeValueType,
-              effectiveFrom: chargeRow.historyRows[0]?.effectiveFrom,
-              historyAmount: chargeRow.historyRows.map((row) => row.amount),
-              historyEffectiveFrom: chargeRow.historyRows.map(
-                (row) => row.effectiveFrom
-              ),
-              isMonthlyLevy: chargeRow.isMonthlyLevy,
-              kind: chargeKind,
-              name: chargeRow.name,
-              purpose: chargeRow.purpose,
-            })
-          )
-        }
-
+        await saveCharges()
         showSuccess(
           "Charges saved",
           "Charge definitions and history rows were recorded."
         )
         setChargeRows(buildChargeDefinitionRows(initialDefinitions))
-        clearPreservedChargeRows()
         onSuccess?.()
         if (redirectTo) {
           navigateWithFreshWizardState(router, redirectTo, {
@@ -3702,7 +3862,13 @@ type ShareBusinessFormProps = {
   preserveDraftKey?: string
   profitHistoryLayout?: "single" | "table"
   profitHistoryMode?: boolean
+  // Shows the QA Quick fill buttons. Pass the server-owned
+  // `canShowQuickFill(context)` value; hidden by default.
+  quickFillEnabled?: boolean
   redirectTo?: string
+  // One Path setup: the step's single primary action validates and saves the
+  // businesses through this preparer instead of the form's own footer button.
+  registerSave?: (prepare: OnePathSavePreparer | null) => void
   showSubmitButton?: boolean
   sourceType?: "manual" | "backfill" | "import"
   setupMode?: TenantMigrationSetupMode
@@ -4061,6 +4227,8 @@ function ShareBusinessProfitHistoryTableForm({
   initialBusinesses,
   onSuccess,
   preserveDraftKey,
+  quickFillEnabled = false,
+  registerSave,
   sourceType = "backfill",
   redirectTo,
   setupMode = "historical_backfill",
@@ -4425,6 +4593,134 @@ function ShareBusinessProfitHistoryTableForm({
     }))
   }
 
+  async function persistBusinessRows(
+    validBusinessRows: BusinessHistoryInputRow[]
+  ) {
+    for (const businessRow of validBusinessRows) {
+      const totalProfitAmount = businessRow.profitRows
+        .reduce((total, row) => total + parseOptionalFormAmount(row.amount), 0)
+        .toString()
+
+      if (businessRow.saved) {
+        await updateShareBusinessAction(
+          objectToFormData({
+            capitalAmount: businessRow.capitalAmount,
+            endDate: businessRow.endDate,
+            linkedDividendPeriodId: businessRow.linkedDividendPeriodId,
+            name: businessRow.name,
+            notes: businessRow.notes,
+            profitAmount: totalProfitAmount,
+            shareBusinessId: businessRow.businessId,
+            startDate: businessRow.startDate,
+            status: businessRow.status,
+          })
+        )
+
+        for (const profitRow of businessRow.profitRows) {
+          const profitAmount = parseOptionalFormAmount(profitRow.amount)
+          const deductionAmount = parseOptionalFormAmount(
+            profitRow.deductionAmount
+          )
+          const allocatableProfitAmount = Math.max(
+            0,
+            profitAmount - deductionAmount
+          ).toString()
+
+          if (profitRow.profitEntryId) {
+            await updateShareBusinessProfitEntryAction(
+              objectToFormData({
+                allocatableProfitAmount,
+                expenseAmount: profitRow.deductionAmount || "0",
+                linkedDividendPeriodId: profitRow.linkedDividendPeriodId,
+                profitAmount: profitRow.amount,
+                profitDate: profitRow.profitDate,
+                profitEntryId: profitRow.profitEntryId,
+                reason: profitRow.reason,
+                sourceType: profitRow.sourceType,
+                status: profitRow.status,
+              })
+            )
+            continue
+          }
+
+          await createShareBusinessProfitEntryAction(
+            objectToFormData({
+              allocatableProfitAmount,
+              expenseAmount: profitRow.deductionAmount || "0",
+              linkedDividendPeriodId: profitRow.linkedDividendPeriodId,
+              profitAmount: profitRow.amount,
+              profitDate: profitRow.profitDate,
+              reason: profitRow.reason,
+              shareBusinessId: businessRow.businessId,
+              sourceType: profitRow.sourceType,
+              status: profitRow.status,
+            })
+          )
+        }
+
+        continue
+      }
+
+      await createShareBusinessAction(
+        objectToFormData({
+          capitalAmount: businessRow.capitalAmount,
+          endDate: businessRow.endDate,
+          historyDeductionAmount: businessRow.profitRows.map(
+            (row) => row.deductionAmount || "0"
+          ),
+          historyDeductionReason: businessRow.profitRows.map(
+            (row) => row.reason
+          ),
+          historyProfitAmount: businessRow.profitRows.map((row) => row.amount),
+          historyProfitDate: businessRow.profitRows.map(
+            (row) => row.profitDate
+          ),
+          historyStatus: businessRow.profitRows.map((row) => row.status),
+          name: businessRow.name,
+          notes: businessRow.notes,
+          profitAmount: totalProfitAmount,
+          sourceType,
+          startDate: businessRow.startDate,
+          status: businessRow.endDate ? "completed" : "active",
+        })
+      )
+    }
+  }
+
+  const getValidBusinessRowsRef = useRef(getValidBusinessRows)
+  const persistBusinessRowsRef = useRef(persistBusinessRows)
+
+  useEffect(() => {
+    getValidBusinessRowsRef.current = getValidBusinessRows
+    persistBusinessRowsRef.current = persistBusinessRows
+  })
+
+  // Registered with the One Path step: validates now, returns the save.
+  const prepareBusinessSave =
+    useCallback((): ReturnType<OnePathSavePreparer> => {
+      const validBusinessRows = getValidBusinessRowsRef.current(
+        form.getValues()
+      )
+
+      if (!validBusinessRows) {
+        return null
+      }
+
+      return async () => {
+        await persistBusinessRowsRef.current(validBusinessRows)
+        clearPreservedFormState()
+      }
+    }, [clearPreservedFormState, form])
+  useEffect(() => {
+    if (!registerSave) {
+      return
+    }
+
+    registerSave(prepareBusinessSave)
+
+    return () => registerSave(null)
+  }, [prepareBusinessSave, registerSave])
+
   function submitBusinessRows(values: BusinessHistoryTableValues) {
     const validBusinessRows = getValidBusinessRows(values)
 
@@ -4434,100 +4730,7 @@ function ShareBusinessProfitHistoryTableForm({
 
     startTransition(async () => {
       try {
-        for (const businessRow of validBusinessRows) {
-          const totalProfitAmount = businessRow.profitRows
-            .reduce(
-              (total, row) => total + parseOptionalFormAmount(row.amount),
-              0
-            )
-            .toString()
-
-          if (businessRow.saved) {
-            await updateShareBusinessAction(
-              objectToFormData({
-                capitalAmount: businessRow.capitalAmount,
-                endDate: businessRow.endDate,
-                linkedDividendPeriodId: businessRow.linkedDividendPeriodId,
-                name: businessRow.name,
-                notes: businessRow.notes,
-                profitAmount: totalProfitAmount,
-                shareBusinessId: businessRow.businessId,
-                startDate: businessRow.startDate,
-                status: businessRow.status,
-              })
-            )
-
-            for (const profitRow of businessRow.profitRows) {
-              const profitAmount = parseOptionalFormAmount(profitRow.amount)
-              const deductionAmount = parseOptionalFormAmount(
-                profitRow.deductionAmount
-              )
-              const allocatableProfitAmount = Math.max(
-                0,
-                profitAmount - deductionAmount
-              ).toString()
-
-              if (profitRow.profitEntryId) {
-                await updateShareBusinessProfitEntryAction(
-                  objectToFormData({
-                    allocatableProfitAmount,
-                    expenseAmount: profitRow.deductionAmount || "0",
-                    linkedDividendPeriodId: profitRow.linkedDividendPeriodId,
-                    profitAmount: profitRow.amount,
-                    profitDate: profitRow.profitDate,
-                    profitEntryId: profitRow.profitEntryId,
-                    reason: profitRow.reason,
-                    sourceType: profitRow.sourceType,
-                    status: profitRow.status,
-                  })
-                )
-                continue
-              }
-
-              await createShareBusinessProfitEntryAction(
-                objectToFormData({
-                  allocatableProfitAmount,
-                  expenseAmount: profitRow.deductionAmount || "0",
-                  linkedDividendPeriodId: profitRow.linkedDividendPeriodId,
-                  profitAmount: profitRow.amount,
-                  profitDate: profitRow.profitDate,
-                  reason: profitRow.reason,
-                  shareBusinessId: businessRow.businessId,
-                  sourceType: profitRow.sourceType,
-                  status: profitRow.status,
-                })
-              )
-            }
-
-            continue
-          }
-
-          await createShareBusinessAction(
-            objectToFormData({
-              capitalAmount: businessRow.capitalAmount,
-              endDate: businessRow.endDate,
-              historyDeductionAmount: businessRow.profitRows.map(
-                (row) => row.deductionAmount || "0"
-              ),
-              historyDeductionReason: businessRow.profitRows.map(
-                (row) => row.reason
-              ),
-              historyProfitAmount: businessRow.profitRows.map(
-                (row) => row.amount
-              ),
-              historyProfitDate: businessRow.profitRows.map(
-                (row) => row.profitDate
-              ),
-              historyStatus: businessRow.profitRows.map((row) => row.status),
-              name: businessRow.name,
-              notes: businessRow.notes,
-              profitAmount: totalProfitAmount,
-              sourceType,
-              startDate: businessRow.startDate,
-              status: businessRow.endDate ? "completed" : "active",
-            })
-          )
-        }
+        await persistBusinessRows(validBusinessRows)
 
         showSuccess(
           isBroughtForwardSetup
@@ -4570,7 +4773,12 @@ function ShareBusinessProfitHistoryTableForm({
       <form
         className="space-y-3"
         id={resolvedFormId}
-        onSubmit={form.handleSubmit(submitBusinessRows)}
+        onSubmit={
+          registerSave
+            ? // The One Path step's primary action saves; Enter does not.
+              (event) => event.preventDefault()
+            : form.handleSubmit(submitBusinessRows)
+        }
       >
         <FormField
           control={form.control}
@@ -4596,7 +4804,7 @@ function ShareBusinessProfitHistoryTableForm({
                   {isBroughtForwardSetup
                     ? "Select this when there is no business participating in the current profit-sharing season."
                     : "Select this when the cooperative has no historical business or profit records to migrate."}{" "}
-                  The business form will close and you can continue with Next.
+                  The business form will close and you can continue.
                 </p>
                 <FormMessage />
               </div>
@@ -4612,15 +4820,17 @@ function ShareBusinessProfitHistoryTableForm({
                   : "Business History"}
               </h3>
               <div className="min-w-10 flex-1 border-t border-border/70" />
-              <Button
-                disabled={isPending}
-                onClick={quickFillBusinessRows}
-                size="sm"
-                type="button"
-                variant="ghost"
-              >
-                Quick fill
-              </Button>
+              {quickFillEnabled ? (
+                <Button
+                  disabled={isPending}
+                  onClick={quickFillBusinessRows}
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  Quick fill
+                </Button>
+              ) : null}
               <Button
                 disabled={isPending}
                 onClick={resetBusinessRows}
@@ -4640,9 +4850,9 @@ function ShareBusinessProfitHistoryTableForm({
                   )}
                   key={businessRow.id}
                 >
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_9rem_9.5rem_9.5rem_2rem] xl:items-start">
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_10rem_9.5rem_2rem] xl:items-start">
                     <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                      Title
+                      Business
                       <Input
                         disabled={isPending}
                         onChange={(event) =>
@@ -4650,12 +4860,12 @@ function ShareBusinessProfitHistoryTableForm({
                             name: event.target.value,
                           })
                         }
-                        placeholder="Title"
+                        placeholder="For example, poultry farm"
                         value={businessRow.name}
                       />
                     </label>
                     <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                      Amount
+                      Capital invested
                       <CurrencyInput
                         allowNegative={false}
                         decimalScale={2}
@@ -4672,7 +4882,7 @@ function ShareBusinessProfitHistoryTableForm({
                       />
                     </label>
                     <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                      Start date
+                      Started
                       <DatePickerInput
                         allowClear={false}
                         disabled={isPending}
@@ -4682,20 +4892,6 @@ function ShareBusinessProfitHistoryTableForm({
                         }
                         placeholder="Start date"
                         value={businessRow.startDate}
-                      />
-                    </label>
-                    <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                      End date
-                      <DatePickerInput
-                        disabled={isPending}
-                        min={
-                          businessRow.startDate || financeStartDate || undefined
-                        }
-                        onChange={(endDate) =>
-                          updateBusinessRow(businessRow.id, { endDate })
-                        }
-                        placeholder="End date"
-                        value={businessRow.endDate}
                       />
                     </label>
                     <div className="pt-6">
@@ -4712,13 +4908,48 @@ function ShareBusinessProfitHistoryTableForm({
                       />
                     </div>
                   </div>
+                  <Collapsible
+                    className="grid gap-3"
+                    defaultOpen={Boolean(businessRow.endDate)}
+                  >
+                    <CollapsibleTrigger
+                      render={
+                        <Button
+                          className="w-fit"
+                          size="sm"
+                          type="button"
+                          variant="ghost"
+                        />
+                      }
+                    >
+                      More options
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="grid gap-3 sm:grid-cols-[9.5rem]">
+                      <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                        End date (optional)
+                        <DatePickerInput
+                          disabled={isPending}
+                          min={
+                            businessRow.startDate ||
+                            financeStartDate ||
+                            undefined
+                          }
+                          onChange={(endDate) =>
+                            updateBusinessRow(businessRow.id, { endDate })
+                          }
+                          placeholder="End date"
+                          value={businessRow.endDate}
+                        />
+                      </label>
+                    </CollapsibleContent>
+                  </Collapsible>
 
                   <div className="grid gap-3 pl-0 md:pl-6">
                     <div className="flex items-center gap-3">
                       <h4 className="shrink-0 text-xs font-medium text-muted-foreground">
                         {isBroughtForwardSetup
-                          ? "Current-season profit"
-                          : "Profit History"}
+                          ? "Profit this season (optional)"
+                          : "Profit history"}
                       </h4>
                       <div className="min-w-10 flex-1 border-t border-border/70" />
                     </div>
@@ -4837,7 +5068,7 @@ function ShareBusinessProfitHistoryTableForm({
                             />
                           </label>
                           <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                            Shareable
+                            Left to share
                             <CurrencyInput
                               decimalScale={2}
                               disabled={isPending}
@@ -4891,7 +5122,7 @@ function ShareBusinessProfitHistoryTableForm({
             </Button>
           </div>
         ) : null}
-        {redirectTo ? (
+        {redirectTo && !registerSave ? (
           <GettingStartedFooterPortal>
             <Button
               disabled={isPending}
@@ -4914,6 +5145,7 @@ function ShareBusinessSingleForm({
   onSuccess,
   preserveDraftKey,
   profitHistoryMode = false,
+  quickFillEnabled = false,
   sourceType = "manual",
   stayOnStepHref,
 }: ShareBusinessFormProps) {
@@ -5279,24 +5511,26 @@ function ShareBusinessSingleForm({
         className="grid gap-4 md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="flex flex-col gap-3 border-b border-border/70 pb-4 sm:flex-row sm:items-center sm:justify-between md:col-span-2">
-          <p className="text-xs leading-5 text-muted-foreground">
-            Populate an editable business draft, then review every value before
-            saving.
-          </p>
-          <Button
-            aria-label="Quick fill business form"
-            className="h-11! w-full sm:w-auto! md:h-8!"
-            data-business-quick-fill
-            disabled={isPending}
-            onClick={quickFillBusinessDraft}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            Quick fill
-          </Button>
-        </div>
+        {quickFillEnabled ? (
+          <div className="flex flex-col gap-3 border-b border-border/70 pb-4 sm:flex-row sm:items-center sm:justify-between md:col-span-2">
+            <p className="text-xs leading-5 text-muted-foreground">
+              Populate an editable business draft, then review every value
+              before saving.
+            </p>
+            <Button
+              aria-label="Quick fill business form"
+              className="h-11! w-full sm:w-auto! md:h-8!"
+              data-business-quick-fill
+              disabled={isPending}
+              onClick={quickFillBusinessDraft}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              Quick fill
+            </Button>
+          </div>
+        ) : null}
         {!isMigrationHistory ? (
           <div
             className="grid gap-1 border-b border-border/70 pb-4 md:col-span-2"

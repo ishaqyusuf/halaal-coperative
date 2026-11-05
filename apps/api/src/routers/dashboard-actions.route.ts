@@ -4058,16 +4058,14 @@ export async function updateTenantFinanceStartDateAction(formData: FormData) {
 
 export async function finalizeInitialMigrationAction(formData: FormData) {
   const actor = await requireDashboardActor(workspaceAdminRoles)
-  const confirmation = getRequiredString(formData, "confirmation")
 
-  if (confirmation !== "FINALIZE MIGRATION") {
-    throw new DashboardActionExpectedError(
-      "Type FINALIZE MIGRATION to confirm the historical lock and go-live transition."
-    )
+  if (!getOptionalBoolean(formData, "confirmed")) {
+    throw new DashboardActionExpectedError("Tick the confirmation to go live.")
   }
 
   await finalizeTenantInitialMigration({
     actorUserId: actor.user.id,
+    confirmationMethod: "checkbox",
     tenantId: actor.tenant.id,
   })
 

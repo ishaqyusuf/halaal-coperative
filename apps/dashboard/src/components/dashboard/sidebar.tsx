@@ -11,6 +11,34 @@ import {
   DASHBOARD_SIDEBAR_EXPANDED_WIDTH,
 } from "./constants"
 import { DashboardSidebarSheet } from "@/components/sheets/dashboard-sidebar-sheet"
+import { getNavigationLockLabel } from "@/lib/setup-gate-routing"
+
+// Disabled stand-in for a sidebar `Link`: same frame, no navigation.
+function LockedSidebarItem({
+  children,
+  className,
+  title,
+  "aria-label": ariaLabel,
+}: {
+  "aria-label"?: string
+  children: React.ReactNode
+  className?: string
+  href: string
+  onClick?: () => void
+  title?: string
+}) {
+  return (
+    <div
+      aria-disabled="true"
+      aria-label={ariaLabel}
+      className={cn(className, "cursor-not-allowed")}
+      role="link"
+      title={title}
+    >
+      {children}
+    </div>
+  )
+}
 
 function DashboardSidebarLink({
   childrenLinks,
@@ -21,6 +49,7 @@ function DashboardSidebarLink({
   isActive,
   isItemExpanded,
   label,
+  lockLabelFor,
   onToggle,
   pathname,
 }: {
@@ -36,30 +65,39 @@ function DashboardSidebarLink({
   isActive: boolean
   isItemExpanded?: boolean
   label: string
+  lockLabelFor: (href: string) => string | null
   onNavigate?: () => void
   onToggle?: () => void
   pathname: string
 }) {
   const visibleChildren = childrenLinks?.filter((child) => child.show) ?? []
   const hasChildren = visibleChildren.length > 0
+  // Destinations the setup gate would redirect render disabled, labelled with
+  // the same predicate the layout uses (see `getNavigationLockLabel`).
+  const lockLabel = lockLabelFor(href)
+  const LinkFrame = lockLabel ? LockedSidebarItem : Link
 
   return (
     <div className="group/link">
       <div className="relative">
-        <Link
+        <LinkFrame
           href={href}
-          aria-label={label}
+          aria-label={lockLabel ? `${label} (${lockLabel})` : label}
           onClick={onNavigate}
-          title={expanded ? undefined : label}
+          title={
+            lockLabel ? `${label} · ${lockLabel}` : expanded ? undefined : label
+          }
           className="block"
         >
-          <div className="relative">
+          <div className={cn("relative", lockLabel ? "opacity-60" : null)}>
             <div
               className={cn(
                 "mr-[15px] ml-[15px] h-[40px] border border-transparent transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]",
                 isActive
                   ? "border-border bg-[#f7f7f7] dark:bg-[#131313]"
-                  : "bg-transparent group-hover/link:border-border/70 group-hover/link:bg-muted/30",
+                  : lockLabel
+                    ? "bg-transparent"
+                    : "bg-transparent group-hover/link:border-border/70 group-hover/link:bg-muted/30",
                 expanded ? "w-[calc(100%-30px)]" : "w-[40px]"
               )}
             />
@@ -68,31 +106,42 @@ function DashboardSidebarLink({
                 "pointer-events-none absolute top-0 left-[15px] flex h-[40px] w-[40px] items-center justify-center transition-colors",
                 isActive
                   ? "text-foreground"
-                  : "text-muted-foreground group-hover/link:text-foreground"
+                  : lockLabel
+                    ? "text-muted-foreground"
+                    : "text-muted-foreground group-hover/link:text-foreground"
               )}
             >
               {Icon ? <Icon className="size-[18px] shrink-0" /> : null}
             </div>
             {expanded ? (
-              <div className="pointer-events-none absolute top-0 right-[48px] left-[55px] flex h-[40px] items-center">
+              <div className="pointer-events-none absolute top-0 right-[48px] left-[55px] flex h-[40px] items-center gap-2">
                 <span
                   className={cn(
                     "truncate text-sm font-medium transition-colors",
                     isActive
                       ? "text-foreground"
-                      : "text-muted-foreground group-hover/link:text-foreground"
+                      : lockLabel
+                        ? "text-muted-foreground"
+                        : "text-muted-foreground group-hover/link:text-foreground"
                   )}
                 >
                   {label}
                 </span>
+                {lockLabel ? (
+                  <span className="ml-auto shrink-0 text-[10px] font-medium whitespace-nowrap text-muted-foreground">
+                    {lockLabel}
+                  </span>
+                ) : null}
               </div>
             ) : null}
           </div>
-        </Link>
+        </LinkFrame>
         {expanded && hasChildren ? (
           <button
             type="button"
-            aria-label={isItemExpanded ? `Collapse ${label}` : `Expand ${label}`}
+            aria-label={
+              isItemExpanded ? `Collapse ${label}` : `Expand ${label}`
+            }
             onClick={(event) => {
               event.preventDefault()
               event.stopPropagation()
@@ -128,11 +177,25 @@ function DashboardSidebarLink({
               return null
             }
 
+            const childLabel = child.title ?? child.name
+            const childLockLabel = lockLabelFor(child.href)
+            const ChildFrame = childLockLabel ? LockedSidebarItem : Link
+
             return (
-              <Link
+              <ChildFrame
                 key={child.href}
+                aria-label={
+                  childLockLabel
+                    ? `${childLabel} (${childLockLabel})`
+                    : undefined
+                }
                 href={child.href}
                 onClick={onNavigate}
+                title={
+                  childLockLabel
+                    ? `${childLabel} · ${childLockLabel}`
+                    : undefined
+                }
                 className="group/child block"
               >
                 <div
@@ -150,14 +213,23 @@ function DashboardSidebarLink({
                 >
                   <span
                     className={cn(
-                      "truncate text-xs font-medium whitespace-nowrap transition group-hover/child:text-foreground",
-                      isChildActive ? "text-foreground" : "text-muted-foreground"
+                      "truncate text-xs font-medium whitespace-nowrap transition",
+                      childLockLabel
+                        ? "text-muted-foreground opacity-60"
+                        : isChildActive
+                          ? "text-foreground group-hover/child:text-foreground"
+                          : "text-muted-foreground group-hover/child:text-foreground"
                     )}
                   >
-                    {child.title ?? child.name}
+                    {childLabel}
                   </span>
+                  {childLockLabel ? (
+                    <span className="ml-auto shrink-0 pr-1 text-[10px] font-medium whitespace-nowrap text-muted-foreground">
+                      {childLockLabel}
+                    </span>
+                  ) : null}
                 </div>
-              </Link>
+              </ChildFrame>
             )
           })}
         </div>
@@ -172,6 +244,7 @@ export function DashboardSidebar({
   onMobileOpenChange,
   pathname,
   roleLabel,
+  shouldRedirectAdminToSetup = false,
   tenantName,
   userName,
 }: {
@@ -180,6 +253,7 @@ export function DashboardSidebar({
   onMobileOpenChange?: (open: boolean) => void
   pathname: string
   roleLabel: string
+  shouldRedirectAdminToSetup?: boolean
   tenantName: string
   userName: string
 }) {
@@ -187,6 +261,8 @@ export function DashboardSidebar({
   const [expandedItem, setExpandedItem] = useState<string | null>(null)
   const closeMobile = () => onMobileOpenChange?.(false)
   const isExpanded = mobileOpen || expanded
+  const lockLabelFor = (href: string) =>
+    getNavigationLockLabel({ href, shouldRedirectAdminToSetup })
 
   const navSections = (
     <nav className="scrollbar-hide mt-4 min-h-0 w-full flex-1 overflow-x-hidden overflow-y-auto">
@@ -225,6 +301,7 @@ export function DashboardSidebar({
                         isActive={isActive}
                         isItemExpanded={isItemExpanded}
                         label={link.title ?? link.name}
+                        lockLabelFor={lockLabelFor}
                         onNavigate={mobileOpen ? closeMobile : undefined}
                         onToggle={() =>
                           setExpandedItem((current) =>

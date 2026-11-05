@@ -1,18 +1,12 @@
 "use client"
 
-import { useEffect, useState, type ComponentProps } from "react"
 import type {
   MemberShareApplicationRow,
   TenantSharePolicySettings,
 } from "@halaalvest/db"
-import { Separator } from "@halaalvest/ui/components/separator"
 import { formatCurrency } from "@halaalvest/utils"
 import { DashboardSurfaceCard } from "@/components/dashboard/section"
 import { TrendPill } from "@/components/dashboard/trend-badge"
-import {
-  SharePolicyForm,
-  ShareStructureVersionForm,
-} from "@/components/forms/tenant-finance-forms"
 import { OpenSharePolicySheet } from "@/components/open-share-sheet"
 import { ShareApplicationsPanel } from "@/components/share-applications-panel"
 import { ShareHeader } from "@/components/share-header"
@@ -22,52 +16,15 @@ import type { Share } from "@/components/tables/shares/columns"
 import type { TableSettings } from "@/utils/table-settings"
 
 type ShareConfigurationMode = TenantSharePolicySettings["configurationMode"]
-type ShareStructureVersions = ComponentProps<
-  typeof ShareStructureVersionForm
->["initialVersions"]
 type MemberOption = {
   id: string
   label: string
-}
-
-function useSelectedShareMode(policy: TenantSharePolicySettings) {
-  const [selectedMode, setSelectedMode] = useState<ShareConfigurationMode>(
-    policy.configurationMode
-  )
-
-  useEffect(() => {
-    setSelectedMode(policy.configurationMode)
-  }, [policy.configurationMode])
-
-  return {
-    hasUnsavedModeChange: selectedMode !== policy.configurationMode,
-    selectedMode,
-    setSelectedMode,
-  }
 }
 
 function shareModeLabel(mode: ShareConfigurationMode) {
   return mode === "monthly_history"
     ? "monthly share history"
     : "unit-based shareholding"
-}
-
-function UnsavedShareModelNotice({
-  savedMode,
-  selectedMode,
-}: {
-  savedMode: ShareConfigurationMode
-  selectedMode: ShareConfigurationMode
-}) {
-  return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-      <p className="font-medium">Save the active share model first</p>
-      <p className="mt-1">
-        The saved model is still {shareModeLabel(savedMode)}. Save{" "}
-        {shareModeLabel(selectedMode)} before using its setup workflow.
-      </p>
-    </div>
-  )
 }
 
 function ActiveUnitShareNotice() {
@@ -93,70 +50,6 @@ function HistoricalSetupLockedNotice({
         inputs.
       </p>
     </div>
-  )
-}
-
-export function GettingStartedShareModelPanel({
-  profitPolicyHref,
-  sharePolicy,
-  shareStructureVersions,
-  tenantStartDate,
-}: {
-  profitPolicyHref: string
-  sharePolicy: TenantSharePolicySettings
-  shareStructureVersions: ShareStructureVersions
-  tenantStartDate?: string | null
-}) {
-  const { hasUnsavedModeChange, selectedMode, setSelectedMode } =
-    useSelectedShareMode(sharePolicy)
-  const selectedMonthlyHistory = selectedMode === "monthly_history"
-
-  return (
-    <>
-      <div>
-        <p className="text-sm font-medium text-foreground">
-          Active share model
-        </p>
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">
-          Choose one share model for this cooperative. The unselected model is
-          inactive during setup.
-        </p>
-        <div className="mt-4">
-          <SharePolicyForm
-            defaultPolicy={sharePolicy}
-            preserveDraftKey="getting-started:share-policy"
-            redirectTo={
-              !hasUnsavedModeChange && !selectedMonthlyHistory
-                ? profitPolicyHref
-                : undefined
-            }
-            showSubmitButton={hasUnsavedModeChange || selectedMonthlyHistory}
-            onConfigurationModeChange={setSelectedMode}
-          />
-        </div>
-      </div>
-
-      {hasUnsavedModeChange ? (
-        <UnsavedShareModelNotice
-          savedMode={sharePolicy.configurationMode}
-          selectedMode={selectedMode}
-        />
-      ) : selectedMonthlyHistory ? (
-        <>
-          <Separator />
-          <ShareStructureVersionForm
-            allowEmptyHistory
-            financeStartDate={tenantStartDate}
-            initialVersions={shareStructureVersions}
-            preserveDraftKey="getting-started:shares"
-            redirectTo={profitPolicyHref}
-            showSubmitButton={false}
-          />
-        </>
-      ) : (
-        <ActiveUnitShareNotice />
-      )}
-    </>
   )
 }
 

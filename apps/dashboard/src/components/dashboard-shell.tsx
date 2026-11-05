@@ -15,6 +15,7 @@ export function DashboardShellClient({
   children,
   hiddenNavPaths = [],
   role,
+  shouldRedirectAdminToSetup = false,
   showLegalReminder = false,
   tenantName,
   userName,
@@ -22,6 +23,8 @@ export function DashboardShellClient({
   children: React.ReactNode
   hiddenNavPaths?: string[]
   role: CooperativeRole | null
+  /** Setup-gate flag from the layout; locks destinations it would redirect. */
+  shouldRedirectAdminToSetup?: boolean
   showLegalReminder?: boolean
   tenantName: string
   userName: string
@@ -45,6 +48,7 @@ export function DashboardShellClient({
         onMobileOpenChange={setMobileSidebarOpen}
         pathname={pathname}
         roleLabel={roleLabel}
+        shouldRedirectAdminToSetup={shouldRedirectAdminToSetup}
         tenantName={tenantName}
         userName={userName}
       />

@@ -1,12 +1,13 @@
+import type { InitialMigrationSnapshot } from "@halaalvest/domain"
 import { Button } from "@halaalvest/ui/components/button"
 import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { Input } from "@halaalvest/ui/components/input"
 import { DatePickerInput } from "@/components/date-picker-input"
+import { GoLiveChecklist } from "@/components/go-live-checklist"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
 import { MemberAutocompleteSelect } from "@/components/migration/member-autocomplete-select"
 import {
   createLegacyLoanMigrationDraftAction,
-  finalizeInitialMigrationAction,
   markLegacyLoansReviewedAction,
   queueBackfillApplyAction,
   queueBackfillDraftAction,
@@ -124,30 +125,20 @@ export function ApplyMemberBackfillContent({ memberId }: { memberId: string }) {
 }
 
 export function FinalizeInitialMigrationContent({
-  disabled,
+  migrationSnapshot,
+  tenantHost = null,
+  tenantName,
 }: {
-  disabled: boolean
+  migrationSnapshot: InitialMigrationSnapshot
+  tenantHost?: string | null
+  tenantName: string
 }) {
   return (
-    <form
-      action={finalizeInitialMigrationAction}
-      className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"
-    >
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        Type FINALIZE MIGRATION
-        <Input
-          name="confirmation"
-          placeholder="FINALIZE MIGRATION"
-          required
-          type="text"
-        />
-      </label>
-      <div className="flex items-end justify-end">
-        <Button disabled={disabled} size="sm" type="submit">
-          Finalize migration
-        </Button>
-      </div>
-    </form>
+    <GoLiveChecklist
+      migrationSnapshot={migrationSnapshot}
+      tenantHost={tenantHost}
+      tenantName={tenantName}
+    />
   )
 }
 

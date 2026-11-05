@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import {
+  getNavigationLockLabel,
   isInitialMigrationSetupPath,
   resolveInitialMigrationLayoutRedirect,
   shouldOpenFirstRunOnboarding,
@@ -125,5 +126,76 @@ describe("initial migration setup gate", () => {
         isWorkspaceAdmin: true,
       })
     ).toBe(true)
+  })
+
+  test("labels exactly the navigation destinations the layout would redirect", () => {
+    const hrefs = getVisibleDashboardNav("tenant_admin").flatMap((module) =>
+      module.sections.flatMap((section) =>
+        section.links.flatMap((link) => [
+          ...(link.href ? [link.href] : []),
+          ...(link.subLinks ?? []).flatMap((subLink) =>
+            subLink.href ? [subLink.href] : []
+          ),
+        ])
+      )
+    )
+
+    expect(hrefs.length).toBeGreaterThan(0)
+
+    for (const shouldRedirectAdminToSetup of [true, false]) {
+      for (const href of hrefs) {
+        const redirect = resolveInitialMigrationLayoutRedirect({
+          pathname: href,
+          shouldRedirectAdminToSetup,
+          shouldRedirectAdminToSuccess: !shouldRedirectAdminToSetup,
+        })
+
+        expect(
+          getNavigationLockLabel({ href, shouldRedirectAdminToSetup })
+        ).toBe(redirect ? "After setup" : null)
+      }
+    }
+  })
+
+  test("locks live destinations while setup is incomplete", () => {
+    for (const href of ["/", "/loans", "/reports", "/settings/roles"]) {
+      expect(
+        getNavigationLockLabel({ href, shouldRedirectAdminToSetup: true })
+      ).toBe("After setup")
+    }
+
+    for (const href of [
+      "/getting-started",
+      "/members",
+      "/settings/imports/members",
+      "/settings/finance/migration",
+    ]) {
+      expect(
+        getNavigationLockLabel({ href, shouldRedirectAdminToSetup: true })
+      ).toBeNull()
+    }
+  })
+
+  test("keeps navigation enabled during member migration", () => {
+    for (const href of ["/", "/loans", "/reports", "/settings/roles"]) {
+      expect(
+        getNavigationLockLabel({ href, shouldRedirectAdminToSetup: false })
+      ).toBeNull()
+    }
+  })
+
+  test("reads the path of navigation hrefs with queries or trailing slashes", () => {
+    expect(
+      getNavigationLockLabel({
+        href: "/settings/roles?roleSettingsSheetType=assign",
+        shouldRedirectAdminToSetup: true,
+      })
+    ).toBe("After setup")
+    expect(
+      getNavigationLockLabel({
+        href: "/settings/imports/",
+        shouldRedirectAdminToSetup: true,
+      })
+    ).toBeNull()
   })
 })

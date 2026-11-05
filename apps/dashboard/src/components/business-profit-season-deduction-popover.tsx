@@ -60,6 +60,7 @@ export function BusinessProfitSeasonDeductionPopover({
   maxAmount,
   onTotalAmountChange,
   preserveDraftKey,
+  quickFillEnabled = false,
   seasonKey,
 }: {
   initialAmount: number
@@ -67,6 +68,8 @@ export function BusinessProfitSeasonDeductionPopover({
   maxAmount: number
   onTotalAmountChange?: (amount: number) => void
   preserveDraftKey?: string
+  // QA Quick fill; pass the server-owned `canShowQuickFill(context)` value.
+  quickFillEnabled?: boolean
   seasonKey: string
 }) {
   const initialLines = useMemo(() => {
@@ -204,17 +207,19 @@ export function BusinessProfitSeasonDeductionPopover({
           }
         />
         <PopoverContent align="end" className="w-[520px] gap-3" sideOffset={8}>
-          <div className="flex justify-end">
-            <Button
-              disabled={maxAmount <= 0}
-              onClick={quickFillLines}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              Quick fill
-            </Button>
-          </div>
+          {quickFillEnabled ? (
+            <div className="flex justify-end">
+              <Button
+                disabled={maxAmount <= 0}
+                onClick={quickFillLines}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                Quick fill
+              </Button>
+            </div>
+          ) : null}
           <div className="grid gap-2">
             {lines.map((line) => (
               <div
@@ -270,7 +275,7 @@ export function BusinessProfitSeasonDeductionPopover({
             variant="outline"
           >
             <PlusIcon className="size-3.5" />
-            Add More
+            Add another
           </Button>
         </PopoverContent>
       </Popover>
@@ -283,12 +288,14 @@ export function BusinessProfitSeasonDeductionFields({
   initialReason,
   maxAmount,
   preserveDraftKey,
+  quickFillEnabled = false,
   seasonKey,
 }: {
   initialAmount: number
   initialReason?: string | null
   maxAmount: number
   preserveDraftKey?: string
+  quickFillEnabled?: boolean
   seasonKey: string
 }) {
   const [deductionAmount, setDeductionAmount] = useState(initialAmount)
@@ -298,7 +305,7 @@ export function BusinessProfitSeasonDeductionFields({
     <>
       <div>
         <p className="mb-1 text-xs font-medium text-muted-foreground sm:text-right">
-          Season deduct.
+          Season deduction
         </p>
         <BusinessProfitSeasonDeductionPopover
           initialAmount={initialAmount}
@@ -306,12 +313,13 @@ export function BusinessProfitSeasonDeductionFields({
           maxAmount={maxAmount}
           onTotalAmountChange={setDeductionAmount}
           preserveDraftKey={preserveDraftKey}
+          quickFillEnabled={quickFillEnabled}
           seasonKey={seasonKey}
         />
       </div>
       <div className="sm:text-right">
         <p className="text-xs font-medium text-muted-foreground">
-          Distributable
+          Left to share
         </p>
         <p className="mt-1 text-sm">{formatCurrency(distributableAmount)}</p>
       </div>

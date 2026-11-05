@@ -9,10 +9,16 @@ import {
 import { DashboardPageFrame, WorkspaceEmptyState } from "@/components/dashboard"
 import { DashboardHomeSkeleton } from "@/components/dashboard-home-page-states"
 import { DashboardShellClient } from "@/components/dashboard-shell"
+import { GoLiveBanner } from "@/components/go-live-banner"
 import { MemberPortalOverview } from "@/components/member-portal-overview"
 import { OverviewView } from "@/components/widgets"
 import { OverviewSkeleton } from "@/components/widgets/overview-skeleton"
 import { loadTenantHomePageData } from "@/lib/dashboard/load-tenant-home-page"
+import {
+  formatMemberSignInHost,
+  getGoLiveBannerMessage,
+  goLiveBannerParam,
+} from "@/lib/getting-started/go-live-readiness"
 import { HydrateClient, prefetch, trpc } from "@/trpc/server"
 import { tenantRedirect } from "@/utils/tenant-redirect"
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
@@ -21,8 +27,16 @@ export const metadata: Metadata = {
   title: "Overview | Halaalvest",
 }
 
-async function TenantHomePageContent() {
-  const headerStore = await headers()
+type TenantHomeSearchParams = Promise<
+  Record<string, string | string[] | undefined>
+>
+
+async function TenantHomePageContent({
+  searchParams,
+}: {
+  searchParams: TenantHomeSearchParams
+}) {
+  const [headerStore, params] = await Promise.all([headers(), searchParams])
   const tenantUrlConfig = getDashboardTenantUrlConfig()
   const tenantUrlContext = resolveTenantUrlContextFromHeaders({
     config: tenantUrlConfig,
@@ -97,6 +111,18 @@ async function TenantHomePageContent() {
 
   await prefetch(trpc.overview.summary.queryOptions())
 
+  // Shown once after "Go live" redirects here with `?live=1`.
+  const goLiveBannerMessage =
+    params[goLiveBannerParam] === "1"
+      ? getGoLiveBannerMessage({
+          signInHost: formatMemberSignInHost({
+            externalBasePath: tenantUrlContext.externalBasePath,
+            host: tenantUrlContext.host,
+          }),
+          tenantName: data.tenantName,
+        })
+      : null
+
   return (
     <TenantUrlProvider config={tenantUrlConfig} context={tenantUrlContext}>
       <DashboardShellClient
@@ -105,6 +131,9 @@ async function TenantHomePageContent() {
         tenantName={data.tenantName}
         userName={data.userName}
       >
+        {goLiveBannerMessage ? (
+          <GoLiveBanner message={goLiveBannerMessage} />
+        ) : null}
         <HydrateClient>
           <Suspense fallback={<OverviewSkeleton />}>
             <OverviewView />
@@ -116,10 +145,14 @@ async function TenantHomePageContent() {
   )
 }
 
-export default function TenantHomePage() {
+export default function TenantHomePage({
+  searchParams,
+}: {
+  searchParams: TenantHomeSearchParams
+}) {
   return (
     <Suspense fallback={<DashboardHomeSkeleton />}>
-      <TenantHomePageContent />
+      <TenantHomePageContent searchParams={searchParams} />
     </Suspense>
   )
 }

@@ -495,7 +495,10 @@ export async function getTenantInitialMigrationState(
 }
 
 export async function finalizeTenantInitialMigration(
-  input: InitialMigrationLifecycleInput,
+  input: InitialMigrationLifecycleInput & {
+    /** How the admin confirmed going live; recorded in the audit metadata. */
+    confirmationMethod?: "checkbox"
+  },
   prismaOverride?: PrismaClient
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
@@ -544,6 +547,9 @@ export async function finalizeTenantInitialMigration(
       entityId: input.tenantId,
       entityType: "Tenant",
       metadata: {
+        ...(input.confirmationMethod
+          ? { confirmation: input.confirmationMethod }
+          : {}),
         finalizedAt: finalizedAt.toISOString(),
         nextStatus: "live_operations",
       },

@@ -198,6 +198,7 @@ export function TenantFinancePageView({
   financingSettings,
   generatedLedgerRows,
   initialMigrationSnapshot,
+  tenantName,
   legacyLoanDrafts,
   memberActivityEvents,
   memberAmountLogs,
@@ -218,6 +219,7 @@ export function TenantFinancePageView({
   financingSettings: FinancingSettingsRow
   generatedLedgerRows?: MemberLedgerBackfillRow[]
   initialMigrationSnapshot?: InitialMigrationSnapshot
+  tenantName?: string
   legacyLoanDrafts: LegacyLoanDraftRow[]
   memberActivityEvents?: MemberActivityEventRow[]
   memberAmountLogs?: MemberAmountLogRow[]
@@ -655,6 +657,7 @@ export function TenantFinancePageView({
                 memberOptions={memberOptions}
                 memberNumberPrefix={memberNumberPrefix}
                 migrationSnapshot={initialMigrationSnapshot}
+                tenantName={tenantName}
                 migrationMemberReview={migrationMemberReview}
                 profitMigrationOptions={profitMigrationOptions}
                 quickFillEnabled={quickFillEnabled}

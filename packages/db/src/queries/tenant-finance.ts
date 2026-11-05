@@ -177,6 +177,8 @@ export const defaultTenantBusinessProfitPolicy: TenantBusinessProfitPolicySettin
 export type TenantSharePolicySettings = {
   configurationMode: ShareConfigurationMode
   compulsoryShareUnits: number
+  // ISO timestamp of the admin's last share-policy save (One Path step 7).
+  confirmedAt: string | null
   id: string | null
   maximumShareUnits: number
   unitAmount: number
@@ -187,6 +189,8 @@ export type ShareConfigurationMode = "monthly_history" | "unit_based"
 export type TenantMigrationSetupMode = "historical_backfill" | "brought_forward"
 
 export type TenantMigrationSetupSettings = {
+  // ISO timestamp of the admin's last setup-mode save (One Path step 5).
+  confirmedAt: string | null
   id: string | null
   mode: TenantMigrationSetupMode
 }
@@ -268,6 +272,7 @@ export type MemberUnitSharePosition = {
 export const defaultTenantSharePolicy: TenantSharePolicySettings = {
   configurationMode: "monthly_history",
   compulsoryShareUnits: 1,
+  confirmedAt: null,
   id: null,
   maximumShareUnits: 20,
   unitAmount: 10000,
@@ -280,6 +285,7 @@ const tenantMigrationSetupModes = new Set([
 ])
 
 export const defaultTenantMigrationSetup: TenantMigrationSetupSettings = {
+  confirmedAt: null,
   id: null,
   mode: "historical_backfill",
 }
@@ -343,21 +349,28 @@ function normalizeTenantBusinessProfitPolicy(
   }
 }
 
+function toConfirmedAt(value: unknown) {
+  return value instanceof Date ? value.toISOString() : null
+}
+
 function normalizeTenantSharePolicy(policy: any): TenantSharePolicySettings {
   const configurationMode: ShareConfigurationMode =
     (policy?.shareConfigurationMode ??
       defaultTenantSharePolicy.configurationMode) as ShareConfigurationMode
+  const confirmedAt = toConfirmedAt(policy?.sharePolicyConfirmedAt)
 
   if (configurationMode === "monthly_history") {
     return {
       ...defaultTenantSharePolicy,
       configurationMode,
+      confirmedAt,
       id: policy?.id ?? defaultTenantSharePolicy.id,
     }
   }
 
   return {
     ...defaultTenantSharePolicy,
+    confirmedAt,
     ...(policy
       ? {
           configurationMode,
@@ -385,6 +398,7 @@ function normalizeTenantMigrationSetup(
 
   return {
     ...defaultTenantMigrationSetup,
+    confirmedAt: toConfirmedAt(policy?.migrationSetupConfirmedAt),
     id: policy?.id ?? defaultTenantMigrationSetup.id,
     mode: tenantMigrationSetupModes.has(mode)
       ? (mode as TenantMigrationSetupMode)
@@ -1766,18 +1780,21 @@ export async function updateTenantSharePolicy(
   const { compulsoryShareUnits, maximumShareUnits, unitAmount } =
     resolveShareUnitSettingsForMode(configurationMode, input, currentPolicy)
 
+  const sharePolicyConfirmedAt = new Date()
   const policy = await prisma.tenantPolicy.upsert({
     create: {
       tenantId: input.tenantId,
       compulsoryShareUnits,
       maximumShareUnits,
       shareConfigurationMode: configurationMode,
+      sharePolicyConfirmedAt,
       shareUnitAmount: unitAmount,
     },
     update: {
       compulsoryShareUnits,
       maximumShareUnits,
       shareConfigurationMode: configurationMode,
+      sharePolicyConfirmedAt,
       shareUnitAmount: unitAmount,
     },
     where: { tenantId: input.tenantId },
@@ -1824,12 +1841,15 @@ export async function updateTenantMigrationSetup(
         where: { tenantId: input.tenantId },
       })
   )
+  const migrationSetupConfirmedAt = new Date()
   const policy = await prisma.tenantPolicy.upsert({
     create: {
+      migrationSetupConfirmedAt,
       migrationSetupMode: input.mode,
       tenantId: input.tenantId,
     },
     update: {
+      migrationSetupConfirmedAt,
       migrationSetupMode: input.mode,
     },
     where: { tenantId: input.tenantId },

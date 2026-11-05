@@ -28,11 +28,8 @@ describe("getting started Midday conformance", () => {
     )
   })
 
-  test("loads tenant-scoped setup data and defers member history to its step", () => {
+  test("loads tenant-scoped setup data and hands member history to step 10", () => {
     const content = read("./getting-started-page-content.tsx")
-    const memberBranch = content.slice(
-      content.indexOf('activeStep === "admin-member"')
-    )
 
     expect(content).toContain("getDashboardServerContext")
     expect(content).toContain("createDbRuntime")
@@ -41,31 +38,46 @@ describe("getting started Midday conformance", () => {
       "getTenantInitialMigrationState(context.tenant.id)"
     )
     expect(content).toContain("getTenantOperationProfile(context.tenant.id)")
-    expect(memberBranch).toContain("listLegacyLoanMigrationDrafts")
-    expect(memberBranch).toContain("listMembers")
-    expect(memberBranch).toContain("listInitialMigrationMemberReview")
-    expect(memberBranch).toContain("listMemberAmountLogs")
-    expect(memberBranch).toContain("listMemberActivityEvents")
-    expect(memberBranch).toContain("listMigrationProfitAdjustmentOptions")
+    // Member history now lives on the step 10 members checklist, so Getting
+    // Started no longer loads per-member backfill data.
+    expect(content).not.toContain("listLegacyLoanMigrationDrafts")
+    expect(content).not.toContain("buildBackfillDraftInputForMember")
+    expect(content).toContain('if (activeStep === "admin-member")')
     expect(content).toContain('tenantRedirect("/")')
     expect(content).toContain('tenantRedirect("/onboarding-success")')
+    // Old ?step= ids redirect; resume lands on the first step not done.
+    expect(content).toContain("resolveLegacyGettingStartedStep(")
+    expect(content).toContain("resolveGettingStartedResumeStep(progress)")
   })
 
-  test("keeps steps URL-owned and renders responsive migration navigation", () => {
+  test("keeps steps URL-owned and renders the One Path rail", () => {
     const params = read("../../hooks/use-getting-started-params.ts")
     const view = read("../../components/getting-started-page-view.tsx")
+    const rail = read("../../components/one-path/one-path-rail.tsx")
+    const step = read("../../components/one-path/one-path-step.tsx")
     const model = read("./getting-started-step-model.ts")
 
-    expect(params).toContain("parseAsStringEnum([...gettingStartedStepKeys])")
+    expect(params).toContain("...gettingStartedStepKeys,")
+    expect(params).toContain("...legacyGettingStartedStepKeys,")
     expect(params).toContain("migrationMemberId")
-    expect(params).toContain("profileStep")
-    expect(view).toContain('aria-label="Migration setup steps"')
-    expect(view).toContain('aria-current={isActive ? "step" : undefined}')
-    expect(view).toContain("xl:hidden")
-    expect(view).toContain("xl:sticky")
+    // The rail reads the shared journey map and stays visible on every step.
+    expect(rail).toContain('aria-label="Setup steps"')
+    expect(rail).toContain(
+      'aria-current={state === "current" ? "step" : undefined}'
+    )
+    expect(rail).toContain("onboardingJourneySteps")
+    expect(rail).toContain("lg:hidden")
+    expect(rail).toContain("lg:sticky")
+    expect(rail).toContain("All steps")
+    expect(view).toContain("<OnePathRail")
+    expect(view).not.toContain(
+      'props.activeStep === "operation-profile" ? null'
+    )
     expect(view).toContain("max-md:[&_button]:min-h-11")
-    expect(view).toContain('"h-11 w-full md:h-10 md:w-auto"')
-    expect(view).toContain('"h-11 w-full lg:h-10 lg:w-auto"')
+    // Card eyebrows and the footer counter come from the map.
+    expect(step).toContain("getOnboardingJourneyStep(stepKey)")
+    expect(step).toContain("formatJourneyStepCounter(stepKey)")
+    expect(step).toContain('"h-11 sm:h-10"')
     expect(model).toContain("getOrderedGettingStartedStepKeys")
     expect(model).toContain("getGettingStartedStepHref")
     expect(model).toContain('return "/onboarding-success"')

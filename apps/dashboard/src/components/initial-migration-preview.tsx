@@ -577,6 +577,8 @@ export function InitialMigrationPreview({
   selectedMigrationMemberId,
   selectedMigrationMemberLabel,
   section = "overview",
+  tenantHost = null,
+  tenantName,
   tenantStartDate,
 }: {
   generatedLedgerError?: string | null
@@ -593,6 +595,8 @@ export function InitialMigrationPreview({
   selectedMigrationMemberId?: string | null
   selectedMigrationMemberLabel?: string | null
   section?: "loans" | "member-preview" | "overview"
+  tenantHost?: string | null
+  tenantName?: string
   tenantStartDate?: string | null
 }) {
   const isLoansOnly = section === "loans"
@@ -745,10 +749,12 @@ export function InitialMigrationPreview({
     !migrationSnapshot?.canUseLiveFinancialWrites &&
     memberProfileBlockingStepKeys.length === 0 &&
     appliedBackfillMembers === 0
-  const canFinalizeMigration =
+  // The sheet opens while migration is still in progress so the go-live
+  // checklist can show what is missing; its "Go live" button stays disabled
+  // until every check is Ready.
+  const canOpenGoLiveChecklist =
     Boolean(migrationSnapshot?.canUseMigrationTools) &&
-    !migrationSnapshot?.canUseLiveFinancialWrites &&
-    blockingFinalizationSteps.length === 0
+    !migrationSnapshot?.canUseLiveFinancialWrites
   const finalizationWarnings = [
     blockingFinalizationLabels.length > 0
       ? `Missing setup: ${blockingFinalizationLabels.join(", ")}.`
@@ -1280,13 +1286,19 @@ export function InitialMigrationPreview({
           </div>
           <div className="mt-4 border-t border-border/70 pt-4">
             <MigrationActionSheet
-              description="Finalize the historical migration and open live financial operations. This closes migration tools for the cooperative."
-              disabled={!canFinalizeMigration}
-              title="Finalize migration"
-              triggerLabel="Finalize migration"
+              description="Check each item, confirm the balances, then start live operations. Setup tools close once you go live."
+              disabled={!canOpenGoLiveChecklist}
+              title="Go live"
+              triggerLabel="Go live"
               variant="default"
             >
-              <FinalizeInitialMigrationContent disabled={!canFinalizeMigration} />
+              {migrationSnapshot ? (
+                <FinalizeInitialMigrationContent
+                  migrationSnapshot={migrationSnapshot}
+                  tenantHost={tenantHost}
+                  tenantName={tenantName ?? "your cooperative"}
+                />
+              ) : null}
             </MigrationActionSheet>
           </div>
         </section>

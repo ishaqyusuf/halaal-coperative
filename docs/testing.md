@@ -116,6 +116,12 @@ The journey, against the local dashboard only:
 3. **Quick Fill:** opens the member create, contribution plan and charge
    definition sheets, presses the form's Quick fill, and checks that fields were
    filled. Then it presses Escape. It never submits.
+4. **Getting-started gate:** opens `/getting-started` as the main admin. A live
+   workspace must redirect home, member migration lands on `/onboarding-success`,
+   and a setup-stage workspace must show the One Path "Setup steps" rail.
+5. **One Path setup render** (only when `setupProfileLabel` is set): signs in a
+   second QA admin, of a cooperative still in setup, in a fresh browser context,
+   and requires the "Setup steps" rail on `/getting-started`.
 
 Every non-GET request except `/auth/qa` is aborted. A blocked tRPC request fails
 the run. Blocked page server actions (table settings) are only listed.
@@ -130,8 +136,39 @@ Needs:
 - Seeded QA data for that domain, and a trusted Portless CA (`portless trust`).
 
 The config takes `qaDomain`, `profileLabel` (the full name on the profile
-button) and an optional `cooperative`. If the label doesn't match, the failure
+button) and an optional `cooperative`, plus optional `setupProfileLabel` and
+`setupCooperative` for the One Path check. If a label doesn't match, the failure
 lists the available profiles.
+
+A QA Domain can only be authorized when it has at least one profile: a tenant
+with `dataClassification = qa`, `qaSourceDomain` set to that domain, and
+`status = active`. If a dashboard was started with its own
+`EMAIL_QA_DOMAIN_ROUTES`, only those domains authorize. `/auth/qa` currently
+answers a refused authorization with an empty 500.
+
+## One Path write smoke: `bun run qa:smoke:write` (opt-in)
+
+```bash
+bun run qa:smoke:write plan                                   # print the throwaway identities, no writes
+bun run qa:smoke:write run --confirm-local-write              # local stack only
+bun run qa:smoke:write cleanup --confirm-local-write --run <run-id>
+```
+
+This signs up a throwaway QA cooperative through One Path, finishes setup, goes
+live, and then deletes it. `qa:smoke` and `test:quick` never run it. Every
+identity derives from an 8-character run ID: slug `qa-smoke-<id>`, owner
+`smoke-<id>@<qaDomain>`, and access-code prefix `QS` plus three letters. That
+way cleanup can find exactly one run's data.
+
+It fails closed before any write. It requires `--confirm-local-write`, a local
+mode, a non-production `APP_ENV` and `NODE_ENV`, a loopback
+`HALAALVEST_DATABASE_URL` (hosted databases are refused) and a reserved
+`*.qa.test` domain. Cleanup reuses the QA purge path (mark, then delete) and
+refuses any tenant that isn't this run's `qa`-classified tenant. Users,
+memberships and tenant data cascade with the tenant.
+
+Status: scaffold. The guards, naming and cleanup work. The eight browser stages
+(sign-up through go-live) still need writing, so `run` writes nothing and exits 3.
 
 ## Android: connect and open
 

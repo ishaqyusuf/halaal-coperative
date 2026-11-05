@@ -39,6 +39,7 @@
     "qa:doctor": "bun --env-file=/dev/null scripts/qa-doctor.ts",
     "qa:smoke": "bun --env-file=/dev/null scripts/qa-smoke.ts",
     "qa:smoke:install-browser": "bun --env-file=/dev/null scripts/qa-smoke.ts install-browser",
+    "qa:smoke:write": "bun --env-file=/dev/null scripts/qa-write-smoke.ts",
     "mobile:android:connect": "node apps/mobile/scripts/prepare-android-dev.mjs",
     "mobile:android:open": "node apps/mobile/scripts/open-android-app-url.mjs",
     "agent:chat": "bun --env-file=/dev/null scripts/agent-chat.ts",

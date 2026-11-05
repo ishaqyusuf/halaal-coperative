@@ -44,24 +44,57 @@ export function isDashboardHost(hostname, dashboardHost) {
   return hostname === dashboardHost || hostname.endsWith(`.${dashboardHost}`)
 }
 
+/**
+ * One Path setup lives at /getting-started. A live workspace redirects it to
+ * "/", and member migration lands on /onboarding-success. A setup-stage admin
+ * must see the "Setup steps" rail.
+ * @param {{ pathname: string, hasRail: boolean, expectSetup: boolean }} input
+ * @returns {{ ok: boolean, detail: string }}
+ */
+export function classifyGettingStarted({ pathname, hasRail, expectSetup }) {
+  if (pathname === "/getting-started" && hasRail)
+    return { ok: true, detail: "One Path setup rail rendered" }
+  if (pathname === "/onboarding-success")
+    return {
+      ok: true,
+      detail: "Member migration: redirected to /onboarding-success",
+    }
+  if (pathname === "/" && !expectSetup)
+    return {
+      ok: true,
+      detail: "Live workspace: /getting-started redirects home",
+    }
+  return {
+    ok: false,
+    detail: expectSetup
+      ? `Expected the One Path setup rail; landed on ${pathname}${hasRail ? "" : " without it"}`
+      : `Unexpected /getting-started outcome: ${pathname}`,
+  }
+}
+
 /** @param {string} text */
 const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 
 /**
- * @param {import("playwright").Page} page
- * @param {{ qaDomain: string, profileLabel: string, cooperative?: string, origin: string }} config
- * @param {string} artifacts
+ * @typedef {{ qaDomain: string, profileLabel: string, cooperative?: string, setupProfileLabel?: string, setupCooperative?: string, origin: string }} SmokeConfig
+ * @typedef {{ name: string, status: "pass" | "fail", ms: number, detail: string }} Check
+ * @typedef {{ checks: Check[], blocked: string[], consoleErrors: number }} Results
  */
-export async function webJourney(page, config, artifacts) {
+
+/**
+ * One signed-in browser session: write-blocking routes, step bookkeeping,
+ * QA sign-in and dashboard navigation.
+ * @param {import("playwright").Page} page
+ * @param {SmokeConfig} config
+ * @param {string} artifacts
+ * @param {Results} results
+ */
+async function createSession(page, config, artifacts, results) {
   page.setDefaultTimeout(20_000)
   const dashboardHost = new URL(config.origin).hostname
-  /** @type {{ name: string, status: "pass" | "fail", ms: number, detail: string }[]} */
-  const checks = []
-  /** @type {string[]} */
-  const blocked = []
-  let consoleErrors = 0
+  const { checks, blocked } = results
   page.on("console", (message) => {
-    if (message.type() === "error") consoleErrors += 1
+    if (message.type() === "error") results.consoleErrors += 1
   })
   await page.route("**/*", async (route) => {
     const request = route.request()
@@ -114,73 +147,74 @@ export async function webJourney(page, config, artifacts) {
   }
 
   let appOrigin = config.origin
-  const signedIn = await step("qa sign-in", async () => {
-    const capability = page.waitForResponse(
-      (response) =>
-        new URL(response.url()).pathname === "/auth/qa" &&
-        response.request().method() === "GET",
-      { timeout: 30_000 }
-    )
-    const login = await page.goto(`${config.origin}/login`, {
-      waitUntil: "domcontentloaded",
-      timeout: 60_000,
-    })
-    if (!login || login.status() >= 400) {
-      capability.catch(() => {})
-      throw new Error(
-        `HTTP ${login?.status() ?? "no response"} for /login; check the dashboard dev server output`
+  /** @param {string} stepName @param {string} profileLabel @param {string | undefined} cooperative */
+  const signIn = (stepName, profileLabel, cooperative) =>
+    step(stepName, async () => {
+      const capability = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === "/auth/qa" &&
+          response.request().method() === "GET",
+        { timeout: 30_000 }
       )
-    }
-    const state = await (await capability).json()
-    if (!state?.capability?.available)
-      throw new Error(
-        `QA access is unavailable (${state?.capability?.status ?? "no capability"}); run bun run qa:doctor --require-qa`
-      )
-    const panel = page.locator('section[aria-labelledby="qa-access-title"]')
-    const changeDomain = panel.getByRole("button", {
-      name: "Change QA Domain",
-      exact: true,
-    })
-    const domainField = panel.getByLabel("QA Domain", { exact: true })
-    await domainField.or(changeDomain).first().waitFor({ state: "visible" })
-    if (await domainField.isVisible()) {
-      await domainField.fill(config.qaDomain)
-      await panel
-        .getByRole("button", { name: "Authorize this browser", exact: true })
-        .click()
-      const alert = panel.getByRole("alert")
-      await changeDomain.or(alert).first().waitFor({ state: "visible" })
-      if (await alert.isVisible())
+      const login = await page.goto(`${config.origin}/login`, {
+        waitUntil: "domcontentloaded",
+        timeout: 60_000,
+      })
+      if (!login || login.status() >= 400) {
+        capability.catch(() => {})
         throw new Error(
-          `QA authorization failed for ${config.qaDomain}: ${await alert.innerText()}`
+          `HTTP ${login?.status() ?? "no response"} for /login; check the dashboard dev server output`
         )
-    }
-    // Profile buttons are named "<initials> <full name> <cooperative> <role>".
-    const name = new RegExp(
-      `${escapeRegex(config.profileLabel)}${config.cooperative ? `.*${escapeRegex(config.cooperative)}` : ""}`
-    )
-    const profile = panel.getByRole("button", { name }).first()
-    if (!(await profile.isVisible())) {
-      const available = await panel
-        .locator("button strong")
-        .evaluateAll((elements) =>
-          elements.map((element) => element.textContent?.trim() ?? "")
+      }
+      const state = await (await capability).json()
+      if (!state?.capability?.available)
+        throw new Error(
+          `QA access is unavailable (${state?.capability?.status ?? "no capability"}); run bun run qa:doctor --require-qa`
         )
-      throw new Error(
-        `No QA profile matches "${config.profileLabel}". Available: ${available.slice(0, 8).join(", ") || "none"}`
+      const panel = page.locator('section[aria-labelledby="qa-access-title"]')
+      const changeDomain = panel.getByRole("button", {
+        name: "Change QA Domain",
+        exact: true,
+      })
+      const domainField = panel.getByLabel("QA Domain", { exact: true })
+      await domainField.or(changeDomain).first().waitFor({ state: "visible" })
+      if (await domainField.isVisible()) {
+        await domainField.fill(config.qaDomain)
+        await panel
+          .getByRole("button", { name: "Authorize this browser", exact: true })
+          .click()
+        const alert = panel.getByRole("alert")
+        await changeDomain.or(alert).first().waitFor({ state: "visible" })
+        if (await alert.isVisible())
+          throw new Error(
+            `QA authorization failed for ${config.qaDomain}: ${await alert.innerText()}`
+          )
+      }
+      // Profile buttons are named "<initials> <full name> <cooperative> <role>".
+      const name = new RegExp(
+        `${escapeRegex(profileLabel)}${cooperative ? `.*${escapeRegex(cooperative)}` : ""}`
       )
-    }
-    await profile.click()
-    await page.waitForURL((url) => url.pathname !== "/login", {
-      timeout: 60_000,
+      const profile = panel.getByRole("button", { name }).first()
+      if (!(await profile.isVisible())) {
+        const available = await panel
+          .locator("button strong")
+          .evaluateAll((elements) =>
+            elements.map((element) => element.textContent?.trim() ?? "")
+          )
+        throw new Error(
+          `No QA profile matches "${profileLabel}". Available: ${available.slice(0, 8).join(", ") || "none"}`
+        )
+      }
+      await profile.click()
+      await page.waitForURL((url) => url.pathname !== "/login", {
+        timeout: 60_000,
+      })
+      const url = new URL(page.url())
+      if (!isDashboardHost(url.hostname, dashboardHost))
+        throw new Error(`Sign-in left the dashboard host (${url.hostname}).`)
+      appOrigin = url.origin
+      return `Entered ${profileLabel}; workspace ${url.hostname}`
     })
-    const url = new URL(page.url())
-    if (!isDashboardHost(url.hostname, dashboardHost))
-      throw new Error(`Sign-in left the dashboard host (${url.hostname}).`)
-    appOrigin = url.origin
-    return `Entered ${config.profileLabel}; workspace ${url.hostname}`
-  })
-  if (!signedIn) return { checks, blocked, consoleErrors }
 
   /** @param {string} path */
   async function open(path) {
@@ -206,6 +240,48 @@ export async function webJourney(page, config, artifacts) {
       throw new Error(`${path} rendered an error boundary`)
     return url
   }
+
+  /** @param {string} stepName @param {boolean} expectSetup */
+  const gettingStarted = (stepName, expectSetup) =>
+    step(stepName, async () => {
+      const url = await open("/getting-started")
+      const hasRail = await page
+        .getByRole("navigation", { name: "Setup steps" })
+        .isVisible()
+        .catch(() => false)
+      const outcome = classifyGettingStarted({
+        pathname: url.pathname,
+        hasRail,
+        expectSetup,
+      })
+      await page.screenshot({
+        path: resolve(artifacts, `${stepName.replaceAll(" ", "-")}.png`),
+      })
+      if (!outcome.ok) throw new Error(outcome.detail)
+      return outcome.detail
+    })
+
+  return { step, signIn, open, gettingStarted }
+}
+
+/**
+ * @param {import("playwright").Page} page
+ * @param {SmokeConfig} config
+ * @param {string} artifacts
+ * @param {() => Promise<import("playwright").Page>} [newPage] fresh context for the setup admin
+ * @returns {Promise<Results>}
+ */
+export async function webJourney(page, config, artifacts, newPage) {
+  /** @type {Results} */
+  const results = { checks: [], blocked: [], consoleErrors: 0 }
+  const { step, signIn, open, gettingStarted } = await createSession(
+    page,
+    config,
+    artifacts,
+    results
+  )
+  if (!(await signIn("qa sign-in", config.profileLabel, config.cooperative)))
+    return results
 
   for (const target of pages)
     await step(`${target.name} page`, async () => {
@@ -271,7 +347,28 @@ export async function webJourney(page, config, artifacts) {
       return `Quick Fill set ${filled} field(s); closed without submitting`
     })
 
-  return { checks, blocked, consoleErrors }
+  await gettingStarted("getting-started gate", false)
+
+  // One Path renders only for a cooperative still in setup, so it needs a
+  // second QA admin; a fresh context keeps the two sessions apart.
+  if (config.setupProfileLabel && newPage) {
+    const setup = await createSession(
+      await newPage(),
+      config,
+      artifacts,
+      results
+    )
+    if (
+      await setup.signIn(
+        "setup admin sign-in",
+        config.setupProfileLabel,
+        config.setupCooperative
+      )
+    )
+      await setup.gettingStarted("one path setup render", true)
+  }
+
+  return results
 }
 
 async function main() {
@@ -283,11 +380,12 @@ async function main() {
   const { chromium } = await import("playwright")
   const browser = await chromium.launch({ headless: headed !== "--headed" })
   try {
-    const page = await (
-      await browser.newContext({ viewport: { width: 1440, height: 900 } })
-    ).newPage()
+    const newPage = async () =>
+      (
+        await browser.newContext({ viewport: { width: 1440, height: 900 } })
+      ).newPage()
     process.stdout.write(
-      `${JSON.stringify(await webJourney(page, config, artifacts))}\n`
+      `${JSON.stringify(await webJourney(await newPage(), config, artifacts, newPage))}\n`
     )
   } finally {
     await browser.close()

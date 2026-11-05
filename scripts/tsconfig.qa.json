@@ -24,6 +24,8 @@
     "test-quick.test.ts",
     "qa-smoke.ts",
     "qa-smoke.test.ts",
+    "qa-write-smoke.ts",
+    "qa-write-smoke.test.ts",
     "qa-web-smoke.mjs",
     "agent-chat.ts",
     "agent-chat.test.ts",

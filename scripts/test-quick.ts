@@ -13,6 +13,7 @@ export const suites = {
     "scripts/qa-doctor.test.ts",
     "scripts/test-quick.test.ts",
     "scripts/qa-smoke.test.ts",
+    "scripts/qa-write-smoke.test.ts",
     "scripts/agent-chat.test.ts",
     "scripts/local-infra-command.test.ts",
     "scripts/db-command-contract.test.ts",

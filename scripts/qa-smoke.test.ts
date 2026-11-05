@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { parseSmokeArgs, summarizeSmoke, validateSmokeConfig } from "./qa-smoke"
 import {
+  classifyGettingStarted,
   forms,
   isDashboardHost,
   pages,
@@ -149,5 +150,79 @@ describe("qa:smoke summary", () => {
     expect(
       summarizeSmoke({ checks: [], blocked: [], consoleErrors: 0 }).passed
     ).toBe(false)
+  })
+})
+
+describe("qa:smoke getting-started gate", () => {
+  test("a live admin is redirected home; setup and migration states also pass", () => {
+    expect(
+      classifyGettingStarted({
+        pathname: "/",
+        hasRail: false,
+        expectSetup: false,
+      })
+    ).toEqual({
+      ok: true,
+      detail: "Live workspace: /getting-started redirects home",
+    })
+    expect(
+      classifyGettingStarted({
+        pathname: "/getting-started",
+        hasRail: true,
+        expectSetup: false,
+      }).ok
+    ).toBe(true)
+    expect(
+      classifyGettingStarted({
+        pathname: "/onboarding-success",
+        hasRail: false,
+        expectSetup: true,
+      }).ok
+    ).toBe(true)
+  })
+
+  test("a setup admin must see the One Path rail", () => {
+    expect(
+      classifyGettingStarted({
+        pathname: "/",
+        hasRail: false,
+        expectSetup: true,
+      })
+    ).toMatchObject({ ok: false })
+    expect(
+      classifyGettingStarted({
+        pathname: "/getting-started",
+        hasRail: false,
+        expectSetup: true,
+      }).detail
+    ).toContain("without it")
+    expect(
+      classifyGettingStarted({
+        pathname: "/members",
+        hasRail: false,
+        expectSetup: false,
+      }).ok
+    ).toBe(false)
+  })
+
+  test("setup profile fields pass validation through", () => {
+    expect(
+      validateSmokeConfig({
+        qaDomain: "ishaq.qa.test",
+        profileLabel: "Admin",
+        setupProfileLabel: " Setup Admin ",
+        setupCooperative: "Amana Kaduna",
+      })
+    ).toMatchObject({
+      setupProfileLabel: "Setup Admin",
+      setupCooperative: "Amana Kaduna",
+    })
+    expect(() =>
+      validateSmokeConfig({
+        qaDomain: "ishaq.qa.test",
+        profileLabel: "A",
+        setupProfileLabel: 3,
+      })
+    ).toThrow("setupProfileLabel")
   })
 })

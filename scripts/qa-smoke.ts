@@ -14,6 +14,9 @@ export type SmokeConfig = {
   qaDomain: string
   profileLabel: string
   cooperative?: string
+  // Optional QA admin of a cooperative still in One Path setup.
+  setupProfileLabel?: string
+  setupCooperative?: string
   origin: string
 }
 export type SmokeCheck = {
@@ -34,7 +37,8 @@ export const usage = `Usage: bun run qa:smoke [--config ${defaultConfigFile}] [-
        bun run qa:smoke install-browser
 Drives the local dashboard (${localOrigins.dashboard}) in headless Chromium:
 QA sign-in through /auth/qa, the members, contributions and charges pages, and
-Quick Fill on the member, contribution-plan and charge create forms.
+Quick Fill on the member, contribution-plan and charge forms, and the
+/getting-started gate (plus the One Path rail when setupProfileLabel is set).
 Uses existing seeded QA data only. Writes are blocked; nothing is submitted.
 Copy scripts/fixtures/qa-smoke.example.json to the config path first.`
 
@@ -68,8 +72,13 @@ export function validateSmokeConfig(raw: unknown): SmokeConfig {
     throw new Error(
       "Configure profileLabel: the QA profile name shown on /login."
     )
-  if (value.cooperative !== undefined && typeof value.cooperative !== "string")
-    throw new Error("cooperative must be a string when set.")
+  for (const key of [
+    "cooperative",
+    "setupProfileLabel",
+    "setupCooperative",
+  ] as const)
+    if (value[key] !== undefined && typeof value[key] !== "string")
+      throw new Error(`${key} must be a string when set.`)
   const origin = value.origin ?? localOrigins.dashboard
   if (origin !== localOrigins.dashboard)
     throw new Error(
@@ -79,6 +88,12 @@ export function validateSmokeConfig(raw: unknown): SmokeConfig {
     qaDomain: value.qaDomain,
     profileLabel: value.profileLabel.trim(),
     ...(value.cooperative ? { cooperative: value.cooperative } : {}),
+    ...(value.setupProfileLabel?.trim()
+      ? { setupProfileLabel: value.setupProfileLabel.trim() }
+      : {}),
+    ...(value.setupCooperative
+      ? { setupCooperative: value.setupCooperative }
+      : {}),
     origin,
   }
 }

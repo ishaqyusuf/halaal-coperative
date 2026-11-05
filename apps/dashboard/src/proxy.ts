@@ -1,9 +1,11 @@
 import {
+  buildTenantSiteHostname,
   extractDashboardHostname,
   extractDashboardTenantSlug,
   isTenantDashboardHost,
   resolveTenantSiteHostContext,
   resolveDashboardSessionScope,
+  stripPortFromHostname,
 } from "@halaalvest/utils"
 import {
   buildTenantHref,
@@ -74,19 +76,39 @@ export function proxy(request: NextRequest) {
     config
   )
   const productPath = tenantUrlContext.productPath
+  const dashboardTenantHostname = extractDashboardHostname(host)
+  const dashboardTenantSlug = extractDashboardTenantSlug(host)
   const tenantHostContext = resolveTenantSiteHostContext(host)
   const tenantHostname =
     tenantUrlContext.customDomainLookupHost ??
     tenantHostContext.tenantHostname ??
-    extractDashboardHostname(host)
+    dashboardTenantHostname
   const tenantSlug =
     tenantUrlContext.tenantSlug ??
     tenantHostContext.tenantSubdomain ??
-    extractDashboardTenantSlug(host)
+    dashboardTenantSlug
+  const isLocalDashboardHost =
+    stripPortFromHostname(host).endsWith(".localhost")
+
+  // ADR-013: production `dashboard.<tenant>` aliases redirect to the canonical
+  // tenant host; local Portless hosts are served directly.
+  if (
+    process.env.NODE_ENV === "production" &&
+    !isLocalDashboardHost &&
+    dashboardTenantSlug &&
+    dashboardTenantHostname
+  ) {
+    const canonicalUrl = new URL(request.url)
+    canonicalUrl.hostname = buildTenantSiteHostname(dashboardTenantSlug)
+
+    return NextResponse.redirect(canonicalUrl)
+  }
+
   const requestHeaders = new Headers(request.headers)
 
   requestHeaders.delete("x-user-id")
   requestHeaders.delete("x-session-token")
+  requestHeaders.delete("x-user-role")
   requestHeaders.delete("x-tenant-hostname")
   requestHeaders.delete("x-tenant-subdomain")
   requestHeaders.delete(headerNames.domain)

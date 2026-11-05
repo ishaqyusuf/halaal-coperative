@@ -84,6 +84,12 @@ describe("qa:smoke request policy", () => {
     )
     expect(policy("POST", "https://evil.example/auth/qa")).toBe("block")
     expect(
+      policy(
+        "POST",
+        "https://halaalvest-dash.localhost/__nextjs_original-stack-frames"
+      )
+    ).toBe("allow")
+    expect(
       policy("DELETE", "https://halaalvest-dash.localhost/auth/qa/extra")
     ).toBe("block")
   })

@@ -25,6 +25,29 @@ export const forms = [
 ]
 
 const readMethods = new Set(["GET", "HEAD", "OPTIONS"])
+// /auth/qa is the QA entry route. The Next dev overlay POSTs stack frames to
+// the dev server for symbolication; blocking it made the overlay retry and
+// wedge the page's main thread.
+const allowedPosts = new Set(["/auth/qa", "/__nextjs_original-stack-frames"])
+const stepLimitMs = 90_000
+
+/**
+ * @template T
+ * @param {Promise<T>} promise
+ * @param {number} ms
+ * @param {string} message
+ * @returns {Promise<T>}
+ */
+function withTimeout(promise, ms, message) {
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let timer
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(message)), ms)
+    }),
+  ]).finally(() => clearTimeout(timer))
+}
 
 /**
  * @param {{ method: string, url: string, dashboardHost: string }} request
@@ -36,7 +59,7 @@ export function requestPolicy({ method, url, dashboardHost }) {
   const ownHost =
     parsed.hostname === dashboardHost ||
     parsed.hostname.endsWith(`.${dashboardHost}`)
-  return ownHost && parsed.pathname === "/auth/qa" ? "allow" : "block"
+  return ownHost && allowedPosts.has(parsed.pathname) ? "allow" : "block"
 }
 
 /** @param {string} hostname @param {string} dashboardHost */
@@ -115,18 +138,23 @@ async function createSession(page, config, artifacts, results) {
     const started = Date.now()
     process.stderr.write(`qa:smoke ${name}…\n`)
     try {
-      const detail = await run()
+      const detail = await withTimeout(
+        run(),
+        stepLimitMs,
+        `Step exceeded ${stepLimitMs / 1000}s`
+      )
       checks.push({ name, status: "pass", ms: Date.now() - started, detail })
       return true
     } catch (error) {
       const message =
         error instanceof Error ? error.message.split("\n")[0] : String(error)
       // Button names are UI labels; enough to tell a missing control from a slow page.
-      const buttons = await page
-        .getByRole("dialog")
-        .last()
-        .getByRole("button")
-        .allInnerTexts()
+      // Bounded: a wedged page must not stall the remaining steps.
+      const buttons = await withTimeout(
+        page.getByRole("dialog").last().getByRole("button").allInnerTexts(),
+        5_000,
+        "diagnostics timed out"
+      )
         .then((names) => names.map((label) => label.trim()).filter(Boolean))
         .catch(() => [])
       const path = new URL(page.url()).pathname

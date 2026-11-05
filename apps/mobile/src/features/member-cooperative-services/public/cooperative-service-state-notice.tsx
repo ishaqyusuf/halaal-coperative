@@ -7,13 +7,13 @@ import { View } from "react-native"
 
 type NoticeTone = "danger" | "neutral" | "warning"
 
+// A cache time is an instant on this device, so show it in the device's zone.
 function formatCacheDate(value: string) {
   return new Intl.DateTimeFormat("en", {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
     month: "short",
-    timeZone: "UTC",
     year: "numeric",
   }).format(new Date(value))
 }

@@ -311,11 +311,16 @@ function SectionHeading({
       {meta ? (
         <Text
           allowFontScaling={false}
+          // In the row layout the meta shares the line with the title, so it
+          // must shrink and wrap instead of running off the screen edge.
           className="text-xs font-semibold text-muted-foreground"
-          style={scaledTextStyle(accessibilityScale, 12, 18, {
-            color: colors.mutedForeground,
-            fontWeight: "600",
-          })}
+          style={[
+            scaledTextStyle(accessibilityScale, 12, 18, {
+              color: colors.mutedForeground,
+              fontWeight: "600",
+            }),
+            largeTextLayout ? null : { flexShrink: 1, textAlign: "right" },
+          ]}
         >
           {meta}
         </Text>

@@ -331,7 +331,8 @@ export function MemberHomeScreen({
                 Needs attention
               </Text>
               <Text className="text-brand text-xs font-bold">
-                {home.actionItems.length} items
+                {home.actionItems.length}{" "}
+                {home.actionItems.length === 1 ? "item" : "items"}
               </Text>
             </View>
             {home.actionItems.map((item) => {

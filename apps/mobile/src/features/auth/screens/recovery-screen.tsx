@@ -26,12 +26,6 @@ import {
 import { useLocalSearchParams } from "expo-router"
 import { useMemo, useState } from "react"
 
-const recoveryQuickFillLabels: Record<RecoveryStep, string> = {
-  request: "Quick fill recovery",
-  code: "Quick fill recovery code",
-  password: "Quick fill new password",
-}
-
 export function RecoveryScreen() {
   const params = useLocalSearchParams<{
     challenge?: string
@@ -47,7 +41,6 @@ export function RecoveryScreen() {
   )
   const [email, setEmail] = useState(params.email ?? "")
   const [challengeId, setChallengeId] = useState(params.challenge ?? "")
-  const [devRecoveryCode, setDevRecoveryCode] = useState("")
   const [code, setCode] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -100,7 +93,6 @@ export function RecoveryScreen() {
       })
       const nextDevCode = response.devCode ?? ""
       setChallengeId(response.challengeId)
-      setDevRecoveryCode(nextDevCode)
       setCode(nextDevCode)
       setStep("code")
     } catch (caught) {
@@ -136,7 +128,6 @@ export function RecoveryScreen() {
       setPassword("")
       setConfirmPassword("")
       setChallengeId("")
-      setDevRecoveryCode("")
       await acceptServerProfile(response.profile as MobileProfile)
     } catch (caught) {
       setError(
@@ -149,19 +140,10 @@ export function RecoveryScreen() {
     }
   }
 
+  // Recovery codes and new passwords stay manual (QA Quick Fill exclusion).
   function quickFill() {
-    const fixture = mobileDevQuickFill.recovery
-    if (step === "request") {
-      setCooperativeNumber(fixture.cooperativeNumber)
-      setEmail(fixture.email)
-      return
-    }
-    if (step === "code") {
-      setCode(devRecoveryCode || fixture.code)
-      return
-    }
-    setPassword(fixture.newPassword)
-    setConfirmPassword(fixture.newPassword)
+    setCooperativeNumber(mobileDevQuickFill.recovery.cooperativeNumber)
+    setEmail(mobileDevQuickFill.recovery.email)
   }
 
   return (
@@ -212,7 +194,9 @@ export function RecoveryScreen() {
           submitting={submitting}
         />
       ) : null}
-      <DevQuickFill label={recoveryQuickFillLabels[step]} onPress={quickFill} />
+      {step === "request" ? (
+        <DevQuickFill label="Quick fill recovery" onPress={quickFill} />
+      ) : null}
     </AuthScreenShell>
   )
 }

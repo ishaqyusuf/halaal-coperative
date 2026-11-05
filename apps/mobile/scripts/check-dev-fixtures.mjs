@@ -96,6 +96,15 @@ const quickFillScreens = [
   "src/features/admin-member-lifecycle/screens/admin-members-screen.tsx",
   "src/features/admin-member-lifecycle/screens/admin-member-detail-screen.tsx",
   "src/features/settings-access/screens/more-screen.tsx",
+  "src/features/operation-profile/components/operation-profile-edit-sheet.tsx",
+  "src/features/admin-charge-operations/screens/admin-charge-operations-screen.tsx",
+  "src/features/admin-contribution-operations/screens/admin-contribution-operations-screen.tsx",
+  "src/features/admin-financing-operations/screens/admin-financing-operations-screen.tsx",
+  "src/features/admin-food-purchase-operations/screens/admin-food-purchase-operations-screen.tsx",
+  "src/features/admin-procurement-operations/screens/admin-procurement-operations-screen.tsx",
+  "src/features/admin-project-financing-operations/screens/admin-project-financing-operations-screen.tsx",
+  "src/features/admin-repayment-operations/screens/admin-repayment-operations-screen.tsx",
+  "src/features/admin-share-profit-governance/screens/admin-share-profit-governance-screen.tsx",
 ]
 
 for (const screen of quickFillScreens) {
@@ -117,6 +126,29 @@ for (const screen of quickFillScreens) {
 
   assertIncludes(screen, ["DevQuickFill", "mobileDevQuickFill"])
 }
+
+// Passwords, OTPs, app PINs, and QA Domains stay manual. The per-form
+// inventory and its discovery test live in src/dev/mobile-qa-form-coverage*.
+assertExcludes("src/dev/mobile-dev-quick-fill.ts", [
+  "newPassword",
+  "pin:",
+  "code:",
+])
+for (const screen of [
+  "src/features/app-lock/screens/app-lock-screen.tsx",
+  "src/features/auth/components/sign-in-form.tsx",
+  "src/features/auth/components/qa-domain-composer.tsx",
+]) {
+  assertExcludes(screen, ["DevQuickFill"])
+}
+assertExcludes("src/features/auth/screens/recovery-screen.tsx", [
+  "setCode(devRecoveryCode",
+  "setPassword(fixture",
+])
+assertIncludes("src/dev/mobile-qa-form-coverage.ts", [
+  "export const mobileQaFormCoverage",
+  "export const mobileQaNonFormFieldSources",
+])
 
 assertIncludes(
   "src/features/admin-finance-support/components/admin-finance-action-stack.tsx",

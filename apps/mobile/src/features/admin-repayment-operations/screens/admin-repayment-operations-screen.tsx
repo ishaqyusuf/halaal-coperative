@@ -19,6 +19,10 @@ import { Icon } from "@/components/ui/icon"
 import { Input } from "@/components/ui/input"
 import { Text } from "@/components/ui/text"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  mobileDevQuickFill,
+  mobileDevQuickFillReference,
+} from "@/dev/mobile-dev-quick-fill"
 import { useDebounce } from "@/hooks/use-debounce"
 import { createClientSubmissionKey } from "@/lib/client-submission-key"
 import { isMobileReadCacheStale } from "@/lib/read-cache"
@@ -985,12 +989,15 @@ export function AdminRepaymentOperationsScreen() {
                 setAmount(
                   formIntent?.kind === "repayment"
                     ? String(
-                        formIntent.facility.nextDue?.outstandingAmount ?? 25_000
+                        formIntent.facility.nextDue?.outstandingAmount ??
+                          mobileDevQuickFill.adminRepaymentOperations
+                            .repaymentAmount
                       )
-                    : "25000"
+                    : mobileDevQuickFill.adminRepaymentOperations
+                        .repaymentAmount
                 )
                 setPaidAt(todayDateOnly())
-                setReference(`QA-REP-${Date.now().toString().slice(-6)}`)
+                setReference(mobileDevQuickFillReference("QA-REP"))
               }}
               placement="footer"
               portal={false}
@@ -1064,7 +1071,7 @@ export function AdminRepaymentOperationsScreen() {
                 setNextActionAt(plusDaysDateOnly(2))
                 setPromiseToPayAt(plusDaysDateOnly(2))
                 setNote(
-                  "Member confirmed a transfer and requested a two-day follow-up window."
+                  mobileDevQuickFill.adminRepaymentOperations.followUpNote
                 )
               }}
               placement="footer"

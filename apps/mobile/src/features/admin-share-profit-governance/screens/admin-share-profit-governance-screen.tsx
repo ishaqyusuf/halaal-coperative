@@ -13,6 +13,7 @@ import { Icon } from "@/components/ui/icon"
 import { Input } from "@/components/ui/input"
 import { Text } from "@/components/ui/text"
 import { Textarea } from "@/components/ui/textarea"
+import { mobileDevQuickFill } from "@/dev/mobile-dev-quick-fill"
 import { useDebounce } from "@/hooks/use-debounce"
 import { createClientSubmissionKey } from "@/lib/client-submission-key"
 import { captureMobileError } from "@/lib/sentry"
@@ -446,9 +447,11 @@ export function AdminShareProfitGovernanceScreen({
     if (actionIntent?.kind === "share_review") {
       setShareDecision("approved")
       setApprovedUnits(String(actionIntent.application.requestedUnits))
-      setNotes("Share cap and unit-price snapshot verified for approval.")
+      setNotes(mobileDevQuickFill.adminShareProfitGovernance.shareReviewNotes)
     } else if (actionIntent?.kind === "profit_approve") {
-      setNotes("Reviewed expenses and member allocation totals reconcile.")
+      setNotes(
+        mobileDevQuickFill.adminShareProfitGovernance.profitApprovalNotes
+      )
     }
   }
 

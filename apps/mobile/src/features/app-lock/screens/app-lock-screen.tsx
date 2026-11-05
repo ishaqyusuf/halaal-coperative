@@ -1,5 +1,4 @@
 import { ConfirmationSheet } from "@/components/app/confirmation-sheet"
-import { DevQuickFill } from "@/components/app/dev-quick-fill"
 import { FullScreenFormSheet } from "@/components/app/full-screen-form-sheet"
 import { ScreenHeader } from "@/components/app/screen-header"
 import { StatusBadge } from "@/components/app/status-badge"
@@ -9,7 +8,6 @@ import { Icon } from "@/components/ui/icon"
 import { Pressable } from "@/components/ui/pressable"
 import { Switch } from "@/components/ui/switch"
 import { Text } from "@/components/ui/text"
-import { mobileDevQuickFill } from "@/dev/mobile-dev-quick-fill"
 import { AppLockPinPad } from "@/features/app-lock/components/app-lock-pin-pad"
 import type { AppLockBiometricsStatus } from "@/features/app-lock/platform/app-lock-biometrics"
 import type {
@@ -593,14 +591,6 @@ export function AppLockScreen({
           showDisableAfterDismissRef.current = false
           setIsDisableConfirmationVisible(true)
         }}
-        overlay={
-          <DevQuickFill
-            bottomOffset={84}
-            label="Quick fill app PIN"
-            onPress={() => setCode(mobileDevQuickFill.appLock.pin)}
-            portal={false}
-          />
-        }
         title={pinFlowCopy?.title ?? "App PIN"}
         visible={flow !== null}
       >

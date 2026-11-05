@@ -17,6 +17,7 @@ import { Icon } from "@/components/ui/icon"
 import { Input } from "@/components/ui/input"
 import { Text } from "@/components/ui/text"
 import { Textarea } from "@/components/ui/textarea"
+import { mobileDevQuickFill } from "@/dev/mobile-dev-quick-fill"
 import { useDebounce } from "@/hooks/use-debounce"
 import { createClientSubmissionKey } from "@/lib/client-submission-key"
 import { todayDateOnly } from "@/lib/date-only"
@@ -1169,8 +1170,12 @@ export function AdminFoodPurchaseOperationsScreen({
               onPress={() => {
                 setPeriodMonth(monthStartDateOnly())
                 setReleasedAt(todayDateOnly())
-                setReleasedAmount("1200000")
-                setNotes("Committee release evidence verified by finance.")
+                setReleasedAmount(
+                  mobileDevQuickFill.adminFoodPurchaseOperations.releasedAmount
+                )
+                setNotes(
+                  mobileDevQuickFill.adminFoodPurchaseOperations.releaseNotes
+                )
               }}
               placement="footer"
               portal={false}
@@ -1272,7 +1277,7 @@ export function AdminFoodPurchaseOperationsScreen({
                   )
                 )
                 setNotes(
-                  "Approved within cycle capacity and the member obligation policy."
+                  mobileDevQuickFill.adminFoodPurchaseOperations.applicationReviewNotes
                 )
               }}
               placement="footer"
@@ -1349,12 +1354,11 @@ export function AdminFoodPurchaseOperationsScreen({
             <DevQuickFill
               label="Quick fill cycle accounting"
               onPress={() => {
-                setSalesAmount("1386500")
-                setPurchaseCostAmount("1120000")
-                setExpenseAmount("80000")
-                setNotes(
-                  "Committee sales, supplier cost, and operating expense evidence reconciled."
-                )
+                const fixture = mobileDevQuickFill.adminFoodPurchaseOperations
+                setSalesAmount(fixture.salesAmount)
+                setPurchaseCostAmount(fixture.purchaseCostAmount)
+                setExpenseAmount(fixture.expenseAmount)
+                setNotes(fixture.cycleAccountingNotes)
               }}
               placement="footer"
               portal={false}
@@ -1425,7 +1429,7 @@ export function AdminFoodPurchaseOperationsScreen({
               onPress={() => {
                 setDecision("approved")
                 setNotes(
-                  "Accounting totals and evidence reconciled against the committee submission."
+                  mobileDevQuickFill.adminFoodPurchaseOperations.accountingReviewNotes
                 )
               }}
               placement="footer"

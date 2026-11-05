@@ -18,6 +18,10 @@ import { Icon } from "@/components/ui/icon"
 import { Input } from "@/components/ui/input"
 import { Text } from "@/components/ui/text"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  mobileDevQuickFill,
+  mobileDevQuickFillReference,
+} from "@/dev/mobile-dev-quick-fill"
 import { useDebounce } from "@/hooks/use-debounce"
 import { createClientSubmissionKey } from "@/lib/client-submission-key"
 import { todayDateOnly } from "@/lib/date-only"
@@ -630,6 +634,7 @@ export function AdminProjectFinancingOperationsScreen({
 
   const quickFill = () => {
     if (!formIntent) return
+    const fixture = mobileDevQuickFill.adminProjectFinancingOperations
     if (formIntent.kind === "review") {
       const nextStructure =
         formIntent.project.proposedStructure === "undecided"
@@ -645,19 +650,19 @@ export function AdminProjectFinancingOperationsScreen({
       )
       setNotes(
         nextStructure === "repayable_facility"
-          ? "Approved as a principal-only facility within the committee decision and affordability evidence."
-          : "Approved structure recorded as governance evidence. No repayment or profit ledger is created."
+          ? fixture.reviewFacilityNotes
+          : fixture.reviewEvidenceOnlyNotes
       )
     } else if (formIntent.kind === "activate") {
       setNotes(
         formIntent.project.boundary === "repayable_principal"
-          ? "Approved principal, term, and committee evidence verified before activation."
-          : "Approved structure and evidence-only accounting boundary verified before activation."
+          ? fixture.activatePrincipalNotes
+          : fixture.activateEvidenceOnlyNotes
       )
     } else {
       setDisbursedAt(todayDateOnly())
-      setReference(`QA-PF-${Date.now().toString().slice(-6)}`)
-      setNotes("Release evidence verified against the cooperative bank record.")
+      setReference(mobileDevQuickFillReference("QA-PF"))
+      setNotes(fixture.releaseNotes)
     }
   }
 

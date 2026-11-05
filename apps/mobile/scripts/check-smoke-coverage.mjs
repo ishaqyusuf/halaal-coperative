@@ -219,7 +219,6 @@ assertIncludes("src/features/app-lock/screens/app-lock-screen.tsx", [
   "FullScreenFormSheet",
   "ConfirmationSheet",
   "AppLockPinPad",
-  "DevQuickFill",
   "After leaving the app",
   "Privacy protection is active",
 ])

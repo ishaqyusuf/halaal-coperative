@@ -1,7 +1,10 @@
+export function mobileDevQuickFillReference(prefix: string) {
+  return `${prefix}-${Date.now().toString().slice(-6)}`
+}
+
+// Passwords, OTPs, app PINs, QA Domains, and payment credentials stay manual;
+// see src/dev/mobile-qa-form-coverage.ts for the per-form exclusions.
 export const mobileDevQuickFill = {
-  appLock: {
-    pin: "246810",
-  },
   adminFinance: {
     note: "Reviewed against member eligibility, supporting records, and cooperative policy.",
   },
@@ -52,6 +55,49 @@ export const mobileDevQuickFill = {
     firstRepaymentDueAt: "2026-10-01",
     reviewNote:
       "Reviewed eligibility, product limits, guarantor evidence, cycle reservation, and approval history.",
+  },
+  adminFoodPurchaseOperations: {
+    accountingReviewNotes:
+      "Accounting totals and evidence reconciled against the committee submission.",
+    applicationReviewNotes:
+      "Approved within cycle capacity and the member obligation policy.",
+    cycleAccountingNotes:
+      "Committee sales, supplier cost, and operating expense evidence reconciled.",
+    expenseAmount: "80000",
+    purchaseCostAmount: "1120000",
+    releaseNotes: "Committee release evidence verified by finance.",
+    releasedAmount: "1200000",
+    salesAmount: "1386500",
+  },
+  adminProcurementOperations: {
+    activateNotes:
+      "Supplier invoice and delivered item verified by the procurement officer.",
+    paymentNotes: "Payment evidence received at the cooperative office.",
+    reviewNotes:
+      "Approved within the cooperative policy and affordability limits.",
+  },
+  adminProjectFinancingOperations: {
+    activateEvidenceOnlyNotes:
+      "Approved structure and evidence-only accounting boundary verified before activation.",
+    activatePrincipalNotes:
+      "Approved principal, term, and committee evidence verified before activation.",
+    releaseNotes:
+      "Release evidence verified against the cooperative bank record.",
+    reviewEvidenceOnlyNotes:
+      "Approved structure recorded as governance evidence. No repayment or profit ledger is created.",
+    reviewFacilityNotes:
+      "Approved as a principal-only facility within the committee decision and affordability evidence.",
+  },
+  adminRepaymentOperations: {
+    followUpNote:
+      "Member confirmed a transfer and requested a two-day follow-up window.",
+    repaymentAmount: "25000",
+  },
+  adminShareProfitGovernance: {
+    profitApprovalNotes:
+      "Reviewed expenses and member allocation totals reconcile.",
+    shareReviewNotes:
+      "Share cap and unit-price snapshot verified for approval.",
   },
   financing: {
     extraMonthlySavingsAmount: "25000",
@@ -105,10 +151,8 @@ export const mobileDevQuickFill = {
     requestedUnits: "3",
   },
   recovery: {
-    code: "482731",
     cooperativeNumber: "KAD-COOP-QA2026072701",
     email: "member-journey-1-20260727@ishaq.qa.test",
-    newPassword: "Halaalvest-QA-2468!",
   },
   support: {
     description:

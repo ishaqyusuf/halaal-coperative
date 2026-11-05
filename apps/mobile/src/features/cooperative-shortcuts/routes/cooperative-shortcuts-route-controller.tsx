@@ -45,6 +45,14 @@ export function CooperativeShortcutsRouteController() {
   const [busyAction, setBusyAction] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const offline = runtime.state.connectivity === "offline"
+  const associationStatus = shortcuts.association?.status
+
+  // A launcher callback can change the pin state after an action finished
+  // (for example "Confirm on your launcher" → pinned). The presentation
+  // restates every status, so drop the stale action message.
+  useEffect(() => {
+    setMessage(null)
+  }, [associationStatus])
 
   useEffect(() => {
     let active = true

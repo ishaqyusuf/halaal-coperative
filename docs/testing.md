@@ -237,6 +237,27 @@ read-only) with the October dev-client debug build:
 - `open` on a device where the dev app isn't in the foreground: refused.
 - The other session's emulator kept its reverse mappings and foreground app.
 
+### Entering the app as a QA profile
+
+QA profiles are not a paid-access bypass. Before a QA profile can get past the mobile-access
+screen, two things must be in place:
+
+- The local API must run with `STORE_BILLING_ENVIRONMENT=sandbox` as well as a
+  `QA_ACCELERATOR_SECRET`. Without it, `mobileAppAccess.snapshot` fails and every profile lands on
+  "Access could not be checked".
+- The QA user needs a sandbox `MobileAppReviewGrant`, issued by a platform owner through the
+  audited `issueMobileAppReviewGrant`. Locally, write a gitignored `.scratch/` script that calls it
+  for your QA tenant's users against the loopback database.
+
+Quick Fill appears only while the device holds QA authorization, and signing out clears it.
+Re-enter the QA Domain on sign-in before testing recovery Quick Fill.
+
+Shortcut, app-lock and cold-start checks need an embedded bundle, because a dev client drops the
+deep link on a cold start. Build the dev variant with `assembleRelease`, setting
+`EXPO_PUBLIC_API_URL=http://127.0.0.1:1442`. Copy `android/app/src/debug/AndroidManifest.xml` to
+`src/release/` in the gitignored prebuild, so cleartext HTTP reaches the reversed port. To see
+what TalkBack sees, use `uiautomator dump --compressed`; a plain dump also lists hidden views.
+
 ## Shared notes between sessions: `bun run agent:chat`
 
 ```bash

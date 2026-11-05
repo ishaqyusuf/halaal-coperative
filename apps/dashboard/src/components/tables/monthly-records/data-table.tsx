@@ -14,6 +14,7 @@ import { useEffect, useMemo, useRef } from "react"
 import type { MonthlyRecordMemberRow } from "@halaalvest/db"
 import { EmptyState, VirtualRow } from "@/components/tables/core"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
+import { useLiveTablePollInterval } from "@/hooks/use-live-table-poll-interval"
 import { useSortParams } from "@/hooks/use-sort-params"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
 import { useTableDnd } from "@/hooks/use-table-dnd"
@@ -91,11 +92,12 @@ export function MonthlyRecordsDataTable({
     }),
     [monthlyRecordId, params.sort]
   )
+  const livePollInterval = useLiveTablePollInterval()
   const infiniteQueryOptions = trpc.monthlyRecords.rows.infiniteQueryOptions(
     queryInput,
     {
       getNextPageParam: ({ meta }) => meta?.cursor,
-      refetchInterval: 5000,
+      refetchInterval: livePollInterval,
       refetchOnMount: "always",
       refetchOnWindowFocus: true,
     }

@@ -61,11 +61,13 @@ export async function listTenantRoleNotificationRecipients(
     const matchingUsers = users.filter((user) => user.memberships.some((membership) => membership.role === role))
 
     for (const user of matchingUsers) {
-      if (seenRecipients.has(user.email)) {
+      // Case variants of one mailbox must not receive the same event twice.
+      const recipientKey = user.email.trim().toLowerCase()
+      if (seenRecipients.has(recipientKey)) {
         continue
       }
 
-      seenRecipients.add(user.email)
+      seenRecipients.add(recipientKey)
       recipients.push({
         email: user.email,
         fullName: user.fullName,

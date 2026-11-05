@@ -96,6 +96,7 @@ function NavigationEvents({
     const controller = new AbortController()
     let policyEnabled = false
     const refreshLoop = createContextRefreshLoop({
+      isActive: () => document.visibilityState === "visible",
       pending: () => client.current?.pauseCapture(),
       load: async () => {
         const response = await fetch("/api/analytics/context", {
@@ -125,12 +126,17 @@ function NavigationEvents({
     const capture = () => {
       void refreshLoop.refresh()
     }
+    const captureWhenVisible = () => {
+      if (document.visibilityState === "visible") capture()
+    }
     capture()
     window.addEventListener("focus", capture)
+    document.addEventListener("visibilitychange", captureWhenVisible)
     return () => {
       refreshLoop.dispose()
       controller.abort()
       window.removeEventListener("focus", capture)
+      document.removeEventListener("visibilitychange", captureWhenVisible)
     }
   }, [enabled, pathname, surface, client])
   return null

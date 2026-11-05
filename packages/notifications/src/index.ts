@@ -60,9 +60,19 @@ export type RetryingEmailTransportOptions = {
 }
 
 class EmailProviderResponseError extends Error {
-  constructor(status: number) {
+  constructor(readonly status: number) {
     super(`Email provider returned HTTP ${status}.`)
   }
+}
+
+// Only throttling, timeouts and provider faults can succeed on a retry; a
+// rejected payload, key or recipient would just spend another provider call.
+export function isRetryableEmailProviderStatus(status: number) {
+  return status === 408 || status === 429 || status >= 500
+}
+
+function createEmailIdempotencyKey() {
+  return `halaalvest-email-${globalThis.crypto.randomUUID()}`
 }
 
 export { getExpoMobilePushReceipt, sendExpoMobilePush } from "./mobile-push"
@@ -319,6 +329,9 @@ export function createResendEmailTransport(
           headers: {
             Authorization: `Bearer ${options.apiKey}`,
             "Content-Type": "application/json",
+            ...(draft.idempotencyKey
+              ? { "Idempotency-Key": draft.idempotencyKey.slice(0, 256) }
+              : {}),
           },
           body: JSON.stringify({
             bcc: bccRecipients,
@@ -388,8 +401,13 @@ export function createRetryingEmailTransport(
   options: RetryingEmailTransportOptions
 ): NotificationEmailTransport {
   return {
-    async send(draft) {
+    async send(inputDraft) {
       let lastError: unknown = null
+      // A timed-out attempt may still have been accepted by the provider, so
+      // every attempt of this logical send carries the same idempotency key.
+      const draft = inputDraft.idempotencyKey
+        ? inputDraft
+        : { ...inputDraft, idempotencyKey: createEmailIdempotencyKey() }
 
       for (let attempt = 1; attempt <= options.maxAttempts; attempt += 1) {
         try {
@@ -407,6 +425,7 @@ export function createRetryingEmailTransport(
             error,
             maxAttempts: options.maxAttempts,
           })
+          if (isEmailErrorRetryable(error) === false) break
         }
       }
 
@@ -425,11 +444,22 @@ function createEmailTransportError(
     error instanceof EmailProviderResponseError
       ? error.message
       : "Email provider request failed."
-  ) as Error & { emailRouting?: EmailRoutingMetadata }
+  ) as Error & { emailRouting?: EmailRoutingMetadata; retryable?: boolean }
 
   wrappedError.emailRouting = routing
+  if (error instanceof EmailProviderResponseError) {
+    wrappedError.retryable = isRetryableEmailProviderStatus(error.status)
+  }
 
   return wrappedError
+}
+
+function isEmailErrorRetryable(error: unknown) {
+  if (error && typeof error === "object" && "retryable" in error) {
+    return (error as { retryable?: boolean }).retryable
+  }
+
+  return undefined
 }
 
 function getEmailRoutingFromError(error: unknown) {

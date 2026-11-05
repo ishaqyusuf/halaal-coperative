@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useInfiniteQuery } from "@tanstack/react-query"
 import { Button } from "@halaalvest/ui/components/button"
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
+import { useLiveTablePollInterval } from "@/hooks/use-live-table-poll-interval"
 import { useTRPC } from "@/trpc/client"
 
 function deadlineLabel(reviewBy: string | null, now: number | null) {
@@ -18,12 +19,14 @@ function deadlineLabel(reviewBy: string | null, now: number | null) {
 
 export function PlatformStoreRefundReviewsView() {
   const trpc = useTRPC()
+  const livePollInterval = useLiveTablePollInterval()
   const queue = useInfiniteQuery({
     ...trpc.storeRefundReviews.queue.infiniteQueryOptions(
       {},
       { getNextPageParam: ({ meta }) => meta.cursor ?? undefined }
     ),
-    refetchInterval: 60_000,
+    // Deadline labels need minute freshness only while someone is watching.
+    refetchInterval: livePollInterval === false ? false : 60_000,
   })
   const reviews = queue.data?.pages.flatMap((page) => page.data) ?? []
   const now = queue.data?.pages[0]?.asOf

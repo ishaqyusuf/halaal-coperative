@@ -53,6 +53,8 @@ export type NotificationEmailDraft = {
   bodyHtml?: string
   bodyTemplate?: NotificationEmailTemplate
   bodyText: string
+  /** Provider idempotency key; retries of one logical send share it. */
+  idempotencyKey?: string
   notificationType: string
   previewText: string
   qaArtifacts?: NotificationQaArtifact[]

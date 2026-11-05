@@ -56,9 +56,21 @@ export const mobilePushDeliveryTask: BackgroundTask<MobilePushDeliveryPayload> =
   run: mobilePushDeliveryHandler,
 }
 
+// Expo receipts are usually ready ~15 minutes after the ticket. The global
+// 1–10 s backoff would spend every retry before a pending receipt can change,
+// so pending receipts wait minutes between a capped number of attempts.
+export const mobilePushReceiptRetry = {
+  factor: 2,
+  maxAttempts: 3,
+  maxTimeoutInMs: 30 * 60_000,
+  minTimeoutInMs: 10 * 60_000,
+  randomize: true,
+} as const
+
 export const mobilePushReceiptTriggerTask = task({
   id: "mobile-push-receipt",
   maxDuration: 60,
+  retry: mobilePushReceiptRetry,
   run: async (payload: MobilePushReceiptPayload) => {
     const result = await mobilePushReceiptHandler(payload)
     logger.info("Processed mobile push receipt", {
@@ -83,7 +95,7 @@ export const mobilePushDeliveryTriggerTask = task({
             delay: "15m",
             idempotencyKey: ["mobile-push-receipt", payload.providerTicketId],
             idempotencyKeyTTL: "7d",
-            maxAttempts: 4,
+            maxAttempts: mobilePushReceiptRetry.maxAttempts,
           }
         )
       },

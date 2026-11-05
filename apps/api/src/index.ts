@@ -7,7 +7,7 @@ import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { randomUUID } from "node:crypto"
 
-import { buildRequestContext } from "./context"
+import { buildLivenessPayload, checkDatabaseReadiness } from "./health"
 import { handleTrpcRequest } from "./internal-api"
 import { captureApiError } from "./observability/sentry"
 import { getSafeObservabilityRequestId } from "./observability/sentry-policy"
@@ -84,18 +84,13 @@ app.get("/", (c) => {
   })
 })
 
-app.get("/health", async (c) => {
-  const context = await buildRequestContext(c.req.raw.headers)
-
-  return c.json({
-    api: "ok",
-    auth: context.auth.session ? "session-present" : "anonymous",
-    tenantId: context.tenant.current?.id ?? null,
-    tenantSlug: context.tenant.current?.slug ?? null,
-    resolution: context.request.tenantResolution.resolvedBy,
-    database: context.runtime.status,
-    timestamp: context.request.receivedAt,
-  })
+// Routine uptime monitoring must use these SQL-free routes. `/ready` runs one
+// explicit `SELECT 1` and is for rollout or diagnosis, never a schedule.
+app.get("/live", (c) => c.json(buildLivenessPayload()))
+app.get("/health", (c) => c.json(buildLivenessPayload()))
+app.get("/ready", async (c) => {
+  const readiness = await checkDatabaseReadiness()
+  return c.json(readiness.body, readiness.status)
 })
 
 app.all("/trpc/*", async (c) => {

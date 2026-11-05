@@ -2,8 +2,10 @@ import { afterEach, describe, expect, test } from "bun:test"
 import {
   createMarketingEarlyAccessRequestEmail,
   createResendEmailTransport,
+  createRetryingEmailTransport,
   createSignupVerificationEmail,
   getNotificationEmailDeliveryErrorCause,
+  isRetryableEmailProviderStatus,
   NotificationService,
   type NotificationEmailDraft,
 } from "./index"
@@ -381,5 +383,88 @@ describe("notification sender lifecycle", () => {
     })
 
     expect(draft.sender).toBeUndefined()
+  })
+})
+
+describe("email send idempotency and retry cost", () => {
+  function resendTransport() {
+    return createResendEmailTransport({
+      apiKey: "re_test",
+      deliveryMode: "live",
+      from: "Halaalvest <notifications@example.com>",
+    })
+  }
+
+  test("retries one logical send with a single stable idempotency key", async () => {
+    const keys: Array<string | null> = []
+    globalThis.fetch = async (_input, init) => {
+      keys.push(new Headers(init?.headers).get("Idempotency-Key"))
+      if (keys.length === 1) return new Response("busy", { status: 503 })
+      return new Response(JSON.stringify({ id: "email_ok" }), { status: 200 })
+    }
+
+    const delivery = await createRetryingEmailTransport(resendTransport(), {
+      maxAttempts: 2,
+    }).send(testDraft("member@example.com"))
+
+    expect(delivery.attempts).toBe(2)
+    expect(keys).toHaveLength(2)
+    expect(keys[0]).toMatch(/^halaalvest-email-/)
+    expect(keys[1]).toBe(keys[0])
+  })
+
+  test("separate logical sends get separate keys", async () => {
+    const keys: Array<string | null> = []
+    globalThis.fetch = async (_input, init) => {
+      keys.push(new Headers(init?.headers).get("Idempotency-Key"))
+      return new Response(JSON.stringify({ id: "email_ok" }), { status: 200 })
+    }
+    const transport = createRetryingEmailTransport(resendTransport(), {
+      maxAttempts: 2,
+    })
+
+    await transport.send(testDraft("member@example.com"))
+    await transport.send(testDraft("member@example.com"))
+
+    expect(keys[0]).not.toBe(keys[1])
+  })
+
+  test("keeps a caller-supplied event key", async () => {
+    let key: string | null = null
+    globalThis.fetch = async (_input, init) => {
+      key = new Headers(init?.headers).get("Idempotency-Key")
+      return new Response(JSON.stringify({ id: "email_ok" }), { status: 200 })
+    }
+
+    await createRetryingEmailTransport(resendTransport(), {
+      maxAttempts: 2,
+    }).send({ ...testDraft("member@example.com"), idempotencyKey: "event-1" })
+
+    expect(key).toBe("event-1")
+  })
+
+  test("does not retry a rejected payload", async () => {
+    let calls = 0
+    globalThis.fetch = async () => {
+      calls += 1
+      return new Response("invalid", { status: 422 })
+    }
+
+    await expect(
+      createRetryingEmailTransport(resendTransport(), { maxAttempts: 3 }).send(
+        testDraft("member@example.com")
+      )
+    ).rejects.toThrow("Email provider returned HTTP 422.")
+    expect(calls).toBe(1)
+  })
+
+  test("classifies only throttling, timeouts and provider faults as retryable", () => {
+    expect(isRetryableEmailProviderStatus(408)).toBe(true)
+    expect(isRetryableEmailProviderStatus(429)).toBe(true)
+    expect(isRetryableEmailProviderStatus(503)).toBe(true)
+    expect(isRetryableEmailProviderStatus(400)).toBe(false)
+    expect(isRetryableEmailProviderStatus(401)).toBe(false)
+    expect(isRetryableEmailProviderStatus(409)).toBe(false)
+    expect(isRetryableEmailProviderStatus(422)).toBe(false)
   })
 })

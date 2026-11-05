@@ -3,8 +3,10 @@ import {
   applyMonthlyRecordMember,
   cancelMonthlyRecordMember,
   ensureMonthlyRecord,
+  generateDueMonthlyRecords,
   getMonthlyRecordDetail,
   getOrCreateMonthlyRecordsPageData,
+  selectDueMonthlyRecordTenants,
 } from "./monthly-records"
 
 function createLockedMonthlyRecordPrismaStub({
@@ -244,5 +246,82 @@ describe("monthly record live write guards", () => {
       startsAt: "desc",
     })
     expect(lookup.include.contributionPlans.take).toBe(1)
+  })
+})
+
+describe("scheduled monthly record generation cost", () => {
+  test("selects due tenants from settings with defaults for missing rows", () => {
+    expect(
+      selectDueMonthlyRecordTenants({
+        dayOfMonth: 10,
+        settings: [
+          { autoGenerateEnabled: false, generationDayOfMonth: 1, tenantId: "off" },
+          { autoGenerateEnabled: true, generationDayOfMonth: 15, tenantId: "later" },
+          { autoGenerateEnabled: true, generationDayOfMonth: 10, tenantId: "today" },
+        ],
+        tenantIds: ["off", "later", "today", "no-row"],
+      })
+    ).toEqual({
+      due: ["today", "no-row"],
+      skipped: [
+        { reason: "disabled", tenantId: "off" },
+        { reason: "not_due", tenantId: "later" },
+      ],
+    })
+  })
+
+  test("reads settings once and never upserts them when nothing is due", async () => {
+    const settingReads: unknown[] = []
+    const settingUpserts: unknown[] = []
+    const prisma = {
+      monthlyRecordSetting: {
+        findMany: async (args: unknown) => {
+          settingReads.push(args)
+          return [
+            { autoGenerateEnabled: false, generationDayOfMonth: 1, tenantId: "a" },
+            { autoGenerateEnabled: true, generationDayOfMonth: 20, tenantId: "b" },
+          ]
+        },
+        upsert: async (args: unknown) => {
+          settingUpserts.push(args)
+          throw new Error("settings must not be upserted by the scheduler")
+        },
+      },
+      tenant: {
+        findMany: async () => [{ id: "a" }, { id: "b" }],
+      },
+    }
+
+    const result = await generateDueMonthlyRecords(
+      { actorUserId: "system", now: new Date("2026-11-05T00:00:00.000Z") },
+      prisma as never
+    )
+
+    expect(settingReads).toHaveLength(1)
+    expect(settingUpserts).toHaveLength(0)
+    expect(result.generated).toEqual([])
+    expect(result.skipped).toEqual([
+      { reason: "disabled", tenantId: "a" },
+      { reason: "not_due", tenantId: "b" },
+    ])
+  })
+
+  test("stops after the tenant query when no tenant is live", async () => {
+    let settingReads = 0
+    const result = await generateDueMonthlyRecords(
+      { actorUserId: "system" },
+      {
+        monthlyRecordSetting: {
+          findMany: async () => {
+            settingReads += 1
+            return []
+          },
+        },
+        tenant: { findMany: async () => [] },
+      } as never
+    )
+
+    expect(settingReads).toBe(0)
+    expect(result).toEqual({ generated: [], skipped: [] })
   })
 })

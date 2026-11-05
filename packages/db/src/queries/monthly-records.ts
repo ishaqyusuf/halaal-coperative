@@ -574,34 +574,78 @@ export async function generateDueMonthlyRecords(
     select: { id: true },
   })
   const generated: Array<{ monthlyRecordId: string; tenantId: string }> = []
-  const skipped: Array<{ reason: string; tenantId: string }> = []
+  if (tenants.length === 0) return { generated, skipped: [] }
 
-  for (const tenant of tenants) {
-    const settings = await getMonthlyRecordSettings(tenant.id, prisma)
-    if (!settings.autoGenerateEnabled) {
-      skipped.push({ reason: "disabled", tenantId: tenant.id })
-      continue
-    }
+  // One read for every tenant's settings instead of a per-tenant upsert: the
+  // scheduled run must not write default rows or issue N queries just to
+  // learn that nothing is due.
+  const settingRows = await prisma.monthlyRecordSetting.findMany({
+    where: { tenantId: { in: tenants.map((tenant) => tenant.id) } },
+    select: {
+      autoGenerateEnabled: true,
+      generationDayOfMonth: true,
+      tenantId: true,
+    },
+  })
+  const { due, skipped } = selectDueMonthlyRecordTenants({
+    dayOfMonth,
+    settings: settingRows,
+    tenantIds: tenants.map((tenant) => tenant.id),
+  })
 
-    if (dayOfMonth < settings.generationDayOfMonth) {
-      skipped.push({ reason: "not_due", tenantId: tenant.id })
-      continue
-    }
-
+  for (const tenantId of due) {
     const record = await ensureMonthlyRecord(
       {
         actorUserId: input.actorUserId,
         month: now.getUTCMonth() + 1,
-        tenantId: tenant.id,
+        tenantId,
         year: now.getUTCFullYear(),
       },
       prisma
     )
 
-    generated.push({ monthlyRecordId: record.id, tenantId: tenant.id })
+    generated.push({ monthlyRecordId: record.id, tenantId })
   }
 
   return { generated, skipped }
+}
+
+// Missing settings rows mean the defaults `getMonthlyRecordSettings` would
+// create: auto-generation on, from day `defaultGenerationDayOfMonth`.
+export function selectDueMonthlyRecordTenants(input: {
+  dayOfMonth: number
+  settings: Array<{
+    autoGenerateEnabled: boolean
+    generationDayOfMonth: number
+    tenantId: string
+  }>
+  tenantIds: string[]
+}) {
+  const settingsByTenant = new Map(
+    input.settings.map((setting) => [setting.tenantId, setting])
+  )
+  const due: string[] = []
+  const skipped: Array<{ reason: string; tenantId: string }> = []
+
+  for (const tenantId of input.tenantIds) {
+    const settings = settingsByTenant.get(tenantId) ?? {
+      autoGenerateEnabled: true,
+      generationDayOfMonth: defaultGenerationDayOfMonth,
+    }
+    if (!settings.autoGenerateEnabled) {
+      skipped.push({ reason: "disabled", tenantId })
+      continue
+    }
+
+    if (input.dayOfMonth < settings.generationDayOfMonth) {
+      skipped.push({ reason: "not_due", tenantId })
+      continue
+    }
+
+    due.push(tenantId)
+  }
+
+  return { due, skipped }
 }
 
 export async function listCurrentMonthStagedContributions(

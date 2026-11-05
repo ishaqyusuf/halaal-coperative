@@ -16,6 +16,7 @@ import { VirtualRow } from "@/components/tables/core"
 import { useChargeFilterParams } from "@/hooks/use-charge-filter-params"
 import { useChargeParams } from "@/hooks/use-charge-params"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
+import { useLiveTablePollInterval } from "@/hooks/use-live-table-poll-interval"
 import { useSortParams } from "@/hooks/use-sort-params"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
 import { useTableDnd } from "@/hooks/use-table-dnd"
@@ -168,12 +169,13 @@ export function DataTable({
     }),
     [deferredSearch, filter, params.sort]
   )
+  const livePollInterval = useLiveTablePollInterval()
   const infiniteQueryOptions = trpc.charges.financeCharges.infiniteQueryOptions(
     queryInput,
     {
       enabled: remoteRows,
       getNextPageParam: ({ meta }) => meta?.cursor,
-      refetchInterval: 5000,
+      refetchInterval: livePollInterval,
       refetchOnMount: "always",
       refetchOnWindowFocus: true,
     }

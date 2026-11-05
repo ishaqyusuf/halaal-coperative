@@ -99,6 +99,9 @@ export function AnalyticsRuntime() {
     }
     if (!context || !client.current) return
     const refresh = () => {
+      // A backgrounded app must not wake the API/database for analytics; the
+      // "active" listener below refreshes on resume instead.
+      if (AppState.currentState !== "active") return
       if (context.expiresAt - Date.now() <= 60_000)
         void refreshSession(true).catch(() => {})
     }

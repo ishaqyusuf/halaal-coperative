@@ -13,6 +13,7 @@ import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
 import { useDeferredValue, useEffect, useMemo, useRef } from "react"
 import { EmptyState, VirtualRow } from "@/components/tables/core"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
+import { useLiveTablePollInterval } from "@/hooks/use-live-table-poll-interval"
 import { useNotificationsFilterParams } from "@/hooks/use-notifications-filter-params"
 import { useSortParams } from "@/hooks/use-sort-params"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
@@ -93,10 +94,11 @@ export function NotificationsDataTable({
     }),
     [deferredSearch, filters, params.sort]
   )
+  const livePollInterval = useLiveTablePollInterval()
   const infiniteQueryOptions =
     trpc.notifications.deliveryHistory.infiniteQueryOptions(queryInput, {
       getNextPageParam: ({ meta }) => meta?.cursor,
-      refetchInterval: 5000,
+      refetchInterval: livePollInterval,
       refetchOnMount: "always",
       refetchOnWindowFocus: true,
     })

@@ -70,3 +70,46 @@ test("active same-page custom events renew context before expiry and failed rene
   expect(loads).toBe(before)
   client.destroy()
 })
+
+test("a disabled policy is not polled and hidden pages skip timed refreshes", async () => {
+  let callback: (() => void) | undefined
+  let scheduled = 0
+  let loads = 0
+  let visible = true
+  let context: { token: string; scope: string; expiresAt: number } | null =
+    null
+  const loop = createContextRefreshLoop({
+    isActive: () => visible,
+    schedule: (next) => {
+      scheduled++
+      callback = next
+      return () => {
+        callback = undefined
+      }
+    },
+    pending: () => {},
+    load: async () => {
+      loads++
+      return context
+    },
+    apply: () => {},
+  })
+
+  await loop.refresh()
+  expect(loads).toBe(1)
+  expect(scheduled).toBe(0)
+
+  context = { token: "t", scope: "A", expiresAt: Date.now() + 3_600_000 }
+  await loop.refresh()
+  expect(scheduled).toBe(1)
+
+  visible = false
+  callback?.()
+  await Promise.resolve()
+  expect(loads).toBe(2)
+
+  visible = true
+  await loop.refresh()
+  expect(loads).toBe(3)
+  loop.dispose()
+})

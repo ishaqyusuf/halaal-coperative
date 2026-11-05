@@ -121,7 +121,10 @@ export function AdminReportsRouteController() {
     }
   }, [profile?.token])
 
+  const hasGeneratedFiles = generatedFiles.length > 0
   useEffect(() => {
+    // Local expiry only; no timer runs while there is nothing to expire.
+    if (!hasGeneratedFiles) return
     const interval = setInterval(() => {
       setGeneratedFiles((current) =>
         current.map((file) => {
@@ -132,7 +135,7 @@ export function AdminReportsRouteController() {
       )
     }, 30_000)
     return () => clearInterval(interval)
-  }, [])
+  }, [hasGeneratedFiles])
 
   const load = useCallback(
     async (refreshing = false) => {

@@ -87,7 +87,10 @@ export function MemberStatementRouteController() {
     setGeneratedFile(null)
   }, [canUseServerStatement])
 
+  const hasGeneratedFile = generatedFile !== null
   useEffect(() => {
+    // Local expiry only; no timer runs while there is nothing to expire.
+    if (!hasGeneratedFile) return
     const interval = setInterval(() => {
       setGeneratedFile((current) => {
         if (!current) return null
@@ -98,7 +101,7 @@ export function MemberStatementRouteController() {
       })
     }, 30_000)
     return () => clearInterval(interval)
-  }, [])
+  }, [hasGeneratedFile])
 
   const generate = useCallback(async () => {
     if (!exportEnabled || generatedFile?.status === "pending") return

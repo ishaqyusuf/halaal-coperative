@@ -1243,6 +1243,7 @@ export function AdminShareProfitGovernanceScreen({
           </View>
         }
         keyboardExpandable={actionIntent?.kind !== "profit_publish"}
+        dismissible={!isSubmitting}
         onClose={() => setActionIntent(null)}
         onDismissed={() => {
           const nextSuccess = queuedSuccessRef.current

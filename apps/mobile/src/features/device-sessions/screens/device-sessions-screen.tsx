@@ -698,6 +698,7 @@ export function DeviceSessionsScreen({
             </Button>
           </View>
         }
+        dismissible={!isSubmitting}
         onClose={() => setConfirmation(null)}
         maxDynamicContentSize={
           largeTextLayout ? viewportHeight * 0.72 : undefined

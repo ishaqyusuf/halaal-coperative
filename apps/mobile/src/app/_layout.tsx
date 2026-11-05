@@ -30,6 +30,7 @@ import { NAV_THEME } from "@/lib/theme"
 import { getThemeOverride } from "@/lib/theme-preference"
 import { MobileRuntimeBanner } from "@/runtime/mobile-runtime-banner"
 import { AppLockRuntime } from "@/runtime/app-lock-runtime"
+import { CooperativeShortcutRuntime } from "@/runtime/cooperative-shortcut-runtime"
 import { MobileRuntimeGate } from "@/runtime/mobile-runtime-gate"
 import { MobileRuntimeProvider } from "@/runtime/mobile-runtime-provider"
 import { NotificationRuntime } from "@/runtime/notification-runtime"
@@ -157,18 +158,20 @@ function RootLayoutNav() {
                                 <AppAccessibilityBackground>
                                   <FlashMessage position="top" />
                                   <MobileRuntimeGate>
-                                    <MobileRuntimeBanner />
-                                    <AppAutoUpdateModal />
-                                    <AppBuildUpdate />
-                                    <StatusBar
-                                      backgroundColor={colors.background}
-                                      style={
-                                        colorScheme === "dark"
-                                          ? "light"
-                                          : "dark"
-                                      }
-                                    />
-                                    <RoleProtectedStack />
+                                    <CooperativeShortcutRuntime>
+                                      <MobileRuntimeBanner />
+                                      <AppAutoUpdateModal />
+                                      <AppBuildUpdate />
+                                      <StatusBar
+                                        backgroundColor={colors.background}
+                                        style={
+                                          colorScheme === "dark"
+                                            ? "light"
+                                            : "dark"
+                                        }
+                                      />
+                                      <RoleProtectedStack />
+                                    </CooperativeShortcutRuntime>
                                   </MobileRuntimeGate>
                                   <Toast />
                                   <DevQuickFillLayer />
@@ -214,6 +217,8 @@ function RoleProtectedStack() {
       }}
     >
       <Stack.Screen name="index" />
+      {/* Neutral launcher-shortcut resolver; it defers to every gate below. */}
+      <Stack.Screen name="cooperative-shortcut/[shortcutId]" />
       <Stack.Protected guard={role === null}>
         <Stack.Screen name="(auth)" />
       </Stack.Protected>
@@ -227,6 +232,7 @@ function RoleProtectedStack() {
         <Stack.Screen name="mobile-access" />
         <Stack.Screen name="account-privacy" />
         <Stack.Screen name="legal-agreements" />
+        <Stack.Screen name="cooperative-shortcuts" />
       </Stack.Protected>
       <Stack.Protected guard={role !== null && access.accessAllowed}>
         <Stack.Screen name="updates" />

@@ -9,7 +9,7 @@ import { LegalLinks } from "@/components/app/legal-links"
 import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
 import { Linking, Platform, ScrollView, View } from "react-native"
-import { Redirect } from "expo-router"
+import { Redirect, type Href, useRouter } from "expo-router"
 
 const durationName = {
   six_months: "Six months",
@@ -24,6 +24,7 @@ const cancellationHelpUrl = Platform.select({
 export function MobileAppAccessRouteController() {
   const [cancellationHelpError, setCancellationHelpError] = useState(false)
   const { profile, role, signOut } = useAuthContext()
+  const router = useRouter()
   const access = useMobileAppAccess()
   const store = useMobileAppStore({
     enabled: Boolean(profile),
@@ -151,6 +152,14 @@ export function MobileAppAccessRouteController() {
             variant="ghost"
           >
             <Text>Refresh access and store</Text>
+          </Button>
+          {/* Cooperative switching and shortcut controls stay reachable
+              before paid entry without granting paid features. */}
+          <Button
+            onPress={() => router.push("/cooperative-shortcuts" as Href)}
+            variant="ghost"
+          >
+            <Text>Cooperatives & shortcuts</Text>
           </Button>
           <Button onPress={() => void signOut()} variant="ghost">
             <Text>Sign out</Text>

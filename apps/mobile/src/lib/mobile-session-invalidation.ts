@@ -12,6 +12,7 @@ export async function clearInvalidatedMobileSessionState(input: {
   clearReads: MobileSessionStateClearer
   clearSession: MobileSessionStateClearer
   clearDeviceId: MobileSessionStateClearer
+  disableLauncherShortcuts?: MobileSessionStateClearer
 }) {
   await Promise.all([
     input.clearSession(),
@@ -20,6 +21,11 @@ export async function clearInvalidatedMobileSessionState(input: {
     input.clearReads(),
     localSecurityClearer?.(),
     input.clearDeviceId(),
+    // Launcher cleanup is best effort: it must never fail or hold back
+    // local credential and scoped-state invalidation.
+    Promise.resolve()
+      .then(() => input.disableLauncherShortcuts?.())
+      .catch(() => undefined),
   ])
 }
 

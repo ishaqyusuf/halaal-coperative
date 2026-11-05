@@ -419,6 +419,7 @@ export function MemberMoreDirectory({
   isLoading,
   onOpenDeviceAccess,
   onOpenAppLock,
+  onOpenCooperatives,
   onOpenNotifications,
   onOpenSection,
   onOpenUpdates,
@@ -430,6 +431,7 @@ export function MemberMoreDirectory({
   isLoading: boolean
   onOpenDeviceAccess: () => void
   onOpenAppLock: () => void
+  onOpenCooperatives: () => void
   onOpenNotifications: () => void
   onOpenSection: (key: MemberMoreSectionKey) => void
   onOpenUpdates: () => void
@@ -521,6 +523,13 @@ export function MemberMoreDirectory({
         largeTextLayout={largeTextLayout}
         title="App"
       >
+        <AppRow
+          accessibilityScale={accessibilityScale}
+          icon="Home"
+          label="Cooperatives & shortcuts"
+          largeTextLayout={largeTextLayout}
+          onPress={onOpenCooperatives}
+        />
         <AppRow
           accessibilityScale={accessibilityScale}
           icon="LockKeyhole"

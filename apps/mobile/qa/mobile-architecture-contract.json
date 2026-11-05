@@ -489,6 +489,35 @@
         "super_admin"
       ],
       "tenantBoundary": "Signed account and active tenant membership are required. Purchase and restoration bind to the server-verified individual user; this recovery route remains available before paid access is granted."
+    },
+    {
+      "file": "src/app/cooperative-shortcut/[shortcutId].tsx",
+      "path": "/cooperative-shortcut/[shortcutId]",
+      "feature": "cooperative-shortcuts",
+      "controller": "@/features/cooperative-shortcuts/routes/cooperative-shortcut-route-controller",
+      "roles": [
+        "public",
+        "member",
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Neutral launcher-shortcut resolver. The opaque id is untrusted: it resolves only through a local association owned by the signed user and build variant, waits for auth hydration and app lock, discovers workspaces online and changes tenant only through the signed auth.mobile.switchRole transition before the ordinary entry gates."
+    },
+    {
+      "file": "src/app/cooperative-shortcuts.tsx",
+      "path": "/cooperative-shortcuts",
+      "feature": "cooperative-shortcuts",
+      "controller": "@/features/cooperative-shortcuts/routes/cooperative-shortcuts-route-controller",
+      "roles": [
+        "member",
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Signed account required. Lists only the signed user's own memberships in active cooperatives (QA sessions stay bound to their tenant) and switches only through auth.mobile.switchRole; available before paid access without granting business data."
     }
   ],
   "stateContracts": {

@@ -1,0 +1,149 @@
+import { useAppLockGateState } from "@/features/app-lock/public/app-lock-state"
+import { useAuthContext } from "@/hooks/use-auth"
+import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
+import { type Href, useRouter } from "expo-router"
+import { useCallback, useEffect, useRef, useState } from "react"
+
+import { getCooperativeWorkspaces } from "../api/cooperative-workspaces-api"
+import {
+  decideShortcutLaunch,
+  resolveShortcutSwitch,
+} from "../model/shortcut-policy"
+import { useCooperativeShortcuts } from "../platform/cooperative-shortcut-runtime-provider"
+import {
+  CooperativeShortcutResolverScreen,
+  type ShortcutResolverState,
+} from "../screens/cooperative-shortcut-resolver-screen"
+
+/**
+ * Neutral, unprotected landing for launcher shortcuts. It never decides a
+ * destination itself: it waits for auth and app lock, validates the opaque
+ * association against the signed owner, performs the ordinary signed
+ * membership switch online, and then hands off to the normal entry gates.
+ */
+export function CooperativeShortcutRouteController({
+  shortcutId,
+}: {
+  shortcutId: string | undefined
+}) {
+  const auth = useAuthContext()
+  const lock = useAppLockGateState()
+  const runtime = useMobileRuntime()
+  const router = useRouter()
+  const shortcuts = useCooperativeShortcuts()
+  const [state, setState] = useState<ShortcutResolverState>({
+    kind: "resolving",
+  })
+  const [attempt, setAttempt] = useState(0)
+  const handledRef = useRef<string | null>(null)
+  const profile = auth.profile
+  const tokenRef = useRef(profile?.token)
+  tokenRef.current = profile?.token
+  const online = runtime.state.connectivity !== "offline"
+
+  const enterHome = useCallback(() => {
+    router.replace("/" as Href)
+  }, [router])
+
+  const switchTo = useCallback(
+    async (membershipId: string) => {
+      setState({ kind: "switching" })
+      try {
+        await runtime.runOnlineOperation("command", () =>
+          auth.switchRole(membershipId)
+        )
+        enterHome()
+      } catch {
+        setState({ kind: "failed" })
+      }
+    },
+    [auth, enterHome, runtime]
+  )
+
+  const decision = decideShortcutLaunch({
+    authInitializing: auth.initializing,
+    // An unreconciled registry is treated like a lock: nothing resolves yet.
+    locked:
+      !lock.isHydrated ||
+      lock.isLocked ||
+      (profile !== null && !shortcuts.registry),
+    online,
+    profile: profile
+      ? { tenantId: profile.tenant.id, userId: profile.user.id }
+      : null,
+    registry: shortcuts.registry ?? {
+      associations: [],
+      tombstones: [],
+      version: 1,
+    },
+    shortcutId,
+    variant: shortcuts.variant,
+  })
+
+  useEffect(() => {
+    // Consume each launch once per signed context; a later tap remounts.
+    const handledKey = `${decision.kind}:${shortcutId}:${profile?.token ?? ""}:${attempt}`
+    if (decision.kind === "wait" || handledRef.current === handledKey) return
+    handledRef.current = handledKey
+
+    switch (decision.kind) {
+      case "invalid":
+      case "unknown":
+      case "offline":
+        setState({ kind: decision.kind })
+        return
+      case "sign-in":
+        if (shortcutId) shortcuts.rememberPendingLaunch(shortcutId)
+        router.replace("/(auth)/sign-in" as Href)
+        return
+      case "enter":
+        enterHome()
+        return
+      case "switch-needed": {
+        const token = profile?.token
+        setState({ kind: "resolving" })
+        void (async () => {
+          try {
+            if (!profile) return
+            const workspaces = await getCooperativeWorkspaces(profile)
+            // A sign-out or another switch while loading wins.
+            if (tokenRef.current !== token) return
+            const next = resolveShortcutSwitch(decision.association, workspaces)
+            if (next.kind === "unavailable") {
+              await shortcuts.disableTenant(decision.association.tenantId)
+              setState({ kind: "unavailable" })
+            } else if (next.kind === "choose-role") {
+              setState({ kind: "choose-role", memberships: next.memberships })
+            } else {
+              await switchTo(next.membershipId)
+            }
+          } catch {
+            setState({ kind: online ? "failed" : "offline" })
+          }
+        })()
+      }
+    }
+  }, [
+    attempt,
+    decision,
+    enterHome,
+    online,
+    profile,
+    router,
+    shortcutId,
+    shortcuts,
+    switchTo,
+  ])
+
+  return (
+    <CooperativeShortcutResolverScreen
+      onChooseCooperative={() =>
+        router.replace("/cooperative-shortcuts" as Href)
+      }
+      onChooseRole={(membershipId) => void switchTo(membershipId)}
+      onContinue={enterHome}
+      onRetry={() => setAttempt((value) => value + 1)}
+      state={state}
+    />
+  )
+}

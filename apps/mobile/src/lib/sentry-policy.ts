@@ -12,6 +12,7 @@ export type MobileErrorSource =
   | "mobile.query_cache"
   | "mobile.contribution_operations"
   | "mobile.charge_operations"
+  | "mobile.cooperative_shortcuts"
   | "mobile.financing_operations"
   | "mobile.repayment_operations"
   | "mobile.procurement_operations"

@@ -68,6 +68,8 @@ const requiredRoutes = [
   "src/app/updates.tsx",
   "src/app/sessions.tsx",
   "src/app/app-lock.tsx",
+  "src/app/cooperative-shortcuts.tsx",
+  "src/app/cooperative-shortcut/[shortcutId].tsx",
   "src/app/+not-found.tsx",
 ]
 

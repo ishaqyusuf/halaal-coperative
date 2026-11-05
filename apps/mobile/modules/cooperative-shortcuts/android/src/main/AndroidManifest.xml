@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <!-- Receives the launcher's pin approval through an app-owned PendingIntent only. -->
+    <receiver android:name="expo.modules.cooperativeshortcuts.CooperativeShortcutPinReceiver"
+      android:exported="false" />
+  </application>
+</manifest>

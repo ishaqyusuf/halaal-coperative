@@ -211,6 +211,9 @@ export function MoreScreen({
     typeof router.push
   >[0]
   const appLockHref = "/app-lock" as Parameters<typeof router.push>[0]
+  const cooperativesHref = "/cooperative-shortcuts" as Parameters<
+    typeof router.push
+  >[0]
   const notificationsHref = "/notifications" as Parameters<
     typeof router.push
   >[0]
@@ -400,6 +403,11 @@ export function MoreScreen({
                   />
                 ) : null}
                 <AdminDirectoryRow
+                  icon="Home"
+                  onPress={() => router.push(cooperativesHref)}
+                  title="Cooperatives & shortcuts"
+                />
+                <AdminDirectoryRow
                   icon="LockKeyhole"
                   onPress={() => router.push(appLockHref)}
                   title="App lock"
@@ -462,6 +470,7 @@ export function MoreScreen({
             hub={memberHub}
             isLoading={isLoadingMemberHub}
             onOpenAppLock={() => router.push(appLockHref)}
+            onOpenCooperatives={() => router.push(cooperativesHref)}
             onOpenDeviceAccess={handleOpenOwnDeviceAccess}
             onOpenNotifications={() => router.push(notificationsHref)}
             onOpenSection={(key) => {

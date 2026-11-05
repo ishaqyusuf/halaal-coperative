@@ -18,6 +18,7 @@ import {
   switchMobileRole,
   type MobileSignInCredentials,
 } from "@/lib/mobile-auth-api"
+import { disableCooperativeShortcutsForSignOut } from "@/features/cooperative-shortcuts/public/shortcut-session-cleanup"
 import { refreshMobileDeviceSession } from "@/features/device-sessions/api/device-session-api"
 import { shouldRefreshMobileDeviceSession } from "@/features/device-sessions/model/device-session-types"
 import { clearMobileFormDrafts } from "@/hooks/use-mobile-form-draft"
@@ -61,6 +62,8 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 const canUseDevelopmentMockSession = process.env.NODE_ENV !== "production"
+// Local sign-out must not wait indefinitely for an unreachable server.
+const SERVER_SIGN_OUT_BUDGET_MS = 5000
 
 function isSessionRefreshConflict(error: unknown) {
   if (!error || typeof error !== "object") return false
@@ -80,9 +83,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<MobileProfile | null>(null)
   const invalidationPromiseRef = useRef<Promise<void> | null>(null)
   const refreshPromiseRef = useRef<Promise<MobileProfile | null> | null>(null)
+  // Bumped by every invalidation so an in-flight workspace switch can never
+  // persist its replacement session after sign-out.
+  const authGenerationRef = useRef(0)
+  const contextTransitionRef = useRef<Promise<unknown>>(Promise.resolve())
 
   const invalidateLocalSession = useCallback(() => {
     if (invalidationPromiseRef.current) return invalidationPromiseRef.current
+    authGenerationRef.current += 1
 
     const invalidation = (async () => {
       try {
@@ -92,6 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           clearReads: clearMobileReadCache,
           clearSession,
           clearDeviceId: clearMobileDeviceId,
+          disableLauncherShortcuts: disableCooperativeShortcutsForSignOut,
         })
       } finally {
         setProfile(null)
@@ -295,18 +304,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     )
 
     if (shouldRevokeServerSession) {
-      try {
-        await signOutMobileAuth()
-      } catch {
-        // Local session cleanup still wins when the server session is already gone.
-      }
+      // Local session cleanup still wins when the server session is already
+      // gone or unreachable; revocation may remain unconfirmed offline.
+      await Promise.race([
+        signOutMobileAuth().catch(() => undefined),
+        new Promise((resolve) =>
+          setTimeout(resolve, SERVER_SIGN_OUT_BUDGET_MS)
+        ),
+      ])
     }
 
     await invalidateLocalSession()
   }, [invalidateLocalSession, profile?.token])
 
-  const switchRole = useCallback(
+  const switchRoleNow = useCallback(
     async (membershipId: string) => {
+      const generation = authGenerationRef.current
+      const assertCurrentGeneration = async () => {
+        if (generation !== authGenerationRef.current) {
+          // Sign-out raced this switch: never leave its replacement token.
+          await clearSession()
+          throw new Error("The session changed before the switch completed.")
+        }
+      }
       const mockRole = getMockRoleForMembership(membershipId)
 
       if (
@@ -320,6 +340,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           clearReads: clearMobileReadCache,
           loadNextContext: async () => createMockProfile(mockRole),
           persistNextContext: async (next) => {
+            await assertCurrentGeneration()
             await persistMobileSessionAtomically({
               clearSession,
               persistProfile: setSessionProfile,
@@ -339,6 +360,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loadNextContext: async () =>
           (await switchMobileRole({ membershipId })).profile,
         persistNextContext: async (next) => {
+          await assertCurrentGeneration()
           await persistMobileSessionAtomically({
             clearSession,
             persistProfile: setSessionProfile,
@@ -347,11 +369,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           })
         },
       })
+      await assertCurrentGeneration()
       setProfile(nextProfile)
 
       return nextProfile
     },
     [profile?.token]
+  )
+
+  // Manual role switching and shortcut launches share one serialized
+  // context-transition lane.
+  const switchRole = useCallback(
+    (membershipId: string) => {
+      const run = contextTransitionRef.current.then(() =>
+        switchRoleNow(membershipId)
+      )
+      contextTransitionRef.current = run.catch(() => undefined)
+      return run
+    },
+    [switchRoleNow]
   )
 
   const value = useMemo<AuthContextValue>(

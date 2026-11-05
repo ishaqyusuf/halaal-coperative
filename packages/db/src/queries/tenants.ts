@@ -269,7 +269,7 @@ function mapPrismaTenantRecord(input: {
   status: TenantStatus
   dataClassification: "live" | "qa"
   qaPurgeStartedAt: Date | null
-  members?: unknown[]
+  _count?: { members: number }
 }) {
   return {
     id: input.id,
@@ -291,7 +291,7 @@ function mapPrismaTenantRecord(input: {
     status: input.status,
     dataClassification: input.dataClassification,
     qaPurgeStartedAt: input.qaPurgeStartedAt?.toISOString() ?? null,
-    memberCount: input.members?.length ?? 0,
+    memberCount: input._count?.members ?? 0,
   } satisfies TenantRecord
 }
 
@@ -448,11 +448,7 @@ export async function listTenants() {
 
   const tenants = await prisma.tenant.findMany({
     include: {
-      members: {
-        select: {
-          id: true,
-        },
-      },
+      _count: { select: { members: true } },
     },
     orderBy: {
       createdAt: "asc",
@@ -600,11 +596,7 @@ export async function getTenantByIdAsync(tenantId: string) {
       id: tenantId,
     },
     include: {
-      members: {
-        select: {
-          id: true,
-        },
-      },
+      _count: { select: { members: true } },
     },
   })
 
@@ -627,11 +619,7 @@ export async function findTenantBySlugAsync(slug: string | null | undefined) {
       slug: slug.trim().toLowerCase(),
     },
     include: {
-      members: {
-        select: {
-          id: true,
-        },
-      },
+      _count: { select: { members: true } },
     },
   })
 
@@ -656,9 +644,7 @@ export async function findTenantByCooperativeCodePrefixAsync(
   const tenant = await prisma.tenant.findUnique({
     where: { cooperativeCodePrefix: normalizedPrefix },
     include: {
-      members: {
-        select: { id: true },
-      },
+      _count: { select: { members: true } },
     },
   })
 

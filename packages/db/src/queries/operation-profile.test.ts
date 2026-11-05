@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
   defaultTenantServiceAccessModes,
   ensureTenantOperationProfileDefaults,
+  getOperationNavRecordPresence,
   getTenantOperationProfile,
   tenantServiceKeys,
   updateTenantOperationProfile,
@@ -406,5 +407,69 @@ describe("tenant operation profile", () => {
     ).rejects.toThrow(
       "Foodstuff Purchase active obligation limit must be a positive whole number."
     )
+  })
+})
+
+describe("operation nav record presence", () => {
+  function createPresencePrismaStub(rows: Record<string, boolean>) {
+    const lookups: Array<{ args: unknown; model: string }> = []
+    const delegate = (model: string) => ({
+      findFirst: async (args: unknown) => {
+        lookups.push({ args, model })
+        return rows[model] ? { id: `${model}-1` } : null
+      },
+    })
+
+    return {
+      lookups,
+      prisma: {
+        foodPurchaseApplication: delegate("foodPurchaseApplication"),
+        memberPaymentReceipt: delegate("memberPaymentReceipt"),
+        procurementRequest: delegate("procurementRequest"),
+        supportCase: delegate("supportCase"),
+      },
+    }
+  }
+
+  test("checks existence with one id-only lookup per service", async () => {
+    const { lookups, prisma } = createPresencePrismaStub({
+      procurementRequest: true,
+      supportCase: true,
+    })
+
+    const presence = await getOperationNavRecordPresence(
+      { tenantId: "tenant-1" },
+      prisma as never
+    )
+
+    expect(presence).toEqual({
+      foodPurchase: false,
+      paymentReceipts: false,
+      procurement: true,
+      support: true,
+    })
+    expect(lookups).toHaveLength(4)
+    for (const lookup of lookups) {
+      expect(lookup.args).toEqual({
+        select: { id: true },
+        where: { tenantId: "tenant-1" },
+      })
+    }
+  })
+
+  test("scopes member checks to the signed-in member's own records", async () => {
+    const { lookups, prisma } = createPresencePrismaStub({})
+
+    await getOperationNavRecordPresence(
+      { memberUserId: "user-1", tenantId: "tenant-1" },
+      prisma as never
+    )
+
+    for (const lookup of lookups) {
+      expect(lookup.args).toEqual({
+        select: { id: true },
+        where: { member: { userId: "user-1" }, tenantId: "tenant-1" },
+      })
+    }
   })
 })

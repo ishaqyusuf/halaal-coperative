@@ -7,10 +7,7 @@ import { NuqsAdapter } from "nuqs/adapters/next/app"
 import { QaQuickFillProvider } from "@/components/qa-quick-fill-provider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { getQaPreviewFlashKey } from "@/lib/qa-preview-flash.server"
-import {
-  getDashboardServerContext,
-  getQaQuickFillContext,
-} from "@/lib/server-context"
+import { getRequestQaQuickFillContext } from "@/lib/server-context"
 import { TRPCReactProvider } from "@/trpc/client"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
@@ -47,11 +44,10 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const [dashboardContext, qaPreviewKey] = await Promise.all([
-    getDashboardServerContext(),
+  const [quickFill, qaPreviewKey] = await Promise.all([
+    getRequestQaQuickFillContext(),
     getQaPreviewFlashKey(),
   ])
-  const quickFill = getQaQuickFillContext(dashboardContext)
 
   return (
     <html

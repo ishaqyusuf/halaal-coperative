@@ -302,3 +302,71 @@ describe("tenant trust profile", () => {
     expect(prisma.auditLogCreates).toHaveLength(0)
   })
 })
+
+describe("tenant member counts", () => {
+  test("counts members with _count instead of loading member ids", async () => {
+    const globalForPrisma = globalThis as typeof globalThis & {
+      __halaalVestPrisma?: unknown
+    }
+    const originalPrisma = globalForPrisma.__halaalVestPrisma
+    const originalDatabaseUrl = process.env.HALAALVEST_DATABASE_URL
+    const lookups: Array<{ include?: unknown }> = []
+    const tenantRow = {
+      cooperativeCodePrefix: "BRK",
+      currencyCode: "NGN",
+      currentSize: null,
+      dataClassification: "live",
+      id: "tenant-1",
+      memberNumberPrefix: null,
+      name: "Barakah Cooperative",
+      officeAddress: null,
+      qaPurgeStartedAt: null,
+      region: null,
+      slug: "barakah",
+      startDate: null,
+      status: "active",
+      timezone: "Africa/Lagos",
+      _count: { members: 42 },
+    }
+    process.env.HALAALVEST_DATABASE_URL = "postgres://stub/halaalvest"
+    globalForPrisma.__halaalVestPrisma = {
+      tenant: {
+        findMany: async (args: { include?: unknown }) => {
+          lookups.push(args)
+          return [tenantRow]
+        },
+        findUnique: async (args: { include?: unknown }) => {
+          lookups.push(args)
+          return tenantRow
+        },
+      },
+    }
+
+    try {
+      const { findTenantBySlugAsync, getTenantByIdAsync, listTenants } =
+        await import("./tenants")
+      const [bySlug, byId, [listed]] = await Promise.all([
+        findTenantBySlugAsync("barakah"),
+        getTenantByIdAsync("tenant-1"),
+        listTenants(),
+      ])
+
+      expect(bySlug?.memberCount).toBe(42)
+      expect(byId?.memberCount).toBe(42)
+      expect(listed?.memberCount).toBe(42)
+      expect(lookups).toHaveLength(3)
+      for (const lookup of lookups) {
+        expect(lookup.include).toEqual({
+          _count: { select: { members: true } },
+        })
+      }
+    } finally {
+      globalForPrisma.__halaalVestPrisma = originalPrisma
+      if (originalDatabaseUrl) {
+        process.env.HALAALVEST_DATABASE_URL = originalDatabaseUrl
+      } else {
+        delete process.env.HALAALVEST_DATABASE_URL
+      }
+    }
+  })
+})

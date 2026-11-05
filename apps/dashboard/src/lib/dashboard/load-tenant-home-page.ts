@@ -5,7 +5,6 @@ import {
   getMemberOperationalReadiness,
   getMemberStatementDetail,
   getMemberUnitSharePosition,
-  getTenantOperationProfile,
   getTenantSharePolicy,
   listFoodPurchaseApplications,
   listMemberPaymentReceipts,
@@ -14,7 +13,10 @@ import {
   listProjectFinancingRequests,
   listSupportCases,
 } from "@halaalvest/db"
-import { getOperationProfileHiddenNavPaths } from "@/lib/navigation/operation-profile"
+import {
+  getOperationProfileHiddenNavPaths,
+  getRequestTenantOperationProfile,
+} from "@/lib/navigation/operation-profile"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { resolveInitialMigrationSetupGate } from "@/lib/setup-gate"
 
@@ -139,7 +141,7 @@ export async function loadTenantHomePageData() {
         memberId: member.id,
         tenantId: context.tenant.id,
       }),
-      getTenantOperationProfile(context.tenant.id),
+      getRequestTenantOperationProfile(context.tenant.id),
     ])
     const procurementCapability = operationProfile.services.procurement
     const foodPurchaseCapability = operationProfile.services.food_purchase

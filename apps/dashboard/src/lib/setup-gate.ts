@@ -1,9 +1,9 @@
 import {
   getTenantBusinessProfitPolicy,
   getTenantInitialMigrationState,
-  getTenantOperationProfile,
   type MembershipRole,
 } from "@halaalvest/db"
+import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
 import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
 
 export {
@@ -46,7 +46,7 @@ export async function resolveInitialMigrationSetupGate(input: {
 
   const [migrationState, operationProfile, businessPolicy] = await Promise.all([
     getTenantInitialMigrationState(input.tenantId),
-    getTenantOperationProfile(input.tenantId),
+    getRequestTenantOperationProfile(input.tenantId),
     getTenantBusinessProfitPolicy(input.tenantId),
   ])
   const canUseLiveWorkspace = migrationState.snapshot.canUseLiveFinancialWrites

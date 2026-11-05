@@ -632,3 +632,47 @@ export async function updateTenantOperationProfile(
 
   return next
 }
+
+export type OperationNavRecordPresence = {
+  foodPurchase: boolean
+  paymentReceipts: boolean
+  procurement: boolean
+  support: boolean
+}
+
+/**
+ * Existence-only checks behind the operation-service nav items. Each check
+ * selects one id; `memberUserId` scopes the checks to that user's member
+ * record, so a member only sees nav for their own records.
+ */
+export async function getOperationNavRecordPresence(
+  input: {
+    memberUserId?: string | null
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<OperationNavRecordPresence> {
+  const prisma = getPrisma(prismaOverride)
+  const where = {
+    tenantId: input.tenantId,
+    ...(input.memberUserId ? { member: { userId: input.memberUserId } } : {}),
+  }
+  const exists = (delegate: {
+    findFirst?: (args: unknown) => Promise<{ id: string } | null>
+  }) =>
+    typeof delegate?.findFirst === "function"
+      ? delegate
+          .findFirst({ select: { id: true }, where })
+          .then((row) => Boolean(row))
+      : Promise.resolve(false)
+
+  const [procurement, foodPurchase, support, paymentReceipts] =
+    await Promise.all([
+      exists(prisma.procurementRequest),
+      exists(prisma.foodPurchaseApplication),
+      exists(prisma.supportCase),
+      exists(prisma.memberPaymentReceipt),
+    ])
+
+  return { foodPurchase, paymentReceipts, procurement, support }
+}

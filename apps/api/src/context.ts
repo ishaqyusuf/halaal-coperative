@@ -120,14 +120,17 @@ export async function buildRequestContext(headers: Headers) {
   // such as x-user-id, x-session-token and x-user-role are never trusted.
   const signedSession = bearerSession ?? signedCookieSession
   const user = await findUserByIdAsync(signedSession?.userId ?? null)
-  const tenantResolution = await resolveTenantAsync({
-    fallbackTenantId:
-      bearerSession?.tenantId ??
-      (user && !user.isPlatformOwner ? user.tenantId : null),
-    slug: bearerToken ? null : forwardedTenantSlug,
-    hostname: bearerToken ? null : (forwardedTenantHostname ?? requestHost),
-  })
-  const userMemberships = await findMembershipsForUserAsync(user?.id)
+  // Both lookups depend only on the verified user, so they run together.
+  const [tenantResolution, userMemberships] = await Promise.all([
+    resolveTenantAsync({
+      fallbackTenantId:
+        bearerSession?.tenantId ??
+        (user && !user.isPlatformOwner ? user.tenantId : null),
+      slug: bearerToken ? null : forwardedTenantSlug,
+      hostname: bearerToken ? null : (forwardedTenantHostname ?? requestHost),
+    }),
+    findMembershipsForUserAsync(user?.id),
+  ])
   const signedMembership = bearerSession?.membershipId
     ? (userMemberships.find(
         (membership) =>

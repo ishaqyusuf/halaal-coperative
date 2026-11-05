@@ -1,13 +1,10 @@
 import type { CooperativeRole } from "@halaalvest/auth/roles"
 import {
   createDbRuntime,
-  getMemberByUserId,
+  getOperationNavRecordPresence,
   getTenantOperationProfile,
-  listFoodPurchaseApplications,
-  listMemberPaymentReceipts,
-  listProcurementRequests,
-  listSupportCases,
 } from "@halaalvest/db"
+import { cache } from "react"
 
 type OperationProfileNavigationInput = {
   role: CooperativeRole | null
@@ -16,6 +13,52 @@ type OperationProfileNavigationInput = {
 }
 
 const memberRoles = new Set<CooperativeRole>(["member"])
+
+/**
+ * Per-request operation profile. The sidebar layout, the setup gate and page
+ * loaders all read it, so it resolves once per request.
+ */
+export const getRequestTenantOperationProfile = cache((tenantId: string) =>
+  getTenantOperationProfile(tenantId)
+)
+
+const getHiddenNavPaths = cache(
+  async (
+    role: CooperativeRole | null,
+    tenantId: string,
+    userId: string | null
+  ) => {
+    const isMember = role ? memberRoles.has(role) : false
+    const [operationProfile, presence] = await Promise.all([
+      getRequestTenantOperationProfile(tenantId),
+      getOperationNavRecordPresence({
+        memberUserId: isMember ? userId : null,
+        tenantId,
+      }),
+    ])
+    const hiddenPaths: string[] = []
+    const navKey = isMember ? "shouldShowInMemberNav" : "shouldShowInStaffNav"
+    const { services } = operationProfile
+
+    if (!services.procurement[navKey] && !presence.procurement) {
+      hiddenPaths.push("/procurement")
+    }
+
+    if (!services.food_purchase[navKey] && !presence.foodPurchase) {
+      hiddenPaths.push("/food-purchase")
+    }
+
+    if (!services.support_cases[navKey] && !presence.support) {
+      hiddenPaths.push("/support")
+    }
+
+    if (!services.payment_receipts[navKey] && !presence.paymentReceipts) {
+      hiddenPaths.push("/payment-receipts")
+    }
+
+    return hiddenPaths
+  }
+)
 
 export async function getOperationProfileHiddenNavPaths({
   role,
@@ -26,82 +69,5 @@ export async function getOperationProfileHiddenNavPaths({
     return []
   }
 
-  const operationProfile = await getTenantOperationProfile(tenantId)
-  const hiddenPaths: string[] = []
-  const isMember = role ? memberRoles.has(role) : false
-  const member = isMember && userId ? await getMemberByUserId({ tenantId, userId }) : null
-  const memberId = member?.id
-
-  const [
-    procurementRecords,
-    foodPurchaseRecords,
-    supportRecords,
-    receiptRecords,
-  ] = await Promise.all([
-    listProcurementRequests({
-      limit: 1,
-      memberId,
-      tenantId,
-    }),
-    listFoodPurchaseApplications({
-      limit: 1,
-      memberId,
-      tenantId,
-    }),
-    listSupportCases({
-      limit: 1,
-      memberId,
-      tenantId,
-    }),
-    listMemberPaymentReceipts(tenantId, {
-      limit: 1,
-      memberId,
-    }),
-  ])
-
-  const procurement = operationProfile.services.procurement
-  const foodPurchase = operationProfile.services.food_purchase
-  const support = operationProfile.services.support_cases
-  const receipts = operationProfile.services.payment_receipts
-
-  if (isMember) {
-    if (!procurement.shouldShowInMemberNav && procurementRecords.length === 0) {
-      hiddenPaths.push("/procurement")
-    }
-
-    if (
-      !foodPurchase.shouldShowInMemberNav &&
-      foodPurchaseRecords.length === 0
-    ) {
-      hiddenPaths.push("/food-purchase")
-    }
-
-    if (!support.shouldShowInMemberNav && supportRecords.length === 0) {
-      hiddenPaths.push("/support")
-    }
-
-    if (!receipts.shouldShowInMemberNav && receiptRecords.length === 0) {
-      hiddenPaths.push("/payment-receipts")
-    }
-
-    return hiddenPaths
-  }
-
-  if (!procurement.shouldShowInStaffNav && procurementRecords.length === 0) {
-    hiddenPaths.push("/procurement")
-  }
-
-  if (!foodPurchase.shouldShowInStaffNav && foodPurchaseRecords.length === 0) {
-    hiddenPaths.push("/food-purchase")
-  }
-
-  if (!support.shouldShowInStaffNav && supportRecords.length === 0) {
-    hiddenPaths.push("/support")
-  }
-
-  if (!receipts.shouldShowInStaffNav && receiptRecords.length === 0) {
-    hiddenPaths.push("/payment-receipts")
-  }
-
-  return hiddenPaths
+  return getHiddenNavPaths(role, tenantId, userId ?? null)
 }

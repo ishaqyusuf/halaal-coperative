@@ -24,6 +24,6 @@
   "dependencies": {
     "@halaalvest/domain": "workspace:*",
     "@halaalvest/email": "workspace:*",
-    "zod": "^4.1.11"
+    "zod": "^4.6.7"
   }
 }

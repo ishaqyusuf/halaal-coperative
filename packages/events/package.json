@@ -19,7 +19,7 @@
   "dependencies": {
     "@ishaqyusuf/logly-core": "^0.2.0",
     "@ishaqyusuf/logly-next": "^0.2.1",
-    "zod": "^4.1.11"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@halaalvest/tsconfig": "workspace:*",

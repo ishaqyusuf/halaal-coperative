@@ -12,6 +12,7 @@ function isChargeOperationSheetOpen(type: string | null) {
     type === "definition" ||
       type === "application" ||
       type === "waive" ||
+      type === "settle" ||
       type === "reverse" ||
       type === "toggle" ||
       type === "version"

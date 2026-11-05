@@ -91,6 +91,7 @@ import {
   reviewSupportCaseFinancialAdjustment,
   reviewProjectFinancingRequest,
   reverseChargeApplication,
+  settleChargeApplication,
   reviewLoanGuarantorApproval,
   respondMemberLoanGuarantorApproval,
   reviewMemberShareApplication,
@@ -3660,6 +3661,44 @@ export async function waiveChargeApplicationAction(formData: FormData) {
   revalidatePath("/contributions")
 }
 
+export async function settleChargeApplicationAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  await requireLiveFinancialWritesOpen(actor)
+  const paidAt = getRequiredString(formData, "paidAt")
+
+  requireDateOnOrAfterTenantStartDate(actor, paidAt, "Charge payment date")
+
+  const charge = await settleChargeApplication({
+    actorUserId: actor.user.id,
+    chargeApplicationId: getRequiredString(formData, "chargeApplicationId"),
+    notes: getOptionalTrimmedString(formData, "notes"),
+    paidAt: new Date(`${paidAt}T00:00:00.000Z`),
+    reference: getRequiredString(formData, "reference"),
+    tenantId: actor.tenant.id,
+  })
+
+  await sendTenantRoleNotificationEmails({
+    actionLabel: "Review charges",
+    actionUrl: "/charges",
+    bodyText: `A separate charge payment of ${Number(charge.amount)} was recorded for member operations review.`,
+    metadata: {
+      chargeApplicationId: charge.id,
+      memberId: charge.memberId,
+      status: charge.status,
+    },
+    notificationType: "charge.settled",
+    roles: ["tenant_admin", "finance_officer"],
+    source: "dashboard.charge",
+    subject: `${actor.tenant.name}: charge payment recorded`,
+    tenantId: actor.tenant.id,
+    tenantName: actor.tenant.name,
+    tenantSlug: actor.tenant.slug,
+  })
+
+  revalidatePath("/charges")
+  revalidatePath("/contributions")
+}
+
 export async function reverseChargeApplicationAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireLiveFinancialWritesOpen(actor)
@@ -6953,6 +6992,7 @@ const dashboardActionHandlers = {
   updateChargeDefinitionAction,
   applyChargeAction,
   waiveChargeApplicationAction,
+  settleChargeApplicationAction,
   reverseChargeApplicationAction,
   submitLoanRequestAction,
   reviewLoanGuarantorApprovalAction,
@@ -7206,6 +7246,9 @@ export const dashboardActionsRouter = createTRPCRouter({
   applyChargeAction: formAction(dashboardActionHandlers.applyChargeAction),
   waiveChargeApplicationAction: formAction(
     dashboardActionHandlers.waiveChargeApplicationAction
+  ),
+  settleChargeApplicationAction: formAction(
+    dashboardActionHandlers.settleChargeApplicationAction
   ),
   reverseChargeApplicationAction: formAction(
     dashboardActionHandlers.reverseChargeApplicationAction

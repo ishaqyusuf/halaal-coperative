@@ -38,5 +38,8 @@ describe("workflow presentation registry", () => {
     expect(
       getWorkflowPresentation("chargeOperation", "reverse").presentation
     ).toBe("alert-dialog")
+    expect(
+      getWorkflowPresentation("chargeOperation", "settle").presentation
+    ).toBe("dialog")
   })
 })

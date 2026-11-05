@@ -10,6 +10,7 @@ export const chargeOperationParamsSchema = {
     "definition",
     "application",
     "waive",
+    "settle",
     "reverse",
     "toggle",
     "version",

@@ -197,10 +197,16 @@ export function ChargesPageView({
                       >
                         {application.status}
                       </TrendPill>
-                      {canManageCharges && application.status === "posted" ? (
+                      {canManageCharges &&
+                      (application.status === "posted" ||
+                        application.status === "pending") ? (
                         <ChargeApplicationActionsMenu
                           applicationId={application.id}
+                          collectionMode={
+                            application.collectionMode ?? "deduct_from_savings"
+                          }
                           memberName={application.member.fullName}
+                          status={application.status}
                         />
                       ) : null}
                     </div>

@@ -7,19 +7,24 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@halaalvest/ui/components/dropdown-menu"
-import { Ban, MoreHorizontal, RotateCcw } from "lucide-react"
+import { Ban, Banknote, MoreHorizontal, RotateCcw } from "lucide-react"
 import { useChargeOperationParams } from "@/hooks/use-charge-operation-params"
 
 export function ChargeApplicationActionsMenu({
   applicationId,
+  collectionMode,
   memberName,
+  status,
 }: {
   applicationId: string
+  collectionMode: string
   memberName: string
+  status: string
 }) {
   const { setParams } = useChargeOperationParams()
+  const canSettle = status === "pending" && collectionMode === "pay_separately"
 
-  function open(type: "reverse" | "waive") {
+  function open(type: "reverse" | "settle" | "waive") {
     void setParams({
       chargeApplicationId: applicationId,
       chargeDefinitionId: null,
@@ -46,14 +51,22 @@ export function ChargeApplicationActionsMenu({
         <MoreHorizontal />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
+        {canSettle ? (
+          <DropdownMenuItem onClick={() => open("settle")}>
+            <Banknote />
+            Record payment
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem onClick={() => open("waive")}>
           <Ban />
           Waive charge
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => open("reverse")}>
-          <RotateCcw />
-          Reverse charge
-        </DropdownMenuItem>
+        {status === "posted" ? (
+          <DropdownMenuItem onClick={() => open("reverse")}>
+            <RotateCcw />
+            Reverse charge
+          </DropdownMenuItem>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   )

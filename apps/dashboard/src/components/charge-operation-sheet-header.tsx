@@ -11,6 +11,7 @@ const sheetTitles = {
   application: "Apply charge",
   definition: "New charge definition",
   reverse: "Reverse charge",
+  settle: "Record separate payment",
   toggle: "Update charge status",
   version: "Add dated charge update",
   waive: "Waive charge",

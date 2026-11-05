@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation"
 import { useTRPC } from "@/trpc/client"
 import {
   reverseChargeApplicationAction,
+  settleChargeApplicationAction,
   updateChargeDefinitionAction,
   waiveChargeApplicationAction,
 } from "@/lib/dashboard-actions"
@@ -120,11 +121,58 @@ export function ChargeOperationContent({
           value={chargeApplicationId ?? ""}
         />
         <p className="text-sm text-muted-foreground">
-          Waive this posted charge application. This action is recorded against
-          the application history.
+          Waive this charge application. A posted charge gets an opposite ledger
+          entry; a pending charge is closed without money movement.
         </p>
         <Button disabled={!chargeApplicationId} type="submit" variant="outline">
           Waive charge
+        </Button>
+      </form>
+    )
+  }
+
+  if (chargeOperationSheetType === "settle") {
+    return (
+      <form
+        action={async (formData) => {
+          await settleChargeApplicationAction(formData)
+          await refreshCharges()
+        }}
+        className="grid gap-4 px-6"
+      >
+        <input
+          name="chargeApplicationId"
+          type="hidden"
+          value={chargeApplicationId ?? ""}
+        />
+        <p className="text-sm text-muted-foreground">
+          Record the member&apos;s separate payment for this pending charge. It
+          posts to cash and charge income. Each payment reference can be used
+          only once in this cooperative.
+        </p>
+        <label className="grid gap-2 text-sm font-medium text-foreground">
+          Payment date
+          <DatePickerInput
+            name="paidAt"
+            placeholder="Select payment date"
+            required
+          />
+        </label>
+        <label className="grid gap-2 text-sm font-medium text-foreground">
+          Payment reference
+          <Input
+            name="reference"
+            placeholder="Bank transfer or receipt reference"
+            required
+            type="text"
+          />
+        </label>
+        <label className="grid gap-2 text-sm font-medium text-foreground">
+          Notes
+          <Input name="notes" placeholder="Optional" type="text" />
+        </label>
+        <Button disabled={!chargeApplicationId} type="submit">
+          Record payment
         </Button>
       </form>
     )

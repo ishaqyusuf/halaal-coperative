@@ -427,6 +427,10 @@ export async function waiveChargeApplicationAction(formData: FormData) {
   return callDashboardFormAction("waiveChargeApplicationAction", formData)
 }
 
+export async function settleChargeApplicationAction(formData: FormData) {
+  return callDashboardFormAction("settleChargeApplicationAction", formData)
+}
+
 export async function reverseChargeApplicationAction(formData: FormData) {
   return callDashboardFormAction("reverseChargeApplicationAction", formData)
 }

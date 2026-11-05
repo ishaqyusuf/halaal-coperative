@@ -32,6 +32,7 @@ export const workflowPresentations = {
     application: sheet("review"),
     definition: sheet("review"),
     reverse: alertDialog(),
+    settle: dialog("form"),
     toggle: alertDialog(),
     version: sheet(),
     waive: alertDialog(),

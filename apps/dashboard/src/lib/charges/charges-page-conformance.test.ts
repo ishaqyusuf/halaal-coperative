@@ -59,7 +59,7 @@ describe("charges workspace Midday conformance", () => {
     expect(invalidateAt).toBeGreaterThan(-1)
     expect(closeAt).toBeGreaterThan(invalidateAt)
     expect(refreshAt).toBeGreaterThan(closeAt)
-    expect(content.match(/await refreshCharges\(\)/g) ?? []).toHaveLength(4)
+    expect(content.match(/await refreshCharges\(\)/g) ?? []).toHaveLength(5)
     expect(
       forms.match(/await onSuccess\?\.\(\)/g)?.length ?? 0
     ).toBeGreaterThan(1)

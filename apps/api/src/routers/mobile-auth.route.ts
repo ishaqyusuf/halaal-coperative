@@ -3,6 +3,7 @@ import {
   findActiveMembershipAsync,
   findUserByCooperativeAccessCodeAsync,
   findMembershipsForUserAsync,
+  listMobileWorkspacesForUserAsync,
   resolveTenantAsync,
   revokeMobileDeviceSession,
   type MembershipRecord,
@@ -19,15 +20,19 @@ import {
 } from "../lib.trpc"
 import {
   assertMobileMemberWorkspaceEntitled,
+  assertMobileWorkspaceSwitchAllowed,
   buildMobileProfile,
+  buildTenantMark,
   getLinkedMobileMember,
   issueMobileProfile,
+  toMobileRole,
 } from "./mobile-auth-profile"
 import {
   enforcePublicAuthLimits,
   enforceTenantAuthLimit,
   mobileRecoveryRouter,
 } from "./mobile-account-access.route"
+import { getMobileSessionRefreshBounds } from "./mobile-device-session.route"
 
 const mobileSignInInput = z.object({
   cooperativeAccessCode: z.string().trim().min(3).max(96),
@@ -152,6 +157,47 @@ export const mobileAuthRouter = createTRPCRouter({
     }
   }),
 
+  // Current-user cooperative discovery for the workspace picker and launcher
+  // shortcuts. It accepts no user or tenant selector and returns no business
+  // data; switchRole remains the only authority that changes context.
+  workspaces: authenticatedProcedure.query(async ({ ctx }) => {
+    const session = ctx.auth.session
+    const tenant = ctx.tenant.current
+
+    if (!session || !tenant || !ctx.auth.activeMembership) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "An active mobile session is required.",
+      })
+    }
+
+    const workspaces = await listMobileWorkspacesForUserAsync({
+      currentTenantId: tenant.id,
+      qaSession: Boolean(session.qaAuthorizationId),
+      userId: session.user.id,
+    })
+
+    return {
+      workspaces: workspaces.map((workspace) => ({
+        isCurrent: workspace.isCurrent,
+        memberships: workspace.memberships.map((membership) => ({
+          id: membership.id,
+          isDefault: membership.isDefault,
+          role: membership.role,
+          workspaceRole: toMobileRole(membership.role),
+        })),
+        tenant: {
+          id: workspace.tenant.id,
+          // No trusted cooperative logo source exists yet; the mark is the
+          // approved launcher artwork until one is wired.
+          logoUrl: null,
+          mark: buildTenantMark(workspace.tenant.name),
+          name: workspace.tenant.name,
+        },
+      })),
+    }
+  }),
+
   switchRole: authenticatedProcedure
     .input(mobileSwitchRoleInput)
     .mutation(async ({ ctx, input }) => {
@@ -175,6 +221,12 @@ export const mobileAuthRouter = createTRPCRouter({
           message: "That mobile workspace is not available for this account.",
         })
       }
+
+      assertMobileWorkspaceSwitchAllowed({
+        currentTenantId: ctx.tenant.current?.id,
+        qaSession: Boolean(session.qaAuthorizationId),
+        targetTenantId: membership.tenantId,
+      })
 
       const tenantResolution = await resolveTenantAsync({
         fallbackTenantId: membership.tenantId,
@@ -200,6 +252,9 @@ export const mobileAuthRouter = createTRPCRouter({
             deviceId: ctx.request.deviceSignal,
           },
           membership,
+          // A QA-authorized session keeps its exact authorization and expiry
+          // bound instead of widening into an ordinary session.
+          ...getMobileSessionRefreshBounds(session),
           replacesToken: session.token,
           runtimeStatus: ctx.runtime.status,
           tenant: tenantResolution.tenant,

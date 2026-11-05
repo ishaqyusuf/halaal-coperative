@@ -7,6 +7,7 @@ import {
 import { buildRequestContext } from "../context"
 import { createCallerFactory } from "../lib.trpc"
 import { appRouter } from "./_app"
+import { assertMobileWorkspaceSwitchAllowed } from "./mobile-auth-profile"
 import { mobileAuthRouter } from "./mobile-auth.route"
 
 describe("mobileAuthRouter", () => {
@@ -176,5 +177,88 @@ describe("mobileAuthRouter", () => {
     await expect(caller.auth.mobile.me()).rejects.toThrow(
       "You must be signed in to continue."
     )
+  })
+
+  test("lists only the signed user's own cooperative workspaces", async () => {
+    const token = await createSignedSessionToken({
+      membershipId: "membership-amanah-admin",
+      scope: platformSessionScope,
+      tenantId: "tenant-amanah-demo",
+      userId: "user-tenant-admin-amanah",
+    })
+    const caller = createCaller(
+      await buildRequestContext(
+        new Headers({
+          authorization: `Bearer ${token}`,
+          host: "api.halaalvest.localhost",
+        })
+      )
+    )
+
+    const response = await caller.auth.mobile.workspaces()
+
+    expect(response.workspaces).toEqual([
+      {
+        isCurrent: true,
+        memberships: [
+          {
+            id: "membership-amanah-admin",
+            isDefault: true,
+            role: "tenant_admin",
+            workspaceRole: "admin",
+          },
+          {
+            id: "membership-amanah-admin-member",
+            isDefault: false,
+            role: "member",
+            workspaceRole: "member",
+          },
+        ],
+        tenant: {
+          id: "tenant-amanah-demo",
+          logoUrl: null,
+          mark: "AS",
+          name: expect.any(String),
+        },
+      },
+    ])
+    expect(JSON.stringify(response)).not.toContain("membership-barakah-finance")
+    expect(JSON.stringify(response)).not.toContain(token)
+  })
+
+  test("rejects workspace discovery without a verified session", async () => {
+    const caller = createCaller(
+      await buildRequestContext(
+        new Headers({ host: "api.halaalvest.localhost" })
+      )
+    )
+
+    await expect(caller.auth.mobile.workspaces()).rejects.toThrow(
+      "You must be signed in to continue."
+    )
+  })
+
+  test("binds QA-authorized workspace switching to the current tenant", () => {
+    expect(() =>
+      assertMobileWorkspaceSwitchAllowed({
+        currentTenantId: "tenant-qa",
+        qaSession: true,
+        targetTenantId: "tenant-live",
+      })
+    ).toThrow("That mobile workspace is not available")
+    expect(() =>
+      assertMobileWorkspaceSwitchAllowed({
+        currentTenantId: "tenant-qa",
+        qaSession: true,
+        targetTenantId: "tenant-qa",
+      })
+    ).not.toThrow()
+    expect(() =>
+      assertMobileWorkspaceSwitchAllowed({
+        currentTenantId: "tenant-a",
+        qaSession: false,
+        targetTenantId: "tenant-b",
+      })
+    ).not.toThrow()
   })
 })

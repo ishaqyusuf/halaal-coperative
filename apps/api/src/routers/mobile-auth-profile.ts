@@ -19,7 +19,7 @@ export function toMobileRole(role: MembershipRecord["role"]) {
   return role === "member" ? "member" : "admin"
 }
 
-function buildTenantMark(name: string) {
+export function buildTenantMark(name: string) {
   const words = name.trim().split(/\s+/).filter(Boolean)
   if (words.length <= 1) {
     return name.trim().slice(0, 2).toUpperCase() || "HC"
@@ -28,6 +28,23 @@ function buildTenantMark(name: string) {
     .slice(0, 2)
     .map((word) => word[0]?.toUpperCase())
     .join("")
+}
+
+/**
+ * A QA-authorized session is bound to the tenant its exact QA authorization
+ * covers. Ordinary sessions keep the existing membership-ownership checks.
+ */
+export function assertMobileWorkspaceSwitchAllowed(input: {
+  currentTenantId: string | null | undefined
+  qaSession: boolean
+  targetTenantId: string
+}) {
+  if (input.qaSession && input.targetTenantId !== input.currentTenantId) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "That mobile workspace is not available for this account.",
+    })
+  }
 }
 
 export async function getLinkedMobileMember(input: {

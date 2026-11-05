@@ -114,6 +114,9 @@ function createChargePrismaStub({
         return null
       },
     },
+    member: {
+      findFirst: async () => ({ id: "member-1" }),
+    },
   }
 
   return {
@@ -216,6 +219,7 @@ function createLoanRequestChargePrismaStub(
       },
     },
     chargeApplicability: {
+      findFirst: async (input: any) => ({ id: input.where.id }),
       findMany: async (input: any) =>
         definitions
           .filter((definition) => definition.workflowCollectionMode)
@@ -302,7 +306,11 @@ function createLoanRequestChargePrismaStub(
     ledgerTransaction: {
       create: async (input: unknown) => input,
     },
+    loanRequest: {
+      findFirst: async () => ({ memberId: "member-1" }),
+    },
     member: {
+      findFirst: async () => ({ id: "member-1" }),
       update: async (input: unknown) => input,
     },
   }
@@ -860,6 +868,7 @@ describe("charge migration guards", () => {
             },
           ],
         },
+        idempotencyKey: "payment-reference:bank-charge-001",
         reference: "BANK-CHARGE-001",
       },
     })

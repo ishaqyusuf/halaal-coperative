@@ -30,6 +30,9 @@ model LedgerTransaction {
   transactionType     LedgerTransactionType @map("transaction_type")
   postedAt            DateTime              @map("posted_at") @db.Timestamptz(6)
   reference           String?               @map("reference")
+  // Tenant-unique posting identity. Exclusive payment references and
+  // deterministic system postings claim it so concurrent duplicates fail.
+  idempotencyKey      String?               @map("idempotency_key")
   narration           String?
   createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
 
@@ -42,6 +45,7 @@ model LedgerTransaction {
   specialSavingsWithdrawal MemberSpecialSavingsWithdrawal?
   entries                  LedgerEntry[]
 
+  @@unique([tenantId, idempotencyKey], map: "ledger_transactions_tenant_idempotency_key")
   @@index([tenantId, postedAt], map: "ledger_transactions_tenant_posted_at_idx")
   @@index([tenantId, transactionType], map: "ledger_transactions_tenant_type_idx")
   @@map("ledger_transactions")

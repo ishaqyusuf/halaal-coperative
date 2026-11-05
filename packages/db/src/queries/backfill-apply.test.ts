@@ -487,8 +487,12 @@ function createLegacyLoanBackfillApplyPrismaStub(
         loanRequestCreates.push(input)
         return { id: "loan-request-1", ...input.data }
       },
+      findFirst: async () => ({
+        memberId: loanRequestCreates.at(-1)?.data.memberId,
+      }),
     },
     member: {
+      findFirst: async () => ({ id: "member-1" }),
       update: async (input: unknown) => input,
     },
     repayment: {

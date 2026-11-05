@@ -238,6 +238,9 @@ function createLiveLoanRequestPrismaStub(input?: {
           ...input.data,
         }
       },
+      findFirst: async () => ({
+        memberId: loanRequestCreates.at(-1)?.data.memberId,
+      }),
       findMany: async () =>
         (input?.existingLoanRequests ?? []).map((request) => ({
           requestedAmount: request.amount,
@@ -248,6 +251,7 @@ function createLiveLoanRequestPrismaStub(input?: {
         })),
     },
     member: {
+      findFirst: async () => ({ id: "member-1" }),
       findMany: async () => [],
       update: async (input: unknown) => input,
     },

@@ -1,8 +1,16 @@
 import { createHash } from "node:crypto"
 import type { ChargeKind, PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
-import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
-import { postLedgerTransaction, getLedgerAccountByCode } from "./ledger"
+import {
+  ExpectedQueryError,
+  isUniqueConstraintError,
+  QueryInfrastructureError,
+} from "../query-error"
+import {
+  getLedgerAccountByCode,
+  paymentReferenceIdempotencyKey,
+  postLedgerTransaction,
+} from "./ledger"
 import { getTenantInitialMigrationState } from "./migration"
 import { createMemberShareLedgerEntry } from "./tenant-finance"
 
@@ -56,6 +64,40 @@ export type ChargeQuote = {
   purpose: string
   trigger: ChargeApplicabilityTrigger
   workflow: ChargeWorkflow
+}
+
+type ResolvedChargeQuote = ChargeQuote & {
+  isMonthlyLevy: boolean
+  versionEffectiveFrom: string | null
+  versionId: string | null
+}
+
+export type ChargeApplicabilitySnapshot = {
+  amount: number
+  assessedAt: string
+  basisAmount: number | null
+  chargeApplicabilityId: string | null
+  chargeDefinition: {
+    code: string
+    id: string
+    isMonthlyLevy: boolean
+    name: string
+    purpose: string
+  }
+  collectionMode: ChargeCollectionMode
+  isRequired: boolean | null
+  schemaVersion: 1
+  source: "manual" | "workflow_applicability" | "workflow_legacy_flags"
+  sourceType: "backfill" | "import" | "live"
+  target: { id: string; type: ChargeTargetType } | null
+  trigger: ChargeApplicabilityTrigger | null
+  version: {
+    amount: number
+    chargeValueType: "fixed_amount" | "percentage"
+    effectiveFrom: string | null
+    id: string | null
+  } | null
+  workflow: ChargeWorkflow | null
 }
 
 export function getApplicableChargeQuoteHash(
@@ -255,7 +297,7 @@ function toChargeQuote(input: {
   isRequired?: boolean | null
   trigger: ChargeApplicabilityTrigger
   workflow: ChargeWorkflow
-}): ChargeQuote | null {
+}): ResolvedChargeQuote | null {
   const version = input.definition.versions?.[0]
   if (!version) return null
 
@@ -280,10 +322,15 @@ function toChargeQuote(input: {
     code: input.definition.code,
     collectionMode: input.collectionMode ?? "deduct_from_savings",
     effectiveAmount,
+    isMonthlyLevy: Boolean(input.definition.isMonthlyLevy),
     isRequired: input.isRequired ?? true,
     name: input.definition.name,
     purpose: input.definition.purpose ?? "general",
     trigger: input.trigger,
+    versionEffectiveFrom: version.effectiveFrom
+      ? new Date(version.effectiveFrom).toISOString()
+      : null,
+    versionId: version.id ?? null,
     workflow: input.workflow,
   }
 }
@@ -321,7 +368,7 @@ async function quoteApplicableChargesInTransaction(
     workflow: ChargeWorkflow
   },
   tx: PrismaClient
-): Promise<ChargeQuote[]> {
+): Promise<ResolvedChargeQuote[]> {
   const txAny = tx as any
 
   if (typeof txAny.chargeApplicability?.findMany === "function") {
@@ -366,8 +413,9 @@ async function quoteApplicableChargesInTransaction(
             workflow: input.workflow,
           })
         )
-        .filter((quote: ChargeQuote | null): quote is ChargeQuote =>
-          Boolean(quote)
+        .filter(
+          (quote: ResolvedChargeQuote | null): quote is ResolvedChargeQuote =>
+            Boolean(quote)
         )
     }
   }
@@ -404,7 +452,7 @@ async function quoteApplicableChargesInTransaction(
         workflow: input.workflow,
       })
     )
-    .filter((quote): quote is ChargeQuote => Boolean(quote))
+    .filter((quote): quote is ResolvedChargeQuote => Boolean(quote))
 }
 
 export async function listChargeDefinitions(
@@ -911,6 +959,77 @@ export async function updateChargeDefinition(
   })
 }
 
+const chargeTargets = [
+  { field: "loanRequestId", model: "loanRequest", type: "loan_request" },
+  { field: "loanId", model: "loan", type: "loan" },
+  {
+    field: "procurementRequestId",
+    model: "procurementRequest",
+    type: "procurement_request",
+  },
+  {
+    field: "foodPurchaseApplicationId",
+    model: "foodPurchaseApplication",
+    type: "food_purchase_application",
+  },
+  {
+    field: "projectFinancingRequestId",
+    model: "projectFinancingRequest",
+    type: "project_financing_request",
+  },
+] as const
+
+export type ChargeTargetType = (typeof chargeTargets)[number]["type"]
+
+type ChargeTargetInput = {
+  [Field in (typeof chargeTargets)[number]["field"]]?: string
+}
+
+function resolveChargeTarget(input: ChargeTargetInput) {
+  const supplied = chargeTargets.filter((target) => input[target.field])
+
+  if (supplied.length > 1) {
+    throw ExpectedQueryError.validation(
+      "A charge application can reference only one workflow target."
+    )
+  }
+
+  const target = supplied[0]
+  return target ? { ...target, id: input[target.field]! } : null
+}
+
+async function assertChargeTargetsBelongToMember(input: {
+  contributionId?: string
+  memberId: string
+  target: ReturnType<typeof resolveChargeTarget>
+  tenantId: string
+  tx: PrismaClient
+}) {
+  const txAny = input.tx as any
+  const lookups = [
+    ...(input.target
+      ? [{ id: input.target.id, model: input.target.model as string }]
+      : []),
+    ...(input.contributionId
+      ? [{ id: input.contributionId, model: "contribution" }]
+      : []),
+  ]
+
+  for (const lookup of lookups) {
+    const record = await txAny[lookup.model].findFirst({
+      select: { memberId: true },
+      where: { id: lookup.id, tenantId: input.tenantId },
+    })
+
+    if (!record) throw ExpectedQueryError.notFound("Charge target not found.")
+    if (record.memberId !== input.memberId) {
+      throw ExpectedQueryError.validation(
+        "Charge target belongs to a different member."
+      )
+    }
+  }
+}
+
 export type ApplyChargeInput = {
   tenantId: string
   memberId: string
@@ -931,7 +1050,10 @@ export type ApplyChargeInput = {
 }
 
 async function applyChargeInTransaction(
-  input: ApplyChargeInput,
+  input: ApplyChargeInput & {
+    applicabilitySnapshot?: ChargeApplicabilitySnapshot
+    workflowIdempotencyKey?: string
+  },
   tx: PrismaClient
 ) {
   if (!Number.isFinite(input.amount) || input.amount <= 0) {
@@ -949,15 +1071,59 @@ async function applyChargeInTransaction(
     throw ExpectedQueryError.precondition("Charge definition is inactive.")
   }
 
-  if (typeof txAny.member?.findFirst === "function") {
-    const member = await txAny.member.findFirst({
-      where: { id: input.memberId, tenantId: input.tenantId },
+  const member = await tx.member.findFirst({
+    where: { id: input.memberId, tenantId: input.tenantId },
+    select: { id: true },
+  })
+  if (!member) throw ExpectedQueryError.notFound("Member not found")
+
+  const target = resolveChargeTarget(input)
+  await assertChargeTargetsBelongToMember({
+    contributionId: input.contributionId,
+    memberId: input.memberId,
+    target,
+    tenantId: input.tenantId,
+    tx,
+  })
+
+  if (input.chargeApplicabilityId) {
+    const applicability = await txAny.chargeApplicability.findFirst({
       select: { id: true },
+      where: {
+        chargeDefinitionId: input.chargeDefinitionId,
+        id: input.chargeApplicabilityId,
+        tenantId: input.tenantId,
+      },
     })
-    if (!member) throw ExpectedQueryError.notFound("Member not found")
+    if (!applicability) {
+      throw ExpectedQueryError.notFound("Charge applicability rule not found.")
+    }
   }
 
   const collectionMode = input.collectionMode ?? "deduct_from_savings"
+  const applicabilitySnapshot: ChargeApplicabilitySnapshot =
+    input.applicabilitySnapshot ?? {
+      amount: input.amount,
+      assessedAt: input.assessedAt.toISOString(),
+      basisAmount: null,
+      chargeApplicabilityId: input.chargeApplicabilityId ?? null,
+      chargeDefinition: {
+        code: chargeDef.code,
+        id: chargeDef.id,
+        isMonthlyLevy: chargeDef.isMonthlyLevy,
+        name: chargeDef.name,
+        purpose: (chargeDef as any).purpose ?? "general",
+      },
+      collectionMode,
+      isRequired: null,
+      schemaVersion: 1,
+      source: "manual",
+      sourceType: input.sourceType ?? "live",
+      target: target ? { id: target.id, type: target.type } : null,
+      trigger: null,
+      version: null,
+      workflow: null,
+    }
   const shouldPostToSavings = collectionMode === "deduct_from_savings"
   const isShareCharge = (chargeDef as any).purpose === "member_share"
   const ledgerAccountCode = isShareCharge
@@ -978,25 +1144,37 @@ async function applyChargeInTransaction(
     )
   }
 
-  const application = await txAny.chargeApplication.create({
-    data: {
-      tenantId: input.tenantId,
-      memberId: input.memberId,
-      chargeDefinitionId: input.chargeDefinitionId,
-      chargeApplicabilityId: input.chargeApplicabilityId ?? undefined,
-      amount: input.amount,
-      assessedAt: input.assessedAt,
-      collectionMode,
-      status: shouldPostToSavings ? "posted" : "pending",
-      contributionId: input.contributionId,
-      foodPurchaseApplicationId: input.foodPurchaseApplicationId,
-      loanRequestId: input.loanRequestId,
-      loanId: input.loanId,
-      procurementRequestId: input.procurementRequestId,
-      projectFinancingRequestId: input.projectFinancingRequestId,
-      notes: input.notes,
-    },
-  })
+  const application = await txAny.chargeApplication
+    .create({
+      data: {
+        tenantId: input.tenantId,
+        memberId: input.memberId,
+        chargeDefinitionId: input.chargeDefinitionId,
+        chargeApplicabilityId: input.chargeApplicabilityId ?? undefined,
+        amount: input.amount,
+        assessedAt: input.assessedAt,
+        collectionMode,
+        status: shouldPostToSavings ? "posted" : "pending",
+        contributionId: input.contributionId,
+        foodPurchaseApplicationId: input.foodPurchaseApplicationId,
+        loanRequestId: input.loanRequestId,
+        loanId: input.loanId,
+        procurementRequestId: input.procurementRequestId,
+        projectFinancingRequestId: input.projectFinancingRequestId,
+        workflowIdempotencyKey: input.workflowIdempotencyKey,
+        applicabilitySnapshot,
+        notes: input.notes,
+      },
+    })
+    .catch((error: unknown) => {
+      if (isUniqueConstraintError(error)) {
+        throw ExpectedQueryError.conflict(
+          "This charge has already been applied. Refresh before trying again."
+        )
+      }
+
+      throw error
+    })
 
   if (!shouldPostToSavings) {
     await tx.auditLog.create({
@@ -1134,7 +1312,7 @@ export async function quoteApplicableCharges(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
-  return quoteApplicableChargesInTransaction(
+  const quotes = await quoteApplicableChargesInTransaction(
     {
       assessedAt: input.assessedAt ?? new Date(),
       basisAmount: input.basisAmount,
@@ -1144,28 +1322,15 @@ export async function quoteApplicableCharges(
     },
     prisma
   )
-}
 
-function targetWhereForChargeApplication(input: {
-  foodPurchaseApplicationId?: string
-  loanId?: string
-  loanRequestId?: string
-  procurementRequestId?: string
-  projectFinancingRequestId?: string
-}) {
-  if (input.loanRequestId) return { loanRequestId: input.loanRequestId }
-  if (input.loanId) return { loanId: input.loanId }
-  if (input.procurementRequestId) {
-    return { procurementRequestId: input.procurementRequestId }
-  }
-  if (input.foodPurchaseApplicationId) {
-    return { foodPurchaseApplicationId: input.foodPurchaseApplicationId }
-  }
-  if (input.projectFinancingRequestId) {
-    return { projectFinancingRequestId: input.projectFinancingRequestId }
-  }
-
-  return null
+  return quotes.map(
+    ({
+      isMonthlyLevy: _isMonthlyLevy,
+      versionEffectiveFrom: _effectiveFrom,
+      versionId: _versionId,
+      ...quote
+    }) => quote satisfies ChargeQuote
+  )
 }
 
 export async function applyApplicableWorkflowChargesInTransaction(
@@ -1187,6 +1352,18 @@ export async function applyApplicableWorkflowChargesInTransaction(
   },
   tx: PrismaClient
 ) {
+  const target = resolveChargeTarget(input)
+  const targetMatchesWorkflow =
+    input.workflow === "commitment_collection"
+      ? target === null
+      : target?.type === input.workflow
+
+  if (!targetMatchesWorkflow) {
+    throw ExpectedQueryError.validation(
+      "Workflow charges must reference exactly the target for their workflow."
+    )
+  }
+
   const quotes = await quoteApplicableChargesInTransaction(
     {
       assessedAt: input.assessedAt,
@@ -1198,14 +1375,15 @@ export async function applyApplicableWorkflowChargesInTransaction(
     tx
   )
   const applications = []
-  const targetWhere = targetWhereForChargeApplication(input)
 
   for (const quote of quotes) {
-    if (targetWhere) {
+    // The lookup returns earlier applications (including rows created before
+    // the workflow key existed); the unique key rejects concurrent duplicates.
+    if (target) {
       const existingApplication = await (tx as any).chargeApplication.findFirst(
         {
           where: {
-            ...targetWhere,
+            [target.field]: target.id,
             chargeDefinitionId: quote.chargeDefinitionId,
             tenantId: input.tenantId,
           },
@@ -1238,6 +1416,38 @@ export async function applyApplicableWorkflowChargesInTransaction(
           projectFinancingRequestId: input.projectFinancingRequestId,
           sourceType: input.sourceType,
           tenantId: input.tenantId,
+          workflowIdempotencyKey: target
+            ? `${input.workflow}:${target.id}:${quote.chargeDefinitionId}`
+            : undefined,
+          applicabilitySnapshot: {
+            amount: quote.amount,
+            assessedAt: input.assessedAt.toISOString(),
+            basisAmount: quote.basisAmount,
+            chargeApplicabilityId: quote.chargeApplicabilityId,
+            chargeDefinition: {
+              code: quote.code,
+              id: quote.chargeDefinitionId,
+              isMonthlyLevy: quote.isMonthlyLevy,
+              name: quote.name,
+              purpose: quote.purpose,
+            },
+            collectionMode: quote.collectionMode,
+            isRequired: quote.isRequired,
+            schemaVersion: 1,
+            source: quote.chargeApplicabilityId
+              ? "workflow_applicability"
+              : "workflow_legacy_flags",
+            sourceType: input.sourceType ?? "live",
+            target: target ? { id: target.id, type: target.type } : null,
+            trigger: quote.trigger,
+            version: {
+              amount: quote.effectiveAmount,
+              chargeValueType: quote.chargeValueType,
+              effectiveFrom: quote.versionEffectiveFrom,
+              id: quote.versionId,
+            },
+            workflow: quote.workflow,
+          },
         },
         tx
       )
@@ -1341,13 +1551,15 @@ async function postChargeCorrection(input: {
     )
   }
 
+  const correctionReference = `charge-correction:${input.applicationId}`
   const correctionTransaction = await postLedgerTransaction(
     {
       tenantId: input.tenantId,
       transactionType: input.isMonthlyLevy ? "levy" : "charge",
       postedAt: input.assessedAt,
       memberId: input.memberId,
-      reference: `charge-correction:${input.applicationId}`,
+      reference: correctionReference,
+      idempotencyKey: correctionReference,
       sourceType: input.sourceType,
       migrationWriteGuardValidated: true,
       narration:
@@ -1439,9 +1651,14 @@ export async function settleChargeApplication(
       )
     }
 
+    // Friendly check against any earlier posting; the payment-reference
+    // idempotency key below is what rejects concurrent reuse.
     const duplicateReference = await tx.ledgerTransaction.findFirst({
       select: { id: true },
-      where: { reference, tenantId: input.tenantId },
+      where: {
+        reference: { equals: reference, mode: "insensitive" },
+        tenantId: input.tenantId,
+      },
     })
     if (duplicateReference) {
       throw ExpectedQueryError.conflict(
@@ -1498,6 +1715,7 @@ export async function settleChargeApplication(
             ledgerAccountId: incomeAccount.id,
           },
         ],
+        idempotencyKey: paymentReferenceIdempotencyKey(reference),
         memberId: application.memberId,
         narration: `${application.chargeDefinition.name} separate payment received`,
         postedAt: input.paidAt,
@@ -1510,7 +1728,15 @@ export async function settleChargeApplication(
           : "charge",
       },
       tx as unknown as PrismaClient
-    )
+    ).catch((error: unknown) => {
+      if (isUniqueConstraintError(error)) {
+        throw ExpectedQueryError.conflict(
+          "This payment reference has already been posted."
+        )
+      }
+
+      throw error
+    })
 
     const updated = await tx.chargeApplication.update({
       data: {

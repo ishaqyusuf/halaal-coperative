@@ -603,10 +603,23 @@ export async function updateCollectionSourceContributionBatchRows(
                   status: row.blocker ? "blocked" : "staged",
                 }
 
-      await (tx as any).collectionSourceContributionBatchRow.update({
+      const changed = await (
+        tx as any
+      ).collectionSourceContributionBatchRow.updateMany({
         data,
-        where: { id: row.id },
+        where: {
+          contributionId: null,
+          id: row.id,
+          status: row.status,
+          tenantId: input.tenantId,
+        },
       })
+
+      if (changed.count !== 1) {
+        throw ExpectedQueryError.conflict(
+          "This Collection Source batch row changed. Refresh before trying again."
+        )
+      }
     }
 
     await tx.auditLog.create({
@@ -752,6 +765,27 @@ export async function postCollectionSourceContributionBatchRows(
         )
       }
 
+      // Claim the row first so a concurrent post of the same row waits on
+      // this row lock and then fails instead of posting a second payment.
+      const claimed = await (
+        tx as any
+      ).collectionSourceContributionBatchRow.updateMany({
+        data: { status: "posted" },
+        where: {
+          batchId: input.batchId,
+          contributionId: null,
+          id: row.id,
+          status: "collected",
+          tenantId: input.tenantId,
+        },
+      })
+
+      if (claimed.count !== 1) {
+        throw ExpectedQueryError.conflict(
+          "This Collection Source batch row has already been posted."
+        )
+      }
+
       const expectedAmount = Number(row.expectedAmount)
       const committedSavingsAmount = Math.min(paidAmount, expectedAmount)
       const extraSavingsAmount = Math.max(
@@ -765,6 +799,7 @@ export async function postCollectionSourceContributionBatchRows(
           committedSavingsAmount,
           contributionPlanId: row.contributionPlanId ?? undefined,
           extraSavingsAmount,
+          idempotencyKeyPrefix: `collection-source-row:${row.id}`,
           memberId: row.memberId,
           periodLabel: batch.periodLabel,
           postedAt,

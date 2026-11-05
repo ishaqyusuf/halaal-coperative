@@ -5,8 +5,16 @@ import type {
   PrismaClient,
 } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
-import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
-import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
+import {
+  ExpectedQueryError,
+  isUniqueConstraintError,
+  QueryInfrastructureError,
+} from "../query-error"
+import {
+  getLedgerAccountByCode,
+  paymentReferenceIdempotencyKey,
+  postLedgerTransaction,
+} from "./ledger"
 import { stopRemainingScheduleForClearedLoan } from "./loans"
 import { getTenantInitialMigrationState } from "./migration"
 
@@ -993,6 +1001,7 @@ export async function settleSupportCaseSpecialSavingsRefund(
           { amount, direction: "debit", ledgerAccountId: savingsAccount.id },
           { amount, direction: "credit", ledgerAccountId: cashAccount.id },
         ],
+        idempotencyKey: paymentReferenceIdempotencyKey(reference),
         memberId: supportCase.memberId,
         narration: "Special-savings refund paid to member",
         postedAt: input.paidAt,
@@ -1001,7 +1010,15 @@ export async function settleSupportCaseSpecialSavingsRefund(
         transactionType: "adjustment",
       },
       tx as unknown as PrismaClient
-    )
+    ).catch((error: unknown) => {
+      if (isUniqueConstraintError(error)) {
+        throw ExpectedQueryError.conflict(
+          "This payment reference has already been posted."
+        )
+      }
+
+      throw error
+    })
 
     const withdrawal = await tx.memberSpecialSavingsWithdrawal.create({
       data: {
@@ -1116,6 +1133,8 @@ export type RecordMemberPaymentInput = {
   postedAt: Date
   totalAmount?: number
   reference?: string
+  /** Deterministic source identity; posts claim `<prefix>:savings` / `<prefix>:loan`. */
+  idempotencyKeyPrefix?: string
   scheduledLoanServicingAmount?: number
   tenantId: string
   memberId: string
@@ -1282,6 +1301,9 @@ export async function recordMemberPaymentMutation(
         memberId: input.memberId,
         contributionId: contribution.id,
         reference: input.reference,
+        idempotencyKey: input.idempotencyKeyPrefix
+          ? `${input.idempotencyKeyPrefix}:savings`
+          : undefined,
         narration: `Member savings payment${input.periodLabel ? ` for ${input.periodLabel}` : ""}`,
         entries: [
           {
@@ -1386,6 +1408,9 @@ export async function recordMemberPaymentMutation(
         loanId: loan.id,
         repaymentId: repayment.id,
         reference: input.reference,
+        idempotencyKey: input.idempotencyKeyPrefix
+          ? `${input.idempotencyKeyPrefix}:loan`
+          : undefined,
         narration: "Loan servicing payment received",
         entries: [
           {

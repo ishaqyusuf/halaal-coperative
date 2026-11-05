@@ -139,6 +139,17 @@ function createCollectionSourceBatchPrismaStub(input?: {
         if (row) Object.assign(row, args.data)
         return row
       },
+      updateMany: async (args: any) => {
+        batchRowUpdates.push(args)
+        const row = rowStore.find(
+          (item) =>
+            item.id === args.where.id &&
+            item.status === args.where.status &&
+            (item.contributionId ?? null) === args.where.contributionId,
+        )
+        if (row) Object.assign(row, args.data)
+        return { count: row ? 1 : 0 }
+      },
     },
     contribution: {
       create: async (args: any) => {
@@ -387,14 +398,55 @@ describe("collection source contribution batches", () => {
       status: "posted",
       tenantId: "tenant-1",
     })
-    expect(prisma.batchRowUpdates[0].data).toMatchObject({
+    expect(prisma.batchRowUpdates[0]).toMatchObject({
+      data: { status: "posted" },
+      where: { contributionId: null, id: "row-1", status: "collected" },
+    })
+    expect(prisma.batchRowUpdates[1].data).toMatchObject({
       contributionId: "contribution-1",
       paidAmount: 35000,
       status: "posted",
     })
+    expect(prisma.ledgerTransactions[0].data.idempotencyKey).toBe(
+      "collection-source-row:row-1:savings",
+    )
     expect(prisma.auditCreates.at(-1).data.action).toBe(
       "collection_source_batch.posted",
     )
+  })
+
+  test("rejects a second post of a row another request already claimed", async () => {
+    const prisma = createCollectionSourceBatchPrismaStub({
+      existingRowCount: 2,
+    })
+    prisma.rowStore[0].status = "collected"
+    prisma.rowStore[0].paidAmount = 35000
+    const claimRow = prisma.rowStore[0]
+    const originalFindMany = (prisma as any).collectionSourceContributionBatchRow
+      .findMany
+
+    // Simulate a concurrent request that claims the row after this request
+    // read it as collected.
+    ;(prisma as any).collectionSourceContributionBatchRow.findMany = async (
+      args: any,
+    ) => {
+      const rows = (await originalFindMany(args)).map((row: any) => ({ ...row }))
+      claimRow.status = "posted"
+      return rows
+    }
+
+    await expect(
+      postCollectionSourceContributionBatchRows(
+        {
+          actorUserId: "user-1",
+          batchId: "batch-1",
+          rowIds: ["row-1"],
+          tenantId: "tenant-1",
+        },
+        prisma,
+      ),
+    ).rejects.toThrow("already been posted")
+    expect(prisma.contributionCreates).toHaveLength(0)
   })
 
   test("blocks staging when the operation profile disables batch posting", async () => {

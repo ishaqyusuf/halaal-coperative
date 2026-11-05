@@ -64,6 +64,10 @@ model ChargeApplication {
   status                    ChargeApplicationStatus @default(posted)
   assessedAt                DateTime                @map("assessed_at") @db.Timestamptz(6)
   waivedAt                  DateTime?               @map("waived_at") @db.Timestamptz(6)
+  // One automated charge per workflow target and definition.
+  workflowIdempotencyKey    String?                 @map("workflow_idempotency_key")
+  // Immutable rule, version and target evidence captured at assessment.
+  applicabilitySnapshot     Json?                   @map("applicability_snapshot")
   notes                     String?
   createdAt                 DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                 DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -80,6 +84,7 @@ model ChargeApplication {
   projectFinancingRequest ProjectFinancingRequest? @relation(fields: [projectFinancingRequestId], references: [id], onDelete: SetNull)
   ledgerTransaction       LedgerTransaction?
 
+  @@unique([tenantId, workflowIdempotencyKey], map: "charge_applications_tenant_workflow_key")
   @@index([tenantId, memberId, status], map: "charge_applications_tenant_member_status_idx")
   @@index([tenantId, assessedAt], map: "charge_applications_tenant_assessed_at_idx")
   @@index([tenantId, procurementRequestId], map: "charge_applications_tenant_procurement_idx")

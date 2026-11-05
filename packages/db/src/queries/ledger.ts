@@ -142,9 +142,16 @@ export type PostLedgerTransactionInput = {
   chargeApplicationId?: string
   repaymentId?: string
   reference?: string
+  /** Tenant-unique posting identity; a concurrent duplicate fails with P2002. */
+  idempotencyKey?: string
   narration?: string
   sourceType?: "backfill" | "import"
   migrationWriteGuardValidated?: boolean
+}
+
+/** Claim key for an external payment reference that may be used only once. */
+export function paymentReferenceIdempotencyKey(reference: string) {
+  return `payment-reference:${reference.trim().toLowerCase()}`
 }
 
 export async function postLedgerTransaction(
@@ -203,6 +210,7 @@ export async function postLedgerTransaction(
       chargeApplicationId: input.chargeApplicationId,
       repaymentId: input.repaymentId,
       reference: input.reference,
+      idempotencyKey: input.idempotencyKey,
       narration: input.narration,
       entries: {
         create: input.entries.map((entry) => ({

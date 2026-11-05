@@ -137,12 +137,21 @@ async function createSession(page, config, artifacts, results) {
   async function step(name, run) {
     const started = Date.now()
     process.stderr.write(`qa:smoke ${name}…\n`)
+    const attempt = () =>
+      withTimeout(run(), stepLimitMs, `Step exceeded ${stepLimitMs / 1000}s`)
     try {
-      const detail = await withTimeout(
-        run(),
-        stepLimitMs,
-        `Step exceeded ${stepLimitMs / 1000}s`
-      )
+      let detail
+      try {
+        detail = await attempt()
+      } catch (first) {
+        // A shared dev server hot-reloads while other sessions edit, so one
+        // retry tells a reload from a real failure. The retry stays visible.
+        const reason =
+          first instanceof Error ? first.message.split("\n")[0] : String(first)
+        process.stderr.write(`qa:smoke ${name}: retrying after "${reason}"\n`)
+        await new Promise((done) => setTimeout(done, 3_000))
+        detail = `${await attempt()} (passed on retry; first attempt: ${reason})`
+      }
       checks.push({ name, status: "pass", ms: Date.now() - started, detail })
       return true
     } catch (error) {

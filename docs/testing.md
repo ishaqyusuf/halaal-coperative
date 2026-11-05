@@ -121,10 +121,20 @@ The journey, against the local dashboard only:
    and a setup-stage workspace must show the One Path "Setup steps" rail.
 5. **One Path setup render** (only when `setupProfileLabel` is set): signs in a
    second QA admin, of a cooperative still in setup, in a fresh browser context,
-   and requires the "Setup steps" rail on `/getting-started`.
+   and requires the "Setup steps" rail on `/getting-started`. QA profiles only
+   list `active` tenants, and a One Path cooperative becomes `active` when it
+   goes live. So today no seeded QA admin can be in setup, and this check waits
+   for the write smoke to create one.
 
-Every non-GET request except `/auth/qa` is aborted. A blocked tRPC request fails
-the run. Blocked page server actions (table settings) are only listed.
+Every non-GET request except `/auth/qa` and the Next dev overlay's
+`/__nextjs_original-stack-frames` is aborted. A blocked tRPC request fails the
+run. Blocked page server actions (table settings) are only listed.
+
+The dashboard is a shared dev server, and it hot-reloads whenever another
+session edits its sources. Each step is therefore retried once after 3 s. A pass
+on retry says so, along with the first error. Steps are capped at 90 s. If
+`/login` keeps reloading, wait for the edits to pause; no browser check can pass
+mid-burst.
 Screenshots and a receipt go to `.scratch/qa-smoke/`, which is gitignored.
 Browsers live in `.scratch/qa-smoke/playwright` unless `PLAYWRIGHT_BROWSERS_PATH` is set.
 

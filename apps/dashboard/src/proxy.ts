@@ -13,6 +13,11 @@ import {
   resolveTenantUrlContext,
 } from "@halaalvest/tenant-url"
 import { type NextRequest, NextResponse } from "next/server"
+import {
+  canRoleOpenDashboardPath,
+  isRoleRestrictedDashboardPath,
+} from "./lib/navigation/route-access"
+import { resolveCachedRouteRole } from "./lib/navigation/route-access.server"
 import { getDashboardTenantUrlConfig } from "./utils/tenant-url-config"
 
 const authSessionCookieName = "halaalvest_session"
@@ -61,7 +66,7 @@ function getRequestHost(request: NextRequest) {
   )
 }
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const config = getDashboardTenantUrlConfig()
   const headerNames = getTenantUrlHeaderNames(config)
   const { pathname } = request.nextUrl
@@ -163,6 +168,28 @@ export function proxy(request: NextRequest) {
       request.url
     )
     return NextResponse.redirect(signInUrl)
+  }
+
+  // The sidebar layout's role guard does not run on client navigations:
+  // partial rendering skips layouts the client already holds, so a `<Link>`
+  // or RSC request renders a staff-only page under a member session. Paths
+  // some role may not open are checked here, on every request.
+  if (
+    !isPublicPath(productPath) &&
+    isRoleRestrictedDashboardPath(productPath)
+  ) {
+    const role = await resolveCachedRouteRole({
+      cookieHeader: request.headers.get("cookie"),
+      headers: request.headers,
+      tenantHostname: tenantHostname ?? null,
+      tenantSlug: tenantSlug ?? null,
+    })
+
+    if (!canRoleOpenDashboardPath(productPath, role)) {
+      return NextResponse.redirect(
+        new URL(buildTenantHref(tenantUrlContext, "/", config), request.url)
+      )
+    }
   }
 
   if (tenantUrlContext.style === "path" && productPath !== pathname) {

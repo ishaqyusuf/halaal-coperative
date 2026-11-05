@@ -60,6 +60,8 @@ export default async function SidebarLayout({
     userId: context.auth.user?.id,
   })
 
+  // Runs on full page loads only: client navigations skip this layout, so
+  // `proxy.ts` enforces the same check on every request (WP6).
   if (!canAccessDashboardPath(nextPath, role)) {
     await tenantRedirect("/")
   }

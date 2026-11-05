@@ -129,26 +129,51 @@ export function getDashboardRouteTitle(
   }
 }
 
-export function canAccessDashboardPath(
-  pathname: string,
-  role: CooperativeRole | null
-) {
+type DashboardAccessEntry = {
+  data: ReturnType<typeof getLinkModules>["linksNameMap"][string]
+  href: string
+}
+
+// The registry is static, so each role's access entries are built once per
+// process. The proxy checks every role on restricted paths, per request.
+const accessEntriesByRole = new Map<
+  CooperativeRole | null,
+  DashboardAccessEntry[]
+>()
+
+function getAccessEntries(role: CooperativeRole | null) {
+  const cached = accessEntriesByRole.get(role)
+
+  if (cached) {
+    return cached
+  }
+
   const linksMap = getLinkModules(
     validateLinks({
       linkModules: dashboardNavRegistry,
       role,
     })
   ).linksNameMap
+  const entries = Object.entries(linksMap).map(([href, data]) => ({
+    data,
+    href: normalizePath(href).toLowerCase(),
+  }))
+  accessEntriesByRole.set(role, entries)
+
+  return entries
+}
+
+export function canAccessDashboardPath(
+  pathname: string,
+  role: CooperativeRole | null
+) {
   const normalizedPath = normalizePath(pathname).toLowerCase()
 
   if (!normalizedPath) {
     return true
   }
 
-  const entries = Object.entries(linksMap).map(([href, data]) => ({
-    data,
-    href: normalizePath(href).toLowerCase(),
-  }))
+  const entries = getAccessEntries(role)
   const exactMatch = entries.find((entry) => entry.href === normalizedPath)
 
   if (exactMatch) {

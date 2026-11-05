@@ -20,6 +20,8 @@ export const suites = {
   ],
   dashboard: [
     "apps/dashboard/src/proxy.test.ts",
+    "apps/dashboard/src/proxy-role-guard.test.ts",
+    "apps/dashboard/src/lib/navigation/route-role.test.ts",
     "apps/dashboard/src/lib/request-host.test.ts",
     "apps/dashboard/src/lib/setup-gate.test.ts",
     "apps/dashboard/src/lib/live-polling-policy.test.ts",

@@ -2,10 +2,10 @@ import type { LoanStatus, PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
 import {
-  applyApplicableWorkflowCharges,
+  applyApplicableWorkflowChargesInTransaction,
   quoteApplicableCharges,
 } from "./charges"
-import { recordMemberPayment } from "./contributions"
+import { recordMemberPaymentMutation } from "./contributions"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
 import { getTenantInitialMigrationState } from "./migration"
 
@@ -1011,104 +1011,129 @@ export async function applyMonthlyRecordMember(
   }
   await assertLiveFinancialWritesOpen(input.tenantId, prisma)
 
-  const row = await prisma.monthlyRecordMember.findFirst({
-    where: {
-      id: input.monthlyRecordMemberId,
-      tenantId: input.tenantId,
-    },
-    include: {
-      monthlyRecord: true,
-    },
-  })
+  // The claim, payment, charges and row update commit together, so a failed
+  // charge cannot leave a posted payment behind an unapplied row.
+  return prisma.$transaction(
+    async (transaction) => {
+      const tx = transaction as unknown as PrismaClient
+      const row = await tx.monthlyRecordMember.findFirst({
+        where: {
+          id: input.monthlyRecordMemberId,
+          tenantId: input.tenantId,
+        },
+        include: {
+          monthlyRecord: true,
+        },
+      })
 
-  if (!row) {
-    throw ExpectedQueryError.notFound("Monthly record member row not found.")
-  }
-  if (row.status === "applied")
-    throw ExpectedQueryError.conflict(
-      "This monthly record row has already been applied."
-    )
-  if (row.monthlyRecord.status === "closed")
-    throw ExpectedQueryError.conflict(
-      "Closed monthly records cannot be changed."
-    )
+      if (!row) {
+        throw ExpectedQueryError.notFound("Monthly record member row not found.")
+      }
+      if (row.status === "applied")
+        throw ExpectedQueryError.conflict(
+          "This monthly record row has already been applied."
+        )
+      if (row.monthlyRecord.status === "closed")
+        throw ExpectedQueryError.conflict(
+          "Closed monthly records cannot be changed."
+        )
 
-  const member = await prisma.member.findFirst({
-    where: {
-      id: row.memberId,
-      tenantId: input.tenantId,
-    },
-    select: {
-      paymentAllocationPreference: true,
-    },
-  })
+      // Claim the row first so a concurrent apply of the same row waits on
+      // this row lock and then fails instead of posting a second payment.
+      const claimed = await tx.monthlyRecordMember.updateMany({
+        data: { status: "applied" },
+        where: {
+          id: row.id,
+          status: { in: ["pending", "cancelled"] },
+          tenantId: input.tenantId,
+        },
+      })
 
-  if (!member) throw ExpectedQueryError.notFound("Member not found.")
+      if (claimed.count !== 1) {
+        throw ExpectedQueryError.conflict(
+          "This monthly record row has already been applied."
+        )
+      }
 
-  const {
-    contributionAmount,
-    extraSavingsAmount,
-    scheduledLoanServicingAmount,
-  } = allocateMonthlyRecordPayment({
-    contributionTarget: Number(row.contributionAmount),
-    loanTarget: Number(row.loanRepaymentAmount),
-    paymentAllocationPreference: member.paymentAllocationPreference,
-    totalPaidAmount: input.totalPaidAmount,
-  })
+      const member = await tx.member.findFirst({
+        where: {
+          id: row.memberId,
+          tenantId: input.tenantId,
+        },
+        select: {
+          paymentAllocationPreference: true,
+        },
+      })
 
-  const posted = await recordMemberPayment(
-    {
-      actorUserId: input.actorUserId,
-      channel: "manual",
-      committedSavingsAmount: contributionAmount,
-      contributionPlanId: row.contributionPlanId ?? undefined,
-      extraSavingsAmount,
-      loanId:
-        scheduledLoanServicingAmount > 0
-          ? (row.loanId ?? undefined)
-          : undefined,
-      memberId: row.memberId,
-      periodLabel: row.monthlyRecord.periodLabel,
-      postedAt: getPeriodRange(
+      if (!member) throw ExpectedQueryError.notFound("Member not found.")
+
+      const {
+        contributionAmount,
+        extraSavingsAmount,
+        scheduledLoanServicingAmount,
+      } = allocateMonthlyRecordPayment({
+        contributionTarget: Number(row.contributionAmount),
+        loanTarget: Number(row.loanRepaymentAmount),
+        paymentAllocationPreference: member.paymentAllocationPreference,
+        totalPaidAmount: input.totalPaidAmount,
+      })
+      const assessedAt = getPeriodRange(
         row.monthlyRecord.periodYear,
         row.monthlyRecord.periodMonth
-      ).start,
-      reference: `monthly-record:${row.monthlyRecord.id}:${row.id}`,
-      scheduledLoanServicingAmount,
-      tenantId: input.tenantId,
-    },
-    prisma
-  )
-  const assessedAt = getPeriodRange(
-    row.monthlyRecord.periodYear,
-    row.monthlyRecord.periodMonth
-  ).start
+      ).start
 
-  await applyApplicableWorkflowCharges(
+      const posted = await recordMemberPaymentMutation(
+        {
+          actorUserId: input.actorUserId,
+          channel: "manual",
+          committedSavingsAmount: contributionAmount,
+          contributionPlanId: row.contributionPlanId ?? undefined,
+          extraSavingsAmount,
+          loanId:
+            scheduledLoanServicingAmount > 0
+              ? (row.loanId ?? undefined)
+              : undefined,
+          memberId: row.memberId,
+          periodLabel: row.monthlyRecord.periodLabel,
+          postedAt: assessedAt,
+          reference: `monthly-record:${row.monthlyRecord.id}:${row.id}`,
+          scheduledLoanServicingAmount,
+          tenantId: input.tenantId,
+        },
+        tx
+      )
+
+      await applyApplicableWorkflowChargesInTransaction(
+        {
+          actorUserId: input.actorUserId,
+          assessedAt,
+          basisAmount: input.totalPaidAmount,
+          memberId: row.memberId,
+          notes: `Posted from monthly record ${row.monthlyRecord.periodLabel}`,
+          tenantId: input.tenantId,
+          trigger: "monthly_collection",
+          workflow: "commitment_collection",
+        },
+        tx
+      )
+
+      return tx.monthlyRecordMember.update({
+        where: { id: row.id },
+        data: {
+          appliedAt: new Date(),
+          cancelledAt: null,
+          contributionId: posted.contributionId,
+          repaymentId: posted.repaymentId,
+          status: "applied",
+          totalPaidAmount: input.totalPaidAmount,
+        },
+      })
+    },
     {
-      actorUserId: input.actorUserId,
-      assessedAt,
-      basisAmount: input.totalPaidAmount,
-      memberId: row.memberId,
-      notes: `Posted from monthly record ${row.monthlyRecord.periodLabel}`,
-      tenantId: input.tenantId,
-      trigger: "monthly_collection",
-      workflow: "commitment_collection",
-    },
-    prisma
+      maxWait: 5_000,
+      timeout: 15_000,
+    }
   )
-
-  return prisma.monthlyRecordMember.update({
-    where: { id: row.id },
-    data: {
-      appliedAt: new Date(),
-      cancelledAt: null,
-      contributionId: posted.contributionId,
-      repaymentId: posted.repaymentId,
-      status: "applied",
-      totalPaidAmount: input.totalPaidAmount,
-    },
-  })
 }
 
 async function reverseMonthlyContribution(input: {

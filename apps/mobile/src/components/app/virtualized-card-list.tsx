@@ -1,6 +1,8 @@
 import { LegendList } from "@legendapp/list"
-import type { ReactNode } from "react"
+import { type ReactNode, useState } from "react"
 import { View } from "react-native"
+
+import { resolveVirtualizedListHeight } from "./virtualized-list-height"
 
 export function VirtualizedCardList<T>({
   data,
@@ -20,6 +22,8 @@ export function VirtualizedCardList<T>({
   maxHeight?: number
   renderItem: (input: { index: number; isFirst: boolean; item: T }) => ReactNode
 }) {
+  const [contentHeight, setContentHeight] = useState<number | null>(null)
+
   if (data.length === 0) return <>{empty}</>
 
   if (inline) {
@@ -34,10 +38,12 @@ export function VirtualizedCardList<T>({
     )
   }
 
-  const height = Math.min(
+  const height = resolveVirtualizedListHeight({
+    contentHeight,
+    estimatedItemSize,
+    itemCount: data.length,
     maxHeight,
-    Math.max(estimatedItemSize, data.length * estimatedItemSize)
-  )
+  })
 
   return (
     <View className="overflow-hidden rounded-md">
@@ -45,11 +51,18 @@ export function VirtualizedCardList<T>({
         <LegendList
           data={data}
           drawDistance={360}
-        estimatedItemSize={estimatedItemSize}
-        keyExtractor={keyExtractor}
-        keyboardDismissMode="on-drag"
-        keyboardShouldPersistTaps="handled"
-        maintainVisibleContentPosition
+          estimatedItemSize={estimatedItemSize}
+          keyExtractor={keyExtractor}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+          maintainVisibleContentPosition
+          onContentSizeChange={(_width, nextHeight) =>
+            setContentHeight((current) =>
+              current !== null && Math.abs(current - nextHeight) < 1
+                ? current
+                : nextHeight
+            )
+          }
           recycleItems
           renderItem={({ index, item }) =>
             renderItem({ index, isFirst: index === 0, item })

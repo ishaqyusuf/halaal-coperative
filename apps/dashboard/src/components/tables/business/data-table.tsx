@@ -9,9 +9,8 @@ import {
 } from "@halaalvest/ui/components/table"
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
-import { AnimatePresence } from "framer-motion"
 import { useCallback, useEffect, useMemo, useRef } from "react"
-import { VirtualRow } from "@/components/tables/core"
+import { BottomBarPresence, VirtualRow } from "@/components/tables/core"
 import { useBusinessParams } from "@/hooks/use-business-params"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useScrollHeader } from "@/hooks/use-scroll-header"
@@ -228,14 +227,14 @@ export function BusinessDataTable({ initialSettings, isLocked }: Props) {
         </div>
       </div>
 
-      <AnimatePresence>
+      <BottomBarPresence>
         {selectedRows.length ? (
           <BusinessBottomBar
             businesses={selectedRows}
             onDeselect={() => table.toggleAllRowsSelected(false)}
           />
         ) : null}
-      </AnimatePresence>
+      </BottomBarPresence>
     </div>
   )
 }

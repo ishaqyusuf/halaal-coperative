@@ -40,7 +40,7 @@ describe("member workspace Midday conformance", () => {
     const mobileToolbar = read(
       "../components/members/members-mobile-toolbar.tsx"
     )
-    const bottomBar = read("../components/tables/core/bottom-bar.tsx")
+    const bottomBar = read("../components/tables/core/bottom-bar-motion.tsx")
 
     expect(header).toContain("{createAction}")
     expect(header).not.toContain('className="hidden sm:block"')

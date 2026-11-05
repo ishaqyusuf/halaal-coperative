@@ -1,4 +1,5 @@
-export { BottomBar } from "./bottom-bar"
+export { BottomBar, type BottomBarProps } from "./bottom-bar"
+export { BottomBarPresence } from "./bottom-bar-presence"
 export { EmptyState, NoResults } from "./empty-states"
 export { SkeletonCell } from "./skeleton-cell"
 export { TableSkeleton } from "./table-skeleton"

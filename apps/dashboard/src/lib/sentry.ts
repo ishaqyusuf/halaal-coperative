@@ -1,4 +1,4 @@
-import * as Sentry from "@sentry/nextjs"
+import type * as SentrySdk from "@sentry/nextjs"
 
 import {
   type DashboardErrorSource,
@@ -8,6 +8,18 @@ import {
 } from "./sentry-policy"
 
 const capturedErrors = new WeakSet<object>()
+let sentrySdk: Promise<typeof SentrySdk | null> | undefined
+
+// The SDK is only fetched once Sentry is enabled, so it stays out of the
+// client bootstrap bundle. Captures chain on the same promise as `init`, so
+// they run after it. A failed chunk load drops the report and retries later.
+function loadSentry() {
+  sentrySdk ??= import("@sentry/nextjs").catch(() => {
+    sentrySdk = undefined
+    return null
+  })
+  return sentrySdk
+}
 
 function runtimeEnvironment() {
   const browser = typeof window !== "undefined"
@@ -22,7 +34,7 @@ function runtimeEnvironment() {
   }
 }
 
-export function initializeDashboardSentry(input: {
+export async function initializeDashboardSentry(input: {
   dsn?: string
   environment?: string
   release?: string
@@ -33,6 +45,9 @@ export function initializeDashboardSentry(input: {
     nodeEnvironment: process.env.NODE_ENV,
   })
   if (!enabled) return false
+
+  const Sentry = await loadSentry()
+  if (!Sentry) return false
 
   Sentry.init({
     beforeBreadcrumb: () => null,
@@ -68,7 +83,7 @@ export function initializeDashboardSentry(input: {
   return true
 }
 
-export function captureDashboardError(
+export async function captureDashboardError(
   error: unknown,
   source: DashboardErrorSource,
   tags?: { method?: string }
@@ -81,5 +96,6 @@ export function captureDashboardError(
 
   const report = getDashboardErrorReport(error, source, tags)
   if (!report.classified.reportable) return undefined
-  return Sentry.captureException(report.reportableError, report.captureContext)
+  const Sentry = await loadSentry()
+  return Sentry?.captureException(report.reportableError, report.captureContext)
 }

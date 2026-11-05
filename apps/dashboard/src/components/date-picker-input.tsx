@@ -1,15 +1,42 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import { type ComponentProps, useState } from "react"
 import { Button } from "@halaalvest/ui/components/button"
-import { Calendar } from "@halaalvest/ui/components/calendar"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@halaalvest/ui/components/popover"
+import { Skeleton } from "@halaalvest/ui/components/skeleton"
 import { cn } from "@halaalvest/ui/lib/utils"
 import type { Matcher } from "react-day-picker"
+
+const calendarSkeletonDays = Array.from({ length: 35 }, (_, index) => index)
+
+// react-day-picker loads when the popover first opens, not with every form.
+const Calendar = dynamic(
+  () =>
+    import("@halaalvest/ui/components/calendar").then(
+      (module) => module.Calendar
+    ),
+  {
+    loading: () => <CalendarSkeleton />,
+  }
+)
+
+function CalendarSkeleton() {
+  return (
+    <div aria-label="Loading calendar" className="grid gap-2 p-1">
+      <Skeleton className="h-8" />
+      <div className="grid grid-cols-7 gap-1.5">
+        {calendarSkeletonDays.map((day) => (
+          <Skeleton className="size-8" key={day} />
+        ))}
+      </div>
+    </div>
+  )
+}
 
 function parseDateValue(value?: string | null) {
   if (!value) {

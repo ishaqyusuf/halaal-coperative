@@ -1,4 +1,7 @@
-import type { PrismaClient, TenantBusinessPolicy } from "../../generated/prisma/client"
+import type {
+  PrismaClient,
+  TenantBusinessPolicy,
+} from "../../generated/prisma/client"
 import {
   buildInitialMigrationSnapshot,
   getBusinessProfitSeasonPeriod,
@@ -538,6 +541,17 @@ export async function finalizeTenantInitialMigration(
     },
     where: { id: input.tenantId },
   })
+  // Going live is what makes a cooperative created through sign-up active.
+  // Mobile sign-in, device sessions, workspace lists and QA profiles all
+  // require `active`; suspended or archived tenants are never reactivated.
+  const tenantActivated = tenant?.status === "pending"
+
+  if (tenantActivated) {
+    await prisma.tenant.update({
+      data: { status: "active" },
+      where: { id: input.tenantId },
+    })
+  }
 
   await createAuditLogEntry(
     {
@@ -552,13 +566,14 @@ export async function finalizeTenantInitialMigration(
           : {}),
         finalizedAt: finalizedAt.toISOString(),
         nextStatus: "live_operations",
+        tenantActivated,
       },
       tenantId: input.tenantId,
     },
     prisma
   )
 
-  return tenant
+  return tenantActivated ? { ...tenant, status: "active" } : tenant
 }
 
 export async function markTenantLegacyLoansReviewed(

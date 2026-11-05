@@ -10,6 +10,7 @@ import {
 } from "./migration"
 
 function createMigrationStatePrismaStub(input: {
+  tenantStatus?: "pending" | "active" | "suspended" | "archived"
   appliedBackfillBatches: number
   appliedBackfillMonths?: Array<{
     memberId: string
@@ -53,6 +54,7 @@ function createMigrationStatePrismaStub(input: {
     migrationEmergencyUnlockUntil: input.migrationEmergencyUnlockUntil ?? null,
     migrationFinalizedAt: input.migrationFinalizedAt ?? null,
     startDate: input.startDate,
+    status: input.tenantStatus,
   }
 
   return {
@@ -141,7 +143,7 @@ function createMigrationStatePrismaStub(input: {
       update: async (query: any) => {
         tenantUpdateCalls.push(query)
         Object.assign(tenantState, query.data)
-        return query
+        return { ...query, ...tenantState }
       },
     },
     tenantBusinessPolicy: {
@@ -1149,5 +1151,55 @@ describe("tenant initial migration state query", () => {
     ).rejects.toThrow("Business profit pool review is locked")
 
     expect(prisma.auditLogCreates).toHaveLength(0)
+  })
+
+  test("going live activates a pending cooperative but never a suspended one", async () => {
+    const stubFor = (tenantStatus: "pending" | "suspended") =>
+      createMigrationStatePrismaStub({
+        appliedBackfillBatches: 12,
+        appliedBackfillMembers: 12,
+        businessProfitPools: 1,
+        chargeScheduleVersions: 2,
+        legacyLoans: 1,
+        memberProfiles: 12,
+        shareCapitalPlans: 1,
+        startDate: new Date("2025-01-01T00:00:00.000Z"),
+        tenantStatus,
+      })
+    const pending = stubFor("pending")
+
+    const result = await finalizeTenantInitialMigration(
+      {
+        actorUserId: "user-1",
+        confirmationMethod: "checkbox",
+        tenantId: "tenant-1",
+      },
+      pending as never
+    )
+
+    expect(pending.tenantUpdateCalls).toHaveLength(2)
+    expect(pending.tenantUpdateCalls[1]).toEqual({
+      data: { status: "active" },
+      where: { id: "tenant-1" },
+    })
+    expect(result).toMatchObject({ status: "active" })
+    expect(pending.auditLogCreates[0]).toMatchObject({
+      data: {
+        action: "migration.initial.finalized",
+        metadata: { confirmation: "checkbox", tenantActivated: true },
+      },
+    })
+
+    const suspended = stubFor("suspended")
+
+    await finalizeTenantInitialMigration(
+      { actorUserId: "user-1", tenantId: "tenant-1" },
+      suspended as never
+    )
+
+    expect(suspended.tenantUpdateCalls).toHaveLength(1)
+    expect(suspended.auditLogCreates[0]).toMatchObject({
+      data: { metadata: { tenantActivated: false } },
+    })
   })
 })

@@ -25,6 +25,7 @@ runIntegration("finalizeInitialMigrationAction (go live)", () => {
 
   async function createAdminTenant(input: {
     label: string
+    tenantStatus?: "active" | "pending"
     withChargeSchedule: boolean
   }): Promise<Admin> {
     if (!prisma) throw new Error("Database integration test not configured.")
@@ -34,7 +35,7 @@ runIntegration("finalizeInitialMigrationAction (go live)", () => {
         name: `Go Live ${input.label} Cooperative`,
         slug: `${slug}-${input.label}`,
         startDate: new Date("2025-01-01T00:00:00.000Z"),
-        status: "active",
+        status: input.tenantStatus ?? "active",
       },
     })
     tenantIds.push(tenant.id)
@@ -125,6 +126,7 @@ runIntegration("finalizeInitialMigrationAction (go live)", () => {
           initialMigrationStatus: true,
           migrationFinalizedAt: true,
           migrationFinalizedByUserId: true,
+          status: true,
         },
         where: { id: tenantId },
       }),
@@ -142,7 +144,12 @@ runIntegration("finalizeInitialMigrationAction (go live)", () => {
 
   beforeAll(async () => {
     ;[ready, missingSetup] = await Promise.all([
-      createAdminTenant({ label: "ready", withChargeSchedule: true }),
+      // Sign-up creates cooperatives as `pending`; going live activates them.
+      createAdminTenant({
+        label: "ready",
+        tenantStatus: "pending",
+        withChargeSchedule: true,
+      }),
       createAdminTenant({ label: "missing", withChargeSchedule: false }),
     ])
   })
@@ -206,6 +213,7 @@ runIntegration("finalizeInitialMigrationAction (go live)", () => {
     expect(state.tenant).toMatchObject({
       initialMigrationStatus: "live_operations",
       migrationFinalizedByUserId: ready.userId,
+      status: "active",
     })
     expect(state.tenant.migrationFinalizedAt).toBeInstanceOf(Date)
     expect(state.audits).toHaveLength(1)
@@ -214,6 +222,7 @@ runIntegration("finalizeInitialMigrationAction (go live)", () => {
       metadata: {
         confirmation: "checkbox",
         nextStatus: "live_operations",
+        tenantActivated: true,
       },
     })
   })

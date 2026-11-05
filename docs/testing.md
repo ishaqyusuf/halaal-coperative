@@ -151,6 +151,26 @@ always requires `--device`, accepts only `halaalvest-dev://` app routes, and
 refuses to run unless the dev app is in the foreground. Set `ANDROID_ADB_PATH`
 (or `ADB_PATH`/`ANDROID_HOME`) if adb isn't in the default SDK location.
 
+To borrow an idle AVD without changing it, boot it read-only on a free port:
+`emulator -avd <name> -port 5560 -read-only -no-snapshot-save`. Install a
+`com.halaalvest.mobile.dev` debug build with `adb -s emulator-5560 install -r <apk>`.
+On the first Metro start in a fresh checkout, Metro waits while Watchman crawls
+the repository. The app still bundles once that finishes.
+
+Verified on 5 November 2026 on `emulator-5560` (an idle API 34 AVD booted
+read-only) with the October dev-client debug build:
+
+- `connect` with two devices online and no `--device`: refused.
+- `connect --device emulator-5560`: installed `tcp:1442->tcp:1442` and
+  `tcp:1443->tcp:1443`, passed Metro and `/live`, and opened the dev client.
+  It bundled from `http://127.0.0.1:1443` and mounted the sign-in screen.
+- `connect --no-launch --require-qa`: failed with "QA access is not configured",
+  because the root-profile API has no `QA_ACCELERATOR_SECRET`.
+- `open --url halaalvest-dev://recovery`: navigated to Recover account.
+- `open` with a `halaalvest://` URL: refused (wrong scheme).
+- `open` on a device where the dev app isn't in the foreground: refused.
+- The other session's emulator kept its reverse mappings and foreground app.
+
 ## Shared notes between sessions: `bun run agent:chat`
 
 ```bash

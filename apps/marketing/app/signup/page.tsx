@@ -77,7 +77,7 @@ export default async function SignupPage({
     return (
       <SignupShell
         eyebrow="Early access"
-        stage="request"
+        stage="sign-up"
         title="This approval link cannot be used."
         description="Cooperative setup opens only from a valid approved early access link while early access mode is enabled."
       >
@@ -94,16 +94,7 @@ export default async function SignupPage({
     approvalResult.status === "valid" ? approvalResult.value : undefined
 
   return (
-    <SignupShell
-      eyebrow={approval ? "Approved setup" : "Cooperative setup"}
-      stage="workspace"
-      title="Create a governed cooperative workspace."
-      description={
-        approval
-          ? "Your early access request is approved. Reserve the cooperative URL and continue through email verification."
-          : "Start with the accountable admin, reserve the cooperative URL, and continue only after the primary contact verifies their email."
-      }
-    >
+    <SignupShell stage="sign-up">
       <SignupForm
         approvalToken={
           approvalResult.status === "valid" ? approvalResult.token : null

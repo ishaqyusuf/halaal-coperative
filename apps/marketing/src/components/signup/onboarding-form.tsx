@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { LegalAcknowledgement } from "@halaalvest/db"
 import { PlatformLegalAcceptance } from "./platform-legal-acceptance"
 import Link from "next/link"
@@ -10,17 +10,7 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@halaalvest/ui/components/alert"
-import { Badge } from "@halaalvest/ui/components/badge"
 import { Button, buttonVariants } from "@halaalvest/ui/components/button"
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@halaalvest/ui/components/card"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,13 +24,13 @@ import { FieldGroup } from "@halaalvest/ui/components/field"
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@halaalvest/ui/components/form"
 import { Input } from "@halaalvest/ui/components/input"
-import { Separator } from "@halaalvest/ui/components/separator"
 import {
   Select,
   SelectContent,
@@ -57,12 +47,13 @@ import {
   useNotifications,
 } from "@halaalvest/notifications-react"
 import type { QaQuickFillContext } from "@halaalvest/utils"
+import { previewCooperativeAccessCode } from "@halaalvest/utils"
 import {
   cooperativeCountryOptions,
   cooperativeSizeRanges,
   formatCooperativeSizeRangeLabel,
 } from "@halaalvest/domain"
-import { ChevronDownIcon, ExternalLinkIcon } from "lucide-react"
+import { ArrowLeftIcon, ChevronDownIcon, ExternalLinkIcon } from "lucide-react"
 import { DatePickerInput } from "@/components/date-picker-input"
 import { applyDevFormFill } from "@/lib/dev-form-fill"
 import {
@@ -72,8 +63,8 @@ import {
   type OnboardingFormInput,
   type SignupVerificationPayload,
 } from "@/lib/signup-flow"
+import { JourneyStep } from "./journey-step"
 import { useSignupJourneyStage } from "./signup-journey-state"
-import { SetupContextStrip } from "./setup-context-strip"
 import {
   getMarketingErrorMessage,
   type MarketingErrorEnvelope,
@@ -89,6 +80,13 @@ type OnboardingResult = {
   primaryDashboardHostname: string
   primarySiteHostname: string
   qaPreviews?: QaNotificationPreview[]
+  // One-time sign-in handoff to the tenant dashboard. Present only for the
+  // canonical tenant host; the token is posted, never put in a URL.
+  sessionHandoff?: {
+    action: string
+    expiresAt: string
+    token: string
+  }
   siteUrl: string
   tenantId: string
   tenantName: string
@@ -124,9 +122,31 @@ export function OnboardingForm({
   })
   const { publishQaPreviews, showError, showSuccess } = useNotifications()
   const [result, setResult] = useState<OnboardingResult | null>(null)
-  useSignupJourneyStage(result ? "ready" : "profile")
+  const [subStep, setSubStep] = useState<"cooperative-details" | "password">(
+    "cooperative-details"
+  )
+  const [handoffFailed, setHandoffFailed] = useState(false)
+  const handoffFormRef = useRef<HTMLFormElement>(null)
+  useSignupJourneyStage(result ? "setup-mode" : subStep, {
+    onSelect: (stepKey) => {
+      if (stepKey === "cooperative-details") setSubStep(stepKey)
+    },
+    selectable:
+      !result && subStep === "password" ? ["cooperative-details"] : [],
+    workspaceCreated: Boolean(result),
+  })
   const [submitting, setSubmitting] = useState(false)
-  const [legalState, setLegalState] = useState<{ready:boolean;acknowledgement?:LegalAcknowledgement}>({ready:false})
+  const [legalState, setLegalState] = useState<{
+    ready: boolean
+    acknowledgement?: LegalAcknowledgement
+  }>({ ready: false })
+  const accessCode =
+    previewCooperativeAccessCode(
+      verification.cooperativeCodePrefix,
+      verification.primaryContactMemberNumber
+    ).code ?? verification.primaryContactEmail
+  const cooperativeShortName =
+    verification.cooperativeName.split(/\s+/)[0] ?? verification.cooperativeName
 
   useEffect(() => {
     if (!result) {
@@ -152,6 +172,34 @@ export function OnboardingForm({
     }
   }, [result])
 
+  // Top-level POST navigation to the tenant dashboard's /auth/handoff. If the
+  // submit cannot start, fall back to the "Your workspace is ready" state.
+  useEffect(() => {
+    if (!result?.sessionHandoff || handoffFailed) return
+
+    try {
+      handoffFormRef.current?.submit()
+    } catch {
+      setHandoffFailed(true)
+    }
+  }, [handoffFailed, result])
+
+  async function continueToPassword() {
+    const valid = await form.trigger([
+      "currentSize",
+      "startDate",
+      "officeAddress",
+      "city",
+      "state",
+      "country",
+    ])
+
+    if (valid) {
+      setSubStep("password")
+      window.scrollTo({ top: 0 })
+    }
+  }
+
   async function onSubmit(values: OnboardingFormInput) {
     if (!legalState.ready) return
     try {
@@ -162,7 +210,10 @@ export function OnboardingForm({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({...values, legalAcknowledgement:legalState.acknowledgement}),
+        body: JSON.stringify({
+          ...values,
+          legalAcknowledgement: legalState.acknowledgement,
+        }),
       })
 
       const payload = (await response.json()) as
@@ -180,10 +231,7 @@ export function OnboardingForm({
 
       setResult(payload)
       publishQaPreviews(payload.qaPreviews)
-      showSuccess(
-        "Workspace created",
-        `${payload.tenantName} is ready to open.`
-      )
+      showSuccess("Workspace created", `Opening ${payload.tenantName}.`)
     } catch (error) {
       showError(
         "Onboarding could not finish",
@@ -192,6 +240,34 @@ export function OnboardingForm({
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (result?.sessionHandoff && !handoffFailed) {
+    return (
+      <JourneyStep
+        eyebrow="Workspace created"
+        lede="Signing you in and continuing to setup. Nothing to re-enter."
+        stepKey="setup-mode"
+        title="Opening your workspace…"
+      >
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <Spinner />
+          <span>Taking you to {result.primarySiteHostname}</span>
+        </div>
+        <form
+          action={result.sessionHandoff.action}
+          className="hidden"
+          method="post"
+          ref={handoffFormRef}
+        >
+          <input
+            name="token"
+            type="hidden"
+            value={result.sessionHandoff.token}
+          />
+        </form>
+      </JourneyStep>
+    )
   }
 
   if (result) {
@@ -203,54 +279,76 @@ export function OnboardingForm({
     const qaPreview = result.qaPreviews?.at(-1)
 
     return (
-      <Card>
-        <CardHeader>
-          <CardAction>
-            <Badge>Workspace ready</Badge>
-          </CardAction>
-          <CardTitle className="text-2xl">
-            {result.tenantName} is ready for guided setup.
-          </CardTitle>
-          <CardDescription>
-            The cooperative workspace is provisioned. Open it now to finish
-            charges, shares, member import, migration, loans, and monthly
-            commitments.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-5">
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="border bg-muted/35 p-3">
-              <p className="text-xs text-muted-foreground">Workspace</p>
-              <p className="mt-1 truncate text-sm font-medium">
-                {result.tenantName}
-              </p>
-            </div>
-            <div className="border bg-muted/35 p-3">
-              <p className="text-xs text-muted-foreground">Cooperative host</p>
-              <p className="mt-1 truncate text-sm font-medium">
-                {result.primarySiteHostname}
-              </p>
-            </div>
-            <div className="border bg-muted/35 p-3">
-              <p className="text-xs text-muted-foreground">Next action</p>
-              <p className="mt-1 text-sm font-medium">Get Started</p>
-            </div>
+      <JourneyStep
+        eyebrow="Workspace created"
+        lede={`${result.tenantName} is set up at ${result.primarySiteHostname}. Sign in to continue with step 5, Where records start.`}
+        primary={
+          <div className="flex flex-wrap gap-2">
+            <Link
+              className={buttonVariants({ size: "lg" })}
+              href={result.dashboardUrl}
+            >
+              Open your workspace
+            </Link>
+            {quickFill.enabled && devDashboardUrlVariants.length ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={<Button size="lg" type="button" variant="outline" />}
+                >
+                  URL variants
+                  <ChevronDownIcon data-icon="inline-end" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-[min(26rem,calc(100vw-2rem))] p-1"
+                >
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="px-3 py-2">
+                      Tenant URL variants
+                    </DropdownMenuLabel>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    {devDashboardUrlVariants.map((variant) => (
+                      <DropdownMenuItem
+                        className="items-start justify-between gap-3 px-3 py-3"
+                        key={variant.url}
+                        render={<a href={variant.url} />}
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold text-foreground">
+                            {variant.label}
+                          </span>
+                          <span className="mt-1 block truncate text-xs text-muted-foreground">
+                            {variant.url}
+                          </span>
+                          <span className="mt-1 block text-xs text-muted-foreground">
+                            {variant.description}
+                          </span>
+                        </span>
+                        <ExternalLinkIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
           </div>
-
-          <Alert>
-            <AlertTitle>Start in the dashboard</AlertTitle>
-            <AlertDescription>
-              Empty workspaces open the first-run checklist automatically, so
-              the admin lands in setup before day-to-day operations.
-            </AlertDescription>
-          </Alert>
+        }
+        stepKey="setup-mode"
+        title="Your workspace is ready"
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-muted-foreground">
+            Sign in with <b className="text-foreground">{accessCode}</b> or your
+            email and the password you just created.
+          </p>
 
           {result.workspaceReadyDeliveryError ? (
             <Alert>
-              <AlertTitle>Workspace email needs attention</AlertTitle>
+              <AlertTitle>The welcome email did not send</AlertTitle>
               <AlertDescription>
-                The workspace was created, but the follow-up email could not be
-                delivered: {result.workspaceReadyDeliveryError}
+                Your workspace is fine. You can open it from here.
               </AlertDescription>
             </Alert>
           ) : null}
@@ -266,291 +364,330 @@ export function OnboardingForm({
               </AlertDescription>
             </Alert>
           ) : null}
-        </CardContent>
-        <CardFooter className="flex flex-wrap gap-2">
-          <Link
-            className={buttonVariants({ size: "lg" })}
-            href={result.dashboardUrl}
-          >
-            Get Started
-          </Link>
-          {quickFill.enabled && devDashboardUrlVariants.length ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<Button size="lg" type="button" variant="outline" />}
-              >
-                URL variants
-                <ChevronDownIcon data-icon="inline-end" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="w-[min(26rem,calc(100vw-2rem))] p-1"
-              >
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel className="px-3 py-2">
-                    Tenant URL variants
-                  </DropdownMenuLabel>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  {devDashboardUrlVariants.map((variant) => (
-                    <DropdownMenuItem
-                      className="items-start justify-between gap-3 px-3 py-3"
-                      key={variant.url}
-                      render={<a href={variant.url} />}
-                    >
-                      <span className="min-w-0">
-                        <span className="block text-sm font-semibold text-foreground">
-                          {variant.label}
-                        </span>
-                        <span className="mt-1 block truncate text-xs text-muted-foreground">
-                          {variant.url}
-                        </span>
-                        <span className="mt-1 block text-xs text-muted-foreground">
-                          {variant.description}
-                        </span>
-                      </span>
-                      <ExternalLinkIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
-        </CardFooter>
-      </Card>
+        </div>
+      </JourneyStep>
     )
   }
 
+  const onPasswordStep = subStep === "password"
+
   return (
     <Form {...form}>
-      <Card>
-        <CardHeader>
-          {quickFill.enabled ? (
-            <CardAction>
-              <Button
-                size="sm"
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  void applyDevFormFill(
-                    form,
-                    "onboarding",
-                    {
-                      cooperativeName: verification.cooperativeName,
-                      cooperativeCodePrefix: verification.cooperativeCodePrefix,
-                      primaryContactEmail: verification.primaryContactEmail,
-                      primaryContactFullName:
-                        verification.primaryContactFullName,
-                      primaryContactMemberNumber:
-                        verification.primaryContactMemberNumber,
-                      token: form.getValues("token"),
-                    },
-                    {
-                      emailDomain: quickFill.emailDomain,
-                    }
-                  )
-                }
-              >
-                Quick fill
-              </Button>
-            </CardAction>
-          ) : null}
-          <CardTitle className="text-2xl">
-            Complete the cooperative profile.
-          </CardTitle>
-          <CardDescription>
-            The admin email is verified. Add the cooperative identity and first
-            password before opening the protected setup checklist.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-5">
-          <form
-            className="flex flex-col gap-5"
-            onSubmit={form.handleSubmit(onSubmit)}
+      <JourneyStep
+        action={
+          quickFill.enabled ? (
+            <Button
+              size="sm"
+              type="button"
+              variant="outline"
+              onClick={() =>
+                void applyDevFormFill(
+                  form,
+                  "onboarding",
+                  {
+                    cooperativeName: verification.cooperativeName,
+                    cooperativeCodePrefix: verification.cooperativeCodePrefix,
+                    primaryContactEmail: verification.primaryContactEmail,
+                    primaryContactFullName: verification.primaryContactFullName,
+                    primaryContactMemberNumber:
+                      verification.primaryContactMemberNumber,
+                    token: form.getValues("token"),
+                  },
+                  {
+                    emailDomain: quickFill.emailDomain,
+                  }
+                )
+              }
+            >
+              Quick fill
+            </Button>
+          ) : null
+        }
+        aside={
+          onPasswordStep ? (
+            <p>
+              We create{" "}
+              <b className="font-semibold text-[#0B1F36]">
+                {verification.workspaceSlug}
+              </b>
+              , sign you in, and continue straight to setup. Nothing to
+              re-enter.
+            </p>
+          ) : (
+            <p>
+              The start date is the first month your records can go back to. The
+              address appears on member statements.
+            </p>
+          )
+        }
+        asideTitle={onPasswordStep ? "What happens next" : "Why we ask"}
+        back={
+          onPasswordStep ? (
+            <Button
+              onClick={() => setSubStep("cooperative-details")}
+              size="lg"
+              type="button"
+              variant="ghost"
+            >
+              <ArrowLeftIcon data-icon="inline-start" />
+              Back
+            </Button>
+          ) : null
+        }
+        eyebrow={
+          onPasswordStep ? "Last step before your workspace" : "Email verified"
+        }
+        lede={
+          onPasswordStep ? (
+            <>
+              You&apos;ll use it with{" "}
+              <b className="font-semibold text-foreground">{accessCode}</b> or
+              your email to sign in.
+            </>
+          ) : (
+            "Basic details for your profile and statements. You can edit them later in Settings."
+          )
+        }
+        primary={
+          onPasswordStep ? (
+            <Button
+              disabled={submitting || !legalState.ready}
+              form="one-path-onboarding-form"
+              size="lg"
+              type="submit"
+            >
+              {submitting ? (
+                <>
+                  <Spinner data-icon="inline-start" />
+                  Creating workspace
+                </>
+              ) : (
+                "Create workspace"
+              )}
+            </Button>
+          ) : (
+            <Button
+              onClick={() => void continueToPassword()}
+              size="lg"
+              type="button"
+            >
+              Continue
+            </Button>
+          )
+        }
+        stepKey={subStep}
+        title={
+          onPasswordStep
+            ? "Create your password"
+            : `Tell us about ${cooperativeShortName}`
+        }
+      >
+        <form
+          className="flex flex-col gap-5"
+          id="one-path-onboarding-form"
+          onSubmit={(event) => {
+            if (!onPasswordStep) {
+              event.preventDefault()
+              void continueToPassword()
+              return
+            }
+            void form.handleSubmit(onSubmit, (errors) => {
+              const detailFields = [
+                "currentSize",
+                "startDate",
+                "officeAddress",
+                "city",
+                "state",
+                "country",
+              ]
+              if (
+                Object.keys(errors).some((key) => detailFields.includes(key))
+              ) {
+                setSubStep("cooperative-details")
+              }
+            })(event)
+          }}
+        >
+          <input type="hidden" {...form.register("token")} />
+          <input
+            type="hidden"
+            value={verification.cooperativeName}
+            {...form.register("cooperativeName")}
+          />
+          <input
+            type="hidden"
+            value={verification.cooperativeCodePrefix}
+            {...form.register("cooperativeCodePrefix")}
+          />
+          <input
+            type="hidden"
+            value={verification.primaryContactEmail}
+            {...form.register("primaryContactEmail")}
+          />
+          <input
+            type="hidden"
+            value={verification.primaryContactFullName}
+            {...form.register("primaryContactFullName")}
+          />
+          <input
+            type="hidden"
+            value={verification.primaryContactMemberNumber}
+            {...form.register("primaryContactMemberNumber")}
+          />
+
+          <FieldGroup
+            className="grid gap-4 md:grid-cols-2"
+            hidden={onPasswordStep}
           >
-            <input type="hidden" {...form.register("token")} />
-            <input
-              type="hidden"
-              value={verification.cooperativeName}
-              {...form.register("cooperativeName")}
-            />
-            <input
-              type="hidden"
-              value={verification.cooperativeCodePrefix}
-              {...form.register("cooperativeCodePrefix")}
-            />
-            <input
-              type="hidden"
-              value={verification.primaryContactEmail}
-              {...form.register("primaryContactEmail")}
-            />
-            <input
-              type="hidden"
-              value={verification.primaryContactFullName}
-              {...form.register("primaryContactFullName")}
-            />
-            <input
-              type="hidden"
-              value={verification.primaryContactMemberNumber}
-              {...form.register("primaryContactMemberNumber")}
-            />
-
-            <SetupContextStrip
-              items={[
-                {
-                  label: "Cooperative details",
-                  body: "Save the operating location and current member-size range.",
-                },
-                {
-                  label: "Admin security",
-                  body: "Create the first password for the verified workspace owner.",
-                },
-              ]}
-            />
-
-            <FieldGroup className="grid gap-4 md:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="currentSize"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Current cooperative size</FormLabel>
-                    <Select
-                      value={field.value ? String(field.value) : ""}
-                      onValueChange={(value) => field.onChange(value ?? "")}
-                    >
-                      <FormControl>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select cooperative size">
-                            {field.value
-                              ? formatCooperativeSizeRangeLabel(field.value, "")
-                              : undefined}
-                          </SelectValue>
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectGroup>
-                          {cooperativeSizeRanges.map((range) => (
-                            <SelectItem
-                              key={range.value}
-                              value={String(range.value)}
-                            >
-                              {range.label}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="startDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cooperative start date</FormLabel>
+            <FormField
+              control={form.control}
+              name="currentSize"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>How many members do you have?</FormLabel>
+                  <Select
+                    value={field.value ? String(field.value) : ""}
+                    onValueChange={(value) => field.onChange(value ?? "")}
+                  >
                     <FormControl>
-                      <DatePickerInput
-                        allowClear={false}
-                        placeholder="Select start date"
-                        value={field.value}
-                        onBlur={field.onBlur}
-                        onChange={field.onChange}
-                      />
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select a range">
+                          {field.value
+                            ? formatCooperativeSizeRangeLabel(field.value, "")
+                            : undefined}
+                        </SelectValue>
+                      </SelectTrigger>
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                    <SelectContent>
+                      <SelectGroup>
+                        {cooperativeSizeRanges.map((range) => (
+                          <SelectItem
+                            key={range.value}
+                            value={String(range.value)}
+                          >
+                            {range.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="officeAddress"
-                render={({ field }) => (
-                  <FormItem className="md:col-span-2">
-                    <FormLabel>Office address</FormLabel>
+            <FormField
+              control={form.control}
+              name="startDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>When did the cooperative start?</FormLabel>
+                  <FormControl>
+                    <DatePickerInput
+                      allowClear={false}
+                      placeholder="Select start date"
+                      value={field.value}
+                      onBlur={field.onBlur}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Your first month of records. Shares and savings are counted
+                    from here.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="officeAddress"
+              render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                  <FormLabel>Office address</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      autoComplete="street-address"
+                      placeholder="Enter office address"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="city"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>City</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter city" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="state"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>State</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter state" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="country"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Country</FormLabel>
+                  <Select
+                    value={field.value ?? ""}
+                    onValueChange={(value) => field.onChange(value ?? "")}
+                  >
                     <FormControl>
-                      <Textarea placeholder="Enter office address" {...field} />
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select country" />
+                      </SelectTrigger>
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                    <SelectContent>
+                      <SelectGroup>
+                        {cooperativeCountryOptions.map((country) => (
+                          <SelectItem key={country} value={country}>
+                            {country}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </FieldGroup>
 
-              <FormField
-                control={form.control}
-                name="city"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>City</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter city" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="state"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>State</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter state" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="country"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Country</FormLabel>
-                    <Select
-                      value={field.value ?? ""}
-                      onValueChange={(value) => field.onChange(value ?? "")}
-                    >
-                      <FormControl>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select country" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectGroup>
-                          {cooperativeCountryOptions.map((country) => (
-                            <SelectItem key={country} value={country}>
-                              {country}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </FieldGroup>
-
-            <Separator />
-
+          <div className="flex flex-col gap-5" hidden={!onPasswordStep}>
             <FieldGroup className="grid gap-4 md:grid-cols-2">
               <FormField
                 control={form.control}
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Admin password</FormLabel>
+                    <FormLabel>Password</FormLabel>
                     <FormControl>
                       <Input
+                        autoComplete="new-password"
                         type="password"
                         placeholder="At least 8 characters"
                         {...field}
@@ -566,9 +703,10 @@ export function OnboardingForm({
                 name="confirmPassword"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Confirm admin password</FormLabel>
+                    <FormLabel>Type it again</FormLabel>
                     <FormControl>
                       <Input
+                        autoComplete="new-password"
                         type="password"
                         placeholder="Repeat your password"
                         {...field}
@@ -580,28 +718,10 @@ export function OnboardingForm({
               />
             </FieldGroup>
 
-            <Separator />
-
             <PlatformLegalAcceptance onChange={setLegalState} />
-
-            <div className="flex flex-wrap items-center gap-3">
-              <Button size="lg" disabled={submitting || !legalState.ready} type="submit">
-                {submitting ? (
-                  <>
-                    <Spinner data-icon="inline-start" />
-                    Creating workspace
-                  </>
-                ) : (
-                  "Create workspace"
-                )}
-              </Button>
-              <p className="text-xs leading-5 text-muted-foreground">
-                The dashboard will open the first-run setup checklist next.
-              </p>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+          </div>
+        </form>
+      </JourneyStep>
     </Form>
   )
 }

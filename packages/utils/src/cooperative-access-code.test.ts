@@ -4,6 +4,7 @@ import {
   cooperativeMemberNumberPrefix,
   isValidCooperativeCodePrefix,
   normalizeCooperativeAccessCode,
+  previewCooperativeAccessCode,
 } from "./cooperative-access-code"
 
 describe("cooperative access codes", () => {
@@ -22,5 +23,21 @@ describe("cooperative access codes", () => {
 
   test("normalizes pasted access codes", () => {
     expect(normalizeCooperativeAccessCode(" amn / 0042 ")).toBe("AMN-0042")
+  })
+
+  test("previews the sign-in code while the admin types", () => {
+    expect(previewCooperativeAccessCode("amn", "0001")).toEqual({
+      code: "AMN-0001",
+      prefix: "AMN",
+    })
+    expect(previewCooperativeAccessCode("am", "0001")).toEqual({
+      code: null,
+      prefix: null,
+    })
+    expect(previewCooperativeAccessCode("AMN", "  ")).toEqual({
+      code: null,
+      prefix: "AMN",
+    })
+    expect(previewCooperativeAccessCode(undefined, undefined).code).toBeNull()
   })
 })

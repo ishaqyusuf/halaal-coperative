@@ -9,17 +9,7 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@halaalvest/ui/components/alert"
-import { Badge } from "@halaalvest/ui/components/badge"
 import { Button, buttonVariants } from "@halaalvest/ui/components/button"
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@halaalvest/ui/components/card"
 import { FieldGroup } from "@halaalvest/ui/components/field"
 import {
   Form,
@@ -37,7 +27,6 @@ import {
   InputGroupInput,
   InputGroupText,
 } from "@halaalvest/ui/components/input-group"
-import { Separator } from "@halaalvest/ui/components/separator"
 import { Spinner } from "@halaalvest/ui/components/spinner"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import {
@@ -45,6 +34,8 @@ import {
   useNotifications,
 } from "@halaalvest/notifications-react"
 import type { QaQuickFillContext } from "@halaalvest/utils"
+import { previewCooperativeAccessCode } from "@halaalvest/utils"
+import { CheckCircle2Icon, CircleAlertIcon, MailIcon } from "lucide-react"
 import { applyDevFormFill } from "@/lib/dev-form-fill"
 import {
   createWorkspaceSlugSuggestion,
@@ -52,8 +43,8 @@ import {
   signupIntentSchema,
   type SignupIntentInput,
 } from "@/lib/signup-flow"
+import { JourneyStep } from "./journey-step"
 import { useSignupJourneyStage } from "./signup-journey-state"
-import { SetupContextStrip } from "./setup-context-strip"
 import {
   getMarketingErrorMessage,
   type MarketingErrorEnvelope,
@@ -105,6 +96,8 @@ type AvailabilityState =
     }
   | { status: "error"; message: string }
 
+const signupFormId = "one-path-signup-form"
+
 function formatWorkspaceUrlPreview(slug: string, suffix: string) {
   return `${slug}${suffix}`
 }
@@ -114,6 +107,30 @@ function formatExpiry(value: string) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value))
+}
+
+function AvailabilityLine({
+  available,
+  children,
+}: {
+  available: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <p
+      className={`flex items-center gap-1.5 text-[13px] ${
+        available ? "text-[#1F7A3D]" : "text-destructive"
+      }`}
+      role="status"
+    >
+      {available ? (
+        <CheckCircle2Icon aria-hidden="true" className="size-3.5 shrink-0" />
+      ) : (
+        <CircleAlertIcon aria-hidden="true" className="size-3.5 shrink-0" />
+      )}
+      {children}
+    </p>
+  )
 }
 
 export function SignupForm({
@@ -143,7 +160,14 @@ export function SignupForm({
   })
   const { publishQaPreviews, showError, showSuccess } = useNotifications()
   const [result, setResult] = useState<SignupApiSuccess | null>(null)
-  useSignupJourneyStage(result ? "verify" : "workspace")
+  const [submittedValues, setSubmittedValues] =
+    useState<SignupIntentInput | null>(null)
+  useSignupJourneyStage(result ? "verify-email" : "sign-up", {
+    onSelect: (stepKey) => {
+      if (stepKey === "sign-up") setResult(null)
+    },
+    selectable: result ? ["sign-up"] : [],
+  })
   const [submitting, setSubmitting] = useState(false)
   const [workspaceSlugEdited, setWorkspaceSlugEdited] = useState(
     Boolean(defaultValues?.workspaceSlug)
@@ -159,11 +183,22 @@ export function SignupForm({
     control: form.control,
     name: "cooperativeCodePrefix",
   })
+  const memberNumber = useWatch({
+    control: form.control,
+    name: "primaryContactMemberNumber",
+  })
   const workspaceSlug = useWatch({
     control: form.control,
     name: "workspaceSlug",
   })
   const normalizedWorkspaceSlug = normalizeWorkspaceSlug(workspaceSlug ?? "")
+  const accessCodePreview = previewCooperativeAccessCode(
+    cooperativeCodePrefix,
+    memberNumber
+  )
+  const exampleCode =
+    previewCooperativeAccessCode(cooperativeCodePrefix, "0042").code ??
+    "AMN-0042"
   const canSubmit =
     availability.status !== "checking" &&
     (availability.status !== "ready" ||
@@ -239,20 +274,7 @@ export function SignupForm({
     }
   }, [cooperativeCodePrefix, cooperativeName, normalizedWorkspaceSlug])
 
-  async function onSubmit(values: SignupIntentInput) {
-    if (
-      availability.status === "ready" &&
-      (!availability.cooperativeName.available ||
-        !availability.cooperativeCodePrefix.available ||
-        !availability.workspaceSlug.available)
-    ) {
-      showError(
-        "Setup could not continue",
-        "Choose an available prefix, name, and subdomain."
-      )
-      return
-    }
-
+  async function requestVerification(values: SignupIntentInput) {
     try {
       setSubmitting(true)
 
@@ -280,6 +302,7 @@ export function SignupForm({
         )
       }
 
+      setSubmittedValues(values)
       setResult(payload)
       publishQaPreviews(payload.qaPreviews)
       showSuccess(
@@ -287,8 +310,8 @@ export function SignupForm({
           ? "Verification email sent"
           : "Verification prepared",
         payload.emailDeliveryConfigured
-          ? "The direct email sender handled the verification step."
-          : "Email transport is not configured in this environment."
+          ? "Open the email to continue setup."
+          : "Email delivery is not configured here. Use the secure link."
       )
     } catch (error) {
       showError(
@@ -300,236 +323,349 @@ export function SignupForm({
     }
   }
 
+  async function onSubmit(values: SignupIntentInput) {
+    if (
+      availability.status === "ready" &&
+      (!availability.cooperativeName.available ||
+        !availability.cooperativeCodePrefix.available ||
+        !availability.workspaceSlug.available)
+    ) {
+      showError(
+        "Setup could not continue",
+        "Choose an available member code, name and workspace address."
+      )
+      return
+    }
+
+    await requestVerification(values)
+  }
+
   if (result) {
     const emailWasSent = result.verificationDelivery.status === "sent"
     const emailFailed = result.verificationDelivery.status === "failed"
-    const successTitle = emailWasSent
-      ? "Verification email sent"
-      : emailFailed
-        ? "Verification link created"
-        : result.emailDeliveryConfigured
-          ? "Verification email ready"
-          : "Verification link ready"
-    const successDescription = emailWasSent
-      ? "Ask the admin to open the email and continue setup from the secure link."
-      : emailFailed
-        ? "The email could not be delivered, but the secure verification link was created."
-        : result.emailDeliveryConfigured
-          ? "The email is prepared and ready for the configured delivery service."
-          : "Email delivery is not configured here, so use the secure link to continue."
-    const deliveryLabel = emailWasSent
-      ? "Sent to inbox"
-      : emailFailed
-        ? "Send failed"
-        : result.emailDeliveryConfigured
-          ? "Prepared"
-          : "Local only"
+    const recipient =
+      result.verificationEmail?.recipient.value ??
+      submittedValues?.primaryContactEmail ??
+      "your email"
     const qaPreview = result.qaPreviews?.at(-1)
     const showSecureLink =
       result.devMode || !result.emailDeliveryConfigured || Boolean(qaPreview)
 
     return (
-      <Card>
-        <CardHeader>
-          <CardAction>
-            <Badge variant={emailFailed ? "outline" : "default"}>
-              {emailFailed ? "Link ready" : "Success"}
-            </Badge>
-          </CardAction>
-          <CardTitle className="text-2xl">{successTitle}</CardTitle>
-          <CardDescription>{successDescription}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-5">
-          <Alert variant={emailFailed ? "destructive" : "default"}>
-            <AlertTitle>Next step</AlertTitle>
-            <AlertDescription>
-              {emailWasSent
-                ? "Open the email to continue onboarding. The workspace is created after the verified profile is submitted."
-                : "Use the secure link to continue onboarding. The workspace is created after the verified profile is submitted."}
-            </AlertDescription>
-          </Alert>
+      <JourneyStep
+        aside={
+          <p>
+            The verified email becomes the owner of the workspace. We don&apos;t
+            create anything until it&apos;s confirmed.
+          </p>
+        }
+        eyebrow="Check your inbox"
+        lede={
+          <>
+            Open the email we sent to{" "}
+            <span className="font-medium text-foreground">{recipient}</span> and
+            select the button. The link works for 24 hours.
+          </>
+        }
+        stepKey="verify-email"
+        title="We sent you a link"
+      >
+        <div className="flex flex-col gap-5">
+          {emailFailed ? (
+            <Alert variant="destructive">
+              <AlertTitle>The email could not be delivered</AlertTitle>
+              <AlertDescription>
+                Your secure link was still created. Send it again, or check the
+                address.
+              </AlertDescription>
+            </Alert>
+          ) : !emailWasSent ? (
+            <Alert>
+              <MailIcon aria-hidden="true" />
+              <AlertTitle>
+                {result.emailDeliveryConfigured
+                  ? "Your email is on its way"
+                  : "Email is not sent in this environment"}
+              </AlertTitle>
+              <AlertDescription>
+                {result.emailDeliveryConfigured
+                  ? "It can take a minute to arrive."
+                  : "Use the secure link below to continue."}
+              </AlertDescription>
+            </Alert>
+          ) : null}
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="border-l-2 border-primary bg-muted/30 py-2 pl-3">
-              <p className="text-xs text-muted-foreground">Recipient</p>
-              <p className="mt-1 truncate text-sm font-medium">
-                {result.verificationEmail?.recipient.value ??
-                  "Cooperative administrator"}
-              </p>
+          <dl className="grid gap-3 text-sm sm:grid-cols-2">
+            <div className="rounded-lg border bg-muted/30 px-3 py-2">
+              <dt className="text-xs text-muted-foreground">Sent to</dt>
+              <dd className="mt-0.5 truncate font-medium">{recipient}</dd>
             </div>
-            <div className="border-l-2 border-primary bg-muted/30 py-2 pl-3">
-              <p className="text-xs text-muted-foreground">Delivery</p>
-              <p className="mt-1 text-sm font-medium">{deliveryLabel}</p>
-            </div>
-            <div className="border-l-2 border-primary bg-muted/30 py-2 pl-3">
-              <p className="text-xs text-muted-foreground">Expires</p>
-              <p className="mt-1 text-sm font-medium">
+            <div className="rounded-lg border bg-muted/30 px-3 py-2">
+              <dt className="text-xs text-muted-foreground">Link expires</dt>
+              <dd className="mt-0.5 font-medium">
                 {formatExpiry(result.expiresAt)}
-              </p>
+              </dd>
             </div>
-          </div>
+          </dl>
+
           {qaPreview ? <QaNotificationPreviewCard preview={qaPreview} /> : null}
-        </CardContent>
-        <CardFooter className="flex flex-wrap items-center gap-2">
+
           {showSecureLink && result.verificationEmail?.actionUrl ? (
             <Link
-              className={buttonVariants({ size: "lg" })}
+              className={buttonVariants({ className: "w-fit", size: "lg" })}
               href={result.verificationEmail.actionUrl}
             >
               {result.emailDeliveryConfigured
                 ? result.verificationEmail.actionLabel
                 : "Continue with secure link"}
             </Link>
-          ) : (
-            <p className="text-xs leading-5 text-muted-foreground">
-              The admin can continue from the verification email.
-            </p>
-          )}
-          <Button
-            variant="ghost"
-            size="lg"
-            onClick={() => {
-              setResult(null)
-              setWorkspaceSlugEdited(false)
-              form.reset()
-            }}
-          >
-            Start over
-          </Button>
-        </CardFooter>
-      </Card>
+          ) : null}
+
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <Button
+              className="min-h-11 px-0"
+              disabled={submitting || !submittedValues}
+              onClick={() => {
+                if (submittedValues) void requestVerification(submittedValues)
+              }}
+              type="button"
+              variant="link"
+            >
+              {submitting ? (
+                <>
+                  <Spinner data-icon="inline-start" />
+                  Sending
+                </>
+              ) : (
+                "Send it again"
+              )}
+            </Button>
+            <Button
+              className="min-h-11 px-0"
+              onClick={() => setResult(null)}
+              type="button"
+              variant="link"
+            >
+              Wrong email? Change it
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              Nothing in your inbox? Check spam.
+            </span>
+          </div>
+        </div>
+      </JourneyStep>
     )
   }
 
+  const prefixAvailability =
+    availability.status === "ready" ? availability.cooperativeCodePrefix : null
+  const slugAvailability =
+    availability.status === "ready" ? availability.workspaceSlug : null
+  const nameAvailability =
+    availability.status === "ready" ? availability.cooperativeName : null
+
   return (
     <Form {...form}>
-      <Card>
-        <CardHeader>
-          {quickFill.enabled ? (
-            <CardAction>
-              <Button
-                size="sm"
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  void applyDevFormFill(
-                    form,
-                    "signup",
-                    approvalLocked
-                      ? {
-                          ...defaultValues,
-                          workspaceSlug: initialWorkspaceSlug,
-                        }
-                      : undefined,
-                    { emailDomain: quickFill.emailDomain }
-                  )
-                }
-              >
-                Quick fill
-              </Button>
-            </CardAction>
-          ) : null}
-          <CardTitle className="text-2xl">
-            Choose the cooperative workspace.
-          </CardTitle>
-          <CardDescription>
-            Confirm the accountable admin, reserve the workspace address, and
-            send the secure email link before any records are created.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-5">
-          <form
-            className="flex flex-col gap-5"
-            onSubmit={form.handleSubmit(onSubmit)}
+      <JourneyStep
+        action={
+          quickFill.enabled ? (
+            <Button
+              size="sm"
+              type="button"
+              variant="outline"
+              onClick={() =>
+                void applyDevFormFill(
+                  form,
+                  "signup",
+                  approvalLocked
+                    ? {
+                        ...defaultValues,
+                        workspaceSlug: initialWorkspaceSlug,
+                      }
+                    : undefined,
+                  { emailDomain: quickFill.emailDomain }
+                )
+              }
+            >
+              Quick fill
+            </Button>
+          ) : null
+        }
+        aside={
+          <p>
+            Members sign in with a code like{" "}
+            <b className="font-semibold text-[#0B1F36]">{exampleCode}</b>. The
+            letters are unique to your cooperative and can&apos;t be changed
+            later, so pick something short your members will recognise.
+          </p>
+        }
+        eyebrow="Sign up · the web workspace is free"
+        lede="This is where your team and members will sign in. It takes about a minute."
+        primary={
+          <Button
+            disabled={submitting || !canSubmit}
+            form={signupFormId}
+            size="lg"
+            type="submit"
           >
-            <SetupContextStrip
-              items={[
-                {
-                  label: "Accountable admin",
-                  body: "The verified contact becomes the first workspace owner.",
-                },
-                {
-                  label: "Workspace identity",
-                  body: "Reserve the cooperative name and private operating address.",
-                },
-              ]}
+            {submitting ? (
+              <>
+                <Spinner data-icon="inline-start" />
+                Sending
+              </>
+            ) : (
+              "Send verification email"
+            )}
+          </Button>
+        }
+        stepKey="sign-up"
+        title="Create your cooperative's workspace"
+      >
+        <form
+          className="flex flex-col gap-5"
+          id={signupFormId}
+          onSubmit={form.handleSubmit(onSubmit)}
+        >
+          <FieldGroup className="grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="cooperativeName"
+              render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                  <FormLabel>Cooperative name</FormLabel>
+                  <FormControl>
+                    <Input
+                      autoComplete="organization"
+                      placeholder="Enter cooperative name"
+                      readOnly={approvalLocked}
+                      {...field}
+                    />
+                  </FormControl>
+                  {approvalLocked ? (
+                    <FormDescription>
+                      From your approved request
+                    </FormDescription>
+                  ) : nameAvailability && !nameAvailability.available ? (
+                    <AvailabilityLine available={false}>
+                      That cooperative name is already in use.
+                    </AvailabilityLine>
+                  ) : null}
+                  <FormMessage />
+                </FormItem>
+              )}
             />
 
-            <FieldGroup className="grid gap-4 md:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="cooperativeName"
-                render={({ field }) => (
-                  <FormItem className="md:col-span-2">
-                    <FormLabel>Cooperative name</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter cooperative name"
-                        readOnly={approvalLocked}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="primaryContactFullName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cooperative admin name</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter your name"
-                        readOnly={approvalLocked}
-                        {...field}
-                      />
-                    </FormControl>
+            <FormField
+              control={form.control}
+              name="primaryContactFullName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Your name</FormLabel>
+                  <FormControl>
+                    <Input
+                      autoComplete="name"
+                      placeholder="Enter your name"
+                      readOnly={approvalLocked}
+                      {...field}
+                    />
+                  </FormControl>
+                  {approvalLocked ? (
                     <FormDescription>
-                      This person will become the first workspace owner.
+                      From your approved request
                     </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  ) : null}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="primaryContactEmail"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cooperative admin email</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="Enter admin email"
-                        readOnly={approvalLocked}
+            <FormField
+              control={form.control}
+              name="primaryContactEmail"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Your email</FormLabel>
+                  <FormControl>
+                    <Input
+                      autoComplete="email"
+                      type="email"
+                      placeholder="Enter your email"
+                      readOnly={approvalLocked}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {approvalLocked
+                      ? "From your approved request"
+                      : "You'll own the workspace"}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="workspaceSlug"
+              render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                  <FormLabel>Workspace address</FormLabel>
+                  <FormControl>
+                    <InputGroup>
+                      <InputGroupInput
+                        autoComplete="off"
+                        placeholder="Enter workspace name"
+                        spellCheck={false}
                         {...field}
+                        onChange={(event) => {
+                          setWorkspaceSlugEdited(true)
+                          field.onChange(
+                            normalizeWorkspaceSlug(event.target.value)
+                          )
+                        }}
                       />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <InputGroupAddon align="inline-end">
+                        <InputGroupText>{workspaceUrlSuffix}</InputGroupText>
+                      </InputGroupAddon>
+                    </InputGroup>
+                  </FormControl>
+                  {slugAvailability ? (
+                    <AvailabilityLine available={slugAvailability.available}>
+                      {slugAvailability.available
+                        ? `${formatWorkspaceUrlPreview(slugAvailability.normalized, workspaceUrlSuffix)} is available`
+                        : `${formatWorkspaceUrlPreview(normalizedWorkspaceSlug, workspaceUrlSuffix)} is taken. Try another.`}
+                    </AvailabilityLine>
+                  ) : !workspaceSlugEdited && normalizedWorkspaceSlug ? (
+                    <FormDescription>
+                      Suggested from your cooperative&apos;s name.
+                    </FormDescription>
+                  ) : null}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="primaryContactMemberNumber"
-                render={({ field }) => (
-                  <FormItem className="md:col-span-2">
-                    <FormLabel>Cooperative prefix and admin number</FormLabel>
-                    <div className="grid grid-cols-[8rem_minmax(0,1fr)] gap-3">
-                      <FormField
-                        control={form.control}
-                        name="cooperativeCodePrefix"
-                        render={({ field: prefixField }) => (
-                          <FormItem className="space-y-0">
+            <FormField
+              control={form.control}
+              name="primaryContactMemberNumber"
+              render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                  <FormLabel>Member code</FormLabel>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <FormField
+                      control={form.control}
+                      name="cooperativeCodePrefix"
+                      render={({ field: prefixField }) => (
+                        <FormItem className="space-y-0">
+                          <InputGroup>
+                            <InputGroupAddon align="inline-start">
+                              <InputGroupText>Letters</InputGroupText>
+                            </InputGroupAddon>
                             <FormControl>
-                              <Input
-                                aria-label="Cooperative prefix"
-                                className="w-32 px-2 text-center uppercase"
+                              <InputGroupInput
+                                aria-label="Member code letters"
+                                autoComplete="off"
+                                className="uppercase"
                                 maxLength={5}
                                 placeholder="AMN"
                                 {...prefixField}
@@ -540,172 +676,90 @@ export function SignupForm({
                                 }
                               />
                             </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                          </InputGroup>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <InputGroup>
+                      <InputGroupAddon align="inline-start">
+                        <InputGroupText>Your no.</InputGroupText>
+                      </InputGroupAddon>
                       <FormControl>
-                        <Input
-                          placeholder="Enter admin membership no"
+                        <InputGroupInput
+                          aria-label="Your member number"
+                          autoComplete="off"
+                          inputMode="numeric"
+                          placeholder="0001"
                           {...field}
                         />
                       </FormControl>
-                    </div>
-                    <FormDescription>
-                      Reserve a unique 3–5 letter prefix. Access codes use it,
-                      for example AMN-0042.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="workspaceSlug"
-                render={({ field }) => (
-                  <FormItem className="md:col-span-2">
-                    <FormLabel>Workspace address</FormLabel>
-                    <FormControl>
-                      <InputGroup>
-                        <InputGroupInput
-                          placeholder="Enter workspace name"
-                          {...field}
-                          onChange={(event) => {
-                            setWorkspaceSlugEdited(true)
-                            field.onChange(
-                              normalizeWorkspaceSlug(event.target.value)
-                            )
-                          }}
-                        />
-                        <InputGroupAddon align="inline-end">
-                          <InputGroupText>{workspaceUrlSuffix}</InputGroupText>
-                        </InputGroupAddon>
-                      </InputGroup>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </FieldGroup>
-
-            {availability.status === "checking" ? (
-              <Alert>
-                <AlertTitle>Checking availability</AlertTitle>
-                <AlertDescription>
-                  We are checking the cooperative name and website.
-                </AlertDescription>
-              </Alert>
-            ) : availability.status === "ready" ? (
-              <Alert
-                variant={
-                  availability.cooperativeName.available &&
-                  availability.cooperativeCodePrefix.available &&
-                  availability.workspaceSlug.available
-                    ? "default"
-                    : "destructive"
-                }
-              >
-                <AlertTitle>Website availability</AlertTitle>
-                <AlertDescription>
-                  <div className="flex flex-col gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge
-                        variant={
-                          availability.cooperativeCodePrefix.available
-                            ? "secondary"
-                            : "destructive"
-                        }
-                      >
-                        Prefix
-                      </Badge>
-                      <span>
-                        {availability.cooperativeCodePrefix.available
-                          ? `${availability.cooperativeCodePrefix.normalized} is available.`
-                          : "That cooperative prefix is not available."}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge
-                        variant={
-                          availability.workspaceSlug.available
-                            ? "secondary"
-                            : "destructive"
-                        }
-                      >
-                        Website
-                      </Badge>
-                      <span>
-                        {availability.workspaceSlug.available
-                          ? `${formatWorkspaceUrlPreview(availability.workspaceSlug.normalized, workspaceUrlSuffix)} is available.`
-                          : "That website is not available."}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge
-                        variant={
-                          availability.cooperativeName.available
-                            ? "secondary"
-                            : "destructive"
-                        }
-                      >
-                        Name
-                      </Badge>
-                      <span>
-                        {availability.cooperativeName.available
-                          ? "Cooperative name is available."
-                          : "That cooperative name is already in use."}
-                      </span>
-                    </div>
+                    </InputGroup>
                   </div>
-                </AlertDescription>
-              </Alert>
-            ) : availability.status === "error" ? (
-              <Alert>
-                <AlertTitle>Availability check paused</AlertTitle>
-                <AlertDescription>{availability.message}</AlertDescription>
-              </Alert>
-            ) : normalizedWorkspaceSlug ? (
-              <Alert>
-                <AlertTitle>Suggested website</AlertTitle>
-                <AlertDescription>
-                  Your website will use{" "}
-                  <span className="font-medium">{normalizedWorkspaceSlug}</span>
-                  .
-                </AlertDescription>
-              </Alert>
-            ) : null}
+                  {prefixAvailability ? (
+                    <AvailabilityLine available={prefixAvailability.available}>
+                      {prefixAvailability.available
+                        ? `${prefixAvailability.normalized} is yours`
+                        : `${prefixAvailability.normalized} is used by another cooperative.`}
+                    </AvailabilityLine>
+                  ) : (
+                    <FormDescription>Use 3 to 5 letters.</FormDescription>
+                  )}
+                  <FormMessage />
+                  <div
+                    aria-live="polite"
+                    className="mt-1 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#0B1F36] px-4 py-3 text-white"
+                  >
+                    <div>
+                      <p className="text-xs text-white/70">
+                        You will sign in with
+                      </p>
+                      <p className="font-mono text-lg font-semibold tracking-wide">
+                        {accessCodePreview.code ??
+                          `${accessCodePreview.prefix ?? "AMN"}-0001`}
+                      </p>
+                    </div>
+                    <p className="text-right text-[12.5px] leading-5 text-white/70">
+                      Every member&apos;s code
+                      <br />
+                      starts with{" "}
+                      <b className="text-white">
+                        {accessCodePreview.prefix ?? "—"}
+                      </b>
+                    </p>
+                  </div>
+                </FormItem>
+              )}
+            />
+          </FieldGroup>
 
-            <Separator />
+          {availability.status === "checking" ? (
+            <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
+              <Spinner /> Checking availability
+            </p>
+          ) : availability.status === "error" ? (
+            <Alert>
+              <AlertTitle>Availability check paused</AlertTitle>
+              <AlertDescription>{availability.message}</AlertDescription>
+            </Alert>
+          ) : null}
 
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                size="lg"
-                disabled={submitting || !canSubmit}
-                type="submit"
-              >
-                {submitting ? (
-                  <>
-                    <Spinner data-icon="inline-start" />
-                    Preparing verification
-                  </>
-                ) : (
-                  "Send verification email"
-                )}
-              </Button>
-              <p className="text-xs leading-5 text-muted-foreground">
-                The workspace opens only after email verification and
-                onboarding.
-              </p>
-            </div>
-            <nav aria-label="Legal and support" className="flex flex-wrap gap-4 text-sm">
-              <a className="min-h-11 py-3 underline" href="/terms">Platform terms</a>
-              <a className="min-h-11 py-3 underline" href="/privacy">Privacy notice</a>
-              <a className="min-h-11 py-3 underline" href="/support">Support</a>
-            </nav>
-          </form>
-        </CardContent>
-      </Card>
+          <nav
+            aria-label="Legal and support"
+            className="flex flex-wrap gap-x-4 text-sm text-muted-foreground"
+          >
+            <a className="min-h-11 py-3 underline" href="/terms">
+              Platform terms
+            </a>
+            <a className="min-h-11 py-3 underline" href="/privacy">
+              Privacy notice
+            </a>
+            <a className="min-h-11 py-3 underline" href="/support">
+              Support
+            </a>
+          </nav>
+        </form>
+      </JourneyStep>
     </Form>
   )
 }

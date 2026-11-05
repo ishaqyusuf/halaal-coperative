@@ -50,3 +50,24 @@ export function cooperativeMemberNumberPrefix(prefix: string) {
 
   return `${normalizedPrefix}-`
 }
+
+// Live preview for sign-up: never throws while the admin is still typing.
+// `code` is null until both parts are usable; `prefix` falls back to null.
+export function previewCooperativeAccessCode(
+  prefix: string | null | undefined,
+  identifier: string | null | undefined
+) {
+  const normalizedPrefix = normalizeCooperativeCodePrefix(prefix)
+  const validPrefix = isValidCooperativeCodePrefix(normalizedPrefix)
+    ? normalizedPrefix
+    : null
+  const normalizedIdentifier = normalizeCooperativeAccessCode(identifier)
+
+  return {
+    code:
+      validPrefix && normalizedIdentifier
+        ? composeCooperativeAccessCode(validPrefix, normalizedIdentifier)
+        : null,
+    prefix: validPrefix,
+  }
+}

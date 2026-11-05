@@ -21,7 +21,7 @@ export default async function OnboardingPage({
       return (
         <SignupShell
           eyebrow="Verified setup"
-          stage="verify"
+          stage="verify-email"
           title="This verification link has expired."
           description="This link was already used to create a cooperative workspace and can’t be used again."
         >
@@ -35,7 +35,7 @@ export default async function OnboardingPage({
     return (
       <SignupShell
         eyebrow="Verified setup"
-        stage="verify"
+        stage="verify-email"
         title="Open onboarding from a secure verification link."
         description="Setup sends the primary admin a time-limited link before a workspace can be created."
       >
@@ -55,7 +55,7 @@ export default async function OnboardingPage({
     return (
       <SignupShell
         eyebrow="Verified setup"
-        stage="verify"
+        stage="verify-email"
         title={
           linkExpired
             ? "This verification link has expired."
@@ -74,12 +74,7 @@ export default async function OnboardingPage({
   const quickFill = await getMarketingQaQuickFillContext()
 
   return (
-    <SignupShell
-      eyebrow="Verified setup"
-      stage="profile"
-      title="Finish the cooperative workspace profile."
-      description="The verified admin is confirmed. Save the operating profile and first password, then move into guided dashboard setup."
-    >
+    <SignupShell stage="cooperative-details">
       <OnboardingForm
         quickFill={quickFill}
         token={token}

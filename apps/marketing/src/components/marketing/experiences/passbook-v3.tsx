@@ -161,22 +161,23 @@ const trustPoints = [
   },
 ]
 
+// Kept in step with the One Path journey map (steps 1–2, 3–4, 5–9, 10–11).
 const signupSteps = [
   {
-    body: "Cooperative name, a 3–5 letter prefix and your web address.",
-    title: "Reserve your workspace",
+    body: "Cooperative name, your member code letters and web address. We email you a secure link.",
+    title: "Sign up and verify your email",
   },
   {
-    body: "We send a secure link to the admin who will own the workspace.",
-    title: "Verify the admin’s email",
+    body: "Office location, start date and your password. You are signed in straight away.",
+    title: "Add cooperative details",
   },
   {
-    body: "Office location, start date and the admin password.",
-    title: "Add your cooperative profile",
+    body: "Where records start, services, shares, charges and profit sharing.",
+    title: "Set up how you run",
   },
   {
-    body: "Import members and opening balances, then run your first month.",
-    title: "Start recording",
+    body: "Add each member's balances or history, then go live.",
+    title: "Bring your members",
   },
 ]
 

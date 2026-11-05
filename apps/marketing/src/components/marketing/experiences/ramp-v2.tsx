@@ -21,10 +21,7 @@ import {
 import Link from "next/link"
 import { EarlyAccessForm } from "../early-access-form"
 import type { MarketingExperienceProps } from "../marketing-experience-contract"
-import {
-  freeBetaMonthlyPriceLabel,
-  standardMonthlyPriceLabel,
-} from "../pricing-data"
+import { publicPriceList } from "../pricing-data"
 
 const operatingAreas = [
   "Contributions",
@@ -596,47 +593,31 @@ function PricingSection({ signupHref }: { signupHref: string }) {
         <div className="grid gap-8 lg:grid-cols-2 lg:items-end">
           <div>
             <p className="text-xs font-semibold tracking-[0.15em] text-black/42 uppercase">
-              Predictable SaaS pricing
+              Simple pricing
             </p>
             <h2 className="mt-5 max-w-[13ch] text-5xl leading-[0.94] font-medium tracking-[-0.055em] sm:text-6xl">
               Software fees stay separate from member money.
             </h2>
           </div>
           <p className="max-w-xl text-lg leading-8 text-black/58 lg:justify-self-end">
-            Plans use active-member capacity bands. Halaalvest does not take a
-            percentage of cooperative funds or financing activity.
+            The web workspace is free and mobile app access is a personal
+            subscription. Halaalvest does not take a percentage of cooperative
+            funds or financing activity.
           </p>
         </div>
 
         <div className="mt-14 grid gap-4 lg:grid-cols-3">
-          <PriceCard
-            body="For selected cooperatives validating guided setup and live workflows."
-            features={["Up to 100 active members", "Guided cooperative setup"]}
-            name="Free Beta"
-            price={freeBetaMonthlyPriceLabel.replace(/^NGN /, "₦")}
-            signupHref={signupHref}
-          />
-          <PriceCard
-            body="For established cooperatives running monthly contribution operations."
-            featured
-            features={[
-              "Up to 1,000 active members",
-              "Member login and audit history",
-            ]}
-            name="Standard"
-            price={standardMonthlyPriceLabel.replace(/^NGN /, "₦")}
-            signupHref={signupHref}
-          />
-          <PriceCard
-            body="For multi-branch, integration-heavy, or SLA-backed deployments."
-            features={[
-              "Custom active-member band",
-              "Dedicated success support",
-            ]}
-            name="Enterprise"
-            price="Custom"
-            signupHref={signupHref}
-          />
+          {publicPriceList.map((price) => (
+            <PriceCard
+              body={price.detail}
+              featured={price.item === "Mobile app access"}
+              features={price.note ? [price.note] : []}
+              key={price.item}
+              name={price.item}
+              price={price.price}
+              signupHref={signupHref}
+            />
+          ))}
         </div>
         <div className="mt-6 flex flex-col justify-between gap-4 border-t border-black/14 pt-6 text-sm text-black/52 sm:flex-row sm:items-center">
           <p>No percentage of savings, financing, repayments, or profits.</p>
@@ -644,7 +625,7 @@ function PricingSection({ signupHref }: { signupHref: string }) {
             className="inline-flex items-center gap-2 font-medium text-black"
             href="/pricing"
           >
-            Compare all five plans
+            See full pricing
             <ArrowRightIcon aria-hidden="true" className="size-4" />
           </Link>
         </div>
@@ -930,11 +911,6 @@ function PriceCard({
     >
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-medium">{name}</h3>
-        {featured ? (
-          <span className="rounded-full bg-black px-2.5 py-1 text-[10px] font-medium text-white">
-            Established teams
-          </span>
-        ) : null}
       </div>
       <p className="mt-10 text-4xl font-medium tracking-[-0.045em]">{price}</p>
       <p className="mt-4 text-sm leading-6 text-black/52">{body}</p>

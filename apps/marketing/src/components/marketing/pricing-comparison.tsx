@@ -2,129 +2,129 @@ import { buttonVariants } from "@halaalvest/ui/components/button"
 import { ArrowRightIcon, CheckIcon } from "lucide-react"
 import Link from "next/link"
 import {
-  pricingFeatureMatrix,
+  mobileAppAccessPrices,
+  mobileAppAccessTerms,
   pricingFeePrinciples,
-  pricingPlans,
+  publicPriceList,
 } from "./pricing-data"
 
-export function PricingComparison({ signupHref }: { signupHref: string }) {
+export function PricingComparison({
+  ctaLabel,
+  signupHref,
+}: {
+  ctaLabel: string
+  signupHref: string
+}) {
   return (
     <main className="marketing-site min-h-svh text-[#0B1F36]">
       <section className="px-5 py-16 sm:px-8 sm:py-20 lg:px-12 lg:py-24">
         <div className="mx-auto w-full max-w-[90rem]">
-          <div className="marketing-eyebrow">Full plan comparison</div>
+          <div className="marketing-eyebrow">Pricing</div>
           <h1 className="marketing-serif mt-7 max-w-5xl text-5xl leading-[0.98] tracking-[-0.045em] sm:text-6xl lg:text-7xl">
-            Choose capacity and access without taxing member money.
+            Free on the web. No cut of member money.
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-[#0B1F36]/64">
-            All plans use predictable active-member bands. Provider costs and
+            Run your cooperative in the web workspace at no cost. The mobile app
+            is an optional personal subscription, and provider costs and
             one-time implementation work stay visible and separate.
           </p>
 
-          <div className="mt-14 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            {pricingPlans.map((plan) => (
-              <article
-                className={`flex min-h-[36rem] flex-col rounded-[1.4rem] border p-6 ${
-                  plan.name === "Standard"
-                    ? "border-[#0B1F36] bg-[#0B1F36] text-white"
-                    : "border-[#0B1F36]/10 bg-white"
-                }`}
-                key={plan.name}
+          <dl className="mt-14 overflow-hidden rounded-[1.5rem] border border-[#0B1F36]/10 bg-white">
+            {publicPriceList.map((price) => (
+              <div
+                className="grid gap-2 border-b border-[#0B1F36]/10 p-6 last:border-b-0 sm:grid-cols-[1fr_auto] sm:items-center sm:gap-8 sm:p-8"
+                key={price.item}
               >
-                <h2 className="text-lg font-semibold">{plan.name}</h2>
-                <p className="marketing-serif mt-8 text-[1.65rem] leading-tight tracking-[-0.03em] whitespace-nowrap">
-                  {plan.price}
-                </p>
-                <p
-                  className={`mt-2 text-xs ${plan.name === "Standard" ? "text-white/55" : "text-[#0B1F36]/50"}`}
+                <dt>
+                  <span className="block text-xl font-semibold">
+                    {price.item}
+                  </span>
+                  <span className="mt-1 block text-sm leading-6 text-[#0B1F36]/60">
+                    {price.detail}
+                  </span>
+                </dt>
+                <dd
+                  className={`marketing-serif m-0 text-3xl tracking-[-0.03em] sm:text-right sm:text-4xl ${
+                    price.highlight ? "text-[#1F7A3D]" : ""
+                  }`}
                 >
-                  {plan.cadence}
+                  {price.price}
+                  {price.note ? (
+                    <span className="mt-1 block font-sans text-sm tracking-normal text-[#0B1F36]/52">
+                      {price.note}
+                    </span>
+                  ) : null}
+                </dd>
+              </div>
+            ))}
+          </dl>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="rounded-[1.5rem] border border-[#0B1F36] bg-[#0B1F36] p-6 text-white sm:p-8">
+              <h2 className="text-xl font-semibold">Mobile app access</h2>
+              <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-white/12">
+                <p className="bg-[#0B1F36] p-4">
+                  <span className="block text-xs text-white/55">
+                    Six months
+                  </span>
+                  <span className="marketing-serif mt-1 block text-3xl">
+                    {mobileAppAccessPrices.sixMonths}
+                  </span>
                 </p>
-                <p className="mt-7 text-sm font-semibold">{plan.members}</p>
-                <p
-                  className={`mt-3 text-sm leading-6 ${plan.name === "Standard" ? "text-white/62" : "text-[#0B1F36]/60"}`}
+                <p className="bg-[#0B1F36] p-4">
+                  <span className="block text-xs text-white/55">One year</span>
+                  <span className="marketing-serif mt-1 block text-3xl">
+                    {mobileAppAccessPrices.oneYear}
+                  </span>
+                </p>
+              </div>
+              <ul className="mt-6 space-y-3">
+                {mobileAppAccessTerms.map((term) => (
+                  <li className="flex items-start gap-2 text-sm" key={term}>
+                    <CheckIcon
+                      aria-hidden="true"
+                      className="mt-0.5 size-4 shrink-0 text-[#71D98B]"
+                    />
+                    <span className="text-white/72">{term}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="flex flex-col rounded-[1.5rem] border border-[#0B1F36]/10 bg-white p-6 sm:p-8">
+              <h2 className="text-xl font-semibold">
+                Other costs, stated up front
+              </h2>
+              <ul className="mt-6 space-y-3">
+                {pricingFeePrinciples.map((note) => (
+                  <li className="flex items-start gap-2 text-sm" key={note}>
+                    <CheckIcon
+                      aria-hidden="true"
+                      className="mt-0.5 size-4 shrink-0 text-[#1F7A3D]"
+                    />
+                    <span className="leading-6 text-[#0B1F36]/68">{note}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-auto flex flex-col gap-4 pt-8 sm:flex-row sm:items-center sm:justify-between">
+                <Link
+                  className="text-sm font-semibold text-[#1F7A3D] underline-offset-4 hover:underline"
+                  href="/billing-policy"
                 >
-                  {plan.description}
-                </p>
-                <ul className="mt-7 space-y-3 border-t border-current/12 pt-6">
-                  {plan.features.map((feature) => (
-                    <li
-                      className="flex items-start gap-2 text-sm"
-                      key={feature}
-                    >
-                      <CheckIcon
-                        aria-hidden="true"
-                        className={`mt-0.5 size-4 shrink-0 ${plan.name === "Standard" ? "text-[#71D98B]" : "text-[#1F7A3D]"}`}
-                      />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
+                  Read the billing policy
+                </Link>
                 <Link
                   className={buttonVariants({
                     className:
-                      plan.name === "Standard"
-                        ? "mt-auto rounded-full !bg-[#71D98B] !text-[#071B2C] hover:!bg-[#8AE6A0]"
-                        : "mt-auto rounded-full",
-                    variant: plan.name === "Standard" ? "default" : "outline",
+                      "h-11 rounded-full !bg-[#0B1F36] px-5 !text-white hover:!bg-[#071B2C]",
                   })}
                   href={signupHref}
                 >
-                  Request access
+                  {ctaLabel}
                   <ArrowRightIcon aria-hidden="true" className="size-4" />
                 </Link>
-              </article>
-            ))}
-          </div>
-
-          <div className="mt-12 overflow-hidden rounded-[1.5rem] border border-[#0B1F36]/10 bg-white">
-            <div className="border-b border-[#0B1F36]/10 p-6 sm:p-8">
-              <h2 className="text-xl font-semibold">Feature availability</h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-[#0B1F36]/58">
-                Starter stays admin-only by default. Standard unlocks direct
-                member access; Growth and Enterprise add richer communications
-                and branding.
-              </p>
-            </div>
-            <div className="overflow-x-auto">
-              <div className="min-w-[760px]">
-                <div className="grid grid-cols-[1.25fr_repeat(5,1fr)] border-b border-[#0B1F36]/10 bg-[#F7FAF7] text-xs font-semibold">
-                  <div className="p-4">Feature</div>
-                  {pricingPlans.map((plan) => (
-                    <div className="p-4" key={plan.name}>
-                      {plan.name}
-                    </div>
-                  ))}
-                </div>
-                {pricingFeatureMatrix.map((row) => (
-                  <div
-                    className="grid grid-cols-[1.25fr_repeat(5,1fr)] border-b border-[#0B1F36]/10 text-sm last:border-b-0"
-                    key={row.feature}
-                  >
-                    <div className="p-4 font-medium">{row.feature}</div>
-                    {row.values.map((value, index) => (
-                      <div
-                        className="p-4 text-[#0B1F36]/58"
-                        key={`${row.feature}-${pricingPlans[index]?.name}`}
-                      >
-                        {value}
-                      </div>
-                    ))}
-                  </div>
-                ))}
               </div>
             </div>
-          </div>
-
-          <div className="mt-4 grid gap-px overflow-hidden rounded-2xl border border-[#0B1F36]/10 bg-[#0B1F36]/10 md:grid-cols-3">
-            {pricingFeePrinciples.map((note) => (
-              <p
-                className="bg-[#F7FAF7] p-6 text-sm leading-6 text-[#0B1F36]/62"
-                key={note}
-              >
-                {note}
-              </p>
-            ))}
           </div>
         </div>
       </section>

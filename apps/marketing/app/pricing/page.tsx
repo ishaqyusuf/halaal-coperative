@@ -9,15 +9,21 @@ export const revalidate = 0
 
 export default async function PricingPage() {
   const marketing = getMarketingConfig()
-  const signupHref = marketing.earlyAccessModeEnabled
-    ? "/#early-access"
-    : await getSignupHref()
+  const earlyAccess = marketing.earlyAccessModeEnabled
+  const signupHref = earlyAccess ? "/#early-access" : await getSignupHref()
+  const ctaLabel = earlyAccess ? "Request access" : "Sign up"
 
   return (
     <>
       <MarketingHeader signupHref={signupHref} />
-      <PricingComparison signupHref={signupHref} />
-      <MarketingFooter />
+      <PricingComparison ctaLabel={ctaLabel} signupHref={signupHref} />
+      <MarketingFooter
+        signupLink={
+          earlyAccess
+            ? ["/#early-access", "Early access"]
+            : [signupHref, "Sign up"]
+        }
+      />
     </>
   )
 }

@@ -1,53 +1,40 @@
 import { describe, expect, test } from "bun:test"
-import { SUBSCRIPTION_PLAN_DEFINITIONS } from "@halaalvest/domain/subscriptions"
 import {
-  freeBetaMonthlyPriceLabel,
-  pricingPlans,
-  standardMonthlyPriceLabel,
+  mobileAppAccessPrices,
+  pricingFeePrinciples,
+  publicPriceList,
 } from "../components/marketing/pricing-data"
 
-describe("public pricing comparison", () => {
-  test("keeps every capacity band and the feature matrix available", async () => {
-    const source = await Bun.file(
-      new URL("../components/marketing/pricing-data.ts", import.meta.url)
-    ).text()
+const pricingSurfaces = [
+  "../components/marketing/pricing-data.ts",
+  "../components/marketing/pricing-section.tsx",
+  "../components/marketing/pricing-comparison.tsx",
+  "../components/marketing/experiences/ramp-v2.tsx",
+]
 
-    for (const plan of [
-      "Free Beta",
-      "Starter",
-      "Standard",
-      "Growth",
-      "Enterprise",
-    ]) {
-      expect(source).toContain(`name: "${plan}"`)
-    }
-
-    expect(source).toContain("pricingFeatureMatrix")
-    expect(source).toContain("No percentage of member savings")
+describe("public pricing", () => {
+  test("publishes the free web workspace and per-user app access prices", () => {
+    expect(publicPriceList.map(({ item, price }) => [item, price])).toEqual([
+      ["Web workspace", "Free"],
+      ["Mobile app access", "US$1.99 / year"],
+      ["Share of savings, financing, repayments or profits", "None"],
+    ])
+    expect(mobileAppAccessPrices).toEqual({
+      oneYear: "US$1.99",
+      sixMonths: "US$0.99",
+    })
+    expect(publicPriceList[1]?.note).toBe("or US$0.99 for six months")
+    expect(pricingFeePrinciples[0]).toContain("No percentage of member savings")
   })
 
-  test("renders the catalog's public price bands in both homepage designs", async () => {
-    expect(pricingPlans.map((plan) => plan.price)).toEqual([
-      "NGN 0",
-      "NGN 12.5k–18.75k",
-      "NGN 50k–75k",
-      "NGN 150k–225k",
-      "Custom",
-    ])
-    expect(SUBSCRIPTION_PLAN_DEFINITIONS.standard.monthlyPrice).toMatchObject({
-      currencyCode: "NGN",
-      minimum: 50000,
-      maximum: 75000,
-    })
-    expect(standardMonthlyPriceLabel).toBe(pricingPlans[2]?.price)
-    expect(freeBetaMonthlyPriceLabel).toBe(pricingPlans[0]?.price)
-    const rampSource = await Bun.file(
-      new URL(
-        "../components/marketing/experiences/ramp-v2.tsx",
-        import.meta.url
-      )
-    ).text()
-    expect(rampSource).toContain("standardMonthlyPriceLabel.replace")
-    expect(rampSource).not.toContain('price="₦50k–75k"')
+  test("no longer publishes the historical tenant plan bands", async () => {
+    for (const path of pricingSurfaces) {
+      const source = await Bun.file(new URL(path, import.meta.url)).text()
+
+      expect(source).not.toContain("SUBSCRIPTION_PLAN_DEFINITIONS")
+      expect(source).not.toMatch(/\b(Free Beta|Starter|Growth)\b/)
+      expect(source).not.toContain("active-member")
+      expect(source).not.toMatch(/NGN \d|₦\d+k/)
+    }
   })
 })

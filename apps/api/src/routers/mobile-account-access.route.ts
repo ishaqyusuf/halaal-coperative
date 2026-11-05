@@ -11,6 +11,11 @@ import {
   findTenantByCooperativeCodePrefixAsync,
   findUserByCooperativeAccessCodeAsync,
 } from "@halaalvest/db"
+import {
+  DEVELOPMENT_FIXED_CODE,
+  shouldUseFixedDevelopmentCode,
+  type DevelopmentCodeEnvironment,
+} from "@halaalvest/domain/development-code-policy"
 import { AppError } from "@halaalvest/errors"
 import { createNotificationEmailDraft } from "@halaalvest/notifications"
 import { TRPCError } from "@trpc/server"
@@ -52,6 +57,15 @@ export function projectRecoveryRequestResponse(input: {
     challengeId: input.challengeId,
     ...(input.exposeDevCode && input.devCode ? { devCode: input.devCode } : {}),
   }
+}
+
+/** Development profiles always issue the fixed code; everything else is random. */
+export function createRecoveryCode(
+  env: DevelopmentCodeEnvironment = process.env
+) {
+  return shouldUseFixedDevelopmentCode(env)
+    ? DEVELOPMENT_FIXED_CODE
+    : createAuthEvidenceCode()
 }
 
 export function shouldNeutralizeRecoveryRateLimit(error: unknown) {
@@ -156,10 +170,7 @@ export async function enforceTenantAuthLimit(input: {
     })
     return true as const
   } catch (error) {
-    if (
-      input.neutralOnRateLimit &&
-      shouldNeutralizeRecoveryRateLimit(error)
-    ) {
+    if (input.neutralOnRateLimit && shouldNeutralizeRecoveryRateLimit(error)) {
       return false as const
     }
     throw error
@@ -209,7 +220,7 @@ export const mobileRecoveryRouter = createTRPCRouter({
           exposeDevCode: false,
         })
       }
-      const code = createAuthEvidenceCode()
+      const code = createRecoveryCode()
       const expiresAt = new Date(Date.now() + 30 * 60 * 1000)
       const challenge = await createAuthChallenge({
         evidenceHash: hashAuthEvidence(code),
@@ -261,7 +272,7 @@ export const mobileRecoveryRouter = createTRPCRouter({
       return projectRecoveryRequestResponse({
         challengeId: challenge.id,
         devCode: code,
-        exposeDevCode: process.env.NODE_ENV !== "production",
+        exposeDevCode: shouldUseFixedDevelopmentCode(process.env),
       })
     }),
 

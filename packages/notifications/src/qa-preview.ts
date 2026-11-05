@@ -11,9 +11,14 @@ function isActionableUrl(value: string) {
 }
 
 export function createQaNotificationPreview(
-  delivery: NotificationEmailDelivery,
+  delivery: NotificationEmailDelivery
 ): QaNotificationPreview | null {
-  if (delivery.routing?.mode !== "qa_domain") {
+  // A suppressed development email has no inbox, so its links show here
+  // instead. Preview keeps the QA-domain gate so real recipients never do.
+  if (
+    delivery.routing?.mode !== "qa_domain" &&
+    delivery.routing?.suppressed !== "development"
+  ) {
     return null
   }
 
@@ -31,7 +36,7 @@ export function createQaNotificationPreview(
     if (
       !artifacts.some(
         (candidate) =>
-          candidate.kind === artifact.kind && candidate.value === artifact.value,
+          candidate.kind === artifact.kind && candidate.value === artifact.value
       )
     ) {
       artifacts.push(artifact)
@@ -52,7 +57,7 @@ export function createQaNotificationPreview(
 }
 
 export function createQaNotificationPreviews(
-  deliveries: readonly NotificationEmailDelivery[],
+  deliveries: readonly NotificationEmailDelivery[]
 ) {
   return deliveries
     .map(createQaNotificationPreview)

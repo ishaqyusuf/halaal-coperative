@@ -26,6 +26,7 @@
     "./account-privacy-notice": "./src/modules/account-privacy-notice.ts",
     "./legal-reminder": "./src/modules/legal-reminder.ts",
     "./qa-accelerator": "./src/modules/qa-accelerator.ts",
+    "./development-code-policy": "./src/modules/development-code-policy.ts",
     "./ios-release-identity": "./src/modules/ios-release-identity-runtime.cjs"
   }
 }

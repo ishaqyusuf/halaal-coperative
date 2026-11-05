@@ -1,12 +1,17 @@
+import { shouldUseFixedDevelopmentCode } from "@halaalvest/domain/development-code-policy"
 import {
-  createConsoleEmailTransport,
   createRetryingEmailTransport,
   createResendEmailTransport,
   NotificationService,
+  type EmailRoutingMetadata,
+  type NotificationEmailDelivery,
   type NotificationEmailTransport,
   type NotificationInput,
 } from "./index"
-import { getEmailRoutingConfiguration } from "./email-routing"
+import {
+  getEmailRoutingConfiguration,
+  resolveEmailRouting,
+} from "./email-routing"
 
 const DEFAULT_EMAIL_FROM_NAME = "Halaalvest"
 
@@ -46,40 +51,71 @@ function getEmailTestCopyRecipient() {
   return testEmail
 }
 
-function getRecipientDomain(recipient: string) {
-  return recipient.trim().toLowerCase().split("@").pop() ?? ""
+function redactEmailAddress(value: string) {
+  const [localPart = "", domain = ""] = value.trim().toLowerCase().split("@")
+
+  return `${localPart.slice(0, 1)}***@${domain}`
 }
 
-function createHybridConsoleEmailTransport(input: {
-  providerTransport?: NotificationEmailTransport
+function redactActionUrl(value: string) {
+  try {
+    const url = new URL(value)
+
+    // protocol + host rather than origin, which is "null" for app deep links.
+    return `${url.protocol}//${url.host}${url.pathname}`
+  } catch {
+    return "[redacted]"
+  }
+}
+
+/**
+ * Outside production no email reaches a provider. The draft is logged as a
+ * "would send" line and returned as sent, so flows continue; testers read
+ * codes from the fixed development code and links from QA previews.
+ */
+export function createNonProductionEmailTransport(input: {
+  environment?: Record<string, string | undefined>
   qaDomainRoutes: ReadonlyMap<string, string>
 }): NotificationEmailTransport {
-  const consoleTransport = createConsoleEmailTransport()
-
   return {
     send(draft) {
-      const domain = getRecipientDomain(draft.recipient.value)
-      const isQaRecipient =
-        input.qaDomainRoutes.has(domain) ||
-        (input.qaDomainRoutes.size > 0 && domain.endsWith(".test"))
-
-      if (!isQaRecipient) {
-        if (
-          process.env.APP_ENV?.trim().toLowerCase() === "preview" ||
-          process.env.VERCEL_ENV?.trim().toLowerCase() === "preview"
-        ) {
-          throw new Error("Preview email requires an approved QA domain route.")
-        }
-        return consoleTransport.send(draft)
+      const developmentProfile = shouldUseFixedDevelopmentCode(
+        input.environment ?? process.env
+      )
+      const routing: EmailRoutingMetadata = {
+        ...resolveEmailRouting(draft.recipient.value, {
+          deliveryMode: "console",
+          qaDomainRoutes: input.qaDomainRoutes,
+        }),
+        deliveredRecipients: [],
+        suppressed: developmentProfile ? "development" : "non_production",
       }
+      const messageId = `email-suppressed-${Date.now()}-${Math.random()}`
 
-      if (!input.providerTransport) {
-        throw new Error(
-          "QA email delivery requires RESEND_API_KEY and EMAIL_FROM_ADDRESS."
-        )
-      }
+      // Only a development profile logs the full link; hosted non-production
+      // logs keep the path so tokens never reach a log drain.
+      console.log(
+        JSON.stringify({
+          actionUrl: developmentProfile
+            ? draft.actionUrl
+            : redactActionUrl(draft.actionUrl),
+          channel: "email",
+          event: "email.suppressed",
+          messageId,
+          notificationType: draft.notificationType,
+          recipient: redactEmailAddress(routing.originalRecipient),
+          routingMode: routing.mode,
+          subject: draft.subject,
+        })
+      )
 
-      return input.providerTransport.send(draft)
+      return {
+        attempts: 1,
+        draft,
+        messageId,
+        routing,
+        status: "sent",
+      } satisfies NotificationEmailDelivery
     },
   }
 }
@@ -124,25 +160,23 @@ export function createServerNotificationService() {
     testRecipient,
   } = getServerEmailDeliveryConfig()
 
-  const providerTransport =
-    configured && apiKey && from
-      ? createResendEmailTransport({
-          apiKey,
-          copyRecipient,
-          deliveryMode,
-          from,
-          qaDomainRoutes,
-          replyTo,
-          testRecipient,
-        })
-      : undefined
+  // deliveryMode is "console" exactly when the runtime is not production
+  // (getEmailRoutingConfiguration refuses either mismatch), so a provider
+  // transport only ever exists in production.
   const baseEmailTransport =
     deliveryMode === "console"
-      ? createHybridConsoleEmailTransport({
-          providerTransport,
-          qaDomainRoutes,
-        })
-      : providerTransport
+      ? createNonProductionEmailTransport({ qaDomainRoutes })
+      : configured && apiKey && from
+        ? createResendEmailTransport({
+            apiKey,
+            copyRecipient,
+            deliveryMode,
+            from,
+            qaDomainRoutes,
+            replyTo,
+            testRecipient,
+          })
+        : undefined
 
   const emailTransport = baseEmailTransport
     ? createRetryingEmailTransport(baseEmailTransport, {

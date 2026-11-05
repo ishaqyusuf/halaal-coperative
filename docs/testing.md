@@ -180,6 +180,25 @@ memberships and tenant data cascade with the tenant.
 Status: scaffold. The guards, naming and cleanup work. The eight browser stages
 (sign-up through go-live) still need writing, so `run` writes nothing and exits 3.
 
+## Codes and emails: use `123456`, nothing is emailed
+
+Outside production Halaalvest sends no email at all, QA `.test` addresses
+included. Each email is logged as one `email.suppressed` line instead.
+
+- **Local and dev (`bun dev`, `bun dev --dev`)**: every code is `123456`.
+  Mobile **Recover account** takes the cooperative number and email, then
+  `123456`. `bun dev` sets `APP_ENV=local` (`--dev` sets `development`) for you;
+  a server started some other way needs `APP_ENV=local` to get the fixed code.
+- **Links** (password reset, member email verification, sign-up verification,
+  invitations): open them from the QA preview the page shows after you submit,
+  or from the `email.suppressed` line in the server log, which holds the full
+  link locally.
+- **Preview**: codes stay random and nothing is emailed. Use a QA-domain
+  (`.test`) account; its links show in the QA preview. Real addresses get
+  neither an email nor a preview, and Preview mobile recovery has no way to
+  read its code yet.
+- **Production**: unchanged. Real email, random codes.
+
 ## Android: connect and open
 
 ```bash

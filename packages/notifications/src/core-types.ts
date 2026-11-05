@@ -118,6 +118,11 @@ export type EmailRoutingMetadata = {
   deliveredRecipients: string[]
   mode: "console" | "global_test_override" | "live" | "qa_domain"
   originalRecipient: string
+  /**
+   * Set when a non-production runtime logged the email instead of handing it
+   * to a provider. "development" marks a fixed-code development profile.
+   */
+  suppressed?: "development" | "non_production"
 }
 
 export type NotificationDispatch = NotificationInput & {

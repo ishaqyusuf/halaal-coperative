@@ -51,8 +51,7 @@ describe("Halaalvest local-infra safety launcher", () => {
       ).not.toThrow()
       expect(() =>
         validateDatabaseForMode(mode, {
-          HALAALVEST_DATABASE_URL:
-            "postgresql://hosted.example.com/halaalvest",
+          HALAALVEST_DATABASE_URL: "postgresql://hosted.example.com/halaalvest",
         })
       ).not.toThrow()
     }
@@ -67,8 +66,7 @@ describe("Halaalvest local-infra safety launcher", () => {
     ).toBe(55434)
     expect(
       localDatabasePort({
-        HALAALVEST_DATABASE_URL:
-          "postgresql://hosted.example.com/halaalvest",
+        HALAALVEST_DATABASE_URL: "postgresql://hosted.example.com/halaalvest",
       })
     ).toBeUndefined()
   })
@@ -104,10 +102,26 @@ describe("Halaalvest local-infra safety launcher", () => {
     }
   })
 
+  test("names APP_ENV after the mode unless the mode file pins one", () => {
+    const root = mkdtempSync(join(tmpdir(), "halaalvest-local-infra-"))
+
+    try {
+      writeFileSync(
+        join(root, ".env.local"),
+        "HALAALVEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55434/halaalvest\n"
+      )
+
+      expect(envForMode("local", root, {}).APP_ENV).toBe("local")
+      expect(envForMode("local", root, { APP_ENV: "production" }).APP_ENV).toBe(
+        "local"
+      )
+    } finally {
+      rmSync(root, { force: true, recursive: true })
+    }
+  })
+
   test("fails closed when another service owns the configured port", () => {
-    expect(() =>
-      validatePortOwner(55434, true, "unexpected-postgres")
-    ).toThrow(
+    expect(() => validatePortOwner(55434, true, "unexpected-postgres")).toThrow(
       "unexpected-postgres"
     )
     expect(() => validatePortOwner(55434, true, undefined)).toThrow(

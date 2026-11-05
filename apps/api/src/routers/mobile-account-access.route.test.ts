@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { AppError } from "@halaalvest/errors"
 import {
+  createRecoveryCode,
   getPublicAuthRateLimitRules,
   neutralRecoveryResponse,
   projectRecoveryRequestResponse,
@@ -36,6 +37,29 @@ describe("mobile password recovery public contract", () => {
         exposeDevCode: true,
       })
     ).toMatchObject({ devCode: "431902" })
+  })
+
+  test("issues the fixed development code only in a development profile", () => {
+    for (const APP_ENV of ["local", "development", "test"])
+      expect(createRecoveryCode({ APP_ENV, NODE_ENV: "development" })).toBe(
+        "123456"
+      )
+  })
+
+  test("production and Preview recovery codes stay random", () => {
+    for (const env of [
+      { APP_ENV: "production", NODE_ENV: "production" },
+      { APP_ENV: "local", NODE_ENV: "production" },
+      { APP_ENV: "local", NODE_ENV: "development", VERCEL_ENV: "production" },
+      { APP_ENV: "preview", NODE_ENV: "production" },
+      { NODE_ENV: "development" },
+    ]) {
+      const codes = new Set(
+        Array.from({ length: 8 }, () => createRecoveryCode(env))
+      )
+      for (const code of codes) expect(code).toMatch(/^\d{6}$/)
+      expect(codes.size).toBeGreaterThan(1)
+    }
   })
 
   test("limits public auth by account, device, network, and resolved tenant", () => {

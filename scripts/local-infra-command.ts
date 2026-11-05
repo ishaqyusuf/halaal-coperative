@@ -76,6 +76,15 @@ function normalizeMode(value: string | undefined): LocalInfraMode {
   )
 }
 
+// The mode names the runtime profile, so APP_ENV follows it unless the mode file
+// pins one. local and dev get the fixed 123456 development code.
+const appEnvForMode: Record<LocalInfraMode, string> = {
+  dev: "development",
+  local: "local",
+  preview: "preview",
+  prod: "production",
+}
+
 export function envForMode(
   mode: LocalInfraMode,
   workspaceRoot: string,
@@ -94,6 +103,7 @@ export function envForMode(
   return {
     ...processEnv,
     ...fileEnv,
+    APP_ENV: fileEnv.APP_ENV ?? appEnvForMode[mode],
     HALAALVEST_DB_MODE: mode,
     HALAALVEST_ENV_MODE: mode,
   }

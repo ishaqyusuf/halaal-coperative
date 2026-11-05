@@ -156,15 +156,19 @@ export async function POST(request: Request) {
     }
 
     const exposeQaArtifacts = process.env.NODE_ENV !== "production"
+    // A Preview build runs with NODE_ENV=production but never emails, so its
+    // QA-domain sign-ups read the link from the QA preview instead.
+    const emailSuppressed = Boolean(verificationDelivery.routing?.suppressed)
 
     return NextResponse.json({
       devMode: process.env.NODE_ENV !== "production",
       emailDeliveryConfigured,
       expiresAt: payload.expiresAt,
       onboardingUrl: exposeQaArtifacts ? onboardingUrl.toString() : undefined,
-      qaPreviews: exposeQaArtifacts
-        ? createQaNotificationPreviews([verificationDelivery])
-        : [],
+      qaPreviews:
+        exposeQaArtifacts || emailSuppressed
+          ? createQaNotificationPreviews([verificationDelivery])
+          : [],
       verificationDelivery: {
         attempts: verificationDelivery.attempts,
         messageId: verificationDelivery.messageId,

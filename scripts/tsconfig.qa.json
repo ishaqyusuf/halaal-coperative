@@ -1,0 +1,35 @@
+// Strict types for the QA and local-dev tooling only (not application graphs).
+// noUncheckedIndexedAccess is off because local-infra-command.ts pulls in the
+// sibling local-infra-kit sources, which are not written for that flag.
+{
+  "extends": "../packages/tsconfig/base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "checkJs": true,
+    "declaration": false,
+    "declarationMap": false,
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "noUncheckedIndexedAccess": false,
+    "types": ["bun", "node"]
+  },
+  "include": [
+    "lib/local-dev-targets.ts",
+    "lib/agent-notes.ts",
+    "qa-doctor.ts",
+    "qa-doctor.test.ts",
+    "test-quick.ts",
+    "test-quick.test.ts",
+    "qa-smoke.ts",
+    "qa-smoke.test.ts",
+    "qa-web-smoke.mjs",
+    "agent-chat.ts",
+    "agent-chat.test.ts",
+    "../apps/mobile/scripts/android-adb-cli.mjs",
+    "../apps/mobile/scripts/prepare-android-dev.mjs",
+    "../apps/mobile/scripts/open-android-app-url.mjs",
+    "../apps/mobile/scripts/android-dev.test.ts"
+  ]
+}

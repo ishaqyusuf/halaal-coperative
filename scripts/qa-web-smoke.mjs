@@ -1,0 +1,302 @@
+// Playwright driver for `bun run qa:smoke`. Runs under Node (Playwright's
+// supported runtime); scripts/qa-smoke.ts validates config and writes receipts.
+// Read-mostly by construction: every non-GET request except the QA entry route
+// is aborted, Quick Fill only fills drafts, and nothing is ever submitted.
+import { mkdirSync, readFileSync } from "node:fs"
+import { resolve } from "node:path"
+import { pathToFileURL } from "node:url"
+
+export const pages = [
+  { name: "members", path: "/members" },
+  { name: "contributions", path: "/contributions" },
+  { name: "charges", path: "/charges" },
+]
+
+export const forms = [
+  { name: "member create", path: "/members?memberSheetType=create" },
+  {
+    name: "contribution plan",
+    path: "/contributions?contributionSheetType=plan",
+  },
+  {
+    name: "charge definition",
+    path: "/charges?chargeOperationSheetType=definition",
+  },
+]
+
+const readMethods = new Set(["GET", "HEAD", "OPTIONS"])
+
+/**
+ * @param {{ method: string, url: string, dashboardHost: string }} request
+ * @returns {"allow" | "block"}
+ */
+export function requestPolicy({ method, url, dashboardHost }) {
+  if (readMethods.has(method.toUpperCase())) return "allow"
+  const parsed = new URL(url)
+  const ownHost =
+    parsed.hostname === dashboardHost ||
+    parsed.hostname.endsWith(`.${dashboardHost}`)
+  return ownHost && parsed.pathname === "/auth/qa" ? "allow" : "block"
+}
+
+/** @param {string} hostname @param {string} dashboardHost */
+export function isDashboardHost(hostname, dashboardHost) {
+  return hostname === dashboardHost || hostname.endsWith(`.${dashboardHost}`)
+}
+
+/** @param {string} text */
+const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+
+/**
+ * @param {import("playwright").Page} page
+ * @param {{ qaDomain: string, profileLabel: string, cooperative?: string, origin: string }} config
+ * @param {string} artifacts
+ */
+export async function webJourney(page, config, artifacts) {
+  page.setDefaultTimeout(20_000)
+  const dashboardHost = new URL(config.origin).hostname
+  /** @type {{ name: string, status: "pass" | "fail", ms: number, detail: string }[]} */
+  const checks = []
+  /** @type {string[]} */
+  const blocked = []
+  let consoleErrors = 0
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors += 1
+  })
+  await page.route("**/*", async (route) => {
+    const request = route.request()
+    if (
+      requestPolicy({
+        method: request.method(),
+        url: request.url(),
+        dashboardHost,
+      }) === "allow"
+    )
+      return route.continue()
+    blocked.push(`${request.method()} ${new URL(request.url()).pathname}`)
+    return route.abort("blockedbyclient")
+  })
+
+  /** @param {string} name @param {() => Promise<string>} run */
+  async function step(name, run) {
+    const started = Date.now()
+    process.stderr.write(`qa:smoke ${name}…\n`)
+    try {
+      const detail = await run()
+      checks.push({ name, status: "pass", ms: Date.now() - started, detail })
+      return true
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message.split("\n")[0] : String(error)
+      // Button names are UI labels; enough to tell a missing control from a slow page.
+      const buttons = await page
+        .getByRole("dialog")
+        .last()
+        .getByRole("button")
+        .allInnerTexts()
+        .then((names) => names.map((label) => label.trim()).filter(Boolean))
+        .catch(() => [])
+      const path = new URL(page.url()).pathname
+      checks.push({
+        name,
+        status: "fail",
+        ms: Date.now() - started,
+        detail: `${message ?? "failed"} [at ${path}${buttons.length ? `; dialog buttons: ${buttons.slice(0, 8).join(" | ")}` : ""}]`,
+      })
+      await page
+        .screenshot({
+          path: resolve(artifacts, `${name.replaceAll(" ", "-")}-failure.png`),
+          timeout: 10_000,
+        })
+        .catch(() => {})
+      return false
+    }
+  }
+
+  let appOrigin = config.origin
+  const signedIn = await step("qa sign-in", async () => {
+    const capability = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === "/auth/qa" &&
+        response.request().method() === "GET",
+      { timeout: 30_000 }
+    )
+    const login = await page.goto(`${config.origin}/login`, {
+      waitUntil: "domcontentloaded",
+      timeout: 60_000,
+    })
+    if (!login || login.status() >= 400) {
+      capability.catch(() => {})
+      throw new Error(
+        `HTTP ${login?.status() ?? "no response"} for /login; check the dashboard dev server output`
+      )
+    }
+    const state = await (await capability).json()
+    if (!state?.capability?.available)
+      throw new Error(
+        `QA access is unavailable (${state?.capability?.status ?? "no capability"}); run bun run qa:doctor --require-qa`
+      )
+    const panel = page.locator('section[aria-labelledby="qa-access-title"]')
+    const changeDomain = panel.getByRole("button", {
+      name: "Change QA Domain",
+      exact: true,
+    })
+    const domainField = panel.getByLabel("QA Domain", { exact: true })
+    await domainField.or(changeDomain).first().waitFor({ state: "visible" })
+    if (await domainField.isVisible()) {
+      await domainField.fill(config.qaDomain)
+      await panel
+        .getByRole("button", { name: "Authorize this browser", exact: true })
+        .click()
+      const alert = panel.getByRole("alert")
+      await changeDomain.or(alert).first().waitFor({ state: "visible" })
+      if (await alert.isVisible())
+        throw new Error(
+          `QA authorization failed for ${config.qaDomain}: ${await alert.innerText()}`
+        )
+    }
+    // Profile buttons are named "<initials> <full name> <cooperative> <role>".
+    const name = new RegExp(
+      `${escapeRegex(config.profileLabel)}${config.cooperative ? `.*${escapeRegex(config.cooperative)}` : ""}`
+    )
+    const profile = panel.getByRole("button", { name }).first()
+    if (!(await profile.isVisible())) {
+      const available = await panel
+        .locator("button strong")
+        .evaluateAll((elements) =>
+          elements.map((element) => element.textContent?.trim() ?? "")
+        )
+      throw new Error(
+        `No QA profile matches "${config.profileLabel}". Available: ${available.slice(0, 8).join(", ") || "none"}`
+      )
+    }
+    await profile.click()
+    await page.waitForURL((url) => url.pathname !== "/login", {
+      timeout: 60_000,
+    })
+    const url = new URL(page.url())
+    if (!isDashboardHost(url.hostname, dashboardHost))
+      throw new Error(`Sign-in left the dashboard host (${url.hostname}).`)
+    appOrigin = url.origin
+    return `Entered ${config.profileLabel}; workspace ${url.hostname}`
+  })
+  if (!signedIn) return { checks, blocked, consoleErrors }
+
+  /** @param {string} path */
+  async function open(path) {
+    const response = await page.goto(`${appOrigin}${path}`, {
+      waitUntil: "domcontentloaded",
+      timeout: 60_000,
+    })
+    const url = new URL(page.url())
+    if (!response || response.status() >= 400)
+      throw new Error(`HTTP ${response?.status() ?? "no response"} for ${path}`)
+    if (url.pathname === "/login")
+      throw new Error(`${path} redirected to /login`)
+    if (!isDashboardHost(url.hostname, dashboardHost))
+      throw new Error(`${path} left the dashboard host`)
+    await page.locator("main").first().waitFor({ state: "visible" })
+    if (
+      await page
+        .getByText(/Application error|Something went wrong/i)
+        .first()
+        .isVisible()
+        .catch(() => false)
+    )
+      throw new Error(`${path} rendered an error boundary`)
+    return url
+  }
+
+  for (const target of pages)
+    await step(`${target.name} page`, async () => {
+      const url = await open(target.path)
+      await page.screenshot({
+        path: resolve(artifacts, `${target.name}-page.png`),
+      })
+      return `Rendered ${url.pathname}`
+    })
+
+  for (const form of forms)
+    await step(`${form.name} quick fill`, async () => {
+      await open(form.path)
+      const dialog = page.getByRole("dialog").last()
+      await dialog.waitFor({ state: "visible" })
+      const fields = dialog.locator(
+        "input:not([type=hidden]):not([type=file]), textarea"
+      )
+      const before = await fields.evaluateAll((elements) =>
+        elements.map(
+          (element) => /** @type {HTMLInputElement} */ (element).value
+        )
+      )
+      await dialog
+        .getByRole("button", { name: /^quick fill$/i })
+        .first()
+        .click()
+      await page.waitForFunction(
+        ([selector, previous]) => {
+          const dialogs = document.querySelectorAll('[role="dialog"]')
+          const current = dialogs[dialogs.length - 1]
+          if (!current) return false
+          const values = Array.from(current.querySelectorAll(selector)).map(
+            (element) => /** @type {HTMLInputElement} */ (element).value
+          )
+          return values.some(
+            (value, index) => value && value !== previous[index]
+          )
+        },
+        /** @type {[string, string[]]} */ ([
+          "input:not([type=hidden]):not([type=file]), textarea",
+          before,
+        ]),
+        { timeout: 10_000 }
+      )
+      const filled = await fields.evaluateAll(
+        (elements, previous) =>
+          elements.filter(
+            (element, index) =>
+              /** @type {HTMLInputElement} */ (element).value &&
+              /** @type {HTMLInputElement} */ (element).value !==
+                previous[index]
+          ).length,
+        before
+      )
+      await page.screenshot({
+        path: resolve(
+          artifacts,
+          `${form.name.replaceAll(" ", "-")}-quick-fill.png`
+        ),
+      })
+      await page.keyboard.press("Escape")
+      return `Quick Fill set ${filled} field(s); closed without submitting`
+    })
+
+  return { checks, blocked, consoleErrors }
+}
+
+async function main() {
+  const [configFile, artifacts, headed] = process.argv.slice(2)
+  if (!configFile || !artifacts)
+    throw new Error("Usage: node scripts/qa-web-smoke.mjs CONFIG ARTIFACTS")
+  const config = JSON.parse(readFileSync(configFile, "utf8"))
+  mkdirSync(artifacts, { recursive: true })
+  const { chromium } = await import("playwright")
+  const browser = await chromium.launch({ headless: headed !== "--headed" })
+  try {
+    const page = await (
+      await browser.newContext({ viewport: { width: 1440, height: 900 } })
+    ).newPage()
+    process.stdout.write(
+      `${JSON.stringify(await webJourney(page, config, artifacts))}\n`
+    )
+  } finally {
+    await browser.close()
+  }
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exitCode = 1
+  })
+}

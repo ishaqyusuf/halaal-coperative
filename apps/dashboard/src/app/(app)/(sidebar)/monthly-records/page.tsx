@@ -1,65 +1,24 @@
 import {
   createDbRuntime,
-  getOrCreateMonthlyRecordsPageData,
+  getMonthlyRecordsPageData,
+  pageMonthlyRecordRows,
 } from "@halaalvest/db"
+import type { Metadata } from "next"
 import {
   MonthlyRecordsAccessUnavailableView,
   MonthlyRecordsPageView,
   MonthlyRecordsRuntimeUnavailableView,
 } from "@/components/monthly-records-page-view"
+import { getMonthlyRecordRowsInput } from "@/components/tables/monthly-records/rows-input"
+import { loadMonthlyRecordFilterParams } from "@/hooks/use-monthly-record-filter-params"
 import { loadMonthlyRecordParams } from "@/hooks/use-monthly-record-params"
 import { loadSortParams } from "@/hooks/use-sort-params"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { financeManagementRoles, hasAnyRole } from "@/lib/workspace-access"
-import {
-  getQueryClient,
-  getServerCaller,
-  HydrateClient,
-  trpc,
-} from "@/trpc/server"
+import { getQueryClient, HydrateClient, trpc } from "@/trpc/server"
 import { getInitialTableSettings } from "@/utils/columns"
 
-type MonthlyRecordSortField =
-  | "allChargesAmount"
-  | "contributionAmount"
-  | "currentBalance"
-  | "finalIncomeAmount"
-  | "loanRepaymentAmount"
-  | "loanStatus"
-  | "memberName"
-  | "shareChargeAmount"
-  | "status"
-  | "totalPaidAmount"
-  | "totalPayableAmount"
-
-function getMonthlyRecordSort(
-  sort?: string[] | null
-): [MonthlyRecordSortField, "asc" | "desc"] | null {
-  if (!sort || sort.length !== 2) return null
-
-  const field = sort[0]
-  const direction = sort[1]
-  if (!field || !direction) return null
-
-  const validFields = new Set<string>([
-    "allChargesAmount",
-    "contributionAmount",
-    "currentBalance",
-    "finalIncomeAmount",
-    "loanRepaymentAmount",
-    "loanStatus",
-    "memberName",
-    "shareChargeAmount",
-    "status",
-    "totalPaidAmount",
-    "totalPayableAmount",
-  ])
-
-  if (!validFields.has(field)) return null
-  if (direction !== "asc" && direction !== "desc") return null
-
-  return [field as MonthlyRecordSortField, direction]
-}
+export const metadata: Metadata = { title: "Monthly records | Halaalvest" }
 
 export default async function MonthlyRecordsPage({
   searchParams,
@@ -68,6 +27,7 @@ export default async function MonthlyRecordsPage({
 }) {
   const params = await searchParams
   loadMonthlyRecordParams(params)
+  const filter = loadMonthlyRecordFilterParams(params)
   const { sort } = loadSortParams(params)
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
@@ -89,13 +49,13 @@ export default async function MonthlyRecordsPage({
     return <MonthlyRecordsAccessUnavailableView />
   }
 
-  const [data, caller] = await Promise.all([
-    getOrCreateMonthlyRecordsPageData({
-      actorUserId: context.auth.user.id,
+  // Read-only: the GET never creates a month or seeds rows.
+  const [data, monthlyRecordTableSettings] = await Promise.all([
+    getMonthlyRecordsPageData({
       selectedRecordId,
       tenantId: context.tenant.id,
     }),
-    getServerCaller(),
+    getInitialTableSettings("monthlyRecords"),
   ])
 
   const selectedYear =
@@ -103,22 +63,27 @@ export default async function MonthlyRecordsPage({
       ? requestedYear
       : data.selectedRecord?.periodYear ?? new Date().getUTCFullYear()
 
-  const monthlyRecordTableSettings =
-    await getInitialTableSettings("monthlyRecords")
-  const monthlyRecordRowsInput = {
+  // The detail above already holds every row, so the table's first page is
+  // hydrated from it rather than prefetched through a second detail load.
+  const monthlyRecordRowsInput = getMonthlyRecordRowsInput({
     monthlyRecordId: data.selectedRecord?.id,
-    sort: getMonthlyRecordSort(sort),
-  }
+    q: filter.q,
+    sort,
+    status: filter.status,
+  })
   const monthlyRecordRowsOptions =
     trpc.monthlyRecords.rows.infiniteQueryOptions(monthlyRecordRowsInput, {
       getNextPageParam: ({ meta }) => meta?.cursor,
     })
-  const initialMonthlyRecordRowsPage =
-    await caller.monthlyRecords.rows(monthlyRecordRowsInput)
 
   getQueryClient().setQueryData(monthlyRecordRowsOptions.queryKey, {
     pageParams: [monthlyRecordRowsOptions.initialPageParam],
-    pages: [initialMonthlyRecordRowsPage],
+    pages: [
+      pageMonthlyRecordRows(
+        data.selectedRecord?.rows ?? [],
+        monthlyRecordRowsInput,
+      ),
+    ],
   })
 
   return (

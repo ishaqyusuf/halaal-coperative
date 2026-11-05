@@ -3,7 +3,7 @@ import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
 import {
   applyApplicableWorkflowChargesInTransaction,
-  quoteApplicableCharges,
+  loadChargeQuoter,
 } from "./charges"
 import { recordMemberPaymentMutation } from "./contributions"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
@@ -248,6 +248,8 @@ function settingView(row: {
   }
 }
 
+// Read-only: a missing row means the defaults. Only
+// `updateMonthlyRecordSettings` writes the settings row.
 export async function getMonthlyRecordSettings(
   tenantId: string,
   prismaOverride?: PrismaClient
@@ -255,17 +257,17 @@ export async function getMonthlyRecordSettings(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
-  const row = await (prisma as any).monthlyRecordSetting.upsert({
+  const row = await prisma.monthlyRecordSetting.findUnique({
     where: { tenantId },
-    create: {
-      tenantId,
-      autoGenerateEnabled: true,
-      generationDayOfMonth: defaultGenerationDayOfMonth,
-    },
-    update: {},
+    select: { autoGenerateEnabled: true, generationDayOfMonth: true },
   })
 
-  return settingView(row)
+  return settingView(
+    row ?? {
+      autoGenerateEnabled: true,
+      generationDayOfMonth: defaultGenerationDayOfMonth,
+    }
+  )
 }
 
 export async function updateMonthlyRecordSettings(
@@ -295,6 +297,8 @@ export async function updateMonthlyRecordSettings(
   return settingView(row)
 }
 
+// Two queries whatever the number of months or members: the month rows, and
+// one grouped aggregate of their member rows.
 export async function listMonthlyRecords(
   tenantId: string,
   prismaOverride?: PrismaClient
@@ -302,79 +306,147 @@ export async function listMonthlyRecords(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
-  const records = await prisma.monthlyRecord.findMany({
-    where: { tenantId },
-    include: {
-      memberRows: {
-        select: {
-          calculatedPayableAmount: true,
-          status: true,
-          totalPaidAmount: true,
-        },
+  const [records, groups] = await Promise.all([
+    prisma.monthlyRecord.findMany({
+      where: { tenantId },
+      select: {
+        id: true,
+        periodLabel: true,
+        periodMonth: true,
+        periodYear: true,
+        status: true,
       },
-    },
-    orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }],
-  })
+      orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }],
+    }),
+    prisma.monthlyRecordMember.groupBy({
+      by: ["monthlyRecordId", "status"],
+      where: { tenantId },
+      _count: { _all: true },
+      _sum: { calculatedPayableAmount: true, totalPaidAmount: true },
+    }),
+  ])
+  const groupsByRecordId = new Map<string, typeof groups>()
+  for (const group of groups) {
+    const recordGroups = groupsByRecordId.get(group.monthlyRecordId) ?? []
+    recordGroups.push(group)
+    groupsByRecordId.set(group.monthlyRecordId, recordGroups)
+  }
 
-  return records.map(summarizeRows)
+  return records.map((record) => {
+    const recordGroups = groupsByRecordId.get(record.id) ?? []
+    const countOf = (status: MonthlyRecordMemberStatusValue) =>
+      recordGroups.find((group) => group.status === status)?._count._all ?? 0
+    const applied = recordGroups.find((group) => group.status === "applied")
+
+    return {
+      id: record.id,
+      periodYear: record.periodYear,
+      periodMonth: record.periodMonth,
+      periodLabel: record.periodLabel,
+      status: record.status as MonthlyRecordStatusValue,
+      recordedCount: countOf("applied"),
+      pendingCount: countOf("pending"),
+      cancelledCount: countOf("cancelled"),
+      totalMembers: recordGroups.reduce(
+        (total, group) => total + group._count._all,
+        0
+      ),
+      totalPayableAmount: recordGroups.reduce(
+        (total, group) =>
+          total + Number(group._sum.calculatedPayableAmount ?? 0),
+        0
+      ),
+      totalReceivedAmount: Number(applied?._sum.totalPaidAmount ?? 0),
+    }
+  })
 }
 
+// Writes. Callers must have checked that live financial writes are open.
+// Creates the missing member rows in one batch and refreshes only the pending
+// rows whose calculated amounts changed; applied and cancelled rows are never
+// touched.
 async function seedMonthlyRecordMembers(input: {
+  memberIds?: string[]
   monthlyRecordId: string
   tenantId: string
   year: number
   month: number
   prisma: PrismaClient
 }) {
-  await assertLiveFinancialWritesOpen(input.tenantId, input.prisma)
-
   const { end, start } = getPeriodRange(input.year, input.month)
-  const members = await input.prisma.member.findMany({
-    where: {
-      tenantId: input.tenantId,
-      status: { not: "exited" },
-    },
-    include: {
-      contributionPlans: {
-        where: {
-          interval: "monthly",
-          startsAt: { lt: end },
-          OR: [{ endsAt: null }, { endsAt: { gte: start } }],
-        },
-        orderBy: { startsAt: "desc" },
-        take: 1,
+  const memberFilter = input.memberIds ? { in: input.memberIds } : undefined
+  const [members, shareChargeDefinition, existingRows] = await Promise.all([
+    input.prisma.member.findMany({
+      where: {
+        tenantId: input.tenantId,
+        status: { not: "exited" },
+        ...(memberFilter ? { id: memberFilter } : {}),
       },
-      loans: {
-        where: {
-          outstandingPrincipal: { gt: 0 },
-          status: { in: activeMonthlyRecordLoanStatuses },
-        },
-        include: {
-          repaymentScheduleItems: {
-            where: {
-              dueAt: { lt: end },
-              status: { in: ["pending", "due", "overdue", "partially_paid"] },
-            },
-            orderBy: { installmentNumber: "asc" },
+      include: {
+        contributionPlans: {
+          where: {
+            interval: "monthly",
+            startsAt: { lt: end },
+            OR: [{ endsAt: null }, { endsAt: { gte: start } }],
           },
+          orderBy: { startsAt: "desc" },
+          take: 1,
         },
-        orderBy: [{ disbursedAt: "desc" }, { createdAt: "desc" }],
+        loans: {
+          where: {
+            outstandingPrincipal: { gt: 0 },
+            status: { in: activeMonthlyRecordLoanStatuses },
+          },
+          include: {
+            repaymentScheduleItems: {
+              where: {
+                dueAt: { lt: end },
+                status: { in: ["pending", "due", "overdue", "partially_paid"] },
+              },
+              orderBy: { installmentNumber: "asc" },
+            },
+          },
+          orderBy: [{ disbursedAt: "desc" }, { createdAt: "desc" }],
+        },
       },
-    },
-    orderBy: [{ memberNumber: "asc" }, { fullName: "asc" }],
-  })
-  const shareChargeDefinition = await input.prisma.chargeDefinition.findFirst({
-    where: {
-      tenantId: input.tenantId,
-      appliesToMembers: true,
-      isActive: true,
-      purpose: "member_share",
-    } as any,
-    orderBy: [{ isMonthlyLevy: "desc" }, { createdAt: "asc" }],
-  })
+      orderBy: [{ memberNumber: "asc" }, { fullName: "asc" }],
+    }),
+    input.prisma.chargeDefinition.findFirst({
+      where: {
+        tenantId: input.tenantId,
+        appliesToMembers: true,
+        isActive: true,
+        purpose: "member_share",
+      } as any,
+      orderBy: [{ isMonthlyLevy: "desc" }, { createdAt: "asc" }],
+    }),
+    input.prisma.monthlyRecordMember.findMany({
+      where: {
+        monthlyRecordId: input.monthlyRecordId,
+        ...(memberFilter ? { memberId: memberFilter } : {}),
+      },
+      select: {
+        calculatedPayableAmount: true,
+        contributionAmount: true,
+        contributionPlanId: true,
+        id: true,
+        loanId: true,
+        loanRepaymentAmount: true,
+        memberId: true,
+        shareChargeAmount: true,
+        status: true,
+        totalPaidAmount: true,
+      },
+    }),
+  ])
   const shareChargeAmount = shareChargeDefinition
     ? Number(shareChargeDefinition.amount)
     : 0
+  const existingByMemberId = new Map(
+    existingRows.map((row) => [row.memberId, row])
+  )
+  const missingRows = []
+  const changedPendingRows = []
 
   for (const member of members) {
     const plan = member.contributionPlans[0]
@@ -394,48 +466,59 @@ async function seedMonthlyRecordMembers(input: {
         )
       : 0
     const calculatedPayableAmount = contributionAmount + loanPayable
-
-    const existingRow = await input.prisma.monthlyRecordMember.findUnique({
-      where: {
-        monthlyRecordId_memberId: {
-          memberId: member.id,
-          monthlyRecordId: input.monthlyRecordId,
-        },
-      },
-    })
+    const values = {
+      contributionPlanId: plan?.id ?? null,
+      loanId: loan?.id ?? null,
+      calculatedPayableAmount,
+      contributionAmount,
+      shareChargeAmount,
+      loanRepaymentAmount: loanPayable,
+      totalPaidAmount: calculatedPayableAmount,
+    }
+    const existingRow = existingByMemberId.get(member.id)
 
     if (!existingRow) {
-      await input.prisma.monthlyRecordMember.create({
-        data: {
-          tenantId: input.tenantId,
-          monthlyRecordId: input.monthlyRecordId,
-          memberId: member.id,
-          contributionPlanId: plan?.id,
-          loanId: loan?.id,
-          calculatedPayableAmount,
-          contributionAmount,
-          shareChargeAmount,
-          loanRepaymentAmount: loanPayable,
-          totalPaidAmount: calculatedPayableAmount,
-        },
+      missingRows.push({
+        ...values,
+        memberId: member.id,
+        monthlyRecordId: input.monthlyRecordId,
+        tenantId: input.tenantId,
       })
       continue
     }
 
-    if (existingRow.status === "pending") {
-      await input.prisma.monthlyRecordMember.update({
-        where: { id: existingRow.id },
-        data: {
-          contributionPlanId: plan?.id,
-          loanId: loan?.id,
-          calculatedPayableAmount,
-          contributionAmount,
-          shareChargeAmount,
-          loanRepaymentAmount: loanPayable,
-          totalPaidAmount: calculatedPayableAmount,
-        },
-      })
+    const changed =
+      existingRow.contributionPlanId !== values.contributionPlanId ||
+      existingRow.loanId !== values.loanId ||
+      Number(existingRow.calculatedPayableAmount) !==
+        values.calculatedPayableAmount ||
+      Number(existingRow.contributionAmount) !== values.contributionAmount ||
+      Number(existingRow.shareChargeAmount) !== values.shareChargeAmount ||
+      Number(existingRow.loanRepaymentAmount) !== values.loanRepaymentAmount ||
+      Number(existingRow.totalPaidAmount) !== values.totalPaidAmount
+
+    if (existingRow.status === "pending" && changed) {
+      changedPendingRows.push({ id: existingRow.id, values })
     }
+  }
+
+  if (missingRows.length > 0) {
+    await input.prisma.monthlyRecordMember.createMany({
+      data: missingRows,
+      skipDuplicates: true,
+    })
+  }
+
+  if (changedPendingRows.length > 0) {
+    // `status: "pending"` keeps a row that was applied meanwhile untouched.
+    await input.prisma.$transaction(
+      changedPendingRows.map((row) =>
+        input.prisma.monthlyRecordMember.updateMany({
+          where: { id: row.id, status: "pending" },
+          data: row.values,
+        })
+      )
+    )
   }
 }
 
@@ -535,6 +618,7 @@ export async function ensureMemberInGeneratedMonthlyRecord(
   }
 
   await seedMonthlyRecordMembers({
+    memberIds: [input.memberId],
     monthlyRecordId: record.id,
     month,
     prisma,
@@ -610,8 +694,8 @@ export async function generateDueMonthlyRecords(
   return { generated, skipped }
 }
 
-// Missing settings rows mean the defaults `getMonthlyRecordSettings` would
-// create: auto-generation on, from day `defaultGenerationDayOfMonth`.
+// Missing settings rows mean the defaults `getMonthlyRecordSettings` reports:
+// auto-generation on, from day `defaultGenerationDayOfMonth`.
 export function selectDueMonthlyRecordTenants(input: {
   dayOfMonth: number
   settings: Array<{
@@ -707,6 +791,8 @@ export async function listCurrentMonthStagedContributions(
   }))
 }
 
+// Read-only, and a constant number of queries whatever the member count.
+// Rows are seeded by `ensureMonthlyRecord` (the create action or the cron).
 export async function getMonthlyRecordDetail(
   tenantId: string,
   monthlyRecordId: string,
@@ -714,25 +800,6 @@ export async function getMonthlyRecordDetail(
 ): Promise<MonthlyRecordDetail | null> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
-
-  const existingRecord = await prisma.monthlyRecord.findFirst({
-    where: { id: monthlyRecordId, tenantId },
-    select: {
-      id: true,
-      periodMonth: true,
-      periodYear: true,
-    },
-  })
-
-  if (!existingRecord) return null
-
-  await seedMonthlyRecordMembers({
-    monthlyRecordId: existingRecord.id,
-    tenantId,
-    year: existingRecord.periodYear,
-    month: existingRecord.periodMonth,
-    prisma,
-  })
 
   const record = await prisma.monthlyRecord.findFirst({
     where: { id: monthlyRecordId, tenantId },
@@ -782,13 +849,37 @@ export async function getMonthlyRecordDetail(
           status: { in: activeMonthlyRecordLoanStatuses },
           tenantId,
         }
-  const loans = memberIds.length
-    ? await prisma.loan.findMany({
-        where: loanLookupWhere,
-        select: { id: true, memberId: true, status: true },
-        orderBy: [{ disbursedAt: "desc" }, { createdAt: "desc" }],
-      })
-    : []
+  const [loans, quoteCharges, appliedCharges] = memberIds.length
+    ? await Promise.all([
+        prisma.loan.findMany({
+          where: loanLookupWhere,
+          select: { id: true, memberId: true, status: true },
+          orderBy: [{ disbursedAt: "desc" }, { createdAt: "desc" }],
+        }),
+        loadChargeQuoter(
+          {
+            assessedAt: start,
+            tenantId,
+            trigger: "monthly_collection",
+            workflow: "commitment_collection",
+          },
+          prisma
+        ),
+        prisma.chargeApplication.findMany({
+          where: {
+            tenantId,
+            memberId: { in: memberIds },
+            status: "posted",
+            assessedAt: { gte: start, lt: end },
+          },
+          select: {
+            amount: true,
+            chargeDefinitionId: true,
+            memberId: true,
+          },
+        }),
+      ])
+    : [[], () => [], []]
   const loanStatusById = new Map(loans.map((loan) => [loan.id, loan.status]))
   const activeLoanByMemberId = new Map<string, (typeof loans)[number]>()
   for (const loan of loans) {
@@ -812,16 +903,7 @@ export async function getMonthlyRecordDetail(
   >()
 
   for (const row of record.memberRows) {
-    const quotes = await quoteApplicableCharges(
-      {
-        assessedAt: start,
-        basisAmount: totalPaidByMemberId.get(row.memberId) ?? 0,
-        tenantId,
-        trigger: "monthly_collection",
-        workflow: "commitment_collection",
-      },
-      prisma
-    )
+    const quotes = quoteCharges(totalPaidByMemberId.get(row.memberId) ?? 0)
 
     calculatedChargesByMemberId.set(
       row.memberId,
@@ -841,21 +923,6 @@ export async function getMonthlyRecordDetail(
       })
     }
   }
-  const appliedCharges = memberIds.length
-    ? await prisma.chargeApplication.findMany({
-        where: {
-          tenantId,
-          memberId: { in: memberIds },
-          status: "posted",
-          assessedAt: { gte: start, lt: end },
-        },
-        select: {
-          amount: true,
-          chargeDefinitionId: true,
-          memberId: true,
-        },
-      })
-    : []
   const actualChargesByMemberId = new Map<string, number>()
   const actualChargesByDefinitionId = new Map<string, number>()
 
@@ -951,9 +1018,11 @@ export async function getMonthlyRecordDetail(
   }
 }
 
-export async function getOrCreateMonthlyRecordsPageData(
+// The /monthly-records page GET: read-only, and a constant number of queries.
+// A month with no record (or no seeded rows) is created by the "Create month"
+// action, which runs `ensureMonthlyRecord`.
+export async function getMonthlyRecordsPageData(
   input: {
-    actorUserId: string
     selectedRecordId?: string
     tenantId: string
   },
@@ -962,34 +1031,90 @@ export async function getOrCreateMonthlyRecordsPageData(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
-  let summaries = await listMonthlyRecords(input.tenantId, prisma)
-
-  if (summaries.length === 0) {
-    const now = new Date()
-    const record = await ensureMonthlyRecord(
-      {
-        actorUserId: input.actorUserId,
-        tenantId: input.tenantId,
-        year: now.getUTCFullYear(),
-        month: now.getUTCMonth() + 1,
-      },
-      prisma
-    )
-    summaries = await listMonthlyRecords(input.tenantId, prisma)
-    input.selectedRecordId = record.id
-  }
-
-  const selectedRecordId = input.selectedRecordId ?? summaries[0]?.id
+  const [records, settings] = await Promise.all([
+    listMonthlyRecords(input.tenantId, prisma),
+    getMonthlyRecordSettings(input.tenantId, prisma),
+  ])
+  const selectedRecordId =
+    records.find((record) => record.id === input.selectedRecordId)?.id ??
+    records[0]?.id
   const selectedRecord = selectedRecordId
     ? await getMonthlyRecordDetail(input.tenantId, selectedRecordId, prisma)
     : null
-  summaries = await listMonthlyRecords(input.tenantId, prisma)
+
+  return { records, selectedRecord, settings }
+}
+
+export type MonthlyRecordRowSortField =
+  | "allChargesAmount"
+  | "contributionAmount"
+  | "currentBalance"
+  | "finalIncomeAmount"
+  | "loanRepaymentAmount"
+  | "loanStatus"
+  | "memberName"
+  | "shareChargeAmount"
+  | "status"
+  | "totalPaidAmount"
+  | "totalPayableAmount"
+
+export type MonthlyRecordRowsQuery = {
+  cursor?: string | null
+  pageSize?: number
+  q?: string | null
+  sort?: [MonthlyRecordRowSortField, "asc" | "desc"] | null
+  status?: MonthlyRecordMemberStatusValue | null
+}
+
+// Filters, sorts and pages a month's rows in memory. Shared by the rows
+// procedure and the page, so the page can hydrate the table's first page from
+// the detail it already loaded instead of computing it twice.
+export function pageMonthlyRecordRows(
+  rows: MonthlyRecordMemberRow[],
+  input: MonthlyRecordRowsQuery = {}
+) {
+  const pageSize = input.pageSize ?? 50
+  const query = input.q?.trim().toLowerCase()
+  const filtered = rows.filter(
+    (row) =>
+      (!input.status || row.status === input.status) &&
+      (!query ||
+        row.memberName.toLowerCase().includes(query) ||
+        row.memberNumber.toLowerCase().includes(query))
+  )
+  const sorted = input.sort ? sortMonthlyRecordRows(filtered, input.sort) : filtered
+  const startIndex = input.cursor
+    ? sorted.findIndex((row) => row.id === input.cursor) + 1
+    : 0
+  const safeStartIndex = startIndex > 0 ? startIndex : 0
+  const pageRows = sorted.slice(safeStartIndex, safeStartIndex + pageSize + 1)
+  const data = pageRows.slice(0, pageSize)
 
   return {
-    records: summaries,
-    selectedRecord,
-    settings: await getMonthlyRecordSettings(input.tenantId, prisma),
+    data,
+    meta: {
+      cursor: pageRows.length > pageSize ? data.at(-1)?.id : undefined,
+      total: sorted.length,
+    },
   }
+}
+
+function sortMonthlyRecordRows(
+  rows: MonthlyRecordMemberRow[],
+  [field, direction]: [MonthlyRecordRowSortField, "asc" | "desc"]
+) {
+  const factor = direction === "asc" ? 1 : -1
+
+  return [...rows].sort((left, right) => {
+    const leftValue = left[field]
+    const rightValue = right[field]
+
+    if (typeof leftValue === "number" && typeof rightValue === "number") {
+      return (leftValue - rightValue) * factor
+    }
+
+    return String(leftValue).localeCompare(String(rightValue)) * factor
+  })
 }
 
 export async function applyMonthlyRecordMember(

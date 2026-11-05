@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { Suspense } from "react"
 import { Badge } from "@halaalvest/ui/components/badge"
 import {
   Item,
@@ -31,8 +32,11 @@ import {
 } from "@/components/open-monthly-record-sheet"
 import { MonthlyRecordYearControl } from "@/components/monthly-record-year-control"
 import { MonthlyRecordColumnVisibility } from "@/components/monthly-record-column-visibility"
+import { MonthlyRecordSearchFilter } from "@/components/monthly-record-search-filter"
 import { MonthlyRecordSheet } from "@/components/sheets/monthly-record-sheet"
 import { MonthlyRecordsDataTable } from "@/components/tables/monthly-records/data-table"
+import { MonthlyRecordsDataErrorBoundary } from "@/components/tables/monthly-records/error-boundary"
+import { MonthlyRecordsSkeleton } from "@/components/tables/monthly-records/skeleton"
 import type { TableSettings } from "@/utils/table-settings"
 
 const months = [
@@ -296,11 +300,20 @@ export function MonthlyRecordsPageView({
   selectedYear: number
   settings: MonthlyRecordSettingView
 }) {
+  // "Create month" targets the selected record's month, or the current month
+  // when the selected year has no record yet.
+  const today = new Date()
+  const createTarget = selectedRecord
+    ? { month: selectedRecord.periodMonth, year: selectedRecord.periodYear }
+    : selectedYear === today.getUTCFullYear()
+      ? { month: today.getUTCMonth() + 1, year: selectedYear }
+      : undefined
+
   return (
     <div className="flex flex-col gap-6">
       <MonthlyRecordAutomationSummary settings={settings} />
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="hidden gap-4 sm:grid sm:grid-cols-2 xl:grid-cols-4">
         <DashboardStatCard
           detail="Members applied in the selected month."
           label="Recorded"
@@ -366,10 +379,20 @@ export function MonthlyRecordsPageView({
                 totalChargeAmount={selectedRecord?.totalChargeAmount ?? 0}
               />
             </div>
-            <MonthlyRecordsDataTable
-              initialSettings={monthlyRecordTableSettings}
-              monthlyRecordId={selectedRecord?.id}
-            />
+            <div className="mb-4">
+              <MonthlyRecordSearchFilter />
+            </div>
+            <MonthlyRecordsDataErrorBoundary>
+              <Suspense fallback={<MonthlyRecordsSkeleton />}>
+                <MonthlyRecordsDataTable
+                  initialSettings={monthlyRecordTableSettings}
+                  month={createTarget?.month}
+                  monthlyRecordId={selectedRecord?.id}
+                  periodLabel={selectedRecord?.periodLabel}
+                  year={createTarget?.year}
+                />
+              </Suspense>
+            </MonthlyRecordsDataErrorBoundary>
           </div>
         </DashboardSectionCard>
       </section>

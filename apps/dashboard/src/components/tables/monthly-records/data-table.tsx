@@ -7,14 +7,15 @@ import {
   TableCell,
   TableRow,
 } from "@halaalvest/ui/components/table"
-import { useInfiniteQuery } from "@tanstack/react-query"
+import { useSuspenseInfiniteQuery } from "@tanstack/react-query"
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
-import { useEffect, useMemo, useRef } from "react"
+import { useDeferredValue, useEffect, useMemo, useRef } from "react"
 import type { MonthlyRecordMemberRow } from "@halaalvest/db"
-import { EmptyState, VirtualRow } from "@/components/tables/core"
+import { VirtualRow } from "@/components/tables/core"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useLiveTablePollInterval } from "@/hooks/use-live-table-poll-interval"
+import { useMonthlyRecordFilterParams } from "@/hooks/use-monthly-record-filter-params"
 import { useSortParams } from "@/hooks/use-sort-params"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
 import { useTableDnd } from "@/hooks/use-table-dnd"
@@ -25,94 +26,59 @@ import { useTRPC } from "@/trpc/client"
 import { ROW_HEIGHTS, STICKY_COLUMNS } from "@/utils/table-configs"
 import { getColumnIds, type TableSettings } from "@/utils/table-settings"
 import { columns } from "./columns"
-import { MonthlyRecordsSkeleton } from "./skeleton"
+import { MonthlyRecordsEmptyState, MonthlyRecordsNoResults } from "./empty-states"
+import { getMonthlyRecordRowsInput } from "./rows-input"
 import { MonthlyRecordsTableHeader } from "./table-header"
 
 export type MonthlyRecordMemberTableRow = MonthlyRecordMemberRow
 
-type MonthlyRecordSortField =
-  | "allChargesAmount"
-  | "contributionAmount"
-  | "currentBalance"
-  | "finalIncomeAmount"
-  | "loanRepaymentAmount"
-  | "loanStatus"
-  | "memberName"
-  | "shareChargeAmount"
-  | "status"
-  | "totalPaidAmount"
-  | "totalPayableAmount"
-
 const COLUMN_IDS = getColumnIds(columns)
-
-function getSort(
-  sort?: string[] | null
-): [MonthlyRecordSortField, "asc" | "desc"] | null {
-  if (!sort || sort.length !== 2) return null
-
-  const field = sort[0]
-  const direction = sort[1]
-  if (!field || !direction) return null
-
-  const validFields = new Set<string>([
-    "allChargesAmount",
-    "contributionAmount",
-    "currentBalance",
-    "finalIncomeAmount",
-    "loanRepaymentAmount",
-    "loanStatus",
-    "memberName",
-    "shareChargeAmount",
-    "status",
-    "totalPaidAmount",
-    "totalPayableAmount",
-  ])
-
-  if (!validFields.has(field)) return null
-  if (direction !== "asc" && direction !== "desc") return null
-
-  return [field as MonthlyRecordSortField, direction]
-}
 
 export function MonthlyRecordsDataTable({
   initialSettings,
+  month,
   monthlyRecordId,
+  periodLabel,
+  year,
 }: {
   initialSettings?: Partial<TableSettings>
+  month?: number
   monthlyRecordId?: string | null
+  periodLabel?: string
+  year?: number
 }) {
   const trpc = useTRPC()
   const { params } = useSortParams()
+  const { filter, hasFilters } = useMonthlyRecordFilterParams()
+  const deferredSearch = useDeferredValue(filter.q)
   const parentRef = useRef<HTMLDivElement>(null)
   const { setColumns } = useMonthlyRecordsTableStore()
   const queryInput = useMemo(
-    () => ({
-      monthlyRecordId: monthlyRecordId ?? undefined,
-      sort: getSort(params.sort),
-    }),
-    [monthlyRecordId, params.sort]
+    () =>
+      getMonthlyRecordRowsInput({
+        monthlyRecordId,
+        q: deferredSearch,
+        sort: params.sort,
+        status: filter.status,
+      }),
+    [deferredSearch, filter.status, monthlyRecordId, params.sort]
   )
+  // Polling stays behind the visibility/activity gate; the page hydrates the
+  // first page, so there is no refetch on mount.
   const livePollInterval = useLiveTablePollInterval()
   const infiniteQueryOptions = trpc.monthlyRecords.rows.infiniteQueryOptions(
     queryInput,
     {
       getNextPageParam: ({ meta }) => meta?.cursor,
       refetchInterval: livePollInterval,
-      refetchOnMount: "always",
       refetchOnWindowFocus: true,
     }
   )
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isError,
-    isFetchingNextPage,
-    isPending,
-  } = useInfiniteQuery(infiniteQueryOptions)
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useSuspenseInfiniteQuery(infiniteQueryOptions)
   const tableData = useMemo(
-    () => data?.pages.flatMap((page) => page.data) ?? [],
-    [data]
+    () => data.pages.flatMap((page) => page.data),
+    [data.pages]
   )
 
   const {
@@ -181,33 +147,14 @@ export function MonthlyRecordsDataTable({
     threshold: 50,
   })
 
-  if (!monthlyRecordId) {
-    return (
-      <EmptyState
-        description="Create or select a monthly record to review member rows."
-        title="No members were found for this monthly record."
-      />
-    )
-  }
-
-  if (isPending) {
-    return <MonthlyRecordsSkeleton />
-  }
-
-  if (isError) {
-    return (
-      <EmptyState
-        description="Reload the page or select the monthly record again."
-        title="Monthly record rows could not load."
-      />
-    )
-  }
-
   if (!tableData.length) {
-    return (
-      <EmptyState
-        description="Create or select a monthly record to review member rows."
-        title="No members were found for this monthly record."
+    return hasFilters ? (
+      <MonthlyRecordsNoResults />
+    ) : (
+      <MonthlyRecordsEmptyState
+        month={month}
+        periodLabel={monthlyRecordId ? periodLabel : undefined}
+        year={year}
       />
     )
   }

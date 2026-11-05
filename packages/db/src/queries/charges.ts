@@ -369,6 +369,23 @@ async function quoteApplicableChargesInTransaction(
   },
   tx: PrismaClient
 ): Promise<ResolvedChargeQuote[]> {
+  const quote = await loadApplicableChargeQuoter(input, tx)
+
+  return quote(input.basisAmount)
+}
+
+// Loads the applicable charge definitions once and returns a pure quoter, so
+// callers that price many basis amounts (one per member) issue a constant
+// number of queries.
+async function loadApplicableChargeQuoter(
+  input: {
+    assessedAt: Date
+    tenantId: string
+    trigger: ChargeApplicabilityTrigger
+    workflow: ChargeWorkflow
+  },
+  tx: PrismaClient
+): Promise<(basisAmount: number) => ResolvedChargeQuote[]> {
   const txAny = tx as any
 
   if (typeof txAny.chargeApplicability?.findMany === "function") {
@@ -401,27 +418,29 @@ async function quoteApplicableChargesInTransaction(
     })
 
     if (applicabilityRows.length > 0) {
-      return applicabilityRows
-        .map((row: any) =>
-          toChargeQuote({
-            applicabilityId: row.id,
-            basisAmount: input.basisAmount,
-            collectionMode: row.collectionMode,
-            definition: row.chargeDefinition,
-            isRequired: row.isRequired,
-            trigger: input.trigger,
-            workflow: input.workflow,
-          })
-        )
-        .filter(
-          (quote: ResolvedChargeQuote | null): quote is ResolvedChargeQuote =>
-            Boolean(quote)
-        )
+      return (basisAmount) =>
+        applicabilityRows
+          .map((row: any) =>
+            toChargeQuote({
+              applicabilityId: row.id,
+              basisAmount,
+              collectionMode: row.collectionMode,
+              definition: row.chargeDefinition,
+              isRequired: row.isRequired,
+              trigger: input.trigger,
+              workflow: input.workflow,
+            })
+          )
+          .filter(
+            (
+              quote: ResolvedChargeQuote | null
+            ): quote is ResolvedChargeQuote => Boolean(quote)
+          )
     }
   }
 
   const legacyWhere = legacyChargeWhereForWorkflow(input)
-  if (!legacyWhere) return []
+  if (!legacyWhere) return () => []
 
   const definitions = await tx.chargeDefinition.findMany({
     include: {
@@ -443,16 +462,17 @@ async function quoteApplicableChargesInTransaction(
     },
   })
 
-  return definitions
-    .map((definition) =>
-      toChargeQuote({
-        basisAmount: input.basisAmount,
-        definition,
-        trigger: input.trigger,
-        workflow: input.workflow,
-      })
-    )
-    .filter((quote): quote is ResolvedChargeQuote => Boolean(quote))
+  return (basisAmount) =>
+    definitions
+      .map((definition) =>
+        toChargeQuote({
+          basisAmount,
+          definition,
+          trigger: input.trigger,
+          workflow: input.workflow,
+        })
+      )
+      .filter((quote): quote is ResolvedChargeQuote => Boolean(quote))
 }
 
 export async function listChargeDefinitions(
@@ -1355,6 +1375,31 @@ export async function quoteApplicableCharges(
       ...quote
     }) => quote satisfies ChargeQuote
   )
+}
+
+export async function loadChargeQuoter(
+  input: {
+    assessedAt: Date
+    tenantId: string
+    trigger: ChargeApplicabilityTrigger
+    workflow: ChargeWorkflow
+  },
+  prismaOverride?: PrismaClient
+): Promise<(basisAmount: number) => ChargeQuote[]> {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const quote = await loadApplicableChargeQuoter(input, prisma)
+
+  return (basisAmount) =>
+    quote(basisAmount).map(
+      ({
+        isMonthlyLevy: _isMonthlyLevy,
+        versionEffectiveFrom: _effectiveFrom,
+        versionId: _versionId,
+        ...charge
+      }) => charge satisfies ChargeQuote
+    )
 }
 
 export async function applyApplicableWorkflowChargesInTransaction(

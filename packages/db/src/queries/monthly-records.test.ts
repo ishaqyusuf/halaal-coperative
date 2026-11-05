@@ -5,7 +5,7 @@ import {
   ensureMonthlyRecord,
   generateDueMonthlyRecords,
   getMonthlyRecordDetail,
-  getOrCreateMonthlyRecordsPageData,
+  getMonthlyRecordsPageData,
   selectDueMonthlyRecordTenants,
 } from "./monthly-records"
 
@@ -16,6 +16,7 @@ function createLockedMonthlyRecordPrismaStub({
 } = {}) {
   const monthlyRecordUpserts: unknown[] = []
   const monthlyRecordMemberLookups: unknown[] = []
+  const monthlyRecordMemberWrites: unknown[] = []
   const monthlyRecordDetailLoads: unknown[] = []
   const seedMemberLookups: unknown[] = []
   const transactions: unknown[] = []
@@ -91,11 +92,21 @@ function createLockedMonthlyRecordPrismaStub({
       },
     },
     monthlyRecordMember: {
+      createMany: async (input: unknown) => {
+        monthlyRecordMemberWrites.push(input)
+
+        return { count: 0 }
+      },
       findFirst: async (input: unknown) => {
         monthlyRecordMemberLookups.push(input)
 
         return null
       },
+      findMany: async () => [],
+      groupBy: async () => [],
+    },
+    monthlyRecordSetting: {
+      findUnique: async () => null,
     },
     shareBusinessProfitEntry: {
       count: async () => 1,
@@ -117,6 +128,7 @@ function createLockedMonthlyRecordPrismaStub({
     },
     monthlyRecordDetailLoads,
     monthlyRecordMemberLookups,
+    monthlyRecordMemberWrites,
     monthlyRecordUpserts,
     seedMemberLookups,
     transactions,
@@ -143,35 +155,32 @@ describe("monthly record live write guards", () => {
     expect(prisma.seedMemberLookups).toHaveLength(0)
   })
 
-  test("blocks monthly record auto-creation from page data before live operations", async () => {
+  test("page data reads before live operations and never creates a month", async () => {
     const prisma = createLockedMonthlyRecordPrismaStub()
 
-    await expect(
-      getOrCreateMonthlyRecordsPageData(
-        {
-          actorUserId: "user-1",
-          tenantId: "tenant-1",
-        },
-        prisma as never,
-      ),
-    ).rejects.toThrow("Live financial record writes are locked")
+    const data = await getMonthlyRecordsPageData(
+      { tenantId: "tenant-1" },
+      prisma as never,
+    )
 
+    expect(data.records).toEqual([])
+    expect(data.selectedRecord).toBeNull()
     expect(prisma.monthlyRecordUpserts).toHaveLength(0)
+    expect(prisma.seedMemberLookups).toHaveLength(0)
   })
 
-  test("blocks detail reseeding before live operations", async () => {
+  test("detail reads before live operations without seeding", async () => {
     const prisma = createLockedMonthlyRecordPrismaStub()
 
-    await expect(
-      getMonthlyRecordDetail(
-        "tenant-1",
-        "monthly-record-1",
-        prisma as never,
-      ),
-    ).rejects.toThrow("Live financial record writes are locked")
+    const detail = await getMonthlyRecordDetail(
+      "tenant-1",
+      "monthly-record-1",
+      prisma as never,
+    )
 
+    expect(detail?.rows).toEqual([])
     expect(prisma.seedMemberLookups).toHaveLength(0)
-    expect(prisma.monthlyRecordDetailLoads).toHaveLength(0)
+    expect(prisma.monthlyRecordDetailLoads).toHaveLength(1)
   })
 
   test("blocks monthly record application before live operations", async () => {
@@ -214,9 +223,13 @@ describe("monthly record live write guards", () => {
       initialMigrationStatus: "live_operations",
     })
 
-    await getMonthlyRecordDetail(
-      "tenant-1",
-      "monthly-record-1",
+    await ensureMonthlyRecord(
+      {
+        actorUserId: "user-1",
+        month: 1,
+        tenantId: "tenant-1",
+        year: 2026,
+      },
       prisma as never,
     )
 

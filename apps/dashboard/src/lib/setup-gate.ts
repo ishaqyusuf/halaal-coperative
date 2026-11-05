@@ -4,6 +4,7 @@ import {
   type MembershipRole,
 } from "@halaalvest/db"
 import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
+import { cache } from "react"
 import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
 
 export {
@@ -13,6 +14,12 @@ export {
   navigationLockedAfterSetupLabel,
   resolveInitialMigrationLayoutRedirect,
 } from "./setup-gate-routing"
+
+// One migration-state read per request: the sidebar layout's gate and page
+// loaders that need the same state (for example /members) share it.
+export const getRequestInitialMigrationState = cache((tenantId: string) =>
+  getTenantInitialMigrationState(tenantId)
+)
 
 export function shouldOpenFirstRunOnboarding(input: {
   alreadyInOnboarding: boolean
@@ -45,7 +52,7 @@ export async function resolveInitialMigrationSetupGate(input: {
   }
 
   const [migrationState, operationProfile, businessPolicy] = await Promise.all([
-    getTenantInitialMigrationState(input.tenantId),
+    getRequestInitialMigrationState(input.tenantId),
     getRequestTenantOperationProfile(input.tenantId),
     getTenantBusinessProfitPolicy(input.tenantId),
   ])

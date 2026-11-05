@@ -12,8 +12,7 @@ import { ExpectedQueryError, isUniqueConstraintError } from "../query-error"
 import { getMemberTransactions } from "./ledger"
 import {
   getMembersOperationalReadiness,
-  isMemberMigrationFinalized,
-  type MemberOperationalReadiness,
+  listMigrationFinalizedMemberIds,
 } from "./member-readiness"
 import { getTenantInitialMigrationState } from "./migration"
 import { ensureMemberInGeneratedMonthlyRecord } from "./monthly-records"
@@ -172,17 +171,16 @@ function getMembersTableOrderBy(
   return [{ [field]: direction }, { createdAt: "desc" }]
 }
 
-function matchesMemberMigrationStatus(
-  readiness: MemberOperationalReadiness | null | undefined,
-  migrationStatus?: MemberMigrationFilterStatus
-) {
-  if (!migrationStatus || !readiness) {
-    return !migrationStatus
+function toMemberMigrationWhere(
+  migrationStatus: MemberMigrationFilterStatus,
+  finalizedIds: string[]
+): Prisma.MemberWhereInput {
+  return {
+    id:
+      migrationStatus === "finalized"
+        ? { in: finalizedIds }
+        : { notIn: finalizedIds },
   }
-
-  const isFinalized = isMemberMigrationFinalized(readiness)
-
-  return migrationStatus === "finalized" ? isFinalized : !isFinalized
 }
 
 export async function listMembers(
@@ -220,45 +218,46 @@ export async function getMemberRegistrySummary(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
-  const where = buildMemberWhere(tenantId, filters)
-  const members = await prisma.member.findMany({
-    select: {
-      id: true,
-      kycStatus: true,
-      status: true,
-      userId: true,
-    },
-    where,
-  })
-  const readinessByMemberId = await getMembersOperationalReadiness(
-    {
-      memberIds: members.map((member) => member.id),
-      tenantId,
-    },
-    prisma
-  )
-  const filteredMembers = members.filter((member) =>
-    matchesMemberMigrationStatus(
-      readinessByMemberId.get(member.id),
-      filters?.migrationStatus
-    )
-  )
+  const migrationStatus = filters?.migrationStatus
+  const baseWhere = buildMemberWhere(tenantId, filters)
+  const finalizedIds = await listMigrationFinalizedMemberIds(tenantId, prisma)
+  const where: Prisma.MemberWhereInput = migrationStatus
+    ? {
+        AND: [baseWhere, toMemberMigrationWhere(migrationStatus, finalizedIds)],
+      }
+    : baseWhere
+  // Status/KYC buckets plus non-null userId counts give every tile in one
+  // grouped query; only the unfiltered view needs a separate finalized count.
+  const [groups, migrationFinalizedCount] = await Promise.all([
+    prisma.member.groupBy({
+      _count: { _all: true, userId: true },
+      by: ["status", "kycStatus"],
+      where,
+    }),
+    migrationStatus
+      ? null
+      : prisma.member.count({
+          where: {
+            AND: [baseWhere, toMemberMigrationWhere("finalized", finalizedIds)],
+          },
+        }),
+  ])
+  const sum = (
+    rows: typeof groups,
+    count = (row: (typeof groups)[number]) => row._count._all
+  ) => rows.reduce((total, row) => total + count(row), 0)
+  const totalCount = sum(groups)
 
   return {
-    activeCount: filteredMembers.filter((member) => member.status === "active")
-      .length,
-    kycPendingCount: filteredMembers.filter(
-      (member) => member.kycStatus !== "verified"
-    ).length,
-    linkedUsersCount: filteredMembers.filter((member) => member.userId !== null)
-      .length,
-    migrationFinalizedCount: filteredMembers.filter((member) =>
-      matchesMemberMigrationStatus(
-        readinessByMemberId.get(member.id),
-        "finalized"
-      )
-    ).length,
-    totalCount: filteredMembers.length,
+    activeCount: sum(groups.filter((group) => group.status === "active")),
+    kycPendingCount: sum(
+      groups.filter((group) => group.kycStatus !== "verified")
+    ),
+    linkedUsersCount: sum(groups, (group) => group._count.userId),
+    migrationFinalizedCount:
+      migrationFinalizedCount ??
+      (migrationStatus === "finalized" ? totalCount : 0),
+    totalCount,
   }
 }
 
@@ -469,40 +468,38 @@ export async function listMembersTable(
   const pageSize = filters?.pageSize ?? 25
   const offset = filters?.cursor ? Number.parseInt(filters.cursor, 10) : 0
   const safeOffset = Number.isFinite(offset) && offset > 0 ? offset : 0
-  const where = buildMemberWhere(tenantId, {
+  const baseWhere = buildMemberWhere(tenantId, {
     ...filters,
     search: filters?.q ?? undefined,
   })
+  const where: Prisma.MemberWhereInput = filters?.migrationStatus
+    ? {
+        AND: [
+          baseWhere,
+          toMemberMigrationWhere(
+            filters.migrationStatus,
+            await listMigrationFinalizedMemberIds(tenantId, prisma)
+          ),
+        ],
+      }
+    : baseWhere
 
   const rows = await prisma.member.findMany({
     where,
     orderBy: getMembersTableOrderBy(filters?.sort),
-    ...(filters?.migrationStatus
-      ? {}
-      : {
-          skip: safeOffset,
-          take: pageSize + 1,
-        }),
+    skip: safeOffset,
+    take: pageSize + 1,
     include: memberListInclude,
   })
+  const hasNextPage = rows.length > pageSize
+  const data = rows.slice(0, pageSize)
   const readinessByMemberId = await getMembersOperationalReadiness(
     {
-      memberIds: rows.map((member) => member.id),
+      memberIds: data.map((member) => member.id),
       tenantId,
     },
     prisma
   )
-  const filteredRows = rows.filter((member) =>
-    matchesMemberMigrationStatus(
-      readinessByMemberId.get(member.id),
-      filters?.migrationStatus
-    )
-  )
-  const pagedRows = filters?.migrationStatus
-    ? filteredRows.slice(safeOffset, safeOffset + pageSize + 1)
-    : filteredRows
-  const hasNextPage = pagedRows.length > pageSize
-  const data = pagedRows.slice(0, pageSize)
   const dataWithOperationalReadiness = data.map((member) => ({
     ...serializeMemberListItem(member),
     operationalReadiness: readinessByMemberId.get(member.id) ?? null,

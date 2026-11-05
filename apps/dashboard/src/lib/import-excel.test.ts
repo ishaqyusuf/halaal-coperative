@@ -7,7 +7,7 @@ import {
 
 describe("dashboard workbook import and template", () => {
   test("retains CSV, XLS, and XLSX member import after the SheetJS update", async () => {
-    const workbook = createDashboardImportTemplateWorkbook("members", [
+    const workbook = await createDashboardImportTemplateWorkbook("members", [
       "memberNumber",
       "fullName",
     ])

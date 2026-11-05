@@ -22,7 +22,10 @@ import {
   stageImportBatchAction,
 } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
-import { readDashboardImportFileAsCsv } from "@/lib/import-excel"
+import {
+  downloadDashboardImportTemplate,
+  readDashboardImportFileAsCsv,
+} from "@/lib/import-excel"
 import {
   dashboardImportConfigs,
   getDashboardImportExistingMatches,
@@ -165,25 +168,23 @@ function MemberImportEditableTable({
   )
 }
 
+export type MemberImportLatestBatch = {
+  _count: { rows: number }
+  createdAt: Date
+  status: string
+  validRows: number
+}
+
 export function MemberImportContent({
-  batches,
   devMode,
   initialColumnSettings,
+  latestBatch,
   onClose,
   referenceData,
 }: {
-  batches: Array<{
-    _count: { rows: number }
-    createdAt: Date
-    duplicateRowCount: number
-    existingMatchCount: number
-    id: string
-    importType: string
-    status: string
-    validRows: number
-  }>
   devMode: boolean
   initialColumnSettings?: MemberImportColumnSettings
+  latestBatch?: MemberImportLatestBatch | null
   onClose: () => void
   referenceData: DashboardImportReferenceData
 }) {
@@ -206,7 +207,6 @@ export function MemberImportContent({
   const confirmedExistingMatches = form.watch("confirmExistingMatches")
   const confirmedInFileDuplicates = form.watch("confirmInFileDuplicates")
   const shouldStageImport = form.watch("stageImport")
-  const latestBatch = batches.find((batch) => batch.importType === "members")
   const [columnSettings, setColumnSettings] = useState(() =>
     normalizeMemberImportColumnSettings(initialColumnSettings)
   )
@@ -383,6 +383,17 @@ export function MemberImportContent({
     })
   }
 
+  function onDownloadTemplate() {
+    downloadDashboardImportTemplate(memberImportKind, activeColumns).catch(
+      (error: unknown) => {
+        showError(
+          "Could not download template",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
+      }
+    )
+  }
+
   function onStage(values: MemberImportValues) {
     startTransition(async () => {
       try {
@@ -429,9 +440,8 @@ export function MemberImportContent({
           )
         }
         await Promise.all([
-          queryClient.invalidateQueries(
-            trpc.imports.batches.infiniteQueryFilter()
-          ),
+          // Batches and import reference data (member numbers) both change.
+          queryClient.invalidateQueries(trpc.imports.pathFilter()),
           queryClient.invalidateQueries(
             trpc.members.list.infiniteQueryFilter()
           ),
@@ -452,13 +462,13 @@ export function MemberImportContent({
   return (
     <>
       <MemberImportSheetHeader
-        activeColumns={activeColumns}
         columnSettings={columnSettings}
         devMode={devMode}
         fileInputRef={fileInputRef}
         isReadingFile={isReadingFile}
         onClose={onClose}
         onColumnSettingsChange={onColumnSettingsChange}
+        onDownloadTemplate={onDownloadTemplate}
         onImportFile={onImportFile}
         onQuickFill={() => resetImportForm(config.sampleCsv)}
       />

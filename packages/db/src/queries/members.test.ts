@@ -77,9 +77,21 @@ describe("member identity conflicts", () => {
   })
 })
 
+type MemberIdWhere = {
+  AND?: MemberIdWhere[]
+  id?: { in?: string[]; notIn?: string[] }
+}
+
+function matchesMemberIdWhere(id: string, where?: MemberIdWhere): boolean {
+  if (!where) return true
+  if (where.id?.in && !where.id.in.includes(id)) return false
+  if (where.id?.notIn?.includes(id)) return false
+  return (where.AND ?? []).every((part) => matchesMemberIdWhere(id, part))
+}
+
 describe("member registry summary", () => {
   function createRegistrySummaryPrismaStub() {
-    const findManyCalls: unknown[] = []
+    const groupByCalls: unknown[] = []
     const members = [
       {
         id: "member-1",
@@ -110,34 +122,55 @@ describe("member registry summary", () => {
         userId: null,
       },
     ] as const
+    const rawQueries: unknown[] = []
+    const scoped = (where?: MemberIdWhere) =>
+      members.filter((member) => matchesMemberIdWhere(member.id, where))
     const prisma = {
-      appliedBackfillMonth: { findMany: async () => [] },
-      backfillBatch: { findMany: async () => [] },
-      memberOpeningBalance: {
-        findMany: async () => [
-          { id: "opening-1", memberId: "member-1" },
-          { id: "opening-3", memberId: "member-3" },
-        ],
+      // Brought-forward members with an applied opening position.
+      $queryRaw: async (...input: unknown[]) => {
+        rawQueries.push(input)
+        return [{ id: "member-1" }, { id: "member-3" }]
       },
       member: {
-        findMany: async (input: unknown) => {
-          findManyCalls.push(input)
-          return members
+        count: async ({ where }: { where?: MemberIdWhere }) =>
+          scoped(where).length,
+        findMany: async () => {
+          throw new Error("The summary must not load member rows.")
         },
-      },
-      tenant: {
-        findUnique: async () => ({ startDate: null }),
-      },
-      tenantPolicy: {
-        findUnique: async () => ({ migrationSetupMode: "brought_forward" }),
+        groupBy: async (input: { where?: MemberIdWhere }) => {
+          groupByCalls.push(input)
+          const groups = new Map<
+            string,
+            {
+              _count: { _all: number; userId: number }
+              kycStatus: string
+              status: string
+            }
+          >()
+
+          for (const member of scoped(input.where)) {
+            const key = `${member.status}:${member.kycStatus}`
+            const group = groups.get(key) ?? {
+              _count: { _all: 0, userId: 0 },
+              kycStatus: member.kycStatus,
+              status: member.status,
+            }
+            group._count._all += 1
+            group._count.userId += member.userId ? 1 : 0
+            groups.set(key, group)
+          }
+
+          return [...groups.values()]
+        },
       },
     }
 
-    return { findManyCalls, prisma }
+    return { groupByCalls, prisma, rawQueries }
   }
 
   test("counts the complete filtered registry and finalized migrations", async () => {
-    const { findManyCalls, prisma } = createRegistrySummaryPrismaStub()
+    const { groupByCalls, prisma, rawQueries } =
+      createRegistrySummaryPrismaStub()
     const summary = await getMemberRegistrySummary(
       "tenant-1",
       { search: "ACAC" },
@@ -151,8 +184,9 @@ describe("member registry summary", () => {
       migrationFinalizedCount: 2,
       totalCount: 4,
     })
-    expect(findManyCalls).toHaveLength(2)
-    expect(findManyCalls[0]).toMatchObject({
+    expect(rawQueries).toHaveLength(1)
+    expect(groupByCalls).toHaveLength(1)
+    expect(groupByCalls[0]).toMatchObject({
       where: {
         tenantId: "tenant-1",
         OR: [
@@ -1015,14 +1049,33 @@ describe("members table operational readiness", () => {
         status: "active",
       },
     ]
+    const memberFindManyCalls: Array<{
+      skip?: number
+      take?: number
+      where?: MemberIdWhere
+    }> = []
     const prisma = {
+      $queryRaw: async () => [{ id: "member-1" }],
       appliedBackfillMonth: { findMany: async () => [] },
       backfillBatch: { findMany: async () => [] },
       memberOpeningBalance: {
         findMany: async () => [{ id: "opening-1", memberId: "member-1" }],
       },
       member: {
-        findMany: async () => members,
+        findMany: async (input: {
+          skip?: number
+          take?: number
+          where?: MemberIdWhere & { id?: { in?: string[] } }
+        }) => {
+          memberFindManyCalls.push(input)
+          const rows = members.filter((member) =>
+            matchesMemberIdWhere(member.id, input.where)
+          )
+
+          return input.take === undefined
+            ? rows
+            : rows.slice(input.skip ?? 0, (input.skip ?? 0) + input.take)
+        },
       },
       tenant: {
         findUnique: async () => ({ startDate: null }),
@@ -1054,6 +1107,12 @@ describe("members table operational readiness", () => {
       hasNextPage: false,
       hasPreviousPage: true,
     })
+    // The migration filter is applied in the query, so the page stays
+    // skip/take-bounded instead of loading every member.
+    expect(memberFindManyCalls[0]).toMatchObject({ skip: 0, take: 2 })
+    expect(memberFindManyCalls).toContainEqual(
+      expect.objectContaining({ skip: 1, take: 2 })
+    )
   })
 
   test("serializes member table money snapshots as plain numbers", async () => {

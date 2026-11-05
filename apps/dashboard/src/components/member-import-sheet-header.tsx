@@ -31,7 +31,6 @@ import {
 import { cn } from "@halaalvest/ui/lib/utils"
 import { GripVertical, SlidersHorizontal } from "lucide-react"
 import { updateMemberImportColumnSettingsAction } from "@/actions/update-member-import-column-settings-action"
-import { downloadDashboardImportTemplate } from "@/lib/import-excel"
 import {
   memberImportRequiredColumns,
   normalizeMemberImportColumnSettings,
@@ -215,23 +214,23 @@ function MemberImportColumnFilter({
 }
 
 export function MemberImportSheetHeader({
-  activeColumns,
   columnSettings,
   devMode,
   fileInputRef,
   isReadingFile,
   onClose,
   onColumnSettingsChange,
+  onDownloadTemplate,
   onImportFile,
   onQuickFill,
 }: {
-  activeColumns: string[]
   columnSettings: MemberImportColumnSettings
   devMode: boolean
   fileInputRef: RefObject<HTMLInputElement | null>
   isReadingFile: boolean
   onClose: () => void
   onColumnSettingsChange: (settings: MemberImportColumnSettings) => void
+  onDownloadTemplate: () => void
   onImportFile: (file: File | undefined) => void
   onQuickFill: () => void
 }) {
@@ -258,13 +257,7 @@ export function MemberImportSheetHeader({
           settings={columnSettings}
           onSettingsChange={onColumnSettingsChange}
         />
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() =>
-            downloadDashboardImportTemplate("members", activeColumns)
-          }
-        >
+        <Button type="button" variant="outline" onClick={onDownloadTemplate}>
           Download Excel template
         </Button>
         <Button

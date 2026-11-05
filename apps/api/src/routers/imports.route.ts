@@ -1,19 +1,25 @@
-import { getImportBatch, listImportBatches } from "@halaalvest/db"
-import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
+import {
+  getImportBatch,
+  getImportReferenceData,
+  listImportBatches,
+} from "@halaalvest/db"
+import {
+  createTRPCRouter,
+  minRoleProcedure,
+  tenantProcedure,
+} from "../lib.trpc"
 import {
   getImportBatchSchema,
   listImportBatchesSchema,
 } from "../schemas/imports"
 
 export const importsRouter = createTRPCRouter({
-  batch: tenantProcedure
-    .input(getImportBatchSchema)
-    .query(({ ctx, input }) =>
-      getImportBatch({
-        batchId: input.batchId,
-        tenantId: ctx.tenant.current.id,
-      })
-    ),
+  batch: tenantProcedure.input(getImportBatchSchema).query(({ ctx, input }) =>
+    getImportBatch({
+      batchId: input.batchId,
+      tenantId: ctx.tenant.current.id,
+    })
+  ),
   batches: tenantProcedure
     .input(listImportBatchesSchema)
     .query(async ({ ctx, input }) => {
@@ -36,4 +42,10 @@ export const importsRouter = createTRPCRouter({
         },
       }
     }),
+  // Existing member numbers, collection sources, loan products and charge
+  // codes for in-sheet duplicate checks. Fetched when an import sheet opens,
+  // not on page load.
+  referenceData: minRoleProcedure("operations_officer").query(({ ctx }) =>
+    getImportReferenceData(ctx.tenant.current.id)
+  ),
 })

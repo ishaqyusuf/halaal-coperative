@@ -122,6 +122,86 @@ export function resolveMemberOperationalReadiness(
   }
 }
 
+/**
+ * Ids of the tenant's members whose migration is finalized, decided in SQL
+ * with the same rules as `resolveMemberOperationalReadiness` +
+ * `isMemberMigrationFinalized`, so registry counts and migration-filtered
+ * pages never load every member row into memory.
+ */
+export async function listMigrationFinalizedMemberIds(
+  tenantId: string,
+  prismaOverride?: PrismaClient,
+  asOf = new Date()
+): Promise<string[]> {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const currentMonth = new Date(
+    Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth(), 1)
+  ).toISOString()
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+    WITH settings AS (
+      SELECT t.start_date::timestamp AS tenant_start,
+             p.migration_setup_mode::text AS policy_mode,
+             ${currentMonth}::timestamp AS current_month
+      FROM tenants t
+      LEFT JOIN tenant_policies p ON p.tenant_id = t.id
+      WHERE t.id = ${tenantId}::uuid
+    ),
+    scoped AS (
+      SELECT m.id,
+             s.policy_mode,
+             s.current_month,
+             date_trunc(
+               'month',
+               GREATEST(m.joined_at AT TIME ZONE 'UTC', s.tenant_start)
+             ) AS start_month,
+             EXISTS (
+               SELECT 1 FROM backfill_batches b
+               WHERE b.tenant_id = m.tenant_id
+                 AND b.member_id = m.id
+                 AND b.status = 'applied'
+             ) AS has_applied_batch,
+             EXISTS (
+               SELECT 1 FROM member_opening_balances o
+               WHERE o.tenant_id = m.tenant_id
+                 AND o.member_id = m.id
+                 AND o.status = 'applied'
+             ) AS has_applied_opening_balance
+      FROM members m
+      CROSS JOIN settings s
+      WHERE m.tenant_id = ${tenantId}::uuid
+    ),
+    measured AS (
+      SELECT scoped.*,
+             (EXTRACT(YEAR FROM current_month) - EXTRACT(YEAR FROM start_month)) * 12
+               + (EXTRACT(MONTH FROM current_month) - EXTRACT(MONTH FROM start_month))
+               AS expected_months,
+             (
+               SELECT count(DISTINCT date_trunc('month', a.month::timestamp))
+               FROM applied_backfill_months a
+               WHERE a.tenant_id = ${tenantId}::uuid
+                 AND a.member_id = scoped.id
+                 AND a.month::timestamp >= start_month
+                 AND a.month::timestamp < current_month
+             ) AS covered_months
+      FROM scoped
+    )
+    SELECT id::text AS id
+    FROM measured
+    WHERE CASE
+      WHEN policy_mode = 'brought_forward'
+        OR (policy_mode IS NULL AND has_applied_opening_balance)
+        THEN has_applied_opening_balance
+      ELSE expected_months <= 0
+        OR has_applied_batch
+        OR covered_months >= expected_months
+    END
+  `
+
+  return rows.map((row) => row.id)
+}
+
 export async function getMembersOperationalReadiness(
   input: {
     memberIds: string[]

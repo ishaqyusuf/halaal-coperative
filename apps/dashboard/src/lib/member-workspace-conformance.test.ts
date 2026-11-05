@@ -181,8 +181,7 @@ describe("member workspace Midday conformance", () => {
       "grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto"
     )
     expect(importContent).toContain("trpc.members.list.infiniteQueryFilter()")
-    expect(importContent).toContain(
-      "trpc.imports.batches.infiniteQueryFilter()"
-    )
+    // Covers the batches table, the sheet's latest batch and reference data.
+    expect(importContent).toContain("trpc.imports.pathFilter()")
   })
 })

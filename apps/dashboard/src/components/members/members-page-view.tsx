@@ -7,9 +7,7 @@ import {
   DashboardEmptyState,
   ScrollableContent,
 } from "@/components/dashboard"
-import { MemberImportPanel } from "@/components/member-import-panel"
 import { OpenMemberSheet } from "@/components/open-member-sheet"
-import { MemberSheet } from "@/components/sheets/member-sheet"
 import { MembersDataView } from "@/components/tables/members/data-view"
 import { MembersSkeleton } from "@/components/tables/members/skeleton"
 import type { TableSettings } from "@/utils/table-settings"
@@ -17,6 +15,7 @@ import { MembersActive } from "./members-active"
 import { MembersAll } from "./members-all"
 import { MembersHeader as MembersPageHeader } from "./members-header"
 import { MembersKycPending } from "./members-kyc-pending"
+import { MemberImportPanel, MemberSheet } from "./members-lazy-sheets"
 import { MembersLinkedUsers } from "./members-linked-users"
 
 type MemberImportColumnSettings = Awaited<
@@ -114,12 +113,10 @@ export function MembersPageView({
         <MembersPageHeader
           createAction={data.canManageMembers ? <OpenMemberSheet /> : undefined}
           importPanel={
-            data.canManageImports && data.referenceData ? (
+            data.canManageImports ? (
               <MemberImportPanel
-                batches={data.batches}
                 devMode={data.quickFillEnabled}
                 initialColumnSettings={initialImportColumnSettings}
-                referenceData={data.referenceData}
               />
             ) : undefined
           }

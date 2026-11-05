@@ -1,21 +1,18 @@
 import {
   createDbRuntime,
   getMemberRegistrySummary,
-  getImportReferenceData,
-  getTenantInitialMigrationState,
   getTenantOperationProfile,
   getTenantMemberSignupSettings,
   getTenantMigrationSetup,
   type TenantMigrationSetupMode,
   listActiveDeductionSources,
-  listImportBatches,
 } from "@halaalvest/db"
 import type { MembersFilterParams } from "@/hooks/use-members-filter-params"
-import type { DashboardImportReferenceData } from "@/lib/import-csv"
 import {
   canShowQuickFill,
   getDashboardServerContext,
 } from "@/lib/server-context"
+import { getRequestInitialMigrationState } from "@/lib/setup-gate"
 import {
   allStaffRoles,
   hasAnyRole,
@@ -33,17 +30,6 @@ type MembersPageTenant = {
   memberNumberPrefix?: string | null
   migrationSetupMode: TenantMigrationSetupMode
   startDate?: string | null
-}
-
-type MembersPageBatchRow = {
-  _count: { rows: number }
-  createdAt: Date
-  duplicateRowCount: number
-  existingMatchCount: number
-  id: string
-  importType: string
-  status: string
-  validRows: number
 }
 
 type MembersPageSignupSettings = {
@@ -69,14 +55,12 @@ export type MembersPageData =
     }
   | {
       activeFilters: ReturnType<typeof getActiveMemberFilters>
-      batches: MembersPageBatchRow[]
       canManageImports: boolean
       canManageCollectionSources: boolean
       canManageMembers: boolean
       collectionSourceOptions: MemberCollectionSourceOption[]
       filters: MembersFilterParams
       hasFilters: boolean
-      referenceData: DashboardImportReferenceData | null
       quickFillEnabled: boolean
       signupSettings: MembersPageSignupSettings
       state: "ready"
@@ -163,37 +147,31 @@ export async function loadMembersPageData(
     }
   }
 
-  let referenceData
-  let batches
   let signupSettings
   let migrationSetup
   let operationProfile
-  let migrationState: Awaited<ReturnType<typeof getTenantInitialMigrationState>>
+  let migrationState: Awaited<
+    ReturnType<typeof getRequestInitialMigrationState>
+  >
   let summary: Awaited<ReturnType<typeof getMemberRegistrySummary>>
   let deductionSources = [] as Awaited<
     ReturnType<typeof listActiveDeductionSources>
   >
 
   try {
+    // Import reference data and batches load with the import sheet
+    // (`imports.referenceData`), so they no longer block the page.
     ;[
-      referenceData,
-      batches,
       signupSettings,
       migrationSetup,
       operationProfile,
       migrationState,
       summary,
     ] = await Promise.all([
-      hasImportRole
-        ? getImportReferenceData(context.tenant.id)
-        : Promise.resolve(null),
-      hasImportRole
-        ? listImportBatches(context.tenant.id)
-        : Promise.resolve([]),
       getTenantMemberSignupSettings(context.tenant.id),
       getTenantMigrationSetup(context.tenant.id),
       getTenantOperationProfile(context.tenant.id),
-      getTenantInitialMigrationState(context.tenant.id),
+      getRequestInitialMigrationState(context.tenant.id),
       getMemberRegistrySummary(
         context.tenant.id,
         toMemberQueryFilters(filters)
@@ -226,7 +204,6 @@ export async function loadMembersPageData(
 
   return {
     state: "ready" as const,
-    batches: batches as MembersPageBatchRow[],
     canManageCollectionSources:
       canManageMembers &&
       operationProfile.services.collection_sources.canStaffCreate,
@@ -245,7 +222,6 @@ export async function loadMembersPageData(
     filters,
     hasFilters: hasActiveMemberFilters(filters),
     quickFillEnabled,
-    referenceData,
     signupSettings,
     tenant,
     summary,

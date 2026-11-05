@@ -1,4 +1,3 @@
-import * as XLSX from "xlsx"
 import {
   dashboardImportConfigs,
   type DashboardImportKind,
@@ -82,10 +81,17 @@ function projectTemplateRows(rows: string[][], columns?: string[]) {
   ]
 }
 
-export function createDashboardImportTemplateWorkbook(
+// SheetJS is ~160 KB gzipped, so it loads only when a template is
+// downloaded or a workbook is read, never with the page that offers it.
+function loadSheetJs() {
+  return import("xlsx")
+}
+
+export async function createDashboardImportTemplateWorkbook(
   kind: DashboardImportKind,
   columns?: string[]
 ) {
+  const XLSX = await loadSheetJs()
   const config = dashboardImportConfigs[kind]
   const rows = projectTemplateRows(parseCsvRows(config.sampleCsv), columns)
   const workbook = XLSX.utils.book_new()
@@ -99,11 +105,14 @@ export function createDashboardImportTemplateWorkbook(
   return workbook
 }
 
-export function downloadDashboardImportTemplate(
+export async function downloadDashboardImportTemplate(
   kind: DashboardImportKind,
   columns?: string[]
 ) {
-  const workbook = createDashboardImportTemplateWorkbook(kind, columns)
+  const [XLSX, workbook] = await Promise.all([
+    loadSheetJs(),
+    createDashboardImportTemplateWorkbook(kind, columns),
+  ])
   XLSX.writeFile(workbook, getTemplateFilename(kind), { bookType: "xlsx" })
 }
 
@@ -118,7 +127,7 @@ export async function readDashboardImportFileAsCsv(file: File) {
     throw new Error("Upload a CSV, XLS, or XLSX file.")
   }
 
-  const buffer = await file.arrayBuffer()
+  const [XLSX, buffer] = await Promise.all([loadSheetJs(), file.arrayBuffer()])
   const workbook = XLSX.read(buffer, {
     cellDates: false,
     type: "array",

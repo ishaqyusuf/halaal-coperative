@@ -9,7 +9,14 @@ import { APP_LOCK_CODE_LENGTH } from "@/features/app-lock/model/app-lock-types"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColorScheme, useColors } from "@/hooks/use-color"
 import { StatusBar } from "expo-status-bar"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { StyleSheet, View } from "react-native"
 
 function formatLockout(value?: string | null) {
@@ -29,7 +36,7 @@ function initials(value: string) {
     .join("")
 }
 
-export function AppLockGate() {
+function useAppLockCover() {
   const auth = useAuthContext()
   const appLock = useAppLockContext()
   const shouldBlock = Boolean(
@@ -37,6 +44,33 @@ export function AppLockGate() {
     (!appLock.isHydrated || appLock.isLocked || appLock.hydrationError)
   )
   const shouldConceal = Boolean(auth.profile && appLock.isPrivacyCurtainVisible)
+  return { shouldBlock, shouldConceal }
+}
+
+/**
+ * Hides the app behind the lock cover from accessibility services. The cover
+ * is drawn on top, but without this TalkBack can still read the balances
+ * underneath while the PIN screen is up.
+ */
+export function AppLockContentIsolation({ children }: { children: ReactNode }) {
+  const { shouldBlock, shouldConceal } = useAppLockCover()
+  const hidden = shouldBlock || shouldConceal
+
+  return (
+    <View
+      aria-hidden={hidden}
+      accessibilityElementsHidden={hidden}
+      className="flex-1"
+      collapsable={false}
+      importantForAccessibility={hidden ? "no-hide-descendants" : "auto"}
+    >
+      {children}
+    </View>
+  )
+}
+
+export function AppLockGate() {
+  const { shouldBlock, shouldConceal } = useAppLockCover()
 
   if (!shouldBlock && !shouldConceal) return null
 

@@ -7,6 +7,7 @@ import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { Input } from "@halaalvest/ui/components/input"
 import type { MonthlyRecordMemberRow, MonthlyRecordSettingView } from "@halaalvest/db"
 import { formatCurrency } from "@halaalvest/utils"
+import { WorkflowConfirmFooter } from "@/components/workflow-confirm-footer"
 import { useMonthlyRecordParams } from "@/hooks/use-monthly-record-params"
 import {
   applyMonthlyRecordMemberAction,
@@ -29,6 +30,7 @@ export function MonthlyRecordContent({
   const {
     monthlyRecordMemberId,
     monthlyRecordSheetType,
+    setParams,
     targetMonth,
     targetYear,
   } = useMonthlyRecordParams()
@@ -36,14 +38,20 @@ export function MonthlyRecordContent({
 
   if (monthlyRecordSheetType === "generate") {
     return (
-      <form action={generateMonthlyRecordsNowAction} className="grid gap-4 px-6">
+      <form
+        action={async () => {
+          await generateMonthlyRecordsNowAction()
+          await setParams(null)
+        }}
+        className="grid gap-4 px-6"
+      >
         <p className="text-sm text-muted-foreground">
           Generate all monthly records that are currently due based on the
           configured automation settings.
         </p>
-        <Button type="submit" variant="outline">
-          Generate due records now
-        </Button>
+        <WorkflowConfirmFooter>
+          <Button type="submit">Generate due records now</Button>
+        </WorkflowConfirmFooter>
       </form>
     )
   }
@@ -57,9 +65,11 @@ export function MonthlyRecordContent({
           Create the monthly record for month {targetMonth ?? "-"} of{" "}
           {targetYear ?? "-"}.
         </p>
-        <Button disabled={!targetYear || !targetMonth} type="submit">
-          Create monthly record
-        </Button>
+        <WorkflowConfirmFooter>
+          <Button disabled={!targetYear || !targetMonth} type="submit">
+            Create monthly record
+          </Button>
+        </WorkflowConfirmFooter>
       </form>
     )
   }
@@ -107,7 +117,10 @@ export function MonthlyRecordContent({
   if (monthlyRecordSheetType === "cancel") {
     return (
       <form
-        action={cancelMonthlyRecordMemberAction}
+        action={async (formData) => {
+          await cancelMonthlyRecordMemberAction(formData)
+          await setParams(null)
+        }}
         className="grid gap-4 px-6"
       >
         <input
@@ -119,9 +132,15 @@ export function MonthlyRecordContent({
           Cancel this monthly record member row. It will remain visible with a
           cancelled status.
         </p>
-        <Button disabled={!monthlyRecordMemberId} type="submit" variant="outline">
-          Cancel member row
-        </Button>
+        <WorkflowConfirmFooter>
+          <Button
+            disabled={!monthlyRecordMemberId}
+            type="submit"
+            variant="destructive"
+          >
+            Cancel member row
+          </Button>
+        </WorkflowConfirmFooter>
       </form>
     )
   }

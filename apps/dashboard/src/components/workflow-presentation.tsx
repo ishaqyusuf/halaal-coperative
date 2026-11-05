@@ -36,6 +36,17 @@ const mobileFullScreenDialogWidthClasses: Record<
   wide: "md:max-w-[calc(100vw-4rem)] lg:max-w-[92rem]",
 }
 
+// Alert dialogs override the primitive's size-scoped widths, so the classes
+// carry the same data-[size=default] variant to replace rather than stack.
+const alertDialogWidthClasses: Record<WorkflowPresentationWidth, string> = {
+  compact:
+    "data-[size=default]:max-w-[calc(100%-2rem)] data-[size=default]:sm:max-w-[455px]",
+  form: "data-[size=default]:max-w-[calc(100%-2rem)] data-[size=default]:sm:max-w-[640px]",
+  review:
+    "data-[size=default]:max-w-[calc(100%-2rem)] data-[size=default]:sm:max-w-[768px]",
+  wide: "data-[size=default]:max-w-[calc(100%-2rem)] data-[size=default]:sm:max-w-[calc(100vw-4rem)]",
+}
+
 const sheetWidthClasses: Record<WorkflowPresentationWidth, string> = {
   compact: "sm:max-w-[455px]!",
   form: "sm:max-w-2xl!",
@@ -151,6 +162,25 @@ export function WorkflowPresentation({
     )
   }
 
+  if (config.presentation === "alert-dialog") {
+    // A consequential confirm: the backdrop never dismisses it, Escape and
+    // Cancel close it directly (a confirm holds at most one reason field, so
+    // there is no draft worth a discard prompt), and it stays centred on mobile.
+    return (
+      <AlertDialog open={open} onOpenChange={onOpenChange}>
+        <AlertDialogContent
+          className={cn(
+            "max-h-[calc(100dvh-2rem)] overflow-y-auto",
+            alertDialogWidthClasses[config.width],
+            className
+          )}
+        >
+          <div className={contentClassName}>{children}</div>
+        </AlertDialogContent>
+      </AlertDialog>
+    )
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -164,9 +194,6 @@ export function WorkflowPresentation({
               "top-0 left-0 h-dvh max-h-dvh w-screen max-w-none translate-x-0 translate-y-0 overflow-y-auto p-0 ring-0 sm:max-w-none md:top-1/2 md:left-1/2 md:h-auto md:max-h-[calc(100dvh-2rem)] md:w-full md:-translate-x-1/2 md:-translate-y-1/2 md:p-4 md:ring-1",
             className
           )}
-          role={
-            config.presentation === "alert-dialog" ? "alertdialog" : undefined
-          }
         >
           {content}
         </DialogContent>

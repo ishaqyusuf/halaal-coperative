@@ -8,6 +8,7 @@ import {
 } from "@/components/forms/finance-forms"
 import { DatePickerInput } from "@/components/date-picker-input"
 import { Input } from "@halaalvest/ui/components/input"
+import { WorkflowConfirmFooter } from "@/components/workflow-confirm-footer"
 import { useChargeOperationParams } from "@/hooks/use-charge-operation-params"
 import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
@@ -124,9 +125,15 @@ export function ChargeOperationContent({
           Waive this charge application. A posted charge gets an opposite ledger
           entry; a pending charge is closed without money movement.
         </p>
-        <Button disabled={!chargeApplicationId} type="submit" variant="outline">
-          Waive charge
-        </Button>
+        <WorkflowConfirmFooter>
+          <Button
+            disabled={!chargeApplicationId}
+            type="submit"
+            variant="destructive"
+          >
+            Waive charge
+          </Button>
+        </WorkflowConfirmFooter>
       </form>
     )
   }
@@ -196,9 +203,15 @@ export function ChargeOperationContent({
           Reverse this posted charge application and keep the correction visible
           in activity history.
         </p>
-        <Button disabled={!chargeApplicationId} type="submit" variant="outline">
-          Reverse charge
-        </Button>
+        <WorkflowConfirmFooter>
+          <Button
+            disabled={!chargeApplicationId}
+            type="submit"
+            variant="destructive"
+          >
+            Reverse charge
+          </Button>
+        </WorkflowConfirmFooter>
       </form>
     )
   }
@@ -225,13 +238,15 @@ export function ChargeOperationContent({
             ? "Activate this charge so it can be used for future postings."
             : "Deactivate this charge so it is no longer available for new postings."}
         </p>
-        <Button
-          disabled={!chargeDefinitionId || !chargeIsActive}
-          type="submit"
-          variant="outline"
-        >
-          {activating ? "Activate charge" : "Deactivate charge"}
-        </Button>
+        <WorkflowConfirmFooter>
+          <Button
+            disabled={!chargeDefinitionId || !chargeIsActive}
+            type="submit"
+            variant={activating ? "default" : "destructive"}
+          >
+            {activating ? "Activate charge" : "Deactivate charge"}
+          </Button>
+        </WorkflowConfirmFooter>
       </form>
     )
   }

@@ -1,11 +1,12 @@
 "use client"
 
 import { Button } from "@halaalvest/ui/components/button"
+import { WorkflowConfirmFooter } from "@/components/workflow-confirm-footer"
 import { useGuarantorApprovalParams } from "@/hooks/use-guarantor-approval-params"
 import { respondMemberLoanGuarantorApprovalAction } from "@/lib/dashboard-actions"
 
 export function GuarantorApprovalContent() {
-  const { guarantorApprovalId, guarantorResponseStatus } =
+  const { guarantorApprovalId, guarantorResponseStatus, setParams } =
     useGuarantorApprovalParams()
 
   if (!guarantorApprovalId || !guarantorResponseStatus) {
@@ -18,7 +19,10 @@ export function GuarantorApprovalContent() {
 
   return (
     <form
-      action={respondMemberLoanGuarantorApprovalAction}
+      action={async (formData) => {
+        await respondMemberLoanGuarantorApprovalAction(formData)
+        await setParams(null)
+      }}
       className="grid gap-4 px-6"
     >
       <input
@@ -31,12 +35,16 @@ export function GuarantorApprovalContent() {
         Confirm that you want to mark this guarantor request as{" "}
         {guarantorResponseStatus}.
       </p>
-      <Button
-        type="submit"
-        variant={guarantorResponseStatus === "approved" ? "default" : "outline"}
-      >
-        {guarantorResponseStatus === "approved" ? "Approve" : "Reject"}
-      </Button>
+      <WorkflowConfirmFooter>
+        <Button
+          type="submit"
+          variant={
+            guarantorResponseStatus === "approved" ? "default" : "destructive"
+          }
+        >
+          {guarantorResponseStatus === "approved" ? "Approve" : "Reject"}
+        </Button>
+      </WorkflowConfirmFooter>
     </form>
   )
 }

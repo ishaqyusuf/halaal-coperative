@@ -14,6 +14,7 @@ import {
   MemberPaymentPreferenceForm,
 } from "@/components/forms/finance-forms"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
+import { WorkflowConfirmFooter } from "@/components/workflow-confirm-footer"
 import { useContributionParams } from "@/hooks/use-contribution-params"
 import {
   postCollectionSourceContributionBatchRowsAction,
@@ -430,13 +431,15 @@ export function ContributionContent({
             Post this collected row into the member contribution ledger.
           </p>
         </div>
-        <Button
-          className="h-11 w-full sm:w-auto"
-          disabled={!selectedBatch?.id || !selectedBatchRow?.id}
-          type="submit"
-        >
-          Post row
-        </Button>
+        <WorkflowConfirmFooter>
+          <Button
+            className="h-11 w-full sm:w-auto"
+            disabled={!selectedBatch?.id || !selectedBatchRow?.id}
+            type="submit"
+          >
+            Post row
+          </Button>
+        </WorkflowConfirmFooter>
       </form>
     )
   }

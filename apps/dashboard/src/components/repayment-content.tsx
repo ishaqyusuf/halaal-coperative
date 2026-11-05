@@ -13,6 +13,7 @@ import {
   CollectionFollowUpForm,
   RepaymentPostForm,
 } from "@/components/forms/finance-forms"
+import { WorkflowConfirmFooter } from "@/components/workflow-confirm-footer"
 import { useRepaymentParams } from "@/hooks/use-repayment-params"
 import type {
   RepaymentAssigneeOption,
@@ -52,9 +53,8 @@ export function RepaymentContent({
           their due date as overdue. This action is audited and does not post
           money.
         </p>
-        <div className="border-t border-border pt-4">
+        <WorkflowConfirmFooter disabled={isRefreshing}>
           <Button
-            className="h-11 w-full md:h-9 md:w-auto"
             disabled={isRefreshing}
             onClick={() =>
               startRefreshTransition(async () => {
@@ -78,11 +78,10 @@ export function RepaymentContent({
               })
             }
             type="button"
-            variant="outline"
           >
-            Refresh collection statuses
+            {isRefreshing ? "Refreshing..." : "Refresh collection statuses"}
           </Button>
-        </div>
+        </WorkflowConfirmFooter>
       </div>
     )
   }

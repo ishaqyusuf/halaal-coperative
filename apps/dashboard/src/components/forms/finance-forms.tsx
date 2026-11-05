@@ -20,6 +20,7 @@ import { NativeSelect } from "@halaalvest/ui/components/native-select"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { DatePickerInput } from "@/components/date-picker-input"
+import { WorkflowConfirmFooter } from "@/components/workflow-confirm-footer"
 import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
 import {
   applyChargeAction,
@@ -1627,10 +1628,7 @@ export function LoanReviewForm({
 
   return (
     <Form {...form}>
-      <form
-        className="grid gap-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:grid-cols-[minmax(0,1fr)_auto]"
-        onSubmit={form.handleSubmit(onSubmit)}
-      >
+      <form className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
         <FormField
           control={form.control}
           name="notes"
@@ -1647,15 +1645,11 @@ export function LoanReviewForm({
             </FormItem>
           )}
         />
-        <Button
-          className="h-11 w-full sm:h-9 sm:w-auto"
-          disabled={isPending}
-          size="xs"
-          type="submit"
-          variant={variant}
-        >
-          {label}
-        </Button>
+        <WorkflowConfirmFooter disabled={isPending}>
+          <Button disabled={isPending} type="submit" variant={variant}>
+            {label}
+          </Button>
+        </WorkflowConfirmFooter>
       </form>
     </Form>
   )
@@ -1707,10 +1701,7 @@ export function LoanGuarantorReviewForm({
 
   return (
     <Form {...form}>
-      <form
-        className="grid gap-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:grid-cols-[minmax(0,1fr)_auto]"
-        onSubmit={form.handleSubmit(onSubmit)}
-      >
+      <form className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
         <FormField
           control={form.control}
           name="notes"
@@ -1727,15 +1718,11 @@ export function LoanGuarantorReviewForm({
             </FormItem>
           )}
         />
-        <Button
-          className="h-11 w-full sm:h-9 sm:w-auto"
-          disabled={isPending}
-          size="xs"
-          type="submit"
-          variant={variant}
-        >
-          {label}
-        </Button>
+        <WorkflowConfirmFooter disabled={isPending}>
+          <Button disabled={isPending} type="submit" variant={variant}>
+            {label}
+          </Button>
+        </WorkflowConfirmFooter>
       </form>
     </Form>
   )
@@ -1781,10 +1768,7 @@ export function LoanDisbursementForm({
 
   return (
     <Form {...form}>
-      <form
-        className="grid gap-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
-        onSubmit={form.handleSubmit(onSubmit)}
-      >
+      <form className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
         <FormField
           control={form.control}
           name="firstRepaymentDueAt"
@@ -1805,14 +1789,11 @@ export function LoanDisbursementForm({
             </FormItem>
           )}
         />
-        <Button
-          className="h-11 w-full sm:h-9 sm:w-auto"
-          disabled={isPending}
-          size="xs"
-          type="submit"
-        >
-          Disburse loan
-        </Button>
+        <WorkflowConfirmFooter disabled={isPending}>
+          <Button disabled={isPending} type="submit">
+            {isPending ? "Disbursing..." : "Disburse loan"}
+          </Button>
+        </WorkflowConfirmFooter>
       </form>
     </Form>
   )

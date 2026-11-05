@@ -43,7 +43,7 @@ export const workflowPresentations = {
     markBatchRowException: dialog("form"),
     payment: sheet("review"),
     plan: sheet("review"),
-    postBatchRow: dialog("compact"),
+    postBatchRow: alertDialog(),
     postBatchRows: dialog("review"),
     preference: sheet(),
     stageBatch: sheet("review"),
@@ -65,16 +65,16 @@ export const workflowPresentations = {
     details: dialog("wide"),
   },
   loan: {
-    disburse: dialog("form"),
-    guarantor: dialog("form"),
+    disburse: alertDialog(),
+    guarantor: alertDialog(),
     "loan-details": sheet("review"),
     request: sheet("review"),
     "request-details": sheet("review"),
-    review: dialog("review"),
+    review: alertDialog(),
   },
   member: {
     create: sheet(),
-    status: dialog("compact"),
+    status: alertDialog(),
   },
   memberBackfill: {
     apply: alertDialog(),
@@ -111,7 +111,7 @@ export const workflowPresentations = {
   monthlyRecord: {
     apply: dialog("form"),
     cancel: alertDialog(),
-    create: sheet(),
+    create: alertDialog(),
     generate: alertDialog(),
     settings: sheet(),
   },
@@ -199,6 +199,22 @@ export function getWorkflowPresentation(
     string,
     WorkflowPresentationConfig
   >
+  const config = modes[mode]
 
-  return modes[mode] ?? sheet()
+  if (config) {
+    return config
+  }
+
+  // An unregistered mode is a wiring bug: fail tests, warn in development.
+  const message = `Unknown workflow presentation mode "${mode}" for "${workflow}". Register it in lib/workflow-presentations.ts.`
+
+  if (process.env.NODE_ENV === "test") {
+    throw new Error(message)
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    console.warn(message)
+  }
+
+  return sheet()
 }

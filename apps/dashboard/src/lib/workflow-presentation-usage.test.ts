@@ -67,6 +67,48 @@ describe("workflow presentation ownership", () => {
     expect(source).toContain("onInputCapture")
   })
 
+  test("renders alert-dialog modes with the real AlertDialog primitive", () => {
+    const source = readFileSync(
+      new URL("../components/workflow-presentation.tsx", import.meta.url),
+      "utf8"
+    )
+    const alertBranch = source.slice(
+      source.indexOf('if (config.presentation === "alert-dialog")'),
+      source.indexOf("<Dialog open=")
+    )
+
+    // Base UI's AlertDialog ignores backdrop presses; Escape still closes it.
+    expect(alertBranch).toContain(
+      "<AlertDialog open={open} onOpenChange={onOpenChange}>"
+    )
+    expect(alertBranch).toContain("<AlertDialogContent")
+    expect(source).not.toContain('"alertdialog"')
+  })
+
+  test("gives every consequential confirm a Cancel and an action", () => {
+    const confirms = [
+      ["charge-operation-content.tsx", 3], // CO5-7
+      ["contribution-content.tsx", 1], // CT9
+      ["forms/finance-forms.tsx", 3], // L4-L6
+      ["guarantor-approval-content.tsx", 1], // GA1
+      ["member-content.tsx", 1], // M2
+      ["monthly-record-content.tsx", 3], // MR1, MR4, MR5
+      ["repayment-content.tsx", 1], // RP5
+    ] as const
+
+    for (const [fileName, count] of confirms) {
+      const source = readFileSync(
+        new URL(`../components/${fileName}`, import.meta.url),
+        "utf8"
+      )
+
+      expect({
+        fileName,
+        footers: source.split("<WorkflowConfirmFooter").length - 1,
+      }).toEqual({ fileName, footers: count })
+    }
+  })
+
   test("opens the member signup link generator in a centered form dialog", () => {
     const source = readFileSync(
       new URL("../lib/workflow-presentations.ts", import.meta.url),

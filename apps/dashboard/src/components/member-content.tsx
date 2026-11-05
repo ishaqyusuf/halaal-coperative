@@ -9,6 +9,7 @@ import {
   type CreatedMemberSummary,
 } from "@/components/forms/member-forms"
 import { useMemberSheetFormContext } from "@/components/member/form-context"
+import { WorkflowConfirmFooter } from "@/components/workflow-confirm-footer"
 import { useMemberParams } from "@/hooks/use-member-params"
 import { updateMemberStatusAction } from "@/lib/dashboard-actions"
 import { useTRPC } from "@/trpc/client"
@@ -85,12 +86,14 @@ export function MemberContent({
           {(selectedMemberStatus ?? "").replaceAll("_", " ") || "selected"}. The
           change is saved immediately when submitted.
         </p>
-        <Button
-          disabled={!selectedMemberId || !selectedMemberStatus || isPending}
-          type="submit"
-        >
-          {isPending ? "Updating..." : "Update member status"}
-        </Button>
+        <WorkflowConfirmFooter disabled={isPending}>
+          <Button
+            disabled={!selectedMemberId || !selectedMemberStatus || isPending}
+            type="submit"
+          >
+            {isPending ? "Updating..." : "Update member status"}
+          </Button>
+        </WorkflowConfirmFooter>
       </form>
     )
   }

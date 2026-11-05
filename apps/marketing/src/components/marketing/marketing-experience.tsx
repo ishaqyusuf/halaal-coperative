@@ -9,6 +9,10 @@ const marketingExperienceRegistry = {
     ),
   "ramp-v2": () =>
     import("./experiences/ramp-v2").then((module) => module.RampV2Landing),
+  "passbook-v3": () =>
+    import("./experiences/passbook-v3").then(
+      (module) => module.PassbookV3Landing
+    ),
 } satisfies Record<
   MarketingExperienceId,
   () => Promise<ComponentType<MarketingExperienceProps>>

@@ -3,6 +3,7 @@ import type { MarketingExperienceId } from "@halaalvest/domain"
 export const marketingExperienceProductionReadiness = {
   "organic-trust-v1": true,
   "ramp-v2": false,
+  "passbook-v3": false,
 } as const satisfies Record<MarketingExperienceId, boolean>
 
 export function resolveActiveMarketingExperienceId({

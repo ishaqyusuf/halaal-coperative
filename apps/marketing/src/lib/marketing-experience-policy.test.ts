@@ -20,6 +20,15 @@ describe("marketing experience activation policy", () => {
     ).toBe("organic-trust-v1")
   })
 
+  test("keeps the Passbook draft out of production until it is ready", () => {
+    expect(
+      resolveActiveMarketingExperienceId({
+        isProduction: true,
+        requestedExperienceId: "passbook-v3",
+      })
+    ).toBe("organic-trust-v1")
+  })
+
   test("keeps a production-ready experience active", () => {
     expect(
       resolveActiveMarketingExperienceId({

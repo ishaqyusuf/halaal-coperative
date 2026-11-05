@@ -10,29 +10,10 @@ import { SignupShell } from "@/components/signup/signup-shell"
 import { verifySignedSignupApprovalToken } from "@/lib/early-access"
 import { getMarketingConfig } from "@/lib/marketing-config"
 import { getMarketingQaQuickFillContext } from "@/lib/qa-form-access.server"
+import { getWorkspaceUrlSuffix } from "@/lib/workspace-url-suffix"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
-
-function parseDomainLike(value: string | undefined) {
-  const trimmed = value?.trim()
-
-  if (!trimmed) return null
-
-  try {
-    return new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`)
-      .host
-  } catch {
-    return trimmed.replace(/^https?:\/\//, "").replace(/\/.*$/, "") || null
-  }
-}
-
-function getWorkspaceUrlSuffix() {
-  const configuredDomain =
-    parseDomainLike(process.env.PLATFORM_ROOT_DOMAIN) ?? "halaalvest.localhost"
-
-  return `.${configuredDomain.replace(/^\./, "")}`
-}
 
 function getTokenParam(value: string | string[] | undefined) {
   return typeof value === "string" ? value : ""

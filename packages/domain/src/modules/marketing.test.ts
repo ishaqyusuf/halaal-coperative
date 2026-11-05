@@ -30,6 +30,10 @@ describe("marketing config", () => {
 
     expect(getMarketingConfig().experience).toBe("ramp-v2")
 
+    process.env.MARKETING_EXPERIENCE = "passbook-v3"
+
+    expect(getMarketingConfig().experience).toBe("passbook-v3")
+
     process.env.MARKETING_EXPERIENCE = "unfinished-experiment"
 
     expect(getMarketingConfig().experience).toBe("organic-trust-v1")

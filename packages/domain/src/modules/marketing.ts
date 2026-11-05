@@ -1,6 +1,10 @@
 export type MarketingStage = "launch" | "prelaunch"
 
-export const marketingExperienceIds = ["organic-trust-v1", "ramp-v2"] as const
+export const marketingExperienceIds = [
+  "organic-trust-v1",
+  "ramp-v2",
+  "passbook-v3",
+] as const
 
 export type MarketingExperienceId = (typeof marketingExperienceIds)[number]
 

@@ -270,4 +270,26 @@ describe("One Path Getting Started step model", () => {
     expect(byKey["add-members"]?.href).toBeNull()
     expect(byKey["go-live"]?.href).toBeNull()
   })
+
+  test("step 10 is not done before setup, even when no history is due", () => {
+    const rail = buildOnePathRailSteps({
+      ...progress({
+        migrationSetup: { confirmedAt: null, mode: "historical_backfill" },
+        snapshot: {
+          canUseLiveFinancialWrites: false,
+          // A current-month cooperative: the admin has no history due.
+          missingStepKeys: ["charge_schedules", "finalization"],
+          status: "historical_setup_in_progress",
+        },
+      }),
+      activeStep: "setup-mode",
+    })
+    const byKey = Object.fromEntries(rail.map((step) => [step.key, step]))
+
+    expect(byKey["add-members"]).toMatchObject({
+      href: null,
+      state: "upcoming",
+    })
+    expect(byKey["go-live"]).toMatchObject({ href: null, state: "upcoming" })
+  })
 })

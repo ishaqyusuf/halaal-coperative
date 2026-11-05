@@ -5,6 +5,7 @@ import {
 } from "@halaalvest/db"
 import { MembersChecklistView } from "@/components/members-checklist-view"
 import {
+  buildOnePathRailSteps,
   isGettingStartedStepComplete,
   toGettingStartedProgressInput,
 } from "@/lib/getting-started/getting-started-step-model"
@@ -82,6 +83,10 @@ export default async function OnboardingSuccessPage() {
 
   return (
     <MembersChecklistView
+      railSteps={buildOnePathRailSteps({
+        ...progress,
+        activeStep: "admin-member",
+      })}
       adminMember={
         adminMember
           ? {

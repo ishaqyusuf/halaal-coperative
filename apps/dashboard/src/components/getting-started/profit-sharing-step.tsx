@@ -56,6 +56,30 @@ export function ProfitSharingStep({
   const isBroughtForward = migrationSetup.mode === "brought_forward"
   const policyDraft = useProfitPolicyDraft({ businessPolicy })
   const businessSaveRef = useRef<OnePathSavePreparer | null>(null)
+  const setPolicyValue = policyDraft.form.setValue
+  const getPolicyValue = policyDraft.form.getValues
+  // Historical setup: "no business history" is the same answer as the
+  // "No historical business profit" mode, which is what clears the
+  // business-profit readiness check on the server. Keep them in step.
+  const syncNoBusinessHistory = useCallback(
+    (hasNoBusiness: boolean) => {
+      if (isBroughtForward) return
+      const mode = getPolicyValue("historicalProfitMigrationMode")
+
+      if (hasNoBusiness && mode !== "no_historical_business_profit") {
+        setPolicyValue(
+          "historicalProfitMigrationMode",
+          "no_historical_business_profit"
+        )
+      } else if (!hasNoBusiness && mode === "no_historical_business_profit") {
+        setPolicyValue(
+          "historicalProfitMigrationMode",
+          "manual_review_required"
+        )
+      }
+    },
+    [getPolicyValue, isBroughtForward, setPolicyValue]
+  )
   const registerBusinessSave = useCallback(
     (prepare: OnePathSavePreparer | null) => {
       businessSaveRef.current = prepare
@@ -145,6 +169,7 @@ export function ProfitSharingStep({
             dividendPeriods={dividendPeriods}
             financeStartDate={tenantStartDate}
             initialBusinesses={shareBusinesses}
+            onNoBusinessChange={syncNoBusinessHistory}
             preserveDraftKey="getting-started:business-history"
             profitHistoryMode
             quickFillEnabled={quickFillEnabled}

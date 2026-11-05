@@ -255,9 +255,12 @@ export function buildOnePathRailSteps(
 ): OnePathRailStepModel[] {
   const activeJourneyKey = getJourneyStepKey(input.activeStep)
   const setupDone = isGettingStartedStepComplete("review-setup", input)
+  // Member readiness only counts once setup is done: a cooperative that
+  // starts this month already has no history due for its admin.
   const membersReady =
-    input.snapshot.status === "migration_review" ||
-    isGettingStartedStepComplete("admin-member", input)
+    setupDone &&
+    (input.snapshot.status === "migration_review" ||
+      isGettingStartedStepComplete("admin-member", input))
   const gettingStartedStepByJourney: Partial<
     Record<OnboardingJourneyStepKey, GettingStartedStepKey>
   > = {
@@ -299,7 +302,9 @@ export function buildOnePathRailSteps(
             "profit-seasons"
           ) ||
             isGettingStartedStepComplete("profit-seasons", input))
-        : isGettingStartedStepComplete(stepKey, input)
+        : key === "add-members"
+          ? membersReady
+          : isGettingStartedStepComplete(stepKey, input)
     const state =
       key === activeJourneyKey ? "current" : complete ? "complete" : "upcoming"
     const reachable =

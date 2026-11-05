@@ -3869,6 +3869,9 @@ type ShareBusinessFormProps = {
   // One Path setup: the step's single primary action validates and saves the
   // businesses through this preparer instead of the form's own footer button.
   registerSave?: (prepare: OnePathSavePreparer | null) => void
+  // One Path setup: reports the "no businesses" tick so step 8 can keep the
+  // historical profit mode in step with it.
+  onNoBusinessChange?: (hasNoBusiness: boolean) => void
   showSubmitButton?: boolean
   sourceType?: "manual" | "backfill" | "import"
   setupMode?: TenantMigrationSetupMode
@@ -4227,6 +4230,7 @@ function ShareBusinessProfitHistoryTableForm({
   initialBusinesses,
   onSuccess,
   preserveDraftKey,
+  onNoBusinessChange,
   quickFillEnabled = false,
   registerSave,
   sourceType = "backfill",
@@ -4260,6 +4264,15 @@ function ShareBusinessProfitHistoryTableForm({
   const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const businessRows = form.watch("businessRows") ?? []
   const hasNoOngoingBusiness = form.watch("hasNoOngoingBusiness") ?? false
+
+  const reportedNoBusinessRef = useRef(hasNoOngoingBusiness)
+
+  // Report only real changes, so loading the page never rewrites a saved mode.
+  useEffect(() => {
+    if (reportedNoBusinessRef.current === hasNoOngoingBusiness) return
+    reportedNoBusinessRef.current = hasNoOngoingBusiness
+    onNoBusinessChange?.(hasNoOngoingBusiness)
+  }, [hasNoOngoingBusiness, onNoBusinessChange])
   const clearPreservedFormState = usePreservedFormState(form, {
     baselineKey: JSON.stringify(initialBusinesses ?? []),
     enabled: Boolean(preserveDraftKey),

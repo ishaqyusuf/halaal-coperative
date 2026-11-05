@@ -91,9 +91,10 @@ export function RecoveryScreen() {
         deviceId: getOrCreateMobileDeviceId(),
         email: email.trim().toLowerCase(),
       })
-      const nextDevCode = response.devCode ?? ""
       setChallengeId(response.challengeId)
-      setCode(nextDevCode)
+      // OTP evidence stays manual (Quick Fill exclusion), so a non-production
+      // `devCode` in the response is never copied into the field.
+      setCode("")
       setStep("code")
     } catch (caught) {
       setError(

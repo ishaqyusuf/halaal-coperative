@@ -130,6 +130,11 @@ describe("mobile Quick Fill exclusions", () => {
     expect(quickFill?.[0]).not.toMatch(/setCode|setPassword|setConfirmPassword/)
     expect(source).toMatch(/step === "request" \? \(\s*<DevQuickFill/)
   })
+
+  test("recovery never prefills the OTP from a non-production devCode", () => {
+    const source = read("src/features/auth/screens/recovery-screen.tsx")
+    expect(source).not.toMatch(/response\.devCode/)
+  })
 })
 
 describe("mobile Quick Fill values", () => {

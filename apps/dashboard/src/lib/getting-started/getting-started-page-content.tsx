@@ -419,6 +419,7 @@ export async function GettingStartedPageContent({
         joinedAt: row.joinedAt.toISOString().slice(0, 10),
       }))}
       migrationSnapshot={migrationState.snapshot}
+      requiresHistoricalBackfill={migrationState.requiresHistoricalBackfill}
       migrationSetup={data.migrationSetup}
       operationProfile={operationProfile}
       operationProfileStep={operationProfileStep}

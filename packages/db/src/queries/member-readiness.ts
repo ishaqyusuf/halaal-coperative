@@ -64,9 +64,6 @@ export function resolveMemberOperationalReadiness(
   input: MemberReadinessInput,
   now = new Date()
 ): MemberOperationalReadiness {
-  const migrationRequired =
-    input.migrationSetupMode === "brought_forward" ||
-    monthKey(input.joinedAt) < monthKey(now)
   const appliedMonthKeys = new Set(input.appliedBackfillMonthKeys ?? [])
   const appliedMonthCount =
     input.appliedBackfillMonthCount ?? appliedMonthKeys.size
@@ -75,6 +72,9 @@ export function resolveMemberOperationalReadiness(
     joinedAt: input.joinedAt,
     tenantStartDate: input.tenantStartDate,
   })
+  const migrationRequired =
+    input.migrationSetupMode === "brought_forward" ||
+    expectedMonthKeys.length > 0
   const hasCompleteHistoricalBackfill =
     Boolean(input.appliedBackfillBatchId) ||
     (expectedMonthKeys.length > 0 &&

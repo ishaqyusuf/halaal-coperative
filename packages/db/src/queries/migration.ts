@@ -103,14 +103,18 @@ function monthKeyFromDate(value: Date) {
   return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}`
 }
 
-function inclusiveMonthDifference(start: Date, end: Date) {
+function monthDifference(start: Date, end: Date) {
   return (
     (end.getUTCFullYear() - start.getUTCFullYear()) * 12 +
-    (end.getUTCMonth() - start.getUTCMonth()) +
-    1
+    (end.getUTCMonth() - start.getUTCMonth())
   )
 }
 
+/**
+ * Historical backfill covers closed months only: from the later of the
+ * tenant start and member join month up to, but excluding, the `asOf` month.
+ * The current month belongs to normal monthly-record workflows.
+ */
 export function getExpectedMemberBackfillMonthKeys(input: {
   asOf?: Date
   joinedAt: Date
@@ -122,7 +126,7 @@ export function getExpectedMemberBackfillMonthKeys(input: {
       : input.joinedAt
   )
   const end = startOfMonth(input.asOf ?? new Date())
-  const monthCount = inclusiveMonthDifference(start, end)
+  const monthCount = monthDifference(start, end)
 
   if (monthCount <= 0) return []
 
@@ -133,11 +137,22 @@ export function getExpectedMemberBackfillMonthKeys(input: {
   })
 }
 
+export function hasClosedHistoricalMonths(
+  startDate: Date | null | undefined,
+  asOf = new Date()
+) {
+  if (!startDate) return false
+
+  return monthDifference(startOfMonth(startDate), startOfMonth(asOf)) > 0
+}
+
 export async function getTenantInitialMigrationState(
   tenantId: string,
-  prismaOverride?: PrismaClient
+  prismaOverride?: PrismaClient,
+  options: { asOf?: Date } = {}
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
+  const asOf = options.asOf ?? new Date()
 
   if (!prisma) {
     const tenant = getTenantById(tenantId)
@@ -153,6 +168,7 @@ export async function getTenantInitialMigrationState(
         memberProfiles: tenant?.memberCount ?? 0,
         shareCapitalPlans: 1,
       },
+      requiresHistoricalBackfill: true,
       snapshot: buildInitialMigrationSnapshot({
         hasBusinessProfitPools: true,
         hasChargeSchedules: true,
@@ -337,13 +353,28 @@ export async function getTenantInitialMigrationState(
   const hasMemberProfiles = memberProfileCount > 0
   const legacyLoans = liveLegacyLoans + legacyLoanMigrationDrafts
   const hasLegacyLoansReviewed = legacyLoans > 0 || legacyLoanReviewMarkers > 0
+  // A cooperative that starts in the current month has no closed month to
+  // migrate, so it only needs historical tooling when history already exists.
+  const tenantHasClosedHistoricalMonths = hasClosedHistoricalMonths(
+    tenant?.startDate,
+    asOf
+  )
+  const requiresHistoricalBackfill =
+    !isBroughtForwardSetup &&
+    (!hasFinanceStartDate ||
+      tenantHasClosedHistoricalMonths ||
+      legacyLoans > 0 ||
+      appliedBackfillBatches > 0 ||
+      appliedBackfillMonths.length > 0)
   const hasRequiredBusinessProfitPools =
     isBroughtForwardSetup || hasBusinessProfitPools
   const hasRequiredBusinessProfitSeasons = isBroughtForwardSetup
     ? broughtForwardPendingPastProfitEntries === 0 || hasBusinessProfitSeasons
     : hasBusinessProfitSeasons
   const hasRequiredLegacyLoansReviewed =
-    isBroughtForwardSetup || hasLegacyLoansReviewed
+    isBroughtForwardSetup ||
+    hasLegacyLoansReviewed ||
+    (hasFinanceStartDate && !tenantHasClosedHistoricalMonths)
   const appliedMonthKeysByMemberId = new Map<string, Set<string>>()
 
   for (const month of appliedBackfillMonths) {
@@ -358,22 +389,32 @@ export async function getTenantInitialMigrationState(
       (batch: { memberId: string }) => batch.memberId
     )
   )
-  const appliedBackfillMonthMemberIds = new Set(
-    memberProfiles
-      .filter((member: { id: string; joinedAt: Date }) => {
-        const expectedMonthKeys = getExpectedMemberBackfillMonthKeys({
-          joinedAt: member.joinedAt,
-          tenantStartDate: tenant?.startDate ?? null,
-        })
-        const appliedMonthKeys = appliedMonthKeysByMemberId.get(member.id)
+  const membersWithoutHistoricalMonthIds = new Set<string>()
+  const appliedBackfillMonthMemberIds = new Set<string>()
 
-        return (
-          expectedMonthKeys.length > 0 &&
-          expectedMonthKeys.every((monthKey) => appliedMonthKeys?.has(monthKey))
-        )
-      })
-      .map((member: { id: string }) => member.id)
-  )
+  for (const member of memberProfiles as Array<{
+    id: string
+    joinedAt: Date
+  }>) {
+    const expectedMonthKeys = getExpectedMemberBackfillMonthKeys({
+      asOf,
+      joinedAt: member.joinedAt,
+      tenantStartDate: tenant?.startDate ?? null,
+    })
+    const appliedMonthKeys = appliedMonthKeysByMemberId.get(member.id)
+
+    if (expectedMonthKeys.length === 0) {
+      if (appliedMonthKeys?.size) {
+        appliedBackfillMonthMemberIds.add(member.id)
+      }
+      membersWithoutHistoricalMonthIds.add(member.id)
+    } else if (
+      expectedMonthKeys.every((monthKey) => appliedMonthKeys?.has(monthKey))
+    ) {
+      appliedBackfillMonthMemberIds.add(member.id)
+    }
+  }
+
   const appliedBackfillMemberIds = new Set([
     ...appliedBackfillBatchMemberIds,
     ...appliedBackfillMonthMemberIds,
@@ -384,8 +425,16 @@ export async function getTenantInitialMigrationState(
       : []),
   ])
   const appliedBackfillMembers = appliedBackfillMemberIds.size
+  // Members with no closed month since the later of tenant start and join date
+  // have nothing to backfill. Brought-forward still needs an opening position.
+  const satisfiedMemberIds = new Set([
+    ...appliedBackfillMemberIds,
+    ...(hasFinanceStartDate && !isBroughtForwardSetup
+      ? membersWithoutHistoricalMonthIds
+      : []),
+  ])
   const hasMemberLedgerBackfill =
-    hasMemberProfiles && appliedBackfillMembers >= memberProfileCount
+    hasMemberProfiles && satisfiedMemberIds.size >= memberProfileCount
   const historicalSetupComplete =
     hasMigrationSetupMode &&
     hasFinanceStartDate &&
@@ -426,6 +475,7 @@ export async function getTenantInitialMigrationState(
       memberProfiles: memberProfileCount,
       shareCapitalPlans,
     },
+    requiresHistoricalBackfill,
     snapshot: buildInitialMigrationSnapshot({
       emergencyUnlockActive,
       hasBusinessProfitPools: hasRequiredBusinessProfitPools,

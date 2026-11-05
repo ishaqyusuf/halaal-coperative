@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import {
   finalizeTenantInitialMigration,
+  getExpectedMemberBackfillMonthKeys,
   getTenantInitialMigrationState,
+  hasClosedHistoricalMonths,
   markTenantBusinessProfitPoolsReviewed,
   markTenantLegacyLoansReviewed,
   setTenantInitialMigrationEmergencyUnlock,
@@ -182,6 +184,168 @@ function createMigrationStatePrismaStub(input: {
     },
   }
 }
+
+describe("expected member backfill month keys", () => {
+  const asOf = new Date("2026-11-05T09:30:00.000Z")
+
+  test("expects no historical month when the tenant starts this month", () => {
+    expect(
+      getExpectedMemberBackfillMonthKeys({
+        asOf,
+        joinedAt: new Date("2026-11-01T00:00:00.000Z"),
+        tenantStartDate: new Date("2026-11-03T00:00:00.000Z"),
+      })
+    ).toEqual([])
+    expect(
+      hasClosedHistoricalMonths(new Date("2026-11-03T00:00:00.000Z"), asOf)
+    ).toBe(false)
+  })
+
+  test("expects only the closed prior month when the tenant started last month", () => {
+    expect(
+      getExpectedMemberBackfillMonthKeys({
+        asOf,
+        joinedAt: new Date("2026-10-15T00:00:00.000Z"),
+        tenantStartDate: new Date("2026-10-01T00:00:00.000Z"),
+      })
+    ).toEqual(["2026-10"])
+    expect(
+      hasClosedHistoricalMonths(new Date("2026-10-31T00:00:00.000Z"), asOf)
+    ).toBe(true)
+  })
+
+  test("starts from the member join month when they joined after the tenant start", () => {
+    expect(
+      getExpectedMemberBackfillMonthKeys({
+        asOf,
+        joinedAt: new Date("2026-08-20T00:00:00.000Z"),
+        tenantStartDate: new Date("2026-01-01T00:00:00.000Z"),
+      })
+    ).toEqual(["2026-08", "2026-09", "2026-10"])
+    expect(
+      getExpectedMemberBackfillMonthKeys({
+        asOf,
+        joinedAt: new Date("2026-11-02T00:00:00.000Z"),
+        tenantStartDate: new Date("2026-01-01T00:00:00.000Z"),
+      })
+    ).toEqual([])
+  })
+
+  test("starts from the tenant start when the member joined earlier", () => {
+    expect(
+      getExpectedMemberBackfillMonthKeys({
+        asOf,
+        joinedAt: new Date("2024-03-01T00:00:00.000Z"),
+        tenantStartDate: new Date("2026-11-01T00:00:00.000Z"),
+      })
+    ).toEqual([])
+  })
+
+  test("treats asOf month boundaries in UTC", () => {
+    const input = {
+      joinedAt: new Date("2026-10-31T23:59:59.999Z"),
+      tenantStartDate: null,
+    }
+
+    expect(
+      getExpectedMemberBackfillMonthKeys({
+        ...input,
+        asOf: new Date("2026-10-31T23:59:59.999Z"),
+      })
+    ).toEqual([])
+    expect(
+      getExpectedMemberBackfillMonthKeys({
+        ...input,
+        asOf: new Date("2026-11-01T00:00:00.000Z"),
+      })
+    ).toEqual(["2026-10"])
+    expect(
+      getExpectedMemberBackfillMonthKeys({
+        asOf: new Date("2027-01-01T00:00:00.000Z"),
+        joinedAt: new Date("2026-11-10T00:00:00.000Z"),
+        tenantStartDate: null,
+      })
+    ).toEqual(["2026-11", "2026-12"])
+  })
+})
+
+describe("recent cooperative backfill gate", () => {
+  const asOf = new Date("2026-11-05T09:30:00.000Z")
+  const recentSetup = {
+    appliedBackfillBatches: 0,
+    businessProfitPools: 1,
+    chargeScheduleVersions: 2,
+    initialMigrationStatus: null,
+    legacyLoans: 0,
+    memberJoinedAt: new Date("2026-11-02T00:00:00.000Z"),
+    memberProfiles: 3,
+    shareCapitalPlans: 1,
+    startDate: new Date("2026-11-01T00:00:00.000Z"),
+  }
+
+  test("does not require member backfill or legacy loan review for a current-month cooperative", async () => {
+    const state = await getTenantInitialMigrationState(
+      "tenant-1",
+      createMigrationStatePrismaStub(recentSetup) as never,
+      { asOf }
+    )
+
+    expect(state.requiresHistoricalBackfill).toBe(false)
+    expect(state.counts.appliedBackfillMembers).toBe(0)
+    expect(state.snapshot.missingStepKeys).not.toContain(
+      "member_ledger_backfill"
+    )
+    expect(state.snapshot.missingStepKeys).not.toContain("legacy_loans")
+    expect(state.snapshot.status).toBe("migration_review")
+  })
+
+  test("still requires member backfill when the cooperative started last month", async () => {
+    const state = await getTenantInitialMigrationState(
+      "tenant-1",
+      createMigrationStatePrismaStub({
+        ...recentSetup,
+        memberJoinedAt: new Date("2026-10-01T00:00:00.000Z"),
+        startDate: new Date("2026-10-31T00:00:00.000Z"),
+      }) as never,
+      { asOf }
+    )
+
+    expect(state.requiresHistoricalBackfill).toBe(true)
+    expect(state.snapshot.missingStepKeys).toContain("legacy_loans")
+    expect(state.snapshot.missingStepKeys).toContain("member_ledger_backfill")
+    expect(state.snapshot.status).toBe("historical_setup_in_progress")
+  })
+
+  test("keeps historical tooling required when legacy loans already exist", async () => {
+    const state = await getTenantInitialMigrationState(
+      "tenant-1",
+      createMigrationStatePrismaStub({
+        ...recentSetup,
+        legacyLoans: 1,
+      }) as never,
+      { asOf }
+    )
+
+    expect(state.requiresHistoricalBackfill).toBe(true)
+    expect(state.snapshot.missingStepKeys).not.toContain(
+      "member_ledger_backfill"
+    )
+  })
+
+  test("still requires opening positions for a current-month brought-forward cooperative", async () => {
+    const state = await getTenantInitialMigrationState(
+      "tenant-1",
+      createMigrationStatePrismaStub({
+        ...recentSetup,
+        migrationSetupMode: "brought_forward",
+      }) as never,
+      { asOf }
+    )
+
+    expect(state.requiresHistoricalBackfill).toBe(false)
+    expect(state.snapshot.missingStepKeys).toContain("member_ledger_backfill")
+  })
+})
 
 describe("tenant initial migration state query", () => {
   test("starts as not started without a finance start date", async () => {

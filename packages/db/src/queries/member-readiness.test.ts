@@ -29,6 +29,22 @@ describe("member operational readiness", () => {
     expect(isMemberMigrationFinalized(readiness)).toBe(true)
   })
 
+  test("does not require backfill for an earlier member in a tenant starting this month", () => {
+    const readiness = resolveMemberOperationalReadiness(
+      {
+        ...baseInput,
+        joinedAt: new Date("2025-02-01T00:00:00.000Z"),
+        tenantStartDate: new Date("2026-07-03T00:00:00.000Z"),
+      },
+      now
+    )
+
+    expect(readiness).toMatchObject({
+      isReady: true,
+      migration: { required: false, state: "not_required" },
+    })
+  })
+
   test("requires every expected historical month before verification", () => {
     const draft = resolveMemberOperationalReadiness(
       {

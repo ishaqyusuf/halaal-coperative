@@ -275,6 +275,7 @@ function StepFooter({
   previousHrefOverride,
   previousStep,
   requireHistoryConfirmation = false,
+  requiresHistoricalBackfill = true,
 }: {
   hasStepNextAction?: boolean
   hideNext?: boolean
@@ -284,6 +285,7 @@ function StepFooter({
   previousHrefOverride?: string
   previousStep?: GettingStartedStepKey
   requireHistoryConfirmation?: boolean
+  requiresHistoricalBackfill?: boolean
 }) {
   const nextHref =
     nextHrefOverride ?? (nextStep ? getGettingStartedStepHref(nextStep) : "")
@@ -322,12 +324,14 @@ function StepFooter({
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>
-                    Continue without historical records?
+                    {requiresHistoricalBackfill
+                      ? "Continue without historical records?"
+                      : "Continue without saved records?"}
                   </AlertDialogTitle>
                   <AlertDialogDescription>
-                    Historical records are important for proper system
-                    calculations. This step has no saved records yet. Are you
-                    sure you want to proceed?
+                    {requiresHistoricalBackfill
+                      ? "Historical records are important for proper system calculations. This step has no saved records yet. Are you sure you want to proceed?"
+                      : "This step has no saved records yet. You can add them before go-live."}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -1024,6 +1028,7 @@ function ActiveStepPanel(props: GettingStartedPageViewProps) {
           nextStep={nextStep}
           previousStep={previousStep}
           requireHistoryConfirmation={requireHistoryConfirmation}
+          requiresHistoricalBackfill={props.requiresHistoricalBackfill}
         />
       )}
     </div>

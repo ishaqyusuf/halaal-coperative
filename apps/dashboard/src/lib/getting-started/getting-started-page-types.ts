@@ -200,6 +200,7 @@ export type GettingStartedPageViewProps = {
   profitMigrationOptions: GettingStartedProfitMigrationOptionRow[]
   quickFillEnabled: boolean
   recommendedMigrationSetupMode: TenantMigrationSetupMode | null
+  requiresHistoricalBackfill?: boolean
   selectedMigrationMemberId?: string | null
   selectedMigrationMemberLabel?: string | null
   shareBusinesses: GettingStartedShareBusinessRow[]

@@ -1,7 +1,10 @@
 /* global process */
 
 import { afterEach, describe, expect, test } from "bun:test"
-import { buildOnboardingWorkspaceUrls } from "./tenant-workspace-urls.ts"
+import {
+  buildOnboardingWorkspaceUrls,
+  buildWorkspaceSessionHandoffAction,
+} from "./tenant-workspace-urls.ts"
 
 const trackedEnvKeys = [
   "APP_ROOT_DOMAIN",
@@ -148,5 +151,57 @@ describe("buildOnboardingWorkspaceUrls", () => {
     expect(urls.dashboardUrl).toBe("https://test-4.halaalvest.com")
     expect(urls.siteUrl).toBe("https://test-4.halaalvest.com")
     expect(urls.devDashboardUrlVariants).toEqual([])
+  })
+
+  test("targets the sign-in handoff only at the canonical tenant dashboard host", () => {
+    expect(
+      buildWorkspaceSessionHandoffAction({
+        dashboardUrl: "https://amana.halaalvest-dash.localhost/",
+        tenantSlug: "amana",
+      })
+    ).toBe("https://amana.halaalvest-dash.localhost/auth/handoff")
+    expect(
+      buildWorkspaceSessionHandoffAction({
+        dashboardUrl: "https://amana.halaalvest.com",
+        tenantSlug: "amana",
+      })
+    ).toBe("https://amana.halaalvest.com/auth/handoff")
+    // Path-style and bare localhost variants never get a handoff.
+    expect(
+      buildWorkspaceSessionHandoffAction({
+        dashboardUrl: "http://localhost:1441/amana",
+        tenantSlug: "amana",
+      })
+    ).toBeNull()
+    expect(
+      buildWorkspaceSessionHandoffAction({
+        dashboardUrl: "http://amana.localhost:1441/",
+        tenantSlug: "amana",
+      })
+    ).toBeNull()
+    expect(
+      buildWorkspaceSessionHandoffAction({
+        dashboardUrl: "https://halaalvest-dash.localhost/",
+        tenantSlug: "amana",
+      })
+    ).toBeNull()
+    expect(
+      buildWorkspaceSessionHandoffAction({
+        dashboardUrl: "not a url",
+        tenantSlug: "amana",
+      })
+    ).toBeNull()
+  })
+
+  test("builds a handoff action from the default local onboarding URLs", () => {
+    setEnv({ NODE_ENV: "development" })
+    const { dashboardUrl } = buildOnboardingWorkspaceUrls({
+      currentOrigin: "https://halaalvest.localhost/api/onboarding",
+      tenantSlug: "amana",
+    })
+
+    expect(
+      buildWorkspaceSessionHandoffAction({ dashboardUrl, tenantSlug: "amana" })
+    ).toBe("https://amana.halaalvest-dash.localhost/auth/handoff")
   })
 })

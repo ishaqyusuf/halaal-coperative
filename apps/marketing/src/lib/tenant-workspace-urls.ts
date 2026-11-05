@@ -242,3 +242,36 @@ export function buildOnboardingWorkspaceUrls(input: {
     siteUrl,
   }
 }
+
+// The sign-in handoff only targets the canonical tenant dashboard host
+// (`<slug>.<dashboard root>`). Path-style and bare-localhost variants never get
+// a handoff, so the session cookie is always set for the tenant host's scope.
+export function buildWorkspaceSessionHandoffAction(input: {
+  dashboardUrl: string
+  tenantSlug: string
+}) {
+  let url: URL
+
+  try {
+    url = new URL(input.dashboardUrl)
+  } catch {
+    return null
+  }
+
+  const hostname = url.hostname.toLowerCase()
+  const slug = input.tenantSlug.trim().toLowerCase()
+  const rootDomain = hostname.slice(slug.length + 1)
+
+  if (
+    !slug ||
+    !hostname.startsWith(`${slug}.`) ||
+    !rootDomain.includes(".") ||
+    rootDomain === "localhost" ||
+    url.pathname.replace(/\/+$/, "") !== "" ||
+    (url.protocol !== "https:" && url.protocol !== "http:")
+  ) {
+    return null
+  }
+
+  return new URL("/auth/handoff", url.origin).toString()
+}

@@ -8,17 +8,8 @@ import {
 } from "@halaalvest/auth"
 import { NextResponse, type NextRequest } from "next/server"
 import { buildDashboardRedirectUrl } from "@/lib/auth-redirect"
+import { buildSessionCookieOptions } from "@/lib/auth-session-cookies"
 import { getPublicRequestHost } from "@/lib/request-host"
-
-function expiredCookieOptions(request: NextRequest) {
-  return {
-    expires: new Date(0),
-    httpOnly: true,
-    path: "/",
-    sameSite: "lax" as const,
-    secure: request.nextUrl.protocol === "https:",
-  }
-}
 
 export async function GET(request: NextRequest) {
   const host = getPublicRequestHost(request.headers)
@@ -26,7 +17,7 @@ export async function GET(request: NextRequest) {
   const response = NextResponse.redirect(
     buildDashboardRedirectUrl(request, "/login")
   )
-  const options = expiredCookieOptions(request)
+  const options = buildSessionCookieOptions(request, new Date(0))
 
   response.cookies.set(getScopedAuthSessionCookieName(scope), "", options)
   response.cookies.set(getScopedAuthUserCookieName(scope), "", options)

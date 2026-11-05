@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { AppError } from "@halaalvest/errors"
 import {
   createTenantWorkspaceBootstrap,
+  createWorkspaceSessionHandoff,
   recordNotificationDeliveryAudit,
   resolveConfiguredQaDomain,
   syncTenantDomainVerificationByHostname,
@@ -20,12 +21,49 @@ import {
 import { hashPassword } from "@/lib/password"
 import { createServerNotificationService } from "@/lib/server-notifications"
 import { resolveSignupVerification } from "@/lib/signup-verification.server"
-import { buildOnboardingWorkspaceUrls } from "@/lib/tenant-workspace-urls"
+import {
+  buildOnboardingWorkspaceUrls,
+  buildWorkspaceSessionHandoffAction,
+} from "@/lib/tenant-workspace-urls"
 import { provisionTenantDomainOnVercel } from "@/lib/vercel-domains.server"
 import { getMarketingErrorResponse } from "@/lib/error-response"
 import { getMarketingServerErrorResponse } from "@/lib/error-response.server"
 import { parseMarketingJson } from "@/lib/parse-json.server"
 import { captureMarketingError } from "@/lib/sentry"
+
+async function createSessionHandoff(input: {
+  dashboardUrl: string
+  ownerUserId: string
+  tenantId: string
+  tenantSlug: string
+}) {
+  const action = buildWorkspaceSessionHandoffAction({
+    dashboardUrl: input.dashboardUrl,
+    tenantSlug: input.tenantSlug,
+  })
+
+  if (!action) return undefined
+
+  try {
+    const handoff = await createWorkspaceSessionHandoff({
+      tenantId: input.tenantId,
+      userId: input.ownerUserId,
+    })
+
+    return {
+      action,
+      expiresAt: handoff.expiresAt.toISOString(),
+      token: handoff.token,
+    }
+  } catch (error) {
+    // The workspace exists; the client falls back to the dashboard link.
+    captureMarketingError(error, "marketing.provider", {
+      method: "POST",
+      provider: "session-handoff",
+    })
+    return undefined
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -130,6 +168,14 @@ export async function POST(request: Request) {
       )
     }
 
+    // Minted last, after the email and QA previews are built, so the one-time
+    // token can only ever appear in this response's `sessionHandoff` field.
+    const sessionHandoff = await createSessionHandoff({
+      dashboardUrl,
+      ownerUserId: result.ownerUserId,
+      tenantId: result.tenant.id,
+      tenantSlug: result.tenant.slug,
+    })
     const exposeQaArtifacts = process.env.NODE_ENV !== "production"
     const domainPublicMessage =
       vercelDomainProvisioning.status === "failed"
@@ -138,35 +184,39 @@ export async function POST(request: Request) {
           ? "The cooperative domain was accepted and still needs verification."
           : null
 
-    return NextResponse.json({
-      dashboardUrl,
-      devDashboardUrlVariants,
-      primaryDashboardHostname: siteHostname,
-      primarySiteHostname: siteHostname,
-      qaPreviews: exposeQaArtifacts
-        ? createQaNotificationPreviews([workspaceReadyDelivery])
-        : [],
-      siteUrl,
-      tenantId: result.tenant.id,
-      tenantName: result.tenant.name,
-      vercelDomainProvisioning: {
-        publicMessage: domainPublicMessage,
-        status: vercelDomainProvisioning.status,
+    return NextResponse.json(
+      {
+        dashboardUrl,
+        devDashboardUrlVariants,
+        primaryDashboardHostname: siteHostname,
+        primarySiteHostname: siteHostname,
+        qaPreviews: exposeQaArtifacts
+          ? createQaNotificationPreviews([workspaceReadyDelivery])
+          : [],
+        sessionHandoff,
+        siteUrl,
+        tenantId: result.tenant.id,
+        tenantName: result.tenant.name,
+        vercelDomainProvisioning: {
+          publicMessage: domainPublicMessage,
+          status: vercelDomainProvisioning.status,
+        },
+        workspaceReadyDeliveryError:
+          workspaceReadyDelivery.status === "failed"
+            ? "Email delivery failed."
+            : null,
+        workspaceReadyDelivery: {
+          attempts: workspaceReadyDelivery.attempts,
+          messageId: workspaceReadyDelivery.messageId,
+          routingMode: workspaceReadyDelivery.routing?.mode,
+          status: workspaceReadyDelivery.status,
+        },
+        workspaceReadyEmail: exposeQaArtifacts
+          ? workspaceReadyDelivery.draft
+          : undefined,
       },
-      workspaceReadyDeliveryError:
-        workspaceReadyDelivery.status === "failed"
-          ? "Email delivery failed."
-          : null,
-      workspaceReadyDelivery: {
-        attempts: workspaceReadyDelivery.attempts,
-        messageId: workspaceReadyDelivery.messageId,
-        routingMode: workspaceReadyDelivery.routing?.mode,
-        status: workspaceReadyDelivery.status,
-      },
-      workspaceReadyEmail: exposeQaArtifacts
-        ? workspaceReadyDelivery.draft
-        : undefined,
-    })
+      { headers: { "Cache-Control": "no-store" } }
+    )
   } catch (error) {
     const response = getMarketingServerErrorResponse(error, { method: "POST" })
     return NextResponse.json(response.body, { status: response.status })

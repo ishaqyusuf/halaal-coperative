@@ -6,6 +6,7 @@ import type {
 import { AppError } from "@halaalvest/errors"
 import { timingSafeEqual } from "node:crypto"
 import { createPrismaClient } from "../prisma"
+import { auditAuthEvent } from "./auth-challenge-audit"
 import { revokeAllMobileDeviceSessionsWithClient } from "./mobile-device-sessions"
 
 type AuthWriteClient = Prisma.TransactionClient
@@ -90,30 +91,6 @@ export function evaluateAuthChallengeState(input: {
     return "invalid" as const
   }
   return "valid" as const
-}
-
-async function auditAuthEvent(
-  tx: AuthWriteClient,
-  input: {
-    action: string
-    actorUserId?: string | null
-    entityId?: string | null
-    metadata?: Prisma.InputJsonValue
-    tenantId: string
-  }
-) {
-  await tx.auditLog.create({
-    data: {
-      action: input.action,
-      actorType: input.actorUserId ? "user" : "system",
-      actorUserId: input.actorUserId ?? null,
-      entityId: input.entityId ?? null,
-      entityType: "AuthChallenge",
-      metadata: input.metadata,
-      occurredAt: new Date(),
-      tenantId: input.tenantId,
-    },
-  })
 }
 
 async function createChallengeWithClient(

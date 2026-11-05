@@ -91,6 +91,7 @@ enum AuthChallengePurpose {
   member_activation_completion
   password_recovery
   account_deletion_email
+  workspace_session_handoff
 }
 
 enum TenantServiceAccessMode {

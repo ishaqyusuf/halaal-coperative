@@ -1,7 +1,5 @@
 import {
   createSignedSessionToken,
-  getScopedAuthSessionCookieName,
-  getScopedAuthUserCookieName,
   platformSessionScope,
   resolveRequestSessionScope,
 } from "@halaalvest/auth"
@@ -17,18 +15,10 @@ import {
   buildDashboardRedirectUrl,
   normalizeDashboardRedirectPath,
 } from "@/lib/auth-redirect"
+import { setDashboardSessionCookies } from "@/lib/auth-session-cookies"
 import { verifyPassword } from "@/lib/password"
 import { getPublicRequestHost } from "@/lib/request-host"
 import { resolveInitialMigrationSetupGate } from "@/lib/setup-gate"
-
-function buildCookieOptions(request: NextRequest) {
-  return {
-    httpOnly: true,
-    path: "/",
-    sameSite: "lax" as const,
-    secure: request.nextUrl.protocol === "https:",
-  }
-}
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData()
@@ -115,18 +105,15 @@ export async function POST(request: NextRequest) {
   const response = NextResponse.redirect(
     buildDashboardRedirectUrl(request, redirectPath)
   )
-  const options = buildCookieOptions(request)
   const sessionToken = await createSignedSessionToken({
     scope,
     userId: user.id,
   })
 
-  response.cookies.set(
-    getScopedAuthSessionCookieName(scope),
+  return setDashboardSessionCookies(response, {
+    request,
+    scope,
     sessionToken,
-    options
-  )
-  response.cookies.set(getScopedAuthUserCookieName(scope), user.id, options)
-
-  return response
+    userId: user.id,
+  })
 }

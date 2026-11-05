@@ -1,26 +1,16 @@
-import {
-  getScopedAuthSessionCookieName,
-  getScopedAuthUserCookieName,
-  resolveRequestSessionScope,
-} from "@halaalvest/auth"
+import { resolveRequestSessionScope } from "@halaalvest/auth"
 import { buildRequestContext } from "@halaalvest/api/context"
 import { appRouter } from "@halaalvest/api/router"
 import { createCallerFactory } from "@halaalvest/api/trpc"
 import { NextResponse, type NextRequest } from "next/server"
+import {
+  buildSessionCookieOptions,
+  setDashboardSessionCookies,
+} from "@/lib/auth-session-cookies"
 
 const qaAuthorizationCookie = "halaalvest_qa_authorization"
 const qaClientCookie = "halaalvest_qa_client"
 const createCaller = createCallerFactory(appRouter)
-
-function cookieOptions(request: NextRequest, expires?: Date) {
-  return {
-    ...(expires ? { expires } : {}),
-    httpOnly: true,
-    path: "/",
-    sameSite: "lax" as const,
-    secure: request.nextUrl.protocol === "https:",
-  }
-}
 
 async function callerFor(request: NextRequest) {
   return createCaller(await buildRequestContext(request.headers))
@@ -86,7 +76,10 @@ export async function POST(request: NextRequest) {
       expiresAt: authorization.expiresAt,
       qaDomain: authorization.qaDomain,
     })
-    const options = cookieOptions(request, new Date(authorization.expiresAt))
+    const options = buildSessionCookieOptions(
+      request,
+      new Date(authorization.expiresAt)
+    )
     response.cookies.set(
       qaAuthorizationCookie,
       authorization.authorizationToken,
@@ -117,18 +110,12 @@ export async function POST(request: NextRequest) {
     }
     const scope = resolveRequestSessionScope(request.headers.get("host"))
     const response = NextResponse.json({ ok: true, redirectTo: "/" })
-    const options = cookieOptions(request)
-    response.cookies.set(
-      getScopedAuthSessionCookieName(scope),
-      result.sessionToken,
-      options
-    )
-    response.cookies.set(
-      getScopedAuthUserCookieName(scope),
-      result.userId,
-      options
-    )
-    return response
+    return setDashboardSessionCookies(response, {
+      request,
+      scope,
+      sessionToken: result.sessionToken,
+      userId: result.userId,
+    })
   }
 
   return NextResponse.json({ error: "invalid-action" }, { status: 400 })

@@ -636,7 +636,7 @@ export async function getOverviewSummary(
     },
     {
       count: overdueScheduleItems.length,
-      href: "/repayments?status=overdue",
+      href: "/repayments?view=schedule&scheduleStatus=overdue",
       key: "overdue-follow-ups",
       label: "Overdue follow-ups",
       severity: "critical" as const,

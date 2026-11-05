@@ -582,6 +582,30 @@ export async function listChargeApplications(
   })
 }
 
+export const recentPostedChargeWindowDays = 30
+
+// Counts posted charges assessed in the last `windowDays`, for KPI tiles.
+export async function countRecentPostedChargeApplications(
+  tenantId: string,
+  input?: { now?: Date; windowDays?: number },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const windowDays = input?.windowDays ?? recentPostedChargeWindowDays
+  const now = input?.now ?? new Date()
+  const fromDate = new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1000)
+
+  return (prisma as any).chargeApplication.count({
+    where: {
+      tenantId,
+      status: "posted",
+      assessedAt: { gte: fromDate, lte: now },
+    },
+  }) as Promise<number>
+}
+
 export type CreateChargeDefinitionInput = {
   tenantId: string
   name: string

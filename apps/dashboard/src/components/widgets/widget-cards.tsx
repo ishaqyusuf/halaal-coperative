@@ -1,6 +1,7 @@
 "use client"
 
 import { formatCurrency, formatPercent } from "@halaalvest/utils"
+import { overdueRepaymentScheduleHref } from "@/lib/repayments/repayments-drilldown"
 import { OverviewActionLink } from "./overview-ui"
 import {
   getCoverageTone,
@@ -72,7 +73,7 @@ export function WidgetCards({ data }: { data: OverviewSummary }) {
       />
       <WidgetCard
         label="Portfolio at risk"
-        href="/repayments?status=overdue"
+        href={overdueRepaymentScheduleHref}
         value={formatCurrency(data.primaryMetrics.portfolioAtRiskAmount)}
         detail={`${formatPercent(data.primaryMetrics.portfolioAtRiskRate)} of active outstanding principal.`}
         tone={getMetricTone(data.primaryMetrics.portfolioAtRiskRate, 0)}

@@ -1,8 +1,10 @@
 import {
+  countRecentPostedChargeApplications,
   createDbRuntime,
   listChargeApplications,
   listChargeDefinitions,
   listMembers,
+  recentPostedChargeWindowDays,
 } from "@halaalvest/db"
 import type { Metadata } from "next"
 import {
@@ -72,11 +74,13 @@ export default async function ChargesPage({
     return <ChargesUnavailableView />
   }
 
-  const [charges, members, chargeApplications] = await Promise.all([
-    listChargeDefinitions(context.tenant.id),
-    listMembers(context.tenant.id, { page: 1, pageSize: 100 }),
-    listChargeApplications(context.tenant.id, { limit: 20 }),
-  ])
+  const [charges, members, chargeApplications, recentPostedCount] =
+    await Promise.all([
+      listChargeDefinitions(context.tenant.id),
+      listMembers(context.tenant.id, { page: 1, pageSize: 100 }),
+      listChargeApplications(context.tenant.id, { limit: 20 }),
+      countRecentPostedChargeApplications(context.tenant.id),
+    ])
 
   const chargeDefinitions = charges as ChargeDefinitionRecord[]
   const applications = chargeApplications as ChargeApplicationRecord[]
@@ -101,9 +105,6 @@ export default async function ChargesPage({
   const monthlyLevies = chargeDefinitions.filter(
     (charge) => charge.isMonthlyLevy
   )
-  const postedApplications = applications.filter(
-    (application) => application.status === "posted"
-  )
   const chargeLibraryTableSettings =
     await getInitialTableSettings("chargeLibrary")
   const chargeLibraryInput = getChargeLibraryListInput(filter, sort)
@@ -122,8 +123,9 @@ export default async function ChargesPage({
         chargeLibraryTableSettings={chargeLibraryTableSettings}
         members={members}
         monthlyLevies={monthlyLevies}
-        postedApplications={postedApplications}
         quickFillEnabled={canShowQuickFill(context)}
+        recentPostedCount={recentPostedCount}
+        recentPostedWindowDays={recentPostedChargeWindowDays}
         totalChargeDefinitions={chargeDefinitions.length}
       />
     </HydrateClient>

@@ -75,8 +75,9 @@ export function ChargesPageView({
   chargeLibraryTableSettings,
   members,
   monthlyLevies,
-  postedApplications,
   quickFillEnabled,
+  recentPostedCount,
+  recentPostedWindowDays,
   totalChargeDefinitions,
 }: {
   activeView: ChargeView
@@ -109,8 +110,9 @@ export function ChargesPageView({
     items: Array<{ fullName: string; id: string; memberNumber: string }>
   }
   monthlyLevies: Array<unknown>
-  postedApplications: Array<unknown>
   quickFillEnabled: boolean
+  recentPostedCount: number
+  recentPostedWindowDays: number
   totalChargeDefinitions: number
 }) {
   return (
@@ -123,7 +125,10 @@ export function ChargesPageView({
         <SummaryTile label="Definitions" value={totalChargeDefinitions} />
         <SummaryTile label="Active charges" value={activeChargeCount} />
         <SummaryTile label="Monthly levies" value={monthlyLevies.length} />
-        <SummaryTile label="Recent posted" value={postedApplications.length} />
+        <SummaryTile
+          label={`Posted, last ${recentPostedWindowDays} days`}
+          value={recentPostedCount}
+        />
       </section>
 
       <ChargeViewTabs activeView={activeView} />

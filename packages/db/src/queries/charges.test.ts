@@ -3,6 +3,7 @@ import {
   applyApplicableWorkflowCharges,
   applyLoanRequestCharges,
   applyCharge,
+  countRecentPostedChargeApplications,
   createChargeDefinition,
   getApplicableChargeQuoteHash,
   reverseChargeApplication,
@@ -1039,4 +1040,42 @@ test("settlement competing with pending waiver posts at most one lifecycle resul
   expect(prisma.ledgerTransactions).toHaveLength(
     winner.status === "fulfilled" && winner.value.status === "posted" ? 1 : 0
   )
+})
+
+describe("recent posted charge count", () => {
+  test("counts posted charges in the 30-day window with one aggregate query", async () => {
+    const calls: unknown[] = []
+    const prisma = {
+      chargeApplication: {
+        count: async (args: unknown) => {
+          calls.push(args)
+          return 7
+        },
+        findMany: async () => {
+          throw new Error("count must not load rows")
+        },
+      },
+    }
+    const now = new Date("2026-11-05T12:00:00.000Z")
+
+    const total = await countRecentPostedChargeApplications(
+      "tenant-1",
+      { now },
+      prisma as never
+    )
+
+    expect(total).toBe(7)
+    expect(calls).toEqual([
+      {
+        where: {
+          tenantId: "tenant-1",
+          status: "posted",
+          assessedAt: {
+            gte: new Date("2026-10-06T12:00:00.000Z"),
+            lte: now,
+          },
+        },
+      },
+    ])
+  })
 })

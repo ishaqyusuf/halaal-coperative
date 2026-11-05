@@ -3,6 +3,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { formatCurrency, formatPercent } from "@halaalvest/utils"
 import { useState } from "react"
+import { overdueRepaymentScheduleHref } from "@/lib/repayments/repayments-drilldown"
 import { useTRPC } from "@/trpc/client"
 import {
   OverviewActionLink,
@@ -357,7 +358,7 @@ export function AnalyticsView() {
         />
         <MetricLink
           detail="Overdue exposure divided by active outstanding principal."
-          href="/repayments?status=overdue"
+          href={overdueRepaymentScheduleHref}
           label="Portfolio at risk"
           tone={getRiskTone(data.primaryMetrics.portfolioAtRiskRate)}
           value={formatPercent(data.primaryMetrics.portfolioAtRiskRate)}

@@ -8,13 +8,14 @@ import {
   TableRow,
 } from "@halaalvest/ui/components/table"
 import { useInfiniteQuery } from "@tanstack/react-query"
-import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
+import { getCoreRowModel } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef } from "react"
 import { ChargeSheet } from "@/components/sheets/charge-sheet"
 import { VirtualRow } from "@/components/tables/core"
 import { useChargeFilterParams } from "@/hooks/use-charge-filter-params"
 import { useChargeParams } from "@/hooks/use-charge-params"
+import { useDataTable } from "@/hooks/use-data-table"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useLiveTablePollInterval } from "@/hooks/use-live-table-poll-interval"
 import { useSortParams } from "@/hooks/use-sort-params"
@@ -210,7 +211,7 @@ export function DataTable({
     tableId: "charges",
   })
 
-  const table = useReactTable({
+  const table = useDataTable({
     columnResizeMode: "onChange",
     columns,
     data: tableData,

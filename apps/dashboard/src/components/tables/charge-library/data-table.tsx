@@ -7,10 +7,11 @@ import {
   TableCell,
   TableRow,
 } from "@halaalvest/ui/components/table"
-import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
+import { getCoreRowModel } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
 import { useEffect, useRef } from "react"
 import { VirtualRow } from "@/components/tables/core"
+import { useDataTable } from "@/hooks/use-data-table"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
 import { useTableDnd } from "@/hooks/use-table-dnd"
 import { useTableScroll } from "@/hooks/use-table-scroll"
@@ -73,7 +74,7 @@ export function ChargeLibraryDataTable({
     tableId: "chargeLibrary",
   })
 
-  const table = useReactTable({
+  const table = useDataTable({
     columnResizeMode: "onChange",
     columns,
     data: tableData,

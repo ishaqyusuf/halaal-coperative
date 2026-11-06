@@ -9,11 +9,12 @@ import {
 } from "@halaalvest/ui/components/table"
 import type { TenantSharePolicySettings } from "@halaalvest/db"
 import { useInfiniteQuery } from "@tanstack/react-query"
-import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
+import { getCoreRowModel } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef } from "react"
 import { ShareSheet } from "@/components/sheets/share-sheet"
 import { VirtualRow } from "@/components/tables/core"
+import { useDataTable } from "@/hooks/use-data-table"
 import { useShareFilterParams } from "@/hooks/use-share-filter-params"
 import { useShareParams } from "@/hooks/use-share-params"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
@@ -216,7 +217,7 @@ export function DataTable({
     tableId: "shares",
   })
 
-  const table = useReactTable({
+  const table = useDataTable({
     columnResizeMode: "onChange",
     columns,
     data: tableData,

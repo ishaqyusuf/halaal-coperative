@@ -8,11 +8,12 @@ import {
   TableRow,
 } from "@halaalvest/ui/components/table"
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query"
-import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
+import { getCoreRowModel } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
 import { useDeferredValue, useEffect, useMemo, useRef } from "react"
 import type { MonthlyRecordMemberRow } from "@halaalvest/db"
 import { VirtualRow } from "@/components/tables/core"
+import { useDataTable } from "@/hooks/use-data-table"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useLiveTablePollInterval } from "@/hooks/use-live-table-poll-interval"
 import { useMonthlyRecordFilterParams } from "@/hooks/use-monthly-record-filter-params"
@@ -94,7 +95,7 @@ export function MonthlyRecordsDataTable({
     tableId: "monthlyRecords",
   })
 
-  const table = useReactTable({
+  const table = useDataTable({
     columnResizeMode: "onChange",
     columns,
     data: tableData,

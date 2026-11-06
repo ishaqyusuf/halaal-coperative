@@ -8,10 +8,11 @@ import {
   TableCell,
   TableRow,
 } from "@halaalvest/ui/components/table"
-import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
+import { getCoreRowModel } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
 import { useCallback, useEffect, useRef } from "react"
 import { VirtualRow } from "@/components/tables/core"
+import { useDataTable } from "@/hooks/use-data-table"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useScrollHeader } from "@/hooks/use-scroll-header"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
@@ -65,7 +66,7 @@ export function MembershipApprovalsDataTable({
     tableId: "membershipApprovals",
   })
 
-  const table = useReactTable({
+  const table = useDataTable({
     columnResizeMode: "onChange",
     columns,
     data: requests,

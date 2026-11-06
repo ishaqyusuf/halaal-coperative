@@ -7,10 +7,11 @@ import {
   TableCell,
   TableRow,
 } from "@halaalvest/ui/components/table"
-import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
+import { getCoreRowModel } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
 import { useEffect, useRef } from "react"
 import { EmptyState, VirtualRow } from "@/components/tables/core"
+import { useDataTable } from "@/hooks/use-data-table"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
 import { useTableDnd } from "@/hooks/use-table-dnd"
@@ -91,7 +92,7 @@ export function LoanRequestsTable({
     tableId: "loanRequests",
   })
 
-  const table = useReactTable({
+  const table = useDataTable({
     columnResizeMode: "onChange",
     columns: requestColumns,
     data: tableData,

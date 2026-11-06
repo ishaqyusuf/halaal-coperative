@@ -9,12 +9,12 @@ import {
 import {
   flexRender,
   getCoreRowModel,
-  useReactTable,
   type ColumnDef,
 } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
 import { LoaderCircle } from "lucide-react"
 import { useCallback, useRef } from "react"
+import { useDataTable } from "@/hooks/use-data-table"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useRepaymentParams } from "@/hooks/use-repayment-params"
 import { useScrollHeader } from "@/hooks/use-scroll-header"
@@ -69,7 +69,7 @@ function RepaymentVirtualTable<TData extends { id: string }>({
     initialSettings,
     tableId,
   })
-  const table = useReactTable({
+  const table = useDataTable({
     columnResizeMode: "onChange",
     columns,
     data: query.rows,

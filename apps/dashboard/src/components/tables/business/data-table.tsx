@@ -7,11 +7,12 @@ import {
   TableCell,
   TableRow,
 } from "@halaalvest/ui/components/table"
-import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
+import { getCoreRowModel } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import { BottomBarPresence, VirtualRow } from "@/components/tables/core"
 import { useBusinessParams } from "@/hooks/use-business-params"
+import { useDataTable } from "@/hooks/use-data-table"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useScrollHeader } from "@/hooks/use-scroll-header"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
@@ -73,7 +74,7 @@ export function BusinessDataTable({ initialSettings, isLocked }: Props) {
     [isLocked]
   )
 
-  const table = useReactTable({
+  const table = useDataTable({
     columnResizeMode: "onChange",
     columns,
     data: businesses,

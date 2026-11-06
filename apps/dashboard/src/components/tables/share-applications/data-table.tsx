@@ -7,10 +7,11 @@ import {
   TableCell,
   TableRow,
 } from "@halaalvest/ui/components/table"
-import { getCoreRowModel, useReactTable } from "@tanstack/react-table"
+import { getCoreRowModel } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import { VirtualRow } from "@/components/tables/core"
+import { useDataTable } from "@/hooks/use-data-table"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useShareApplicationParams } from "@/hooks/use-share-application-params"
 import { useScrollHeader } from "@/hooks/use-scroll-header"
@@ -79,7 +80,7 @@ export function ShareApplicationsDataTable({
     tableId: "shareApplications",
   })
 
-  const table = useReactTable({
+  const table = useDataTable({
     columnResizeMode: "onChange",
     columns: tableColumns,
     data: tableData,

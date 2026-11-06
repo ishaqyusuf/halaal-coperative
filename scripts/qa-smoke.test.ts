@@ -8,6 +8,7 @@ import {
   isDashboardHost,
   pages,
   requestPolicy,
+  swapIfFrozen,
 } from "./qa-web-smoke.mjs"
 
 const dashboardHost = "halaalvest-dash.localhost"
@@ -230,5 +231,51 @@ describe("qa:smoke getting-started gate", () => {
         setupProfileLabel: 3,
       })
     ).toThrow("setupProfileLabel")
+  })
+})
+
+describe("qa:smoke frozen tab recovery", () => {
+  // Just enough of a Playwright page for swapIfFrozen.
+  function fakePage(responsive: boolean, opened: string[]) {
+    const page = {
+      closed: false,
+      evaluate: () =>
+        responsive ? Promise.resolve(true) : new Promise<never>(() => {}),
+      close: async () => {
+        page.closed = true
+      },
+      context: () => ({
+        newPage: async () => {
+          opened.push("fresh")
+          return fakePage(true, opened)
+        },
+      }),
+    }
+    return page
+  }
+
+  test("keeps a responsive tab", async () => {
+    const opened: string[] = []
+    const page = fakePage(true, opened)
+    expect(await swapIfFrozen(page as never, async () => {}, 20)).toBeNull()
+    expect(opened).toEqual([])
+    expect(page.closed).toBe(false)
+  })
+
+  test("replaces a frozen tab with an attached fresh one in the same context", async () => {
+    const opened: string[] = []
+    const attached: unknown[] = []
+    const frozen = fakePage(false, opened)
+    const fresh = await swapIfFrozen(
+      frozen as never,
+      async (next) => {
+        attached.push(next)
+      },
+      20
+    )
+    expect(fresh).not.toBeNull()
+    expect(attached).toEqual([fresh])
+    expect(opened).toEqual(["fresh"])
+    expect(frozen.closed).toBe(true)
   })
 })

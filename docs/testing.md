@@ -118,7 +118,9 @@ The journey, against the local dashboard only:
    filled. Then it presses Escape. It never submits.
 4. **Getting-started gate:** opens `/getting-started` as the main admin. A live
    workspace must redirect home, member migration lands on `/onboarding-success`,
-   and a setup-stage workspace must show the One Path "Setup steps" rail.
+   and a setup-stage workspace must show the One Path "Setup steps" rail. The
+   page streams behind a loading skeleton and can redirect client-side, so the
+   check waits up to 20 s for the rail or a redirect.
 5. **One Path setup render** (only when `setupProfileLabel` is set): signs in a
    second QA admin, of a cooperative still in setup, in a fresh browser context,
    and requires the "Setup steps" rail on `/getting-started`. QA profiles only
@@ -134,7 +136,18 @@ The dashboard is a shared dev server, and it hot-reloads whenever another
 session edits its sources. Each step is therefore retried once after 3 s. A pass
 on retry says so, along with the first error. Steps are capped at 90 s. If
 `/login` keeps reloading, wait for the edits to pause; no browser check can pass
-mid-burst.
+mid-burst. If a quiet dev log still shows a page load every second or two, a
+browser tab outside the smoke is reloading the page.
+
+When a step fails, the driver checks whether the tab still answers. A tab
+whose main thread is stuck, for example in a render loop, is replaced by a
+fresh tab in the same browser context, so the sign-in carries over. The retry
+and the later journeys run in that fresh tab. The failure says "tab froze", so a
+real app hang is reported once instead of failing every later step.
+
+QA sign-in is rate-limited per account, per 15 minutes. Repeated smoke runs or
+ad-hoc probes eventually get a 429 on `/auth/qa`. For repeated probing, sign in
+once, save Playwright's storage state under `.scratch/`, and reuse it.
 Screenshots and a receipt go to `.scratch/qa-smoke/`, which is gitignored.
 Browsers live in `.scratch/qa-smoke/playwright` unless `PLAYWRIGHT_BROWSERS_PATH` is set.
 

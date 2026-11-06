@@ -30,6 +30,7 @@ const readMethods = new Set(["GET", "HEAD", "OPTIONS"])
 // wedge the page's main thread.
 const allowedPosts = new Set(["/auth/qa", "/__nextjs_original-stack-frames"])
 const stepLimitMs = 90_000
+const frozenProbeMs = 4_000
 
 /**
  * @template T
@@ -95,6 +96,27 @@ export function classifyGettingStarted({ pathname, hasRail, expectSetup }) {
   }
 }
 
+/**
+ * A tab whose main thread is stuck (a render loop) fails every later
+ * navigation too. Swap it for a fresh tab in the same context, which keeps
+ * the sign-in cookies, so one frozen journey cannot fail the rest.
+ * @param {import("playwright").Page} page
+ * @param {(page: import("playwright").Page) => Promise<void>} attach
+ * @returns {Promise<import("playwright").Page | null>} the fresh tab, or null when responsive
+ */
+export async function swapIfFrozen(page, attach, probeMs = frozenProbeMs) {
+  const alive = await withTimeout(
+    page.evaluate(() => true),
+    probeMs,
+    "frozen"
+  ).catch(() => false)
+  if (alive) return null
+  const fresh = await page.context().newPage()
+  await attach(fresh)
+  await withTimeout(page.close(), 5_000, "close timed out").catch(() => {})
+  return fresh
+}
+
 /** @param {string} text */
 const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 
@@ -107,31 +129,43 @@ const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 /**
  * One signed-in browser session: write-blocking routes, step bookkeeping,
  * QA sign-in and dashboard navigation.
- * @param {import("playwright").Page} page
+ * @param {import("playwright").Page} initialPage
  * @param {SmokeConfig} config
  * @param {string} artifacts
  * @param {Results} results
  */
-async function createSession(page, config, artifacts, results) {
-  page.setDefaultTimeout(20_000)
+export async function createSession(initialPage, config, artifacts, results) {
+  let page = initialPage
   const dashboardHost = new URL(config.origin).hostname
   const { checks, blocked } = results
-  page.on("console", (message) => {
-    if (message.type() === "error") results.consoleErrors += 1
-  })
-  await page.route("**/*", async (route) => {
-    const request = route.request()
-    if (
-      requestPolicy({
-        method: request.method(),
-        url: request.url(),
-        dashboardHost,
-      }) === "allow"
-    )
-      return route.continue()
-    blocked.push(`${request.method()} ${new URL(request.url()).pathname}`)
-    return route.abort("blockedbyclient")
-  })
+
+  /** @param {import("playwright").Page} target */
+  async function attach(target) {
+    target.setDefaultTimeout(20_000)
+    target.on("console", (message) => {
+      if (message.type() === "error") results.consoleErrors += 1
+    })
+    await target.route("**/*", async (route) => {
+      const request = route.request()
+      if (
+        requestPolicy({
+          method: request.method(),
+          url: request.url(),
+          dashboardHost,
+        }) === "allow"
+      )
+        return route.continue()
+      blocked.push(`${request.method()} ${new URL(request.url()).pathname}`)
+      return route.abort("blockedbyclient")
+    })
+  }
+  await attach(page)
+
+  async function replaceIfFrozen() {
+    const fresh = await swapIfFrozen(page, attach)
+    if (fresh) page = fresh
+    return Boolean(fresh)
+  }
 
   /** @param {string} name @param {() => Promise<string>} run */
   async function step(name, run) {
@@ -139,6 +173,7 @@ async function createSession(page, config, artifacts, results) {
     process.stderr.write(`qa:smoke ${name}…\n`)
     const attempt = () =>
       withTimeout(run(), stepLimitMs, `Step exceeded ${stepLimitMs / 1000}s`)
+    let froze = false
     try {
       let detail
       try {
@@ -148,15 +183,28 @@ async function createSession(page, config, artifacts, results) {
         // retry tells a reload from a real failure. The retry stays visible.
         const reason =
           first instanceof Error ? first.message.split("\n")[0] : String(first)
-        process.stderr.write(`qa:smoke ${name}: retrying after "${reason}"\n`)
+        froze = await replaceIfFrozen()
+        process.stderr.write(
+          `qa:smoke ${name}: retrying after "${reason}"${froze ? " (tab froze; retrying in a fresh tab)" : ""}\n`
+        )
         await new Promise((done) => setTimeout(done, 3_000))
-        detail = `${await attempt()} (passed on retry; first attempt: ${reason})`
+        detail = `${await attempt()} (passed on retry; first attempt: ${reason}${froze ? "; tab froze" : ""})`
       }
       checks.push({ name, status: "pass", ms: Date.now() - started, detail })
       return true
     } catch (error) {
       const message =
         error instanceof Error ? error.message.split("\n")[0] : String(error)
+      // Diagnose on the tab that failed, then replace it if it is frozen.
+      if (await replaceIfFrozen()) {
+        checks.push({
+          name,
+          status: "fail",
+          ms: Date.now() - started,
+          detail: `${message ?? "failed"} [tab froze: main thread unresponsive${froze ? " on both attempts" : ""}; later steps use a fresh tab]`,
+        })
+        return false
+      }
       // Button names are UI labels; enough to tell a missing control from a slow page.
       // Bounded: a wedged page must not stall the remaining steps.
       const buttons = await withTimeout(
@@ -281,11 +329,18 @@ async function createSession(page, config, artifacts, results) {
   /** @param {string} stepName @param {boolean} expectSetup */
   const gettingStarted = (stepName, expectSetup) =>
     step(stepName, async () => {
-      const url = await open("/getting-started")
-      const hasRail = await page
-        .getByRole("navigation", { name: "Setup steps" })
-        .isVisible()
-        .catch(() => false)
+      await open("/getting-started")
+      // The page streams behind a loading skeleton, and a redirect issued
+      // inside the streamed segment happens client-side, so wait for either.
+      const rail = page.getByRole("navigation", { name: "Setup steps" })
+      await Promise.race([
+        rail.waitFor({ state: "visible", timeout: 20_000 }),
+        page.waitForURL((next) => next.pathname !== "/getting-started", {
+          timeout: 20_000,
+        }),
+      ]).catch(() => {})
+      const url = new URL(page.url())
+      const hasRail = await rail.isVisible().catch(() => false)
       const outcome = classifyGettingStarted({
         pathname: url.pathname,
         hasRail,
@@ -298,32 +353,28 @@ async function createSession(page, config, artifacts, results) {
       return outcome.detail
     })
 
-  return { step, signIn, open, gettingStarted }
+  return { step, signIn, open, gettingStarted, page: () => page }
 }
 
 /**
- * @param {import("playwright").Page} page
+ * @param {import("playwright").Page} initialPage
  * @param {SmokeConfig} config
  * @param {string} artifacts
  * @param {() => Promise<import("playwright").Page>} [newPage] fresh context for the setup admin
  * @returns {Promise<Results>}
  */
-export async function webJourney(page, config, artifacts, newPage) {
+export async function webJourney(initialPage, config, artifacts, newPage) {
   /** @type {Results} */
   const results = { checks: [], blocked: [], consoleErrors: 0 }
-  const { step, signIn, open, gettingStarted } = await createSession(
-    page,
-    config,
-    artifacts,
-    results
-  )
+  const session = await createSession(initialPage, config, artifacts, results)
+  const { step, signIn, open, gettingStarted } = session
   if (!(await signIn("qa sign-in", config.profileLabel, config.cooperative)))
     return results
 
   for (const target of pages)
     await step(`${target.name} page`, async () => {
       const url = await open(target.path)
-      await page.screenshot({
+      await session.page().screenshot({
         path: resolve(artifacts, `${target.name}-page.png`),
       })
       return `Rendered ${url.pathname}`
@@ -332,6 +383,7 @@ export async function webJourney(page, config, artifacts, newPage) {
   for (const form of forms)
     await step(`${form.name} quick fill`, async () => {
       await open(form.path)
+      const page = session.page()
       const dialog = page.getByRole("dialog").last()
       await dialog.waitFor({ state: "visible" })
       const fields = dialog.locator(

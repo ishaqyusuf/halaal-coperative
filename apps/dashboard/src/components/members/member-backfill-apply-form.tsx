@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
+import { WorkflowConfirmFooter } from "@/components/workflow-confirm-footer"
 import { queueBackfillApplyAction } from "@/lib/dashboard-actions"
 
 export function MemberBackfillApplyForm({
@@ -42,10 +43,7 @@ export function MemberBackfillApplyForm({
   }
 
   return (
-    <form
-      className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"
-      onSubmit={onSubmit}
-    >
+    <form className="grid gap-4" onSubmit={onSubmit}>
       <input name="memberId" type="hidden" value={memberId} />
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
         Type APPLY BACKFILL
@@ -57,11 +55,11 @@ export function MemberBackfillApplyForm({
           type="text"
         />
       </label>
-      <div className="flex items-end justify-end">
+      <WorkflowConfirmFooter disabled={isPending}>
         <Button disabled={isDisabled} type="submit">
           {isPending ? "Applying..." : "Apply backfill"}
         </Button>
-      </div>
+      </WorkflowConfirmFooter>
     </form>
   )
 }

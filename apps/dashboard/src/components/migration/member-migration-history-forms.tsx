@@ -1904,7 +1904,6 @@ export function LoanHistoryEntryForm({
             pendingGuarantorTarget &&
             !isGuarantorCreateClosed
         )}
-        presentation="dialog"
         suppressBackfillPrompt
         title="Create guarantor"
       />

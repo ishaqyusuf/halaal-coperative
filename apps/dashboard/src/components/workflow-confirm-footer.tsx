@@ -11,17 +11,19 @@ import { cn } from "@halaalvest/ui/lib/utils"
 // form's submit button, passed as children; Cancel closes the overlay, which
 // clears the workflow's URL params through its onOpenChange.
 export function WorkflowConfirmFooter({
+  cancelLabel = "Cancel",
   children,
   className,
   disabled,
 }: {
+  cancelLabel?: string
   children: ReactNode
   className?: string
   disabled?: boolean
 }) {
   return (
     <AlertDialogFooter className={cn("sm:col-span-full", className)}>
-      <AlertDialogCancel disabled={disabled}>Cancel</AlertDialogCancel>
+      <AlertDialogCancel disabled={disabled}>{cancelLabel}</AlertDialogCancel>
       {children}
     </AlertDialogFooter>
   )

@@ -9,15 +9,17 @@ import {
 } from "@halaalvest/ui/components/field"
 import { Input } from "@halaalvest/ui/components/input"
 import { Separator } from "@halaalvest/ui/components/separator"
+import { Textarea } from "@halaalvest/ui/components/textarea"
 import { DatePickerInput } from "@/components/date-picker-input"
 import { DashboardSurfaceCard } from "@/components/dashboard"
+import { MemberBackfillActionForm } from "@/components/migration/migration-action-forms"
+import { WorkflowConfirmFooter } from "@/components/workflow-confirm-footer"
 import {
   applyMemberOpeningBalanceAction,
   cancelMemberOpeningBalanceAction,
   createHistoricalMemberSharePurchaseAction,
   createMemberOpeningBalanceAction,
   generateHistoricalBackfillShareProfitAllocationsAction,
-  queueBackfillDraftAction,
   reviewMemberOpeningBalanceAction,
   reverseMemberOpeningBalanceAction,
   saveMemberProfitSeasonAdjustmentsAction,
@@ -312,11 +314,14 @@ export function OpeningBalanceReviewContent({
   openingBalanceId: string
 }) {
   return (
-    <form action={reviewMemberOpeningBalanceAction} className="grid gap-2">
+    <MemberBackfillActionForm
+      action={reviewMemberOpeningBalanceAction}
+      className="grid gap-2"
+    >
       <input name="memberId" type="hidden" value={memberId} />
       <input name="openingBalanceId" type="hidden" value={openingBalanceId} />
-      <textarea
-        className="min-h-16 border border-border bg-background px-3 py-2 text-sm text-foreground"
+      <Textarea
+        aria-label="Review note"
         disabled={disabled}
         name="reviewNotes"
         placeholder="Review note"
@@ -342,7 +347,7 @@ export function OpeningBalanceReviewContent({
           Approve
         </Button>
       </div>
-    </form>
+    </MemberBackfillActionForm>
   )
 }
 
@@ -356,13 +361,15 @@ export function OpeningBalanceApplyContent({
   openingBalanceId: string
 }) {
   return (
-    <form action={applyMemberOpeningBalanceAction} className="flex justify-end">
+    <MemberBackfillActionForm action={applyMemberOpeningBalanceAction}>
       <input name="memberId" type="hidden" value={memberId} />
       <input name="openingBalanceId" type="hidden" value={openingBalanceId} />
-      <Button disabled={disabled} size="sm" type="submit">
-        Apply
-      </Button>
-    </form>
+      <WorkflowConfirmFooter disabled={disabled}>
+        <Button disabled={disabled} type="submit">
+          Apply opening position
+        </Button>
+      </WorkflowConfirmFooter>
+    </MemberBackfillActionForm>
   )
 }
 
@@ -376,13 +383,15 @@ export function OpeningBalanceCancelContent({
   openingBalanceId: string
 }) {
   return (
-    <form action={cancelMemberOpeningBalanceAction} className="flex justify-end">
+    <MemberBackfillActionForm action={cancelMemberOpeningBalanceAction}>
       <input name="memberId" type="hidden" value={memberId} />
       <input name="openingBalanceId" type="hidden" value={openingBalanceId} />
-      <Button disabled={disabled} type="submit" variant="outline">
-        Cancel staging
-      </Button>
-    </form>
+      <WorkflowConfirmFooter cancelLabel="Keep staging" disabled={disabled}>
+        <Button disabled={disabled} type="submit" variant="destructive">
+          Cancel staging
+        </Button>
+      </WorkflowConfirmFooter>
+    </MemberBackfillActionForm>
   )
 }
 
@@ -396,22 +405,25 @@ export function OpeningBalanceReverseContent({
   openingBalanceId: string
 }) {
   return (
-    <form action={reverseMemberOpeningBalanceAction} className="grid gap-2">
+    <MemberBackfillActionForm
+      action={reverseMemberOpeningBalanceAction}
+      className="grid gap-4"
+    >
       <input name="memberId" type="hidden" value={memberId} />
       <input name="openingBalanceId" type="hidden" value={openingBalanceId} />
-      <textarea
-        className="min-h-16 border border-border bg-background px-3 py-2 text-sm text-foreground"
+      <Textarea
+        aria-label="Reversal note"
         disabled={disabled}
         name="reversalNotes"
         placeholder="Reversal note"
         required
       />
-      <div className="flex justify-end">
-        <Button disabled={disabled} size="sm" type="submit" variant="outline">
+      <WorkflowConfirmFooter disabled={disabled}>
+        <Button disabled={disabled} type="submit" variant="destructive">
           Reverse
         </Button>
-      </div>
-    </form>
+      </WorkflowConfirmFooter>
+    </MemberBackfillActionForm>
   )
 }
 
@@ -423,16 +435,15 @@ export function HistoricalSharePurchaseContent({
   disabled: boolean
 }) {
   return (
-    <form
+    <MemberBackfillActionForm
       action={createHistoricalMemberSharePurchaseAction}
       className="grid gap-3"
     >
       <input name="memberId" type="hidden" value={data.member.id} />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <label className="grid gap-1 text-xs font-medium text-muted-foreground">
           Share units
-          <input
-            className="h-9 border border-border bg-background px-3 text-sm text-foreground"
+          <Input
             disabled={disabled}
             min="1"
             name="shareUnits"
@@ -443,8 +454,7 @@ export function HistoricalSharePurchaseContent({
         </label>
         <label className="grid gap-1 text-xs font-medium text-muted-foreground">
           Paid date
-          <input
-            className="h-9 border border-border bg-background px-3 text-sm text-foreground"
+          <Input
             defaultValue={data.member.joinedAt}
             disabled={disabled}
             name="paidAt"
@@ -452,10 +462,9 @@ export function HistoricalSharePurchaseContent({
             type="date"
           />
         </label>
-        <label className="grid gap-1 text-xs font-medium text-muted-foreground sm:col-span-2 xl:col-span-1">
+        <label className="grid gap-1 text-xs font-medium text-muted-foreground sm:col-span-2">
           Notes
-          <input
-            className="h-9 border border-border bg-background px-3 text-sm text-foreground"
+          <Input
             disabled={disabled}
             name="notes"
             placeholder="Receipt or source note"
@@ -468,7 +477,7 @@ export function HistoricalSharePurchaseContent({
           Add share purchase
         </Button>
       </div>
-    </form>
+    </MemberBackfillActionForm>
   )
 }
 
@@ -478,11 +487,15 @@ export function GenerateBackfillDividendsContent({
   disabled: boolean
 }) {
   return (
-    <form action={generateHistoricalBackfillShareProfitAllocationsAction}>
-      <Button disabled={disabled} size="sm" type="submit">
-        Calculate backfill dividends
-      </Button>
-    </form>
+    <MemberBackfillActionForm
+      action={generateHistoricalBackfillShareProfitAllocationsAction}
+    >
+      <WorkflowConfirmFooter disabled={disabled}>
+        <Button disabled={disabled} type="submit">
+          Calculate dividends
+        </Button>
+      </WorkflowConfirmFooter>
+    </MemberBackfillActionForm>
   )
 }
 
@@ -536,17 +549,6 @@ export function ProfitSeasonAdjustmentContent({
           </Button>
         </MemberBackfillFooterPortal>
       ) : null}
-    </form>
-  )
-}
-
-export function SaveBackfillDraftContent({ memberId }: { memberId: string }) {
-  return (
-    <form action={queueBackfillDraftAction}>
-      <input name="memberId" type="hidden" value={memberId} />
-      <Button size="sm" type="submit">
-        Save draft
-      </Button>
     </form>
   )
 }

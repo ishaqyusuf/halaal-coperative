@@ -14,6 +14,7 @@ import { MemberSheetFormProvider } from "@/components/member/form-context"
 import { MemberSheetHeader } from "@/components/member-sheet-header"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useCreateMemberParams } from "@/hooks/use-create-member-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 import {
   getMemberMigrationStartHref,
   shouldOpenMemberMigrationAfterCreate,
@@ -32,7 +33,6 @@ export function MemberCreateSheet({
   onOpenChange,
   onSuccess,
   open,
-  presentation = "sheet",
   suppressBackfillPrompt = false,
   title = "Create member",
   triggerLabel = "New member",
@@ -48,7 +48,6 @@ export function MemberCreateSheet({
   onOpenChange?: (open: boolean) => void
   onSuccess?: (member: CreatedMemberSummary) => void
   open?: boolean
-  presentation?: "dialog" | "sheet"
   suppressBackfillPrompt?: boolean
   title?: string
   triggerLabel?: string
@@ -108,32 +107,31 @@ export function MemberCreateSheet({
     setPendingBackfillMember(null)
   }
 
+  // The guarantor quick-create stacks this sheet over the opening-position
+  // sheet (ADR decision 10) rather than opening a dialog inside it.
   const memberForm = (
-    <div className="max-h-[calc(100vh-2rem)] overflow-y-auto p-4">
-      <MemberSheetFormProvider
-        value={{
-          canManageCollectionSources,
-          collectionSourceOptions,
-          cooperativeStartDate,
-          devMode,
-          initialValues,
-          memberNumberPrefix,
-          migrationSetupMode,
-        }}
-      >
-        <MemberSheetHeader
-          description={description}
-          presentation={presentation}
-          sheetType="create"
-          title={title}
-        />
-        <MemberContent
-          key={`${initialValues?.fullName ?? ""}-${sheetOpen ? "open" : "closed"}`}
-          onCreated={handleMemberCreated}
-          sheetType="create"
-        />
-      </MemberSheetFormProvider>
-    </div>
+    <MemberSheetFormProvider
+      value={{
+        canManageCollectionSources,
+        collectionSourceOptions,
+        cooperativeStartDate,
+        devMode,
+        initialValues,
+        memberNumberPrefix,
+        migrationSetupMode,
+      }}
+    >
+      <MemberSheetHeader
+        description={description}
+        sheetType="create"
+        title={title}
+      />
+      <MemberContent
+        key={`${initialValues?.fullName ?? ""}-${sheetOpen ? "open" : "closed"}`}
+        onCreated={handleMemberCreated}
+        sheetType="create"
+      />
+    </MemberSheetFormProvider>
   )
 
   return (
@@ -148,11 +146,7 @@ export function MemberCreateSheet({
         </Button>
       ) : null}
       <WorkflowPresentation
-        className="overflow-hidden p-0"
-        config={{
-          presentation,
-          width: presentation === "dialog" ? "form" : "compact",
-        }}
+        config={getWorkflowPresentation("member", "create")}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
       >

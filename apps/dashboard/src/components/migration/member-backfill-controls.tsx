@@ -1,146 +1,130 @@
 "use client"
 
-import { useState, type ComponentProps, type ReactNode } from "react"
 import type { MemberLedgerBackfillRow } from "@halaalvest/backfill"
 import { Button } from "@halaalvest/ui/components/button"
 import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { Input } from "@halaalvest/ui/components/input"
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@halaalvest/ui/components/sheet"
-import { cn } from "@halaalvest/ui/lib/utils"
 import { formatCurrency } from "@halaalvest/utils"
+import { MemberBackfillActionForm } from "@/components/migration/migration-action-forms"
 import { MissedMonthsRangeGrid } from "@/components/migration/missed-months-range-grid"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
+import { WorkflowPresentationHeader } from "@/components/workflow-presentation-header"
+import { useMemberBackfillParams } from "@/hooks/use-member-backfill-params"
 import {
   setMigrationBackfillDefaultingMonthsAction,
   upsertMigrationBackfillAdjustmentAction,
 } from "@/lib/dashboard-actions"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
-function BackfillControlSheet({
-  bodyClassName,
-  children,
-  description,
-  disabled,
-  eyebrow,
-  onClose,
-  onOpen,
-  open,
-  title,
-  triggerClassName,
-  triggerLabel,
-  triggerSize,
-  variant,
-  widthClassName,
-}: {
-  bodyClassName: string
-  children: ReactNode
-  description: string
-  disabled?: boolean
-  eyebrow?: string
-  onClose: () => void
-  onOpen: () => void
-  open: boolean
-  title: string
-  triggerClassName?: string
-  triggerLabel: string
-  triggerSize: ComponentProps<typeof Button>["size"]
-  variant: ComponentProps<typeof Button>["variant"]
-  widthClassName: string
-}) {
-  return (
-    <>
-      <Button
-        className={triggerClassName}
-        disabled={disabled}
-        onClick={onOpen}
-        size={triggerSize}
-        type="button"
-        variant={variant}
-      >
-        {triggerLabel}
-      </Button>
-      <Sheet open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-        <SheetContent
-          className={cn(
-            widthClassName,
-            "max-md:[&_a]:min-h-11 max-md:[&_button]:min-h-11 max-md:[&_input]:min-h-11 max-md:[_[role=combobox]]:min-h-11"
-          )}
-        >
-          <SheetHeader>
-            {eyebrow ? (
-              <p className="text-xs font-medium text-muted-foreground uppercase">
-                {eyebrow}
-              </p>
-            ) : null}
-            <SheetTitle>{title}</SheetTitle>
-            <SheetDescription>{description}</SheetDescription>
-          </SheetHeader>
-          <div className={bodyClassName}>{children}</div>
-        </SheetContent>
-      </Sheet>
-    </>
-  )
-}
+const touchTargetClassName =
+  "grid gap-4 max-md:[&_a]:min-h-11 max-md:[&_button]:min-h-11 max-md:[&_input]:min-h-11 max-md:[_[role=combobox]]:min-h-11"
 
-export function MemberBackfillAdjustmentSheet({
+// Ledger cells only set URL params; MemberBackfillCellEditors renders the one
+// registered dialog, since the table repeats each cell in its action menu.
+export function MemberBackfillAdjustmentButton({
   disabled,
   loan,
-  loans,
   memberId,
   mode,
   month,
-  period,
   savingsContribution,
 }: {
   disabled: boolean
   loan?: MemberLedgerBackfillRow["loanColumns"][number]
-  loans?: MemberLedgerBackfillRow["loanColumns"]
   memberId: string | null | undefined
   mode: "repayment" | "savings"
   month?: string
-  period: string
   savingsContribution: number
 }) {
+  const { setParams } = useMemberBackfillParams()
   const isRepayment = mode === "repayment"
-  const activeLoans = loans ?? (loan ? [loan] : [])
-  const activeLoanBalance = activeLoans.reduce(
-    (sum, item) => sum + item.outstandingPrincipalBalance,
-    0
-  )
   const triggerLabel = isRepayment
     ? loan
       ? formatCurrency(loan.repaymentAmount)
       : "-"
     : formatCurrency(savingsContribution)
   const isDisabled = disabled || !memberId || !month || (isRepayment && !loan)
-  const [open, setOpen] = useState(false)
 
   return (
-    <BackfillControlSheet
-      bodyClassName="grid gap-3 px-6 pb-6"
-      description="Save a month-specific override. The generated ledger will recompute segments from this month while preserving the saved migration history."
+    <Button
+      className="h-auto rounded-md px-2 py-1 text-right font-medium text-primary underline-offset-4 hover:underline disabled:text-muted-foreground disabled:no-underline"
       disabled={isDisabled}
-      eyebrow="One-time migration adjustment"
-      onClose={() => setOpen(false)}
-      onOpen={() => setOpen(true)}
-      open={open}
-      title={`${isRepayment ? "Edit loan repayment" : "Edit savings"} for ${period}`}
-      triggerClassName="h-auto rounded-md px-2 py-1 text-right font-medium text-primary underline-offset-4 hover:underline disabled:text-muted-foreground disabled:no-underline"
-      triggerLabel={triggerLabel}
-      triggerSize="sm"
+      onClick={() =>
+        void setParams({
+          memberBackfillMonth: month ?? null,
+          memberBackfillSheetType: "adjustment",
+          memberBackfillTargetId: isRepayment ? (loan?.id ?? null) : null,
+        })
+      }
+      size="sm"
+      type="button"
       variant="ghost"
-      widthClassName="sm:max-w-lg"
     >
+      {triggerLabel}
+    </Button>
+  )
+}
+
+export function DefaultingMonthsButton({
+  disabled,
+  memberId,
+  selectedMonth,
+  triggerVariant = "ghost",
+  triggerLabel = "Missed months",
+}: {
+  disabled: boolean
+  memberId: string | null | undefined
+  selectedMonth?: string
+  triggerLabel?: string
+  triggerVariant?: "default" | "ghost"
+}) {
+  const { setParams } = useMemberBackfillParams()
+
+  return (
+    <Button
+      disabled={disabled || !memberId}
+      onClick={() =>
+        void setParams({
+          memberBackfillMonth: selectedMonth ?? null,
+          memberBackfillSheetType: "missedMonths",
+          memberBackfillTargetId: null,
+        })
+      }
+      size="xs"
+      type="button"
+      variant={triggerVariant}
+    >
+      {triggerLabel}
+    </Button>
+  )
+}
+
+function AdjustmentEditor({
+  disabled,
+  loan,
+  memberId,
+  row,
+}: {
+  disabled: boolean
+  loan?: MemberLedgerBackfillRow["loanColumns"][number]
+  memberId: string
+  row: MemberLedgerBackfillRow
+}) {
+  const isRepayment = Boolean(loan)
+  const activeLoans = loan ? [loan] : row.loanColumns
+  const activeLoanBalance = activeLoans.reduce(
+    (sum, item) => sum + item.outstandingPrincipalBalance,
+    0
+  )
+
+  return (
+    <>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
           <p className="text-xs text-muted-foreground">Current savings</p>
           <p className="mt-1 text-sm font-semibold text-foreground">
-            {formatCurrency(savingsContribution)}
+            {formatCurrency(row.savingsContribution)}
           </p>
         </div>
         <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
@@ -160,19 +144,19 @@ export function MemberBackfillAdjustmentSheet({
         </div>
       </div>
 
-      <form
+      <MemberBackfillActionForm
         action={upsertMigrationBackfillAdjustmentAction}
         className="grid gap-3"
       >
-        <input name="memberId" type="hidden" value={memberId ?? ""} />
-        <input name="month" type="hidden" value={month ?? ""} />
+        <input name="memberId" type="hidden" value={memberId} />
+        <input name="month" type="hidden" value={row.month ?? ""} />
         {isRepayment ? (
           <>
             <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
               Actual principal repayment
               <CurrencyPrefixInput
                 defaultValue={loan?.repaymentAmount ?? ""}
-                disabled={isDisabled}
+                disabled={disabled}
                 min="0"
                 name="loanRepaymentAmount"
                 required
@@ -183,7 +167,7 @@ export function MemberBackfillAdjustmentSheet({
             <label className="flex h-9 items-center gap-2 border border-border/70 bg-background px-3 text-sm text-foreground">
               <Checkbox
                 defaultChecked={loan?.repaymentOnTime ?? false}
-                disabled={isDisabled}
+                disabled={disabled}
                 name="loanRepaymentOnTime"
               />
               Mark repayment as on-time
@@ -193,8 +177,8 @@ export function MemberBackfillAdjustmentSheet({
           <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             Actual savings contribution
             <CurrencyPrefixInput
-              defaultValue={savingsContribution}
-              disabled={isDisabled}
+              defaultValue={row.savingsContribution}
+              disabled={disabled}
               min="0"
               name="savingsContribution"
               required
@@ -206,76 +190,139 @@ export function MemberBackfillAdjustmentSheet({
         <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
           Notes
           <Input
-            disabled={isDisabled}
+            disabled={disabled}
             name="notes"
             placeholder="Receipt, board note, or source file reference"
             type="text"
           />
         </label>
         <div className="flex justify-end">
-          <Button disabled={isDisabled} size="sm" type="submit">
+          <Button disabled={disabled} size="sm" type="submit">
             Save adjustment
           </Button>
         </div>
-      </form>
-    </BackfillControlSheet>
+      </MemberBackfillActionForm>
+    </>
   )
 }
 
-export function DefaultingMonthsSheet({
+// Hosts the ledger cell editors (ADR items R1 and R2) once per page, opened by
+// `memberBackfillSheetType=adjustment|missedMonths` plus the month and loan.
+export function MemberBackfillCellEditors({
   disabled,
   memberId,
   rows,
-  selectedMonth,
-  triggerVariant = "ghost",
-  triggerLabel = "Missed months",
 }: {
   disabled: boolean
   memberId: string | null | undefined
   rows: MemberLedgerBackfillRow[]
-  selectedMonth?: string
-  triggerLabel?: string
-  triggerVariant?: "default" | "ghost"
 }) {
+  const {
+    memberBackfillMonth,
+    memberBackfillSheetType,
+    memberBackfillTargetId,
+    setParams,
+  } = useMemberBackfillParams()
+  const adjustmentConfig = getWorkflowPresentation(
+    "memberBackfill",
+    "adjustment"
+  )
+  const missedMonthsConfig = getWorkflowPresentation(
+    "memberBackfill",
+    "missedMonths"
+  )
   const usableRows = rows.filter((row) => row.month)
-  const [open, setOpen] = useState(false)
+  const adjustmentRow =
+    memberBackfillSheetType === "adjustment"
+      ? usableRows.find((row) => row.month === memberBackfillMonth)
+      : undefined
+  const adjustmentLoan = memberBackfillTargetId
+    ? adjustmentRow?.loanColumns.find(
+        (loan) => loan.id === memberBackfillTargetId
+      )
+    : undefined
+  const isAdjustmentOpen = Boolean(
+    memberId && adjustmentRow && (!memberBackfillTargetId || adjustmentLoan)
+  )
+  const isMissedMonthsOpen = Boolean(
+    memberId && memberBackfillSheetType === "missedMonths"
+  )
+
+  function close(open: boolean) {
+    if (open) {
+      return
+    }
+
+    void setParams({
+      memberBackfillMonth: null,
+      memberBackfillSheetType: null,
+      memberBackfillTargetId: null,
+    })
+  }
 
   return (
-    <BackfillControlSheet
-      bodyClassName="space-y-4 px-6 pb-6"
-      description="Toggle months where this member made no commitment during migration. These months will not add savings, share capital, or charges."
-      disabled={disabled || !memberId}
-      onClose={() => setOpen(false)}
-      onOpen={() => setOpen(true)}
-      open={open}
-      title="Missed commitment months"
-      triggerLabel={triggerLabel}
-      triggerSize="xs"
-      variant={triggerVariant}
-      widthClassName="w-[calc(100vw-2rem)] max-w-none sm:w-[min(96vw,96rem)] sm:max-w-none"
-    >
-      <form
-        action={setMigrationBackfillDefaultingMonthsAction}
-        className="space-y-4"
+    <>
+      <WorkflowPresentation
+        config={adjustmentConfig}
+        contentClassName={touchTargetClassName}
+        open={isAdjustmentOpen}
+        onOpenChange={close}
       >
-        <input name="memberId" type="hidden" value={memberId ?? ""} />
-        <MissedMonthsRangeGrid
-          disabled={disabled}
-          rows={usableRows.map((row) => ({
-            month: row.month ?? "",
-            period: row.period,
-            savingsContribution: row.savingsContribution,
-            status: row.status,
-          }))}
-          selectedMonth={selectedMonth}
-        />
-        <div className="flex justify-end">
-          <Button disabled={disabled || !memberId} size="sm" type="submit">
-            Save missed months
-          </Button>
-        </div>
-      </form>
-    </BackfillControlSheet>
+        {memberId && adjustmentRow ? (
+          <>
+            <WorkflowPresentationHeader
+              description="Save a month-specific override. The generated ledger will recompute segments from this month while preserving the saved migration history."
+              eyebrow="One-time migration adjustment"
+              presentation={adjustmentConfig.presentation}
+              title={`${adjustmentLoan ? "Edit loan repayment" : "Edit savings"} for ${adjustmentRow.period}`}
+            />
+            <AdjustmentEditor
+              disabled={disabled}
+              loan={adjustmentLoan}
+              memberId={memberId}
+              row={adjustmentRow}
+            />
+          </>
+        ) : null}
+      </WorkflowPresentation>
+      <WorkflowPresentation
+        config={missedMonthsConfig}
+        contentClassName={touchTargetClassName}
+        open={isMissedMonthsOpen}
+        onOpenChange={close}
+      >
+        {memberId && isMissedMonthsOpen ? (
+          <>
+            <WorkflowPresentationHeader
+              description="Toggle months where this member made no commitment during migration. These months will not add savings, share capital, or charges."
+              presentation={missedMonthsConfig.presentation}
+              title="Missed commitment months"
+            />
+            <MemberBackfillActionForm
+              action={setMigrationBackfillDefaultingMonthsAction}
+              className="space-y-4"
+            >
+              <input name="memberId" type="hidden" value={memberId} />
+              <MissedMonthsRangeGrid
+                disabled={disabled}
+                rows={usableRows.map((row) => ({
+                  month: row.month ?? "",
+                  period: row.period,
+                  savingsContribution: row.savingsContribution,
+                  status: row.status,
+                }))}
+                selectedMonth={memberBackfillMonth ?? undefined}
+              />
+              <div className="flex justify-end">
+                <Button disabled={disabled} size="sm" type="submit">
+                  Save missed months
+                </Button>
+              </div>
+            </MemberBackfillActionForm>
+          </>
+        ) : null}
+      </WorkflowPresentation>
+    </>
   )
 }
 

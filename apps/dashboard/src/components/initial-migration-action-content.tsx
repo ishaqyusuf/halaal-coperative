@@ -6,11 +6,12 @@ import { DatePickerInput } from "@/components/date-picker-input"
 import { GoLiveChecklist } from "@/components/go-live-checklist"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
 import { MemberAutocompleteSelect } from "@/components/migration/member-autocomplete-select"
+import { InitialMigrationActionForm } from "@/components/migration/migration-action-forms"
+import { WorkflowConfirmFooter } from "@/components/workflow-confirm-footer"
 import {
   createLegacyLoanMigrationDraftAction,
   markLegacyLoansReviewedAction,
   queueBackfillApplyAction,
-  queueBackfillDraftAction,
   updateLegacyLoanMigrationDraftAction,
   upsertMigrationProfitAdjustmentAction,
 } from "@/lib/dashboard-actions"
@@ -84,26 +85,11 @@ export function ProfitMigrationAdjustmentContent({
   )
 }
 
-export function SaveMemberBackfillDraftContent({
-  memberId,
-}: {
-  memberId: string
-}) {
-  return (
-    <form action={queueBackfillDraftAction} className="flex justify-end">
-      <input name="memberId" type="hidden" value={memberId} />
-      <Button size="sm" type="submit">
-        Save draft
-      </Button>
-    </form>
-  )
-}
-
 export function ApplyMemberBackfillContent({ memberId }: { memberId: string }) {
   return (
-    <form
+    <InitialMigrationActionForm
       action={queueBackfillApplyAction}
-      className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"
+      className="grid gap-4"
     >
       <input name="memberId" type="hidden" value={memberId} />
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
@@ -115,12 +101,10 @@ export function ApplyMemberBackfillContent({ memberId }: { memberId: string }) {
           type="text"
         />
       </label>
-      <div className="flex items-end justify-end">
-        <Button size="sm" type="submit">
-          Apply backfill
-        </Button>
-      </div>
-    </form>
+      <WorkflowConfirmFooter>
+        <Button type="submit">Apply backfill</Button>
+      </WorkflowConfirmFooter>
+    </InitialMigrationActionForm>
   )
 }
 
@@ -144,7 +128,7 @@ export function FinalizeInitialMigrationContent({
 
 export function MarkLegacyLoansReviewedContent() {
   return (
-    <form
+    <InitialMigrationActionForm
       action={markLegacyLoansReviewedAction}
       className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"
     >
@@ -170,7 +154,7 @@ export function MarkLegacyLoansReviewedContent() {
           type="text"
         />
       </label>
-    </form>
+    </InitialMigrationActionForm>
   )
 }
 
@@ -180,7 +164,7 @@ export function CreateLegacyLoanMigrationDraftContent({
   memberOptions: InitialMigrationMemberOption[]
 }) {
   return (
-    <form
+    <InitialMigrationActionForm
       action={createLegacyLoanMigrationDraftAction}
       className="grid gap-3 sm:grid-cols-2"
     >
@@ -265,7 +249,7 @@ export function CreateLegacyLoanMigrationDraftContent({
           Add loan draft
         </Button>
       </div>
-    </form>
+    </InitialMigrationActionForm>
   )
 }
 
@@ -297,7 +281,7 @@ export function LegacyLoanDraftEditContent({
           and principal balance columns.
         </p>
       </div>
-      <form
+      <InitialMigrationActionForm
         action={updateLegacyLoanMigrationDraftAction}
         className="grid gap-3 sm:grid-cols-2"
       >
@@ -412,7 +396,7 @@ export function LegacyLoanDraftEditContent({
             Save loan draft
           </Button>
         </div>
-      </form>
+      </InitialMigrationActionForm>
     </>
   )
 }

@@ -3,7 +3,6 @@ import {
   type MemberLedgerBackfillRow,
 } from "@halaalvest/backfill"
 import type { InitialMigrationSnapshot } from "@halaalvest/domain"
-import { Button } from "@halaalvest/ui/components/button"
 import { formatCurrency } from "@halaalvest/utils"
 import {
   DashboardSectionHeader,
@@ -17,21 +16,26 @@ import {
   LegacyLoanDraftEditContent,
   MarkLegacyLoansReviewedContent,
   ProfitMigrationAdjustmentContent,
-  SaveMemberBackfillDraftContent,
 } from "@/components/initial-migration-action-content"
 import { MemberPreviewPicker } from "@/components/migration/member-preview-picker"
 import {
-  DefaultingMonthsSheet,
-  MemberBackfillAdjustmentSheet,
+  DefaultingMonthsButton,
+  MemberBackfillAdjustmentButton,
+  MemberBackfillCellEditors,
   MonthStatusControl,
 } from "@/components/migration/member-backfill-controls"
 import { MemberLedgerBackfillTable } from "@/components/migration/member-ledger-backfill-table"
+import { SaveBackfillDraftButton } from "@/components/migration/save-backfill-draft-button"
 import {
   CommitmentHistoryEntryForm,
   LoanHistoryEntryForm,
 } from "@/components/migration/member-migration-history-forms"
 import { MemberCreateSheet } from "@/components/sheets/member-create-sheet"
-import { MigrationActionSheet } from "@/components/sheets/migration-action-sheet"
+import {
+  MigrationActionOverlay,
+  MigrationActionSheet,
+  MigrationActionTrigger,
+} from "@/components/sheets/migration-action-sheet"
 import { MemberMigrationInputPanels } from "@/components/migration/member-migration-input-panels"
 import { MemberBackfillActivityWindowsForm } from "@/components/members/member-backfill-activity-windows-form"
 
@@ -518,11 +522,11 @@ function LegacyLoanDraftEditSheet({
   return (
     <MigrationActionSheet
       bodyClassName="grid gap-4"
-      contentClassName="sm:max-w-2xl"
       description="Update the principal-only opening loan position before member ledger backfill is applied."
       disabled={disabled}
       eyebrow="Legacy loan draft"
-      presentation="sheet"
+      mode="legacyLoanEdit"
+      targetId={loan.id}
       title={`Edit ${loan.loanLabel}`}
       triggerLabel="Edit loan"
     >
@@ -777,21 +781,12 @@ export function InitialMigrationPreview({
 
     return (
       <div className={className}>
-        <MigrationActionSheet
-          description="Save the generated ledger preview as a draft for the selected member before applying it."
-          title="Save member backfill draft"
-          triggerLabel="Save draft"
-        >
-          <SaveMemberBackfillDraftContent memberId={selectedMigrationMemberId} />
-        </MigrationActionSheet>
-        <MigrationActionSheet
-          description="Confirm and apply the generated ledger rows for the selected member. Applied backfill locks migration edits for that member."
-          title="Apply member backfill"
-          triggerLabel="Apply backfill"
+        <SaveBackfillDraftButton memberId={selectedMigrationMemberId} />
+        <MigrationActionTrigger
+          label="Apply backfill"
+          mode="apply"
           variant="default"
-        >
-          <ApplyMemberBackfillContent memberId={selectedMigrationMemberId} />
-        </MigrationActionSheet>
+        />
       </div>
     )
   }
@@ -823,6 +818,22 @@ export function InitialMigrationPreview({
           <p className="mt-1 text-xs">{generatedLedgerError}</p>
         </div>
       ) : null}
+      {selectedMigrationMemberId && !selectedMemberBackfillApplied ? (
+        <MigrationActionOverlay
+          description="Confirm and apply the generated ledger rows for the selected member. Applied backfill locks migration edits for that member."
+          mode="apply"
+          title="Apply member backfill"
+        >
+          <ApplyMemberBackfillContent memberId={selectedMigrationMemberId} />
+        </MigrationActionOverlay>
+      ) : null}
+      {selectedMigrationMemberId ? (
+        <MemberBackfillCellEditors
+          disabled={Boolean(selectedMemberBackfillApplied)}
+          memberId={selectedMigrationMemberId}
+          rows={displayedLedgerRows}
+        />
+      ) : null}
       {selectedMigrationMemberId ? (
         <MemberLedgerBackfillTable
           isRowAdjustmentDisabled={(row) =>
@@ -831,32 +842,28 @@ export function InitialMigrationPreview({
             selectedMemberBackfillApplied
           }
           renderRepaymentControl={(row, loan, disabled) => (
-            <MemberBackfillAdjustmentSheet
+            <MemberBackfillAdjustmentButton
               disabled={disabled}
               loan={loan}
               memberId={selectedMigrationMemberId}
               mode="repayment"
               month={row.month}
-              period={row.period}
               savingsContribution={row.savingsContribution}
             />
           )}
-          renderSavingsControl={(row, loans, disabled) => (
-            <MemberBackfillAdjustmentSheet
+          renderSavingsControl={(row, _loans, disabled) => (
+            <MemberBackfillAdjustmentButton
               disabled={disabled}
-              loans={loans}
               memberId={selectedMigrationMemberId}
               mode="savings"
               month={row.month}
-              period={row.period}
               savingsContribution={row.savingsContribution}
             />
           )}
           renderDefaultingControl={(row, disabled, triggerLabel) => (
-            <DefaultingMonthsSheet
+            <DefaultingMonthsButton
               disabled={disabled}
               memberId={selectedMigrationMemberId}
-              rows={displayedLedgerRows}
               selectedMonth={row.month}
               triggerLabel={triggerLabel}
               triggerVariant={
@@ -1288,6 +1295,7 @@ export function InitialMigrationPreview({
             <MigrationActionSheet
               description="Check each item, confirm the balances, then start live operations. Setup tools close once you go live."
               disabled={!canOpenGoLiveChecklist}
+              mode="finalize"
               title="Go live"
               triggerLabel="Go live"
               variant="default"
@@ -1329,6 +1337,7 @@ export function InitialMigrationPreview({
             {!legacyLoansReviewed && displayedLegacyLoanDrafts.length === 0 ? (
               <MigrationActionSheet
                 description="Record an auditable review when the cooperative has no historical loans to migrate."
+                mode="noHistory"
                 title="Mark legacy loans reviewed"
                 triggerLabel="No legacy loans"
               >
@@ -1338,7 +1347,7 @@ export function InitialMigrationPreview({
             {mutableMigrationMemberOptions.length === 0 ? null : (
               <MigrationActionSheet
                 description="Create a principal-only opening loan position before member ledger backfill generation."
-                presentation="sheet"
+                mode="legacyLoanCreate"
                 title="Add legacy loan draft"
                 triggerLabel="Add loan draft"
                 variant="default"

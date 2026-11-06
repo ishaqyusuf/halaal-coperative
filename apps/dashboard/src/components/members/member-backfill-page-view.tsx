@@ -15,11 +15,13 @@ import {
   WorkspacePageShell,
 } from "@/components/dashboard"
 import {
-  DefaultingMonthsSheet,
-  MemberBackfillAdjustmentSheet,
+  DefaultingMonthsButton,
+  MemberBackfillAdjustmentButton,
+  MemberBackfillCellEditors,
   MonthStatusControl,
 } from "@/components/migration/member-backfill-controls"
 import { MemberLedgerBackfillTable } from "@/components/migration/member-ledger-backfill-table"
+import { SaveBackfillDraftButton } from "@/components/migration/save-backfill-draft-button"
 import {
   CommitmentHistoryEntryForm,
   LoanHistoryEntryForm,
@@ -36,7 +38,6 @@ import {
   OpeningBalanceReviewContent,
   OpeningBalanceReverseContent,
   ProfitSeasonAdjustmentContent,
-  SaveBackfillDraftContent,
 } from "./member-backfill-content"
 import { MemberBackfillActivityWindowsForm } from "./member-backfill-activity-windows-form"
 import { MemberBackfillApplyForm } from "./member-backfill-apply-form"
@@ -288,7 +289,8 @@ function OpeningBalanceRow({
           <MemberBackfillActionSheet
             description="Cancel this staged opening position and return to the capture form. The cancellation remains in the audit history."
             disabled={disabled}
-            sheetId={`opening-balance-cancel:${row.id}`}
+            mode="cancel"
+            targetId={row.id}
             title="Cancel staged opening position"
             triggerLabel="Cancel staging"
           >
@@ -301,7 +303,8 @@ function OpeningBalanceRow({
           <MemberBackfillActionSheet
             description="Approve or reject this staged opening position after reviewing the evidence."
             disabled={disabled}
-            sheetId={`opening-balance-review:${row.id}`}
+            mode="review"
+            targetId={row.id}
             title="Review opening position"
             triggerLabel="Review"
           >
@@ -317,7 +320,8 @@ function OpeningBalanceRow({
           <MemberBackfillActionSheet
             description="Apply the approved opening position to the member ledger and related opening obligations."
             disabled={disabled}
-            sheetId={`opening-balance-apply:${row.id}`}
+            mode="apply"
+            targetId={row.id}
             title="Apply opening position"
             triggerLabel="Apply"
             variant="default"
@@ -334,8 +338,8 @@ function OpeningBalanceRow({
           <MemberBackfillActionSheet
             description="Reverse a previously applied opening position with an audit note."
             disabled={disabled}
-            presentation="sheet"
-            sheetId={`opening-balance-reverse:${row.id}`}
+            mode="reverse"
+            targetId={row.id}
             title="Reverse opening position"
             triggerLabel="Reverse"
           >
@@ -397,8 +401,8 @@ function AppliedOpeningPositionSuccess({
         <MemberBackfillActionSheet
           description="Reverse the applied brought-forward position with a required audit note. Posted opening entries will be reversed rather than deleted."
           disabled={disabled}
-          presentation="sheet"
-          sheetId={`opening-balance-reverse:${row.id}`}
+          mode="reverse"
+          targetId={row.id}
           title="Reset brought-forward position"
           triggerLabel="Reset / reverse"
         >
@@ -507,9 +511,7 @@ function OpeningPositionPanel({
         <MemberBackfillActionSheet
           description="Capture current balances and active obligations as staged brought-forward evidence."
           disabled={disabled}
-          presentation="sheet"
-          sheetId="opening-position"
-          size="wide"
+          mode="capture"
           title="Stage opening position"
           triggerLabel="Stage opening position"
           variant="default"
@@ -559,8 +561,7 @@ function HistoricalSharePurchasesPanel({ data }: { data: MemberBackfillData }) {
         <MemberBackfillActionSheet
           description="Record historical unit share purchases for this member."
           disabled={disabled}
-          presentation="sheet"
-          sheetId="historical-share-purchase"
+          mode="historicalEntry"
           title="Add historical share purchase"
           triggerLabel="Add share purchase"
           variant="default"
@@ -923,16 +924,22 @@ function ActivityStep({ data }: { data: MemberBackfillData }) {
         description="Record inactive and resumed months that affect generated monthly rows."
         actions={
           data.generatedLedgerRows.length > 0 ? (
-            <DefaultingMonthsSheet
+            <DefaultingMonthsButton
               disabled={disabled}
               memberId={data.member.id}
-              rows={data.generatedLedgerRows}
               triggerLabel="Review missed months"
               triggerVariant="default"
             />
           ) : null
         }
       />
+      {data.generatedLedgerRows.length > 0 ? (
+        <MemberBackfillCellEditors
+          disabled={disabled}
+          memberId={data.member.id}
+          rows={data.generatedLedgerRows}
+        />
+      ) : null}
       <div className="mt-5">
         <MemberBackfillActivityWindowsForm
           disabled={disabled}
@@ -1002,7 +1009,7 @@ function ProfitStep({ data }: { data: MemberBackfillData }) {
             <MemberBackfillActionSheet
               description="Generate member backfill dividend allocations from the current historical share and profit season data."
               disabled={disabled}
-              sheetId="calculate-backfill-dividends"
+              mode="dividends"
               title="Calculate backfill dividends"
               triggerLabel="Calculate dividends"
             >
@@ -1033,14 +1040,7 @@ function ReviewStep({ data }: { data: MemberBackfillData }) {
         description="Review the generated rows for this member and save a draft before applying."
         actions={
           !applied && data.generatedLedgerRows.length > 0 ? (
-            <MemberBackfillActionSheet
-              description="Save the generated ledger preview as a backfill draft for this member."
-              sheetId="save-backfill-draft"
-              title="Save backfill draft"
-              triggerLabel="Save draft"
-            >
-              <SaveBackfillDraftContent memberId={data.member.id} />
-            </MemberBackfillActionSheet>
+            <SaveBackfillDraftButton memberId={data.member.id} />
           ) : null
         }
       />
@@ -1055,13 +1055,17 @@ function ReviewStep({ data }: { data: MemberBackfillData }) {
         </DashboardSurfaceCard>
       ) : null}
       <div className="mt-5">
+        <MemberBackfillCellEditors
+          disabled={controlsDisabled}
+          memberId={data.member.id}
+          rows={data.generatedLedgerRows}
+        />
         <MemberLedgerBackfillTable
           isRowAdjustmentDisabled={(row) => controlsDisabled || !row.month}
           renderDefaultingControl={(row, disabled, triggerLabel) => (
-            <DefaultingMonthsSheet
+            <DefaultingMonthsButton
               disabled={disabled}
               memberId={data.member.id}
-              rows={data.generatedLedgerRows}
               selectedMonth={row.month}
               triggerLabel={triggerLabel}
             />
@@ -1075,24 +1079,21 @@ function ReviewStep({ data }: { data: MemberBackfillData }) {
             />
           )}
           renderRepaymentControl={(row, loan, disabled) => (
-            <MemberBackfillAdjustmentSheet
+            <MemberBackfillAdjustmentButton
               disabled={disabled}
               loan={loan}
               memberId={data.member.id}
               mode="repayment"
               month={row.month}
-              period={row.period}
               savingsContribution={row.savingsContribution}
             />
           )}
-          renderSavingsControl={(row, loans, disabled) => (
-            <MemberBackfillAdjustmentSheet
+          renderSavingsControl={(row, _loans, disabled) => (
+            <MemberBackfillAdjustmentButton
               disabled={disabled}
-              loans={loans}
               memberId={data.member.id}
               mode="savings"
               month={row.month}
-              period={row.period}
               savingsContribution={row.savingsContribution}
             />
           )}
@@ -1139,7 +1140,7 @@ function ApplyStep({ data }: { data: MemberBackfillData }) {
         <MemberBackfillActionSheet
           description="Confirm and post the reviewed historical rows for this member. Applied backfill locks migration edits for the member."
           disabled={disabled}
-          sheetId="apply-backfill"
+          mode="apply"
           title="Apply member backfill"
           triggerLabel="Apply backfill"
           variant="default"

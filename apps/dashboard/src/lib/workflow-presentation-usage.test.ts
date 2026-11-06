@@ -9,13 +9,16 @@ const migratedShells = [
   "guarantor-approval-sheet.tsx",
   "import-sheet.tsx",
   "loan-sheet.tsx",
+  "member-backfill-action-sheet.tsx",
   "member-backfill-baseline-edit-sheet.tsx",
   "member-backfill-start-sheet.tsx",
+  "member-create-sheet.tsx",
   "member-detail-sheet.tsx",
   "member-import-sheet.tsx",
   "member-share-application-sheet.tsx",
   "member-sheet.tsx",
   "member-signup-link-sheet.tsx",
+  "migration-action-sheet.tsx",
   "monthly-record-sheet.tsx",
   "notification-preference-sheet.tsx",
   "operation-profile-settings-sheet.tsx",
@@ -91,7 +94,10 @@ describe("workflow presentation ownership", () => {
       ["contribution-content.tsx", 1], // CT9
       ["forms/finance-forms.tsx", 3], // L4-L6
       ["guarantor-approval-content.tsx", 1], // GA1
+      ["initial-migration-action-content.tsx", 1], // X18
       ["member-content.tsx", 1], // M2
+      ["members/member-backfill-apply-form.tsx", 1], // X14
+      ["members/member-backfill-content.tsx", 4], // X7-X9, X11, X12
       ["monthly-record-content.tsx", 3], // MR1, MR4, MR5
       ["repayment-content.tsx", 1], // RP5
     ] as const

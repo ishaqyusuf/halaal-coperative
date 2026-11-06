@@ -2,22 +2,21 @@
 
 import type { ReactNode } from "react"
 import { Button } from "@halaalvest/ui/components/button"
-import {
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@halaalvest/ui/components/sheet"
+import { cn } from "@halaalvest/ui/lib/utils"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
-import { useMemberBackfillParams } from "@/hooks/use-member-backfill-params"
-import type { WorkflowPresentation as WorkflowPresentationType } from "@/lib/workflow-presentations"
+import { WorkflowPresentationHeader } from "@/components/workflow-presentation-header"
+import {
+  type MemberBackfillSheetType,
+  useMemberBackfillParams,
+} from "@/hooks/use-member-backfill-params"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 export function MemberBackfillActionSheet({
   children,
   description,
   disabled,
-  presentation = "dialog",
-  sheetId,
-  size = "default",
+  mode,
+  targetId = null,
   title,
   triggerLabel,
   variant = "outline",
@@ -25,22 +24,30 @@ export function MemberBackfillActionSheet({
   children: ReactNode
   description: string
   disabled?: boolean
-  presentation?: Exclude<WorkflowPresentationType, "alert-dialog">
-  sheetId: string
-  size?: "default" | "wide"
+  mode: Exclude<MemberBackfillSheetType, "adjustment" | "missedMonths">
+  targetId?: string | null
   title: string
   triggerLabel: string
   variant?: "default" | "outline"
 }) {
-  const { memberBackfillSheetType, setParams } = useMemberBackfillParams()
-  const isOpen = memberBackfillSheetType === sheetId
+  const { memberBackfillSheetType, memberBackfillTargetId, setParams } =
+    useMemberBackfillParams()
+  const config = getWorkflowPresentation("memberBackfill", mode)
+  const isOpen =
+    memberBackfillSheetType === mode && memberBackfillTargetId === targetId
 
   function openSheet() {
-    void setParams({ memberBackfillSheetType: sheetId })
+    void setParams({
+      memberBackfillSheetType: mode,
+      memberBackfillTargetId: targetId,
+    })
   }
 
   function closeSheet() {
-    void setParams({ memberBackfillSheetType: null })
+    void setParams({
+      memberBackfillSheetType: null,
+      memberBackfillTargetId: null,
+    })
   }
 
   return (
@@ -55,19 +62,22 @@ export function MemberBackfillActionSheet({
         {triggerLabel}
       </Button>
       <WorkflowPresentation
-        contentClassName="max-md:[&_a]:min-h-11 max-md:[&_button]:min-h-11 max-md:[&_input]:min-h-11 max-md:[_[role=combobox]]:min-h-11"
-        config={{
-          presentation,
-          width: size === "wide" ? "wide" : "form",
-        }}
+        contentClassName={cn(
+          "max-md:[&_a]:min-h-11 max-md:[&_button]:min-h-11 max-md:[&_input]:min-h-11 max-md:[_[role=combobox]]:min-h-11",
+          config.presentation !== "sheet" && "grid gap-4"
+        )}
+        config={config}
         open={isOpen}
         onOpenChange={(open) => !open && closeSheet()}
       >
-        <SheetHeader>
-          <SheetTitle>{title}</SheetTitle>
-          <SheetDescription>{description}</SheetDescription>
-        </SheetHeader>
-        <div className="px-6 pb-6">{children}</div>
+        <WorkflowPresentationHeader
+          description={description}
+          presentation={config.presentation}
+          title={title}
+        />
+        <div className={config.presentation === "sheet" ? "px-6 pb-6" : ""}>
+          {children}
+        </div>
       </WorkflowPresentation>
     </>
   )

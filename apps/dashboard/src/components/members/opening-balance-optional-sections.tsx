@@ -589,7 +589,6 @@ export function OpeningBalanceOptionalSections({
           setCreatingGuarantor(null)
         }}
         open={Boolean(creatingGuarantor)}
-        presentation="dialog"
         suppressBackfillPrompt
         title="Create guarantor"
       />

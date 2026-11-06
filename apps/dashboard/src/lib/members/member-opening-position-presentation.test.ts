@@ -9,13 +9,13 @@ describe("member opening position actions", () => {
       )
     ).text()
 
-    expect(source).toContain("sheetId={`opening-balance-review:${row.id}`}")
-    expect(source).toContain("sheetId={`opening-balance-apply:${row.id}`}")
-    expect(source).toContain("sheetId={`opening-balance-reverse:${row.id}`}")
+    // Each action opens its `memberBackfill` registry mode for one row.
+    for (const mode of ["review", "apply", "reverse", "cancel"]) {
+      expect(source).toContain(`mode="${mode}"\n            targetId={row.id}`)
+    }
     expect(source).toContain('triggerLabel="Reset / reverse"')
     expect(source).toContain("AppliedOpeningPositionSuccess")
     expect(source).toContain("Brought-forward details")
-    expect(source).toContain("sheetId={`opening-balance-cancel:${row.id}`}")
     expect(source).toContain("{canCaptureOpeningPosition ? (")
     expect(source).not.toContain("MemberBackfillActionModal")
     expect(source).not.toContain("@/components/modals/")

@@ -33,31 +33,13 @@ function readSource(path: string) {
   return sources.find((file) => file.path === path)?.source ?? ""
 }
 
-// Registry keys that no wrapper reads yet. Backfill and migration wiring
-// (WP12) removes them; drop each entry here as it is wired or deleted.
-const knownUnreferencedKeys = new Set([
-  "memberBackfill.apply",
-  "memberBackfill.capture",
-  "memberBackfill.finalize",
-  "memberBackfill.historicalEntry",
-  "memberBackfill.legacyLoanEdit",
-  "memberBackfill.noHistory",
-  "memberBackfill.reverse",
-  "memberBackfill.review",
-  "memberBackfill.saveDraft",
-])
+// Registry keys that no wrapper reads yet; drop each entry here as it is
+// wired or deleted. WP12 wired the last `memberBackfill` keys.
+const knownUnreferencedKeys = new Set<string>()
 
 // Wrappers that still take inline presentation config or props instead of a
-// registry key (ADR items X1, X2, X3, X7, X8, X15-X17, X20; WP12).
-const knownInlinePresentationFiles = new Set([
-  "components/initial-migration-preview.tsx",
-  "components/members/member-backfill-page-view.tsx",
-  "components/members/opening-balance-optional-sections.tsx",
-  "components/migration/member-migration-history-forms.tsx",
-  "components/sheets/member-backfill-action-sheet.tsx",
-  "components/sheets/member-create-sheet.tsx",
-  "components/sheets/migration-action-sheet.tsx",
-])
+// registry key. WP12 moved the backfill and migration wrappers (X1-X20).
+const knownInlinePresentationFiles = new Set<string>()
 
 function referencedRegistryKeys() {
   const referenced = new Set<string>()
@@ -133,6 +115,10 @@ describe("workflow presentation registry", () => {
       ["loan", "guarantor"], // L5
       ["loan", "review"], // L4
       ["member", "status"], // M2
+      ["memberBackfill", "apply"], // X11, X14, X18
+      ["memberBackfill", "cancel"], // X9
+      ["memberBackfill", "dividends"], // X12
+      ["memberBackfill", "reverse"], // X7, X8
       ["monthlyRecord", "cancel"], // MR5
       ["monthlyRecord", "create"], // MR1
       ["monthlyRecord", "generate"], // MR4
@@ -154,9 +140,13 @@ describe("workflow presentation registry", () => {
     expect(
       getWorkflowPresentation("paymentReceipt", "create").presentation
     ).toBe("sheet")
+    expect(getWorkflowPresentation("memberBackfill", "capture")).toEqual({
+      presentation: "sheet",
+      width: "wide",
+    }) // X5
     expect(
-      getWorkflowPresentation("memberBackfill", "historicalEntry").presentation
-    ).toBe("sheet")
+      getWorkflowPresentation("memberBackfill", "baselineEdit").presentation
+    ).toBe("sheet") // X4
   })
 
   test("centers short secondary actions in dialogs", () => {
@@ -166,6 +156,12 @@ describe("workflow presentation registry", () => {
     expect(
       getWorkflowPresentation("chargeOperation", "settle").presentation
     ).toBe("dialog")
+    // X6 and the ledger cell editors R1, R2.
+    for (const mode of ["historicalEntry", "adjustment", "missedMonths"]) {
+      expect(getWorkflowPresentation("memberBackfill", mode).presentation).toBe(
+        "dialog"
+      )
+    }
   })
 
   test("fails on unknown modes instead of falling back to a sheet", () => {

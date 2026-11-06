@@ -147,6 +147,11 @@ describe("workflow presentation registry", () => {
     expect(
       getWorkflowPresentation("memberBackfill", "baselineEdit").presentation
     ).toBe("sheet") // X4
+    // PR3: the receipt review holds the allocation editor and evidence.
+    expect(getWorkflowPresentation("paymentReceipt", "review")).toEqual({
+      presentation: "sheet",
+      width: "review",
+    })
   })
 
   test("centers short secondary actions in dialogs", () => {
@@ -161,6 +166,13 @@ describe("workflow presentation registry", () => {
       expect(getWorkflowPresentation("memberBackfill", mode).presentation).toBe(
         "dialog"
       )
+    }
+    // PR4, PR5: receipt support takes one note.
+    for (const mode of ["support", "member-support"]) {
+      expect(getWorkflowPresentation("paymentReceipt", mode)).toEqual({
+        presentation: "dialog",
+        width: "compact",
+      })
     }
   })
 

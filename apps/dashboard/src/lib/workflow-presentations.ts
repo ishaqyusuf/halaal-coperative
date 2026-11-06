@@ -128,9 +128,9 @@ export const workflowPresentations = {
   paymentReceipt: {
     create: sheet("review"),
     "member-create": sheet("review"),
-    "member-support": sheet(),
-    review: dialog("review"),
-    support: sheet(),
+    "member-support": dialog("compact"),
+    review: sheet("review"),
+    support: dialog("compact"),
   },
   procurement: {
     create: sheet("review"),

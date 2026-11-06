@@ -23,8 +23,8 @@ import {
   FieldSet,
 } from "@halaalvest/ui/components/field"
 import { Input } from "@halaalvest/ui/components/input"
-import { ScrollArea } from "@halaalvest/ui/components/scroll-area"
 import { Separator } from "@halaalvest/ui/components/separator"
+import { SheetFooter } from "@halaalvest/ui/components/sheet"
 import { Spinner } from "@halaalvest/ui/components/spinner"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import {
@@ -705,271 +705,259 @@ export function PaymentReceiptReviewContent({
   }
 
   return (
-    <div className="absolute inset-0 flex min-h-0 w-full flex-col overflow-hidden">
-      <ScrollArea className="h-0 flex-1 overflow-hidden">
-        <div className="flex flex-col gap-6 px-6 pt-5 pb-24">
-          <section
-            aria-labelledby="receipt-overview-heading"
-            className="flex flex-col gap-4"
-          >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex flex-col gap-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3
-                    className="text-sm font-medium"
-                    id="receipt-overview-heading"
-                  >
-                    {receipt.member.fullName}
-                  </h3>
-                  <Badge variant={receiptStatusVariant(receipt.status)}>
-                    {receiptStatusLabel(receipt.status)}
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {receipt.member.memberNumber}
-                  {receipt.member.email ? ` · ${receipt.member.email}` : ""}
-                </p>
-              </div>
-              <div className="text-left sm:text-right">
-                <p className="text-xs text-muted-foreground">Receipt amount</p>
-                <p className="text-xl font-semibold tabular-nums">
-                  {formatCurrency(receipt.totalAmount)}
-                </p>
-              </div>
-            </div>
-
-            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <ReceiptMetadata
-                label="Paid"
-                value={formatDate(receipt.paidAt)}
-              />
-              <ReceiptMetadata
-                label="Channel"
-                value={humanizeValue(receipt.channel)}
-              />
-              <ReceiptMetadata
-                label="Reference"
-                value={receipt.paymentReference || "Not provided"}
-              />
-              <ReceiptMetadata
-                label="Submitted"
-                value={formatDate(receipt.submittedAt)}
-              />
-            </dl>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {receipt.proofDocumentUrl ? (
-                <Button
-                  render={
-                    <a
-                      href={receipt.proofDocumentUrl}
-                      rel="noreferrer"
-                      target="_blank"
-                    />
-                  }
-                  variant="outline"
-                >
-                  <ExternalLinkIcon data-icon="inline-start" />
-                  {receipt.proofDocumentName || "Open payment proof"}
-                </Button>
-              ) : (
-                <Badge variant="destructive">Payment proof missing</Badge>
-              )}
-            </div>
-
-            {receipt.memberNotes ? (
-              <Alert>
-                <AlertTitle>Member note</AlertTitle>
-                <AlertDescription>{receipt.memberNotes}</AlertDescription>
-              </Alert>
-            ) : null}
-          </section>
-
-          <Separator />
-
-          <section
-            aria-labelledby="receipt-allocation-heading"
-            className="flex flex-col gap-4"
-          >
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-              <div>
+    // The sheet scrolls the review body; the footer stays pinned to its bottom.
+    <div className="flex flex-col">
+      <div className="flex flex-col gap-6 px-4 pt-2 pb-6 md:px-6">
+        <section
+          aria-labelledby="receipt-overview-heading"
+          className="flex flex-col gap-4"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex flex-col gap-1">
+              <div className="flex flex-wrap items-center gap-2">
                 <h3
                   className="text-sm font-medium"
-                  id="receipt-allocation-heading"
+                  id="receipt-overview-heading"
                 >
-                  Verify allocations
+                  {receipt.member.fullName}
                 </h3>
-                <p className="text-xs text-muted-foreground">
-                  Confirm where the receipt should post before making a
-                  decision.
-                </p>
+                <Badge variant={receiptStatusVariant(receipt.status)}>
+                  {receiptStatusLabel(receipt.status)}
+                </Badge>
               </div>
-              <p className="text-xs text-muted-foreground tabular-nums">
-                {formatCurrency(allocationTotal)} of{" "}
-                {formatCurrency(receipt.totalAmount)} allocated
-              </p>
-            </div>
-
-            {!isAllocationBalanced ? (
-              <Alert variant="destructive">
-                <AlertTitle>Allocation total does not match</AlertTitle>
-                <AlertDescription>
-                  Adjust the allocation amounts until they equal{" "}
-                  {formatCurrency(receipt.totalAmount)}. The review cannot be
-                  saved while the totals differ.
-                </AlertDescription>
-              </Alert>
-            ) : null}
-
-            <div className="divide-y divide-border border-y border-border">
-              {allocations.map((allocation, index) => (
-                <ReviewAllocationEditor
-                  allocation={allocation}
-                  categoryOptions={categoryOptions}
-                  commitmentPlans={receiptPlans}
-                  disabled={isPending}
-                  foodPurchaseApplications={receiptFoodPurchaseApplications}
-                  index={index}
-                  key={`${receipt.id}-${index}`}
-                  loans={receiptLoans}
-                  onChange={(patch) => updateAllocation(index, patch)}
-                  projectFinancingRequests={receiptProjectFinancingRequests}
-                  procurementSchedules={receiptProcurementSchedules}
-                />
-              ))}
-            </div>
-          </section>
-
-          <Separator />
-
-          <section
-            aria-labelledby="receipt-decision-heading"
-            className="flex flex-col gap-4"
-          >
-            <div>
-              <h3 className="text-sm font-medium" id="receipt-decision-heading">
-                Review decision
-              </h3>
               <p className="text-xs text-muted-foreground">
-                Choose the next state and leave clear evidence for the member
-                and finance team.
+                {receipt.member.memberNumber}
+                {receipt.member.email ? ` · ${receipt.member.email}` : ""}
               </p>
             </div>
+            <div className="text-left sm:text-right">
+              <p className="text-xs text-muted-foreground">Receipt amount</p>
+              <p className="text-xl font-semibold tabular-nums">
+                {formatCurrency(receipt.totalAmount)}
+              </p>
+            </div>
+          </div>
 
-            <FieldSet>
-              <FieldLegend variant="label">Decision</FieldLegend>
-              <ToggleGroup
-                aria-label="Receipt decision"
-                className="grid w-full grid-cols-2 sm:grid-cols-4"
-                disabled={isPending}
-                onValueChange={(values) => {
-                  const nextDecision = values[0]
-                  if (nextDecision) {
-                    setDecision(nextDecision as ReceiptDecision)
-                  }
-                }}
-                value={[decision]}
+          <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <ReceiptMetadata label="Paid" value={formatDate(receipt.paidAt)} />
+            <ReceiptMetadata
+              label="Channel"
+              value={humanizeValue(receipt.channel)}
+            />
+            <ReceiptMetadata
+              label="Reference"
+              value={receipt.paymentReference || "Not provided"}
+            />
+            <ReceiptMetadata
+              label="Submitted"
+              value={formatDate(receipt.submittedAt)}
+            />
+          </dl>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {receipt.proofDocumentUrl ? (
+              <Button
+                render={
+                  <a
+                    href={receipt.proofDocumentUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  />
+                }
                 variant="outline"
               >
-                {decisionOptions.map((option) => (
-                  <ToggleGroupItem
-                    className="w-full"
-                    key={option.value}
-                    value={option.value}
-                  >
-                    {option.label}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-            </FieldSet>
+                <ExternalLinkIcon data-icon="inline-start" />
+                {receipt.proofDocumentName || "Open payment proof"}
+              </Button>
+            ) : (
+              <Badge variant="destructive">Payment proof missing</Badge>
+            )}
+          </div>
 
-            <Alert
-              variant={decision === "rejected" ? "destructive" : "default"}
-            >
-              <AlertTitle>{guidance.title}</AlertTitle>
-              <AlertDescription>{guidance.description}</AlertDescription>
+          {receipt.memberNotes ? (
+            <Alert>
+              <AlertTitle>Member note</AlertTitle>
+              <AlertDescription>{receipt.memberNotes}</AlertDescription>
             </Alert>
+          ) : null}
+        </section>
 
-            <FieldGroup className="grid gap-4 sm:grid-cols-2">
-              {allocationsChanged ? (
-                <FormField
-                  className="sm:col-span-2"
-                  data-invalid={adjustmentReasonMissing}
+        <Separator />
+
+        <section
+          aria-labelledby="receipt-allocation-heading"
+          className="flex flex-col gap-4"
+        >
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h3
+                className="text-sm font-medium"
+                id="receipt-allocation-heading"
+              >
+                Verify allocations
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Confirm where the receipt should post before making a decision.
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {formatCurrency(allocationTotal)} of{" "}
+              {formatCurrency(receipt.totalAmount)} allocated
+            </p>
+          </div>
+
+          {!isAllocationBalanced ? (
+            <Alert variant="destructive">
+              <AlertTitle>Allocation total does not match</AlertTitle>
+              <AlertDescription>
+                Adjust the allocation amounts until they equal{" "}
+                {formatCurrency(receipt.totalAmount)}. The review cannot be
+                saved while the totals differ.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          <div className="divide-y divide-border border-y border-border">
+            {allocations.map((allocation, index) => (
+              <ReviewAllocationEditor
+                allocation={allocation}
+                categoryOptions={categoryOptions}
+                commitmentPlans={receiptPlans}
+                disabled={isPending}
+                foodPurchaseApplications={receiptFoodPurchaseApplications}
+                index={index}
+                key={`${receipt.id}-${index}`}
+                loans={receiptLoans}
+                onChange={(patch) => updateAllocation(index, patch)}
+                projectFinancingRequests={receiptProjectFinancingRequests}
+                procurementSchedules={receiptProcurementSchedules}
+              />
+            ))}
+          </div>
+        </section>
+
+        <Separator />
+
+        <section
+          aria-labelledby="receipt-decision-heading"
+          className="flex flex-col gap-4"
+        >
+          <div>
+            <h3 className="text-sm font-medium" id="receipt-decision-heading">
+              Review decision
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Choose the next state and leave clear evidence for the member and
+              finance team.
+            </p>
+          </div>
+
+          <FieldSet>
+            <FieldLegend variant="label">Decision</FieldLegend>
+            <ToggleGroup
+              aria-label="Receipt decision"
+              className="grid w-full grid-cols-2 sm:grid-cols-4"
+              disabled={isPending}
+              onValueChange={(values) => {
+                const nextDecision = values[0]
+                if (nextDecision) {
+                  setDecision(nextDecision as ReceiptDecision)
+                }
+              }}
+              value={[decision]}
+              variant="outline"
+            >
+              {decisionOptions.map((option) => (
+                <ToggleGroupItem
+                  className="w-full"
+                  key={option.value}
+                  value={option.value}
                 >
-                  <FieldLabel htmlFor="receipt-adjustment-reason">
-                    Adjustment reason
-                  </FieldLabel>
-                  <Input
-                    aria-invalid={adjustmentReasonMissing}
-                    disabled={isPending}
-                    id="receipt-adjustment-reason"
-                    onChange={(event) =>
-                      setAdjustmentReason(event.target.value)
-                    }
-                    placeholder="Explain why the submitted allocation changed"
-                    value={adjustmentReason}
-                  />
-                  <FieldDescription>
-                    Required because one or more submitted allocation values
-                    were changed.
-                  </FieldDescription>
-                  {adjustmentReasonMissing ? (
-                    <FieldError>Enter an adjustment reason.</FieldError>
-                  ) : null}
-                </FormField>
-              ) : null}
+                  {option.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </FieldSet>
 
+          <Alert variant={decision === "rejected" ? "destructive" : "default"}>
+            <AlertTitle>{guidance.title}</AlertTitle>
+            <AlertDescription>{guidance.description}</AlertDescription>
+          </Alert>
+
+          <FieldGroup className="grid gap-4 sm:grid-cols-2">
+            {allocationsChanged ? (
               <FormField
                 className="sm:col-span-2"
-                data-invalid={reviewNoteMissing}
+                data-invalid={adjustmentReasonMissing}
               >
-                <FieldLabel htmlFor="receipt-review-note">
-                  Review note
-                  {requiresReviewNote ? " (required)" : " (optional)"}
+                <FieldLabel htmlFor="receipt-adjustment-reason">
+                  Adjustment reason
                 </FieldLabel>
-                <Textarea
-                  aria-invalid={reviewNoteMissing}
+                <Input
+                  aria-invalid={adjustmentReasonMissing}
                   disabled={isPending}
-                  id="receipt-review-note"
-                  onChange={(event) => setReviewNotes(event.target.value)}
-                  placeholder={
-                    requiresReviewNote
-                      ? "Explain what the member needs to correct or why the receipt was rejected"
-                      : "Add context for the member and finance audit trail"
-                  }
-                  value={reviewNotes}
+                  id="receipt-adjustment-reason"
+                  onChange={(event) => setAdjustmentReason(event.target.value)}
+                  placeholder="Explain why the submitted allocation changed"
+                  value={adjustmentReason}
                 />
-                {reviewNoteMissing ? (
-                  <FieldError>
-                    A review note is required for this decision.
-                  </FieldError>
+                <FieldDescription>
+                  Required because one or more submitted allocation values were
+                  changed.
+                </FieldDescription>
+                {adjustmentReasonMissing ? (
+                  <FieldError>Enter an adjustment reason.</FieldError>
                 ) : null}
               </FormField>
-            </FieldGroup>
-          </section>
-        </div>
-      </ScrollArea>
+            ) : null}
 
-      <div className="absolute inset-x-0 bottom-0 bg-popover">
-        <Separator />
-        <DialogFooter className="px-6 py-4 sm:justify-between">
-          <Button
-            disabled={isPending}
-            onClick={() => void onClose()}
-            variant="outline"
-          >
-            Cancel
-          </Button>
-          <Button
-            disabled={!canSaveReview}
-            onClick={reviewReceipt}
-            variant={decision === "rejected" ? "destructive" : "default"}
-          >
-            {isPending ? <Spinner data-icon="inline-start" /> : null}
-            {isPending ? "Saving review..." : actionLabel}
-          </Button>
-        </DialogFooter>
+            <FormField
+              className="sm:col-span-2"
+              data-invalid={reviewNoteMissing}
+            >
+              <FieldLabel htmlFor="receipt-review-note">
+                Review note
+                {requiresReviewNote ? " (required)" : " (optional)"}
+              </FieldLabel>
+              <Textarea
+                aria-invalid={reviewNoteMissing}
+                disabled={isPending}
+                id="receipt-review-note"
+                onChange={(event) => setReviewNotes(event.target.value)}
+                placeholder={
+                  requiresReviewNote
+                    ? "Explain what the member needs to correct or why the receipt was rejected"
+                    : "Add context for the member and finance audit trail"
+                }
+                value={reviewNotes}
+              />
+              {reviewNoteMissing ? (
+                <FieldError>
+                  A review note is required for this decision.
+                </FieldError>
+              ) : null}
+            </FormField>
+          </FieldGroup>
+        </section>
       </div>
+
+      <SheetFooter className="sticky bottom-0 flex-col-reverse border-t bg-popover px-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-between md:px-6">
+        <Button
+          disabled={isPending}
+          onClick={() => void onClose()}
+          variant="outline"
+        >
+          Cancel
+        </Button>
+        <Button
+          disabled={!canSaveReview}
+          onClick={reviewReceipt}
+          variant={decision === "rejected" ? "destructive" : "default"}
+        >
+          {isPending ? <Spinner data-icon="inline-start" /> : null}
+          {isPending ? "Saving review..." : actionLabel}
+        </Button>
+      </SheetFooter>
     </div>
   )
 }
@@ -1264,7 +1252,7 @@ export function PaymentReceiptSupportCaseContent({
   }
 
   return (
-    <>
+    <div className="flex flex-col gap-4 pt-4">
       <Field label="Support note">
         <Textarea
           disabled={isPending}
@@ -1273,16 +1261,25 @@ export function PaymentReceiptSupportCaseContent({
           value={supportDescription}
         />
       </Field>
-      <div className="mt-3 flex justify-end">
+      <DialogFooter>
+        <Button
+          disabled={isPending}
+          onClick={() => void onClose()}
+          type="button"
+          variant="outline"
+        >
+          Cancel
+        </Button>
         <Button
           disabled={isPending}
           onClick={openReceiptSupportCase}
           type="button"
         >
+          {isPending ? <Spinner data-icon="inline-start" /> : null}
           Open support case
         </Button>
-      </div>
-    </>
+      </DialogFooter>
+    </div>
   )
 }
 
@@ -1613,7 +1610,7 @@ export function MemberPaymentReceiptSupportCaseContent({
   }
 
   return (
-    <>
+    <div className="flex flex-col gap-4 pt-4">
       <Field label="Support note">
         <Textarea
           disabled={isPending}
@@ -1622,16 +1619,25 @@ export function MemberPaymentReceiptSupportCaseContent({
           value={supportDescription}
         />
       </Field>
-      <div className="mt-3 flex justify-end">
+      <DialogFooter>
+        <Button
+          disabled={isPending}
+          onClick={() => void onClose()}
+          type="button"
+          variant="outline"
+        >
+          Cancel
+        </Button>
         <Button
           disabled={isPending}
           onClick={openReceiptSupportCase}
           type="button"
         >
+          {isPending ? <Spinner data-icon="inline-start" /> : null}
           Open support case
         </Button>
-      </div>
-    </>
+      </DialogFooter>
+    </div>
   )
 }
 

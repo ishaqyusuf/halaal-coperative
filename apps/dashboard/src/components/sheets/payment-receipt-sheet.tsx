@@ -12,29 +12,13 @@ import {
 } from "@/components/payment-receipt-content"
 import { PaymentReceiptSheetHeader } from "@/components/payment-receipt-sheet-header"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
-import { usePaymentReceiptParams } from "@/hooks/use-payment-receipt-params"
+import {
+  type PaymentReceiptSheetType,
+  usePaymentReceiptParams,
+} from "@/hooks/use-payment-receipt-params"
 import type { PaymentReceiptCategoryOption } from "@/lib/payment-receipts/load-payment-receipts-page"
 import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 import { useTRPC } from "@/trpc/client"
-
-type PaymentReceiptSheetType =
-  | "create"
-  | "member-create"
-  | "member-support"
-  | "review"
-  | "support"
-
-function isPaymentReceiptSheetType(
-  value: string | null
-): value is PaymentReceiptSheetType {
-  return (
-    value === "create" ||
-    value === "member-create" ||
-    value === "member-support" ||
-    value === "review" ||
-    value === "support"
-  )
-}
 
 export function PaymentReceiptSheet({
   categoryOptions,
@@ -57,7 +41,7 @@ export function PaymentReceiptSheet({
 }) {
   const { paymentReceiptId, paymentReceiptSheetType, setParams } =
     usePaymentReceiptParams()
-  const isOpen = isPaymentReceiptSheetType(paymentReceiptSheetType)
+  const isOpen = paymentReceiptSheetType !== null
   const presentation = getWorkflowPresentation(
     "paymentReceipt",
     paymentReceiptSheetType
@@ -72,18 +56,8 @@ export function PaymentReceiptSheet({
 
   return (
     <WorkflowPresentation
-      className={
-        paymentReceiptSheetType === "review"
-          ? "flex h-dvh flex-col gap-0 overflow-hidden p-0 md:h-[calc(100dvh-2rem)]"
-          : undefined
-      }
       config={presentation}
-      contentClassName={
-        paymentReceiptSheetType === "review"
-          ? "flex h-full min-h-0 flex-col"
-          : undefined
-      }
-      mobileFullScreen
+      mobileFullScreen={presentation.presentation === "sheet"}
       open={isOpen}
       onOpenChange={(open) => {
         if (!open) void closeSheet()
@@ -186,39 +160,30 @@ function SelectedPaymentReceiptContent({
     )
   }
 
+  // Review fills the sheet with its own padded body and sticky footer; the
+  // support dialogs sit inside the dialog's padding.
   return (
     <>
       <PaymentReceiptSheetHeader receipt={receipt} type={type} />
-      <div
-        className={
-          type === "review"
-            ? "relative flex min-h-0 flex-1 overflow-hidden"
-            : "px-4 pb-6 md:px-6"
-        }
-      >
-        {type === "review" ? (
-          <PaymentReceiptReviewContent
-            categoryOptions={categoryOptions}
-            commitmentPlans={commitmentPlans}
-            foodPurchaseApplications={foodPurchaseApplications}
-            loans={loans}
-            onClose={onClose}
-            procurementSchedules={procurementSchedules}
-            projectFinancingRequests={projectFinancingRequests}
-            receipt={receipt}
-          />
-        ) : type === "support" ? (
-          <PaymentReceiptSupportCaseContent
-            onClose={onClose}
-            receipt={receipt}
-          />
-        ) : type === "member-support" ? (
-          <MemberPaymentReceiptSupportCaseContent
-            onClose={onClose}
-            receipt={receipt}
-          />
-        ) : null}
-      </div>
+      {type === "review" ? (
+        <PaymentReceiptReviewContent
+          categoryOptions={categoryOptions}
+          commitmentPlans={commitmentPlans}
+          foodPurchaseApplications={foodPurchaseApplications}
+          loans={loans}
+          onClose={onClose}
+          procurementSchedules={procurementSchedules}
+          projectFinancingRequests={projectFinancingRequests}
+          receipt={receipt}
+        />
+      ) : type === "support" ? (
+        <PaymentReceiptSupportCaseContent onClose={onClose} receipt={receipt} />
+      ) : type === "member-support" ? (
+        <MemberPaymentReceiptSupportCaseContent
+          onClose={onClose}
+          receipt={receipt}
+        />
+      ) : null}
     </>
   )
 }

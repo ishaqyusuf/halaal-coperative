@@ -4,19 +4,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@halaalvest/ui/components/dialog"
-import { Separator } from "@halaalvest/ui/components/separator"
 import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@halaalvest/ui/components/sheet"
-
-type PaymentReceiptSheetType =
-  | "create"
-  | "member-create"
-  | "member-support"
-  | "review"
-  | "support"
+import type { PaymentReceiptSheetType } from "@/hooks/use-payment-receipt-params"
 
 function getHeaderCopy({
   receipt,
@@ -69,15 +62,14 @@ export function PaymentReceiptSheetHeader({
 }) {
   const copy = getHeaderCopy({ receipt, type })
 
-  if (type === "review") {
+  // Receipt support is a compact dialog (ADR-20261105 PR4, PR5); the other
+  // modes, review included, are sheets.
+  if (type === "support" || type === "member-support") {
     return (
-      <div className="shrink-0">
-        <DialogHeader className="px-6 pt-6 pb-4">
-          <DialogTitle>{copy.title}</DialogTitle>
-          <DialogDescription>{copy.description}</DialogDescription>
-        </DialogHeader>
-        <Separator />
-      </div>
+      <DialogHeader>
+        <DialogTitle>{copy.title}</DialogTitle>
+        <DialogDescription>{copy.description}</DialogDescription>
+      </DialogHeader>
     )
   }
 

@@ -1,13 +1,27 @@
 import { useQueryStates } from "nuqs"
-import { createLoader, parseAsString } from "nuqs/server"
+import { createLoader, parseAsString, parseAsStringEnum } from "nuqs/server"
+
+export const paymentReceiptSheetTypes = [
+  "create",
+  "member-create",
+  "member-support",
+  "review",
+  "support",
+] as const
+
+export type PaymentReceiptSheetType = (typeof paymentReceiptSheetTypes)[number]
 
 const paymentReceiptParamsSchema = {
   paymentReceiptId: parseAsString,
-  paymentReceiptSheetType: parseAsString,
+  paymentReceiptSheetType: parseAsStringEnum([...paymentReceiptSheetTypes]),
 }
 
 export function usePaymentReceiptParams() {
-  const [params, setParams] = useQueryStates(paymentReceiptParamsSchema)
+  // Each open and close is a history entry, so back/forward reopen and close
+  // the receipt overlays.
+  const [params, setParams] = useQueryStates(paymentReceiptParamsSchema, {
+    history: "push",
+  })
 
   return {
     ...params,
@@ -15,6 +29,4 @@ export function usePaymentReceiptParams() {
   }
 }
 
-export const loadPaymentReceiptParams = createLoader(
-  paymentReceiptParamsSchema
-)
+export const loadPaymentReceiptParams = createLoader(paymentReceiptParamsSchema)

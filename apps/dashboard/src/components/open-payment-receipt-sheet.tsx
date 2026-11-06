@@ -7,12 +7,18 @@ import {
   PlusIcon,
   ReceiptTextIcon,
 } from "lucide-react"
-import { usePaymentReceiptParams } from "@/hooks/use-payment-receipt-params"
+import {
+  type PaymentReceiptSheetType,
+  usePaymentReceiptParams,
+} from "@/hooks/use-payment-receipt-params"
 
 function useOpenPaymentReceiptSheet() {
   const { setParams } = usePaymentReceiptParams()
 
-  return (paymentReceiptSheetType: string, paymentReceiptId?: string | null) =>
+  return (
+    paymentReceiptSheetType: PaymentReceiptSheetType,
+    paymentReceiptId?: string | null
+  ) =>
     setParams({
       paymentReceiptId: paymentReceiptId ?? null,
       paymentReceiptSheetType,
@@ -34,11 +40,7 @@ export function OpenPaymentReceiptCreateSheet({
       size={iconOnly ? "icon-lg" : "default"}
       type="button"
     >
-      {iconOnly ? (
-        <PlusIcon />
-      ) : (
-        <ReceiptTextIcon data-icon="inline-start" />
-      )}
+      {iconOnly ? <PlusIcon /> : <ReceiptTextIcon data-icon="inline-start" />}
       {iconOnly ? (
         <span className="sr-only">Stage receipt</span>
       ) : (

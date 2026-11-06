@@ -87,7 +87,7 @@ export const workflowPresentations = {
     historicalEntry: dialog("form"),
     legacyLoanCreate: sheet("review"),
     legacyLoanEdit: sheet("review"),
-    missedMonths: dialog("wide"),
+    missedMonths: dialog("review"),
     noHistory: dialog("compact"),
     reverse: alertDialog(),
     review: dialog("form"),

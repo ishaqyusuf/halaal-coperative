@@ -33,7 +33,7 @@ export default async function SupportPage({
       data.state === "staff-ready"
     )
 
-    await batchPrefetch([
+    batchPrefetch([
       trpc.support.list.infiniteQueryOptions(queryInput, {
         getNextPageParam: ({ meta }) => meta?.cursor,
       }),

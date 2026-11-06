@@ -12,7 +12,7 @@ describe("loans workspace Midday conformance", () => {
     expect(route).toContain('activeView === "portfolio"')
     expect(route).toContain("getLoanPortfolioListInput(filter, sort, memberId)")
     expect(route).toContain("getLoanRequestListInput(filter, sort, memberId)")
-    expect(route).toContain("await batchPrefetch([")
+    expect(route).toContain("batchPrefetch([")
     expect(route).not.toContain("getServerCaller")
     expect(route).not.toContain("setQueryData")
   })

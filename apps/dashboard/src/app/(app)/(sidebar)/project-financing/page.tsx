@@ -30,7 +30,7 @@ export default async function ProjectFinancingPage({
   )
 
   if (data.state === "staff-ready" || data.state === "member-ready") {
-    await batchPrefetch([listOptions])
+    batchPrefetch([listOptions])
   }
 
   return (

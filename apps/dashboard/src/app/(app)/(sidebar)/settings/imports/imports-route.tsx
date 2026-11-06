@@ -233,7 +233,7 @@ export async function ImportsSettingsRoute({
         getNextPageParam: ({ meta }) => meta?.cursor,
       }
     )
-    void batchPrefetch([importOptions])
+    batchPrefetch([importOptions])
   }
 
   return (

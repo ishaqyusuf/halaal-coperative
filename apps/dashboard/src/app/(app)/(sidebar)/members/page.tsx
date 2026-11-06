@@ -51,7 +51,7 @@ export default async function MembersPage({
       getNextPageParam: ({ meta }) => meta?.cursor,
     }
   )
-  void batchPrefetch([membersListOptions])
+  batchPrefetch([membersListOptions])
 
   return (
     <HydrateClient>

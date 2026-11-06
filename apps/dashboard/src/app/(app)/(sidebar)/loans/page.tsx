@@ -45,14 +45,14 @@ export default async function LoansPage({
 
   if (activeView === "portfolio") {
     const portfolioInput = getLoanPortfolioListInput(filter, sort, memberId)
-    await batchPrefetch([
+    batchPrefetch([
       trpc.loans.portfolio.infiniteQueryOptions(portfolioInput, {
         getNextPageParam: ({ meta }) => meta?.cursor,
       }),
     ])
   } else {
     const requestInput = getLoanRequestListInput(filter, sort, memberId)
-    await batchPrefetch([
+    batchPrefetch([
       trpc.loans.requests.infiniteQueryOptions(requestInput, {
         getNextPageParam: ({ meta }) => meta?.cursor,
       }),

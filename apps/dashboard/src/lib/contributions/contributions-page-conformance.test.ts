@@ -14,7 +14,7 @@ describe("contributions workspace conformance", () => {
 
     expect(route).toContain("getContributionListInput(filters, sort)")
     expect(route).toContain('if (activeView === "ledger")')
-    expect(route).toContain("await batchPrefetch")
+    expect(route).toContain("batchPrefetch")
     expect(route).not.toContain("getServerCaller")
     expect(route).not.toContain("getQueryClient")
     expect(route).not.toContain("setQueryData")

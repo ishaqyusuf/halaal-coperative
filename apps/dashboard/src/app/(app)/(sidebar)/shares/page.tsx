@@ -34,7 +34,7 @@ export default async function MemberSharesPage({
   )
 
   if (data.state === "ready") {
-    await batchPrefetch([listOptions])
+    batchPrefetch([listOptions])
   }
 
   return (

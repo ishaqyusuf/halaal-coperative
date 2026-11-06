@@ -108,7 +108,7 @@ export default async function ChargesPage({
   const chargeLibraryTableSettings =
     await getInitialTableSettings("chargeLibrary")
   const chargeLibraryInput = getChargeLibraryListInput(filter, sort)
-  await batchPrefetch([
+  batchPrefetch([
     trpc.charges.chargeLibrary.queryOptions(chargeLibraryInput),
   ])
 

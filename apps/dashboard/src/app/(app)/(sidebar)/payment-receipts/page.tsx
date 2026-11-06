@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import type { SearchParams } from "nuqs"
 import { PaymentReceiptsPageView } from "@/components/payment-receipts-page-view"
 import { loadPaymentReceiptFilterParams } from "@/hooks/use-payment-receipt-filter-params"
@@ -6,6 +7,10 @@ import { loadPaymentReceiptsPageData } from "@/lib/payment-receipts/load-payment
 import { getPaymentReceiptListInput } from "@/lib/payment-receipts/payment-receipt-list-input"
 import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server"
 import { getInitialTableSettings } from "@/utils/columns"
+
+export const metadata: Metadata = {
+  title: "Payment receipts | Halaalvest",
+}
 
 export default async function PaymentReceiptsPage({
   searchParams,
@@ -28,7 +33,7 @@ export default async function PaymentReceiptsPage({
   )
 
   if (data.state === "staff-ready" || data.state === "member-ready") {
-    await batchPrefetch([listOptions])
+    batchPrefetch([listOptions])
   }
 
   return (

@@ -48,7 +48,7 @@ export default async function MembershipApprovalsPage({
   )
 
   if (canManage) {
-    void batchPrefetch([
+    batchPrefetch([
       listOptions,
       trpc.onboarding.membershipApprovalSummary.queryOptions(),
     ])

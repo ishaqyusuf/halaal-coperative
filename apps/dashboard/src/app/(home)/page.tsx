@@ -109,7 +109,7 @@ async function TenantHomePageContent({
     )
   }
 
-  await prefetch(trpc.overview.summary.queryOptions())
+  prefetch(trpc.overview.summary.queryOptions())
 
   // Shown once after "Go live" redirects here with `?live=1`.
   const goLiveBannerMessage =

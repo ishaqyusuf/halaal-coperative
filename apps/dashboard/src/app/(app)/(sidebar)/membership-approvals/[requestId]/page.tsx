@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { createDbRuntime, getMemberOnboardingRequestById } from "@halaalvest/db"
 import {
@@ -5,6 +6,10 @@ import {
   MembershipApprovalDetailView,
 } from "@/components/membership-approval-detail-view"
 import { getDashboardServerContext } from "@/lib/server-context"
+
+export const metadata: Metadata = {
+  title: "Membership request | Halaalvest",
+}
 
 export default async function MembershipApprovalDetailPage({
   params,

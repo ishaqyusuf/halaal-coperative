@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { getAuditFilterMetadata } from "@halaalvest/db"
 import { resolveDateFilter } from "@halaalvest/utils"
 import {
@@ -38,6 +39,10 @@ function getSort(
   if (direction !== "asc" && direction !== "desc") return null
 
   return [field as AuditSortField, direction]
+}
+
+export const metadata: Metadata = {
+  title: "Audit log | Halaalvest",
 }
 
 export default async function AuditViewerPage({

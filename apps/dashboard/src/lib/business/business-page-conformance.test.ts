@@ -12,7 +12,7 @@ describe("business workspace Midday conformance", () => {
     const query = read("../../components/tables/business/use-business-query.ts")
     const table = read("../../components/tables/business/data-table.tsx")
 
-    expect(page).toContain("await batchPrefetch([")
+    expect(page).toContain("batchPrefetch([")
     expect(page).toContain("getBusinessesListInput(filters, sort)")
     expect(page).not.toContain("setQueryData")
     expect(input).toContain("export function getBusinessesListInput")

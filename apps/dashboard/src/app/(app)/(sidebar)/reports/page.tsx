@@ -8,7 +8,7 @@ import {
 import { loadReportsFilterParams } from "@/hooks/use-reports-filter-params"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
-import { HydrateClient, prefetch, trpc } from "@/trpc/server"
+import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server"
 
 export const metadata: Metadata = {
   description:
@@ -44,14 +44,12 @@ export default async function ReportsPage({
     )
   }
 
-  await Promise.all([
-    prefetch(
-      trpc.reports.summary.queryOptions({
-        from: resolvedDateRange?.from,
-        to: resolvedDateRange?.to,
-      })
-    ),
-    prefetch(trpc.filters.reports.queryOptions()),
+  batchPrefetch([
+    trpc.reports.summary.queryOptions({
+      from: resolvedDateRange?.from,
+      to: resolvedDateRange?.to,
+    }),
+    trpc.filters.reports.queryOptions(),
   ])
 
   return (

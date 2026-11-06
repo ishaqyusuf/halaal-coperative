@@ -14,7 +14,7 @@ describe("member shares workspace conformance", () => {
     const loader = read("lib/shares/load-member-shares-page.ts")
 
     expect(route).toContain("getShareApplicationListInput({ filter, sort })")
-    expect(route).toContain("await batchPrefetch([listOptions])")
+    expect(route).toContain("batchPrefetch([listOptions])")
     expect(route).not.toContain("getServerCaller")
     expect(route).not.toContain("setQueryData")
     expect(loader).not.toContain("listMemberShareApplications")

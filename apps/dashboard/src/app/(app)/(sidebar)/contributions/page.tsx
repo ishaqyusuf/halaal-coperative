@@ -50,7 +50,7 @@ export default async function ContributionsPage({
 
   if (activeView === "ledger") {
     const ledgerInput = getContributionListInput(filters, sort)
-    await batchPrefetch([
+    batchPrefetch([
       trpc.contributions.ledger.infiniteQueryOptions(ledgerInput, {
         getNextPageParam: ({ meta }) => meta?.cursor,
       }),

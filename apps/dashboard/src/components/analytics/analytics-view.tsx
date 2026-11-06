@@ -1,8 +1,10 @@
 "use client"
 
 import { useSuspenseQuery } from "@tanstack/react-query"
+import { Skeleton } from "@halaalvest/ui/components/skeleton"
 import { formatCurrency, formatPercent } from "@halaalvest/utils"
-import { useState } from "react"
+import { Suspense, useDeferredValue } from "react"
+import { useAnalyticsParams } from "@/hooks/use-analytics-params"
 import { overdueRepaymentScheduleHref } from "@/lib/repayments/repayments-drilldown"
 import { useTRPC } from "@/trpc/client"
 import {
@@ -40,9 +42,7 @@ function MetricLink({
       className="group flex !h-auto min-h-[160px] flex-col items-start rounded-none border border-border bg-background p-4 text-left hover:border-foreground/20 hover:bg-muted"
     >
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="mt-4 text-2xl font-medium text-foreground">
-        {value}
-      </span>
+      <span className="mt-4 text-2xl font-medium text-foreground">{value}</span>
       <span className="mt-2 min-h-10 text-xs leading-5 text-muted-foreground">
         {detail}
       </span>
@@ -106,7 +106,7 @@ function ContributionAnalytics({
 }) {
   const maxContributionValue = Math.max(
     ...data.trend.flatMap((item) => [item.expected, item.received]),
-    1,
+    1
   )
 
   return (
@@ -136,7 +136,10 @@ function ContributionAnalytics({
       </dl>
       <div className="mt-5 space-y-4">
         {data.trend.map((item) => (
-          <div key={item.periodKey} className="space-y-2 border-t border-border pt-4">
+          <div
+            key={item.periodKey}
+            className="space-y-2 border-t border-border pt-4"
+          >
             <p className="text-xs font-medium text-foreground">
               {item.periodLabel}
             </p>
@@ -168,7 +171,7 @@ function FinancingAnalytics({
       item.repaymentsPosted,
       item.overdueScheduledAmount,
     ]),
-    1,
+    1
   )
 
   return (
@@ -218,7 +221,10 @@ function FinancingAnalytics({
       </div>
       <div className="mt-5 space-y-4">
         {data.movementTrend.map((item) => (
-          <div key={item.periodKey} className="space-y-2 border-t border-border pt-4">
+          <div
+            key={item.periodKey}
+            className="space-y-2 border-t border-border pt-4"
+          >
             <p className="text-xs font-medium text-foreground">
               {item.periodLabel}
             </p>
@@ -297,48 +303,23 @@ function ShareProfitAnalytics({
   )
 }
 
-export function AnalyticsView() {
-  const [period, setPeriod] = useState<AnalyticsPeriod>("last_6_months")
+function AnalyticsTitle({ period }: { period: AnalyticsPeriod }) {
   const trpc = useTRPC()
   const { data } = useSuspenseQuery(
-    trpc.analytics.summary.queryOptions({ period }),
+    trpc.analytics.summary.queryOptions({ period })
+  )
+
+  return <>{data.workspace.tenantName} analytics</>
+}
+
+function AnalyticsContent({ period }: { period: AnalyticsPeriod }) {
+  const trpc = useTRPC()
+  const { data } = useSuspenseQuery(
+    trpc.analytics.summary.queryOptions({ period })
   )
 
   return (
-    <div className="flex flex-col gap-5">
-      <section className="border-b border-border pb-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase">
-              Analytics
-            </p>
-            <h1 className="mt-3 text-2xl font-medium text-foreground sm:text-3xl">
-              {data.workspace.tenantName} analytics
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-              Decision trends for collection pacing, financing exposure,
-              member trust, and share-profit governance.
-            </p>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            {analyticsPeriodOptions.map((option) => (
-              <button
-                className={
-                  option.value === period
-                    ? "inline-flex h-7 items-center border border-foreground bg-foreground px-2.5 text-xs font-medium text-background"
-                    : "inline-flex h-7 items-center border border-border bg-background px-2.5 text-xs font-medium text-foreground hover:bg-muted"
-                }
-                key={option.value}
-                onClick={() => setPeriod(option.value)}
-                type="button"
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
-
+    <>
       <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <MetricLink
           detail="After reserves, active exposure, and approved commitments."
@@ -388,6 +369,110 @@ export function AnalyticsView() {
         <MemberTrustAnalytics data={data.memberTrustAnalytics} />
         <ShareProfitAnalytics data={data.shareProfitAnalytics} />
       </section>
+    </>
+  )
+}
+
+function AnalyticsContentSkeleton() {
+  return (
+    <div
+      aria-label="Loading analytics"
+      className="flex flex-col gap-5"
+      role="status"
+    >
+      <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        {Array.from({ length: 5 }, (_, index) => (
+          <div
+            className="min-h-[112px] border border-border bg-background p-4"
+            key={index}
+          >
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="mt-5 h-7 w-20" />
+            <Skeleton className="mt-3 h-3 w-full" />
+          </div>
+        ))}
+      </div>
+      {Array.from({ length: 2 }, (_, row) => (
+        <div className="grid gap-4 xl:grid-cols-2" key={row}>
+          {Array.from({ length: 2 }, (_, index) => (
+            <div
+              className="min-h-64 border border-border bg-background p-4 sm:p-5"
+              key={index}
+            >
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="mt-3 h-5 w-44 max-w-full" />
+              <Skeleton className="mt-6 h-4 w-full" />
+              <Skeleton className="mt-3 h-4 w-4/5" />
+              <Skeleton className="mt-3 h-4 w-3/5" />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export function AnalyticsView() {
+  const { period, setParams } = useAnalyticsParams()
+  // The figures render from the deferred period, so the current ones stay on
+  // screen (dimmed) while the next period's summary loads.
+  const shownPeriod = useDeferredValue(period)
+  const isStale = shownPeriod !== period
+
+  return (
+    <div className="flex flex-col gap-5">
+      <section className="border-b border-border pb-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase">
+              Analytics
+            </p>
+            <h1 className="mt-3 text-2xl font-medium text-foreground sm:text-3xl">
+              <Suspense
+                fallback={
+                  <Skeleton className="inline-block h-8 w-64 max-w-full align-middle" />
+                }
+              >
+                <AnalyticsTitle period={shownPeriod} />
+              </Suspense>
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+              Decision trends for collection pacing, financing exposure, member
+              trust, and share-profit governance.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {analyticsPeriodOptions.map((option) => (
+              <button
+                aria-pressed={option.value === period}
+                className={
+                  option.value === period
+                    ? "inline-flex h-7 items-center border border-foreground bg-foreground px-2.5 text-xs font-medium text-background"
+                    : "inline-flex h-7 items-center border border-border bg-background px-2.5 text-xs font-medium text-foreground hover:bg-muted"
+                }
+                key={option.value}
+                onClick={() => void setParams({ period: option.value })}
+                type="button"
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div
+        aria-busy={isStale}
+        className={
+          isStale
+            ? "flex flex-col gap-5 opacity-60 transition-opacity"
+            : "flex flex-col gap-5 transition-opacity"
+        }
+      >
+        <Suspense fallback={<AnalyticsContentSkeleton />}>
+          <AnalyticsContent period={shownPeriod} />
+        </Suspense>
+      </div>
     </div>
   )
 }

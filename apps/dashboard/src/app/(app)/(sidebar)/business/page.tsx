@@ -43,7 +43,7 @@ export default async function BusinessPage({
   const initialSettings = await getInitialTableSettings("business")
   const listInput = getBusinessesListInput(filters, sort)
 
-  await batchPrefetch([
+  batchPrefetch([
     trpc.business.list.infiniteQueryOptions(listInput, {
       getNextPageParam: ({ meta }) => meta?.cursor,
     }),

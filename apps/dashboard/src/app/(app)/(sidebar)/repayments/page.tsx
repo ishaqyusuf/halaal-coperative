@@ -44,7 +44,7 @@ export default async function RepaymentsPage({
             { getNextPageParam: ({ meta }) => meta?.cursor }
           )
 
-    await batchPrefetch([
+    batchPrefetch([
       activeListOptions,
       trpc.filters.repayments.queryOptions(),
     ])

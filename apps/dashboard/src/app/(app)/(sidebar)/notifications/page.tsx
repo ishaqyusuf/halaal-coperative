@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { cooperativeRoles, getRoleDisplayName } from "@halaalvest/auth/roles"
 import {
   getNotificationFilterMetadata,
@@ -48,6 +49,10 @@ function getSort(
   if (direction !== "asc" && direction !== "desc") return null
 
   return [field as NotificationSortField, direction]
+}
+
+export const metadata: Metadata = {
+  title: "Notifications | Halaalvest",
 }
 
 export default async function NotificationsPage({

@@ -36,6 +36,8 @@ export function HydrateClient({
   )
 }
 
+// Fire-and-forget, as in Midday: the pending queries dehydrate into
+// `HydrateClient`, so pages return immediately and stream the data.
 export function prefetch<T extends { queryKey: unknown }>(queryOptions: T) {
   const queryClient = getQueryClient()
   const queryKey = Array.isArray(queryOptions.queryKey)
@@ -44,24 +46,31 @@ export function prefetch<T extends { queryKey: unknown }>(queryOptions: T) {
   const queryMeta = queryKey[1] as { type?: string } | undefined
 
   if (queryMeta?.type === "infinite") {
-    return queryClient
+    void queryClient
       .prefetchInfiniteQuery(
         queryOptions as unknown as Parameters<
           typeof queryClient.prefetchInfiniteQuery
-        >[0],
+        >[0]
       )
-      .catch(() => {})
+      .catch(() => {
+        // Avoid unhandled promise rejections from fire-and-forget prefetches.
+      })
+    return
   }
 
-  return queryClient
+  void queryClient
     .prefetchQuery(
-      queryOptions as unknown as Parameters<typeof queryClient.prefetchQuery>[0],
+      queryOptions as unknown as Parameters<typeof queryClient.prefetchQuery>[0]
     )
-    .catch(() => {})
+    .catch(() => {
+      // Avoid unhandled promise rejections from fire-and-forget prefetches.
+    })
 }
 
-export async function batchPrefetch<T extends { queryKey: unknown }>(
-  queryOptionsArray: T[],
+export function batchPrefetch<T extends { queryKey: unknown }>(
+  queryOptionsArray: T[]
 ) {
-  await Promise.all(queryOptionsArray.map((queryOptions) => prefetch(queryOptions)))
+  for (const queryOptions of queryOptionsArray) {
+    prefetch(queryOptions)
+  }
 }

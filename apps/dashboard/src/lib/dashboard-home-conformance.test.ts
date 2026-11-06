@@ -14,7 +14,7 @@ describe("dashboard home Midday conformance", () => {
 
     expect(route).toContain('title: "Overview | Halaalvest"')
     expect(route).toContain(
-      "await prefetch(trpc.overview.summary.queryOptions())"
+      "prefetch(trpc.overview.summary.queryOptions())"
     )
     expect(route).toContain("<HydrateClient>")
     expect(route).toContain("fallback={<OverviewSkeleton />}")

@@ -1,4 +1,9 @@
+import type { Metadata } from "next"
 import { FinanceSettingsRoute } from "../../finance-route"
+
+export const metadata: Metadata = {
+  title: "Member migration | Finance Settings",
+}
 
 export default async function FinanceMigrationMemberPage({
   params,

@@ -1,7 +1,7 @@
 # Web-managed mobile access and cooperative collection
 
 Date: 7 November 2026
-Status: Proposed plan delivered; implementation and commercial terms not approved.
+Status: Historical proposal, superseded by the [12 November delivery tickets](2026-11-12-cooperative-mobile-access-tickets.md).
 Scope: Product, collection, entitlement, migration and launch plan only. No runtime,
 store configuration, pricing, database or release change is made by this document.
 

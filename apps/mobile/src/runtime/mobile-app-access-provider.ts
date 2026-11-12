@@ -27,12 +27,10 @@ type AccessState = {
 const MobileAppAccessContext = createContext<AccessState | null>(null)
 
 function currentAccess(snapshot: MobileAppAccessSnapshot | null, now: number) {
-  const ends = snapshot?.accessEndsAt
-  return Boolean(
-    snapshot?.accessAllowed &&
-    ends &&
-    new Date(ends).getTime() > now &&
-    Number.isFinite(new Date(ends).getTime())
+  if (!snapshot?.accessAllowed) return false
+  return (
+    snapshot.accessEndsAt === null ||
+    new Date(snapshot.accessEndsAt).getTime() > now
   )
 }
 
@@ -66,8 +64,13 @@ export function MobileAppAccessProvider({
     try {
       const snapshot = await getMobileAppAccessSnapshot()
       if (!active.current || id !== request.current) return false
-      if (snapshot.userBinding.toLowerCase() !== profile?.user.id.toLowerCase())
-        throw new Error("Account binding mismatch")
+      if (
+        snapshot.userBinding !== profile?.user.id ||
+        snapshot.tenantId !== profile?.tenant.id ||
+        snapshot.membershipId !== profile?.activeMembershipId
+      ) {
+        throw new Error("Workspace binding mismatch")
+      }
       setNow(Date.now())
       setState({ scope, snapshot, checking: false, error: false })
       return currentAccess(snapshot, Date.now())
@@ -76,7 +79,13 @@ export function MobileAppAccessProvider({
         setState({ scope, snapshot: null, checking: false, error: true })
       return false
     }
-  }, [profile?.user.id, role, scope])
+  }, [
+    profile?.activeMembershipId,
+    profile?.tenant.id,
+    profile?.user.id,
+    role,
+    scope,
+  ])
   useEffect(() => {
     active.current = true
     if (scope && role) void refresh()
@@ -93,7 +102,8 @@ export function MobileAppAccessProvider({
     })
     return () => subscription.remove()
   }, [refresh, role, scope])
-  const snapshot = state.scope === scope ? state.snapshot : null
+  const current = state.scope === scope ? state : null
+  const snapshot = current?.snapshot ?? null
   useEffect(() => {
     const ends = snapshot?.accessEndsAt
     if (!ends) return
@@ -114,21 +124,12 @@ export function MobileAppAccessProvider({
   const value = useMemo<AccessState>(
     () => ({
       accessAllowed: currentAccess(snapshot, now),
-      checking: Boolean(role) && (!snapshot || state.checking) && !state.error,
-      error: state.scope === scope && state.error,
+      checking: Boolean(role) && (!current || current.checking),
+      error: current?.error ?? false,
       snapshot,
       refresh,
     }),
-    [
-      now,
-      refresh,
-      role,
-      scope,
-      snapshot,
-      state.checking,
-      state.error,
-      state.scope,
-    ]
+    [current, now, refresh, role, snapshot]
   )
   return createElement(MobileAppAccessContext.Provider, { value }, children)
 }

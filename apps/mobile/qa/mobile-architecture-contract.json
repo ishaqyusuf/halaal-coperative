@@ -364,24 +364,14 @@
     {
       "file": "src/app/(admin)/(tabs)/more.tsx",
       "path": "/(admin)/more",
-      "feature": "settings-access-subscription",
+      "feature": "settings-access",
       "roles": [
         "tenant_admin",
         "finance_officer",
         "operations_officer",
         "super_admin"
       ],
-      "tenantBoundary": "Settings and access surfaces render server permissions; subscription changes require tenant-admin authority."
-    },
-    {
-      "file": "src/app/(admin)/subscription.tsx",
-      "path": "/(admin)/subscription",
-      "feature": "subscription",
-      "roles": [
-        "tenant_admin",
-        "super_admin"
-      ],
-      "tenantBoundary": "Commercial details, invoices, entitlements, usage, and plan intents are server-scoped to the active tenant and require subscription-administration permission."
+      "tenantBoundary": "Settings and access surfaces render server permissions."
     },
     {
       "file": "src/app/(admin)/operation-profile.tsx",
@@ -488,7 +478,7 @@
         "operations_officer",
         "super_admin"
       ],
-      "tenantBoundary": "Signed account and active tenant membership are required. Purchase and restoration bind to the server-verified individual user; this recovery route remains available before paid access is granted."
+      "tenantBoundary": "A signed account can check cooperative access and reach recovery before approval. The decision is scoped to the active account, tenant and membership."
     },
     {
       "file": "src/app/cooperative-shortcut/[shortcutId].tsx",

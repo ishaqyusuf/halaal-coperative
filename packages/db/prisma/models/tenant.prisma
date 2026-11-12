@@ -25,6 +25,7 @@ model Tenant {
   migrationEmergencyUnlockedByUserId String?                @map("migration_emergency_unlocked_by_user_id") @db.Uuid
   migrationEmergencyUnlockReason     String?                @map("migration_emergency_unlock_reason")
   isDirectDeductionEnabled           Boolean                @default(false) @map("is_direct_deduction_enabled")
+  cooperativeMobileAccessEnabled     Boolean                @default(false) @map("cooperative_mobile_access_enabled")
   trustLegalTermsUrl                 String?                @map("trust_legal_terms_url")
   trustPrivacyPolicyUrl              String?                @map("trust_privacy_policy_url")
   trustDataProcessingUrl             String?                @map("trust_data_processing_url")
@@ -52,6 +53,8 @@ model Tenant {
   subscriptionProviderEvents            SubscriptionProviderEvent[]
   mobileAppAccessPurchases              MobileAppAccessPurchase[]
   mobileAppReviewGrants                 MobileAppReviewGrant[]
+  cooperativeMobileAccessTerms          CooperativeMobileAccessTerm[]
+  cooperativeMobileInvoices             CooperativeMobileInvoice[]
   serviceSettings                       TenantServiceSetting[]
   businessPolicy                        TenantBusinessPolicy?
   domains                               TenantDomain[]

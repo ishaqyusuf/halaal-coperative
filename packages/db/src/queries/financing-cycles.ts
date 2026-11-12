@@ -8,6 +8,7 @@ import type {
 } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
+import { getMobileBillingCommitmentAmount } from "./cooperative-mobile-billing"
 
 export type FinancingPolicySnapshot = {
   activeFinancingBlocksEmergency: boolean
@@ -673,31 +674,37 @@ export async function getDeployableFundsSnapshot(
   prismaOverride?: PrismaClient
 ): Promise<DeployableFundsSnapshot> {
   const prisma = getPrisma(prismaOverride)
-  const [contributionSum, outstandingLoanSum, approvedHoldSum, policy] =
-    await Promise.all([
-      prisma.contribution.aggregate({
-        _sum: { amount: true },
-        where: { tenantId: input.tenantId, status: "posted" },
-      }),
-      prisma.loan.aggregate({
-        _sum: { outstandingPrincipal: true },
-        where: {
-          tenantId: input.tenantId,
-          status: { in: [...ACTIVE_FINANCING_STATUSES] },
-        },
-      }),
-      prisma.loan.aggregate({
-        _sum: { principalAmount: true },
-        where: {
-          tenantId: input.tenantId,
-          status: "approved",
-          ...(input.excludeLoanId ? { id: { not: input.excludeLoanId } } : {}),
-        },
-      }),
-      prisma.tenantPolicy.findUnique({
-        where: { tenantId: input.tenantId },
-      }),
-    ])
+  const [
+    contributionSum,
+    outstandingLoanSum,
+    approvedHoldSum,
+    policy,
+    mobileBillingCommitmentAmount,
+  ] = await Promise.all([
+    prisma.contribution.aggregate({
+      _sum: { amount: true },
+      where: { tenantId: input.tenantId, status: "posted" },
+    }),
+    prisma.loan.aggregate({
+      _sum: { outstandingPrincipal: true },
+      where: {
+        tenantId: input.tenantId,
+        status: { in: [...ACTIVE_FINANCING_STATUSES] },
+      },
+    }),
+    prisma.loan.aggregate({
+      _sum: { principalAmount: true },
+      where: {
+        tenantId: input.tenantId,
+        status: "approved",
+        ...(input.excludeLoanId ? { id: { not: input.excludeLoanId } } : {}),
+      },
+    }),
+    prisma.tenantPolicy.findUnique({
+      where: { tenantId: input.tenantId },
+    }),
+    getMobileBillingCommitmentAmount(input.tenantId, prisma),
+  ])
   const totalContributionAmount = roundMoney(
     Number(contributionSum._sum.amount ?? 0)
   )
@@ -719,7 +726,8 @@ export async function getDeployableFundsSnapshot(
         totalContributionAmount -
           outstandingFinancingAmount -
           approvedHoldAmount -
-          reserveBufferAmount
+          reserveBufferAmount -
+          mobileBillingCommitmentAmount
       )
     ),
     outstandingFinancingAmount,

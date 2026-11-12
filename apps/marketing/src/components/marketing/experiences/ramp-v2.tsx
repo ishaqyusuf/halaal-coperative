@@ -600,9 +600,9 @@ function PricingSection({ signupHref }: { signupHref: string }) {
             </h2>
           </div>
           <p className="max-w-xl text-lg leading-8 text-black/58 lg:justify-self-end">
-            The web workspace is free and mobile app access is a personal
-            subscription. Halaalvest does not take a percentage of cooperative
-            funds or financing activity.
+            The web workspace is free. Members can request mobile access from
+            their cooperative. Halaalvest does not take a percentage of
+            cooperative funds or financing activity.
           </p>
         </div>
 

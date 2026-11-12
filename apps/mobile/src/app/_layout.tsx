@@ -149,7 +149,7 @@ function RootLayoutNav() {
                 <AuthProvider>
                   <MobileAppAccessProvider>
                     <AnalyticsRuntime />
-                    <PaidNotificationRuntime>
+                    <AuthorizedNotificationRuntime>
                       <AppLockRuntime>
                         <MobileRuntimeProvider>
                           <ModalAccessibilityProvider>
@@ -182,7 +182,7 @@ function RootLayoutNav() {
                           </ModalAccessibilityProvider>
                         </MobileRuntimeProvider>
                       </AppLockRuntime>
-                    </PaidNotificationRuntime>
+                    </AuthorizedNotificationRuntime>
                   </MobileAppAccessProvider>
                 </AuthProvider>
               </TRPCReactProvider>
@@ -194,7 +194,11 @@ function RootLayoutNav() {
   )
 }
 
-function PaidNotificationRuntime({ children }: { children: React.ReactNode }) {
+function AuthorizedNotificationRuntime({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   const access = useMobileAppAccess()
   return access.accessAllowed ? (
     <NotificationRuntime>{children}</NotificationRuntime>

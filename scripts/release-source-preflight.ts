@@ -2,21 +2,22 @@ import { createHash } from "node:crypto"
 import { readFile, stat } from "node:fs/promises"
 import path from "node:path"
 
-// These launch inputs are currently absent from a clean checkout of HEAD.
 // Their presence is a minimum release-source check, not proof that every
 // dependency is committed or included in the final EAS/Vercel archive.
 export const requiredLaunchSourcePaths = [
   "apps/dashboard/vendor/xlsx-0.20.3.tgz",
   "apps/mobile/release-version.js",
   "apps/mobile/release-version.ts",
-  // Store builds require the separate per-user app-access authority and paywall.
-  "apps/api/src/routers/mobile-app-access.route.ts",
+  "apps/api/src/routers/cooperative-mobile-access.route.ts",
+  "apps/api/src/routers/cooperative-mobile-billing.route.ts",
   "apps/mobile/src/runtime/mobile-app-access-provider.ts",
   "apps/mobile/src/features/mobile-app-access/routes/mobile-app-access-route-controller.tsx",
-  "packages/db/prisma/models/mobile-app-access.prisma",
-  "packages/db/prisma/migrations/20260929014614_mobile_app_review_grant/migration.sql",
-  "packages/db/src/queries/mobile-app-access.ts",
-  "packages/db/src/queries/mobile-app-review-grants.ts",
+  "packages/db/prisma/models/cooperative-mobile-access.prisma",
+  "packages/db/prisma/models/cooperative-mobile-billing.prisma",
+  "packages/db/prisma/migrations/20261112184631_cooperative_mobile_access_billing/migration.sql",
+  "packages/db/src/queries/cooperative-mobile-access.ts",
+  "packages/db/src/queries/cooperative-mobile-billing.ts",
+  "packages/jobs/src/tasks/cooperative-mobile-billing.task.ts",
   "packages/domain/src/modules/public-policies.ts",
   "packages/db/src/legal-publication.ts",
   "apps/marketing/src/components/external-deletion-request-form.tsx",
@@ -45,7 +46,7 @@ export async function assertLaunchSourcePresent(repoDir: string) {
   }
   if (missing.length) {
     throw new Error(
-      `Release source is incomplete or the required launch feature is not implemented; missing: ${missing.join(", ")}. Complete and review the per-user mobile app-access source before a store build, then inspect the exact upload archive.`
+      `Release source is incomplete; missing: ${missing.join(", ")}. Complete the cooperative mobile access and billing source before a store build, then inspect the upload archive.`
     )
   }
   const sheetJsTarball = await readFile(path.join(repoDir, sheetJsTarballPath))

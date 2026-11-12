@@ -387,18 +387,7 @@ export const mobileQaFormCoverage = [
     sources: [adminShareProfit],
   },
 
-  // Account, consent, and payment surfaces without draft fields
-  {
-    formId: "mobile.subscription.store-purchase",
-    kind: "excluded",
-    reason: "Store payments require the platform purchase sheet.",
-    sources: [
-      feature(
-        "mobile-app-access/routes/mobile-app-access-route-controller.tsx"
-      ),
-      feature("subscription/screens/subscription-screen.tsx"),
-    ],
-  },
+  // Account and consent surfaces without draft fields
   {
     formId: "mobile.account.deletion",
     kind: "excluded",

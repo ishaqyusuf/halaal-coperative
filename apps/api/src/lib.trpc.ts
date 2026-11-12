@@ -8,7 +8,7 @@ import {
 import {
   assertMemberOperationalReadiness,
   getMemberByUserId,
-  getMobileAppAccessSnapshot,
+  getCooperativeMobileAccessSnapshot,
 } from "@halaalvest/db"
 import { initTRPC, TRPCError } from "@trpc/server"
 
@@ -36,7 +36,6 @@ export const createTRPCRouter = t.router
 export const createCallerFactory = t.createCallerFactory
 const mobileRecoveryPaths = [
   "auth.mobile.",
-  "mobileAppAccess.",
   "accountPrivacy.",
   "legal.",
   "support.",
@@ -46,7 +45,9 @@ const mobileRecoveryPaths = [
 
 export function mobileAccessPathAllowed(path: string | undefined) {
   return Boolean(
-    path && mobileRecoveryPaths.some((prefix) => path.startsWith(prefix))
+    path &&
+    (path === "cooperativeMobileAccess.snapshot" ||
+      mobileRecoveryPaths.some((prefix) => path.startsWith(prefix)))
   )
 }
 
@@ -57,27 +58,18 @@ const withErrorContract = t.middleware(async (opts) => {
   ) {
     const session = opts.ctx.auth.session
     const tenant = opts.ctx.tenant.current
-    if (!session || !tenant)
+    const membership = opts.ctx.auth.activeMembership
+    if (!session || !tenant || !membership)
       throw new TRPCError({ code: "UNAUTHORIZED", message: "Sign in again." })
-    let allowed = false
-    try {
-      const environment = process.env.STORE_BILLING_ENVIRONMENT
-      if (environment !== "sandbox" && environment !== "production")
-        throw new Error("Store environment unavailable")
-      allowed = (
-        await getMobileAppAccessSnapshot({
-          userId: session.user.id,
-          tenantId: tenant.id,
-          environment,
-        })
-      ).accessAllowed
-    } catch {
-      // A provider/database outage cannot create a paid-access grant.
-    }
-    if (!allowed)
+    const access = await getCooperativeMobileAccessSnapshot({
+      userId: session.user.id,
+      tenantId: tenant.id,
+      membershipId: membership.id,
+    })
+    if (!access.accessAllowed)
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: "A current personal mobile app subscription is required.",
+        message: "Contact your cooperative to request mobile access.",
       })
   }
   const result = await opts.next()

@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
 import { Text } from "@/components/ui/text"
 import { useLargeTextLayout } from "@/hooks/use-large-text-layout"
@@ -7,12 +6,8 @@ import { View } from "react-native"
 import type { MemberExpansionPresentation } from "../model/member-expansion-presentation"
 
 export function MemberCapacityRail({
-  canManagePlan,
-  onViewPlan,
   presentation,
 }: {
-  canManagePlan: boolean
-  onViewPlan: () => void
   presentation: Exclude<MemberExpansionPresentation, null>
 }) {
   const useStackedLayout = useLargeTextLayout()
@@ -39,21 +34,6 @@ export function MemberCapacityRail({
           {presentation.detail}
         </Text>
       </View>
-      {canManagePlan ? (
-        <Button
-          accessibilityLabel={presentation.actionLabel}
-          className={cn(
-            "bg-brand-warm active:bg-brand-warm/90 h-11 px-4",
-            useStackedLayout && "self-stretch"
-          )}
-          onPress={onViewPlan}
-        >
-          <Text className="text-brand-surface font-extrabold">
-            {presentation.actionLabel}
-          </Text>
-          <Icon className="text-brand-surface size-sm" name="ArrowUpRight" />
-        </Button>
-      ) : null}
     </View>
   )
 }

@@ -428,6 +428,8 @@ describe("account privacy safeguards", () => {
       mobileAppAccessPurchase: { count },
       mobileAppReviewGrant: { count },
       mobileAppAccessProviderEvent: { count },
+      cooperativeMobileAccessTerm: { count },
+      cooperativeMobileInvoiceItem: { count },
       authChallenge: { count },
       mobileDeviceSession: { count },
       mobilePushRegistration: { count },

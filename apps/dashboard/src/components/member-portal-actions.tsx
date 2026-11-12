@@ -10,6 +10,7 @@ import {
   ShoppingBasketIcon,
   ShoppingCartIcon,
   ShieldCheckIcon,
+  SmartphoneIcon,
   StoreIcon,
   UsersIcon,
 } from "lucide-react"
@@ -31,6 +32,7 @@ export function MemberPortalActions({
 }) {
   const [open, setOpen] = useState(false)
   const actions: MemberPortalAction[] = [
+    { href: "/mobile-access", icon: SmartphoneIcon, label: "Mobile access" },
     {
       href: "/payment-receipts",
       icon: ReceiptTextIcon,

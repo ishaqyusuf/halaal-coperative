@@ -1,0 +1,45 @@
+enum CooperativeMobileInvoiceStatus {
+  issued
+  paid
+}
+
+model CooperativeMobileInvoice {
+  id               String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String                         @map("tenant_id") @db.Uuid
+  period           String                         @db.VarChar(7)
+  currencyCode     String                         @map("currency_code") @db.VarChar(3)
+  totalAmount      Decimal                        @map("total_amount") @db.Decimal(18, 2)
+  status           CooperativeMobileInvoiceStatus @default(issued)
+  issuedAt         DateTime                       @map("issued_at") @db.Timestamptz(6)
+  dueAt            DateTime                       @map("due_at") @db.Date
+  paidAt           DateTime?                      @map("paid_at") @db.Date
+  paymentReference String?                        @map("payment_reference") @db.VarChar(120)
+  paymentKey       String?                        @unique @map("payment_key") @db.VarChar(120)
+  accrualPostedAt  DateTime?                      @map("accrual_posted_at") @db.Timestamptz(6)
+  remittancePostedAt DateTime?                    @map("remittance_posted_at") @db.Timestamptz(6)
+  updatedAt        DateTime                       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items  CooperativeMobileInvoiceItem[]
+
+  @@unique([tenantId, period], map: "coop_mobile_invoices_tenant_period_key")
+  @@index([status, period], map: "coop_mobile_invoices_status_period_idx")
+  @@map("cooperative_mobile_invoices")
+}
+
+model CooperativeMobileInvoiceItem {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  termId              String    @unique @map("term_id") @db.Uuid
+  chargeApplicationId String?   @unique @map("charge_application_id") @db.Uuid
+  invoiceId           String?   @map("invoice_id") @db.Uuid
+  chargeDueAt         DateTime  @map("charge_due_at") @db.Date
+  amount              Decimal   @db.Decimal(18, 2)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  term              CooperativeMobileAccessTerm @relation(fields: [termId], references: [id], onDelete: Cascade)
+  invoice           CooperativeMobileInvoice?   @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  chargeApplication ChargeApplication?           @relation(fields: [chargeApplicationId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId, chargeDueAt], map: "coop_mobile_invoice_items_invoice_due_idx")
+  @@map("cooperative_mobile_invoice_items")
+}

@@ -33,6 +33,7 @@ model Member {
   collectionSourceContributionBatchRows CollectionSourceContributionBatchRow[]
   paymentReceipts                       MemberPaymentReceipt[]
   paymentReceiptAllocations             MemberPaymentReceiptAllocation[]
+  cooperativeMobileAccessTerms          CooperativeMobileAccessTerm[]
   shareOverrides                        MemberShareOverride[]
   amountLogs                            MemberAmountLog[]
   chargeApplications                    ChargeApplication[]

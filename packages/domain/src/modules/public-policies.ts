@@ -28,7 +28,7 @@ export const publicDeletionFlowCopy = {
     introduction:
       "This email link verifies control of the account email. It does not yet complete identity review or erase account data.",
     details:
-      "We will review cooperative administration handover, financial record retention and processor deletion separately. Requesting deletion does not cancel an Apple or Google subscription.",
+      "We will review cooperative administration handover, financial record retention and processor deletion separately. Cooperative charges already due remain subject to the cooperative’s rules.",
     confirmation:
       "I request deletion of this account and associated eligible personal data, and understand that shared cooperative records may need to be retained.",
     submitLabel: "Submit deletion request",
@@ -54,7 +54,7 @@ export type PublicPolicy = {
 }
 
 // Review drafts are deliberately not contract-acceptance versions.
-export const publicPolicyRevision = "2026-10-07-draft-6"
+export const publicPolicyRevision = "2026-11-12-draft-7"
 export const publicPolicyStatus = "draft" as const
 
 export const publicPolicies = {
@@ -84,8 +84,8 @@ export const publicPolicies = {
         body: "Cooperatives and authorised users may provide member documents, receipt evidence and support content. The final terms must identify who may submit this material, what rights or authority they must have, and the limited permission HalaalVest needs to store, display and process it for the service. Complaint, correction, removal and retention steps also require owner and legal approval. This draft does not establish that permission or settle ownership of the material.",
       },
       {
-        title: "Subscriptions and closure",
-        body: "The web dashboard does not require a personal mobile app subscription. Each person who chooses the mobile app, including a member, staff member or administrator, buys their own Apple App Store or Google Play subscription for app access. The app fee is separate from cooperative contributions, financing repayments, share capital and levies. Store checkout must show the final price, billing period and renewal terms before purchase. Manage or cancel the subscription through the store account used to pay. Deleting a HalaalVest account does not cancel store renewal or settle cooperative obligations. Final refund, suspension and dispute terms require owner and legal review before sales open.",
+        title: "Mobile access and account closure",
+        body: "Members can request mobile access from their cooperative. The cooperative approves access and discloses any applicable charge before the member requests it. The cooperative applies that charge through its normal account process when due. HalaalVest invoices the cooperative for mobile access. Account closure does not settle charges already due under the cooperative’s rules.",
       },
       {
         title: "Review before launch",
@@ -104,7 +104,7 @@ export const publicPolicies = {
       },
       {
         title: "Information used by the service",
-        body: "Depending on your role and enabled features, records include name, email, phone, cooperative access code, membership and employment details, account credentials, contributions, shares, financing and guarantor records, repayments, supporting documents, support messages, permissions and audit history. Sessions, device registration and push tokens support account security and notifications. For mobile app access, the service records the store provider, product, verified purchase identifiers or digests, subscription status and period, and provider-event history linked to the individual account.",
+        body: "Depending on your role and enabled features, records include name, email, phone, cooperative access code, membership and employment details, account credentials, contributions, shares, financing and guarantor records, repayments, supporting documents, support messages, permissions and audit history. Sessions, device registration and push tokens support account security and notifications. For mobile access, the service records the request, acceptance of the disclosed charge, cooperative approval and access period. Charge and invoice records support reconciliation and audit.",
       },
       {
         title: "Why information is used",
@@ -112,7 +112,7 @@ export const publicPolicies = {
       },
       {
         title: "Providers and diagnostics",
-        body: "Hosting, database, email, notification and any enabled payment or storage providers process data needed for their functions. Apple and Google process individual app subscription payments and provide purchase status for server verification. Enabled Sentry diagnostics are filtered to remove member identity and financial content. Logly receives bounded usage events; minimised analytics do not mean the service collects no data. The production processor list, locations and international-transfer safeguards require operator review.",
+        body: "Hosting, database, email, notification and any enabled payment or storage providers process data needed for their functions. Enabled Sentry diagnostics are filtered to remove member identity and financial content. Logly receives bounded usage events; minimised analytics do not mean the service collects no data. The production processor list, locations and international-transfer safeguards require operator review.",
       },
       {
         title: "Device permissions",
@@ -182,19 +182,19 @@ export const publicPolicies = {
   "billing-policy": {
     title: "Software billing policy",
     introduction:
-      "The web dashboard does not require a personal app subscription. Each mobile user buys their own Apple or Google app-access subscription; that fee is separate from cooperative money and member obligations.",
+      "Members can request mobile access from their cooperative. HalaalVest invoices each participating cooperative for the mobile access terms due that month.",
     sections: [
       {
-        title: "Price and renewal",
-        body: "The planned base prices are US$0.99 for six months or US$1.99 for one year. Prices in other storefronts are localized by Apple or Google and may differ due to available price tiers, currency conversion and taxes. Both periods provide the same mobile app features, and each member, staff member or administrator pays through their own store account. These are owner-selected prices, subject to actual Apple and Google product configuration and storefront verification before sales open. Store checkout must show the final local price, applicable taxes, billing period and automatic-renewal terms. No trial is planned for launch.",
+        title: "Member charge and renewal",
+        body: "Before requesting access, a member sees the applicable annual charge and when it will be due. Access begins when the cooperative approves the request. The cooperative posts the charge to the member account when due through its normal charge process. A new term requires a new request and approval.",
       },
       {
-        title: "Cancellation and refunds",
-        body: "Manage or cancel the subscription in the Apple or Google store account used to pay to stop future renewals. Uninstalling the app or deleting a HalaalVest account does not cancel the store subscription. The operator must approve the effects of cancellation, refund eligibility, failed payment, grace periods and account closure before sales open. This draft does not promise a refund entitlement or deny statutory rights.",
+        title: "Cooperative invoices",
+        body: "At month-end, HalaalVest invoices the cooperative for the terms billable for the month. The cooperative pays HalaalVest directly and handles the member’s charge separately. Member payment status does not determine app access or the cooperative’s invoice.",
       },
       {
-        title: "Mobile access",
-        body: "Mobile app access requires an individual subscription for every user role. Store product configuration, server verification and release validation must be completed before purchases are enabled. Cooperative contributions, share payments and financing repayments are not app subscription purchases.",
+        title: "Questions about a charge",
+        body: "Ask your cooperative about the amount, due date or a disputed charge on your member account. Mobile access charges are recorded separately from savings contributions, share capital and financing repayments.",
       },
     ],
   },

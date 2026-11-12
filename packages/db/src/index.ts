@@ -79,6 +79,8 @@ export * from "./filter-metadata"
 export * from "./queries/store-subscriptions"
 export * from "./queries/store-refund-reviews"
 export * from "./queries/mobile-app-access"
+export * from "./queries/cooperative-mobile-access"
+export * from "./queries/cooperative-mobile-billing"
 export * from "./queries/mobile-app-review-grants"
 
 export * from "./queries/account-privacy"

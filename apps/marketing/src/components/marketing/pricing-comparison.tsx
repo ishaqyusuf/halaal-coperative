@@ -2,7 +2,6 @@ import { buttonVariants } from "@halaalvest/ui/components/button"
 import { ArrowRightIcon, CheckIcon } from "lucide-react"
 import Link from "next/link"
 import {
-  mobileAppAccessPrices,
   mobileAppAccessTerms,
   pricingFeePrinciples,
   publicPriceList,
@@ -24,9 +23,9 @@ export function PricingComparison({
             Free on the web. No cut of member money.
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-[#0B1F36]/64">
-            Run your cooperative in the web workspace at no cost. The mobile app
-            is an optional personal subscription, and provider costs and
-            one-time implementation work stay visible and separate.
+            Run your cooperative in the web workspace at no cost. Members can
+            request mobile access through their cooperative. Provider costs and
+            one-time implementation work are disclosed separately.
           </p>
 
           <dl className="mt-14 overflow-hidden rounded-[1.5rem] border border-[#0B1F36]/10 bg-white">
@@ -62,22 +61,6 @@ export function PricingComparison({
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div className="rounded-[1.5rem] border border-[#0B1F36] bg-[#0B1F36] p-6 text-white sm:p-8">
               <h2 className="text-xl font-semibold">Mobile app access</h2>
-              <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-white/12">
-                <p className="bg-[#0B1F36] p-4">
-                  <span className="block text-xs text-white/55">
-                    Six months
-                  </span>
-                  <span className="marketing-serif mt-1 block text-3xl">
-                    {mobileAppAccessPrices.sixMonths}
-                  </span>
-                </p>
-                <p className="bg-[#0B1F36] p-4">
-                  <span className="block text-xs text-white/55">One year</span>
-                  <span className="marketing-serif mt-1 block text-3xl">
-                    {mobileAppAccessPrices.oneYear}
-                  </span>
-                </p>
-              </div>
               <ul className="mt-6 space-y-3">
                 {mobileAppAccessTerms.map((term) => (
                   <li className="flex items-start gap-2 text-sm" key={term}>

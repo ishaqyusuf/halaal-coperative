@@ -202,7 +202,6 @@ const config: ExpoConfig = {
     "./plugins/with-app-update.cjs",
     ...sentryPlugins,
     "expo-router",
-    "expo-iap",
     "./plugins/with-ios-pod-deployment-target",
     "expo-font",
     "expo-web-browser",

@@ -11,9 +11,11 @@ import type {
   AdminAccessInviteResult,
 } from "@/features/admin-reports-access/public/admin-access-types"
 import { canManageMobileOperationProfile } from "@/features/operation-profile/public/operation-profile-policy"
-import { getLegalBundle, getLegalRecords } from "@/features/legal/public/legal-read-api"
+import {
+  getLegalBundle,
+  getLegalRecords,
+} from "@/features/legal/public/legal-read-api"
 import { useAuthContext } from "@/hooks/use-auth"
-import { canRoleManageSubscription } from "@/lib/mobile-subscription-policy"
 import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
 import { useFocusEffect, useLocalSearchParams } from "expo-router"
 import { useCallback, useEffect, useState } from "react"
@@ -287,9 +289,6 @@ export function MoreRouteController() {
       adminAccess={adminAccess}
       adminAccessError={adminAccessError}
       canManageOperationProfile={canManageMobileOperationProfile(
-        profile?.cooperativeRole
-      )}
-      canManageSubscription={canRoleManageSubscription(
         profile?.cooperativeRole
       )}
       canUseServerAdminAccess={canUseServerAdminAccess}

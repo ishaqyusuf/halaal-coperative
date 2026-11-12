@@ -212,12 +212,20 @@ export function PlatformPrivacyRequestsView() {
       title="Privacy requests"
       description="Verify identity and scope before access changes. Completion requires a separate retention and processor review."
     >
-      <Link
-        className="text-sm font-medium underline underline-offset-4"
-        href="/platform/refund-reviews"
-      >
-        Open Google refund reviews
-      </Link>
+      <div className="flex flex-wrap gap-4">
+        <Link
+          className="text-sm font-medium underline underline-offset-4"
+          href="/platform/refund-reviews"
+        >
+          Open Google refund reviews
+        </Link>
+        <Link
+          className="text-sm font-medium underline underline-offset-4"
+          href="/platform/mobile-access-invoices"
+        >
+          Open cooperative mobile access invoices
+        </Link>
+      </div>
       {queue.isLoading ? <p role="status">Loading privacy requests…</p> : null}
       {queue.isError ? (
         <div role="alert" className="space-y-2">

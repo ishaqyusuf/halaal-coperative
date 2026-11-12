@@ -26,7 +26,6 @@ import { useColors } from "@/hooks/use-color"
 import { useLargeTextLayout } from "@/hooks/use-large-text-layout"
 import { useMobileFormDraft } from "@/hooks/use-mobile-form-draft"
 import { isMobileReadCacheStale } from "@/lib/read-cache"
-import { canRoleManageSubscription } from "@/lib/mobile-subscription-policy"
 import { cn } from "@/lib/utils"
 import { useRouter } from "expo-router"
 import {
@@ -358,7 +357,6 @@ export function AdminMembersScreen({
   const canUseMembers =
     qaState !== "denied" && canUseMobileFeatureData(profile, "admin")
   const stale = isMobileReadCacheStale(members?.cache)
-  const canManagePlan = canRoleManageSubscription(profile?.cooperativeRole)
   const memberExpansionPresentation = members
     ? getMemberExpansionPresentation(members.memberExpansion)
     : null
@@ -742,8 +740,6 @@ export function AdminMembersScreen({
 
                 {memberExpansionPresentation ? (
                   <MemberCapacityRail
-                    canManagePlan={canManagePlan}
-                    onViewPlan={() => router.push("/subscription")}
                     presentation={memberExpansionPresentation}
                   />
                 ) : null}

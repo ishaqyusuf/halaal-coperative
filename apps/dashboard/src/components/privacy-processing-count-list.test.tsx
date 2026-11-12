@@ -74,6 +74,8 @@ test("renders every selected deletion link and keeps the partial-inventory cavea
     mobileAppAccessPurchases: 81,
     mobileAppReviewGrants: 83,
     mobileAppAccessProviderEvents: 82,
+    cooperativeMobileAccessTerms: 84,
+    cooperativeMobileInvoiceItems: 85,
     privacyRequests: 12,
     privacyRequestsVerified: 74,
     remainingAuthChallenges: 13,

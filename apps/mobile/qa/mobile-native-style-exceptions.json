@@ -25,11 +25,6 @@
       "file": "src/components/ui/modal.tsx",
       "allow": ["native-inline-style"],
       "reason": "The Gorhom animated backdrop requires a native runtime style; its color comes from the semantic overlay theme token."
-    },
-    {
-      "file": "src/features/subscription/screens/subscription-screen.tsx",
-      "allow": ["native-inline-style"],
-      "reason": "Subscription exception copy uses a dedicated native-text boundary with semantic theme colors and proportional runtime line heights so Android large-text settings do not clip multi-line recovery content; no element combines style with className."
     }
   ]
 }

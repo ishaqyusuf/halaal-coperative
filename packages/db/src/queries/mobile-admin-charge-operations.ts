@@ -8,6 +8,7 @@ import {
   waiveChargeApplication,
   type ChargeCollectionMode,
 } from "./charges"
+import { mobileAccessChargeCode } from "./cooperative-mobile-billing-constants"
 import { runMobileAdminCommand } from "./mobile-admin-finance-support"
 
 export const mobileAdminChargeLanes = [
@@ -236,6 +237,7 @@ export async function getMobileAdminChargeWorkspace(
       orderBy: [{ isActive: "desc" }, { name: "asc" }],
       where: {
         tenantId: input.tenantId,
+        code: { not: mobileAccessChargeCode },
         ...(input.search
           ? {
               OR: [

@@ -7,6 +7,10 @@ import {
   QueryInfrastructureError,
 } from "../query-error"
 import {
+  mobileAccessChargeCode,
+  mobileAccessExpenseAccountCode,
+} from "./cooperative-mobile-billing-constants"
+import {
   getLedgerAccountByCode,
   paymentReferenceIdempotencyKey,
   postLedgerTransaction,
@@ -87,7 +91,11 @@ export type ChargeApplicabilitySnapshot = {
   collectionMode: ChargeCollectionMode
   isRequired: boolean | null
   schemaVersion: 1
-  source: "manual" | "workflow_applicability" | "workflow_legacy_flags"
+  source:
+    | "manual"
+    | "workflow_applicability"
+    | "workflow_legacy_flags"
+    | "cooperative_mobile_access"
   sourceType: "backfill" | "import" | "live"
   target: { id: string; type: ChargeTargetType } | null
   trigger: ChargeApplicabilityTrigger | null
@@ -482,7 +490,7 @@ export async function listChargeDefinitions(
   if (!prisma) throw new Error("Database not configured")
 
   return (prisma as any).chargeDefinition.findMany({
-    where: { tenantId },
+    where: { tenantId, code: { not: mobileAccessChargeCode } },
     include: {
       applicability: {
         orderBy: [{ workflow: "asc" }, { trigger: "asc" }],
@@ -692,6 +700,9 @@ export async function createChargeDefinition(
   const internalCode =
     normalizedInput.code?.trim() ||
     `charge-${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`
+  if (internalCode === mobileAccessChargeCode) {
+    throw ExpectedQueryError.validation("This charge code is reserved.")
+  }
   const mutationMode = await getChargeDefinitionMutationMode(
     normalizedInput.tenantId,
     prisma
@@ -785,7 +796,11 @@ export async function deleteChargeDefinition(
   }
 
   return prisma.chargeDefinition.delete({
-    where: { id: chargeDefinitionId, tenantId },
+    where: {
+      id: chargeDefinitionId,
+      tenantId,
+      code: { not: mobileAccessChargeCode },
+    },
   })
 }
 
@@ -891,6 +906,11 @@ export async function updateChargeDefinition(
 
     if (!currentDefinition) {
       throw ExpectedQueryError.notFound("Charge definition not found")
+    }
+    if (currentDefinition.code === mobileAccessChargeCode) {
+      throw ExpectedQueryError.validation(
+        "This charge definition is managed by mobile billing."
+      )
     }
 
     const definition =
@@ -1093,8 +1113,10 @@ export type ApplyChargeInput = {
 }
 
 async function applyChargeInTransaction(
-  input: ApplyChargeInput & {
+  input: Omit<ApplyChargeInput, "actorUserId"> & {
+    actorUserId?: string
     applicabilitySnapshot?: ChargeApplicabilitySnapshot
+    mobileAccessTermId?: string
     workflowIdempotencyKey?: string
   },
   tx: PrismaClient
@@ -1110,7 +1132,12 @@ async function applyChargeInTransaction(
   })
   if (!chargeDef)
     throw ExpectedQueryError.notFound("Charge definition not found")
-  if (chargeDef.isActive === false) {
+  if (chargeDef.code === mobileAccessChargeCode && !input.mobileAccessTermId) {
+    throw ExpectedQueryError.validation(
+      "This charge is assessed by mobile billing."
+    )
+  }
+  if (chargeDef.isActive === false && !input.mobileAccessTermId) {
     throw ExpectedQueryError.precondition("Charge definition is inactive.")
   }
 
@@ -1160,7 +1187,7 @@ async function applyChargeInTransaction(
       collectionMode,
       isRequired: null,
       schemaVersion: 1,
-      source: "manual",
+      source: input.mobileAccessTermId ? "cooperative_mobile_access" : "manual",
       sourceType: input.sourceType ?? "live",
       target: target ? { id: target.id, type: target.type } : null,
       trigger: null,
@@ -1224,7 +1251,7 @@ async function applyChargeInTransaction(
       data: {
         tenantId: input.tenantId,
         actorUserId: input.actorUserId,
-        actorType: "user",
+        actorType: input.mobileAccessTermId ? "system" : "user",
         action: "charge.staged",
         entityType: "ChargeApplication",
         entityId: application.id,
@@ -1236,6 +1263,9 @@ async function applyChargeInTransaction(
           loanId: input.loanId ?? null,
           loanRequestId: input.loanRequestId ?? null,
           memberId: input.memberId,
+          ...(input.mobileAccessTermId
+            ? { mobileAccessTermId: input.mobileAccessTermId }
+            : {}),
           procurementRequestId: input.procurementRequestId ?? null,
           projectFinancingRequestId: input.projectFinancingRequestId ?? null,
           sourceType: input.sourceType ?? "live",
@@ -1340,6 +1370,48 @@ export async function applyCharge(
   return prisma.$transaction((tx) =>
     applyChargeInTransaction(input, tx as unknown as PrismaClient)
   )
+}
+
+export async function assessCooperativeMobileAccessCharge(
+  input: {
+    tenantId: string
+    memberId: string
+    termId: string
+    amount: number
+    dueAt: Date
+  },
+  tx: PrismaClient
+) {
+  const definition = await tx.chargeDefinition.upsert({
+    where: {
+      tenantId_code: { tenantId: input.tenantId, code: mobileAccessChargeCode },
+    },
+    create: {
+      tenantId: input.tenantId,
+      code: mobileAccessChargeCode,
+      name: "Mobile app access",
+      kind: "fixed",
+      chargeFrequency: "manual",
+      amount: input.amount,
+      appliesToMembers: false,
+      isActive: false,
+    },
+    update: {},
+    select: { id: true },
+  })
+  return applyChargeInTransaction(
+    {
+      tenantId: input.tenantId,
+      memberId: input.memberId,
+      chargeDefinitionId: definition.id,
+      amount: input.amount,
+      assessedAt: input.dueAt,
+      collectionMode: "pay_separately",
+      mobileAccessTermId: input.termId,
+      workflowIdempotencyKey: `cooperative-mobile-access:${input.termId}`,
+    },
+    tx
+  ) as Promise<{ id: string }>
 }
 
 export async function quoteApplicableCharges(
@@ -1593,6 +1665,7 @@ async function postChargeCorrection(input: {
   collectionMode: ChargeCollectionMode
   isMonthlyLevy: boolean
   isShareCharge?: boolean
+  isMobileAccessCharge?: boolean
   amount: number
   applicationId: string
   applicationName: string
@@ -1609,7 +1682,13 @@ async function postChargeCorrection(input: {
   )
   const incomeAccount = await getLedgerAccountByCode(
     input.tenantId,
-    input.isShareCharge ? "3200" : input.isMonthlyLevy ? "3100" : "3000",
+    input.isMobileAccessCharge
+      ? mobileAccessExpenseAccountCode
+      : input.isShareCharge
+        ? "3200"
+        : input.isMonthlyLevy
+          ? "3100"
+          : "3000",
     input.tx
   )
 
@@ -1755,11 +1834,13 @@ export async function settleChargeApplication(
     )
     const incomeAccount = await getLedgerAccountByCode(
       input.tenantId,
-      (application.chargeDefinition as any).purpose === "member_share"
-        ? "3200"
-        : application.chargeDefinition.isMonthlyLevy
-          ? "3100"
-          : "3000",
+      application.chargeDefinition.code === mobileAccessChargeCode
+        ? mobileAccessExpenseAccountCode
+        : (application.chargeDefinition as any).purpose === "member_share"
+          ? "3200"
+          : application.chargeDefinition.isMonthlyLevy
+            ? "3100"
+            : "3000",
       tx as unknown as PrismaClient
     )
     if (!cashAccount || !incomeAccount) {
@@ -1898,6 +1979,8 @@ export async function waiveChargeApplication(
             isMonthlyLevy: application.chargeDefinition.isMonthlyLevy,
             isShareCharge:
               (application.chargeDefinition as any).purpose === "member_share",
+            isMobileAccessCharge:
+              application.chargeDefinition.code === mobileAccessChargeCode,
             amount: Number(application.amount),
             applicationId: application.id,
             applicationName: application.chargeDefinition.name,
@@ -1988,6 +2071,8 @@ export async function reverseChargeApplication(
       isMonthlyLevy: application.chargeDefinition.isMonthlyLevy,
       isShareCharge:
         (application.chargeDefinition as any).purpose === "member_share",
+      isMobileAccessCharge:
+        application.chargeDefinition.code === mobileAccessChargeCode,
       amount: Number(application.amount),
       applicationId: application.id,
       applicationName: application.chargeDefinition.name,

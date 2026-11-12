@@ -19,7 +19,7 @@ const router = createTRPCRouter({
 })
 const caller = createCallerFactory(router)
 
-describe("personal mobile access boundary", () => {
+describe("cooperative mobile access boundary", () => {
   const prior = process.env.HALAALVEST_DATABASE_URL
   beforeAll(() => {
     delete process.env.HALAALVEST_DATABASE_URL
@@ -41,7 +41,7 @@ describe("personal mobile access boundary", () => {
         authorization: `Bearer ${token}`,
         host: "api.halaalvest.localhost",
         ...(sessionKind
-          ? { "x-mobile-device-id": "mobile-personal-access-test" }
+          ? { "x-mobile-device-id": "mobile-cooperative-access-test" }
           : {}),
         ...(mobileHeader ? { "x-trpc-source": "mobile" } : {}),
       })
@@ -58,13 +58,18 @@ describe("personal mobile access boundary", () => {
     }
   })
 
-  test("keeps free web procedures outside the mobile subscription gate", async () => {
+  test("keeps web procedures outside the mobile access gate", async () => {
     const web = caller(await context())
     expect(await web.ordinary()).toBe("dashboard data")
   })
 
   test("keeps only named recovery and legal paths open", () => {
-    expect(mobileAccessPathAllowed("mobileAppAccess.verifyPurchase")).toBe(true)
+    expect(mobileAccessPathAllowed("cooperativeMobileAccess.snapshot")).toBe(
+      true
+    )
+    expect(mobileAccessPathAllowed("cooperativeMobileAccess.request")).toBe(
+      false
+    )
     expect(mobileAccessPathAllowed("auth.mobile.signOut")).toBe(true)
     expect(mobileAccessPathAllowed("accountPrivacy.requestDeletion")).toBe(true)
     expect(mobileAccessPathAllowed("mobile.member.support.create")).toBe(true)

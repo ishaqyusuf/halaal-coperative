@@ -7,7 +7,6 @@ import {
   publicDeletionFlowCopy,
 } from "@/lib/public-policies"
 import { isExternalDeletionRequestAvailable } from "@/lib/external-deletion-readiness"
-import { StoreSubscriptionCancellationHelp } from "./store-subscription-cancellation-help"
 
 export function PublicPolicyPage({
   policy,
@@ -57,7 +56,6 @@ export function PublicPolicyPage({
           </section>
         ))}
       </div>
-      {deletion ? <StoreSubscriptionCancellationHelp /> : null}
       {deletion ? (
         isExternalDeletionRequestAvailable() ? (
           <ExternalDeletionRequestForm />

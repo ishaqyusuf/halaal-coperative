@@ -130,7 +130,6 @@ export function MoreScreen({
   adminAccess,
   adminAccessError,
   canManageOperationProfile,
-  canManageSubscription,
   canUseServerAdminAccess,
   canUseServerMemberHub,
   isInviting,
@@ -154,7 +153,6 @@ export function MoreScreen({
   adminAccess: AdminAccess | null
   adminAccessError: string | null
   canManageOperationProfile: boolean
-  canManageSubscription: boolean
   canUseServerAdminAccess: boolean
   canUseServerMemberHub: boolean
   isInviting: boolean
@@ -206,7 +204,6 @@ export function MoreScreen({
   const receiptsHref = "/receipts" as Parameters<typeof router.push>[0]
   const statementHref = "/statement" as Parameters<typeof router.push>[0]
   const supportHref = "/support" as Parameters<typeof router.push>[0]
-  const subscriptionHref = "/subscription" as Parameters<typeof router.push>[0]
   const operationProfileHref = "/operation-profile" as Parameters<
     typeof router.push
   >[0]
@@ -417,13 +414,6 @@ export function MoreScreen({
                   onPress={handleOpenOwnDeviceAccess}
                   title="Device access"
                 />
-                {canManageSubscription ? (
-                  <AdminDirectoryRow
-                    icon="CreditCard"
-                    onPress={() => router.push(subscriptionHref)}
-                    title="Plan & billing"
-                  />
-                ) : null}
                 {canManageOperationProfile ? (
                   <AdminDirectoryRow
                     icon="SlidersHorizontal"

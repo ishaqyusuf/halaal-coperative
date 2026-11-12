@@ -176,12 +176,6 @@
       "source": "src/app/(admin)/members/[memberId].tsx"
     },
     {
-      "id": "admin-subscription",
-      "route": "/subscription",
-      "role": "admin",
-      "source": "src/app/(admin)/subscription.tsx"
-    },
-    {
       "id": "notifications",
       "route": "/notifications",
       "role": "authenticated",

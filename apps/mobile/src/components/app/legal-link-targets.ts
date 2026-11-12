@@ -1,7 +1,6 @@
 export const mobileLegalLinks = [
   ["terms", "Platform terms"],
   ["privacy", "Privacy notice"],
-  ["billing-policy", "Billing policy"],
   ["delete-account", "Delete account"],
   ["legal-agreements", "Platform document acknowledgements"],
   ["support", "Platform support"],

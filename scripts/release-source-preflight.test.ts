@@ -32,33 +32,33 @@ describe("release source preflight", () => {
         await readFile(path.join(import.meta.dir, "..", omitted))
       )
       await expect(assertLaunchSourcePresent(repoDir)).resolves.toBeUndefined()
-      const personalAccessRoute = path.join(
+      const cooperativeAccessRoute = path.join(
         repoDir,
-        "apps/api/src/routers/mobile-app-access.route.ts"
+        "apps/api/src/routers/cooperative-mobile-access.route.ts"
       )
-      await rm(personalAccessRoute)
+      await rm(cooperativeAccessRoute)
       await expect(assertLaunchSourcePresent(repoDir)).rejects.toThrow(
-        "mobile-app-access.route.ts"
+        "cooperative-mobile-access.route.ts"
       )
-      await writeFile(personalAccessRoute, "source")
-      const reviewGrantQuery = path.join(
+      await writeFile(cooperativeAccessRoute, "source")
+      const billingQuery = path.join(
         repoDir,
-        "packages/db/src/queries/mobile-app-review-grants.ts"
+        "packages/db/src/queries/cooperative-mobile-billing.ts"
       )
-      await rm(reviewGrantQuery)
+      await rm(billingQuery)
       await expect(assertLaunchSourcePresent(repoDir)).rejects.toThrow(
-        "mobile-app-review-grants.ts"
+        "cooperative-mobile-billing.ts"
       )
-      await writeFile(reviewGrantQuery, "source")
-      const reviewGrantMigration = path.join(
+      await writeFile(billingQuery, "source")
+      const cooperativeBillingMigration = path.join(
         repoDir,
-        "packages/db/prisma/migrations/20260929014614_mobile_app_review_grant/migration.sql"
+        "packages/db/prisma/migrations/20261112184631_cooperative_mobile_access_billing/migration.sql"
       )
-      await rm(reviewGrantMigration)
+      await rm(cooperativeBillingMigration)
       await expect(assertLaunchSourcePresent(repoDir)).rejects.toThrow(
-        "20260929014614_mobile_app_review_grant/migration.sql"
+        "20261112184631_cooperative_mobile_access_billing/migration.sql"
       )
-      await writeFile(reviewGrantMigration, "source")
+      await writeFile(cooperativeBillingMigration, "source")
       const deletionForm = path.join(
         repoDir,
         "apps/marketing/src/components/external-deletion-request-form.tsx"

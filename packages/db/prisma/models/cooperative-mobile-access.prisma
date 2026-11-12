@@ -1,0 +1,35 @@
+enum CooperativeMobileAccessTermStatus {
+  pending
+  approved
+  rejected
+  revoked
+}
+
+model CooperativeMobileAccessTerm {
+  id            String                            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String                            @map("tenant_id") @db.Uuid
+  memberId      String                            @map("member_id") @db.Uuid
+  status        CooperativeMobileAccessTermStatus @default(pending)
+  termsVersion  String                            @map("terms_version")
+  amount        Decimal                           @db.Decimal(18, 2)
+  currencyCode  String                            @map("currency_code")
+  termMonths    Int                               @map("term_months")
+  requestedAt   DateTime                          @map("requested_at") @db.Timestamptz(6)
+  reviewedAt    DateTime?                         @map("reviewed_at") @db.Timestamptz(6)
+  approvedAt    DateTime?                         @map("approved_at") @db.Timestamptz(6)
+  startsAt      DateTime?                         @map("starts_at") @db.Timestamptz(6)
+  endsAt        DateTime?                         @map("ends_at") @db.Timestamptz(6)
+  chargeDueAt   DateTime?                         @map("charge_due_at") @db.Date
+  revokedAt     DateTime?                         @map("revoked_at") @db.Timestamptz(6)
+  reviewNote    String?                           @map("review_note")
+
+  tenant      Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member      Member                        @relation(fields: [memberId], references: [id], onDelete: NoAction)
+  billingItem CooperativeMobileInvoiceItem?
+
+  @@index([tenantId, memberId, requestedAt, id], map: "coop_mobile_access_member_terms_idx")
+  @@index([tenantId, status, requestedAt, id], map: "coop_mobile_access_queue_idx")
+  @@index([tenantId, requestedAt, id], map: "coop_mobile_access_tenant_terms_idx")
+  @@index([tenantId, chargeDueAt], map: "coop_mobile_access_due_idx")
+  @@map("cooperative_mobile_access_terms")
+}

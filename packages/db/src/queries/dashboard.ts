@@ -1,5 +1,6 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { getMobileBillingCommitmentAmount } from "./cooperative-mobile-billing"
 import { getMonthlyFinancingCycleHealth } from "./financing-cycles"
 import { getTenantOperationProfile } from "./operation-profile"
 
@@ -173,6 +174,7 @@ export async function getDashboardMetrics(
     contributionSum,
     outstandingLoanSum,
     policy,
+    mobileBillingCommitmentAmount,
   ] = await Promise.all([
     prisma.member.count({ where: { tenantId } }),
     prisma.member.count({ where: { tenantId, status: "active" } }),
@@ -188,6 +190,7 @@ export async function getDashboardMetrics(
       _sum: { outstandingPrincipal: true },
     }),
     prisma.tenantPolicy.findUnique({ where: { tenantId } }),
+    getMobileBillingCommitmentAmount(tenantId, prisma),
   ])
 
   const totalContributions = Number(contributionSum._sum.amount ?? 0)
@@ -197,7 +200,10 @@ export async function getDashboardMetrics(
   const reserveBuffer = Number(policy?.reserveBufferAmount ?? 0)
   const availablePool = Math.max(
     0,
-    totalContributions - outstandingLoans - reserveBuffer
+    totalContributions -
+      outstandingLoans -
+      reserveBuffer -
+      mobileBillingCommitmentAmount
   )
 
   // Delinquency: loans with overdue schedule items / total active loans
@@ -517,10 +523,7 @@ export async function getOverviewSummary(
   )
   const deployableFunds = Math.max(
     0,
-    metrics.totalContributions -
-      metrics.outstandingLoans -
-      metrics.reserveBuffer -
-      pendingCommitmentAmount
+    metrics.availablePool - pendingCommitmentAmount
   )
   const portfolioAtRiskRate =
     metrics.outstandingLoans > 0 ? overdueAmount / metrics.outstandingLoans : 0

@@ -17,6 +17,7 @@ import { createPrismaClient } from "../prisma"
 import { isPrismaMissingColumnError } from "../prisma-errors"
 import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
+import { mobileAccessChargeCode } from "./cooperative-mobile-billing-constants"
 import { getTenantInitialMigrationState } from "./migration"
 import { readOptionalTenantBusinessPolicy } from "./tenant-business-policy"
 import { getTenantById } from "./tenants"
@@ -1271,7 +1272,7 @@ export async function getTenantFinanceSetup(
       orderBy: { effectiveFrom: "asc" },
     }),
     prisma.chargeDefinition.findMany({
-      where: { tenantId },
+      where: { tenantId, code: { not: mobileAccessChargeCode } },
       include: {
         versions: {
           orderBy: { effectiveFrom: "asc" },

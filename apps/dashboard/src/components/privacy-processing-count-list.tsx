@@ -69,6 +69,9 @@ const countLabels = {
   mobileAppAccessPurchases: "Personal mobile app store purchase chains",
   mobileAppReviewGrants: "Mobile app reviewer access grants",
   mobileAppAccessProviderEvents: "Personal mobile app provider events",
+  cooperativeMobileAccessTerms: "Cooperative mobile access terms",
+  cooperativeMobileInvoiceItems:
+    "Cooperative mobile invoice items linked to the member",
   privacyRequests: "Privacy requests retained",
   privacyRequestsVerified: "Privacy requests verified as operator",
   remainingAuthChallenges: "Authentication challenges remaining",
@@ -207,6 +210,8 @@ const countGroups: { title: string; keys: CountKey[] }[] = [
       "mobileAppAccessPurchases",
       "mobileAppReviewGrants",
       "mobileAppAccessProviderEvents",
+      "cooperativeMobileAccessTerms",
+      "cooperativeMobileInvoiceItems",
       "auditEntries",
     ],
   },

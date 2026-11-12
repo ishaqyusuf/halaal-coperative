@@ -1,10 +1,3 @@
-// Owner-approved USD base prices for personal mobile app access (ADR-20261007).
-// The web workspace is free; store checkout shows the localized final price.
-export const mobileAppAccessPrices = {
-  oneYear: "US$1.99",
-  sixMonths: "US$0.99",
-} as const
-
 export type PublicPrice = {
   detail: string
   highlight?: boolean
@@ -13,9 +6,6 @@ export type PublicPrice = {
   price: string
 }
 
-// Public pricing follows the free-web, per-user-app direction (ADR-20260928).
-// The domain's tenant plan bands are historical billing records and are not
-// published.
 export const publicPriceList: readonly PublicPrice[] = [
   {
     detail: "For admins, finance officers and members.",
@@ -23,11 +13,9 @@ export const publicPriceList: readonly PublicPrice[] = [
     price: "Free",
   },
   {
-    detail:
-      "Optional, per user, on iOS and Android. Each person pays through their own store account.",
+    detail: "Members can request access from their cooperative.",
     item: "Mobile app access",
-    note: `or ${mobileAppAccessPrices.sixMonths} for six months`,
-    price: `${mobileAppAccessPrices.oneYear} / year`,
+    price: "Through your cooperative",
   },
   {
     detail: "We never take a percentage of member funds.",
@@ -38,10 +26,9 @@ export const publicPriceList: readonly PublicPrice[] = [
 ]
 
 export const mobileAppAccessTerms = [
-  "Six months and one year unlock the same app features.",
-  "Members, staff and admins each buy their own access in the App Store or Google Play.",
-  "Your store shows the final local price, taxes and renewal terms before you pay.",
-  "Manage or cancel renewal through the store account you paid with.",
+  "Your cooperative reviews mobile access requests.",
+  "Your cooperative shares the applicable charge before you request access.",
+  "Halaalvest bills your cooperative directly.",
 ] as const
 
 export const pricingFeePrinciples = [

@@ -423,7 +423,7 @@ function checkScreenHeaders() {
     "src/features/procurement/screens/member-procurement-screen.tsx",
     "src/features/project-financing/screens/member-project-financing-screen.tsx",
     "src/features/receipts/screens/member-receipts-screen.tsx",
-    "src/features/subscription/routes/store-subscription-route-controller.tsx",
+    "src/features/mobile-app-access/routes/mobile-app-access-route-controller.tsx",
     "src/features/support/screens/member-support-screen.tsx",
     "src/features/updates/screens/updates-screen.tsx",
     "src/features/member-core/screens/member-commitments-screen.tsx",

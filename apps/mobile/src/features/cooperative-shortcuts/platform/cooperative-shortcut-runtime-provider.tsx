@@ -141,7 +141,7 @@ export function CooperativeShortcutRuntimeProvider({
   }, [reconcile])
 
   // Resume a launch that arrived while signed out, only once ordinary
-  // authentication, app lock and personal access checks have settled.
+  // authentication, app lock and cooperative access checks have settled.
   useEffect(() => {
     if (!profile || auth.initializing || access.checking) return
     if (!lock.isHydrated || lock.isLocked) return

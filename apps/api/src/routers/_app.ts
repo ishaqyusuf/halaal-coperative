@@ -29,7 +29,8 @@ import { mobileAuthRouter } from "./mobile-auth.route"
 import { mobileRouter } from "./mobile.route"
 import { qaMaintenanceRouter } from "./qa-maintenance.route"
 import { subscriptionsRouter } from "./subscriptions.route"
-import { mobileAppAccessRouter } from "./mobile-app-access.route"
+import { cooperativeMobileAccessRouter } from "./cooperative-mobile-access.route"
+import { cooperativeMobileBillingRouter } from "./cooperative-mobile-billing.route"
 import { storeRefundReviewsRouter } from "./store-refund-reviews.route"
 import { qaAcceleratorRouter } from "./qa-accelerator.route"
 
@@ -55,7 +56,8 @@ export const appRouter = createTRPCRouter({
   shareApplications: shareApplicationsRouter,
   support: supportRouter,
   subscriptions: subscriptionsRouter,
-  mobileAppAccess: mobileAppAccessRouter,
+  cooperativeMobileAccess: cooperativeMobileAccessRouter,
+  cooperativeMobileBilling: cooperativeMobileBillingRouter,
   storeRefundReviews: storeRefundReviewsRouter,
   overview: overviewRouter,
   notifications: notificationsRouter,

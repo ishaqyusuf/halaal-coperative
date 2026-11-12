@@ -26,6 +26,7 @@ import {
   ScaleIcon,
   SettingsIcon as LucideSettingsIcon,
   ShieldCheckIcon,
+  SmartphoneIcon,
   UserCheckIcon,
   UserCogIcon,
   UsersIcon,
@@ -44,6 +45,7 @@ export const MembersIcon = UsersIcon
 export const MemberRegistryIcon = UsersIcon
 export const MembershipApprovalsIcon = UserCheckIcon
 export const SignupLinksIcon = Link2Icon
+export const MobileAccessIcon = SmartphoneIcon
 export const SupportIcon = LifeBuoyIcon
 export const GuarantorApprovalsIcon = ShieldCheckIcon
 

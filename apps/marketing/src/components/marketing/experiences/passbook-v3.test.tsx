@@ -64,7 +64,7 @@ describe("Passbook marketing experience", () => {
 
     expect(html).toContain("Sample statement.")
     expect(html).toContain("Interest charged: 0.00.")
-    expect(html).toContain("US$1.99 / year")
-    expect(html).toContain("or US$0.99 for six months")
+    expect(html).toContain("Through your cooperative")
+    expect(html).toContain("Members can request access from their cooperative.")
   })
 })

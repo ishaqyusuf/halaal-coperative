@@ -17,8 +17,8 @@ export function PricingSection({ signupHref }: { signupHref: string }) {
               Software fees stay separate from member money.
             </h2>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-[#0B1F36]/62">
-              The web workspace is free. Mobile app access is an optional
-              personal subscription. Halaalvest does not take a percentage of
+              The web workspace is free. Members can request mobile access from
+              their cooperative. Halaalvest does not take a percentage of
               cooperative funds or financing activity.
             </p>
           </div>
@@ -56,10 +56,12 @@ export function PricingSection({ signupHref }: { signupHref: string }) {
 
         <div className="mt-4 grid overflow-hidden rounded-2xl border border-[#0B1F36]/10 bg-[#F7FAF7] lg:grid-cols-[0.7fr_1.3fr]">
           <div className="border-b border-[#0B1F36]/10 p-6 lg:border-r lg:border-b-0 lg:p-7">
-            <p className="text-sm font-semibold">App store prices are local.</p>
+            <p className="text-sm font-semibold">
+              Mobile access through your cooperative
+            </p>
             <p className="mt-2 text-sm leading-6 text-[#0B1F36]/58">
-              Apple and Google show the final price in your currency before you
-              pay.
+              Your cooperative explains the applicable charge before you request
+              access.
             </p>
             <Link
               className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#1F7A3D] hover:text-[#176331]"

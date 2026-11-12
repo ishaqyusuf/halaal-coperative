@@ -25,6 +25,7 @@ import {
   MemberRegistryIcon,
   MembersIcon,
   MembershipApprovalsIcon,
+  MobileAccessIcon,
   MonthlyRecordsIcon,
   NotificationIcon,
   OperationProfileIcon,
@@ -131,6 +132,13 @@ export const dashboardNavRegistry: NavModule[] = [
         [],
         [role.in(...operationsRoles)]
       ).title("Member signup links").data,
+      createNavLink(
+        "Mobile Access",
+        MobileAccessIcon,
+        "/mobile-access",
+        [],
+        [role.in(...financeRoles, "member")]
+      ).title("Mobile access").data,
       createNavLink(
         "Support",
         SupportIcon,

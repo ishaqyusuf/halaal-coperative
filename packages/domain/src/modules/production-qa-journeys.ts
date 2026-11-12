@@ -148,31 +148,24 @@ export const PRODUCTION_QA_POSITIVE_JOURNEYS = [
     ],
   },
   {
-    fixturePrerequisites: ["sandbox_store_product"],
-    key: "subscription-store-offer",
+    fixturePrerequisites: ["cooperative_approved_mobile_access"],
+    key: "cooperative-mobile-access",
     productArea: "subscription",
-    role: "tenant_admin",
+    role: "member",
     scenarioKey: "starter-healthy",
     steps: [
       apiStep({
-        contract: "subscriptions.snapshot",
+        contract: "cooperativeMobileAccess.snapshot",
         evidence:
-          "Current plan, limits, entitlements, and invoices are server-owned.",
-        key: "read-subscription",
-        operation: "query",
-      }),
-      apiStep({
-        contract: "subscriptions.storeCatalog",
-        evidence:
-          "A configured Google product maps to the target software plan and this QA cooperative.",
-        key: "read-store-offer",
+          "An approved member can enter the selected cooperative without a payment.",
+        key: "read-cooperative-access",
         operation: "query",
       }),
       androidStep({
-        contract: "admin/plan-and-billing",
+        contract: "auth/sign-in-to-member-home",
         evidence:
-          "Android shows the current entitlement and localized native store offer without starting a purchase.",
-        key: "android-subscription",
+          "The approved member reaches home with their cooperative-issued sign-in.",
+        key: "android-cooperative-access",
       }),
     ],
   },

@@ -443,7 +443,7 @@ export function PassbookV3Landing({
           </dl>
           <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="max-w-[46em] text-sm text-[#5E6E7C]">
-              App store prices are shown in your local currency at checkout.{" "}
+              Ask your cooperative about the mobile access charge.{" "}
               {pricingFeePrinciples.slice(1).join(" ")}{" "}
               <Link
                 className="underline underline-offset-4 hover:text-[#0B1F36]"

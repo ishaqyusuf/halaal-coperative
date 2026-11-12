@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { randomUUID } from "expo-crypto"
-import { useRouter, type Href } from "expo-router"
+import { useRouter } from "expo-router"
 import { useAuthContext } from "@/hooks/use-auth"
 import { getToken } from "@/lib/session-store"
 import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
@@ -152,7 +152,6 @@ function PrivacyController() {
       confirmation={confirmation}
       onBack={() => (router.canGoBack() ? router.back() : router.replace("/"))}
       onRefresh={() => void load()}
-      onManageStore={() => router.push("/mobile-access" as Href)}
       onReview={setConfirmation}
       onConfirm={() => void confirm()}
     />

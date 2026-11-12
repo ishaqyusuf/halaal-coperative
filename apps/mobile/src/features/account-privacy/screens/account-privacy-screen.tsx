@@ -22,7 +22,6 @@ export function AccountPrivacyScreen(props: {
   confirmation: PrivacyConfirmation
   onBack: () => void
   onRefresh: () => void
-  onManageStore: () => void
   onReview: (value: PrivacyConfirmation) => void
   onConfirm: () => void
 }) {
@@ -57,15 +56,6 @@ export function AccountPrivacyScreen(props: {
         <Button disabled={disabled} variant="outline" onPress={props.onRefresh}>
           <Text>{props.loading ? "Loading…" : "Refresh requests"}</Text>
         </Button>
-        <View className="gap-2">
-          <Button variant="outline" onPress={props.onManageStore}>
-            <Text>Manage or cancel app subscription</Text>
-          </Button>
-          <Text className="text-sm text-muted-foreground">
-            Deleting your account does not cancel Apple or Google renewal
-            charges. Manage your subscription in your store account.
-          </Text>
-        </View>
         {props.notice ? (
           <View className="gap-3">
             <Text className="text-lg font-semibold">
@@ -150,7 +140,7 @@ export function AccountPrivacyScreen(props: {
         description={
           props.confirmation?.kind === "cancel"
             ? "Keep your account and withdraw this request before processing begins."
-            : "This submits a request for verification and processing. It does not immediately delete your account or cancel store subscriptions."
+            : "This submits a request for verification and processing. Account deletion begins after review."
         }
         rows={
           props.confirmation?.kind === "request"

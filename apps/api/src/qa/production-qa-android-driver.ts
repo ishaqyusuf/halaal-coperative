@@ -3076,65 +3076,6 @@ export class ProductionQaAndroidDriver {
     return screenshots
   }
 
-  async captureSubscriptionStoreOfferScreens(input: {
-    currentPlanName: string
-    requestedPlanName: string
-  }) {
-    const screenshots: string[] = []
-
-    await this.tapNode({ contentDescription: "More admin services tab" })
-    await this.waitForNode({ text: "Administration" })
-    for (let attempt = 0; attempt < 12; attempt += 1) {
-      const planAndBilling = findAndroidUiNodeBySemanticLabel(
-        await this.dumpUi(),
-        "Plan & billing"
-      )
-      if (planAndBilling && isVisibleNode(planAndBilling)) {
-        await this.tap(planAndBilling)
-        break
-      }
-      await this.swipePageUp()
-      if (attempt === 11) {
-        throw new Error("The Android Plan & billing route was not visible.")
-      }
-    }
-
-    await this.waitForNode({ text: "Plan & billing" }, 25_000)
-    await this.waitForNode({ text: input.currentPlanName }, 25_000)
-    screenshots.push(await this.screenshot("01-current-plan.png"))
-
-    let offerVisible = false
-    for (let attempt = 0; attempt < 16; attempt += 1) {
-      const nodes = parseAndroidUiNodes(await this.dumpUi())
-      const plan = nodes.find(
-        (node) => node.text === input.requestedPlanName && isVisibleNode(node)
-      )
-      const purchase = nodes.find(
-        (node) =>
-          node.contentDescription.startsWith(
-            `Subscribe to ${input.requestedPlanName}, `
-          ) &&
-          node.contentDescription.length >
-            `Subscribe to ${input.requestedPlanName}, `.length &&
-          node.enabled &&
-          isVisibleNode(node)
-      )
-      if (plan && purchase) {
-        offerVisible = true
-        break
-      }
-      await this.swipePageUp()
-    }
-    if (!offerVisible) {
-      throw new Error(
-        "The configured Android store offer and localized price were not visible."
-      )
-    }
-    screenshots.push(await this.screenshot("02-native-store-offer.png"))
-
-    return screenshots
-  }
-
   private async traceWorkspaceDisplay(
     phase:
       | "before-workspace-return"

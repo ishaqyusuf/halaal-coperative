@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test"
 import {
-  mobileAppAccessPrices,
   pricingFeePrinciples,
   publicPriceList,
 } from "../components/marketing/pricing-data"
@@ -14,17 +13,12 @@ const pricingSurfaces = [
 ]
 
 describe("public pricing", () => {
-  test("publishes the free web workspace and per-user app access prices", () => {
+  test("publishes the free web workspace and cooperative-managed mobile access", () => {
     expect(publicPriceList.map(({ item, price }) => [item, price])).toEqual([
       ["Web workspace", "Free"],
-      ["Mobile app access", "US$1.99 / year"],
+      ["Mobile app access", "Through your cooperative"],
       ["Share of savings, financing, repayments or profits", "None"],
     ])
-    expect(mobileAppAccessPrices).toEqual({
-      oneYear: "US$1.99",
-      sixMonths: "US$0.99",
-    })
-    expect(publicPriceList[1]?.note).toBe("or US$0.99 for six months")
     expect(pricingFeePrinciples[0]).toContain("No percentage of member savings")
   })
 

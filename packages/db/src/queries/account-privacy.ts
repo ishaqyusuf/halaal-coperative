@@ -444,6 +444,8 @@ export async function getPrivacyProcessingInventory(
     mobileAppAccessPurchases,
     mobileAppReviewGrants,
     mobileAppAccessProviderEvents,
+    cooperativeMobileAccessTerms,
+    cooperativeMobileInvoiceItems,
     privacyRequests,
     privacyRequestsVerified,
     remainingAuthChallenges,
@@ -556,6 +558,10 @@ export async function getPrivacyProcessingInventory(
     db.mobileAppAccessProviderEvent.count({
       where: { purchase: { userId } },
     }),
+    db.cooperativeMobileAccessTerm.count({ where: { member: { userId } } }),
+    db.cooperativeMobileInvoiceItem.count({
+      where: { term: { member: { userId } } },
+    }),
     db.accountPrivacyRequest.count({ where: { userId } }),
     db.accountPrivacyRequest.count({ where: { verifiedByUserId: userId } }),
     db.authChallenge.count({ where: { userId } }),
@@ -643,6 +649,8 @@ export async function getPrivacyProcessingInventory(
       mobileAppAccessPurchases,
       mobileAppReviewGrants,
       mobileAppAccessProviderEvents,
+      cooperativeMobileAccessTerms,
+      cooperativeMobileInvoiceItems,
       privacyRequests,
       privacyRequestsVerified,
       remainingAuthChallenges,

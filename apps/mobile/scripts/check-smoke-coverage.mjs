@@ -30,13 +30,6 @@ function assertIncludes(relativePath, snippets) {
   }
 }
 
-function assertMatches(relativePath, pattern, label) {
-  assert(
-    pattern.test(read(relativePath)),
-    `${relativePath} is missing ${label}`
-  )
-}
-
 const requiredRoutes = [
   "src/app/index.tsx",
   "src/app/(auth)/sign-in.tsx",
@@ -63,7 +56,6 @@ const requiredRoutes = [
   "src/app/(admin)/(tabs)/reports.tsx",
   "src/app/(admin)/(tabs)/more.tsx",
   "src/app/(admin)/members/[memberId].tsx",
-  "src/app/(admin)/subscription.tsx",
   "src/app/notifications.tsx",
   "src/app/updates.tsx",
   "src/app/sessions.tsx",
@@ -169,11 +161,6 @@ assertIncludes("src/features/settings-access/screens/more-screen.tsx", [
 ])
 
 assertIncludes(
-  "src/features/subscription/routes/store-subscription-route-controller.tsx",
-  ["<ScreenStatusBar />"]
-)
-
-assertIncludes(
   "src/features/admin-member-lifecycle/screens/admin-overview-screen.tsx",
   ['<ScreenStatusBar tone="brand" />']
 )
@@ -230,17 +217,6 @@ assertIncludes("src/features/app-lock/hooks/use-app-lock.tsx", [
   "shouldRelockApp",
 ])
 
-assertIncludes(
-  "src/features/subscription/routes/store-subscription-route-controller.tsx",
-  [
-    "ScrollView",
-    "getMobileSubscriptionSnapshot",
-    "useStoreSubscriptions",
-    "store.restore()",
-    "store.manage()",
-    "LegalLinks",
-  ]
-)
 assertMatches(
   "src/features/subscription/routes/store-subscription-route-controller.tsx",
   /store\.purchase\(\s*offer,\s*snapshot\?\.subscriptionId\s*\?\?\s*null\s*\)/,
@@ -253,24 +229,6 @@ assertIncludes(
     "ReactMarkerConstants.CONTENT_APPEARED",
     "reportFullyDrawn()",
     "unregisterFullyDrawnMarker()",
-  ]
-)
-
-assertIncludes(
-  "src/features/subscription/routes/subscription-route-controller.tsx",
-  ["StoreSubscriptionRouteController"]
-)
-
-assertIncludes(
-  "src/features/subscription/routes/store-subscription-route-controller.tsx",
-  [
-    "canRoleManageSubscription",
-    "getMobileSubscriptionSnapshot",
-    "useStoreSubscriptions",
-    "canManage && online",
-    "store.restore()",
-    "store.manage()",
-    "LegalLinks",
   ]
 )
 
@@ -471,4 +429,13 @@ for (const flowId of [
 
 console.log(
   `Mobile smoke coverage passed (${requiredRoutes.length} routes, ${visualRoutes.screens.length} visual screens, ${matrix.viewports.length} viewports, ${matrix.flows.length} flows).`
+)
+
+assertIncludes(
+  "src/features/mobile-app-access/routes/mobile-app-access-route-controller.tsx",
+  [
+    "Contact your cooperative to request mobile access.",
+    "access.refresh()",
+    "LegalLinks",
+  ]
 )

@@ -15,21 +15,6 @@ afterEach(() => {
 })
 
 describe("public policy page approval marker", () => {
-  test("shows store cancellation guides on the public deletion page only", () => {
-    const deletion = renderToStaticMarkup(
-      createElement(PublicPolicyPage, { policy: "delete-account" })
-    )
-    const terms = renderToStaticMarkup(
-      createElement(PublicPolicyPage, { policy: "terms" })
-    )
-    expect(deletion).toContain("https://support.apple.com/en-us/118428")
-    expect(deletion).toContain(
-      "https://support.google.com/googleplay/answer/7018481"
-    )
-    expect(deletion).toContain("Deleting your HalaalVest account does not stop")
-    expect(terms).not.toContain("Apple cancellation steps")
-  })
-
   test("does not expose a snapshot hash for the draft terms", () => {
     const html = renderToStaticMarkup(
       createElement(PublicPolicyPage, { policy: "terms" })

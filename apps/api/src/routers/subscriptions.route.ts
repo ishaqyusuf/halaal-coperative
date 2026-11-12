@@ -23,6 +23,12 @@ import {
 } from "../billing/checkout-presentation"
 
 const subscriptionAdminProcedure = tenantProcedure.use(({ ctx, next }) => {
+  if (ctx.request.mobileAuthenticated) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Subscription administration is available on the web dashboard.",
+    })
+  }
   if (!roleCan(ctx.auth.activeMembership.role, "manage_subscription")) {
     throw new TRPCError({
       code: "FORBIDDEN",

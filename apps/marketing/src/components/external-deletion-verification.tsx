@@ -2,7 +2,6 @@
 import { publicDeletionFlowCopy } from "@halaalvest/domain/public-policies"
 import { accountDeletionNoticeCopy } from "@halaalvest/domain/account-privacy-notice"
 import { useEffect, useState } from "react"
-import { StoreSubscriptionCancellationHelp } from "./store-subscription-cancellation-help"
 const copy = publicDeletionFlowCopy.verification
 export function AccountDeletionNoticeSummary() {
   return (
@@ -13,7 +12,6 @@ export function AccountDeletionNoticeSummary() {
           <li key={consequence}>{consequence}</li>
         ))}
       </ul>
-      <StoreSubscriptionCancellationHelp />
     </section>
   )
 }

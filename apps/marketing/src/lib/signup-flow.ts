@@ -63,7 +63,7 @@ const cooperativeCodePrefixSchema = z
 const memberNumberSchema = z
   .string()
   .trim()
-  .min(1, "Enter the primary contact cooperative number.")
+  .min(1, "Enter your member number, for example 0001.")
   .transform((value) => value.toUpperCase())
 
 const cooperativeSizeRangeField = z

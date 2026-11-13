@@ -145,8 +145,6 @@ export function OnboardingForm({
       verification.cooperativeCodePrefix,
       verification.primaryContactMemberNumber
     ).code ?? verification.primaryContactEmail
-  const cooperativeShortName =
-    verification.cooperativeName.split(/\s+/)[0] ?? verification.cooperativeName
 
   useEffect(() => {
     if (!result) {
@@ -450,9 +448,13 @@ export function OnboardingForm({
         }
         primary={
           onPasswordStep ? (
+            // Distinct keys stop React reusing the Continue button's DOM node.
+            // Reused, it turns into a submit button while Continue's click is
+            // still being handled and submits the empty password fields.
             <Button
               disabled={submitting || !legalState.ready}
               form="one-path-onboarding-form"
+              key="create-workspace"
               size="lg"
               type="submit"
             >
@@ -467,6 +469,7 @@ export function OnboardingForm({
             </Button>
           ) : (
             <Button
+              key="continue-to-password"
               onClick={() => void continueToPassword()}
               size="lg"
               type="button"
@@ -479,7 +482,7 @@ export function OnboardingForm({
         title={
           onPasswordStep
             ? "Create your password"
-            : `Tell us about ${cooperativeShortName}`
+            : `Tell us about ${verification.cooperativeName}`
         }
       >
         <form

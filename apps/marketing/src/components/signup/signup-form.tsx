@@ -98,6 +98,8 @@ type AvailabilityState =
 
 const signupFormId = "one-path-signup-form"
 
+const DEFAULT_ADMIN_MEMBER_NUMBER = "0001"
+
 function formatWorkspaceUrlPreview(slug: string, suffix: string) {
   return `${slug}${suffix}`
 }
@@ -154,7 +156,10 @@ export function SignupForm({
       cooperativeName: defaultValues?.cooperativeName ?? "",
       primaryContactEmail: defaultValues?.primaryContactEmail ?? "",
       primaryContactFullName: defaultValues?.primaryContactFullName ?? "",
-      primaryContactMemberNumber: "",
+      // The preview card shows this number, so the field starts with it too.
+      primaryContactMemberNumber:
+        defaultValues?.primaryContactMemberNumber ??
+        DEFAULT_ADMIN_MEMBER_NUMBER,
       workspaceSlug: initialWorkspaceSlug,
     },
   })
@@ -703,7 +708,10 @@ export function SignupForm({
                         : `${prefixAvailability.normalized} is used by another cooperative.`}
                     </AvailabilityLine>
                   ) : (
-                    <FormDescription>Use 3 to 5 letters.</FormDescription>
+                    <FormDescription>
+                      Use 3 to 5 letters. Your no. is your own member number.
+                      Keep 0001 or use the one from your records.
+                    </FormDescription>
                   )}
                   <FormMessage />
                   <div
@@ -716,7 +724,7 @@ export function SignupForm({
                       </p>
                       <p className="font-mono text-lg font-semibold tracking-wide">
                         {accessCodePreview.code ??
-                          `${accessCodePreview.prefix ?? "AMN"}-0001`}
+                          `${accessCodePreview.prefix ?? "AMN"}-${memberNumber?.trim() ? memberNumber.trim().toUpperCase() : "····"}`}
                       </p>
                     </div>
                     <p className="text-right text-[12.5px] leading-5 text-white/70">

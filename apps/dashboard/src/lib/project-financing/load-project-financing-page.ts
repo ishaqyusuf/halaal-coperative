@@ -2,7 +2,7 @@ import {
   createDbRuntime,
   getMemberByUserId,
   getProjectFinancingSummary,
-  listMembers,
+  tenantHasMembers,
   quoteApplicableCharges,
 } from "@halaalvest/db"
 import { getDashboardServerContext } from "@/lib/server-context"
@@ -66,12 +66,12 @@ export async function loadProjectFinancingPageData() {
 
   const [
     summary,
-    members,
+    hasMembers,
     submissionChargeOptions,
     approvalChargeOptions,
   ] = await Promise.all([
     getProjectFinancingSummary(context.tenant.id),
-    listMembers(context.tenant.id, { page: 1, pageSize: 200 }),
+    tenantHasMembers(context.tenant.id),
     quoteApplicableCharges({
       basisAmount: 100,
       tenantId: context.tenant.id,
@@ -91,10 +91,7 @@ export async function loadProjectFinancingPageData() {
     approvalChargeOptions,
     canCreate: canSubmit,
     canReview,
-    memberOptions: members.items.map((member) => ({
-      id: member.id,
-      label: `${member.fullName} (${member.memberNumber})`,
-    })),
+    hasMembers,
     submissionChargeOptions,
     summary,
   }

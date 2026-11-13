@@ -17,6 +17,7 @@ import type {
 } from "@halaalvest/db"
 import { useQueryClient } from "@tanstack/react-query"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
+import { MemberCombobox } from "@/components/member-combobox"
 import { UploadEvidenceInput } from "@/components/upload-evidence-input"
 import {
   addMemberSupportCaseMessageAction,
@@ -219,11 +220,9 @@ function SupportCaseContext({ supportCase }: { supportCase: SupportCaseRow }) {
 
 export function SupportCaseCreateContent({
   assignees,
-  memberOptions,
   onClose,
 }: {
   assignees: SupportCaseOption[]
-  memberOptions: SupportCaseOption[]
   onClose: () => void | Promise<void>
 }) {
   const refreshSupportQueries = useSupportMutationRefresh()
@@ -237,16 +236,6 @@ export function SupportCaseCreateContent({
   const [description, setDescription] = useState("")
   const [attachmentUrl, setAttachmentUrl] = useState("")
   const [moneyImpactRequested, setMoneyImpactRequested] = useState(false)
-  const memberSelectOptions = useMemo(
-    () => [
-      { label: "No member link", value: "" },
-      ...memberOptions.map((member) => ({
-        label: member.label,
-        value: member.id,
-      })),
-    ],
-    [memberOptions]
-  )
   const assigneeOptions = useMemo(
     () => [
       { label: "Unassigned", value: "" },
@@ -303,10 +292,10 @@ export function SupportCaseCreateContent({
           />
         </Field>
         <Field label="Member">
-          <LabeledSelectInput
+          <MemberCombobox
             disabled={isPending}
+            emptyLabel="No member link"
             onValueChange={setMemberId}
-            options={memberSelectOptions}
             value={memberId}
           />
         </Field>

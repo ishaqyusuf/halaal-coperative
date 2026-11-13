@@ -4,7 +4,6 @@ import {
   getMemberByUserId,
   getTenantOperationProfile,
   listFoodPurchaseCycles,
-  listMembers,
   quoteApplicableCharges,
 } from "@halaalvest/db"
 import { getDashboardServerContext } from "@/lib/server-context"
@@ -102,13 +101,11 @@ export async function loadFoodPurchasePageData() {
   const [
     cycles,
     applicationSummary,
-    members,
     submissionChargeOptions,
     approvalChargeOptions,
   ] = await Promise.all([
     listFoodPurchaseCycles({ tenantId: context.tenant.id }),
     getFoodPurchaseApplicationSummary({ tenantId: context.tenant.id }),
-    listMembers(context.tenant.id, { page: 1, pageSize: 200 }),
     quoteApplicableCharges({
       basisAmount: 100,
       tenantId: context.tenant.id,
@@ -141,10 +138,6 @@ export async function loadFoodPurchasePageData() {
     canSubmitApplications:
       canSubmitApplications && foodPurchaseCapability.canStaffCreate,
     cycles,
-    memberOptions: members.items.map((member) => ({
-      id: member.id,
-      label: `${member.fullName} (${member.memberNumber})`,
-    })),
     submissionChargeOptions,
     summary: {
       approvedApplications: applicationSummary.approvedApplications,

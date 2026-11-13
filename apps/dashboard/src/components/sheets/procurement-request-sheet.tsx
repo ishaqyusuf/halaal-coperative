@@ -40,12 +40,10 @@ const disabledProcurementRequestId = "00000000-0000-4000-8000-000000000000"
 
 export function ProcurementRequestSheet({
   approvalChargeOptions = [],
-  memberOptions = [],
   selfServiceChargeOptions = [],
   submissionChargeOptions = [],
 }: {
   approvalChargeOptions?: WorkflowChargeOption[]
-  memberOptions?: ProcurementMemberOption[]
   selfServiceChargeOptions?: WorkflowChargeOption[]
   submissionChargeOptions?: WorkflowChargeOption[]
 }) {
@@ -110,7 +108,6 @@ export function ProcurementRequestSheet({
             {procurementSheetType === "create" ? (
               <ProcurementRequestCreateContent
                 chargeOptions={submissionChargeOptions}
-                memberOptions={memberOptions}
                 onClose={closeSheet}
               />
             ) : procurementSheetType === "self-service" ? (

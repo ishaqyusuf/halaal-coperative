@@ -124,7 +124,6 @@ export function FoodPurchasePageView({
         canSubmitApplications={data.canSubmitApplications}
         cycles={data.cycles}
         initialSettings={foodPurchaseInitialSettings}
-        memberOptions={data.memberOptions}
         submissionChargeOptions={data.submissionChargeOptions}
         summary={data.summary}
       />

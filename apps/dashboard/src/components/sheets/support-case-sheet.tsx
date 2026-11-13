@@ -101,12 +101,10 @@ export function SupportCaseSheet({
   assignees = [],
   canCreateSupportCases = true,
   initialCase,
-  memberOptions = [],
 }: {
   assignees?: SupportCaseOption[]
   canCreateSupportCases?: boolean
   initialCase?: MemberSupportCaseInitialValues
-  memberOptions?: SupportCaseOption[]
 }) {
   const { setParams, supportCaseId, supportCaseSheetType } =
     useSupportCaseParams()
@@ -141,7 +139,6 @@ export function SupportCaseSheet({
               ) : supportCaseSheetType === "create" ? (
                 <SupportCaseCreateContent
                   assignees={assignees}
-                  memberOptions={memberOptions}
                   onClose={closeSheet}
                 />
               ) : (

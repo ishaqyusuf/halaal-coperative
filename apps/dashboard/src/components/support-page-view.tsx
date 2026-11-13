@@ -120,7 +120,6 @@ export function SupportPageView({
         canCreateSupportCases={data.canCreateSupportCases}
         canReviewFinancialAdjustments={data.canReviewFinancialAdjustments}
         initialSettings={supportInitialSettings}
-        memberOptions={data.memberOptions}
         summary={data.summary}
       />
     </WorkspacePageShell>

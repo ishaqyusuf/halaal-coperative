@@ -116,7 +116,6 @@ export function FoodPurchaseView({
   canSubmitApplications,
   cycles,
   initialSettings,
-  memberOptions,
   submissionChargeOptions,
   summary,
 }: {
@@ -128,7 +127,6 @@ export function FoodPurchaseView({
   canSubmitApplications: boolean
   cycles: FoodPurchaseCycleRow[]
   initialSettings?: Partial<TableSettings>
-  memberOptions: FoodPurchaseOption[]
   submissionChargeOptions: WorkflowChargeOption[]
   summary: FoodPurchaseSummary
 }) {
@@ -147,7 +145,6 @@ export function FoodPurchaseView({
       <FoodPurchaseSheet
         approvalChargeOptions={approvalChargeOptions}
         cycles={cycles}
-        memberOptions={memberOptions}
         submissionChargeOptions={submissionChargeOptions}
       />
       <section className="hidden border-y border-border/70 md:block">

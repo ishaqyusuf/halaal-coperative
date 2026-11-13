@@ -2,12 +2,13 @@ import {
   createMember,
   getMemberById,
   listMembersTable,
+  searchMemberOptions,
   updateMember,
   updateMemberStatus,
 } from "@halaalvest/db"
 import { AppError } from "@halaalvest/errors"
 import { z } from "zod"
-import { listMembersSchema } from "../schemas/members"
+import { listMembersSchema, memberOptionsSchema } from "../schemas/members"
 import { createTRPCRouter, minRoleProcedure } from "../lib.trpc"
 import { sendTenantRoleNotificationEmails } from "../lib/server-notifications"
 
@@ -16,6 +17,16 @@ export const membersRouter = createTRPCRouter({
     .input(listMembersSchema)
     .query(async ({ ctx, input }) => {
       return listMembersTable(ctx.tenant.current.id, input ?? {})
+    }),
+
+  // Lazy member pickers: search or resolve selected ids, 20 rows at most.
+  options: minRoleProcedure("operations_officer")
+    .input(memberOptionsSchema)
+    .query(async ({ ctx, input }) => {
+      return searchMemberOptions(ctx.tenant.current.id, {
+        ids: input.ids,
+        query: input.q,
+      })
     }),
 
   get: minRoleProcedure("operations_officer")

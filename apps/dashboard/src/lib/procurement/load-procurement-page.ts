@@ -3,7 +3,7 @@ import {
   getMemberByUserId,
   getTenantOperationProfile,
   getProcurementSummary,
-  listMembers,
+  tenantHasMembers,
   quoteApplicableCharges,
 } from "@halaalvest/db"
 import { getDashboardServerContext } from "@/lib/server-context"
@@ -77,12 +77,12 @@ export async function loadProcurementPageData() {
 
   const [
     summary,
-    members,
+    hasMembers,
     submissionChargeOptions,
     approvalChargeOptions,
   ] = await Promise.all([
     getProcurementSummary(context.tenant.id),
-    listMembers(context.tenant.id, { page: 1, pageSize: 200 }),
+    tenantHasMembers(context.tenant.id),
     quoteApplicableCharges({
       basisAmount: 100,
       tenantId: context.tenant.id,
@@ -109,10 +109,7 @@ export async function loadProcurementPageData() {
     approvalChargeOptions,
     canCreate: procurementCapability.canStaffCreate,
     canReview,
-    memberOptions: members.items.map((member) => ({
-      id: member.id,
-      label: `${member.fullName} (${member.memberNumber})`,
-    })),
+    hasMembers,
     submissionChargeOptions,
     summary,
   }

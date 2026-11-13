@@ -16,7 +16,7 @@ export function ProcurementRequestsView({
   canCreate,
   canReview,
   initialSettings,
-  memberOptions,
+  hasMembers,
   submissionChargeOptions,
   summary,
 }: {
@@ -24,7 +24,7 @@ export function ProcurementRequestsView({
   canCreate: boolean
   canReview: boolean
   initialSettings?: Partial<TableSettings>
-  memberOptions: ProcurementMemberOption[]
+  hasMembers: boolean
   submissionChargeOptions: WorkflowChargeOption[]
   summary: ProcurementSummary
 }) {
@@ -32,7 +32,6 @@ export function ProcurementRequestsView({
     <div className="space-y-6">
       <ProcurementRequestSheet
         approvalChargeOptions={approvalChargeOptions}
-        memberOptions={memberOptions}
         submissionChargeOptions={submissionChargeOptions}
       />
       <section className="hidden border-y border-border/70 md:block">
@@ -65,11 +64,11 @@ export function ProcurementRequestsView({
       <section className="min-w-0">
         <ProcurementMobileToolbar
           canCreate={canCreate}
-          createDisabled={memberOptions.length === 0}
+          createDisabled={!hasMembers}
         />
         <ProcurementHeader
           canCreate={canCreate}
-          hasMemberOptions={memberOptions.length > 0}
+          hasMemberOptions={hasMembers}
         />
         <ProcurementDataView
           canReview={canReview}

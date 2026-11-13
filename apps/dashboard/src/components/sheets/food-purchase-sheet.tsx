@@ -46,13 +46,11 @@ const disabledFoodPurchaseApplicationId = "00000000-0000-4000-8000-000000000000"
 export function FoodPurchaseSheet({
   approvalChargeOptions = [],
   cycles,
-  memberOptions = [],
   selfServiceChargeOptions = [],
   submissionChargeOptions = [],
 }: {
   approvalChargeOptions?: WorkflowChargeOption[]
   cycles: FoodPurchaseCycleRow[]
-  memberOptions?: FoodPurchaseOption[]
   selfServiceChargeOptions?: WorkflowChargeOption[]
   submissionChargeOptions?: WorkflowChargeOption[]
 }) {
@@ -121,7 +119,6 @@ export function FoodPurchaseSheet({
               <FoodPurchaseApplicationCreateContent
                 chargeOptions={submissionChargeOptions}
                 cycles={cycles}
-                memberOptions={memberOptions}
                 onClose={closeSheet}
               />
             ) : foodPurchaseSheetType === "self-service" ? (

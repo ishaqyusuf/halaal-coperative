@@ -14,6 +14,8 @@ import {
   updateMemberDocumentReview,
   updateMemberKyc,
   updateMemberStatus,
+  searchMemberOptions,
+  tenantHasMembers,
 } from "./members"
 
 describe("member lifecycle transitions", () => {
@@ -1641,5 +1643,72 @@ describe("member statement dividend allocations", () => {
         status: "pending",
       }),
     ])
+  })
+})
+
+describe("member picker options", () => {
+  function createOptionsPrisma() {
+    const calls: Array<{ method: string; args: any }> = []
+    const prisma = {
+      member: {
+        findFirst: async (args: any) => {
+          calls.push({ args, method: "findFirst" })
+          return { id: "member-1" }
+        },
+        findMany: async (args: any) => {
+          calls.push({ args, method: "findMany" })
+          return [
+            { fullName: "Amina Bello", id: "member-1", memberNumber: "M-001" },
+          ]
+        },
+      },
+    }
+
+    return { calls, prisma }
+  }
+
+  test("searches name or member number in SQL with a 20-row cap", async () => {
+    const { calls, prisma } = createOptionsPrisma()
+
+    await searchMemberOptions("tenant-1", { query: "  ami " }, prisma as never)
+
+    expect(calls[0]?.args).toEqual({
+      orderBy: [{ fullName: "asc" }, { memberNumber: "asc" }],
+      select: { fullName: true, id: true, memberNumber: true },
+      take: 20,
+      where: {
+        OR: [
+          { fullName: { contains: "ami", mode: "insensitive" } },
+          { memberNumber: { contains: "ami", mode: "insensitive" } },
+        ],
+        tenantId: "tenant-1",
+      },
+    })
+  })
+
+  test("resolves selected ids within the tenant", async () => {
+    const { calls, prisma } = createOptionsPrisma()
+
+    await searchMemberOptions(
+      "tenant-1",
+      { ids: ["member-1", "member-1"], query: "ignored" },
+      prisma as never
+    )
+
+    expect(calls[0]?.args.where).toEqual({
+      id: { in: ["member-1"] },
+      tenantId: "tenant-1",
+    })
+    expect(calls[0]?.args.take).toBe(1)
+  })
+
+  test("checks for any member with one id-only lookup", async () => {
+    const { calls, prisma } = createOptionsPrisma()
+
+    expect(await tenantHasMembers("tenant-1", prisma as never)).toBe(true)
+    expect(calls[0]).toEqual({
+      args: { select: { id: true }, where: { tenantId: "tenant-1" } },
+      method: "findFirst",
+    })
   })
 })

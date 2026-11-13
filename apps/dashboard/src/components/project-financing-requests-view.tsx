@@ -16,7 +16,7 @@ export function ProjectFinancingRequestsView({
   canCreate,
   canReview,
   initialSettings,
-  memberOptions,
+  hasMembers,
   submissionChargeOptions,
   summary,
 }: {
@@ -24,7 +24,7 @@ export function ProjectFinancingRequestsView({
   canCreate: boolean
   canReview: boolean
   initialSettings?: Partial<TableSettings>
-  memberOptions: ProjectFinancingMemberOption[]
+  hasMembers: boolean
   submissionChargeOptions: WorkflowChargeOption[]
   summary: ProjectFinancingSummary
 }) {
@@ -32,7 +32,6 @@ export function ProjectFinancingRequestsView({
     <div className="space-y-6">
       <ProjectFinancingSheet
         approvalChargeOptions={approvalChargeOptions}
-        memberOptions={memberOptions}
         submissionChargeOptions={submissionChargeOptions}
       />
       <section className="hidden border-y border-border/70 md:block">
@@ -53,7 +52,7 @@ export function ProjectFinancingRequestsView({
       <section className="min-w-0">
         <ProjectFinancingMobileToolbar
           canCreate={canCreate}
-          createDisabled={memberOptions.length === 0}
+          createDisabled={!hasMembers}
         />
         <ProjectFinancingHeader />
         <ProjectFinancingDataView

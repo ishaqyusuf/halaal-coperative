@@ -59,3 +59,8 @@ export const listMembersSchema = z
     status: memberStatusSchema.optional(),
   })
   .optional()
+
+export const memberOptionsSchema = z.object({
+  ids: z.array(z.string().uuid()).max(20).optional(),
+  q: z.string().trim().max(100).optional(),
+})

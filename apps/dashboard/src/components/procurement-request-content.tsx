@@ -9,7 +9,7 @@ import { Input } from "@halaalvest/ui/components/input"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { formatCurrency } from "@halaalvest/utils"
 import type { ProcurementRequestRow } from "@halaalvest/db"
-import { LabeledSelectInput } from "@/components/labeled-select-input"
+import { MemberCombobox } from "@/components/member-combobox"
 import {
   WorkflowChargeSummary,
   type WorkflowChargeOption,
@@ -79,11 +79,9 @@ function useRefreshProcurement() {
 
 export function ProcurementRequestCreateContent({
   chargeOptions,
-  memberOptions,
   onClose,
 }: {
   chargeOptions: WorkflowChargeOption[]
-  memberOptions: ProcurementMemberOption[]
   onClose: () => Promise<void>
 }) {
   const refreshProcurement = useRefreshProcurement()
@@ -95,13 +93,6 @@ export function ProcurementRequestCreateContent({
   const [vendorName, setVendorName] = useState("")
   const [requestedCost, setRequestedCost] = useState("")
   const [requestedRepaymentMonths, setRequestedRepaymentMonths] = useState("")
-  const memberSelectOptions = [
-    { label: "Select member", value: "" },
-    ...memberOptions.map((member) => ({
-      label: member.label,
-      value: member.id,
-    })),
-  ]
 
   function submitRequest() {
     startTransition(async () => {
@@ -136,10 +127,9 @@ export function ProcurementRequestCreateContent({
   return (
     <div className="grid gap-3 md:grid-cols-2">
       <Field label="Member">
-        <LabeledSelectInput
+        <MemberCombobox
           disabled={isPending}
           onValueChange={setMemberId}
-          options={memberSelectOptions}
           value={memberId}
         />
       </Field>

@@ -13,6 +13,7 @@ import type {
   FoodPurchaseCycleRow,
 } from "@halaalvest/db"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
+import { MemberCombobox } from "@/components/member-combobox"
 import {
   WorkflowChargeSummary,
   type WorkflowChargeOption,
@@ -201,12 +202,10 @@ export function FoodPurchaseReleaseContent({
 export function FoodPurchaseApplicationCreateContent({
   chargeOptions,
   cycles,
-  memberOptions,
   onClose,
 }: {
   chargeOptions: WorkflowChargeOption[]
   cycles: FoodPurchaseCycleRow[]
-  memberOptions: FoodPurchaseOption[]
   onClose: () => Promise<void>
 }) {
   const refreshFoodPurchase = useRefreshFoodPurchase()
@@ -219,13 +218,6 @@ export function FoodPurchaseApplicationCreateContent({
   const [itemDescription, setItemDescription] = useState("")
   const [requestNotes, setRequestNotes] = useState("")
   const openCycleOptions = useOpenCycleOptions(cycles)
-  const memberSelectOptions = [
-    { label: "Select member", value: "" },
-    ...memberOptions.map((member) => ({
-      label: member.label,
-      value: member.id,
-    })),
-  ]
 
   function submitApplication() {
     startTransition(async () => {
@@ -272,10 +264,9 @@ export function FoodPurchaseApplicationCreateContent({
           />
         </Field>
         <Field label="Member">
-          <LabeledSelectInput
+          <MemberCombobox
             disabled={isPending}
             onValueChange={setMemberId}
-            options={memberSelectOptions}
             value={memberId}
           />
         </Field>

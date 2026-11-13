@@ -43,12 +43,10 @@ const uuidPattern =
 
 export function ProjectFinancingSheet({
   approvalChargeOptions = [],
-  memberOptions = [],
   selfServiceChargeOptions = [],
   submissionChargeOptions = [],
 }: {
   approvalChargeOptions?: WorkflowChargeOption[]
-  memberOptions?: ProjectFinancingMemberOption[]
   selfServiceChargeOptions?: WorkflowChargeOption[]
   submissionChargeOptions?: WorkflowChargeOption[]
 }) {
@@ -113,7 +111,6 @@ export function ProjectFinancingSheet({
             {projectFinancingSheetType === "create" ? (
               <ProjectFinancingRequestCreateContent
                 chargeOptions={submissionChargeOptions}
-                memberOptions={memberOptions}
                 onClose={closeSheet}
               />
             ) : projectFinancingSheetType === "self-service" ? (

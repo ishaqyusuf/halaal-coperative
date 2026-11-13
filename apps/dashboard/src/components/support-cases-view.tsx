@@ -18,14 +18,12 @@ export function SupportCasesView({
   canCreateSupportCases,
   canReviewFinancialAdjustments = false,
   initialSettings,
-  memberOptions,
   summary,
 }: {
   assignees: SupportCaseOption[]
   canCreateSupportCases: boolean
   canReviewFinancialAdjustments?: boolean
   initialSettings?: Partial<TableSettings>
-  memberOptions: SupportCaseOption[]
   summary: SupportCaseSummary
 }) {
   return (
@@ -33,7 +31,6 @@ export function SupportCasesView({
       <SupportCaseSheet
         assignees={assignees}
         canCreateSupportCases={canCreateSupportCases}
-        memberOptions={memberOptions}
       />
       <section className="hidden divide-x divide-border border-y border-border md:grid md:grid-cols-5">
         <SummaryTile label="Open" value={summary.openCases} />

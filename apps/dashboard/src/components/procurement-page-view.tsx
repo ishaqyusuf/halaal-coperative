@@ -118,7 +118,7 @@ export function ProcurementPageView({
         approvalChargeOptions={data.approvalChargeOptions}
         canCreate={data.canCreate}
         canReview={data.canReview}
-        memberOptions={data.memberOptions}
+        hasMembers={data.hasMembers}
         initialSettings={procurementInitialSettings}
         submissionChargeOptions={data.submissionChargeOptions}
         summary={data.summary}

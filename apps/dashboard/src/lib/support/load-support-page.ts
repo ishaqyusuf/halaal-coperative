@@ -4,7 +4,6 @@ import {
   getMemberSupportCaseSummary,
   getSupportCaseSummary,
   getTenantOperationProfile,
-  listMembers,
   listTenantUsersWithRoles,
   type SupportCaseCategory,
 } from "@halaalvest/db"
@@ -107,9 +106,8 @@ export async function loadSupportPageData(
     }
   }
 
-  const [summary, members, users, operationProfile] = await Promise.all([
+  const [summary, users, operationProfile] = await Promise.all([
     getSupportCaseSummary(context.tenant.id),
-    listMembers(context.tenant.id, { page: 1, pageSize: 200 }),
     listTenantUsersWithRoles(context.tenant.id, allStaffRoles),
     getTenantOperationProfile(context.tenant.id),
   ])
@@ -123,10 +121,6 @@ export async function loadSupportPageData(
     canReviewFinancialAdjustments,
     canCreateSupportCases:
       operationProfile.services.support_cases.canStaffCreate,
-    memberOptions: members.items.map((member) => ({
-      id: member.id,
-      label: `${member.fullName} (${member.memberNumber})`,
-    })),
     summary,
   }
 }

@@ -106,7 +106,7 @@ export function ProjectFinancingPageView({
         canCreate={data.canCreate}
         canReview={data.canReview}
         initialSettings={projectFinancingInitialSettings}
-        memberOptions={data.memberOptions}
+        hasMembers={data.hasMembers}
         submissionChargeOptions={data.submissionChargeOptions}
         summary={data.summary}
       />

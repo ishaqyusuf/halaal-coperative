@@ -186,6 +186,61 @@ function toMemberMigrationWhere(
   }
 }
 
+const memberOptionSearchLimit = 20
+
+/**
+ * Member picker options: id, name and member number only, searched in SQL.
+ * `ids` resolves the labels of already-selected members. A query matches
+ * name or member number (case-insensitive) and returns at most 20 rows, so
+ * pickers no longer ship the tenant's member list with the page.
+ */
+export async function searchMemberOptions(
+  tenantId: string,
+  input: { ids?: string[]; query?: string | null } = {},
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const ids = [...new Set((input.ids ?? []).filter(Boolean))]
+  const query = input.query?.trim() ?? ""
+
+  return prisma.member.findMany({
+    orderBy: [{ fullName: "asc" }, { memberNumber: "asc" }],
+    select: { fullName: true, id: true, memberNumber: true },
+    take: ids.length > 0 ? ids.length : memberOptionSearchLimit,
+    where: {
+      tenantId,
+      ...(ids.length > 0
+        ? { id: { in: ids } }
+        : query
+          ? {
+              OR: [
+                { fullName: { contains: query, mode: "insensitive" } },
+                { memberNumber: { contains: query, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+    },
+  })
+}
+
+/** Whether the tenant has any member, for "create" buttons on picker pages. */
+export async function tenantHasMembers(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const member = await prisma.member.findFirst({
+    select: { id: true },
+    where: { tenantId },
+  })
+
+  return Boolean(member)
+}
+
 export async function listMembers(
   tenantId: string,
   filters?: ListMembersFilters,

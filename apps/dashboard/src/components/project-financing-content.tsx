@@ -13,6 +13,7 @@ import type {
   ProjectFinancingStructure,
 } from "@halaalvest/db"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
+import { MemberCombobox } from "@/components/member-combobox"
 import {
   WorkflowChargeSummary,
   type WorkflowChargeOption,
@@ -105,11 +106,9 @@ function useRefreshProjectFinancing() {
 
 export function ProjectFinancingRequestCreateContent({
   chargeOptions,
-  memberOptions,
   onClose,
 }: {
   chargeOptions: WorkflowChargeOption[]
-  memberOptions: ProjectFinancingMemberOption[]
   onClose: () => Promise<void>
 }) {
   const refreshProjectFinancing = useRefreshProjectFinancing()
@@ -123,13 +122,6 @@ export function ProjectFinancingRequestCreateContent({
     useState<ProjectFinancingStructure>("undecided")
   const [requestedAmount, setRequestedAmount] = useState("")
   const [requestedPaybackMonths, setRequestedPaybackMonths] = useState("")
-  const memberSelectOptions = [
-    { label: "Select member", value: "" },
-    ...memberOptions.map((member) => ({
-      label: member.label,
-      value: member.id,
-    })),
-  ]
   const requestedAmountValue = Number(requestedAmount)
   const requestedMonthsValue = Number(requestedPaybackMonths)
   const canSubmit =
@@ -178,10 +170,9 @@ export function ProjectFinancingRequestCreateContent({
     <>
       <div className="grid gap-3 md:grid-cols-2">
         <Field label="Member">
-          <LabeledSelectInput
+          <MemberCombobox
             disabled={isPending}
             onValueChange={setMemberId}
-            options={memberSelectOptions}
             value={memberId}
           />
         </Field>

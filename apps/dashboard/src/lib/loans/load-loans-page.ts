@@ -9,7 +9,6 @@ import {
 } from "@halaalvest/db"
 import {
   canShowQuickFill,
-  getDashboardPageData,
   getDashboardServerContext,
 } from "@/lib/server-context"
 import {
@@ -49,7 +48,6 @@ export type LoansPageData =
   | {
       canReview: boolean
       canSubmit: boolean
-      dashboard: Awaited<ReturnType<typeof getDashboardPageData>>["dashboard"]
       financingCycle: Awaited<ReturnType<typeof getMonthlyFinancingCycleHealth>>
       loanProducts: LoanProductOptionRow[]
       loanRequestCharges: LoanRequestChargeOptionRow[]
@@ -63,7 +61,6 @@ export type LoansPageData =
     }
 
 export async function loadLoansPageData(): Promise<LoansPageData> {
-  const { dashboard } = await getDashboardPageData()
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
 
@@ -172,7 +169,6 @@ export async function loadLoansPageData(): Promise<LoansPageData> {
     canSubmit:
       hasAnyRole(role, allStaffRoles) ||
       Boolean(actorMember && actorReadiness?.isReady),
-    dashboard,
     financingCycle,
     loanProducts: loanProducts as LoanProductOptionRow[],
     loanRequestCharges,

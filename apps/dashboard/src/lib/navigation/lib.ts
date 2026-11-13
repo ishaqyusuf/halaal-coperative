@@ -111,6 +111,24 @@ export function getCurrentDashboardModule(
   )
 }
 
+// Routes that have no sidebar link of their own. Without this the topbar
+// falls back to the first module ("Workspace overview · Dashboard").
+const offNavRouteTitles = [
+  {
+    paths: ["/getting-started", "/onboarding-success", "/onboarding"],
+    subtitle: "Set up your cooperative",
+    title: "Getting started",
+  },
+]
+
+export function getOffNavRouteTitle(pathname: string) {
+  return (
+    offNavRouteTitles.find((route) =>
+      route.paths.some((path) => isPathActive(pathname, path))
+    ) ?? null
+  )
+}
+
 export function getDashboardRouteTitle(
   pathname: string,
   role: CooperativeRole | null,
@@ -120,11 +138,14 @@ export function getDashboardRouteTitle(
   const titleModules = getVisibleDashboardNav(role)
   const activeItem = getActiveDashboardNavItem(pathname, titleModules)
   const currentModule = getCurrentDashboardModule(pathname, titleModules)
+  const offNavTitle = activeItem ? null : getOffNavRouteTitle(pathname)
 
   return {
     activeItem,
     currentModule,
     modules,
+    pageSubtitle: offNavTitle?.subtitle ?? currentModule?.subtitle ?? null,
+    pageTitle: offNavTitle?.title ?? activeItem?.title ?? "Dashboard",
     roleLabel: getRoleDisplayName(role),
   }
 }

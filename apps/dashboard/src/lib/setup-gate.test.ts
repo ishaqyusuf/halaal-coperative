@@ -3,7 +3,6 @@ import {
   getNavigationLockLabel,
   isInitialMigrationSetupPath,
   resolveInitialMigrationLayoutRedirect,
-  shouldOpenFirstRunOnboarding,
 } from "./setup-gate"
 import { getVisibleDashboardNav } from "./navigation/lib"
 
@@ -25,14 +24,6 @@ describe("initial migration setup gate", () => {
         shouldRedirectAdminToSuccess: false,
       })
     ).toBeNull()
-    expect(
-      shouldOpenFirstRunOnboarding({
-        alreadyInOnboarding: true,
-        canUseLiveWorkspace: true,
-        isQaAuthorized: false,
-        isWorkspaceAdmin: true,
-      })
-    ).toBe(false)
   })
 
   test("allows member backfill workflow during initial setup", () => {
@@ -106,26 +97,6 @@ describe("initial migration setup gate", () => {
         shouldRedirectAdminToSuccess: false,
       })
     ).toBe("/getting-started")
-  })
-
-  test("does not hijack QA-authorized workspace verification", () => {
-    expect(
-      shouldOpenFirstRunOnboarding({
-        alreadyInOnboarding: false,
-        canUseLiveWorkspace: true,
-        isQaAuthorized: true,
-        isWorkspaceAdmin: true,
-      })
-    ).toBe(false)
-
-    expect(
-      shouldOpenFirstRunOnboarding({
-        alreadyInOnboarding: false,
-        canUseLiveWorkspace: true,
-        isQaAuthorized: false,
-        isWorkspaceAdmin: true,
-      })
-    ).toBe(true)
   })
 
   test("labels exactly the navigation destinations the layout would redirect", () => {

@@ -21,7 +21,7 @@ describe("getting started Midday conformance", () => {
     expect(loading).toContain("GettingStartedPageSkeleton")
     expect(states).toContain('role="status"')
     expect(states).toContain('aria-label="Loading migration setup"')
-    expect(states).toContain("xl:hidden")
+    expect(states).toContain("lg:hidden")
     expect(error).toContain("reset")
     expect(error).toContain(
       "No cooperative finance or member records were changed"
@@ -34,10 +34,14 @@ describe("getting started Midday conformance", () => {
     expect(content).toContain("getDashboardServerContext")
     expect(content).toContain("createDbRuntime")
     expect(content).toContain("getTenantFinanceSetup(context.tenant.id)")
+    // Request-cached: the sidebar layout's setup gate already read both.
     expect(content).toContain(
-      "getTenantInitialMigrationState(context.tenant.id)"
+      "getRequestInitialMigrationState(context.tenant.id)"
     )
-    expect(content).toContain("getTenantOperationProfile(context.tenant.id)")
+    expect(content).toContain(
+      "getRequestTenantOperationProfile(context.tenant.id)"
+    )
+    expect(content).not.toContain("getTenantInitialMigrationState(")
     // Member history now lives on the step 10 members checklist, so Getting
     // Started no longer loads per-member backfill data.
     expect(content).not.toContain("listLegacyLoanMigrationDrafts")
@@ -74,10 +78,10 @@ describe("getting started Midday conformance", () => {
       'props.activeStep === "operation-profile" ? null'
     )
     expect(view).toContain("max-md:[&_button]:min-h-11")
-    // Card eyebrows and the footer counter come from the map.
-    expect(step).toContain("getOnboardingJourneyStep(stepKey)")
+    // The "Step N of 11" eyebrow comes from the map; Back stays 44px tall.
     expect(step).toContain("formatJourneyStepCounter(stepKey)")
-    expect(step).toContain('"h-11 sm:h-10"')
+    expect(step).toContain('"h-11"')
+    expect(step).toContain("<details")
     expect(model).toContain("getOrderedGettingStartedStepKeys")
     expect(model).toContain("getGettingStartedStepHref")
     expect(model).toContain('return "/onboarding-success"')

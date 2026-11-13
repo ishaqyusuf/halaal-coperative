@@ -2,7 +2,6 @@ import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import type { ReactNode } from "react"
 import {
   formatJourneyStepCounter,
-  getOnboardingJourneyStep,
   type OnboardingJourneyStepKey,
 } from "@halaalvest/domain"
 import { buttonVariants } from "@halaalvest/ui/components/button"
@@ -16,12 +15,12 @@ import {
 } from "@halaalvest/ui/components/card"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { GettingStartedFooterActionsSlot } from "@/components/getting-started-footer-slot"
-import { ArrowLeftIcon } from "lucide-react"
+import { ArrowLeftIcon, ChevronDownIcon } from "lucide-react"
 
-// One Path step frame for the dashboard (steps 5–11): eyebrow from the shared
-// journey map, one serif heading, one sentence of lede, the fields, a "Why we
-// ask" aside (beside the fields from xl, below them otherwise) and a sticky
-// footer with Back, "Step N of 11" and one primary action.
+// One Path step frame for the dashboard (steps 5–11). The step heading is the
+// page heading: "Step N of 11", one large title, one short sentence, the
+// fields, an optional "Why we ask" note (closed until opened) and a sticky
+// footer with Back and one primary action.
 //
 // The primary action is either passed as `primary` or portalled by a client
 // form into the footer slot with `GettingStartedFooterPortal`, so the primary
@@ -46,65 +45,60 @@ export function OnePathStep({
   backLabel?: string
   children: ReactNode
   eyebrow?: string
-  lede: ReactNode
+  lede?: ReactNode
   primary?: ReactNode
   stepKey: OnboardingJourneyStepKey
   title: ReactNode
 }) {
-  const step = getOnboardingJourneyStep(stepKey)
-
   return (
     <div className="flex flex-col">
       <Card className="@container">
         <CardHeader>
           {action ? <CardAction>{action}</CardAction> : null}
-          <p className="text-xs font-semibold text-primary">
-            {eyebrow ?? `Step ${step.number} · ${step.label}`}
+          <p className="text-sm font-semibold text-primary">
+            {eyebrow ?? formatJourneyStepCounter(stepKey)}
           </p>
           <CardTitle
-            aria-level={2}
-            className="font-serif text-2xl leading-tight font-normal tracking-[-0.01em] text-balance sm:text-3xl"
+            aria-level={1}
+            className="text-2xl leading-tight text-balance sm:text-3xl"
             role="heading"
           >
             {title}
           </CardTitle>
-          <CardDescription className="max-w-2xl text-sm">
-            {lede}
-          </CardDescription>
+          {lede ? (
+            <CardDescription className="max-w-2xl text-base">
+              {lede}
+            </CardDescription>
+          ) : null}
         </CardHeader>
-        <CardContent>
-          <div
-            className={
-              aside
-                ? "grid gap-6 @4xl:grid-cols-[minmax(0,1fr)_16rem] @4xl:gap-8"
-                : undefined
-            }
-          >
-            <div className="min-w-0">{children}</div>
-            {aside ? (
-              <aside className="h-fit border border-border/70 bg-muted/30 p-4 text-sm leading-6 text-muted-foreground @4xl:sticky @4xl:top-24">
-                <h3 className="mb-1 font-semibold text-foreground">
-                  {asideTitle}
-                </h3>
+        <CardContent className="flex flex-col gap-6">
+          <div className="min-w-0">{children}</div>
+          {aside ? (
+            <details className="group border-t border-border/70 pt-2 text-base text-muted-foreground">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 font-medium text-foreground [&::-webkit-details-marker]:hidden">
+                <ChevronDownIcon
+                  aria-hidden="true"
+                  className="size-5 transition-transform group-open:rotate-180"
+                />
+                {asideTitle}
+              </summary>
+              <div className="flex max-w-2xl flex-col gap-2 pb-2 pl-7 leading-7">
                 {aside}
-              </aside>
-            ) : null}
-          </div>
+              </div>
+            </details>
+          ) : null}
         </CardContent>
       </Card>
       <div className="sticky bottom-0 z-10 mt-4 flex flex-wrap items-center gap-3 border-t border-border/70 bg-background/95 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur">
         {backHref ? (
           <Link
-            className={cn(buttonVariants({ variant: "ghost" }), "h-11 sm:h-10")}
+            className={cn(buttonVariants({ variant: "ghost" }), "h-11")}
             href={backHref}
           >
             <ArrowLeftIcon data-icon="inline-start" />
             {backLabel}
           </Link>
         ) : null}
-        <span className="text-xs text-muted-foreground max-sm:hidden">
-          {formatJourneyStepCounter(stepKey)}
-        </span>
         <div className="ml-auto flex flex-1 flex-wrap justify-end gap-2 sm:flex-none max-sm:[&>*]:w-full">
           {primary ?? <GettingStartedFooterActionsSlot />}
         </div>

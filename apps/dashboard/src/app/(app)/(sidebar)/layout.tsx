@@ -1,7 +1,6 @@
 import { normalizeRole } from "@halaalvest/auth/roles"
 import {
   getPublishedLegalBundle,
-  getTenantFirstRunOnboardingState,
   listOwnLegalAcceptances,
 } from "@halaalvest/db"
 import { needsLegalReviewReminder } from "@halaalvest/domain/legal-reminder"
@@ -19,7 +18,6 @@ import { getDashboardServerContext } from "@/lib/server-context"
 import {
   resolveInitialMigrationLayoutRedirect,
   resolveInitialMigrationSetupGate,
-  shouldOpenFirstRunOnboarding,
 } from "@/lib/setup-gate"
 import { tenantRedirect } from "@/utils/tenant-redirect"
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
@@ -101,68 +99,21 @@ export default async function SidebarLayout({
             tenantName={tenantName}
             userName={userName}
           >
-            <main className="mx-auto flex min-h-[60vh] w-full max-w-3xl flex-col justify-center px-6 py-12">
-              <div className="rounded-lg border border-border/70 bg-card p-6">
-                <p className="text-xs font-semibold text-muted-foreground">
-                  Initial migration required
-                </p>
-                <h1 className="mt-3 text-2xl font-semibold text-foreground">
-                  Live workspace actions are locked
+            <main className="mx-auto flex min-h-[60vh] w-full max-w-2xl flex-col justify-center px-4 py-12 sm:px-6">
+              <div className="rounded-lg border border-border/70 bg-card p-6 sm:p-8">
+                <h1 className="text-2xl text-foreground">
+                  {tenantName} is still being set up
                 </h1>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                  This cooperative is still completing its one-time historical
-                  migration. An admin must finish finance setup, member
-                  backfill, and finalization before normal records can be
-                  created or updated.
+                <p className="mt-3 text-base leading-7 text-muted-foreground">
+                  Your admin is finishing setup. You can use the workspace once
+                  it goes live.
                 </p>
-                <div className="mt-5 grid gap-2 sm:grid-cols-2">
-                  <div className="rounded-md border border-border/70 bg-background px-3 py-2">
-                    <p className="text-xs text-muted-foreground">
-                      Current stage
-                    </p>
-                    <p className="mt-1 text-sm font-medium text-foreground">
-                      {setupGate.migrationState?.snapshot.status.replaceAll(
-                        "_",
-                        " "
-                      ) ?? "setup required"}
-                    </p>
-                  </div>
-                  <div className="rounded-md border border-border/70 bg-background px-3 py-2">
-                    <p className="text-xs text-muted-foreground">
-                      Missing steps
-                    </p>
-                    <p className="mt-1 text-sm font-medium text-foreground">
-                      {setupGate.migrationState?.snapshot.missingStepKeys
-                        .length ?? 0}
-                    </p>
-                  </div>
-                </div>
               </div>
             </main>
           </DashboardShellClient>
           <TenantUrlVariantSwitcher />
         </TenantUrlProvider>
       )
-    }
-
-    const alreadyInOnboarding =
-      nextPath === "/onboarding" || nextPath.startsWith("/onboarding/")
-
-    if (
-      shouldOpenFirstRunOnboarding({
-        alreadyInOnboarding: alreadyInOnboarding || reviewingPlatformDocuments,
-        canUseLiveWorkspace: setupGate.canUseLiveWorkspace,
-        isQaAuthorized: Boolean(context.auth.qaDomain),
-        isWorkspaceAdmin: setupGate.isWorkspaceAdmin,
-      })
-    ) {
-      const firstRunOnboarding = await getTenantFirstRunOnboardingState(
-        context.tenant.id
-      )
-
-      if (firstRunOnboarding.shouldOpenForEmptyWorkspace) {
-        await tenantRedirect("/onboarding")
-      }
     }
   }
 

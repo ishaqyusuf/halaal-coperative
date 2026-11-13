@@ -128,7 +128,12 @@ describe("go-live copy", () => {
 describe("owner KYC on the go-live checklist", () => {
   const owner = (
     kycStatus: "not_started" | "pending" | "rejected" | "verified"
-  ) => ({ fullName: "Zainab Musa", id: "member-1", kycStatus })
+  ) => ({
+    fullName: "Zainab Musa",
+    id: "member-1",
+    kycStatus,
+    memberNumber: "AMS-0001",
+  })
 
   test("adds a Your KYC row after the snapshot rows, linked to the KYC sheet", () => {
     const rows = getGoLiveReadinessRows(snapshot(), {

@@ -317,6 +317,7 @@ export type GoLiveOwnerMember = {
   fullName: string
   id: string
   kycStatus: "not_started" | "pending" | "rejected" | "verified"
+  memberNumber: string
 }
 
 /**
@@ -329,7 +330,12 @@ export async function getGoLiveOwnerMember(
   prismaOverride?: PrismaClient
 ): Promise<GoLiveOwnerMember | null> {
   const prisma = getPrisma(prismaOverride)
-  const select = { fullName: true, id: true, kycStatus: true } as const
+  const select = {
+    fullName: true,
+    id: true,
+    kycStatus: true,
+    memberNumber: true,
+  } as const
   const byUser = await prisma.member.findFirst({
     select,
     where: { tenantId: input.tenantId, userId: input.userId },

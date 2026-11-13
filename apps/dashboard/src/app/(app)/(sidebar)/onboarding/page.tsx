@@ -1,28 +1,8 @@
-import { getTenantFirstRunOnboardingState } from "@halaalvest/db"
-import {
-  FirstRunOnboardingUnavailableView,
-  FirstRunOnboardingView,
-} from "@/components/first-run-onboarding-view"
-import { getDashboardServerContext } from "@/lib/server-context"
-import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
+import { tenantRedirect } from "@/utils/tenant-redirect"
 
-export default async function FirstRunOnboardingPage() {
-  const context = await getDashboardServerContext()
-
-  if (!context.tenant) {
-    return <FirstRunOnboardingUnavailableView />
-  }
-
-  const canConfigure = hasAnyRole(
-    context.auth.membership?.role,
-    workspaceAdminRoles
-  )
-  const onboarding = await getTenantFirstRunOnboardingState(context.tenant.id)
-
-  return (
-    <FirstRunOnboardingView
-      canConfigure={canConfigure}
-      onboarding={onboarding}
-    />
-  )
+// The first-run checklist was replaced by One Path (Getting started), which
+// sends a live cooperative home. Old links and bookmarks land there.
+export default async function OnboardingPage() {
+  await tenantRedirect("/getting-started")
+  return null
 }

@@ -36,20 +36,6 @@ export const getRequestMigrationGateState = cache(async (tenantId: string) => {
   }
 })
 
-export function shouldOpenFirstRunOnboarding(input: {
-  alreadyInOnboarding: boolean
-  canUseLiveWorkspace: boolean
-  isQaAuthorized: boolean
-  isWorkspaceAdmin: boolean
-}) {
-  return (
-    input.canUseLiveWorkspace &&
-    input.isWorkspaceAdmin &&
-    !input.isQaAuthorized &&
-    !input.alreadyInOnboarding
-  )
-}
-
 export async function resolveInitialMigrationSetupGate(input: {
   role: MembershipRole | null | undefined
   tenantId: string | null | undefined

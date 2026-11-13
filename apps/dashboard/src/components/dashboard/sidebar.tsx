@@ -8,7 +8,26 @@ import type { NavModule } from "@halaalvest/site-nav"
 import { ChevronDownIcon } from "lucide-react"
 import { DASHBOARD_SIDEBAR_EXPANDED_WIDTH } from "./constants"
 import { DashboardSidebarSheet } from "@/components/sheets/dashboard-sidebar-sheet"
+import { OnboardingIcon } from "@/lib/navigation/icons"
 import { getNavigationLockLabel } from "@/lib/setup-gate-routing"
+
+// While setup is open, destinations locked until go-live are hidden rather
+// than listed greyed out, and Getting started leads the list.
+const setupNavSection = {
+  links: [
+    {
+      href: "/getting-started",
+      icon: OnboardingIcon,
+      name: "Getting started",
+      show: true,
+      subLinks: [],
+      title: "Getting started",
+    },
+  ],
+  moduleName: "Setup",
+  name: "setup",
+  title: "Setup",
+}
 
 // Disabled stand-in for a sidebar `Link`: same frame, no navigation.
 function LockedSidebarItem({
@@ -288,55 +307,64 @@ export function DashboardSidebar({
   const navSections = (
     <nav className="scrollbar-hide mt-4 min-h-0 w-full flex-1 overflow-x-hidden overflow-y-auto">
       <div className="flex flex-col gap-5">
-        {modules.flatMap((module) =>
-          module.sections
-            .map((section) => ({
+        {[
+          ...(shouldRedirectAdminToSetup ? [setupNavSection] : []),
+          ...modules.flatMap((module) =>
+            module.sections.map((section) => ({
               ...section,
-              links: section.links.filter((link) => link.show && link.href),
+              links: section.links.filter(
+                (link) =>
+                  link.show &&
+                  link.href &&
+                  (!shouldRedirectAdminToSetup || !lockLabelFor(link.href))
+              ),
               moduleName: module.name,
             }))
-            .filter((section) => section.links.length > 0)
-            .map((section) => (
-              <section key={`${section.moduleName}-${section.name}`}>
-                {isExpanded ? (
-                  <p className="mb-2 px-[19px] text-xs font-semibold text-muted-foreground">
-                    {section.title ?? section.moduleName}
-                  </p>
-                ) : null}
-                <div className="flex flex-col gap-2">
-                  {section.links.map((link) => {
-                    const isActive =
-                      pathname === link.href ||
-                      pathname.startsWith(`${link.href}/`)
-                    const isItemExpanded =
-                      expandedItem === link.href ||
-                      (isActive && Boolean(link.subLinks?.length))
+          ),
+        ]
+          .filter((section) => section.links.length > 0)
+          .map((section) => (
+            <section key={`${section.moduleName}-${section.name}`}>
+              {isExpanded ? (
+                <p className="mb-2 px-[19px] text-xs font-semibold text-muted-foreground">
+                  {section.title ?? section.moduleName}
+                </p>
+              ) : null}
+              <div className="flex flex-col gap-2">
+                {section.links.map((link) => {
+                  const isActive =
+                    pathname === link.href ||
+                    pathname.startsWith(`${link.href}/`) ||
+                    (link.href === "/getting-started" &&
+                      pathname === "/onboarding-success")
+                  const isItemExpanded =
+                    expandedItem === link.href ||
+                    (isActive && Boolean(link.subLinks?.length))
 
-                    return (
-                      <DashboardSidebarLink
-                        key={link.href}
-                        childrenLinks={link.subLinks}
-                        expanded={isExpanded}
-                        href={link.href!}
-                        icon={link.icon}
-                        isActive={isActive}
-                        isItemExpanded={isItemExpanded}
-                        label={link.title ?? link.name}
-                        lockLabelFor={lockLabelFor}
-                        onNavigate={mobileOpen ? closeMobile : undefined}
-                        onToggle={() =>
-                          setExpandedItem((current) =>
-                            current === link.href ? null : (link.href ?? null)
-                          )
-                        }
-                        pathname={pathname}
-                      />
-                    )
-                  })}
-                </div>
-              </section>
-            ))
-        )}
+                  return (
+                    <DashboardSidebarLink
+                      key={link.href}
+                      childrenLinks={link.subLinks}
+                      expanded={isExpanded}
+                      href={link.href!}
+                      icon={link.icon}
+                      isActive={isActive}
+                      isItemExpanded={isItemExpanded}
+                      label={link.title ?? link.name}
+                      lockLabelFor={lockLabelFor}
+                      onNavigate={mobileOpen ? closeMobile : undefined}
+                      onToggle={() =>
+                        setExpandedItem((current) =>
+                          current === link.href ? null : (link.href ?? null)
+                        )
+                      }
+                      pathname={pathname}
+                    />
+                  )
+                })}
+              </div>
+            </section>
+          ))}
       </div>
     </nav>
   )

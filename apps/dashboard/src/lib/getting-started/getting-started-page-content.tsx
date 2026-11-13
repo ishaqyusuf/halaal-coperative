@@ -3,8 +3,6 @@ import type { SearchParams } from "nuqs"
 import {
   createDbRuntime,
   getTenantFinanceSetup,
-  getTenantInitialMigrationState,
-  getTenantOperationProfile,
   recommendTenantMigrationSetupMode,
 } from "@halaalvest/db"
 import {
@@ -31,6 +29,8 @@ import {
   getDashboardServerContext,
 } from "@/lib/server-context"
 import { loadGoLiveChecklistData } from "@/lib/getting-started/load-go-live-checklist"
+import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
+import { getRequestInitialMigrationState } from "@/lib/setup-gate"
 import { getPublicRequestHost } from "@/lib/request-host"
 import { tenantRedirect } from "@/utils/tenant-redirect"
 
@@ -109,9 +109,9 @@ export async function GettingStartedPageContent({
   if (!context.tenant) {
     return (
       <GettingStartedUnavailableView
-        description="Initial migration setup is available from a cooperative workspace."
-        title="Choose a cooperative workspace first."
-        body="Open a cooperative workspace before running the first-admin migration setup."
+        description="Open your cooperative's own address to set it up."
+        title="Open your cooperative first."
+        body="Setup runs from your cooperative's address, for example yourcoop.halaalvest.com."
       />
     )
   }
@@ -121,9 +121,9 @@ export async function GettingStartedPageContent({
   if (runtime.status !== "database-configured") {
     return (
       <GettingStartedUnavailableView
-        description="Initial migration setup requires the database-backed workspace."
-        title="Database is not configured."
-        body="The guided migration setup does not use demo content. Configure the database, then return to this page."
+        description="Setup is not available right now."
+        title="Setup is not available right now."
+        body="Please try again later."
       />
     )
   }
@@ -138,10 +138,12 @@ export async function GettingStartedPageContent({
 
   const requestedStep =
     gettingStartedParams.step as GettingStartedStepKey | null
+  // The sidebar layout's setup gate already read the migration state and the
+  // operation profile in this request; the request-cached readers reuse them.
   const [data, migrationState, operationProfile] = await Promise.all([
     getTenantFinanceSetup(context.tenant.id),
-    getTenantInitialMigrationState(context.tenant.id),
-    getTenantOperationProfile(context.tenant.id),
+    getRequestInitialMigrationState(context.tenant.id),
+    getRequestTenantOperationProfile(context.tenant.id),
   ])
   const isMemberMigration =
     migrationState.snapshot.status === "member_migration_in_progress"

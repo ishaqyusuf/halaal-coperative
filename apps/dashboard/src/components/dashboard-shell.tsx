@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import Link from "next/link"
 import type { CooperativeRole } from "@halaalvest/auth/roles"
 import { getDashboardRouteTitle } from "@/lib/navigation/lib"
+import { DeepLinkSheetPlaceholder } from "@/components/deep-link-sheet-placeholders"
 import { GlobalSheetsProvider } from "@/components/sheets/global-sheets-provider"
 import {
   DASHBOARD_SIDEBAR_COLLAPSED_WIDTH,
@@ -34,7 +35,7 @@ export function DashboardShellClient({
 }) {
   const pathname = usePathname()
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
-  const { activeItem, currentModule, modules, roleLabel } =
+  const { modules, pageSubtitle, pageTitle, roleLabel } =
     getDashboardRouteTitle(pathname, role, hiddenNavPaths)
 
   return (
@@ -58,13 +59,14 @@ export function DashboardShellClient({
         userName={userName}
       />
       <GlobalSheetsProvider />
+      <DeepLinkSheetPlaceholder />
 
       <div className="md:[padding-left:var(--dashboard-sidebar-offset)] lg:[padding-left:var(--dashboard-sidebar-offset-wide)]">
         <DashboardTopbar
-          currentModuleSubtitle={currentModule?.subtitle}
+          currentModuleSubtitle={pageSubtitle}
           onOpenMobileNav={() => setMobileSidebarOpen(true)}
           roleLabel={roleLabel}
-          title={activeItem?.title ?? "Dashboard"}
+          title={pageTitle}
           userName={userName}
         />
         <DashboardPageFrame>

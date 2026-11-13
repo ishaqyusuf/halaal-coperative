@@ -89,4 +89,20 @@ describe("dashboard navigation route titles", () => {
 
     expect(route.activeItem?.title).toBe(title)
   })
+
+  test.each(["/getting-started", "/onboarding-success", "/onboarding"])(
+    "titles the setup route %s Getting started, not the first module",
+    (pathname) => {
+      const route = getDashboardRouteTitle(pathname, "tenant_admin")
+
+      expect(route.pageTitle).toBe("Getting started")
+      expect(route.pageSubtitle).toBe("Set up your cooperative")
+    }
+  )
+
+  test("keeps registry titles for sidebar routes", () => {
+    const route = getDashboardRouteTitle("/members", "tenant_admin")
+
+    expect(route.pageTitle).toBe("Member registry")
+  })
 })

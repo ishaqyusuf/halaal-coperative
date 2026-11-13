@@ -1,7 +1,7 @@
 import {
+  getGoLiveOwnerMember,
   getMemberRegistrySummary,
   getTenantFinanceSetup,
-  listMembers,
 } from "@halaalvest/db"
 import { MembersChecklistView } from "@/components/members-checklist-view"
 import {
@@ -49,19 +49,20 @@ export default async function OnboardingSuccessPage() {
     return null
   }
 
-  const [financeSetup, members, registrySummary] = await Promise.all([
+  const user = context.auth.user
+  const [financeSetup, adminMember, registrySummary] = await Promise.all([
     getTenantFinanceSetup(tenant.id),
-    listMembers(tenant.id, { page: 1, pageSize: 200 }),
+    // The admin's own member record: one indexed lookup by user, then email.
+    user
+      ? getGoLiveOwnerMember({
+          email: user.email,
+          tenantId: tenant.id,
+          userId: user.id,
+        })
+      : Promise.resolve(null),
     // One batched readiness read; the registry's own migration-completion rule.
     getMemberRegistrySummary(tenant.id),
   ])
-  const adminMember =
-    members.items.find((member) => member.user?.id === context.auth.user?.id) ??
-    members.items.find(
-      (member) =>
-        member.user?.email && member.user.email === context.auth.user?.email
-    ) ??
-    null
 
   // Only an incomplete One Path setup (steps 5–9) goes back. The derived
   // migration status can still read `historical_setup_in_progress` here (for

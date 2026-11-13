@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import {
-  formatJourneyPartCounter,
+  formatJourneyStepCounter,
   getOnboardingJourneyPartSteps,
   getOnboardingJourneyStep,
   onboardingJourneyParts,
@@ -46,22 +46,40 @@ function RailSteps({
         const active = partSteps.some(
           (step) => byKey.get(step.key)?.state === "current"
         )
+        // A finished part with no links (creating the workspace) is one line.
+        const partDone = partSteps.every((step) => {
+          const railStep = byKey.get(step.key)
+
+          return railStep?.state === "complete" && !railStep.href
+        })
+
+        if (partDone) {
+          return (
+            <div
+              className="flex min-h-11 items-center gap-3 px-2 text-sm text-foreground"
+              key={part.key}
+            >
+              <span className="flex size-[26px] shrink-0 items-center justify-center rounded-full border border-primary bg-primary text-primary-foreground">
+                <CheckIcon aria-hidden="true" className="size-4" />
+              </span>
+              <span>
+                {part.title}
+                <span className="sr-only"> (done)</span>
+              </span>
+            </div>
+          )
+        }
 
         return (
           <div className="flex flex-col gap-1" key={part.key}>
-            <div className="flex items-baseline justify-between gap-2 px-2 pb-1">
-              <h2
-                className={cn(
-                  "text-xs font-semibold",
-                  active ? "text-primary" : "text-muted-foreground"
-                )}
-              >
-                {part.title}
-              </h2>
-              <span className="text-xs whitespace-nowrap text-muted-foreground">
-                {part.estimate}
-              </span>
-            </div>
+            <h2
+              className={cn(
+                "px-2 pb-1 text-sm font-semibold",
+                active ? "text-primary" : "text-muted-foreground"
+              )}
+            >
+              {part.title}
+            </h2>
             <ol className="flex flex-col gap-0.5">
               {partSteps.map((journeyStep) => {
                 const step = byKey.get(journeyStep.key)
@@ -70,7 +88,7 @@ function RailSteps({
                   <>
                     <span
                       className={cn(
-                        "flex size-[22px] shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
+                        "flex size-[26px] shrink-0 items-center justify-center rounded-full border text-sm font-semibold",
                         state === "complete" &&
                           "border-primary bg-primary text-primary-foreground",
                         state === "current" &&
@@ -80,7 +98,7 @@ function RailSteps({
                       )}
                     >
                       {state === "complete" ? (
-                        <CheckIcon aria-hidden="true" className="size-3" />
+                        <CheckIcon aria-hidden="true" className="size-4" />
                       ) : (
                         journeyStep.number
                       )}
@@ -92,7 +110,7 @@ function RailSteps({
                   </>
                 )
                 const className = cn(
-                  "flex min-h-10 w-full items-center gap-3 px-2 py-2 text-left text-sm transition-colors",
+                  "flex min-h-11 w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm transition-colors",
                   state === "current" && "bg-muted font-medium text-foreground",
                   state === "complete" && "text-foreground",
                   state === "upcoming" && "text-muted-foreground"
@@ -128,9 +146,9 @@ function RailSteps({
   )
 }
 
-// Desktop: vertical rail with all three parts. Below lg: a compact bar with
-// "Part X of 3 · {part}", the step label, a segmented bar and an "All steps"
-// sheet. Both read the shared journey map from @halaalvest/domain.
+// Desktop: vertical rail with all three parts; a finished part with no links
+// (creating the workspace) is one line. Below lg: a compact bar with
+// "Step N of 11", the step label, a segmented bar and an "All steps" sheet. Both read the shared journey map from @halaalvest/domain.
 export function OnePathRail({
   currentStepKey,
   steps,
@@ -144,27 +162,21 @@ export function OnePathRail({
 
   return (
     <>
-      <aside className="hidden border border-border/70 bg-card p-4 lg:sticky lg:top-24 lg:block lg:self-start">
+      <aside className="hidden rounded-xl border border-border/70 bg-card p-3 lg:sticky lg:top-24 lg:block lg:self-start">
         <RailSteps steps={steps} />
-        <p className="mt-5 border-t border-border/70 pt-3 text-xs leading-5 text-muted-foreground">
-          Progress is saved after each step. You can leave and pick up where you
-          stopped.
-        </p>
       </aside>
 
-      <div className="flex flex-col gap-2.5 border border-border/70 bg-card px-4 py-3 lg:hidden">
+      <div className="flex flex-col gap-3 rounded-xl border border-border/70 bg-card px-4 py-3 lg:hidden">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">
-              {formatJourneyPartCounter(currentStepKey)}
+            <p className="text-sm text-muted-foreground">
+              {formatJourneyStepCounter(currentStepKey)}
             </p>
-            <p className="truncate font-semibold">{current.label}</p>
+            <p className="truncate text-base font-semibold">{current.label}</p>
           </div>
           <Sheet onOpenChange={setOpen} open={open}>
             <SheetTrigger
-              render={
-                <Button className="shrink-0" size="sm" variant="outline" />
-              }
+              render={<Button className="shrink-0" variant="outline" />}
             >
               All steps
             </SheetTrigger>
@@ -189,7 +201,7 @@ export function OnePathRail({
             return (
               <i
                 className={cn(
-                  "h-1 flex-1",
+                  "h-1.5 flex-1 rounded-full",
                   state === "complete" && "bg-primary",
                   state === "current" && "bg-foreground",
                   state === "upcoming" && "bg-muted"

@@ -1,4 +1,8 @@
-import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
+import {
+  DashboardPageShell,
+  WorkspaceEmptyState,
+  WorkspacePageShell,
+} from "@/components/dashboard"
 import { SharesChargesStep } from "@/components/getting-started/shares-charges-step"
 import { ProfitSharingStep } from "@/components/getting-started/profit-sharing-step"
 import { ProfitSeasonsReviewStep } from "@/components/getting-started/profit-seasons-review-step"
@@ -30,7 +34,7 @@ export function GettingStartedUnavailableView({
 }) {
   return (
     <WorkspacePageShell
-      eyebrow="Initial migration"
+      eyebrow="Setup"
       title="Getting started"
       description={description}
     >
@@ -147,12 +151,12 @@ function ActiveStep({
         <OnePathStep
           aside={
             <p>
-              Going live locks the opening records and opens normal daily work
+              Going live locks the opening records and starts normal daily work
               for staff and members.
             </p>
           }
           backHref={getGettingStartedStepHref("admin-member")}
-          lede={`Check that everything is ready, then start live operations for ${props.tenantName}.`}
+          lede="Fix anything marked Missing, then go live."
           primary={<span />}
           stepKey="go-live"
           title="Go live"
@@ -179,12 +183,9 @@ export function GettingStartedPageView(props: GettingStartedPageViewProps) {
   }
 
   return (
-    <WorkspacePageShell
-      eyebrow="Set up how you run"
-      title="Getting started"
-      description={`Set up ${props.tenantName} step by step. Each step saves when you continue.`}
-    >
-      <section className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)] max-md:[&_a]:min-h-11 max-md:[&_button]:min-h-11 max-md:[&_input]:min-h-11 max-md:[&_select]:min-h-11">
+    // The step card's heading is the page heading; the topbar names the page.
+    <DashboardPageShell>
+      <section className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)] max-md:[&_a]:min-h-11 max-md:[&_button]:min-h-11 max-md:[&_input]:min-h-11 max-md:[&_select]:min-h-11">
         <OnePathRail
           currentStepKey={getJourneyStepKey(props.activeStep)}
           steps={buildOnePathRailSteps({
@@ -196,6 +197,6 @@ export function GettingStartedPageView(props: GettingStartedPageViewProps) {
           <ActiveStep progress={progress} props={props} />
         </div>
       </section>
-    </WorkspacePageShell>
+    </DashboardPageShell>
   )
 }

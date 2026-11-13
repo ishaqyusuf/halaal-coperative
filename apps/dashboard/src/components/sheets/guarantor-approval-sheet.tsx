@@ -8,8 +8,12 @@ import { useGuarantorApprovalParams } from "@/hooks/use-guarantor-approval-param
 import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 export function GuarantorApprovalSheet() {
-  const { guarantorApprovalId, setParams } = useGuarantorApprovalParams()
-  const isOpen = Boolean(guarantorApprovalId)
+  const { guarantorApprovalId, guarantorResponseStatus, setParams } =
+    useGuarantorApprovalParams()
+  // The staff loan sheet shares the guarantorApprovalId param (with
+  // guarantorReviewStatus), so only the member response flow, which always
+  // sets guarantorResponseStatus, opens this sheet.
+  const isOpen = Boolean(guarantorApprovalId && guarantorResponseStatus)
 
   const handleOnOpenChange = (open: boolean) => {
     if (open) {

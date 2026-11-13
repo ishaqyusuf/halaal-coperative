@@ -144,9 +144,17 @@ export async function loadLoansPageData(): Promise<LoansPageData> {
           : [],
       }
     : {
-        items: (members.data as LoanMemberOptionRow[]).filter(
-          (member) => member.operationalReadiness?.isReady
-        ),
+        // Pick only the option fields: member table rows carry Prisma
+        // Decimal values (contribution plan amounts) that cannot cross
+        // into the client component.
+        items: (members.data as LoanMemberOptionRow[])
+          .filter((member) => member.operationalReadiness?.isReady)
+          .map((member) => ({
+            fullName: member.fullName,
+            id: member.id,
+            memberNumber: member.memberNumber,
+            operationalReadiness: { isReady: true },
+          })),
       }
   const submissionBlockedReason = !isMemberView
     ? null

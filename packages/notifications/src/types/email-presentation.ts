@@ -142,6 +142,11 @@ export const notificationEmailPresentationByType = {
     eyebrow: "Monthly member record",
     familyLabel: "Cooperative finance",
   },
+  "monthly_record.workplace_received": {
+    amountLabel: "Received amount",
+    eyebrow: "Workplace payments",
+    familyLabel: "Cooperative finance",
+  },
   "project_financing.request_status_changed": {
     amountLabel: "Financing amount",
     eyebrow: "Project financing",

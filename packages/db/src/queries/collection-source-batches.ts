@@ -310,6 +310,15 @@ async function refreshBatchStatus(input: {
   })
 }
 
+// For other posting paths (workplace receiving on monthly records) that add
+// posted rows to a batch inside their own transaction.
+export function refreshCollectionSourceBatchStatus(
+  input: { batchId: string; tenantId: string },
+  tx: PrismaClient
+) {
+  return refreshBatchStatus({ ...input, tx })
+}
+
 export async function listCollectionSourceContributionBatches(
   tenantId: string,
   prismaOverride?: PrismaClient

@@ -12,6 +12,7 @@ export const monthlyRecordSortFieldSchema = z.enum([
   "status",
   "totalPaidAmount",
   "totalPayableAmount",
+  "workplaceName",
 ])
 
 export const monthlyRecordMemberStatusSchema = z.enum([
@@ -31,5 +32,12 @@ export const listMonthlyRecordRowsSchema = z
       .nullable()
       .optional(),
     status: monthlyRecordMemberStatusSchema.nullable().optional(),
+    workplaceId: z.string().uuid().nullable().optional(),
   })
   .optional()
+
+export const receiveWorkplaceSchema = z.object({
+  monthlyRecordId: z.string().uuid(),
+  rowIds: z.array(z.string().uuid()).min(1).max(500),
+  workplaceId: z.string().uuid(),
+})

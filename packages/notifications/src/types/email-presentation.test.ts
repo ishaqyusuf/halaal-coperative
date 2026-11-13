@@ -14,7 +14,7 @@ describe("notification email presentation registry", () => {
     expect(notificationEmailPresentationTypeList.sort()).toEqual(
       [...halaalVestNotificationTypeList].sort()
     )
-    expect(halaalVestNotificationTypeList).toHaveLength(40)
+    expect(halaalVestNotificationTypeList).toHaveLength(41)
 
     for (const type of halaalVestNotificationTypeList) {
       expect(halaalVestNotificationTypes[type].defaultChannels).toContain(

@@ -64,6 +64,26 @@ export const monthlyRecordMemberApplied = defineHalaalNotification({
   variant: "success",
 })
 
+export const monthlyRecordWorkplaceReceived = defineHalaalNotification({
+  buildAction: (payload) =>
+    financeAction(payload, "/monthly-records", "Open monthly records"),
+  buildBody: (payload) =>
+    financeBody(payload, "Workplace payments were received"),
+  buildEmailDraft: noEmailDraft,
+  buildLink: (payload) => defaultActionUrl(payload, "/monthly-records"),
+  channels: channelHelpers.inAppAndEmail(),
+  roles: ["tenant_admin", "finance_officer"],
+  schema: financeEventSchema.extend({
+    collectionSourceBatchId: z.string().nullable().optional(),
+    monthlyRecordId: z.string().min(1),
+    receivedAmount: z.number().optional(),
+    receivedCount: z.number().int().optional(),
+    workplaceId: z.string().min(1),
+  }),
+  title: () => "Workplace payments received",
+  variant: "success",
+})
+
 export const monthlyRecordMemberCancelled = defineHalaalNotification({
   buildAction: (payload) =>
     financeAction(payload, "/monthly-records", "Open monthly records"),

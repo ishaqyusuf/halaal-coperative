@@ -5,6 +5,7 @@ import {
   applyApplicableWorkflowChargesInTransaction,
   loadChargeQuoter,
 } from "./charges"
+import { refreshCollectionSourceBatchStatus } from "./collection-source-batches"
 import { recordMemberPaymentMutation } from "./contributions"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
 import { getTenantMigrationWriteAccess } from "./migration"
@@ -71,6 +72,8 @@ export type MonthlyRecordMemberRow = {
   totalPayableAmount: number
   totalPaidAmount: number
   status: MonthlyRecordMemberStatusValue
+  workplaceId: string | null
+  workplaceName: string | null
 }
 
 export type MonthlyRecordChargeBreakdown = {
@@ -808,6 +811,7 @@ export async function getMonthlyRecordDetail(
         include: {
           member: {
             select: {
+              deductionSource: { select: { id: true, name: true } },
               fullName: true,
               id: true,
               memberNumber: true,
@@ -1013,6 +1017,8 @@ export async function getMonthlyRecordDetail(
         totalPayableAmount: Number(row.calculatedPayableAmount),
         totalPaidAmount,
         status: row.status as MonthlyRecordMemberStatusValue,
+        workplaceId: row.member.deductionSource?.id ?? null,
+        workplaceName: row.member.deductionSource?.name ?? null,
       }
     }),
   }
@@ -1057,6 +1063,7 @@ export type MonthlyRecordRowSortField =
   | "status"
   | "totalPaidAmount"
   | "totalPayableAmount"
+  | "workplaceName"
 
 export type MonthlyRecordRowsQuery = {
   cursor?: string | null
@@ -1064,6 +1071,7 @@ export type MonthlyRecordRowsQuery = {
   q?: string | null
   sort?: [MonthlyRecordRowSortField, "asc" | "desc"] | null
   status?: MonthlyRecordMemberStatusValue | null
+  workplaceId?: string | null
 }
 
 // Filters, sorts and pages a month's rows in memory. Shared by the rows
@@ -1078,6 +1086,7 @@ export function pageMonthlyRecordRows(
   const filtered = rows.filter(
     (row) =>
       (!input.status || row.status === input.status) &&
+      (!input.workplaceId || row.workplaceId === input.workplaceId) &&
       (!query ||
         row.memberName.toLowerCase().includes(query) ||
         row.memberNumber.toLowerCase().includes(query))
@@ -1115,7 +1124,7 @@ function sortMonthlyRecordRows(
       return (leftValue - rightValue) * factor
     }
 
-    return String(leftValue).localeCompare(String(rightValue)) * factor
+    return String(leftValue ?? "").localeCompare(String(rightValue ?? "")) * factor
   })
 }
 
@@ -1196,73 +1205,428 @@ export async function applyMonthlyRecordMember(
 
       if (!member) throw ExpectedQueryError.notFound("Member not found.")
 
-      const {
-        contributionAmount,
-        extraSavingsAmount,
-        scheduledLoanServicingAmount,
-      } = allocateMonthlyRecordPayment({
-        contributionTarget: Number(row.contributionAmount),
-        loanTarget: Number(row.loanRepaymentAmount),
-        paymentAllocationPreference: member.paymentAllocationPreference,
-        totalPaidAmount: input.totalPaidAmount,
-      })
-      const assessedAt = getPeriodRange(
-        row.monthlyRecord.periodYear,
-        row.monthlyRecord.periodMonth
-      ).start
-
-      const posted = await recordMemberPaymentMutation(
+      return postClaimedMonthlyRecordRow(
         {
           actorUserId: input.actorUserId,
           channel: "manual",
-          committedSavingsAmount: contributionAmount,
-          contributionPlanId: row.contributionPlanId ?? undefined,
-          extraSavingsAmount,
-          loanId:
-            scheduledLoanServicingAmount > 0
-              ? (row.loanId ?? undefined)
-              : undefined,
-          memberId: row.memberId,
-          periodLabel: row.monthlyRecord.periodLabel,
-          postedAt: assessedAt,
-          reference: `monthly-record:${row.monthlyRecord.id}:${row.id}`,
-          scheduledLoanServicingAmount,
+          paymentAllocationPreference: member.paymentAllocationPreference,
+          row,
           tenantId: input.tenantId,
-        },
-        tx
-      )
-
-      await applyApplicableWorkflowChargesInTransaction(
-        {
-          actorUserId: input.actorUserId,
-          assessedAt,
-          basisAmount: input.totalPaidAmount,
-          memberId: row.memberId,
-          notes: `Posted from monthly record ${row.monthlyRecord.periodLabel}`,
-          tenantId: input.tenantId,
-          trigger: "monthly_collection",
-          workflow: "commitment_collection",
-        },
-        tx
-      )
-
-      return tx.monthlyRecordMember.update({
-        where: { id: row.id },
-        data: {
-          appliedAt: new Date(),
-          cancelledAt: null,
-          contributionId: posted.contributionId,
-          repaymentId: posted.repaymentId,
-          status: "applied",
           totalPaidAmount: input.totalPaidAmount,
         },
-      })
+        tx
+      )
     },
     {
       maxWait: 5_000,
       timeout: 15_000,
     }
   )
+}
+
+type ClaimedMonthlyRecordRow = {
+  contributionAmount: unknown
+  contributionPlanId: string | null
+  id: string
+  loanId: string | null
+  loanRepaymentAmount: unknown
+  memberId: string
+  monthlyRecord: {
+    id: string
+    periodLabel: string
+    periodMonth: number
+    periodYear: number
+  }
+}
+
+// Posts the payment, the commitment-collection charges and the row link for a
+// row the caller has already claimed (`status: "applied"`) in `tx`. Shared by
+// the single apply and workplace receiving, so both post the same way.
+async function postClaimedMonthlyRecordRow(
+  input: {
+    actorUserId: string
+    channel: "manual" | "payroll"
+    paymentAllocationPreference?: string | null
+    row: ClaimedMonthlyRecordRow
+    tenantId: string
+    totalPaidAmount: number
+  },
+  tx: PrismaClient
+) {
+  const { row } = input
+  const { contributionAmount, extraSavingsAmount, scheduledLoanServicingAmount } =
+    allocateMonthlyRecordPayment({
+      contributionTarget: Number(row.contributionAmount),
+      loanTarget: Number(row.loanRepaymentAmount),
+      paymentAllocationPreference:
+        input.paymentAllocationPreference ?? undefined,
+      totalPaidAmount: input.totalPaidAmount,
+    })
+  const assessedAt = getPeriodRange(
+    row.monthlyRecord.periodYear,
+    row.monthlyRecord.periodMonth
+  ).start
+
+  const posted = await recordMemberPaymentMutation(
+    {
+      actorUserId: input.actorUserId,
+      channel: input.channel,
+      committedSavingsAmount: contributionAmount,
+      contributionPlanId: row.contributionPlanId ?? undefined,
+      extraSavingsAmount,
+      loanId:
+        scheduledLoanServicingAmount > 0 ? (row.loanId ?? undefined) : undefined,
+      memberId: row.memberId,
+      periodLabel: row.monthlyRecord.periodLabel,
+      postedAt: assessedAt,
+      reference: `monthly-record:${row.monthlyRecord.id}:${row.id}`,
+      scheduledLoanServicingAmount,
+      tenantId: input.tenantId,
+    },
+    tx
+  )
+
+  await applyApplicableWorkflowChargesInTransaction(
+    {
+      actorUserId: input.actorUserId,
+      assessedAt,
+      basisAmount: input.totalPaidAmount,
+      memberId: row.memberId,
+      notes: `Posted from monthly record ${row.monthlyRecord.periodLabel}`,
+      tenantId: input.tenantId,
+      trigger: "monthly_collection",
+      workflow: "commitment_collection",
+    },
+    tx
+  )
+
+  return tx.monthlyRecordMember.update({
+    where: { id: row.id },
+    data: {
+      appliedAt: new Date(),
+      cancelledAt: null,
+      contributionId: posted.contributionId,
+      repaymentId: posted.repaymentId,
+      status: "applied",
+      totalPaidAmount: input.totalPaidAmount,
+    },
+  })
+}
+
+export const workplaceReceiveMaxRows = 500
+const workplaceReceiveChunkSize = 20
+
+export type WorkplaceReceiveSkipReason =
+  | "already_paid"
+  | "cancelled"
+  | "not_found"
+  | "not_in_workplace"
+  | "nothing_due"
+  | "paid_by_workplace_batch"
+
+export type WorkplaceReceiveResult = {
+  batchId: string | null
+  periodLabel: string
+  receivedAmount: number
+  receivedCount: number
+  received: Array<{ amount: number; memberId: string; rowId: string }>
+  skipped: Array<{ reason: WorkplaceReceiveSkipReason; rowId: string }>
+  workplaceName: string
+}
+
+// Marks the chosen members of one workplace as paid for one month. Each row
+// goes through the same claim and posting as a single apply, so re-running is
+// safe: rows already applied (or paid through a workplace batch on the
+// contributions page) are skipped, never posted twice. Rows are posted in
+// bounded transactions; every committed chunk is also recorded against the
+// workplace's `CollectionSourceContributionBatch` for that month.
+export async function receiveWorkplaceMonthlyPayments(
+  input: {
+    actorUserId: string
+    monthlyRecordId: string
+    rowIds: string[]
+    tenantId: string
+    workplaceId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<WorkplaceReceiveResult> {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const rowIds = [...new Set(input.rowIds)]
+  if (rowIds.length === 0) {
+    throw ExpectedQueryError.validation("Choose at least one member.")
+  }
+  if (rowIds.length > workplaceReceiveMaxRows) {
+    throw ExpectedQueryError.validation(
+      `Choose at most ${workplaceReceiveMaxRows} members at a time.`
+    )
+  }
+  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+
+  const [record, workplace] = await Promise.all([
+    prisma.monthlyRecord.findFirst({
+      where: { id: input.monthlyRecordId, tenantId: input.tenantId },
+      select: {
+        id: true,
+        periodLabel: true,
+        periodMonth: true,
+        periodYear: true,
+        status: true,
+      },
+    }),
+    prisma.deductionSource.findFirst({
+      where: { id: input.workplaceId, tenantId: input.tenantId },
+      select: { id: true, name: true },
+    }),
+  ])
+
+  if (!record) throw ExpectedQueryError.notFound("Monthly record not found.")
+  if (record.status === "closed") {
+    throw ExpectedQueryError.conflict("Closed monthly records cannot be changed.")
+  }
+  if (!workplace) throw ExpectedQueryError.notFound("Workplace not found.")
+
+  const rows = await prisma.monthlyRecordMember.findMany({
+    where: {
+      id: { in: rowIds },
+      monthlyRecordId: record.id,
+      tenantId: input.tenantId,
+    },
+    select: {
+      calculatedPayableAmount: true,
+      contributionAmount: true,
+      contributionPlanId: true,
+      id: true,
+      loanId: true,
+      loanRepaymentAmount: true,
+      memberId: true,
+      status: true,
+      member: {
+        select: { deductionSourceId: true, paymentAllocationPreference: true },
+      },
+    },
+  })
+  // A member already paid through a workplace batch on the contributions page
+  // for this month must not be posted again from here.
+  const batchPaidMemberIds = new Set(
+    (
+      await prisma.collectionSourceContributionBatchRow.findMany({
+        where: {
+          batch: {
+            periodMonth: record.periodMonth,
+            periodYear: record.periodYear,
+          },
+          contributionId: { not: null },
+          memberId: { in: rows.map((row) => row.memberId) },
+          tenantId: input.tenantId,
+        },
+        select: { memberId: true },
+      })
+    ).map((row) => row.memberId)
+  )
+  const rowsById = new Map(rows.map((row) => [row.id, row]))
+  const skipped: WorkplaceReceiveResult["skipped"] = []
+  const toReceive: typeof rows = []
+
+  for (const rowId of rowIds) {
+    const row = rowsById.get(rowId)
+    const reason: WorkplaceReceiveSkipReason | null = !row
+      ? "not_found"
+      : row.member.deductionSourceId !== workplace.id
+        ? "not_in_workplace"
+        : row.status === "applied"
+          ? "already_paid"
+          : row.status === "cancelled"
+            ? "cancelled"
+            : batchPaidMemberIds.has(row.memberId)
+              ? "paid_by_workplace_batch"
+              : Number(row.calculatedPayableAmount) <= 0
+                ? "nothing_due"
+                : null
+
+    if (reason || !row) {
+      skipped.push({ reason: reason ?? "not_found", rowId })
+    } else {
+      toReceive.push(row)
+    }
+  }
+
+  const received: WorkplaceReceiveResult["received"] = []
+  let batchId: string | null = null
+  const monthlyRecord = {
+    id: record.id,
+    periodLabel: record.periodLabel,
+    periodMonth: record.periodMonth,
+    periodYear: record.periodYear,
+  }
+  const postedAt = getPeriodRange(record.periodYear, record.periodMonth).start
+
+  for (let index = 0; index < toReceive.length; index += workplaceReceiveChunkSize) {
+    const chunk = toReceive.slice(index, index + workplaceReceiveChunkSize)
+
+    await prisma.$transaction(
+      async (transaction) => {
+        const tx = transaction as unknown as PrismaClient
+        const chunkReceived: typeof received = []
+        const chunkPostings: Array<{
+          amount: number
+          contributionId: string | null
+          contributionPlanId: string | null
+          memberId: string
+        }> = []
+
+        for (const row of chunk) {
+          // The same claim as a single apply: a row applied meanwhile (by a
+          // concurrent run or by hand) matches nothing and is skipped.
+          const claimed = await tx.monthlyRecordMember.updateMany({
+            where: { id: row.id, status: "pending", tenantId: input.tenantId },
+            data: { status: "applied" },
+          })
+          if (claimed.count !== 1) {
+            skipped.push({ reason: "already_paid", rowId: row.id })
+            continue
+          }
+
+          const amount = Number(row.calculatedPayableAmount)
+          const applied = await postClaimedMonthlyRecordRow(
+            {
+              actorUserId: input.actorUserId,
+              channel: "payroll",
+              paymentAllocationPreference:
+                row.member.paymentAllocationPreference,
+              row: { ...row, monthlyRecord },
+              tenantId: input.tenantId,
+              totalPaidAmount: amount,
+            },
+            tx
+          )
+          chunkReceived.push({ amount, memberId: row.memberId, rowId: row.id })
+          chunkPostings.push({
+            amount,
+            contributionId: applied.contributionId,
+            contributionPlanId: row.contributionPlanId,
+            memberId: row.memberId,
+          })
+        }
+
+        if (chunkReceived.length === 0) return
+
+        const batch = await tx.collectionSourceContributionBatch.upsert({
+          where: {
+            tenantId_deductionSourceId_periodYear_periodMonth: {
+              deductionSourceId: workplace.id,
+              periodMonth: record.periodMonth,
+              periodYear: record.periodYear,
+              tenantId: input.tenantId,
+            },
+          },
+          create: {
+            createdByUserId: input.actorUserId,
+            deductionSourceId: workplace.id,
+            periodLabel: record.periodLabel,
+            periodMonth: record.periodMonth,
+            periodYear: record.periodYear,
+            postedByUserId: input.actorUserId,
+            tenantId: input.tenantId,
+          },
+          update: { postedByUserId: input.actorUserId },
+          select: { id: true },
+        })
+        batchId = batch.id
+        const existingBatchRows =
+          await tx.collectionSourceContributionBatchRow.findMany({
+            where: {
+              batchId: batch.id,
+              memberId: { in: chunkPostings.map((posting) => posting.memberId) },
+            },
+            select: { memberId: true },
+          })
+        const existingMemberIds = new Set(
+          existingBatchRows.map((row) => row.memberId)
+        )
+        const newBatchRows = chunkPostings.filter(
+          (posting) => !existingMemberIds.has(posting.memberId)
+        )
+
+        if (newBatchRows.length > 0) {
+          await tx.collectionSourceContributionBatchRow.createMany({
+            data: newBatchRows.map((posting) => ({
+              batchId: batch.id,
+              contributionId: posting.contributionId,
+              contributionPlanId: posting.contributionPlanId,
+              expectedAmount: posting.amount,
+              memberId: posting.memberId,
+              paidAmount: posting.amount,
+              postedAt,
+              status: "posted" as const,
+              tenantId: input.tenantId,
+            })),
+            skipDuplicates: true,
+          })
+        }
+
+        // A staged row for the same member (from the contributions page) is
+        // closed with this posting so it can never be posted a second time.
+        for (const posting of chunkPostings) {
+          if (!existingMemberIds.has(posting.memberId)) continue
+          await tx.collectionSourceContributionBatchRow.updateMany({
+            where: {
+              batchId: batch.id,
+              contributionId: null,
+              memberId: posting.memberId,
+            },
+            data: {
+              blocker: null,
+              contributionId: posting.contributionId,
+              exceptionReason: null,
+              paidAmount: posting.amount,
+              postedAt,
+              status: "posted",
+            },
+          })
+        }
+
+        await refreshCollectionSourceBatchStatus(
+          { batchId: batch.id, tenantId: input.tenantId },
+          tx
+        )
+        await tx.auditLog.create({
+          data: {
+            action: "monthly_record.workplace_received",
+            actorType: "user",
+            actorUserId: input.actorUserId,
+            entityId: record.id,
+            entityType: "MonthlyRecord",
+            metadata: {
+              collectionSourceBatchId: batch.id,
+              deductionSourceId: workplace.id,
+              periodLabel: record.periodLabel,
+              receivedAmount: chunkReceived.reduce(
+                (total, item) => total + item.amount,
+                0
+              ),
+              rowIds: chunkReceived.map((item) => item.rowId),
+            },
+            occurredAt: new Date(),
+            tenantId: input.tenantId,
+          },
+        })
+        received.push(...chunkReceived)
+      },
+      { maxWait: 10_000, timeout: 60_000 }
+    )
+  }
+
+  return {
+    batchId,
+    periodLabel: record.periodLabel,
+    receivedAmount: received.reduce((total, item) => total + item.amount, 0),
+    receivedCount: received.length,
+    received,
+    skipped,
+    workplaceName: workplace.name,
+  }
 }
 
 async function reverseMonthlyContribution(input: {

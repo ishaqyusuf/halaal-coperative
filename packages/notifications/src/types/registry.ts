@@ -18,6 +18,7 @@ import {
   monthlyRecordGenerated,
   monthlyRecordMemberApplied,
   monthlyRecordMemberCancelled,
+  monthlyRecordWorkplaceReceived,
   repaymentPosted,
   shareProfitPublished,
 } from "./finance"
@@ -101,6 +102,7 @@ export const halaalVestNotificationTypes = {
   "monthly_record.generated": monthlyRecordGenerated,
   "monthly_record.member_applied": monthlyRecordMemberApplied,
   "monthly_record.member_cancelled": monthlyRecordMemberCancelled,
+  "monthly_record.workplace_received": monthlyRecordWorkplaceReceived,
   "project_financing.request_status_changed":
     projectFinancingRequestStatusChanged,
   "procurement.request_status_changed": procurementRequestStatusChanged,

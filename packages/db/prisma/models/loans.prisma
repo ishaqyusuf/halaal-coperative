@@ -99,6 +99,7 @@ model LoanApproval {
   actorUser   User        @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
 
   @@index([tenantId, loanRequestId, actedAt], map: "loan_approvals_tenant_request_acted_at_idx")
+  @@index([loanRequestId], map: "loan_approvals_loan_request_id_idx")
   @@map("loan_approvals")
 }
 
@@ -242,5 +243,6 @@ model Repayment {
   paymentReceiptAllocations MemberPaymentReceiptAllocation[]
 
   @@index([tenantId, loanId, paidAt], map: "repayments_tenant_loan_paid_at_idx")
+  @@index([loanId], map: "repayments_loan_id_idx")
   @@map("repayments")
 }

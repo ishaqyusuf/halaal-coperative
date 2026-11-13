@@ -38,5 +38,6 @@ model ImportBatchRow {
   importBatch ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, importBatchId, rowIndex], map: "import_batch_rows_tenant_batch_row_idx")
+  @@index([importBatchId], map: "import_batch_rows_import_batch_id_idx")
   @@map("import_batch_rows")
 }

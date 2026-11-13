@@ -56,5 +56,6 @@ model SupportCaseMessage {
   authorUser  User?       @relation("SupportCaseMessageAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, supportCaseId, createdAt], map: "support_case_messages_tenant_case_created_idx")
+  @@index([supportCaseId], map: "support_case_messages_support_case_id_idx")
   @@map("support_case_messages")
 }

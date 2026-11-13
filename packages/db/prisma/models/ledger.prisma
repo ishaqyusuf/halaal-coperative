@@ -66,5 +66,6 @@ model LedgerEntry {
 
   @@index([tenantId, ledgerTransactionId], map: "ledger_entries_tenant_transaction_idx")
   @@index([tenantId, ledgerAccountId], map: "ledger_entries_tenant_account_idx")
+  @@index([ledgerTransactionId], map: "ledger_entries_ledger_transaction_id_idx")
   @@map("ledger_entries")
 }

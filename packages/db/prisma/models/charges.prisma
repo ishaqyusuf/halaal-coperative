@@ -91,5 +91,6 @@ model ChargeApplication {
   @@index([tenantId, procurementRequestId], map: "charge_applications_tenant_procurement_idx")
   @@index([tenantId, foodPurchaseApplicationId], map: "charge_applications_tenant_food_purchase_idx")
   @@index([tenantId, projectFinancingRequestId], map: "charge_applications_tenant_project_financing_idx")
+  @@index([loanRequestId], map: "charge_applications_loan_request_id_idx")
   @@map("charge_applications")
 }

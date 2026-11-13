@@ -48,6 +48,7 @@ model ShareBusinessProfitEntry {
 
   @@index([tenantId, profitDate], map: "share_business_profit_entries_tenant_profit_date_idx")
   @@index([tenantId, shareBusinessId, profitDate], map: "share_business_profit_entries_tenant_business_profit_date_idx")
+  @@index([shareBusinessId], map: "share_business_profit_entries_share_business_id_idx")
   @@map("share_business_profit_entries")
 }
 

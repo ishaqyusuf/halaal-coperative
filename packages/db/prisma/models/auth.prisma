@@ -156,5 +156,6 @@ model Membership {
 
   @@unique([tenantId, userId, role], map: "memberships_tenant_user_role_key")
   @@index([tenantId, role], map: "memberships_tenant_role_idx")
+  @@index([userId], map: "memberships_user_id_idx")
   @@map("memberships")
 }

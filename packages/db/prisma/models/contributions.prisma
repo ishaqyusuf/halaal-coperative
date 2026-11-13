@@ -48,6 +48,7 @@ model Contribution {
 
   @@index([tenantId, memberId, postedAt], map: "contributions_tenant_member_posted_at_idx")
   @@index([tenantId, status], map: "contributions_tenant_status_idx")
+  @@index([contributionPlanId], map: "contributions_contribution_plan_id_idx")
   @@map("contributions")
 }
 
@@ -203,5 +204,6 @@ model MemberPaymentReceiptAllocation {
   @@index([tenantId, procurementRepaymentScheduleItemId], map: "member_receipt_allocs_tenant_proc_schedule_idx")
   @@index([tenantId, foodPurchaseApplicationId], map: "member_receipt_allocs_tenant_food_application_idx")
   @@index([tenantId, projectFinancingRequestId], map: "member_receipt_allocs_tenant_project_financing_idx")
+  @@index([receiptId], map: "member_payment_receipt_allocations_receipt_id_idx")
   @@map("member_payment_receipt_allocations")
 }

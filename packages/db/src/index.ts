@@ -81,7 +81,6 @@ export * from "./queries/store-refund-reviews"
 export * from "./queries/mobile-app-access"
 export * from "./queries/cooperative-mobile-access"
 export * from "./queries/cooperative-mobile-billing"
-export * from "./queries/mobile-app-review-grants"
 
 export * from "./queries/account-privacy"
 export * from "./queries/dashboard-evidence-uploads"

@@ -76,8 +76,5 @@ describe("cooperative mobile access boundary", () => {
     expect(mobileAccessPathAllowed("mobile.member.financing.create")).toBe(
       false
     )
-    expect(mobileAccessPathAllowed("subscriptions.verifyStorePurchase")).toBe(
-      false
-    )
   })
 })

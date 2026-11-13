@@ -217,12 +217,6 @@ assertIncludes("src/features/app-lock/hooks/use-app-lock.tsx", [
   "shouldRelockApp",
 ])
 
-assertMatches(
-  "src/features/subscription/routes/store-subscription-route-controller.tsx",
-  /store\.purchase\(\s*offer,\s*snapshot\?\.subscriptionId\s*\?\?\s*null\s*\)/,
-  "subscription-bound store purchase dispatch"
-)
-
 assertIncludes(
   "android/app/src/main/java/com/halaalvest/mobile/MainActivity.kt",
   [

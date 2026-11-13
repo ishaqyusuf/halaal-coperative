@@ -77,7 +77,7 @@ export function presentSubscriptionCheckout(
     supportMessage: checkoutUrl
       ? null
       : mobileIntent && status === "ready"
-        ? "Manage software plans through the app's Apple or Google subscription screen."
+        ? "Manage your cooperative's software plan from the web dashboard."
         : messages[status],
   }
 }

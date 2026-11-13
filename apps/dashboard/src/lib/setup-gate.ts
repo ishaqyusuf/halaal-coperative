@@ -1,6 +1,7 @@
 import {
   getTenantBusinessProfitPolicy,
   getTenantInitialMigrationState,
+  getTenantMigrationWriteAccess,
   type MembershipRole,
 } from "@halaalvest/db"
 import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
@@ -20,6 +21,20 @@ export {
 export const getRequestInitialMigrationState = cache((tenantId: string) =>
   getTenantInitialMigrationState(tenantId)
 )
+
+// The live-write gates come from one tenant row. The full migration state
+// (~17 queries) is only needed while migration tools are open: during setup,
+// or under an emergency unlock. A live cooperative's request skips it.
+export const getRequestMigrationGateState = cache(async (tenantId: string) => {
+  const writeAccess = await getTenantMigrationWriteAccess(tenantId)
+
+  return {
+    migrationState: writeAccess.canUseMigrationTools
+      ? await getRequestInitialMigrationState(tenantId)
+      : null,
+    writeAccess,
+  }
+})
 
 export function shouldOpenFirstRunOnboarding(input: {
   alreadyInOnboarding: boolean
@@ -51,26 +66,31 @@ export async function resolveInitialMigrationSetupGate(input: {
     }
   }
 
-  const [migrationState, operationProfile, businessPolicy] = await Promise.all([
-    getRequestInitialMigrationState(input.tenantId),
-    getRequestTenantOperationProfile(input.tenantId),
-    getTenantBusinessProfitPolicy(input.tenantId),
-  ])
-  const canUseLiveWorkspace = migrationState.snapshot.canUseLiveFinancialWrites
+  const [{ migrationState, writeAccess }, operationProfile, businessPolicy] =
+    await Promise.all([
+      getRequestMigrationGateState(input.tenantId),
+      getRequestTenantOperationProfile(input.tenantId),
+      getTenantBusinessProfitPolicy(input.tenantId),
+    ])
+  const canUseLiveWorkspace = writeAccess.canUseLiveFinancialWrites
+  // A live cooperative is past every setup stage; otherwise the full state
+  // is loaded (migration tools are open whenever live writes are closed).
+  const migrationStatus = migrationState?.snapshot.status
   const hasCompletedInitialSetup =
-    [
-      "member_migration_in_progress",
-      "migration_review",
-      "finalized",
-      "live_operations",
-    ].includes(migrationState.snapshot.status) &&
+    (canUseLiveWorkspace ||
+      (migrationStatus !== undefined &&
+        [
+          "member_migration_in_progress",
+          "migration_review",
+          "finalized",
+          "live_operations",
+        ].includes(migrationStatus))) &&
     Boolean(operationProfile.reviewedAt) &&
     Boolean(businessPolicy.id)
   const isWorkspaceAdmin = hasAnyRole(input.role, workspaceAdminRoles)
   const isMemberMigrationNext =
-    migrationState.snapshot.status === "member_migration_in_progress"
-  const needsMigrationReview =
-    migrationState.snapshot.status === "migration_review"
+    migrationStatus === "member_migration_in_progress"
+  const needsMigrationReview = migrationStatus === "migration_review"
 
   return {
     canUseLiveWorkspace,

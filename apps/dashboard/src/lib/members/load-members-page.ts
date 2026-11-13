@@ -1,18 +1,18 @@
 import {
   createDbRuntime,
   getMemberRegistrySummary,
-  getTenantOperationProfile,
   getTenantMemberSignupSettings,
   getTenantMigrationSetup,
   type TenantMigrationSetupMode,
   listActiveDeductionSources,
 } from "@halaalvest/db"
 import type { MembersFilterParams } from "@/hooks/use-members-filter-params"
+import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
 import {
   canShowQuickFill,
   getDashboardServerContext,
 } from "@/lib/server-context"
-import { getRequestInitialMigrationState } from "@/lib/setup-gate"
+import { getRequestMigrationGateState } from "@/lib/setup-gate"
 import {
   allStaffRoles,
   hasAnyRole,
@@ -150,9 +150,7 @@ export async function loadMembersPageData(
   let signupSettings
   let migrationSetup
   let operationProfile
-  let migrationState: Awaited<
-    ReturnType<typeof getRequestInitialMigrationState>
-  >
+  let migrationGate: Awaited<ReturnType<typeof getRequestMigrationGateState>>
   let summary: Awaited<ReturnType<typeof getMemberRegistrySummary>>
   let deductionSources = [] as Awaited<
     ReturnType<typeof listActiveDeductionSources>
@@ -165,13 +163,13 @@ export async function loadMembersPageData(
       signupSettings,
       migrationSetup,
       operationProfile,
-      migrationState,
+      migrationGate,
       summary,
     ] = await Promise.all([
       getTenantMemberSignupSettings(context.tenant.id),
       getTenantMigrationSetup(context.tenant.id),
-      getTenantOperationProfile(context.tenant.id),
-      getRequestInitialMigrationState(context.tenant.id),
+      getRequestTenantOperationProfile(context.tenant.id),
+      getRequestMigrationGateState(context.tenant.id),
       getMemberRegistrySummary(
         context.tenant.id,
         toMemberQueryFilters(filters)
@@ -209,10 +207,11 @@ export async function loadMembersPageData(
       operationProfile.services.collection_sources.canStaffCreate,
     canManageImports:
       hasImportRole &&
-      migrationState.snapshot.canUseMigrationTools &&
-      migrationState.counts.appliedBackfillBatches === 0 &&
-      migrationState.counts.appliedBackfillMembers === 0 &&
-      migrationState.counts.appliedBackfillMonths === 0,
+      migrationGate.migrationState !== null &&
+      migrationGate.migrationState.snapshot.canUseMigrationTools &&
+      migrationGate.migrationState.counts.appliedBackfillBatches === 0 &&
+      migrationGate.migrationState.counts.appliedBackfillMembers === 0 &&
+      migrationGate.migrationState.counts.appliedBackfillMonths === 0,
     canManageMembers,
     collectionSourceOptions: deductionSources.map((source) => ({
       id: source.id,

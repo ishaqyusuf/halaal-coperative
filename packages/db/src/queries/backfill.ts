@@ -15,7 +15,7 @@ import { applyCharge, applyLoanRequestChargesInTransaction } from "./charges"
 import { recordContribution } from "./contributions"
 import { createAuditLogEntry } from "./audit"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
-import { getTenantInitialMigrationState } from "./migration"
+import { getTenantMigrationWriteAccess } from "./migration"
 import { readOptionalTenantBusinessPolicy } from "./tenant-business-policy"
 import {
   createMemberShareLedgerEntry,
@@ -28,11 +28,11 @@ async function assertBackfillMutationOpen(
   prisma: PrismaClient,
   options: { allowLiveFinancialWrites?: boolean } = {}
 ) {
-  const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
+  const writeAccess = await getTenantMigrationWriteAccess(tenantId, prisma)
   const mutationOpen =
-    migrationState.snapshot.canUseMigrationTools ||
+    writeAccess.canUseMigrationTools ||
     (options.allowLiveFinancialWrites &&
-      migrationState.snapshot.canUseLiveFinancialWrites)
+      writeAccess.canUseLiveFinancialWrites)
 
   if (!mutationOpen) {
     throw ExpectedQueryError.precondition(

@@ -14,7 +14,10 @@ import {
   getMembersOperationalReadiness,
   listMigrationFinalizedMemberIds,
 } from "./member-readiness"
-import { getTenantInitialMigrationState } from "./migration"
+import {
+  getTenantInitialMigrationState,
+  getTenantMigrationWriteAccess,
+} from "./migration"
 import { ensureMemberInGeneratedMonthlyRecord } from "./monthly-records"
 import { getTenantOperationProfile } from "./operation-profile"
 import { assertQaIdentityLane } from "./qa-maintenance"
@@ -581,21 +584,25 @@ async function assertMemberProfileMutationOpen(
   tenantId: string,
   prisma: PrismaClient | Prisma.TransactionClient
 ) {
-  const migrationState = await getTenantInitialMigrationState(
+  const writeAccess = await getTenantMigrationWriteAccess(
     tenantId,
     prisma as PrismaClient
   )
 
-  if (migrationState.snapshot.canUseLiveFinancialWrites) {
+  if (writeAccess.canUseLiveFinancialWrites) {
     return
   }
 
-  if (!migrationState.snapshot.canUseMigrationTools) {
+  if (!writeAccess.canUseMigrationTools) {
     throw ExpectedQueryError.precondition(
       "Member profile writes are locked until initial migration is finalized."
     )
   }
 
+  const migrationState = await getTenantInitialMigrationState(
+    tenantId,
+    prisma as PrismaClient
+  )
   const setupStepKeys = new Set(["finance_start_date", "charge_schedules"])
   const blockingSteps = migrationState.snapshot.missingStepKeys.filter(
     (stepKey) => setupStepKeys.has(stepKey)
@@ -627,12 +634,12 @@ async function assertLiveFinancialWritesOpen(
   tenantId: string,
   prisma: PrismaClient | Prisma.TransactionClient
 ) {
-  const migrationState = await getTenantInitialMigrationState(
+  const writeAccess = await getTenantMigrationWriteAccess(
     tenantId,
     prisma as PrismaClient
   )
 
-  if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+  if (!writeAccess.canUseLiveFinancialWrites) {
     throw ExpectedQueryError.precondition(
       "Live financial record writes are locked until initial migration is finalized."
     )

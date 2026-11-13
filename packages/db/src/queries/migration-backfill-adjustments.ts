@@ -2,7 +2,7 @@ import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
-import { getTenantInitialMigrationState } from "./migration"
+import { getTenantMigrationWriteAccess } from "./migration"
 
 type ExistingMigrationBackfillAdjustment = {
   id: string
@@ -25,14 +25,14 @@ export async function assertMigrationAdjustmentMutationOpen(
   },
   prisma: PrismaClient
 ) {
-  const migrationState = await getTenantInitialMigrationState(
+  const writeAccess = await getTenantMigrationWriteAccess(
     input.tenantId,
     prisma
   )
 
   if (
-    !migrationState.snapshot.canUseMigrationTools &&
-    !migrationState.snapshot.canUseLiveFinancialWrites
+    !writeAccess.canUseMigrationTools &&
+    !writeAccess.canUseLiveFinancialWrites
   ) {
     throw ExpectedQueryError.precondition(
       "Migration adjustments are locked because initial migration is finalized."

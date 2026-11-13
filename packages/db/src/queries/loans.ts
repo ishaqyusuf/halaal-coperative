@@ -17,15 +17,15 @@ import {
   getMonthlyFinancingCycleHealth,
 } from "./financing-cycles"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
-import { getTenantInitialMigrationState } from "./migration"
+import { getTenantMigrationWriteAccess } from "./migration"
 
 async function assertLiveFinancialWritesOpen(
   tenantId: string,
   prisma: PrismaClient
 ) {
-  const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
+  const writeAccess = await getTenantMigrationWriteAccess(tenantId, prisma)
 
-  if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+  if (!writeAccess.canUseLiveFinancialWrites) {
     throw ExpectedQueryError.precondition(
       "Live financial record writes are locked until initial migration is finalized."
     )
@@ -1157,7 +1157,7 @@ export async function quoteLoanRequest(
     metrics,
     cycleHealth,
     charges,
-    migrationState,
+    writeAccess,
   ] = await Promise.all([
     prisma.member.findFirst({
       where: { id: input.memberId, tenantId: input.tenantId },
@@ -1184,7 +1184,7 @@ export async function quoteLoanRequest(
       },
       prisma
     ),
-    getTenantInitialMigrationState(input.tenantId, prisma),
+    getTenantMigrationWriteAccess(input.tenantId, prisma),
   ])
 
   if (!member) throw ExpectedQueryError.notFound("Member not found")
@@ -1225,7 +1225,7 @@ export async function quoteLoanRequest(
     (warning) => ({ key: warning.key, message: warning.label })
   )
 
-  if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+  if (!writeAccess.canUseLiveFinancialWrites) {
     blockers.push({
       key: "financial_writes_locked",
       message:

@@ -4,7 +4,7 @@ import { ExpectedQueryError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
 import { claimDashboardEvidenceUploadLink } from "./dashboard-evidence-uploads"
 import { ensureTenantLedgerAccounts, postLedgerTransaction } from "./ledger"
-import { getTenantInitialMigrationState } from "./migration"
+import { getTenantMigrationWriteAccess } from "./migration"
 import { createMemberShareLedgerEntry } from "./tenant-finance"
 
 export type MemberOpeningBalanceStatus =
@@ -1465,14 +1465,14 @@ async function assertOpeningBalanceMutationOpen(
   },
   prisma: PrismaClient
 ) {
-  const migrationState = await getTenantInitialMigrationState(
+  const writeAccess = await getTenantMigrationWriteAccess(
     input.tenantId,
     prisma
   )
 
   if (
-    !migrationState.snapshot.canUseMigrationTools &&
-    !migrationState.snapshot.canUseLiveFinancialWrites
+    !writeAccess.canUseMigrationTools &&
+    !writeAccess.canUseLiveFinancialWrites
   ) {
     throw ExpectedQueryError.precondition(
       "Member opening balances are locked because migration tools and live financial writes are closed."
@@ -1530,11 +1530,11 @@ async function assertOpeningBalanceCorrectionOpen(
   tenantId: string,
   prisma: PrismaClient
 ) {
-  const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
+  const writeAccess = await getTenantMigrationWriteAccess(tenantId, prisma)
 
   if (
-    !migrationState.snapshot.canUseMigrationTools &&
-    !migrationState.snapshot.canUseLiveFinancialWrites
+    !writeAccess.canUseMigrationTools &&
+    !writeAccess.canUseLiveFinancialWrites
   ) {
     throw ExpectedQueryError.precondition(
       "Member opening balance corrections are locked because migration tools and live financial writes are closed."

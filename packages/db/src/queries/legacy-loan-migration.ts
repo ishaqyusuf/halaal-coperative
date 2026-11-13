@@ -2,7 +2,7 @@ import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
-import { getTenantInitialMigrationState } from "./migration"
+import { getTenantMigrationWriteAccess } from "./migration"
 
 export type LegacyLoanMigrationDraftRow = {
   closedAt: Date | null
@@ -110,14 +110,14 @@ async function assertLegacyLoanMigrationDraftMutationOpen(
   },
   prisma: PrismaClient
 ) {
-  const migrationState = await getTenantInitialMigrationState(
+  const writeAccess = await getTenantMigrationWriteAccess(
     input.tenantId,
     prisma
   )
 
   if (
-    !migrationState.snapshot.canUseMigrationTools &&
-    !migrationState.snapshot.canUseLiveFinancialWrites
+    !writeAccess.canUseMigrationTools &&
+    !writeAccess.canUseLiveFinancialWrites
   ) {
     throw ExpectedQueryError.precondition(
       "Legacy loan migration drafts are locked because initial migration is finalized."

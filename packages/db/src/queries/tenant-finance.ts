@@ -18,7 +18,10 @@ import { isPrismaMissingColumnError } from "../prisma-errors"
 import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
 import { mobileAccessChargeCode } from "./cooperative-mobile-billing-constants"
-import { getTenantInitialMigrationState } from "./migration"
+import {
+  getTenantInitialMigrationState,
+  getTenantMigrationWriteAccess,
+} from "./migration"
 import { readOptionalTenantBusinessPolicy } from "./tenant-business-policy"
 import { getTenantById } from "./tenants"
 
@@ -1202,9 +1205,9 @@ async function assertLiveFinancialWritesOpen(
   tenantId: string,
   prisma: PrismaClient
 ) {
-  const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
+  const writeAccess = await getTenantMigrationWriteAccess(tenantId, prisma)
 
-  if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+  if (!writeAccess.canUseLiveFinancialWrites) {
     throw ExpectedQueryError.precondition(
       "Live financial record writes are locked until initial migration is finalized."
     )

@@ -17,7 +17,7 @@ import {
   paymentReferenceIdempotencyKey,
   postLedgerTransaction,
 } from "./ledger"
-import { getTenantInitialMigrationState } from "./migration"
+import { getTenantMigrationWriteAccess } from "./migration"
 
 const currencyCode = "NGN"
 const billingTimeZone = "Africa/Lagos"
@@ -271,11 +271,11 @@ async function applyMemberAssessment(itemId: string, db: PrismaClient) {
       if (!item) return false
 
       const txDb = tx as PrismaClient
-      const migration = await getTenantInitialMigrationState(
+      const writeAccess = await getTenantMigrationWriteAccess(
         item.term.tenantId,
         txDb
       )
-      if (!migration.snapshot.canUseLiveFinancialWrites) return false
+      if (!writeAccess.canUseLiveFinancialWrites) return false
       await ensureMobileBillingAccounts(item.term.tenantId, tx)
       const assessment = await assessCooperativeMobileAccessCharge(
         {
@@ -314,11 +314,11 @@ async function postInvoiceAccounting(
       if (!needsAccrual && !needsRemittance) return false
 
       const txDb = tx as PrismaClient
-      const migration = await getTenantInitialMigrationState(
+      const writeAccess = await getTenantMigrationWriteAccess(
         invoice.tenantId,
         txDb
       )
-      if (!migration.snapshot.canUseLiveFinancialWrites) return false
+      if (!writeAccess.canUseLiveFinancialWrites) return false
       const { expense, payable } = await ensureMobileBillingAccounts(
         invoice.tenantId,
         tx

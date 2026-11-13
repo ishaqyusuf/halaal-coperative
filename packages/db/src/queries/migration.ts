@@ -149,6 +149,48 @@ export function hasClosedHistoricalMonths(
   return monthDifference(startOfMonth(startDate), startOfMonth(asOf)) > 0
 }
 
+/**
+ * The write gates from the migration snapshot, read from the tenant row only.
+ * `canUseLiveFinancialWrites` and `canUseMigrationTools` depend only on the
+ * persisted lifecycle status and the emergency unlock (the derived status is
+ * never terminal), so guards that need nothing else use this one-row read
+ * instead of the full ~17-query `getTenantInitialMigrationState`.
+ */
+export async function getTenantMigrationWriteAccess(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+
+  if (!prisma) {
+    return {
+      canUseLiveFinancialWrites: false,
+      canUseMigrationTools: true,
+      emergencyUnlockActive: false,
+    }
+  }
+
+  const tenant = await prisma.tenant.findUnique({
+    select: {
+      initialMigrationStatus: true,
+      migrationEmergencyUnlockUntil: true,
+    },
+    where: { id: tenantId },
+  })
+  const terminal = isTerminalInitialMigrationStatus(
+    tenant?.initialMigrationStatus as InitialMigrationStatus | null | undefined
+  )
+  const emergencyUnlockActive = getActiveEmergencyUnlock(
+    tenant?.migrationEmergencyUnlockUntil
+  )
+
+  return {
+    canUseLiveFinancialWrites: terminal,
+    canUseMigrationTools: !terminal || emergencyUnlockActive,
+    emergencyUnlockActive,
+  }
+}
+
 export async function getTenantInitialMigrationState(
   tenantId: string,
   prismaOverride?: PrismaClient,

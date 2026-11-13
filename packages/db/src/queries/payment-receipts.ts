@@ -10,7 +10,7 @@ import { createPrismaClient } from "../prisma"
 import { claimDashboardEvidenceUploadLink } from "./dashboard-evidence-uploads"
 import { ExpectedQueryError } from "../query-error"
 import { recordMemberPaymentMutation } from "./contributions"
-import { getTenantInitialMigrationState } from "./migration"
+import { getTenantMigrationWriteAccess } from "./migration"
 import { createMemberShareLedgerEntry } from "./tenant-finance"
 
 export type { MemberPaymentReceiptStatus }
@@ -289,9 +289,9 @@ async function assertLiveFinancialWritesOpen(
   tenantId: string,
   prisma: PrismaClient
 ) {
-  const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
+  const writeAccess = await getTenantMigrationWriteAccess(tenantId, prisma)
 
-  if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+  if (!writeAccess.canUseLiveFinancialWrites) {
     throw ExpectedQueryError.precondition(
       "Live financial record writes are locked until initial migration is finalized."
     )

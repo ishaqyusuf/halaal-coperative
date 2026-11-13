@@ -7,7 +7,7 @@ import {
 } from "./charges"
 import { recordMemberPaymentMutation } from "./contributions"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
-import { getTenantInitialMigrationState } from "./migration"
+import { getTenantMigrationWriteAccess } from "./migration"
 
 export type MonthlyRecordMemberStatusValue = "pending" | "applied" | "cancelled"
 export type MonthlyRecordStatusValue = "draft" | "open" | "closed"
@@ -22,9 +22,9 @@ async function assertLiveFinancialWritesOpen(
   tenantId: string,
   prisma: PrismaClient
 ) {
-  const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
+  const writeAccess = await getTenantMigrationWriteAccess(tenantId, prisma)
 
-  if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+  if (!writeAccess.canUseLiveFinancialWrites) {
     throw ExpectedQueryError.precondition(
       "Live financial record writes are locked until initial migration is finalized."
     )
@@ -593,11 +593,11 @@ export async function ensureMemberInGeneratedMonthlyRecord(
     return null
   }
 
-  const migrationState = await getTenantInitialMigrationState(
+  const writeAccess = await getTenantMigrationWriteAccess(
     input.tenantId,
     prisma
   )
-  if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+  if (!writeAccess.canUseLiveFinancialWrites) {
     return null
   }
 

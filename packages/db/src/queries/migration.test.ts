@@ -3,6 +3,7 @@ import {
   finalizeTenantInitialMigration,
   getExpectedMemberBackfillMonthKeys,
   getTenantInitialMigrationState,
+  getTenantMigrationWriteAccess,
   hasClosedHistoricalMonths,
   markTenantBusinessProfitPoolsReviewed,
   markTenantLegacyLoansReviewed,
@@ -851,6 +852,46 @@ describe("tenant initial migration state query", () => {
 
     expect(state.snapshot.emergencyUnlockActive).toBe(true)
     expect(state.snapshot.canUseMigrationTools).toBe(true)
+  })
+
+  test("write access from the tenant row matches the full migration snapshot", async () => {
+    const cases = [
+      { initialMigrationStatus: "not_started" },
+      { initialMigrationStatus: "migration_review" },
+      { initialMigrationStatus: "finalized" },
+      { initialMigrationStatus: "live_operations" },
+      {
+        initialMigrationStatus: "live_operations",
+        migrationEmergencyUnlockUntil: new Date(Date.now() + 60_000),
+      },
+      {
+        initialMigrationStatus: "live_operations",
+        migrationEmergencyUnlockUntil: new Date(Date.now() - 60_000),
+      },
+    ]
+
+    for (const lifecycle of cases) {
+      const stub = () =>
+        createMigrationStatePrismaStub({
+          ...lifecycle,
+          appliedBackfillBatches: 1,
+          appliedBackfillMembers: 2,
+          businessProfitPools: 1,
+          chargeScheduleVersions: 2,
+          legacyLoans: 0,
+          memberProfiles: 2,
+          shareCapitalPlans: 1,
+          startDate: new Date("2025-01-01T00:00:00.000Z"),
+        }) as never
+      const state = await getTenantInitialMigrationState("tenant-1", stub())
+      const access = await getTenantMigrationWriteAccess("tenant-1", stub())
+
+      expect(access).toEqual({
+        canUseLiveFinancialWrites: state.snapshot.canUseLiveFinancialWrites,
+        canUseMigrationTools: state.snapshot.canUseMigrationTools,
+        emergencyUnlockActive: state.snapshot.emergencyUnlockActive,
+      })
+    }
   })
 
   test("persists finalization and emergency unlock lifecycle changes", async () => {

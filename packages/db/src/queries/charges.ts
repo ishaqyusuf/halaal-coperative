@@ -15,7 +15,10 @@ import {
   paymentReferenceIdempotencyKey,
   postLedgerTransaction,
 } from "./ledger"
-import { getTenantInitialMigrationState } from "./migration"
+import {
+  getTenantInitialMigrationState,
+  getTenantMigrationWriteAccess,
+} from "./migration"
 import { createMemberShareLedgerEntry } from "./tenant-finance"
 
 export const chargeWorkflowKeys = [
@@ -142,17 +145,19 @@ async function getChargeDefinitionMutationMode(
   tenantId: string,
   prisma: PrismaClient
 ) {
-  const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
+  const writeAccess = await getTenantMigrationWriteAccess(tenantId, prisma)
 
-  if (migrationState.snapshot.canUseLiveFinancialWrites) {
+  if (writeAccess.canUseLiveFinancialWrites) {
     return "live_operations" as const
   }
 
-  if (!migrationState.snapshot.canUseMigrationTools) {
+  if (!writeAccess.canUseMigrationTools) {
     throw ExpectedQueryError.precondition(
       "Charge definition writes are locked until initial migration is finalized."
     )
   }
+
+  const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
 
   if (
     migrationState.counts.appliedBackfillBatches > 0 ||
@@ -179,9 +184,9 @@ async function assertLiveFinancialWritesOpen(
   tenantId: string,
   prisma: PrismaClient
 ) {
-  const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
+  const writeAccess = await getTenantMigrationWriteAccess(tenantId, prisma)
 
-  if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+  if (!writeAccess.canUseLiveFinancialWrites) {
     throw ExpectedQueryError.precondition(
       "Live financial record writes are locked until initial migration is finalized."
     )

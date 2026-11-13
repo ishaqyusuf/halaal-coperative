@@ -6,7 +6,7 @@ import type {
 } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
-import { getTenantInitialMigrationState } from "./migration"
+import { getTenantMigrationWriteAccess } from "./migration"
 
 export type LedgerAccountSeed = {
   code: string
@@ -166,12 +166,12 @@ export async function postLedgerTransaction(
     input.sourceType !== "import" &&
     !input.migrationWriteGuardValidated
   ) {
-    const migrationState = await getTenantInitialMigrationState(
+    const writeAccess = await getTenantMigrationWriteAccess(
       input.tenantId,
       prisma
     )
 
-    if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+    if (!writeAccess.canUseLiveFinancialWrites) {
       throw ExpectedQueryError.precondition(
         "Ledger transaction writes are locked until initial migration is finalized."
       )

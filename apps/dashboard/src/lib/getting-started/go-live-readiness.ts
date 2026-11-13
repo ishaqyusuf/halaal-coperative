@@ -10,7 +10,10 @@ import type {
 import { formatCurrency } from "@halaalvest/utils"
 
 /** Every readiness check shown before going live. `finalization` is the go-live itself. */
-export type GoLiveReadinessKey = Exclude<InitialMigrationStepKey, "finalization">
+export type GoLiveReadinessKey = Exclude<
+  InitialMigrationStepKey,
+  "finalization"
+>
 
 export type GoLiveReadinessRow = {
   fixHref: string
@@ -217,7 +220,7 @@ export function getGoLiveFinancingSummary(
     cycleDetail:
       cycle.projectedCommitmentAmount > 0
         ? `Your ${reserve} reserve covers all ${commitments} of monthly commitments. Lower it in Finance settings, then open ${monthLabel} financing there.`
-        : `Financing capacity comes from members' monthly commitments, and none are set yet. Add them on member records, then open ${monthLabel} financing in Finance settings.`,
+        : `No members have monthly commitments yet. Add them, then open ${monthLabel} financing in Finance settings.`,
     cycleLabel: `${monthLabel} financing can't open yet.`,
     monthLabel,
     products,

@@ -147,8 +147,8 @@ function RailSteps({
 }
 
 // Desktop: vertical rail with all three parts; a finished part with no links
-// (creating the workspace) is one line. Below lg: a compact bar with
-// "Step N of 11", the step label, a segmented bar and an "All steps" sheet. Both read the shared journey map from @halaalvest/domain.
+// (creating the workspace) is one line. Below lg: a segmented progress bar
+// and an "All steps" sheet; the step card already says "Step N of 11". Both read the shared journey map from @halaalvest/domain.
 export function OnePathRail({
   currentStepKey,
   steps,
@@ -166,42 +166,19 @@ export function OnePathRail({
         <RailSteps steps={steps} />
       </aside>
 
-      <div className="flex flex-col gap-3 rounded-xl border border-border/70 bg-card px-4 py-3 lg:hidden">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm text-muted-foreground">
-              {formatJourneyStepCounter(currentStepKey)}
-            </p>
-            <p className="truncate text-base font-semibold">{current.label}</p>
-          </div>
-          <Sheet onOpenChange={setOpen} open={open}>
-            <SheetTrigger
-              render={<Button className="shrink-0" variant="outline" />}
-            >
-              All steps
-            </SheetTrigger>
-            <SheetContent
-              className="max-h-[85svh] gap-4 overflow-y-auto p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
-              side="bottom"
-            >
-              <SheetHeader className="p-0">
-                <SheetTitle>All steps</SheetTitle>
-                <SheetDescription>
-                  Step {current.number} of {onboardingJourneySteps.length}
-                </SheetDescription>
-              </SheetHeader>
-              <RailSteps onNavigate={() => setOpen(false)} steps={steps} />
-            </SheetContent>
-          </Sheet>
-        </div>
-        <div aria-hidden="true" className="flex gap-1">
+      <div className="flex items-center gap-3 rounded-xl border border-border/70 bg-card py-2 pr-2 pl-4 lg:hidden">
+        <div
+          aria-label={formatJourneyStepCounter(currentStepKey)}
+          className="flex flex-1 gap-1"
+          role="img"
+        >
           {onboardingJourneySteps.map((journeyStep) => {
             const state = byKey.get(journeyStep.key)?.state ?? "upcoming"
 
             return (
               <i
                 className={cn(
-                  "h-1.5 flex-1 rounded-full",
+                  "h-2 flex-1 rounded-full",
                   state === "complete" && "bg-primary",
                   state === "current" && "bg-foreground",
                   state === "upcoming" && "bg-muted"
@@ -211,6 +188,25 @@ export function OnePathRail({
             )
           })}
         </div>
+        <Sheet onOpenChange={setOpen} open={open}>
+          <SheetTrigger
+            render={<Button className="shrink-0" variant="outline" />}
+          >
+            All steps
+          </SheetTrigger>
+          <SheetContent
+            className="max-h-[85svh] gap-4 overflow-y-auto p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
+            side="bottom"
+          >
+            <SheetHeader className="p-0">
+              <SheetTitle>All steps</SheetTitle>
+              <SheetDescription>
+                Step {current.number} of {onboardingJourneySteps.length}
+              </SheetDescription>
+            </SheetHeader>
+            <RailSteps onNavigate={() => setOpen(false)} steps={steps} />
+          </SheetContent>
+        </Sheet>
       </div>
     </>
   )

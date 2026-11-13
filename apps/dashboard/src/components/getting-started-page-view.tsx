@@ -156,7 +156,7 @@ function ActiveStep({
             </p>
           }
           backHref={getGettingStartedStepHref("admin-member")}
-          lede="Fix anything marked Missing, then go live."
+          lede="Fix each item that is not ready, then go live."
           primary={<span />}
           stepKey="go-live"
           title="Go live"

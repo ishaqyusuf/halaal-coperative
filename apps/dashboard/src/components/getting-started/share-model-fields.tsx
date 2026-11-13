@@ -445,7 +445,7 @@ function MonthlyShareAmountFields({
           </div>
           {laterRows.map((row) => (
             <div
-              className="grid gap-3 border-t border-border/70 pt-3 sm:grid-cols-[9.5rem_minmax(0,16rem)_9.5rem_2rem] sm:items-start"
+              className="grid gap-3 border-t border-border/70 pt-3 sm:grid-cols-[9.5rem_minmax(0,16rem)_9.5rem_2.75rem] sm:items-start"
               key={row.id}
             >
               <ShareRowDateField

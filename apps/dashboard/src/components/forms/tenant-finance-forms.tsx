@@ -125,7 +125,7 @@ export function DeleteInlineRowButton({
         render={
           <Button
             aria-label={`Delete ${label}`}
-            className="size-8"
+            className="size-11"
             disabled={disabled}
             size="icon-sm"
             type="button"
@@ -133,7 +133,7 @@ export function DeleteInlineRowButton({
           />
         }
       >
-        <Trash2Icon className="size-3.5" />
+        <Trash2Icon className="size-5" />
       </AlertDialogTrigger>
       <AlertDialogContent size="sm">
         <AlertDialogHeader>
@@ -171,7 +171,7 @@ export function AddInlineRowButton({
 }) {
   return (
     <Button
-      className="h-11 w-full md:h-9"
+      className="h-11 w-full"
       disabled={disabled}
       onClick={onAdd}
       type="button"
@@ -2184,7 +2184,7 @@ export function ShareStructureVersionForm({
           <div className="grid gap-3">
             {shareHistoryRows.map((row) => (
               <div
-                className="grid gap-3 border-t border-border/70 pt-3 sm:grid-cols-[9.5rem_minmax(0,1fr)_9.5rem_2rem] sm:items-start"
+                className="grid gap-3 border-t border-border/70 pt-3 sm:grid-cols-[9.5rem_minmax(0,1fr)_9.5rem_2.75rem] sm:items-start"
                 key={row.id}
               >
                 <label className="grid gap-1 text-xs font-medium text-muted-foreground">
@@ -3355,7 +3355,7 @@ export function ChargeDefinitionForm({
             className="grid gap-4 border-t border-border/70 pt-4"
             key={chargeRow.id}
           >
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_10rem_8.5rem_9rem_15rem_2rem] xl:items-start">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_10rem_8.5rem_9rem_15rem_2.75rem] xl:items-start">
               <label className="grid gap-1 text-xs font-medium text-muted-foreground">
                 Charge
                 <Input
@@ -3462,7 +3462,7 @@ export function ChargeDefinitionForm({
               </p>
               {chargeRow.historyRows.map((row) => (
                 <div
-                  className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_9.5rem_2rem] sm:items-start"
+                  className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_9.5rem_2.75rem] sm:items-start"
                   key={row.id}
                 >
                   <label className="grid gap-1 text-xs font-medium text-muted-foreground">
@@ -4901,15 +4901,9 @@ function ShareBusinessProfitHistoryTableForm({
               <div className="grid gap-1">
                 <FormLabel>
                   {isBroughtForwardSetup
-                    ? "We don't have any ongoing business"
-                    : "We don't have any business history to record"}
+                    ? "We have no business running now"
+                    : "We have no business history"}
                 </FormLabel>
-                <p className="text-xs leading-5 text-muted-foreground">
-                  {isBroughtForwardSetup
-                    ? "Select this when there is no business participating in the current profit-sharing season."
-                    : "Select this when the cooperative has no historical business or profit records to migrate."}{" "}
-                  The business form will close and you can continue.
-                </p>
                 <FormMessage />
               </div>
             </FormItem>
@@ -4920,8 +4914,8 @@ function ShareBusinessProfitHistoryTableForm({
             <div className="flex items-center gap-3">
               <h3 className="shrink-0 text-sm font-medium">
                 {isBroughtForwardSetup
-                  ? "Current-season businesses"
-                  : "Business History"}
+                  ? "Businesses running now"
+                  : "Businesses"}
               </h3>
               <div className="min-w-10 flex-1 border-t border-border/70" />
               {quickFillEnabled ? (
@@ -4954,7 +4948,7 @@ function ShareBusinessProfitHistoryTableForm({
                   )}
                   key={businessRow.id}
                 >
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_10rem_9.5rem_2rem] xl:items-start">
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_10rem_9.5rem_2.75rem] xl:items-start">
                     <label className="grid gap-1 text-xs font-medium text-muted-foreground">
                       Business
                       <Input
@@ -5026,7 +5020,7 @@ function ShareBusinessProfitHistoryTableForm({
                         />
                       }
                     >
-                      More options
+                      Add end date
                     </CollapsibleTrigger>
                     <CollapsibleContent className="grid gap-3 sm:grid-cols-[9.5rem]">
                       <label className="grid gap-1 text-xs font-medium text-muted-foreground">
@@ -5066,8 +5060,8 @@ function ShareBusinessProfitHistoryTableForm({
                           className={cn(
                             "grid gap-3 md:grid-cols-2 xl:items-start",
                             isBroughtForwardSetup
-                              ? "xl:grid-cols-[9.5rem_9rem_9rem_8.5rem_minmax(0,1fr)_9rem_2rem]"
-                              : "xl:grid-cols-[9.5rem_9rem_9rem_minmax(0,1fr)_9rem_2rem]"
+                              ? "xl:grid-cols-[9.5rem_9rem_9rem_8.5rem_minmax(0,1fr)_9rem_2.75rem]"
+                              : "xl:grid-cols-[9.5rem_9rem_9rem_minmax(0,1fr)_9rem_2.75rem]"
                           )}
                           key={profitRow.id}
                         >
@@ -5205,7 +5199,7 @@ function ShareBusinessProfitHistoryTableForm({
                     })}
                     <AddInlineRowButton
                       disabled={isPending}
-                      label="Add Profit"
+                      label="Add profit"
                       onAdd={() => addBusinessProfitRow(businessRow.id)}
                     />
                   </div>
@@ -5213,7 +5207,7 @@ function ShareBusinessProfitHistoryTableForm({
               ))}
               <AddInlineRowButton
                 disabled={isPending}
-                label="Add Business"
+                label="Add business"
                 onAdd={addBusinessRow}
               />
             </div>

@@ -12,7 +12,7 @@ import {
   AlertTitle,
 } from "@halaalvest/ui/components/alert"
 import { Badge } from "@halaalvest/ui/components/badge"
-import { Button } from "@halaalvest/ui/components/button"
+import { Button, buttonVariants } from "@halaalvest/ui/components/button"
 import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import {
   Form,
@@ -22,7 +22,8 @@ import {
   FormLabel,
 } from "@halaalvest/ui/components/form"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
-import { AlertCircleIcon } from "lucide-react"
+import { cn } from "@halaalvest/ui/lib/utils"
+import { AlertCircleIcon, CircleAlertIcon, CircleCheckIcon } from "lucide-react"
 import { z } from "zod"
 import { finalizeInitialMigrationAction } from "@/lib/dashboard-actions"
 import {
@@ -121,26 +122,48 @@ export function GoLiveChecklist({
           </Alert>
         ) : null}
 
-        <ul className="divide-y divide-border/70 border border-border/70">
+        <ul className="divide-y divide-border/70 rounded-xl border border-border/70">
           {rows.map((row) => (
             <li
-              className="flex items-center justify-between gap-3 px-3 py-2.5"
+              className="flex min-h-14 items-center justify-between gap-3 px-4 py-2"
               key={row.key}
             >
-              <span className="text-sm font-medium">{row.label}</span>
-              <span className="flex items-center gap-3">
-                {row.ready ? null : (
-                  <Link
-                    className="text-sm text-primary underline-offset-4 hover:underline"
-                    href={row.fixHref}
-                  >
-                    Fix
-                  </Link>
+              <span className="flex min-w-0 items-center gap-3">
+                {row.ready ? (
+                  <CircleCheckIcon
+                    aria-hidden="true"
+                    className="size-6 shrink-0 text-primary"
+                  />
+                ) : (
+                  <CircleAlertIcon
+                    aria-hidden="true"
+                    className="size-6 shrink-0 text-amber-700 dark:text-amber-400"
+                  />
                 )}
-                <Badge variant={row.ready ? "default" : "secondary"}>
+                <span className="text-base font-medium">{row.label}</span>
+                <span className="sr-only">
                   {row.ready ? "Ready" : "Missing"}
-                </Badge>
+                </span>
               </span>
+              {row.ready ? (
+                <span
+                  aria-hidden="true"
+                  className="text-sm text-muted-foreground"
+                >
+                  Ready
+                </span>
+              ) : (
+                <Link
+                  aria-label={`Fix ${row.label}`}
+                  className={cn(
+                    buttonVariants({ variant: "outline" }),
+                    "h-11 shrink-0"
+                  )}
+                  href={row.fixHref}
+                >
+                  Fix
+                </Link>
+              )}
             </li>
           ))}
         </ul>
@@ -148,21 +171,15 @@ export function GoLiveChecklist({
         {financing ? (
           <section
             aria-labelledby="go-live-financing"
-            className="grid gap-3 border border-border/70 px-3 py-3"
+            className="grid gap-3 rounded-xl border border-border/70 p-4"
           >
-            <div>
-              <h3 className="text-sm font-semibold" id="go-live-financing">
-                Financing
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Members can request financing once a product is set up and
-                this month&apos;s financing is open.
-              </p>
-            </div>
+            <h3 className="text-base font-semibold" id="go-live-financing">
+              Financing
+            </h3>
             <ul className="grid gap-2">
               {financing.products.map((product) => (
                 <li
-                  className="flex flex-wrap items-center justify-between gap-2 text-sm"
+                  className="flex flex-wrap items-center justify-between gap-2 text-base"
                   key={product.loanType}
                 >
                   <span>
@@ -202,7 +219,7 @@ export function GoLiveChecklist({
                       />
                     </FormControl>
                     <div className="grid gap-1">
-                      <FormLabel className="leading-5 font-normal">
+                      <FormLabel className="text-base leading-6 font-normal">
                         {financing.cycleLabel}
                       </FormLabel>
                       <p className="text-sm text-muted-foreground">
@@ -213,15 +230,13 @@ export function GoLiveChecklist({
                 )}
               />
             ) : (
-              <div className="grid gap-1 text-sm">
+              <div className="grid gap-1 text-base">
                 <p className="font-medium">{financing.cycleLabel}</p>
-                <p className="text-muted-foreground">
-                  {financing.cycleDetail}
-                </p>
+                <p className="text-muted-foreground">{financing.cycleDetail}</p>
               </div>
             )}
-            <p className="text-xs text-muted-foreground">
-              After you go live, change products, reserve and cycles in{" "}
+            <p className="text-sm text-muted-foreground">
+              Change these later in{" "}
               <span className="font-medium text-foreground">
                 Settings → Finance → Loans
               </span>
@@ -231,9 +246,12 @@ export function GoLiveChecklist({
         ) : null}
 
         {tenantHost ? (
-          <p className="text-sm text-muted-foreground">
-            After you go live, members sign in at {tenantHost} with their
-            member code.
+          <p className="text-base text-muted-foreground">
+            Members will sign in at{" "}
+            <span className="font-medium break-all text-foreground">
+              {tenantHost}
+            </span>{" "}
+            with their member code.
           </p>
         ) : null}
 
@@ -252,14 +270,24 @@ export function GoLiveChecklist({
                   }
                 />
               </FormControl>
-              <FormLabel className="leading-5 font-normal">
+              <FormLabel className="text-base leading-6 font-normal">
                 {getGoLiveConfirmationLabel(tenantName)}
               </FormLabel>
             </FormItem>
           )}
         />
 
-        <Button className="w-fit" disabled={!canSubmit} type="submit">
+        {ready ? null : (
+          <p className="text-base text-muted-foreground">
+            Fix the items above to go live.
+          </p>
+        )}
+
+        <Button
+          className="h-11 w-full sm:w-fit"
+          disabled={!canSubmit}
+          type="submit"
+        >
           {isPending ? "Going live…" : "Go live"}
         </Button>
       </form>

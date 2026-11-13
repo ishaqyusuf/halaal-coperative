@@ -63,8 +63,8 @@ function ReviewRow({
 }) {
   return (
     <div className="grid gap-1 border-b border-border/70 py-3 last:border-b-0 sm:grid-cols-[10rem_minmax(0,1fr)_auto] sm:items-center sm:gap-4">
-      <dt className="text-sm font-medium">{label}</dt>
-      <dd className="min-w-0 text-sm text-muted-foreground">
+      <dt className="text-base font-medium">{label}</dt>
+      <dd className="min-w-0 text-base text-muted-foreground">
         {done ? children : <Badge variant="secondary">Not saved yet</Badge>}
       </dd>
       <dd>{action}</dd>
@@ -77,7 +77,7 @@ function EditLink({ href }: { href: string }) {
     <Link
       className={cn(
         buttonVariants({ size: "sm", variant: "ghost" }),
-        "min-h-11 sm:min-h-8"
+        "min-h-11"
       )}
       href={href}
     >
@@ -87,7 +87,8 @@ function EditLink({ href }: { href: string }) {
 }
 
 // Step 9, Review setup. Read-only summary of steps 5–8 with Edit links and the
-// start date's inline Change action. "Save setup" opens step 10; the existing
+// start date's inline Change action. "Next: add members" opens step 10 (or
+// "Finish …" opens the first unsaved step); the existing
 // migration status already moves to member migration once steps 5–8 are saved.
 export function ReviewSetupStep({
   backHref,
@@ -117,30 +118,46 @@ export function ReviewSetupStep({
 }) {
   const [changingStartDate, setChangingStartDate] = useState(false)
   const allDone = Object.values(completion).every(Boolean)
+  // Instead of a disabled button, the footer opens the first unsaved step.
+  const firstUnsavedStep = (
+    [
+      ["setupMode", "setup-mode", "Where records start"],
+      ["operationProfile", "operation-profile", "Services"],
+      ["sharesCharges", "shares-charges", "Shares and charges"],
+      ["profit", "profit", "Profit sharing"],
+    ] as const
+  ).find(([key]) => !completion[key])
   const activeCharges = chargeDefinitions.filter((charge) => charge.isActive)
 
   return (
     <OnePathStep
       aside={
         <p>
-          Check everything once before you add members. After the first member
-          is added, where records start stays fixed.
+          After you add the first member, where records start can no longer
+          change.
         </p>
       }
       backHref={backHref}
-      lede="Check your answers. You can still change any of them before you add members."
+      lede={
+        allDone
+          ? "Check your answers, then add your members."
+          : "Some steps are not saved yet."
+      }
       primary={
-        allDone ? (
+        allDone || !firstUnsavedStep ? (
           <Link
-            className={cn(buttonVariants({}), "h-11 sm:h-10")}
+            className={cn(buttonVariants({}), "h-11")}
             href={getGettingStartedStepHref("admin-member")}
           >
-            Save setup
+            Next: add members
           </Link>
         ) : (
-          <Button className="h-11 sm:h-10" disabled>
-            Save setup
-          </Button>
+          <Link
+            className={cn(buttonVariants({}), "h-11")}
+            href={getGettingStartedStepHref(firstUnsavedStep[1])}
+          >
+            Finish {firstUnsavedStep[2].toLowerCase()}
+          </Link>
         )
       }
       stepKey="review-setup"
@@ -204,13 +221,13 @@ export function ReviewSetupStep({
             : "No businesses"}
         </ReviewRow>
         <div className="grid gap-1 py-3 sm:grid-cols-[10rem_minmax(0,1fr)_auto] sm:items-center sm:gap-4">
-          <dt className="text-sm font-medium">Start date</dt>
-          <dd className="text-sm text-muted-foreground">
+          <dt className="text-base font-medium">Start date</dt>
+          <dd className="text-base text-muted-foreground">
             {formatGettingStartedDate(tenantStartDate)}
           </dd>
           <dd>
             <Button
-              className="min-h-11 sm:min-h-8"
+              className="min-h-11"
               onClick={() => setChangingStartDate((value) => !value)}
               size="sm"
               type="button"

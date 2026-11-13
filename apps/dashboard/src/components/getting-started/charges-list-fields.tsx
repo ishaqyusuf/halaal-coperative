@@ -63,8 +63,8 @@ export function ChargesListFields({
   const rowGridClassName = cn(
     "grid gap-3 sm:items-start",
     showFromColumn
-      ? "sm:grid-cols-[minmax(0,1fr)_9rem_minmax(0,12rem)_9.5rem_2rem]"
-      : "sm:grid-cols-[minmax(0,1fr)_9rem_minmax(0,12rem)_2rem]"
+      ? "sm:grid-cols-[minmax(0,1fr)_9rem_minmax(0,12rem)_9.5rem_2.75rem]"
+      : "sm:grid-cols-[minmax(0,1fr)_9rem_minmax(0,12rem)_2.75rem]"
   )
 
   return (
@@ -321,7 +321,7 @@ function ChargeRowFields({
             </p>
             {laterHistoryRows.map((historyRow) => (
               <div
-                className="grid gap-3 sm:grid-cols-[9.5rem_9rem_2rem] sm:items-start"
+                className="grid gap-3 sm:grid-cols-[9.5rem_9rem_2.75rem] sm:items-start"
                 key={historyRow.id}
               >
                 <label className="grid gap-1 text-xs font-medium text-muted-foreground">

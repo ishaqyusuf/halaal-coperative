@@ -63,7 +63,8 @@ describe("loans workspace Midday conformance", () => {
     )
 
     expect(pageView).toContain('id="loan-intake-blocker"')
-    expect(pageView).toContain("md:hidden")
+    // The reason and its fix link show at every width (QA F1/F9).
+    expect(pageView).toContain("{intakeFix.label}")
     expect(toolbar).toContain("aria-describedby={")
     expect(toolbar).toContain('intakeDisabled ? "loan-intake-blocker"')
     expect(requests).toContain('"No loan requests yet"')

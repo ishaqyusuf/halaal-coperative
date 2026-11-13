@@ -1,5 +1,8 @@
 "use client"
 
+import { TenantLink as Link } from "@halaalvest/tenant-url/next"
+import { buttonVariants } from "@halaalvest/ui/components/button"
+import { cn } from "@halaalvest/ui/lib/utils"
 import { formatCurrency } from "@halaalvest/utils"
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import { LoansToolbar } from "@/components/loans-mobile-toolbar"
@@ -46,6 +49,7 @@ export function LoansPageView({
   canReview,
   canSubmit,
   financingCycle,
+  intakeFix,
   loanProducts,
   loanRequestCharges,
   members,
@@ -116,12 +120,20 @@ export function LoansPageView({
       ) : null}
 
       {effectiveDisabledReason && !submissionBlockedReason ? (
-        <p
-          className="border-y border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950 md:hidden"
-          id="loan-intake-blocker"
-        >
-          {effectiveDisabledReason}
-        </p>
+        <div className="flex flex-col gap-3 border-y border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950 sm:flex-row sm:items-center sm:justify-between">
+          <p id="loan-intake-blocker">{effectiveDisabledReason}</p>
+          {intakeFix ? (
+            <Link
+              className={cn(
+                buttonVariants({ size: "sm", variant: "outline" }),
+                "h-11 shrink-0 sm:h-8"
+              )}
+              href={intakeFix.href}
+            >
+              {intakeFix.label}
+            </Link>
+          ) : null}
+        </div>
       ) : null}
 
       {!isMemberView && activeView === "requests" ? (

@@ -12,6 +12,7 @@ import { createServerNotificationService } from "@halaalvest/notifications/serve
 import { buildTenantDashboardUrl } from "@halaalvest/utils"
 import { NextResponse, type NextRequest } from "next/server"
 import { buildDashboardRedirectUrl } from "@/lib/auth-redirect"
+import { allowPasswordResetEmail } from "@/lib/password-reset-rate-limit"
 import { createPasswordResetToken } from "@/lib/password-reset-token"
 import { setQaPreviewFlash } from "@/lib/qa-preview-flash.server"
 import { getPublicRequestHost } from "@/lib/request-host"
@@ -43,7 +44,14 @@ export async function POST(request: NextRequest) {
     const tenant =
       tenantResolution.tenant ?? (await getTenantByIdAsync(user.tenantId))
 
-    if (tenant) {
+    if (
+      tenant &&
+      (await allowPasswordResetEmail({
+        headers: request.headers,
+        tenantId: tenant.id,
+        userId: user.id,
+      }))
+    ) {
       const reset = createPasswordResetToken(user)
       const resetUrl = buildTenantDashboardUrl(tenant.slug, {
         currentOrigin: request.headers.get("origin") ?? request.nextUrl.origin,

@@ -21,6 +21,7 @@ export function DashboardShellClient({
   role,
   shouldRedirectAdminToSetup = false,
   showLegalReminder = false,
+  showSetupNav = false,
   tenantName,
   userName,
 }: {
@@ -30,6 +31,8 @@ export function DashboardShellClient({
   /** Setup-gate flag from the layout; locks destinations it would redirect. */
   shouldRedirectAdminToSetup?: boolean
   showLegalReminder?: boolean
+  /** Lead the sidebar with Getting started until the cooperative is live. */
+  showSetupNav?: boolean
   tenantName: string
   userName: string
 }) {
@@ -55,6 +58,7 @@ export function DashboardShellClient({
         pathname={pathname}
         roleLabel={roleLabel}
         shouldRedirectAdminToSetup={shouldRedirectAdminToSetup}
+        showSetupNav={showSetupNav || shouldRedirectAdminToSetup}
         tenantName={tenantName}
         userName={userName}
       />

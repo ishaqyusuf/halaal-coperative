@@ -282,6 +282,7 @@ export function DashboardSidebar({
   pathname,
   roleLabel,
   shouldRedirectAdminToSetup = false,
+  showSetupNav = false,
   tenantName,
   userName,
 }: {
@@ -291,6 +292,7 @@ export function DashboardSidebar({
   pathname: string
   roleLabel: string
   shouldRedirectAdminToSetup?: boolean
+  showSetupNav?: boolean
   tenantName: string
   userName: string
 }) {
@@ -308,7 +310,7 @@ export function DashboardSidebar({
     <nav className="scrollbar-hide mt-4 min-h-0 w-full flex-1 overflow-x-hidden overflow-y-auto">
       <div className="flex flex-col gap-5">
         {[
-          ...(shouldRedirectAdminToSetup ? [setupNavSection] : []),
+          ...(showSetupNav ? [setupNavSection] : []),
           ...modules.flatMap((module) =>
             module.sections.map((section) => ({
               ...section,

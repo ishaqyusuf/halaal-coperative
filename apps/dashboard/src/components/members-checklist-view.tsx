@@ -39,7 +39,17 @@ export type MembersChecklistViewProps = {
   railSteps: OnePathRailStepModel[]
 }
 
-const actionClassName = "h-11 w-full sm:h-10 sm:w-auto"
+const actionClassName = "h-11 w-full sm:w-auto"
+
+const kycStatusLabels: Record<
+  MembersChecklistAdminMember["kycStatus"],
+  string
+> = {
+  not_started: "Not done",
+  pending: "Waiting for review",
+  rejected: "Rejected",
+  verified: "Verified",
+}
 
 function ChecklistRow({
   actions,
@@ -59,16 +69,16 @@ function ChecklistRow({
       <div className="flex min-w-0 gap-3">
         <span
           aria-hidden="true"
-          className="flex size-7 shrink-0 items-center justify-center border border-border bg-background text-xs font-semibold text-muted-foreground"
+          className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-background text-sm font-semibold text-muted-foreground"
         >
           {index}
         </span>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+            <h3 className="text-base font-semibold text-foreground">{title}</h3>
             {badge}
           </div>
-          <div className="mt-1 text-sm leading-6 text-muted-foreground">
+          <div className="mt-1 text-base leading-7 text-muted-foreground">
             {children}
           </div>
         </div>
@@ -99,7 +109,7 @@ export function MembersChecklistView({
 
   return (
     <DashboardPageShell>
-      <section className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
+      <section className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
         <OnePathRail currentStepKey="add-members" steps={railSteps} />
         <div className="min-w-0">
           <OnePathStep
@@ -107,14 +117,13 @@ export function MembersChecklistView({
             aside={
               <p>
                 Members can sign in once their {recordKind} match your records.
-                Doing your own record first shows you exactly what each member
-                needs.
+                Doing your own record first shows what each member needs.
               </p>
             }
             lede={
               isBroughtForward
-                ? "Add each member's opening balances from your books, starting with your own record."
-                : "Rebuild each member's full history from your records, starting with your own."
+                ? "Add each member's balances from your books. Start with your own."
+                : "Add each member's history from your records. Start with your own."
             }
             primary={
               goLiveHref ? (
@@ -126,14 +135,9 @@ export function MembersChecklistView({
                   <ArrowRightIcon data-icon="inline-end" />
                 </Link>
               ) : (
-                <Button
-                  aria-describedby="members-readiness"
-                  className={actionClassName}
-                  disabled
-                  type="button"
-                >
-                  Go live
-                </Button>
+                <p className="py-2 text-base text-muted-foreground">
+                  Go live opens when every member is ready.
+                </p>
               )
             }
             stepKey="add-members"
@@ -142,12 +146,12 @@ export function MembersChecklistView({
             <div className="flex flex-col gap-4">
               <p
                 aria-live="polite"
-                className="text-sm font-medium text-foreground"
+                className="text-lg font-semibold text-foreground"
                 id="members-readiness"
               >
                 {readinessLabel}
               </p>
-              <ol className="divide-y divide-border/70 border border-border/70">
+              <ol className="divide-y divide-border/70 rounded-xl border border-border/70">
                 <ChecklistRow
                   actions={
                     <Link
@@ -170,36 +174,31 @@ export function MembersChecklistView({
                         {adminMember.fullName}
                       </span>
                       <span className="block">
-                        Access code{" "}
-                        <span className="font-mono text-foreground">
+                        Member code{" "}
+                        <span className="font-medium text-foreground">
                           {adminMember.memberNumber}
-                        </span>{" "}
-                        · {recordKind}
+                        </span>
                       </span>
                       <span className="block">
-                        KYC{" "}
-                        <span className="text-foreground">
-                          {adminMember.kycStatus.replace(/_/g, " ")}
+                        ID check (KYC):{" "}
+                        <span className="font-medium text-foreground">
+                          {kycStatusLabels[adminMember.kycStatus]}
                         </span>
-                        {adminMember.kycStatus === "verified" ? null : (
-                          <>
-                            . Verify it before going live so you can borrow
-                            and guarantee.{" "}
-                            <Link
-                              className="text-primary underline-offset-4 hover:underline"
-                              href={`/members/${encodeURIComponent(adminMember.id)}?memberDetailSheetType=kyc`}
-                            >
-                              Verify my KYC
-                            </Link>
-                          </>
-                        )}
                       </span>
+                      {adminMember.kycStatus === "verified" ? null : (
+                        <span className="block">
+                          Needed before you go live.{" "}
+                          <Link
+                            className="inline-flex min-h-11 items-center font-medium text-primary underline underline-offset-4"
+                            href={`/members/${encodeURIComponent(adminMember.id)}?memberDetailSheetType=kyc`}
+                          >
+                            Verify my KYC
+                          </Link>
+                        </span>
+                      )}
                     </>
                   ) : (
-                    <>
-                      No member record is linked to your account yet. Add
-                      yourself first, then your {recordKind}.
-                    </>
+                    <>Add yourself first, then your {recordKind}.</>
                   )}
                 </ChecklistRow>
                 <ChecklistRow
@@ -228,7 +227,7 @@ export function MembersChecklistView({
                   index={2}
                   title="Everyone else"
                 >
-                  One at a time or upload your member spreadsheet.
+                  Add them one at a time or upload a spreadsheet.
                 </ChecklistRow>
                 <ChecklistRow
                   actions={
@@ -257,8 +256,7 @@ export function MembersChecklistView({
                   index={3}
                   title="Invite your finance officer"
                 >
-                  Give them their own sign-in so they can help enter member
-                  records.
+                  They can help you enter member records.
                 </ChecklistRow>
                 {goLiveHref ? (
                   <ChecklistRow
@@ -274,8 +272,7 @@ export function MembersChecklistView({
                     index={4}
                     title="Go live"
                   >
-                    Every member is ready. Check the balances and start live
-                    operations.
+                    Every member is ready.
                   </ChecklistRow>
                 ) : null}
               </ol>

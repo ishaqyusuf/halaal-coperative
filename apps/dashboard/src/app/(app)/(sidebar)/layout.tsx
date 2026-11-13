@@ -66,6 +66,8 @@ export default async function SidebarLayout({
 
   // Reused by the sidebar to label the destinations this gate redirects.
   let shouldRedirectAdminToSetup = false
+  // Admins keep a Getting started link until the cooperative goes live.
+  let showSetupNav = false
 
   if (context.tenant) {
     const setupGate = await resolveInitialMigrationSetupGate({
@@ -73,6 +75,7 @@ export default async function SidebarLayout({
       tenantId: context.tenant.id,
     })
     shouldRedirectAdminToSetup = setupGate.shouldRedirectAdminToSetup
+    showSetupNav = setupGate.isWorkspaceAdmin && !setupGate.canUseLiveWorkspace
     const setupRedirect = resolveInitialMigrationLayoutRedirect({
       pathname: nextPath,
       shouldRedirectAdminToSetup: setupGate.shouldRedirectAdminToSetup,
@@ -139,6 +142,7 @@ export default async function SidebarLayout({
         role={role}
         shouldRedirectAdminToSetup={shouldRedirectAdminToSetup}
         showLegalReminder={showLegalReminder}
+        showSetupNav={showSetupNav}
         tenantName={tenantName}
         userName={userName}
       >

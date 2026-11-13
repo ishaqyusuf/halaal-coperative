@@ -19,6 +19,7 @@ import { FinanceStartDateForm } from "@/components/forms/tenant-finance-forms"
 import { OnePathStep } from "@/components/one-path/one-path-step"
 import { updateTenantMigrationSetupAction } from "@/lib/dashboard-actions"
 import { navigateWithFreshWizardState } from "@/lib/getting-started/navigate-with-fresh-state"
+import { getInitialSetupMode } from "@/lib/getting-started/setup-mode-selection"
 
 export const setupModeCards = [
   {
@@ -76,12 +77,14 @@ export function SetupModeStep({
 }) {
   const router = useTenantRouter()
   const { showError } = useNotifications()
-  const [mode, setMode] = useState<TenantMigrationSetupMode>(
-    migrationSetup.mode
-  )
-  const [isPending, startTransition] = useTransition()
   const needsStartDate = !tenantStartDate
   const recommended = tenantStartDate ? recommendedMigrationSetupMode : null
+  // Until the admin picks an option, follow the recommendation (which can
+  // appear after the start date is saved on this step).
+  const [pickedMode, setMode] = useState<TenantMigrationSetupMode | null>(null)
+  const mode =
+    pickedMode ?? getInitialSetupMode({ migrationSetup, recommended })
+  const [isPending, startTransition] = useTransition()
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -175,7 +178,10 @@ export function SetupModeStep({
                     <RadioGroupItem value={card.mode} />
                   </div>
                   {recommended === card.mode ? (
-                    <Badge className="w-fit" variant="secondary">
+                    <Badge
+                      className="h-auto w-fit max-w-full whitespace-normal"
+                      variant="secondary"
+                    >
                       Recommended for you
                     </Badge>
                   ) : null}

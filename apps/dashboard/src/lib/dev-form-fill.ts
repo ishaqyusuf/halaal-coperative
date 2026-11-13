@@ -347,8 +347,9 @@ export function createQaImportCsv(
     header,
     ...templateRows.map((row) =>
       row
-        .replace(/\b(TRX|PAY|LEGACY-RPY)-[A-Z0-9-]+/g, (_match, prefix: string) =>
-          createQaReference(prefix)
+        .replace(
+          /\b(TRX|PAY|LEGACY-RPY)-[A-Z0-9-]+/g,
+          (_match, prefix: string) => createQaReference(prefix)
         )
         .replace(/\b(LEVY|REG)-[A-Z]+\b/g, (_match, prefix: string) =>
           createQaCode(prefix)
@@ -356,3 +357,110 @@ export function createQaImportCsv(
     ),
   ].join("\n")
 }
+
+const procurementItems = [
+  {
+    description: "Chest freezer for the family provisions shop.",
+    name: "Deep freezer (300 litres)",
+  },
+  {
+    description: "Industrial sewing machine for a tailoring workshop.",
+    name: "Industrial sewing machine",
+  },
+  {
+    description: "Grinding machine for a neighbourhood pepper mill.",
+    name: "Grinding machine",
+  },
+  {
+    description: "Solar inverter and batteries for the home office.",
+    name: "Solar inverter set",
+  },
+  {
+    description: "Tricycle for commercial passenger transport.",
+    name: "Tricycle (Keke)",
+  },
+] as const
+
+const procurementVendors = [
+  "Barakah Electronics Ltd",
+  "Al-Amin Motors",
+  "Nur Home Appliances",
+  "Albarka Solar Ventures",
+  "Sabon Gari Traders",
+] as const
+
+/** A procurement request draft (the member is picked by the tester). */
+export function createQaProcurementRequest() {
+  const item = pickQaValue(procurementItems)
+  return {
+    itemDescription: item.description,
+    itemName: item.name,
+    requestedCost: createQaAmount(150_000, 600_000, 10_000),
+    requestedRepaymentMonths: pickQaValue(["6", "10", "12"] as const),
+    vendorName: pickQaValue(procurementVendors),
+  }
+}
+
+/** A Foodstuff Purchase application draft. */
+export function createQaFoodPurchaseRequest() {
+  return {
+    itemDescription: "Rice, beans, garri, palm oil and household staples.",
+    notes: "Please include delivery with the cooperative bulk order.",
+    requestedAmount: createQaAmount(60_000, 200_000, 5_000),
+    requestedPaybackMonths: pickQaValue(["3", "4"] as const),
+  }
+}
+
+const projectBusinesses = [
+  {
+    businessName: "Barakah Cold Room",
+    description: "A cold-room service supporting fish and meat sellers.",
+    purpose: "Buy solar storage and expand cold-room capacity.",
+  },
+  {
+    businessName: "Albarka Poultry Farm",
+    description: "A 2,000-bird layer farm supplying nearby markets.",
+    purpose: "Add a second pen and a month of feed.",
+  },
+  {
+    businessName: "Nur Halal Bakery",
+    description: "A neighbourhood bakery supplying schools and shops.",
+    purpose: "Replace the oven and add a delivery tricycle.",
+  },
+] as const
+
+/** A project financing request draft. */
+export function createQaProjectFinancingRequest() {
+  const business = pickQaValue(projectBusinesses)
+  return {
+    ...business,
+    requestedAmount: createQaAmount(500_000, 2_000_000, 50_000),
+    requestedPaybackMonths: pickQaValue(["12", "18", "24"] as const),
+  }
+}
+
+const supportCases = [
+  {
+    description:
+      "My transfer went through but this month's contribution is not on my statement yet.",
+    subject: "Contribution not on statement",
+  },
+  {
+    description:
+      "My share certificate shows fewer units than I paid for at the last meeting.",
+    subject: "Share units look wrong",
+  },
+  {
+    description:
+      "I changed my phone number and need my contact details updated.",
+    subject: "Update my phone number",
+  },
+] as const
+
+/** A support case draft. */
+export function createQaSupportCase() {
+  return pickQaValue(supportCases)
+}
+
+export const qaSupportReply =
+  "Thank you. We have checked the record and assigned it for completion; you will be notified once it is posted."

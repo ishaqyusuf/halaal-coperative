@@ -7,7 +7,7 @@ import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
 import { Textarea } from "@halaalvest/ui/components/textarea"
-import { formatCurrency } from "@halaalvest/utils"
+import { createQaReference, formatCurrency, qaToday } from "@halaalvest/utils"
 import type {
   ProjectFinancingRequestRow,
   ProjectFinancingStructure,
@@ -25,6 +25,8 @@ import {
   reviewProjectFinancingRequestAction,
 } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
+import { DashboardStateQuickFill } from "@/components/dashboard-quick-fill"
+import { createQaProjectFinancingRequest } from "@/lib/dev-form-fill"
 import { useTRPC } from "@/trpc/client"
 
 export type ProjectFinancingMemberOption = {
@@ -168,6 +170,33 @@ export function ProjectFinancingRequestCreateContent({
 
   return (
     <>
+      <DashboardStateQuickFill
+        className="mb-3"
+        draft={{
+          businessDescription,
+          businessName,
+          projectPurpose,
+          requestedAmount,
+          requestedPaybackMonths,
+        }}
+        enabled={!isPending}
+        isDirty={Boolean(businessName || projectPurpose || requestedAmount)}
+        onFill={() => {
+          const values = createQaProjectFinancingRequest()
+          setBusinessDescription(values.description)
+          setBusinessName(values.businessName)
+          setProjectPurpose(values.purpose)
+          setRequestedAmount(values.requestedAmount)
+          setRequestedPaybackMonths(values.requestedPaybackMonths)
+        }}
+        restore={(draft) => {
+          setBusinessDescription(draft.businessDescription)
+          setBusinessName(draft.businessName)
+          setProjectPurpose(draft.projectPurpose)
+          setRequestedAmount(draft.requestedAmount)
+          setRequestedPaybackMonths(draft.requestedPaybackMonths)
+        }}
+      />
       <div className="grid gap-3 md:grid-cols-2">
         <Field label="Member">
           <MemberCombobox
@@ -315,6 +344,33 @@ export function MemberProjectFinancingRequestCreateContent({
 
   return (
     <>
+      <DashboardStateQuickFill
+        className="mb-3"
+        draft={{
+          businessDescription,
+          businessName,
+          projectPurpose,
+          requestedAmount,
+          requestedPaybackMonths,
+        }}
+        enabled={!isPending}
+        isDirty={Boolean(businessName || projectPurpose || requestedAmount)}
+        onFill={() => {
+          const values = createQaProjectFinancingRequest()
+          setBusinessDescription(values.description)
+          setBusinessName(values.businessName)
+          setProjectPurpose(values.purpose)
+          setRequestedAmount(values.requestedAmount)
+          setRequestedPaybackMonths(values.requestedPaybackMonths)
+        }}
+        restore={(draft) => {
+          setBusinessDescription(draft.businessDescription)
+          setBusinessName(draft.businessName)
+          setProjectPurpose(draft.projectPurpose)
+          setRequestedAmount(draft.requestedAmount)
+          setRequestedPaybackMonths(draft.requestedPaybackMonths)
+        }}
+      />
       <div className="grid gap-3 md:grid-cols-2">
         <Field label="Business">
           <Input
@@ -452,6 +508,23 @@ export function ProjectFinancingReviewContent({
 
   return (
     <div className="space-y-3">
+      <DashboardStateQuickFill
+        draft={{ approvedAmount, approvedPaybackMonths, notes }}
+        enabled={!isPending}
+        isDirty={Boolean(approvedAmount || approvedPaybackMonths || notes)}
+        onFill={() => {
+          setApprovedAmount(String(request.requestedAmount))
+          setApprovedPaybackMonths(String(request.requestedPaybackMonths))
+          setNotes(
+            "Approved within the committee decision and affordability evidence."
+          )
+        }}
+        restore={(draft) => {
+          setApprovedAmount(draft.approvedAmount)
+          setApprovedPaybackMonths(draft.approvedPaybackMonths)
+          setNotes(draft.notes)
+        }}
+      />
       <section className="border-y border-border py-4">
         <p className="font-medium text-foreground">{request.businessName}</p>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -589,6 +662,22 @@ export function ProjectFinancingDisbursementContent({
 
   return (
     <>
+      <DashboardStateQuickFill
+        className="mb-3"
+        draft={{ disbursedAt, notes, reference }}
+        enabled={!isPending}
+        isDirty={Boolean(reference || notes)}
+        onFill={() => {
+          setDisbursedAt(qaToday())
+          setReference(createQaReference("PF"))
+          setNotes("Release verified against the cooperative bank record.")
+        }}
+        restore={(draft) => {
+          setDisbursedAt(draft.disbursedAt)
+          setNotes(draft.notes)
+          setReference(draft.reference)
+        }}
+      />
       <section className="mb-4 border-y border-border py-4">
         <p className="font-medium text-foreground">{request.businessName}</p>
         <p className="mt-1 text-sm text-muted-foreground">

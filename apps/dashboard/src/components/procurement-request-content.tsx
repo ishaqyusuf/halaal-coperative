@@ -7,9 +7,16 @@ import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
 import { Textarea } from "@halaalvest/ui/components/textarea"
-import { formatCurrency } from "@halaalvest/utils"
+import {
+  createQaReference,
+  formatCurrency,
+  qaFirstOfNextMonth,
+  qaToday,
+} from "@halaalvest/utils"
 import type { ProcurementRequestRow } from "@halaalvest/db"
 import { MemberCombobox } from "@/components/member-combobox"
+import { DashboardStateQuickFill } from "@/components/dashboard-quick-fill"
+import { createQaProcurementRequest } from "@/lib/dev-form-fill"
 import {
   WorkflowChargeSummary,
   type WorkflowChargeOption,
@@ -126,6 +133,33 @@ export function ProcurementRequestCreateContent({
 
   return (
     <div className="grid gap-3 md:grid-cols-2">
+      <DashboardStateQuickFill
+        className="md:col-span-2"
+        draft={{
+          itemDescription,
+          itemName,
+          requestedCost,
+          requestedRepaymentMonths,
+          vendorName,
+        }}
+        enabled={!isPending}
+        isDirty={Boolean(itemName || vendorName || requestedCost)}
+        onFill={() => {
+          const values = createQaProcurementRequest()
+          setItemDescription(values.itemDescription)
+          setItemName(values.itemName)
+          setRequestedCost(values.requestedCost)
+          setRequestedRepaymentMonths(values.requestedRepaymentMonths)
+          setVendorName(values.vendorName)
+        }}
+        restore={(draft) => {
+          setItemDescription(draft.itemDescription)
+          setItemName(draft.itemName)
+          setRequestedCost(draft.requestedCost)
+          setRequestedRepaymentMonths(draft.requestedRepaymentMonths)
+          setVendorName(draft.vendorName)
+        }}
+      />
       <Field label="Member">
         <MemberCombobox
           disabled={isPending}
@@ -237,6 +271,33 @@ export function MemberProcurementRequestCreateContent({
 
   return (
     <div className="grid gap-3 md:grid-cols-2">
+      <DashboardStateQuickFill
+        className="md:col-span-2"
+        draft={{
+          itemDescription,
+          itemName,
+          requestedCost,
+          requestedRepaymentMonths,
+          vendorName,
+        }}
+        enabled={!isPending}
+        isDirty={Boolean(itemName || vendorName || requestedCost)}
+        onFill={() => {
+          const values = createQaProcurementRequest()
+          setItemDescription(values.itemDescription)
+          setItemName(values.itemName)
+          setRequestedCost(values.requestedCost)
+          setRequestedRepaymentMonths(values.requestedRepaymentMonths)
+          setVendorName(values.vendorName)
+        }}
+        restore={(draft) => {
+          setItemDescription(draft.itemDescription)
+          setItemName(draft.itemName)
+          setRequestedCost(draft.requestedCost)
+          setRequestedRepaymentMonths(draft.requestedRepaymentMonths)
+          setVendorName(draft.vendorName)
+        }}
+      />
       <Field label="Item">
         <Input
           disabled={isPending}
@@ -498,6 +559,23 @@ export function ProcurementRequestReviewContent({
 
   return (
     <div className="grid gap-3">
+      <DashboardStateQuickFill
+        draft={{ approvedCost, approvedMonths, notes }}
+        enabled={!isPending}
+        isDirty={Boolean(approvedCost || approvedMonths || notes)}
+        onFill={() => {
+          setApprovedCost(String(request.requestedCost))
+          setApprovedMonths(String(request.requestedRepaymentMonths))
+          setNotes(
+            "Within the cooperative policy and the member's affordability."
+          )
+        }}
+        restore={(draft) => {
+          setApprovedCost(draft.approvedCost)
+          setApprovedMonths(draft.approvedMonths)
+          setNotes(draft.notes)
+        }}
+      />
       <section className="border-y border-border py-4">
         <p className="font-medium text-foreground">{request.itemName}</p>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -618,6 +696,23 @@ export function ProcurementPurchaseContent({
 
   return (
     <div className="grid gap-3">
+      <DashboardStateQuickFill
+        draft={{ firstDueDate, purchaseDate, purchaseNotes, purchaseReference }}
+        enabled={!isPending}
+        isDirty={Boolean(purchaseDate || purchaseReference || purchaseNotes)}
+        onFill={() => {
+          setPurchaseDate(qaToday())
+          setFirstDueDate(qaFirstOfNextMonth())
+          setPurchaseReference(createQaReference("PO"))
+          setPurchaseNotes("Supplier invoice and delivered item verified.")
+        }}
+        restore={(draft) => {
+          setFirstDueDate(draft.firstDueDate)
+          setPurchaseDate(draft.purchaseDate)
+          setPurchaseNotes(draft.purchaseNotes)
+          setPurchaseReference(draft.purchaseReference)
+        }}
+      />
       <section className="border-y border-border py-4">
         <p className="font-medium text-foreground">{request.itemName}</p>
         <p className="mt-1 text-sm text-muted-foreground">

@@ -29,6 +29,8 @@ import {
   updateSupportCaseStatusAction,
 } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
+import { DashboardStateQuickFill } from "@/components/dashboard-quick-fill"
+import { createQaSupportCase, qaSupportReply } from "@/lib/dev-form-fill"
 import { useTRPC } from "@/trpc/client"
 
 export type SupportCaseOption = {
@@ -283,6 +285,24 @@ export function SupportCaseCreateContent({
 
   return (
     <>
+      <DashboardStateQuickFill
+        className="mb-3"
+        draft={{ description, priority: priority, subject }}
+        enabled={!isPending}
+        isDirty={Boolean(subject || description)}
+        onFill={() => {
+          const values = createQaSupportCase()
+          setCategory("payment_issue")
+          setPriority("high")
+          setSubject(values.subject)
+          setDescription(values.description)
+        }}
+        restore={(draft) => {
+          setDescription(draft.description)
+          setPriority(draft.priority)
+          setSubject(draft.subject)
+        }}
+      />
       <div className="grid gap-3 md:grid-cols-2">
         <Field label="Subject">
           <Input
@@ -711,6 +731,14 @@ export function SupportCaseReplyContent({
 
   return (
     <>
+      <DashboardStateQuickFill
+        className="mb-3"
+        draft={message}
+        enabled={!isPending}
+        isDirty={Boolean(message)}
+        onFill={() => setMessage(qaSupportReply)}
+        restore={setMessage}
+      />
       <SupportCaseContext supportCase={supportCase} />
       {supportCase.status === "closed" ? (
         <p className="border-y border-border py-4 text-sm text-muted-foreground">
@@ -794,6 +822,22 @@ export function MemberSupportCaseCreateContent({
 
   return (
     <>
+      <DashboardStateQuickFill
+        className="mb-3"
+        draft={{ description, subject }}
+        enabled={!isPending}
+        isDirty={Boolean(subject || description)}
+        onFill={() => {
+          const values = createQaSupportCase()
+          setCategory("payment_issue")
+          setSubject(values.subject)
+          setDescription(values.description)
+        }}
+        restore={(draft) => {
+          setDescription(draft.description)
+          setSubject(draft.subject)
+        }}
+      />
       <div className="grid gap-3 md:grid-cols-2">
         <Field label="Subject">
           <Input
@@ -895,6 +939,18 @@ export function MemberSupportCaseReplyContent({
 
   return (
     <>
+      <DashboardStateQuickFill
+        className="mb-3"
+        draft={message}
+        enabled={!isPending}
+        isDirty={Boolean(message)}
+        onFill={() =>
+          setMessage(
+            "Thank you. The transfer reference is on my receipt and I have attached it."
+          )
+        }
+        restore={setMessage}
+      />
       <SupportCaseContext supportCase={supportCase} />
       {supportCase.status === "closed" ? (
         <p className="border-y border-border py-4 text-sm text-muted-foreground">

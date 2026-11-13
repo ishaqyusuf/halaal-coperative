@@ -7,7 +7,7 @@ import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
 import { Textarea } from "@halaalvest/ui/components/textarea"
-import { formatCurrency } from "@halaalvest/utils"
+import { createQaAmount, formatCurrency, qaToday } from "@halaalvest/utils"
 import type {
   FoodPurchaseApplicationRow,
   FoodPurchaseCycleRow,
@@ -27,6 +27,8 @@ import {
   submitOwnFoodPurchaseApplicationAction,
 } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
+import { DashboardStateQuickFill } from "@/components/dashboard-quick-fill"
+import { createQaFoodPurchaseRequest } from "@/lib/dev-form-fill"
 import { useTRPC } from "@/trpc/client"
 
 export type FoodPurchaseOption = {
@@ -152,6 +154,24 @@ export function FoodPurchaseReleaseContent({
 
   return (
     <>
+      <DashboardStateQuickFill
+        className="mb-3"
+        draft={{ periodMonth, releasedAmount, releasedAt, releaseNotes }}
+        enabled={!isPending}
+        isDirty={Boolean(periodMonth || releasedAmount || releaseNotes)}
+        onFill={() => {
+          setPeriodMonth(qaToday().slice(0, 7))
+          setReleasedAt(qaToday())
+          setReleasedAmount(createQaAmount(800_000, 1_500_000, 50_000))
+          setReleaseNotes("Committee release evidence verified by finance.")
+        }}
+        restore={(draft) => {
+          setPeriodMonth(draft.periodMonth)
+          setReleasedAmount(draft.releasedAmount)
+          setReleasedAt(draft.releasedAt)
+          setReleaseNotes(draft.releaseNotes)
+        }}
+      />
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Cycle month">
           <Input
@@ -254,6 +274,37 @@ export function FoodPurchaseApplicationCreateContent({
 
   return (
     <>
+      <DashboardStateQuickFill
+        className="mb-3"
+        draft={{
+          cycleId,
+          itemDescription,
+          memberId,
+          requestedAmount,
+          requestedPaybackMonths,
+          requestNotes,
+        }}
+        enabled={!isPending}
+        isDirty={Boolean(requestedAmount || itemDescription || requestNotes)}
+        onFill={() => {
+          const values = createQaFoodPurchaseRequest()
+          const openCycle =
+            cycles.find((cycle) => cycle.status === "open") ?? cycles[0]
+          if (!cycleId && openCycle) setCycleId(openCycle.id)
+          setItemDescription(values.itemDescription)
+          setRequestedAmount(values.requestedAmount)
+          setRequestedPaybackMonths(values.requestedPaybackMonths)
+          setRequestNotes(values.notes)
+        }}
+        restore={(draft) => {
+          setCycleId(draft.cycleId)
+          setItemDescription(draft.itemDescription)
+          setMemberId(draft.memberId)
+          setRequestedAmount(draft.requestedAmount)
+          setRequestedPaybackMonths(draft.requestedPaybackMonths)
+          setRequestNotes(draft.requestNotes)
+        }}
+      />
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Cycle">
           <LabeledSelectInput
@@ -377,6 +428,35 @@ export function MemberFoodPurchaseApplicationCreateContent({
 
   return (
     <>
+      <DashboardStateQuickFill
+        className="mb-3"
+        draft={{
+          cycleId,
+          itemDescription,
+          requestedAmount,
+          requestedPaybackMonths,
+          requestNotes,
+        }}
+        enabled={!isPending}
+        isDirty={Boolean(requestedAmount || itemDescription || requestNotes)}
+        onFill={() => {
+          const values = createQaFoodPurchaseRequest()
+          const openCycle =
+            cycles.find((cycle) => cycle.status === "open") ?? cycles[0]
+          if (!cycleId && openCycle) setCycleId(openCycle.id)
+          setItemDescription(values.itemDescription)
+          setRequestedAmount(values.requestedAmount)
+          setRequestedPaybackMonths(values.requestedPaybackMonths)
+          setRequestNotes(values.notes)
+        }}
+        restore={(draft) => {
+          setCycleId(draft.cycleId)
+          setItemDescription(draft.itemDescription)
+          setRequestedAmount(draft.requestedAmount)
+          setRequestedPaybackMonths(draft.requestedPaybackMonths)
+          setRequestNotes(draft.requestNotes)
+        }}
+      />
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Cycle">
           <LabeledSelectInput
@@ -485,6 +565,25 @@ export function FoodPurchaseApplicationReviewContent({
 
   return (
     <div className="space-y-3">
+      <DashboardStateQuickFill
+        draft={{ approvedAmount, approvedPaybackMonths, reviewNotes }}
+        enabled={!isPending}
+        isDirty={Boolean(
+          approvedAmount || approvedPaybackMonths || reviewNotes
+        )}
+        onFill={() => {
+          setApprovedAmount(String(application.requestedAmount))
+          setApprovedPaybackMonths(String(application.requestedPaybackMonths))
+          setReviewNotes(
+            "Within cycle capacity and the member obligation policy."
+          )
+        }}
+        restore={(draft) => {
+          setApprovedAmount(draft.approvedAmount)
+          setApprovedPaybackMonths(draft.approvedPaybackMonths)
+          setReviewNotes(draft.reviewNotes)
+        }}
+      />
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Approved amount">
           <Input
@@ -597,6 +696,32 @@ export function FoodPurchaseAccountingContent({
 
   return (
     <>
+      <DashboardStateQuickFill
+        className="mb-3"
+        draft={{
+          notes,
+          operatingExpenseAmount,
+          purchaseCostAmount,
+          salesAmount,
+        }}
+        enabled={!isPending}
+        isDirty={Boolean(salesAmount || purchaseCostAmount || notes)}
+        onFill={() => {
+          const released = cycle.releasedAmount || 1_200_000
+          const cost = Math.round(released * 0.93)
+          const expense = Math.round(released * 0.05)
+          setPurchaseCostAmount(String(cost))
+          setOperatingExpenseAmount(String(expense))
+          setSalesAmount(String(Math.round(released * 1.12)))
+          setNotes("Committee sales, supplier cost and expenses reconciled.")
+        }}
+        restore={(draft) => {
+          setNotes(draft.notes)
+          setOperatingExpenseAmount(draft.operatingExpenseAmount)
+          setPurchaseCostAmount(draft.purchaseCostAmount)
+          setSalesAmount(draft.salesAmount)
+        }}
+      />
       <div className="grid gap-3 sm:grid-cols-3">
         <Field label="Sales">
           <Input

@@ -1666,7 +1666,8 @@ export async function rejectMemberOnboardingAction(formData: FormData) {
 
 export async function updateMemberKycAction(formData: FormData) {
   const actor = await requireDashboardActor(memberManagementRoles)
-  await requireLiveFinancialWritesOpen(actor)
+  // KYC is not a live financial write: it stays open during One Path so the
+  // owner can verify their own record before going live.
 
   const member = await updateMemberKyc({
     actorUserId: actor.user.id,
@@ -4081,11 +4082,14 @@ export async function finalizeInitialMigrationAction(formData: FormData) {
   await finalizeTenantInitialMigration({
     actorUserId: actor.user.id,
     confirmationMethod: "checkbox",
+    openFinancingCycle: getOptionalBoolean(formData, "openFinancingCycle"),
     tenantId: actor.tenant.id,
   })
 
   revalidatePath("/settings/finance")
+  revalidatePath("/settings/finance/loan")
   revalidatePath("/getting-started")
+  revalidatePath("/loans")
   revalidatePath("/")
 }
 

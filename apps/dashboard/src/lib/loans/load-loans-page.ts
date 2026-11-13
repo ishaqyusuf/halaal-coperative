@@ -8,6 +8,10 @@ import {
   listMembersTable,
 } from "@halaalvest/db"
 import {
+  getLoanIntakeFix,
+  type LoanIntakeFix,
+} from "@/lib/loans/loan-intake-fix"
+import {
   canShowQuickFill,
   getDashboardServerContext,
 } from "@/lib/server-context"
@@ -49,6 +53,8 @@ export type LoansPageData =
       canReview: boolean
       canSubmit: boolean
       financingCycle: Awaited<ReturnType<typeof getMonthlyFinancingCycleHealth>>
+      /** Link to Finance settings when intake is blocked; finance managers only. */
+      intakeFix: LoanIntakeFix | null
       loanProducts: LoanProductOptionRow[]
       loanRequestCharges: LoanRequestChargeOptionRow[]
       members: {
@@ -161,15 +167,22 @@ export async function loadLoansPageData(): Promise<LoansPageData> {
         ? "Complete member verification and migration setup before requesting financing."
         : null
 
+  const canReview = hasAnyRole(
+    context.auth.membership?.role,
+    financeManagementRoles
+  )
+
   return {
-    canReview: hasAnyRole(
-      context.auth.membership?.role,
-      financeManagementRoles
-    ),
+    canReview,
     canSubmit:
       hasAnyRole(role, allStaffRoles) ||
       Boolean(actorMember && actorReadiness?.isReady),
     financingCycle,
+    intakeFix: getLoanIntakeFix({
+      canManageFinance: canReview && !isMemberView,
+      intakeStatus: financingCycle.intakeStatus,
+      productCount: loanProducts.length,
+    }),
     loanProducts: loanProducts as LoanProductOptionRow[],
     loanRequestCharges,
     members: visibleMembers,

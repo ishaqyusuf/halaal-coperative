@@ -158,6 +158,7 @@ function ActiveStep({
           title="Go live"
         >
           <GoLiveChecklist
+            checklist={props.goLiveChecklist}
             migrationSnapshot={props.migrationSnapshot}
             tenantHost={props.tenantHost}
             tenantName={props.tenantName}

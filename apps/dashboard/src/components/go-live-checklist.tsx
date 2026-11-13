@@ -27,34 +27,57 @@ import { z } from "zod"
 import { finalizeInitialMigrationAction } from "@/lib/dashboard-actions"
 import {
   getGoLiveConfirmationLabel,
+  getGoLiveFinancingSummary,
   getGoLiveReadinessRows,
   goLiveSuccessHref,
   isReadyToGoLive,
+  type GoLiveChecklistData,
+  type GoLiveFinancingProductLine,
 } from "@/lib/getting-started/go-live-readiness"
 
 const goLiveFormSchema = z.object({
   confirmed: z.boolean(),
+  openFinancingCycle: z.boolean(),
 })
+
+const productStatusLabels: Record<
+  GoLiveFinancingProductLine["status"],
+  string
+> = {
+  created_at_go_live: "Created when you go live",
+  name_taken: "Set up in Finance settings",
+  ready: "Ready",
+  turned_off: "Turned off",
+}
 
 type GoLiveFormValues = z.infer<typeof goLiveFormSchema>
 
 export function GoLiveChecklist({
+  checklist = null,
   migrationSnapshot,
   tenantHost,
   tenantName,
 }: {
+  /** Owner KYC and financing; loaded by the Go live step. */
+  checklist?: GoLiveChecklistData | null
   migrationSnapshot: InitialMigrationSnapshot
   tenantName: string
   tenantHost: string | null
 }) {
+  const financing = checklist
+    ? getGoLiveFinancingSummary(checklist.financing)
+    : null
   const router = useTenantRouter()
   const [isPending, startTransition] = useTransition()
   const [serverError, setServerError] = useState<string | null>(null)
   const form = useZodForm<GoLiveFormValues>(goLiveFormSchema, {
-    defaultValues: { confirmed: false },
+    defaultValues: {
+      confirmed: false,
+      openFinancingCycle: financing?.canOpenCycle ?? false,
+    },
   })
-  const rows = getGoLiveReadinessRows(migrationSnapshot)
-  const ready = isReadyToGoLive(migrationSnapshot)
+  const rows = getGoLiveReadinessRows(migrationSnapshot, checklist)
+  const ready = isReadyToGoLive(migrationSnapshot, checklist)
   const confirmed = form.watch("confirmed")
   const canSubmit = ready && confirmed && !isPending
 
@@ -64,6 +87,9 @@ export function GoLiveChecklist({
     setServerError(null)
     const formData = new FormData()
     formData.set("confirmed", "on")
+    if (financing?.canOpenCycle && values.openFinancingCycle) {
+      formData.set("openFinancingCycle", "on")
+    }
 
     startTransition(async () => {
       try {
@@ -118,6 +144,91 @@ export function GoLiveChecklist({
             </li>
           ))}
         </ul>
+
+        {financing ? (
+          <section
+            aria-labelledby="go-live-financing"
+            className="grid gap-3 border border-border/70 px-3 py-3"
+          >
+            <div>
+              <h3 className="text-sm font-semibold" id="go-live-financing">
+                Financing
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Members can request financing once a product is set up and
+                this month&apos;s financing is open.
+              </p>
+            </div>
+            <ul className="grid gap-2">
+              {financing.products.map((product) => (
+                <li
+                  className="flex flex-wrap items-center justify-between gap-2 text-sm"
+                  key={product.loanType}
+                >
+                  <span>
+                    <span className="font-medium">{product.name}</span>
+                    <span className="text-muted-foreground">
+                      {" "}
+                      · {product.detail}
+                    </span>
+                  </span>
+                  <Badge
+                    variant={
+                      product.status === "turned_off" ||
+                      product.status === "name_taken"
+                        ? "secondary"
+                        : "default"
+                    }
+                  >
+                    {productStatusLabels[product.status]}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+            {financing.canOpenCycle ? (
+              <FormField
+                control={form.control}
+                name="openFinancingCycle"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start gap-3 space-y-0">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        disabled={isPending}
+                        name={field.name}
+                        onCheckedChange={(checked) =>
+                          field.onChange(checked === true)
+                        }
+                      />
+                    </FormControl>
+                    <div className="grid gap-1">
+                      <FormLabel className="leading-5 font-normal">
+                        {financing.cycleLabel}
+                      </FormLabel>
+                      <p className="text-sm text-muted-foreground">
+                        {financing.cycleDetail}
+                      </p>
+                    </div>
+                  </FormItem>
+                )}
+              />
+            ) : (
+              <div className="grid gap-1 text-sm">
+                <p className="font-medium">{financing.cycleLabel}</p>
+                <p className="text-muted-foreground">
+                  {financing.cycleDetail}
+                </p>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              After you go live, change products, reserve and cycles in{" "}
+              <span className="font-medium text-foreground">
+                Settings → Finance → Loans
+              </span>
+              .
+            </p>
+          </section>
+        ) : null}
 
         {tenantHost ? (
           <p className="text-sm text-muted-foreground">

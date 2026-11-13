@@ -117,7 +117,9 @@ const defaultBootstrapPolicy = {
   normalLoanTermMonths: 18,
   quickLoanTermMonths: 3,
   requiresDualLoanApproval: false,
-  reserveBuffer: 450_000,
+  // A reserve is a deliberate cooperative policy; new cooperatives start at 0
+  // so it never silently absorbs all financing capacity (ADR-20261113).
+  reserveBuffer: 0,
 } as const
 
 const tenantBootstrapTransactionTimeoutMs = 20_000

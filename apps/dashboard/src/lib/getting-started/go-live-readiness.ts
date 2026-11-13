@@ -1,16 +1,31 @@
 import type {
+  GoLiveFinancingReadiness,
+  GoLiveLoanProductPlan,
+  GoLiveOwnerMember,
+} from "@halaalvest/db"
+import type {
   InitialMigrationSnapshot,
   InitialMigrationStepKey,
 } from "@halaalvest/domain"
+import { formatCurrency } from "@halaalvest/utils"
 
 /** Every readiness check shown before going live. `finalization` is the go-live itself. */
 export type GoLiveReadinessKey = Exclude<InitialMigrationStepKey, "finalization">
 
 export type GoLiveReadinessRow = {
   fixHref: string
-  key: GoLiveReadinessKey
+  key: GoLiveReadinessKey | "owner_kyc"
   label: string
   ready: boolean
+}
+
+/**
+ * Extra go-live data beyond the migration snapshot (ADR-20261113). `null`
+ * owner means no member record is linked to the signed-in admin yet.
+ */
+export type GoLiveChecklistData = {
+  financing: GoLiveFinancingReadiness
+  owner: GoLiveOwnerMember | null
 }
 
 const goLiveReadinessChecks = {
@@ -63,15 +78,35 @@ function isGoLiveReadinessKey(
 }
 
 /**
+ * The owner's own member record must be KYC verified before going live, so
+ * they can borrow and guarantee on day one. The fix opens that record's KYC
+ * sheet, or step 10 when no record is linked yet.
+ */
+export function getOwnerKycReadinessRow(
+  owner: GoLiveOwnerMember | null
+): GoLiveReadinessRow {
+  return {
+    fixHref: owner
+      ? `/members/${encodeURIComponent(owner.id)}?memberDetailSheetType=kyc`
+      : "/onboarding-success",
+    key: "owner_kyc",
+    label: "Your KYC",
+    ready: owner?.kycStatus === "verified",
+  }
+}
+
+/**
  * Rows in snapshot step order. A row is Ready when its key is not in
  * `missingStepKeys`, which is the same rule the review step used before.
+ * With checklist data, the owner's KYC row follows the snapshot rows.
  */
 export function getGoLiveReadinessRows(
-  snapshot: Pick<InitialMigrationSnapshot, "missingStepKeys" | "steps">
+  snapshot: Pick<InitialMigrationSnapshot, "missingStepKeys" | "steps">,
+  checklist?: Pick<GoLiveChecklistData, "owner"> | null
 ): GoLiveReadinessRow[] {
   const missing = new Set(snapshot.missingStepKeys)
 
-  return snapshot.steps.flatMap((step) => {
+  const rows: GoLiveReadinessRow[] = snapshot.steps.flatMap((step) => {
     if (!isGoLiveReadinessKey(step.key)) return []
 
     return [
@@ -82,13 +117,111 @@ export function getGoLiveReadinessRows(
       },
     ]
   })
+
+  return checklist ? [...rows, getOwnerKycReadinessRow(checklist.owner)] : rows
 }
 
-/** Today's UI rule: no missing step other than `finalization`. */
+/**
+ * Today's UI rule: no missing step other than `finalization`, and, when the
+ * checklist data is loaded, the owner's KYC is verified. The server does not
+ * enforce the KYC row (UI readiness stays stricter than the server).
+ */
 export function isReadyToGoLive(
-  snapshot: Pick<InitialMigrationSnapshot, "missingStepKeys">
+  snapshot: Pick<InitialMigrationSnapshot, "missingStepKeys">,
+  checklist?: Pick<GoLiveChecklistData, "owner"> | null
 ) {
-  return snapshot.missingStepKeys.every((key) => key === "finalization")
+  const stepsReady = snapshot.missingStepKeys.every(
+    (key) => key === "finalization"
+  )
+
+  return checklist
+    ? stepsReady && getOwnerKycReadinessRow(checklist.owner).ready
+    : stepsReady
+}
+
+export const financingSettingsHref = "/settings/finance/loan"
+
+function formatPeriodMonth(periodStart: string) {
+  const date = new Date(`${periodStart}T00:00:00.000Z`)
+
+  return Number.isNaN(date.getTime())
+    ? periodStart
+    : date.toLocaleDateString("en-GB", {
+        month: "long",
+        timeZone: "UTC",
+        year: "numeric",
+      })
+}
+
+export type GoLiveFinancingProductLine = {
+  detail: string
+  loanType: GoLiveLoanProductPlan["loanType"]
+  name: string
+  status: "created_at_go_live" | "ready" | "turned_off" | "name_taken"
+}
+
+export type GoLiveFinancingSummary = {
+  /** Offer "Open {month} financing now" (pre-ticked). */
+  canOpenCycle: boolean
+  cycleDetail: string
+  cycleLabel: string
+  monthLabel: string
+  products: GoLiveFinancingProductLine[]
+}
+
+/** Copy for the Financing section of the Go live checklist. */
+export function getGoLiveFinancingSummary(
+  financing: GoLiveFinancingReadiness
+): GoLiveFinancingSummary {
+  const monthLabel = formatPeriodMonth(financing.cycle.periodStart)
+  const products = (["quick", "normal"] as const).map((loanType) => {
+    const product = financing.products[loanType]
+    const terms = `Up to ${product.termMonths} months, ${product.maxSavingsMultiple}× savings`
+    const status: GoLiveFinancingProductLine["status"] = product.exists
+      ? product.isActive
+        ? "ready"
+        : "turned_off"
+      : product.willCreate
+        ? "created_at_go_live"
+        : "name_taken"
+
+    return { detail: terms, loanType, name: product.name, status }
+  })
+  const { cycle } = financing
+  const capacity = formatCurrency(cycle.totalCapacityAmount)
+  const reserve = formatCurrency(cycle.reserveBufferAmount)
+  const commitments = formatCurrency(cycle.projectedCommitmentAmount)
+
+  if (cycle.status && cycle.status !== "draft") {
+    return {
+      canOpenCycle: false,
+      cycleDetail: `Capacity and allocations for ${monthLabel} are already set.`,
+      cycleLabel: `${monthLabel} financing is ${cycle.status}.`,
+      monthLabel,
+      products,
+    }
+  }
+
+  if (cycle.canOpenAtGoLive) {
+    return {
+      canOpenCycle: true,
+      cycleDetail: `${capacity} to lend this month from ${commitments} of monthly commitments, after a ${reserve} reserve. You can pause it in Finance settings.`,
+      cycleLabel: `Open ${monthLabel} financing now`,
+      monthLabel,
+      products,
+    }
+  }
+
+  return {
+    canOpenCycle: false,
+    cycleDetail:
+      cycle.projectedCommitmentAmount > 0
+        ? `Your ${reserve} reserve covers all ${commitments} of monthly commitments. Lower it in Finance settings, then open ${monthLabel} financing there.`
+        : `Financing capacity comes from members' monthly commitments, and none are set yet. Add them on member records, then open ${monthLabel} financing in Finance settings.`,
+    cycleLabel: `${monthLabel} financing can't open yet.`,
+    monthLabel,
+    products,
+  }
 }
 
 export function getGoLiveConfirmationLabel(tenantName: string) {

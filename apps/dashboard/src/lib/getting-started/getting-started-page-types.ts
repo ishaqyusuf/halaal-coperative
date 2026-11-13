@@ -7,6 +7,7 @@ import type {
 } from "@halaalvest/db"
 import type { InitialMigrationSnapshot } from "@halaalvest/domain"
 import type { GettingStartedStepKey } from "@/hooks/use-getting-started-params"
+import type { GoLiveChecklistData } from "@/lib/getting-started/go-live-readiness"
 
 export type GettingStartedChargeDefinitionRow = {
   appliesToLoanRequests?: boolean
@@ -178,6 +179,8 @@ export type GettingStartedProfitMigrationOptionRow = {
 
 export type GettingStartedPageViewProps = {
   activeStep: GettingStartedStepKey
+  /** Owner KYC and financing for step 11; loaded only on that step. */
+  goLiveChecklist?: GoLiveChecklistData | null
   businessPolicy: TenantBusinessProfitPolicySettings
   businessProfitSeasons: GettingStartedBusinessProfitSeasonRow[]
   chargeDefinitions: GettingStartedChargeDefinitionRow[]

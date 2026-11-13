@@ -30,6 +30,7 @@ import {
   canShowQuickFill,
   getDashboardServerContext,
 } from "@/lib/server-context"
+import { loadGoLiveChecklistData } from "@/lib/getting-started/load-go-live-checklist"
 import { getPublicRequestHost } from "@/lib/request-host"
 import { tenantRedirect } from "@/utils/tenant-redirect"
 
@@ -175,6 +176,14 @@ export async function GettingStartedPageContent({
     await tenantRedirect("/onboarding-success")
   }
 
+  const goLiveChecklist =
+    activeStep === "review"
+      ? await loadGoLiveChecklistData({
+          tenantId: context.tenant.id,
+          user: context.auth.user,
+        })
+      : null
+
   const today = new Date()
   const tenantStartDate = toDateString(data.tenant?.startDate)
   const memberCount = data.tenant?.currentSize ?? null
@@ -187,6 +196,7 @@ export async function GettingStartedPageContent({
   return (
     <GettingStartedPageView
       activeStep={activeStep}
+      goLiveChecklist={goLiveChecklist}
       chargeDefinitions={(data.chargeDefinitions as FinanceSetupCharge[]).map(
         (charge) => {
           const currentVersion =

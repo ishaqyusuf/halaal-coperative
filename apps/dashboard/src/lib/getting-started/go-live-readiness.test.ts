@@ -1,10 +1,13 @@
 import { describe, expect, test } from "bun:test"
 import { buildInitialMigrationSnapshot } from "@halaalvest/domain"
+import type { GoLiveFinancingReadiness } from "@halaalvest/db"
 import {
   formatMemberSignInHost,
   getGoLiveBannerMessage,
   getGoLiveConfirmationLabel,
+  getGoLiveFinancingSummary,
   getGoLiveReadinessRows,
+  getOwnerKycReadinessRow,
   goLiveSuccessHref,
   isReadyToGoLive,
 } from "./go-live-readiness"
@@ -119,5 +122,136 @@ describe("go-live copy", () => {
       getGoLiveBannerMessage({ signInHost: null, tenantName: "Amanah" })
     ).toBe("Amanah is live. Members can sign in with their member code.")
     expect(goLiveSuccessHref).toBe("/?live=1")
+  })
+})
+
+describe("owner KYC on the go-live checklist", () => {
+  const owner = (
+    kycStatus: "not_started" | "pending" | "rejected" | "verified"
+  ) => ({ fullName: "Zainab Musa", id: "member-1", kycStatus })
+
+  test("adds a Your KYC row after the snapshot rows, linked to the KYC sheet", () => {
+    const rows = getGoLiveReadinessRows(snapshot(), {
+      owner: owner("not_started"),
+    })
+
+    expect(rows.at(-1)).toEqual({
+      fixHref: "/members/member-1?memberDetailSheetType=kyc",
+      key: "owner_kyc",
+      label: "Your KYC",
+      ready: false,
+    })
+  })
+
+  test("blocks going live until the owner's KYC is verified", () => {
+    expect(isReadyToGoLive(snapshot(), { owner: owner("pending") })).toBe(false)
+    expect(isReadyToGoLive(snapshot(), { owner: null })).toBe(false)
+    expect(isReadyToGoLive(snapshot(), { owner: owner("verified") })).toBe(true)
+  })
+
+  test("sends an owner without a member record back to step 10", () => {
+    expect(getOwnerKycReadinessRow(null)).toMatchObject({
+      fixHref: "/onboarding-success",
+      ready: false,
+    })
+  })
+})
+
+describe("go-live financing summary", () => {
+  const product = (
+    loanType: "normal" | "quick",
+    overrides: Partial<GoLiveFinancingReadiness["products"]["quick"]> = {}
+  ) => ({
+    exists: false,
+    isActive: true,
+    loanType,
+    maxSavingsMultiple: 2,
+    name: loanType === "quick" ? "Quick financing" : "Normal financing",
+    termMonths: loanType === "quick" ? 3 : 18,
+    willCreate: true,
+    ...overrides,
+  })
+  const financing = (
+    cycle: Partial<GoLiveFinancingReadiness["cycle"]> = {}
+  ): GoLiveFinancingReadiness => ({
+    cycle: {
+      canOpenAtGoLive: true,
+      periodEnd: "2026-11-30",
+      periodStart: "2026-11-01",
+      projectedCommitmentAmount: 120_000,
+      reserveBufferAmount: 0,
+      status: null,
+      totalCapacityAmount: 120_000,
+      ...cycle,
+    },
+    products: { normal: product("normal"), quick: product("quick") },
+  })
+
+  test("offers to open this month's financing when there is capacity", () => {
+    const summary = getGoLiveFinancingSummary(financing())
+
+    expect(summary.canOpenCycle).toBe(true)
+    expect(summary.cycleLabel).toBe("Open November 2026 financing now")
+    expect(summary.products).toEqual([
+      {
+        detail: "Up to 3 months, 2× savings",
+        loanType: "quick",
+        name: "Quick financing",
+        status: "created_at_go_live",
+      },
+      {
+        detail: "Up to 18 months, 2× savings",
+        loanType: "normal",
+        name: "Normal financing",
+        status: "created_at_go_live",
+      },
+    ])
+  })
+
+  test("explains why financing cannot open with no monthly commitments", () => {
+    const summary = getGoLiveFinancingSummary(
+      financing({
+        canOpenAtGoLive: false,
+        projectedCommitmentAmount: 0,
+        totalCapacityAmount: 0,
+      })
+    )
+
+    expect(summary.canOpenCycle).toBe(false)
+    expect(summary.cycleLabel).toBe("November 2026 financing can't open yet.")
+    expect(summary.cycleDetail).toContain("monthly commitments")
+  })
+
+  test("names the reserve when it absorbs all capacity", () => {
+    const summary = getGoLiveFinancingSummary(
+      financing({
+        canOpenAtGoLive: false,
+        reserveBufferAmount: 450_000,
+        totalCapacityAmount: 0,
+      })
+    )
+
+    expect(summary.cycleDetail).toContain("reserve covers all")
+  })
+
+  test("reports an existing cycle and existing or turned-off products", () => {
+    const summary = getGoLiveFinancingSummary({
+      ...financing({ canOpenAtGoLive: false, status: "open" }),
+      products: {
+        normal: product("normal", { exists: true, willCreate: false }),
+        quick: product("quick", {
+          exists: true,
+          isActive: false,
+          willCreate: false,
+        }),
+      },
+    })
+
+    expect(summary.canOpenCycle).toBe(false)
+    expect(summary.cycleLabel).toBe("November 2026 financing is open.")
+    expect(summary.products.map((line) => line.status)).toEqual([
+      "turned_off",
+      "ready",
+    ])
   })
 })

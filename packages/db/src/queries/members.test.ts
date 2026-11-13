@@ -849,22 +849,53 @@ describe("member profile migration guards", () => {
     expect(prisma.memberUpdates).toHaveLength(0)
   })
 
-  test("blocks member KYC updates before live operations", async () => {
-    const prisma = createMemberPrismaStub()
+  test("records member KYC during One Path, before live operations", async () => {
+    // KYC is identity data, so the owner can verify their own record before
+    // going live (ADR-20261113). It must not consult the live-writes gate.
+    const memberUpdates: Array<{ data: { kycStatus: string } }> = []
+    const auditLogCreates: unknown[] = []
+    const tx = {
+      auditLog: {
+        create: async (input: unknown) => {
+          auditLogCreates.push(input)
 
-    await expect(
-      updateMemberKyc(
-        {
-          actorUserId: "user-1",
-          kycStatus: "verified",
-          memberId: "member-1",
-          tenantId: "tenant-1",
+          return input
         },
-        prisma as never
-      )
-    ).rejects.toThrow("Live financial record writes are locked")
+      },
+      member: {
+        findUnique: async () => ({ kycStatus: "pending" }),
+        update: async (input: { data: { kycStatus: string } }) => {
+          memberUpdates.push(input)
 
-    expect(prisma.memberUpdates).toHaveLength(0)
+          return { id: "member-1", kycStatus: input.data.kycStatus }
+        },
+      },
+      tenant: {
+        findUnique: async () => {
+          throw new Error("KYC updates must not read the live-writes gate")
+        },
+      },
+    }
+    const prisma = {
+      ...tx,
+      $transaction: async (callback: (client: typeof tx) => unknown) =>
+        callback(tx),
+    }
+
+    await updateMemberKyc(
+      {
+        actorUserId: "user-1",
+        governmentIdNumber: "QA-ID-0001",
+        kycStatus: "verified",
+        memberId: "member-1",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(memberUpdates).toHaveLength(1)
+    expect(memberUpdates[0]?.data).toMatchObject({ kycStatus: "verified" })
+    expect(auditLogCreates).toHaveLength(1)
   })
 
   test("blocks member document creation before live operations", async () => {

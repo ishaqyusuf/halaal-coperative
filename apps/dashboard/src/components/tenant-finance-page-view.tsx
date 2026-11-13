@@ -19,6 +19,8 @@ import { OpenTenantFinanceSettingsSheet } from "@/components/open-tenant-finance
 import { FinanceShareModelWorkspace } from "@/components/share-model-workspace"
 import { SecondaryMenu } from "@/components/secondary-menu"
 import { TenantFinanceSettingsSheet } from "@/components/sheets/tenant-finance-settings-sheet"
+import type { GoLiveChecklistData } from "@/lib/getting-started/go-live-readiness"
+import { getLoanProductCardState } from "@/lib/finance/loan-product-card"
 
 type ShareVersionRow = {
   id: string
@@ -197,6 +199,7 @@ export function TenantFinancePageView({
   chargeDefinitions,
   financingSettings,
   generatedLedgerRows,
+  goLiveChecklist = null,
   initialMigrationSnapshot,
   tenantName,
   legacyLoanDrafts,
@@ -218,6 +221,7 @@ export function TenantFinancePageView({
   chargeDefinitions: ChargeDefinitionRow[]
   financingSettings: FinancingSettingsRow
   generatedLedgerRows?: MemberLedgerBackfillRow[]
+  goLiveChecklist?: GoLiveChecklistData | null
   initialMigrationSnapshot?: InitialMigrationSnapshot
   tenantName?: string
   legacyLoanDrafts: LegacyLoanDraftRow[]
@@ -237,6 +241,12 @@ export function TenantFinancePageView({
   tenantStartDate: string | null
 }) {
   const activeCharges = chargeDefinitions.filter((charge) => charge.isActive)
+  const quickProductCard = getLoanProductCardState(
+    financingSettings.products.quick
+  )
+  const normalProductCard = getLoanProductCardState(
+    financingSettings.products.normal
+  )
   const currentShareAmount =
     shareStructureVersions.length > 0
       ? shareStructureVersions[shareStructureVersions.length - 1]
@@ -539,20 +549,11 @@ export function TenantFinancePageView({
                           Quick product
                         </p>
                         <p className="mt-1 text-sm text-muted-foreground">
-                          Short-term financing settings for the quick
-                          allocation.
+                          {quickProductCard.description}
                         </p>
                       </div>
-                      <TrendPill
-                        tone={
-                          financingSettings.products.quick.isActive
-                            ? "positive"
-                            : "warning"
-                        }
-                      >
-                        {financingSettings.products.quick.isActive
-                          ? "active"
-                          : "inactive"}
+                      <TrendPill tone={quickProductCard.tone}>
+                        {quickProductCard.pill}
                       </TrendPill>
                     </div>
                     <div className="grid gap-3 text-sm">
@@ -578,7 +579,15 @@ export function TenantFinancePageView({
                           </p>
                         </div>
                       </div>
-                      <OpenTenantFinanceSettingsSheet type="quickProduct" />
+                      <OpenTenantFinanceSettingsSheet
+                        label={quickProductCard.actionLabel}
+                        type="quickProduct"
+                        variant={
+                          financingSettings.products.quick.id
+                            ? "outline"
+                            : "default"
+                        }
+                      />
                     </div>
                   </DashboardSurfaceCard>
 
@@ -589,19 +598,11 @@ export function TenantFinancePageView({
                           Normal product
                         </p>
                         <p className="mt-1 text-sm text-muted-foreground">
-                          Standard financing settings for the normal allocation.
+                          {normalProductCard.description}
                         </p>
                       </div>
-                      <TrendPill
-                        tone={
-                          financingSettings.products.normal.isActive
-                            ? "positive"
-                            : "warning"
-                        }
-                      >
-                        {financingSettings.products.normal.isActive
-                          ? "active"
-                          : "inactive"}
+                      <TrendPill tone={normalProductCard.tone}>
+                        {normalProductCard.pill}
                       </TrendPill>
                     </div>
                     <div className="grid gap-3 text-sm">
@@ -628,7 +629,15 @@ export function TenantFinancePageView({
                           </p>
                         </div>
                       </div>
-                      <OpenTenantFinanceSettingsSheet type="normalProduct" />
+                      <OpenTenantFinanceSettingsSheet
+                        label={normalProductCard.actionLabel}
+                        type="normalProduct"
+                        variant={
+                          financingSettings.products.normal.id
+                            ? "outline"
+                            : "default"
+                        }
+                      />
                     </div>
                   </DashboardSurfaceCard>
                 </div>
@@ -656,6 +665,7 @@ export function TenantFinancePageView({
                 memberAmountLogs={memberAmountLogs}
                 memberOptions={memberOptions}
                 memberNumberPrefix={memberNumberPrefix}
+                goLiveChecklist={goLiveChecklist}
                 migrationSnapshot={initialMigrationSnapshot}
                 tenantName={tenantName}
                 migrationMemberReview={migrationMemberReview}

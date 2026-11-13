@@ -1185,8 +1185,9 @@ export async function updateMemberKyc(
   if (!prisma) throw new Error("Database not configured")
 
   return prisma.$transaction(async (tx) => {
-    await assertLiveFinancialWritesOpen(input.tenantId, tx)
-
+    // KYC is identity data, not a live financial write, so it can be
+    // recorded during One Path: the owner verifies their own record before
+    // going live (ADR-20261113-go-live-financing-readiness-and-owner-kyc).
     const currentMember = await tx.member.findUnique({
       select: { kycStatus: true },
       where: { id: input.memberId, tenantId: input.tenantId },

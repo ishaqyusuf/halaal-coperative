@@ -38,6 +38,7 @@ import {
 } from "@/components/sheets/migration-action-sheet"
 import { MemberMigrationInputPanels } from "@/components/migration/member-migration-input-panels"
 import { MemberBackfillActivityWindowsForm } from "@/components/members/member-backfill-activity-windows-form"
+import type { GoLiveChecklistData } from "@/lib/getting-started/go-live-readiness"
 
 const previewRows: MemberLedgerBackfillRow[] = [
   {
@@ -581,10 +582,12 @@ export function InitialMigrationPreview({
   selectedMigrationMemberId,
   selectedMigrationMemberLabel,
   section = "overview",
+  goLiveChecklist = null,
   tenantHost = null,
   tenantName,
   tenantStartDate,
 }: {
+  goLiveChecklist?: GoLiveChecklistData | null
   generatedLedgerError?: string | null
   generatedLedgerRows?: MemberLedgerBackfillRow[]
   legacyLoanDrafts?: LegacyLoanDraftRow[]
@@ -1302,6 +1305,7 @@ export function InitialMigrationPreview({
             >
               {migrationSnapshot ? (
                 <FinalizeInitialMigrationContent
+                  checklist={goLiveChecklist}
                   migrationSnapshot={migrationSnapshot}
                   tenantHost={tenantHost}
                   tenantName={tenantName ?? "your cooperative"}

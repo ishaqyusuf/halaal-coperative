@@ -12,6 +12,10 @@ import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
 import { isPrismaMissingColumnError } from "../prisma-errors"
 import { createAuditLogEntry } from "./audit"
+import {
+  provisionGoLiveFinancing,
+  type GoLiveFinancingProvisioning,
+} from "./go-live-financing"
 import { readOptionalTenantBusinessPolicy } from "./tenant-business-policy"
 import { getTenantById } from "./tenants"
 
@@ -703,6 +707,11 @@ export async function finalizeTenantInitialMigration(
   input: InitialMigrationLifecycleInput & {
     /** How the admin confirmed going live; recorded in the audit metadata. */
     confirmationMethod?: "checkbox"
+    /**
+     * Open this month's financing cycle as part of going live. Only opens
+     * when no cycle exists and there is capacity to snapshot (ADR-20261113).
+     */
+    openFinancingCycle?: boolean
   },
   prismaOverride?: PrismaClient
 ) {
@@ -755,6 +764,27 @@ export async function finalizeTenantInitialMigration(
     })
   }
 
+  // A live cooperative must be able to take financing: create the default
+  // Quick/Normal products and, when asked, open this month's cycle. A
+  // failure here never undoes going live; it is recorded in the audit and
+  // `/loans` plus Finance settings show the fix.
+  let financing: GoLiveFinancingProvisioning | { error: string }
+  try {
+    financing = await provisionGoLiveFinancing(
+      {
+        actorUserId: input.actorUserId,
+        openFinancingCycle: input.openFinancingCycle ?? false,
+        tenantId: input.tenantId,
+      },
+      prisma
+    )
+  } catch (error) {
+    financing = {
+      error:
+        error instanceof Error ? error.message : "Financing set-up failed.",
+    }
+  }
+
   await createAuditLogEntry(
     {
       action: "migration.initial.finalized",
@@ -766,6 +796,7 @@ export async function finalizeTenantInitialMigration(
         ...(input.confirmationMethod
           ? { confirmation: input.confirmationMethod }
           : {}),
+        financing,
         finalizedAt: finalizedAt.toISOString(),
         nextStatus: "live_operations",
         tenantActivated,
@@ -775,7 +806,11 @@ export async function finalizeTenantInitialMigration(
     prisma
   )
 
-  return tenantActivated ? { ...tenant, status: "active" } : tenant
+  const finalizedTenant = tenantActivated
+    ? { ...tenant, status: "active" }
+    : tenant
+
+  return { ...finalizedTenant, financing }
 }
 
 export async function markTenantLegacyLoansReviewed(

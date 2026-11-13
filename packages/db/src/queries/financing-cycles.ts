@@ -9,6 +9,10 @@ import type {
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
 import { getMobileBillingCommitmentAmount } from "./cooperative-mobile-billing"
+import {
+  excludeBroughtForwardLoanProductWhere,
+  isBroughtForwardLoanProduct,
+} from "./loan-product-rules"
 
 export type FinancingPolicySnapshot = {
   activeFinancingBlocksEmergency: boolean
@@ -456,7 +460,8 @@ function defaultLoanProductSettingsRow(
   return {
     code: null,
     id: null,
-    isActive: true,
+    // No row yet: the card shows "Not set up", never a synthetic active product.
+    isActive: false,
     loanType,
     maxSavingsMultiple: policy.loanEligibilityMultiple,
     name: loanType === "quick" ? "Quick financing" : "Normal financing",
@@ -1155,6 +1160,8 @@ export async function getTenantFinancingSettingsWorkspace(
     prisma.loanProduct.findMany({
       orderBy: [{ loanType: "asc" }, { termMonths: "asc" }, { name: "asc" }],
       where: {
+        // The brought-forward product is for migrated opening loans only.
+        ...excludeBroughtForwardLoanProductWhere,
         tenantId: input.tenantId,
       },
     }),
@@ -1634,10 +1641,17 @@ export async function updateLoanProductSettings(
     : await prisma.loanProduct.findFirst({
         orderBy: [{ isActive: "desc" }, { termMonths: "asc" }],
         where: {
+          ...excludeBroughtForwardLoanProductWhere,
           loanType: input.loanType,
           tenantId: input.tenantId,
         },
       })
+
+  if (existingProduct && isBroughtForwardLoanProduct(existingProduct)) {
+    throw ExpectedQueryError.validation(
+      "The brought-forward opening financing product belongs to migrated opening loans and cannot be edited here."
+    )
+  }
 
   return prisma.$transaction(async (tx) => {
     const product = existingProduct

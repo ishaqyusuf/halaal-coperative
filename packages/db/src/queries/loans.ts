@@ -18,6 +18,7 @@ import {
   getMonthlyFinancingCycleHealth,
 } from "./financing-cycles"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
+import { excludeBroughtForwardLoanProductWhere } from "./loan-product-rules"
 import { getTenantMigrationWriteAccess } from "./migration"
 
 async function assertLiveFinancialWritesOpen(
@@ -137,8 +138,14 @@ export async function listLoanProducts(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
+  // Products a member can request now. The brought-forward opening product
+  // only carries migrated opening loans, so it is never offered.
   const products = await prisma.loanProduct.findMany({
-    where: { tenantId, isActive: true },
+    where: {
+      ...excludeBroughtForwardLoanProductWhere,
+      tenantId,
+      isActive: true,
+    },
     orderBy: { termMonths: "asc" },
   })
 
@@ -1196,6 +1203,7 @@ export async function quoteLoanRequest(
       }),
       prisma.loanProduct.findFirst({
         where: {
+          ...excludeBroughtForwardLoanProductWhere,
           id: input.loanProductId,
           isActive: true,
           tenantId: input.tenantId,
@@ -1396,6 +1404,7 @@ export async function submitLoanRequest(
     }),
     prisma.loanProduct.findFirst({
       where: {
+        ...excludeBroughtForwardLoanProductWhere,
         id: input.loanProductId,
         tenantId: input.tenantId,
         isActive: true,

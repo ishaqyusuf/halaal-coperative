@@ -92,6 +92,7 @@ export default async function OnboardingSuccessPage() {
           ? {
               fullName: adminMember.fullName,
               id: adminMember.id,
+              kycStatus: adminMember.kycStatus,
               memberNumber: adminMember.memberNumber,
             }
           : null

@@ -18,6 +18,7 @@ import {
 } from "@halaalvest/db"
 import { FinanceSettingsUnavailableView } from "@/components/finance-settings-page-states"
 import { TenantFinancePageView } from "@/components/tenant-finance-page-view"
+import { loadGoLiveChecklistData } from "@/lib/getting-started/load-go-live-checklist"
 import type { TenantFinanceSection } from "@/components/tenant-finance-page-view"
 import { loadTenantFinanceSettingsParams } from "@/hooks/use-tenant-finance-settings-params"
 import {
@@ -150,12 +151,21 @@ export async function FinanceSettingsRoute({
         )
       : undefined
   const setup = toFinanceSetupViewModel(data)
+  const goLiveChecklist =
+    section === "migration" &&
+    migrationState.snapshot.status === "migration_review"
+      ? await loadGoLiveChecklistData({
+          tenantId: context.tenant.id,
+          user: context.auth.user,
+        })
+      : null
 
   return (
     <TenantFinancePageView
       chargeDefinitions={setup.chargeDefinitions}
       financingSettings={toFinancingSettingsView(financingSettings)}
       generatedLedgerRows={generatedLedgerRows}
+      goLiveChecklist={goLiveChecklist}
       initialMigrationSnapshot={migrationState.snapshot}
       tenantName={context.tenant.name}
       legacyLoanDrafts={toLegacyLoanDraftRows(legacyLoanDrafts)}

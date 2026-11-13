@@ -40,10 +40,13 @@ const sheetLabels = {
 
 export function OpenTenantFinanceSettingsSheet({
   disabled,
+  label,
   type,
   variant = "outline",
 }: {
   disabled?: boolean
+  /** Overrides the default label, e.g. "Set up quick product". */
+  label?: string
   type: keyof typeof sheetLabels
   variant?: "default" | "outline"
 }) {
@@ -59,7 +62,7 @@ export function OpenTenantFinanceSettingsSheet({
       variant={variant}
     >
       <Icon data-icon="inline-start" />
-      {sheetLabels[type].label}
+      {label ?? sheetLabels[type].label}
     </Button>
   )
 }

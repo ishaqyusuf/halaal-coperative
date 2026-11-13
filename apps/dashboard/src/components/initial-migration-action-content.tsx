@@ -4,6 +4,7 @@ import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { Input } from "@halaalvest/ui/components/input"
 import { DatePickerInput } from "@/components/date-picker-input"
 import { GoLiveChecklist } from "@/components/go-live-checklist"
+import type { GoLiveChecklistData } from "@/lib/getting-started/go-live-readiness"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
 import { MemberAutocompleteSelect } from "@/components/migration/member-autocomplete-select"
 import { InitialMigrationActionForm } from "@/components/migration/migration-action-forms"
@@ -109,16 +110,19 @@ export function ApplyMemberBackfillContent({ memberId }: { memberId: string }) {
 }
 
 export function FinalizeInitialMigrationContent({
+  checklist = null,
   migrationSnapshot,
   tenantHost = null,
   tenantName,
 }: {
+  checklist?: GoLiveChecklistData | null
   migrationSnapshot: InitialMigrationSnapshot
   tenantHost?: string | null
   tenantName: string
 }) {
   return (
     <GoLiveChecklist
+      checklist={checklist}
       migrationSnapshot={migrationSnapshot}
       tenantHost={tenantHost}
       tenantName={tenantName}

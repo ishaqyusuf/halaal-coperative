@@ -16,6 +16,8 @@ import {
 export type MembersChecklistAdminMember = {
   fullName: string
   id: string
+  /** Go live requires the owner's own KYC to be verified (ADR-20261113). */
+  kycStatus: "not_started" | "pending" | "rejected" | "verified"
   memberNumber: string
 }
 
@@ -148,16 +150,29 @@ export function MembersChecklistView({
               <ol className="divide-y divide-border/70 border border-border/70">
                 <ChecklistRow
                   actions={
-                    <Link
-                      className={cn(buttonVariants({}), actionClassName)}
-                      href={adminMemberHref}
-                    >
-                      {adminMember
-                        ? isBroughtForward
-                          ? "Add my balances"
-                          : "Add my history"
-                        : "Add your own member record"}
-                    </Link>
+                    <>
+                      <Link
+                        className={cn(buttonVariants({}), actionClassName)}
+                        href={adminMemberHref}
+                      >
+                        {adminMember
+                          ? isBroughtForward
+                            ? "Add my balances"
+                            : "Add my history"
+                          : "Add your own member record"}
+                      </Link>
+                      {adminMember && adminMember.kycStatus !== "verified" ? (
+                        <Link
+                          className={cn(
+                            buttonVariants({ variant: "outline" }),
+                            actionClassName
+                          )}
+                          href={`/members/${encodeURIComponent(adminMember.id)}?memberDetailSheetType=kyc`}
+                        >
+                          Verify my KYC
+                        </Link>
+                      ) : null}
+                    </>
                   }
                   index={1}
                   title="Your own record"
@@ -173,6 +188,15 @@ export function MembersChecklistView({
                           {adminMember.memberNumber}
                         </span>{" "}
                         · {recordKind}
+                      </span>
+                      <span className="block">
+                        KYC{" "}
+                        <span className="text-foreground">
+                          {adminMember.kycStatus.replace(/_/g, " ")}
+                        </span>
+                        {adminMember.kycStatus === "verified"
+                          ? null
+                          : ". Verify it before going live so you can borrow and guarantee."}
                       </span>
                     </>
                   ) : (

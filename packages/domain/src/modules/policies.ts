@@ -16,7 +16,9 @@ export const defaultTenantPolicy: TenantPolicySummary = {
   eligibilityMultiple: 2,
   quickLoanTermMonths: 3,
   normalLoanTermMonths: 18,
-  reserveBuffer: 450_000,
+  // A reserve is a deliberate cooperative policy; new cooperatives start at 0
+  // so it never silently absorbs all financing capacity (ADR-20261113).
+  reserveBuffer: 0,
   monthlyLevyAmount: null,
   requiresDualLoanApproval: false,
   allowOfflineFinancialCapture: true,

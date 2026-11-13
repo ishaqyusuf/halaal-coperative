@@ -1285,4 +1285,92 @@ describe("tenant initial migration state query", () => {
       data: { metadata: { tenantActivated: false } },
     })
   })
+
+  test("going live provisions financing and records the outcome", async () => {
+    const stub = createMigrationStatePrismaStub({
+      appliedBackfillBatches: 12,
+      appliedBackfillMembers: 12,
+      businessProfitPools: 1,
+      chargeScheduleVersions: 2,
+      legacyLoans: 1,
+      memberProfiles: 12,
+      shareCapitalPlans: 1,
+      startDate: new Date("2025-01-01T00:00:00.000Z"),
+      tenantStatus: "pending",
+    }) as Record<string, any>
+    const createdProducts: Array<{ loanType: string; name: string }> = []
+    const cycleCreates: Array<Record<string, unknown>> = []
+    const financingClient = {
+      auditLog: stub.auditLog,
+      contribution: { aggregate: async () => ({ _sum: { amount: 0 } }) },
+      contributionPlan: {
+        aggregate: async () => ({ _sum: { amount: 90_000 } }),
+      },
+      financingCycle: {
+        create: async ({ data }: { data: Record<string, unknown> }) => {
+          cycleCreates.push(data)
+
+          return { id: "cycle-1", ...data }
+        },
+        findUnique: async () => null,
+      },
+      loan: { ...stub.loan, findMany: async () => [] },
+      loanProduct: {
+        create: async ({
+          data,
+        }: {
+          data: { loanType: string; name: string }
+        }) => {
+          createdProducts.push(data)
+
+          return { id: `product-${createdProducts.length}`, ...data }
+        },
+        findMany: async () => [],
+      },
+      loanRequest: { ...stub.loanRequest, findMany: async () => [] },
+    }
+    Object.assign(stub, financingClient, {
+      $transaction: async (callback: (tx: unknown) => unknown) =>
+        callback({ ...stub, ...financingClient }),
+    })
+
+    const result = await finalizeTenantInitialMigration(
+      {
+        actorUserId: "user-1",
+        confirmationMethod: "checkbox",
+        openFinancingCycle: true,
+        tenantId: "tenant-1",
+      },
+      stub as never
+    )
+
+    expect(createdProducts.map((product) => product.name)).toEqual([
+      "Quick financing",
+      "Normal financing",
+    ])
+    expect(cycleCreates[0]).toMatchObject({
+      status: "open",
+      totalCapacityAmount: 90_000,
+    })
+    expect(result.financing).toMatchObject({
+      cycle: { financingCycleId: "cycle-1", opened: true },
+    })
+    const finalized = (
+      stub.auditLogCreates as Array<{ data?: { action?: string } }>
+    ).find((entry) => entry.data?.action === "migration.initial.finalized")
+    expect(finalized).toMatchObject({
+      data: {
+        metadata: {
+          financing: {
+            createdProducts: [
+              { loanType: "quick", name: "Quick financing" },
+              { loanType: "normal", name: "Normal financing" },
+            ],
+            cycle: { opened: true },
+          },
+          tenantActivated: true,
+        },
+      },
+    })
+  })
 })

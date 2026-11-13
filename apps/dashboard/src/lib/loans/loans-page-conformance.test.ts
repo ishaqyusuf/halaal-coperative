@@ -71,4 +71,16 @@ describe("loans workspace Midday conformance", () => {
     expect(portfolio).toContain('"No loans yet"')
     expect(portfolio).toContain('"No matching loans"')
   })
+
+  test("shows capacity, deployable funds and intake on phones (QA F9)", () => {
+    const pageView = read("../../components/loans-page-view.tsx")
+    const sectionStart = pageView.indexOf('aria-label="Loan request capacity"')
+    const section = pageView.slice(sectionStart, sectionStart + 400)
+
+    expect(sectionStart).toBeGreaterThan(-1)
+    expect(section).not.toContain("hidden")
+    expect(section).toContain("grid-cols-2")
+    expect(section).toContain("md:grid-cols-4")
+    expect(pageView).toContain('missing: "Not open"')
+  })
 })

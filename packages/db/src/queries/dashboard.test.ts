@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { getOverviewSummary } from "./dashboard"
+import { getDashboardMetrics, getOverviewSummary } from "./dashboard"
 
 function zeroAggregate(field = "amount") {
   return {
@@ -10,11 +10,15 @@ function zeroAggregate(field = "amount") {
 }
 
 function createDashboardPrismaStub({
+  openingSavingsBalance = 0,
+  openingShareCapitalBalance = 0,
   pendingFoodPurchaseApplications = 0,
   pendingOpeningBalances = 0,
   pendingProjectFinancingRequests = 0,
   submittedFoodPurchaseAccounting = 0,
 }: {
+  openingSavingsBalance?: number
+  openingShareCapitalBalance?: number
   pendingFoodPurchaseApplications?: number
   pendingOpeningBalances?: number
   pendingProjectFinancingRequests?: number
@@ -74,6 +78,12 @@ function createDashboardPrismaStub({
       count: async () => 0,
     },
     memberOpeningBalance: {
+      aggregate: async () => ({
+        _sum: {
+          commitmentSavingsBalance: openingSavingsBalance,
+          shareCapitalBalance: openingShareCapitalBalance,
+        },
+      }),
       count: async (input: any) =>
         input?.where?.status === "pending_review"
           ? pendingOpeningBalances
@@ -217,5 +227,22 @@ describe("overview summary", () => {
       severity: "warning",
     })
     expect(summary.primaryMetrics.actionQueueTotal).toBeGreaterThanOrEqual(4)
+  })
+})
+
+describe("deployable funds agreement (QA F1)", () => {
+  test("overview and dashboard metrics use the shared member-funds snapshot", async () => {
+    const prisma = createDashboardPrismaStub({
+      openingSavingsBalance: 100000,
+      openingShareCapitalBalance: 5000,
+    })
+
+    const [summary, metrics] = await Promise.all([
+      getOverviewSummary("tenant-1", prisma as never),
+      getDashboardMetrics("tenant-1", prisma as never),
+    ])
+
+    expect(metrics.availablePool).toBe(105000)
+    expect(summary.primaryMetrics.deployableFunds).toBe(105000)
   })
 })

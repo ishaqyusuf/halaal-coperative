@@ -126,6 +126,158 @@ function requireLedgerAccountId(
   return id
 }
 
+/**
+ * General-ledger references for an applied opening position. Opening balances
+ * are carried in against Cooperative Equity (4000), the opening-balance equity
+ * account: savings credit Member Savings (1000), share capital credits Member
+ * Share Capital (3200) and outstanding financing debits Loan Receivable
+ * (1100). Procurement and Foodstuff Purchase stay operational sub-ledgers
+ * because the chart has no receivable for them and their live purchases and
+ * repayments do not post to the general ledger either.
+ */
+export const openingBalanceLedgerReference = {
+  financing: (openingBalanceId: string) =>
+    `opening-balance:${openingBalanceId}:financing`,
+  financingReversal: (openingBalanceId: string) =>
+    `opening-balance:${openingBalanceId}:financing-reversal`,
+  savings: (openingBalanceId: string) =>
+    `opening-balance:${openingBalanceId}:savings`,
+  shareCapital: (openingBalanceId: string) =>
+    `opening-balance:${openingBalanceId}:share-capital`,
+  shareCapitalReversal: (openingBalanceId: string) =>
+    `opening-balance:${openingBalanceId}:share-capital-reversal`,
+} as const
+
+type OpeningLedgerPostingInput = {
+  amount: number
+  creditAccountCode: "1000" | "1100" | "3200" | "4000"
+  debitAccountCode: "1000" | "1100" | "3200" | "4000"
+  loanId?: string | null
+  memberId: string
+  narration: string
+  postedAt: Date
+  reference: string
+  tenantId: string
+}
+
+/**
+ * Posts one balanced brought-forward ledger transaction. The reference is also
+ * the idempotency key, so a repeated apply or backfill cannot double-post.
+ */
+export async function postOpeningBalanceLedgerEntry(
+  input: OpeningLedgerPostingInput,
+  prisma: any
+) {
+  const accounts = await ensureTenantLedgerAccounts(input.tenantId, prisma)
+
+  return postLedgerTransaction(
+    {
+      entries: [
+        {
+          amount: input.amount,
+          direction: "debit",
+          ledgerAccountId: requireLedgerAccountId(
+            accounts,
+            input.debitAccountCode
+          ),
+        },
+        {
+          amount: input.amount,
+          direction: "credit",
+          ledgerAccountId: requireLedgerAccountId(
+            accounts,
+            input.creditAccountCode
+          ),
+        },
+      ],
+      idempotencyKey: input.reference,
+      ...(input.loanId ? { loanId: input.loanId } : {}),
+      memberId: input.memberId,
+      narration: input.narration,
+      postedAt: input.postedAt,
+      reference: input.reference,
+      sourceType: "backfill",
+      tenantId: input.tenantId,
+      transactionType: "adjustment",
+    },
+    prisma
+  )
+}
+
+/** Opening share capital: Dr Cooperative Equity (4000) / Cr Member Share Capital (3200). */
+export function postOpeningShareCapitalLedgerEntry(
+  input: {
+    amount: number
+    memberId: string
+    openingBalanceId: string
+    postedAt: Date
+    tenantId: string
+  },
+  prisma: any
+) {
+  return postOpeningBalanceLedgerEntry(
+    {
+      amount: input.amount,
+      creditAccountCode: "3200",
+      debitAccountCode: "4000",
+      memberId: input.memberId,
+      narration: "Brought-forward opening share capital",
+      postedAt: input.postedAt,
+      reference: openingBalanceLedgerReference.shareCapital(
+        input.openingBalanceId
+      ),
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+}
+
+/** Opening financing outstanding: Dr Loan Receivable (1100) / Cr Cooperative Equity (4000). */
+export function postOpeningFinancingLedgerEntry(
+  input: {
+    amount: number
+    loanId: string
+    memberId: string
+    openingBalanceId: string
+    postedAt: Date
+    tenantId: string
+  },
+  prisma: any
+) {
+  return postOpeningBalanceLedgerEntry(
+    {
+      amount: input.amount,
+      creditAccountCode: "4000",
+      debitAccountCode: "1100",
+      loanId: input.loanId,
+      memberId: input.memberId,
+      narration: "Brought-forward opening financing receivable",
+      postedAt: input.postedAt,
+      reference: openingBalanceLedgerReference.financing(
+        input.openingBalanceId
+      ),
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+}
+
+async function findOpeningLedgerTransactionId(
+  input: { reference: string; tenantId: string },
+  prisma: any
+): Promise<string | null> {
+  if (typeof prisma.ledgerTransaction?.findFirst !== "function") {
+    return null
+  }
+
+  const transaction = await prisma.ledgerTransaction.findFirst({
+    select: { id: true },
+    where: { reference: input.reference, tenantId: input.tenantId },
+  })
+
+  return transaction?.id ?? null
+}
+
 function normalizeOpeningBalance(row: any): MemberOpeningBalanceRow {
   return {
     activeFinancingOutstanding: Number(row.activeFinancingOutstanding ?? 0),
@@ -1940,6 +2092,8 @@ export async function applyMemberOpeningBalance(
     const appliedAt = new Date()
     let savingsLedgerTransactionId: string | null = null
     let shareLedgerEntryId: string | null = null
+    let shareCapitalLedgerTransactionId: string | null = null
+    let financingLedgerTransactionId: string | null = null
 
     if (savingsTotal > 0) {
       const accounts = await ensureTenantLedgerAccounts(input.tenantId, tx)
@@ -1965,7 +2119,7 @@ export async function applyMemberOpeningBalance(
           memberId: existing.memberId,
           narration: "Brought-forward opening savings balance",
           postedAt: existing.openingDate,
-          reference: `opening-balance:${existing.id}:savings`,
+          reference: openingBalanceLedgerReference.savings(existing.id),
           sourceType: "backfill",
           tenantId: input.tenantId,
           transactionType: "adjustment",
@@ -2001,6 +2155,18 @@ export async function applyMemberOpeningBalance(
         tx
       )
       shareLedgerEntryId = shareEntry.id
+
+      const shareTransaction = await postOpeningShareCapitalLedgerEntry(
+        {
+          amount: shareCapitalBalance,
+          memberId: existing.memberId,
+          openingBalanceId: existing.id,
+          postedAt: existing.openingDate,
+          tenantId: input.tenantId,
+        },
+        tx
+      )
+      shareCapitalLedgerTransactionId = shareTransaction.id
     }
 
     const financingPosting = await createOpeningFinancingObligation(
@@ -2012,6 +2178,21 @@ export async function applyMemberOpeningBalance(
       },
       tx
     )
+
+    if (financingPosting.loanId && activeFinancingOutstanding > 0) {
+      const financingTransaction = await postOpeningFinancingLedgerEntry(
+        {
+          amount: activeFinancingOutstanding,
+          loanId: financingPosting.loanId,
+          memberId: existing.memberId,
+          openingBalanceId: existing.id,
+          postedAt: existing.openingDate,
+          tenantId: input.tenantId,
+        },
+        tx
+      )
+      financingLedgerTransactionId = financingTransaction.id
+    }
 
     const procurementPosting = await createOpeningProcurementObligation(
       {
@@ -2073,6 +2254,8 @@ export async function applyMemberOpeningBalance(
           appliedAt: appliedAt.toISOString(),
           activeFinancingOutstanding,
           commitmentSavingsBalance,
+          financingLedgerTransactionId,
+          shareCapitalLedgerTransactionId,
           foodPurchaseApplicationId:
             foodPurchasePosting.foodPurchaseApplicationId,
           foodPurchaseCycleId: foodPurchasePosting.cycleId,
@@ -2154,9 +2337,14 @@ export async function reverseMemberOpeningBalance(
     const foodPurchaseOutstanding = Number(
       existing.foodPurchaseOutstanding ?? 0
     )
+    const activeFinancingOutstanding = Number(
+      existing.activeFinancingOutstanding ?? 0
+    )
     const reversedAt = new Date()
     let savingsReversalLedgerTransactionId: string | null = null
     let shareReversalLedgerEntryId: string | null = null
+    let shareCapitalReversalLedgerTransactionId: string | null = null
+    let financingReversalLedgerTransactionId: string | null = null
 
     const financingReversal = await reverseOpeningFinancingObligation(
       {
@@ -2238,7 +2426,7 @@ export async function reverseMemberOpeningBalance(
           memberId: existing.memberId,
           narration: "Reverse brought-forward opening savings balance",
           postedAt: reversedAt,
-          reference: `opening-balance:${existing.id}:savings-reversal`,
+          reference: `${openingBalanceLedgerReference.savings(existing.id)}-reversal`,
           sourceType: "backfill",
           tenantId: input.tenantId,
           transactionType: "adjustment",
@@ -2274,6 +2462,66 @@ export async function reverseMemberOpeningBalance(
         tx
       )
       shareReversalLedgerEntryId = shareEntry.id
+
+      // Positions applied before share capital reached the ledger have no
+      // general-ledger posting to reverse.
+      const originalShareTransactionId = await findOpeningLedgerTransactionId(
+        {
+          reference: openingBalanceLedgerReference.shareCapital(existing.id),
+          tenantId: input.tenantId,
+        },
+        tx
+      )
+
+      if (originalShareTransactionId) {
+        const transaction = await postOpeningBalanceLedgerEntry(
+          {
+            amount: shareCapitalBalance,
+            creditAccountCode: "4000",
+            debitAccountCode: "3200",
+            memberId: existing.memberId,
+            narration: "Reverse brought-forward opening share capital",
+            postedAt: reversedAt,
+            reference: openingBalanceLedgerReference.shareCapitalReversal(
+              existing.id
+            ),
+            tenantId: input.tenantId,
+          },
+          tx
+        )
+        shareCapitalReversalLedgerTransactionId = transaction.id
+      }
+    }
+
+    if (financingReversal.reversed && activeFinancingOutstanding > 0) {
+      const originalFinancingTransactionId =
+        await findOpeningLedgerTransactionId(
+          {
+            reference: openingBalanceLedgerReference.financing(existing.id),
+            tenantId: input.tenantId,
+          },
+          tx
+        )
+
+      if (originalFinancingTransactionId) {
+        const transaction = await postOpeningBalanceLedgerEntry(
+          {
+            amount: activeFinancingOutstanding,
+            creditAccountCode: "1100",
+            debitAccountCode: "4000",
+            loanId: financingReversal.loanId,
+            memberId: existing.memberId,
+            narration: "Reverse brought-forward opening financing receivable",
+            postedAt: reversedAt,
+            reference: openingBalanceLedgerReference.financingReversal(
+              existing.id
+            ),
+            tenantId: input.tenantId,
+          },
+          tx
+        )
+        financingReversalLedgerTransactionId = transaction.id
+      }
     }
 
     const updated = await tx.memberOpeningBalance.update({
@@ -2298,7 +2546,9 @@ export async function reverseMemberOpeningBalance(
         entityType: "MemberOpeningBalance",
         metadata: {
           commitmentSavingsBalance,
+          financingReversalLedgerTransactionId,
           financingReversed: financingReversal.reversed,
+          shareCapitalReversalLedgerTransactionId,
           foodPurchaseApplicationId:
             foodPurchaseReversal.foodPurchaseApplicationId,
           foodPurchaseOutstanding,

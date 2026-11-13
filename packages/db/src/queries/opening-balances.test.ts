@@ -66,6 +66,7 @@ function openingBalanceRow(overrides: Record<string, unknown> = {}) {
 
 function createOpeningBalancePrismaStub({
   appliedLedger = false,
+  existingLedgerReferences = [],
   loanRepaymentAmount = 0,
   loanSchedulePaidAmount = 0,
   foodPurchasePaidAmount = 0,
@@ -74,6 +75,8 @@ function createOpeningBalancePrismaStub({
   procurementSchedulePaidAmount = 0,
 }: {
   appliedLedger?: boolean
+  /** General-ledger references already posted before this call. */
+  existingLedgerReferences?: string[]
   loanRepaymentAmount?: number
   loanSchedulePaidAmount?: number
   foodPurchasePaidAmount?: number
@@ -155,6 +158,12 @@ function createOpeningBalancePrismaStub({
           id: "ledger-transaction-1",
           ...input.data,
         }
+      },
+      findFirst: async (input: any) => {
+        const reference = input?.where?.reference
+        return existingLedgerReferences.includes(reference)
+          ? { id: `existing-${reference}` }
+          : null
       },
     },
     foodPurchaseApplication: {
@@ -1877,5 +1886,225 @@ describe("member opening balances", () => {
     expect(prisma.procurementRequestUpdates).toHaveLength(0)
     expect(prisma.procurementScheduleUpdates).toHaveLength(0)
     expect(prisma.openingBalanceUpdates).toHaveLength(0)
+  })
+})
+
+function ledgerLines(create: any) {
+  return create.data.entries.create.map((entry: any) => ({
+    account: entry.ledgerAccountId,
+    amount: entry.amount,
+    direction: entry.direction,
+  }))
+}
+
+function ledgerTotals(creates: any[]) {
+  const balances: Record<string, number> = {}
+  for (const create of creates) {
+    for (const line of ledgerLines(create)) {
+      balances[line.account] =
+        (balances[line.account] ?? 0) +
+        (line.direction === "debit" ? line.amount : -line.amount)
+    }
+  }
+  return balances
+}
+
+describe("opening position general-ledger postings (QA F3)", () => {
+  test("posts savings, share capital and financing as balanced entries against Cooperative Equity", async () => {
+    const prisma = createOpeningBalancePrismaStub({
+      openingRows: [
+        openingBalanceRow({
+          activeFinancingOutstanding: 75000,
+          procurementOutstanding: 25000,
+          status: "approved",
+        }),
+      ],
+    })
+
+    await applyMemberOpeningBalance(
+      {
+        actorUserId: "user-1",
+        openingBalanceId: "opening-1",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    const creates = prisma.ledgerTransactionCreates as any[]
+    expect(creates.map((create) => create.data.reference)).toEqual([
+      "opening-balance:opening-1:savings",
+      "opening-balance:opening-1:share-capital",
+      "opening-balance:opening-1:financing",
+    ])
+
+    for (const create of creates) {
+      const lines = ledgerLines(create)
+      const debit = lines
+        .filter((line: any) => line.direction === "debit")
+        .reduce((sum: number, line: any) => sum + line.amount, 0)
+      const credit = lines
+        .filter((line: any) => line.direction === "credit")
+        .reduce((sum: number, line: any) => sum + line.amount, 0)
+      expect(debit).toBe(credit)
+    }
+
+    expect(ledgerLines(creates[1])).toEqual([
+      { account: "ledger-account-equity", amount: 30000, direction: "debit" },
+      {
+        account: "ledger-account-share-capital",
+        amount: 30000,
+        direction: "credit",
+      },
+    ])
+    expect(creates[1].data.idempotencyKey).toBe(
+      "opening-balance:opening-1:share-capital"
+    )
+    expect(ledgerLines(creates[2])).toEqual([
+      {
+        account: "ledger-account-loan-receivable",
+        amount: 75000,
+        direction: "debit",
+      },
+      { account: "ledger-account-equity", amount: 75000, direction: "credit" },
+    ])
+    expect(creates[2].data).toMatchObject({
+      idempotencyKey: "opening-balance:opening-1:financing",
+      loanId: "loan-opening-1",
+      memberId: "member-1",
+      narration: "Brought-forward opening financing receivable",
+    })
+
+    // Loan Receivable carries the full outstanding, so a later repayment
+    // credit of 20,000 leaves it at 55,000 rather than −20,000.
+    const balances = ledgerTotals(creates)
+    expect(balances["ledger-account-loan-receivable"]).toBe(75000)
+    expect(balances["ledger-account-loan-receivable"] - 20000).toBeGreaterThan(0)
+    expect(balances["ledger-account-share-capital"]).toBe(-30000)
+    expect(balances["ledger-account-savings"]).toBe(-135000)
+    // Procurement stays an operational sub-ledger: no extra GL transaction.
+    expect(creates).toHaveLength(3)
+
+    expect(prisma.auditLogCreates.at(-1)).toMatchObject({
+      data: {
+        action: "migration.opening_balance.applied",
+        metadata: {
+          financingLedgerTransactionId: "ledger-transaction-1",
+          shareCapitalLedgerTransactionId: "ledger-transaction-1",
+        },
+      },
+    })
+  })
+
+  test("skips the financing GL posting when there is no opening financing", async () => {
+    const prisma = createOpeningBalancePrismaStub({
+      openingRows: [
+        openingBalanceRow({
+          activeFinancingOutstanding: 0,
+          procurementOutstanding: 0,
+          status: "approved",
+        }),
+      ],
+    })
+
+    await applyMemberOpeningBalance(
+      {
+        actorUserId: "user-1",
+        openingBalanceId: "opening-1",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(
+      (prisma.ledgerTransactionCreates as any[]).map(
+        (create) => create.data.reference
+      )
+    ).toEqual([
+      "opening-balance:opening-1:savings",
+      "opening-balance:opening-1:share-capital",
+    ])
+  })
+
+  test("reversal offsets the share capital and financing GL postings it finds", async () => {
+    const prisma = createOpeningBalancePrismaStub({
+      existingLedgerReferences: [
+        "opening-balance:opening-1:share-capital",
+        "opening-balance:opening-1:financing",
+      ],
+      openingRows: [
+        openingBalanceRow({
+          activeFinancingOutstanding: 75000,
+          appliedAt: new Date("2026-07-09T11:00:00.000Z"),
+          appliedByUserId: "user-1",
+          appliedLoanId: "loan-opening-1",
+          procurementOutstanding: 0,
+          status: "applied",
+        }),
+      ],
+    })
+
+    await reverseMemberOpeningBalance(
+      {
+        actorUserId: "user-1",
+        openingBalanceId: "opening-1",
+        reversalNotes: "Corrected imported opening ledger.",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    const creates = prisma.ledgerTransactionCreates as any[]
+    expect(creates.map((create) => create.data.reference)).toEqual([
+      "opening-balance:opening-1:savings-reversal",
+      "opening-balance:opening-1:share-capital-reversal",
+      "opening-balance:opening-1:financing-reversal",
+    ])
+    expect(ledgerLines(creates[1])).toEqual([
+      {
+        account: "ledger-account-share-capital",
+        amount: 30000,
+        direction: "debit",
+      },
+      { account: "ledger-account-equity", amount: 30000, direction: "credit" },
+    ])
+    expect(ledgerLines(creates[2])).toEqual([
+      { account: "ledger-account-equity", amount: 75000, direction: "debit" },
+      {
+        account: "ledger-account-loan-receivable",
+        amount: 75000,
+        direction: "credit",
+      },
+    ])
+  })
+
+  test("reversal of a position applied before the GL fix posts no phantom offsets", async () => {
+    const prisma = createOpeningBalancePrismaStub({
+      openingRows: [
+        openingBalanceRow({
+          activeFinancingOutstanding: 75000,
+          appliedAt: new Date("2026-07-09T11:00:00.000Z"),
+          appliedByUserId: "user-1",
+          appliedLoanId: "loan-opening-1",
+          procurementOutstanding: 0,
+          status: "applied",
+        }),
+      ],
+    })
+
+    await reverseMemberOpeningBalance(
+      {
+        actorUserId: "user-1",
+        openingBalanceId: "opening-1",
+        reversalNotes: "Corrected imported opening ledger.",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(
+      (prisma.ledgerTransactionCreates as any[]).map(
+        (create) => create.data.reference
+      )
+    ).toEqual(["opening-balance:opening-1:savings-reversal"])
   })
 })

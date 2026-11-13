@@ -126,12 +126,35 @@ export type LoanRequestCapacityCheck = {
   requestedReservedAmount: number
 }
 
-export type DeployableFundsSnapshot = {
+/**
+ * Funding side of deployable funds (ADR-20261113-deployable-funds-member-funds-held).
+ * Every amount is tenant-wide and non-negative.
+ */
+export type MemberFundsHeldBreakdown = {
+  /** max(0, applied opening financing − applied opening savings − share capital). */
+  cooperativeOpeningEquityAmount: number
+  /** Savings + share capital + cooperative opening equity. */
+  memberFundsHeldAmount: number
+  /** Contributions + applied opening savings − special-savings refunds paid. */
+  memberSavingsHeldAmount: number
+  /** Applied opening share capital + share capital paid outside contributions. */
+  memberShareCapitalHeldAmount: number
+  openingSavingsAmount: number
+  openingShareCapitalAmount: number
+  /** Receipt share allocations, pay-separately share charges, historical purchases. */
+  separateSharePurchaseAmount: number
+  specialSavingsWithdrawalAmount: number
+  totalContributionAmount: number
+}
+
+export type DeployableFundsSnapshot = MemberFundsHeldBreakdown & {
   approvedHoldAmount: number
+  /** Funds held − outstanding financing − reserve − mobile billing, before approved holds. */
+  availablePoolAmount: number
   deployableFunds: number
+  mobileBillingCommitmentAmount: number
   outstandingFinancingAmount: number
   reserveBufferAmount: number
-  totalContributionAmount: number
 }
 
 export type MonthlyFinancingCycleInput = {
@@ -669,22 +692,158 @@ function buildFinancingCycleWarnings(input: {
   return warnings
 }
 
+function sumOrZero(value: unknown) {
+  const amount = Number(value ?? 0)
+
+  return Number.isFinite(amount) ? amount : 0
+}
+
+/**
+ * Money members (and, at go-live, the cooperative itself) have put into the
+ * pool. Sources are counted once each:
+ * - posted contributions (savings, including the share portion deducted from
+ *   savings, so monthly share charges are not added again);
+ * - applied brought-forward opening savings and share capital;
+ * - share capital paid outside contributions: approved receipt share
+ *   allocations, settled pay-separately share charges, historical unit-share
+ *   purchases;
+ * - cooperative opening equity: the part of applied opening financing that
+ *   opening member funds cannot cover. Opening financing is subtracted as
+ *   outstanding financing, so without it a migrated cooperative whose loan
+ *   book exceeds member balances would never show its own funds.
+ * Special-savings refunds paid out are subtracted.
+ */
+export async function getMemberFundsHeldBreakdown(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+): Promise<MemberFundsHeldBreakdown> {
+  const prisma = getPrisma(prismaOverride) as any
+  const optionalAggregate = (delegate: any, args: unknown) =>
+    typeof delegate?.aggregate === "function"
+      ? delegate.aggregate(args)
+      : Promise.resolve({ _sum: {} })
+
+  const [
+    contributionSum,
+    openingSum,
+    withdrawalSum,
+    receiptShareSum,
+    separateShareChargeSum,
+    historicalShareSum,
+  ] = await Promise.all([
+    prisma.contribution.aggregate({
+      _sum: { amount: true },
+      where: { tenantId, status: "posted" },
+    }),
+    optionalAggregate(prisma.memberOpeningBalance, {
+      _sum: {
+        activeFinancingOutstanding: true,
+        commitmentSavingsBalance: true,
+        shareCapitalBalance: true,
+        specialSavingsBalance: true,
+      },
+      where: { status: "applied", tenantId },
+    }),
+    optionalAggregate(prisma.memberSpecialSavingsWithdrawal, {
+      _sum: { amount: true },
+      where: { tenantId },
+    }),
+    optionalAggregate(prisma.memberShareLedgerEntry, {
+      _sum: { amount: true },
+      where: { sourceType: "payment_receipt", tenantId },
+    }),
+    optionalAggregate(prisma.chargeApplication, {
+      _sum: { amount: true },
+      where: {
+        chargeDefinition: { purpose: "member_share" },
+        collectionMode: "pay_separately",
+        status: "posted",
+        tenantId,
+      },
+    }),
+    optionalAggregate(prisma.historicalMemberSharePurchase, {
+      _sum: { shareCapitalAmount: true },
+      where: { tenantId },
+    }),
+  ])
+
+  const totalContributionAmount = roundMoney(
+    sumOrZero(contributionSum._sum.amount)
+  )
+  const openingSavingsAmount = roundMoney(
+    sumOrZero(openingSum._sum.commitmentSavingsBalance) +
+      sumOrZero(openingSum._sum.specialSavingsBalance)
+  )
+  const openingShareCapitalAmount = roundMoney(
+    sumOrZero(openingSum._sum.shareCapitalBalance)
+  )
+  const openingFinancingAmount = roundMoney(
+    sumOrZero(openingSum._sum.activeFinancingOutstanding)
+  )
+  const specialSavingsWithdrawalAmount = roundMoney(
+    sumOrZero(withdrawalSum._sum.amount)
+  )
+  const separateSharePurchaseAmount = roundMoney(
+    Math.max(
+      0,
+      sumOrZero(receiptShareSum._sum.amount) +
+        sumOrZero(separateShareChargeSum._sum.amount) +
+        sumOrZero(historicalShareSum._sum.shareCapitalAmount)
+    )
+  )
+  const memberSavingsHeldAmount = roundMoney(
+    Math.max(
+      0,
+      totalContributionAmount +
+        openingSavingsAmount -
+        specialSavingsWithdrawalAmount
+    )
+  )
+  const memberShareCapitalHeldAmount = roundMoney(
+    openingShareCapitalAmount + separateSharePurchaseAmount
+  )
+  const cooperativeOpeningEquityAmount = roundMoney(
+    Math.max(
+      0,
+      openingFinancingAmount - openingSavingsAmount - openingShareCapitalAmount
+    )
+  )
+
+  return {
+    cooperativeOpeningEquityAmount,
+    memberFundsHeldAmount: roundMoney(
+      memberSavingsHeldAmount +
+        memberShareCapitalHeldAmount +
+        cooperativeOpeningEquityAmount
+    ),
+    memberSavingsHeldAmount,
+    memberShareCapitalHeldAmount,
+    openingSavingsAmount,
+    openingShareCapitalAmount,
+    separateSharePurchaseAmount,
+    specialSavingsWithdrawalAmount,
+    totalContributionAmount,
+  }
+}
+
+/**
+ * deployable = max(0, member funds held − outstanding financing − approved
+ * holds − reserve buffer − mobile billing commitment). Every staff and mobile
+ * surface reads this snapshot so they agree.
+ */
 export async function getDeployableFundsSnapshot(
   input: DeployableFundsInput,
   prismaOverride?: PrismaClient
 ): Promise<DeployableFundsSnapshot> {
   const prisma = getPrisma(prismaOverride)
   const [
-    contributionSum,
+    fundsHeld,
     outstandingLoanSum,
     approvedHoldSum,
     policy,
     mobileBillingCommitmentAmount,
   ] = await Promise.all([
-    prisma.contribution.aggregate({
-      _sum: { amount: true },
-      where: { tenantId: input.tenantId, status: "posted" },
-    }),
+    getMemberFundsHeldBreakdown(input.tenantId, prisma),
     prisma.loan.aggregate({
       _sum: { outstandingPrincipal: true },
       where: {
@@ -705,9 +864,6 @@ export async function getDeployableFundsSnapshot(
     }),
     getMobileBillingCommitmentAmount(input.tenantId, prisma),
   ])
-  const totalContributionAmount = roundMoney(
-    Number(contributionSum._sum.amount ?? 0)
-  )
   const outstandingFinancingAmount = roundMoney(
     Number(outstandingLoanSum._sum.outstandingPrincipal ?? 0)
   )
@@ -717,35 +873,41 @@ export async function getDeployableFundsSnapshot(
   const reserveBufferAmount = roundMoney(
     Number(policy?.reserveBufferAmount ?? 0)
   )
+  const billingAmount = roundMoney(sumOrZero(mobileBillingCommitmentAmount))
+  const unclampedPool =
+    fundsHeld.memberFundsHeldAmount -
+    outstandingFinancingAmount -
+    reserveBufferAmount -
+    billingAmount
 
   return {
+    ...fundsHeld,
     approvedHoldAmount,
+    availablePoolAmount: roundMoney(Math.max(0, unclampedPool)),
     deployableFunds: roundMoney(
-      Math.max(
-        0,
-        totalContributionAmount -
-          outstandingFinancingAmount -
-          approvedHoldAmount -
-          reserveBufferAmount -
-          mobileBillingCommitmentAmount
-      )
+      Math.max(0, unclampedPool - approvedHoldAmount)
     ),
+    mobileBillingCommitmentAmount: billingAmount,
     outstandingFinancingAmount,
     reserveBufferAmount,
-    totalContributionAmount,
   }
 }
 
 export async function getMonthlyFinancingCycleHealth(
   input: MonthlyFinancingCycleInput,
-  prismaOverride?: PrismaClient
+  prismaOverride?: PrismaClient,
+  options: {
+    /** Reuse a snapshot the caller already started, to avoid a second read. */
+    deployableFunds?: Promise<DeployableFundsSnapshot>
+  } = {}
 ): Promise<MonthlyFinancingCycleHealth> {
   const prisma = getPrisma(prismaOverride)
   const [{ cycle, periodEnd, periodStart }, preview, deployableFunds] =
     await Promise.all([
       getFinancingCycleSnapshotForPeriod(input, prisma),
       previewMonthlyFinancingCycle(input, prisma),
-      getDeployableFundsSnapshot({ tenantId: input.tenantId }, prisma),
+      options.deployableFunds ??
+        getDeployableFundsSnapshot({ tenantId: input.tenantId }, prisma),
     ])
 
   if (!cycle) {

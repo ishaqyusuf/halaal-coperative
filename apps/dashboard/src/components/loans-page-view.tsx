@@ -20,6 +20,13 @@ type LoansPageViewProps = LoansPageData & {
   loanRequestTableSettings?: Partial<TableSettings>
 }
 
+const loanIntakeStatusLabels = {
+  closed: "Closed",
+  missing: "Not open",
+  open: "Open",
+  paused: "Paused",
+} as const
+
 export function LoansUnavailableView() {
   return (
     <WorkspacePageShell
@@ -120,9 +127,9 @@ export function LoansPageView({
       {!isMemberView && activeView === "requests" ? (
         <section
           aria-label="Loan request capacity"
-          className="hidden border-y border-border/70 md:block"
+          className="border-y border-border/70"
         >
-          <div className="grid grid-cols-4 divide-x divide-border/70">
+          <div className="grid grid-cols-2 gap-px bg-border/70 md:grid-cols-4">
             <LoanSummaryMetric
               detail={`${formatCurrency(financingCycle.quick.requestedReservedAmount)} reserved`}
               label="Quick capacity"
@@ -147,11 +154,7 @@ export function LoansPageView({
                   : "Financing requests are paused"
               }
               label="Intake status"
-              value={
-                financingCycle.intakeStatus === "open"
-                  ? "Open"
-                  : financingCycle.intakeStatus.replace(/_/g, " ")
-              }
+              value={loanIntakeStatusLabels[financingCycle.intakeStatus]}
             />
           </div>
           {financingCycle.warnings.length ? (
@@ -203,14 +206,16 @@ function LoanSummaryMetric({
   value: string
 }) {
   return (
-    <div className="min-w-0 px-4 py-4 xl:px-5">
+    <div className="min-w-0 bg-background px-4 py-3 md:py-4 xl:px-5">
       <p className="text-xs font-medium text-muted-foreground">
         {label}
       </p>
-      <p className="mt-2 truncate text-xl font-semibold text-foreground tabular-nums">
+      <p className="mt-2 truncate text-lg font-semibold text-foreground tabular-nums md:text-xl">
         {value}
       </p>
-      <p className="mt-1 truncate text-xs text-muted-foreground">{detail}</p>
+      <p className="mt-1 text-xs text-muted-foreground md:truncate">
+        {detail}
+      </p>
     </div>
   )
 }

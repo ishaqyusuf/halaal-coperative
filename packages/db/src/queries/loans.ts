@@ -1184,6 +1184,10 @@ export async function quoteLoanRequest(
   )
   assertPositiveInteger(input.requestedTermMonths, "Requested repayment term")
   const assessedAt = new Date()
+  const deployableFundsSnapshot = getDeployableFundsSnapshot(
+    { tenantId: input.tenantId },
+    prisma
+  )
 
   const [member, product, policy, metrics, cycleHealth, charges, writeAccess] =
     await Promise.all([
@@ -1200,8 +1204,12 @@ export async function quoteLoanRequest(
       prisma.tenantPolicy.findUnique({
         where: { tenantId: input.tenantId },
       }),
-      getDashboardMetrics(input.tenantId, prisma),
-      getMonthlyFinancingCycleHealth({ tenantId: input.tenantId }, prisma),
+      getDashboardMetrics(input.tenantId, prisma, {
+        deployableFunds: deployableFundsSnapshot,
+      }),
+      getMonthlyFinancingCycleHealth({ tenantId: input.tenantId }, prisma, {
+        deployableFunds: deployableFundsSnapshot,
+      }),
       quoteApplicableCharges(
         {
           assessedAt,

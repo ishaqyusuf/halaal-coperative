@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import {
+  getDeployableFundsSnapshot,
   getMonthlyFinancingCycleHealth,
   getTenantFinancingSettingsWorkspace,
   openMonthlyFinancingCycle,
@@ -710,5 +711,195 @@ describe("monthly financing cycle writes", () => {
         prisma as never
       )
     ).rejects.toThrow("term months")
+  })
+})
+
+type FundingStubInput = {
+  approvedHoldAmount?: number
+  contributionAmount?: number
+  historicalShareAmount?: number
+  opening?: {
+    activeFinancingOutstanding?: number
+    commitmentSavingsBalance?: number
+    shareCapitalBalance?: number
+    specialSavingsBalance?: number
+  }
+  outstandingFinancingAmount?: number
+  receiptShareAmount?: number
+  reserveBufferAmount?: number
+  separateShareChargeAmount?: number
+  withdrawalAmount?: number
+}
+
+function createFundingPrismaStub(input: FundingStubInput = {}) {
+  const calls: Record<string, any[]> = {
+    chargeApplication: [],
+    memberOpeningBalance: [],
+    memberShareLedgerEntry: [],
+  }
+
+  return {
+    calls,
+    chargeApplication: {
+      aggregate: async (args: any) => {
+        calls.chargeApplication.push(args)
+        return { _sum: { amount: input.separateShareChargeAmount ?? 0 } }
+      },
+    },
+    contribution: {
+      aggregate: async () => ({
+        _sum: { amount: input.contributionAmount ?? 0 },
+      }),
+    },
+    historicalMemberSharePurchase: {
+      aggregate: async () => ({
+        _sum: { shareCapitalAmount: input.historicalShareAmount ?? 0 },
+      }),
+    },
+    loan: {
+      aggregate: async (args: any) =>
+        args._sum.outstandingPrincipal
+          ? {
+              _sum: {
+                outstandingPrincipal: input.outstandingFinancingAmount ?? 0,
+              },
+            }
+          : { _sum: { principalAmount: input.approvedHoldAmount ?? 0 } },
+    },
+    memberOpeningBalance: {
+      aggregate: async (args: any) => {
+        calls.memberOpeningBalance.push(args)
+        return { _sum: { ...input.opening } }
+      },
+    },
+    memberShareLedgerEntry: {
+      aggregate: async (args: any) => {
+        calls.memberShareLedgerEntry.push(args)
+        return { _sum: { amount: input.receiptShareAmount ?? 0 } }
+      },
+    },
+    memberSpecialSavingsWithdrawal: {
+      aggregate: async () => ({
+        _sum: { amount: input.withdrawalAmount ?? 0 },
+      }),
+    },
+    tenantPolicy: {
+      findUnique: async () => ({
+        reserveBufferAmount: input.reserveBufferAmount ?? 0,
+      }),
+    },
+  }
+}
+
+describe("deployable funds funding side (QA F1)", () => {
+  test("counts applied opening savings and share capital as member funds held", async () => {
+    // amana-story shape: owner opening position only, no contributions yet.
+    const prisma = createFundingPrismaStub({
+      opening: { commitmentSavingsBalance: 100000, shareCapitalBalance: 5000 },
+    })
+
+    const funds = await getDeployableFundsSnapshot(
+      { tenantId: "tenant-1" },
+      prisma as never
+    )
+
+    expect(funds).toMatchObject({
+      cooperativeOpeningEquityAmount: 0,
+      deployableFunds: 105000,
+      memberFundsHeldAmount: 105000,
+      memberSavingsHeldAmount: 100000,
+      memberShareCapitalHeldAmount: 5000,
+      openingSavingsAmount: 100000,
+      openingShareCapitalAmount: 5000,
+    })
+    expect(prisma.calls.memberOpeningBalance[0].where).toEqual({
+      status: "applied",
+      tenantId: "tenant-1",
+    })
+  })
+
+  test("migrated cooperative with an opening loan book larger than member funds keeps its post-go-live cash deployable", async () => {
+    // amana-savings shape: ₦1.09M opening savings, ₦30k opening shares,
+    // ₦1,266,667 opening financing, then a ₦30k contribution and a ₦20k
+    // repayment (outstanding ₦1,246,667) and Aisha's approved ₦8,000 loan.
+    const prisma = createFundingPrismaStub({
+      approvedHoldAmount: 8000,
+      contributionAmount: 30000,
+      opening: {
+        activeFinancingOutstanding: 1266667,
+        commitmentSavingsBalance: 880000,
+        shareCapitalBalance: 30000,
+        specialSavingsBalance: 210000,
+      },
+      outstandingFinancingAmount: 1246667,
+    })
+
+    const funds = await getDeployableFundsSnapshot(
+      { tenantId: "tenant-1" },
+      prisma as never
+    )
+
+    expect(funds.memberSavingsHeldAmount).toBe(1120000)
+    expect(funds.memberShareCapitalHeldAmount).toBe(30000)
+    // 1,266,667 − 1,090,000 − 30,000 of the opening book was cooperative money.
+    expect(funds.cooperativeOpeningEquityAmount).toBe(146667)
+    expect(funds.memberFundsHeldAmount).toBe(1296667)
+    // Equals the ₦50,000 actually received since go-live.
+    expect(funds.availablePoolAmount).toBe(50000)
+    expect(funds.deployableFunds).toBe(42000)
+  })
+
+  test("adds share capital paid outside contributions and subtracts savings refunds", async () => {
+    const prisma = createFundingPrismaStub({
+      contributionAmount: 200000,
+      historicalShareAmount: 15000,
+      outstandingFinancingAmount: 50000,
+      receiptShareAmount: 10000,
+      reserveBufferAmount: 20000,
+      separateShareChargeAmount: 5000,
+      withdrawalAmount: 40000,
+    })
+
+    const funds = await getDeployableFundsSnapshot(
+      { tenantId: "tenant-1" },
+      prisma as never
+    )
+
+    expect(funds).toMatchObject({
+      memberSavingsHeldAmount: 160000,
+      memberShareCapitalHeldAmount: 30000,
+      separateSharePurchaseAmount: 30000,
+      specialSavingsWithdrawalAmount: 40000,
+      // 190,000 − 50,000 − 20,000
+      deployableFunds: 120000,
+    })
+    // Monthly share charges come out of savings, so only receipt allocations
+    // and pay-separately share charges are added.
+    expect(prisma.calls.memberShareLedgerEntry[0].where).toEqual({
+      sourceType: "payment_receipt",
+      tenantId: "tenant-1",
+    })
+    expect(prisma.calls.chargeApplication[0].where).toEqual({
+      chargeDefinition: { purpose: "member_share" },
+      collectionMode: "pay_separately",
+      status: "posted",
+      tenantId: "tenant-1",
+    })
+  })
+
+  test("never reports negative deployable funds", async () => {
+    const prisma = createFundingPrismaStub({
+      approvedHoldAmount: 10000,
+      contributionAmount: 5000,
+      reserveBufferAmount: 450000,
+    })
+
+    const funds = await getDeployableFundsSnapshot(
+      { tenantId: "tenant-1" },
+      prisma as never
+    )
+
+    expect(funds.availablePoolAmount).toBe(0)
+    expect(funds.deployableFunds).toBe(0)
   })
 })

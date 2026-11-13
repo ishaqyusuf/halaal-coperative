@@ -61,7 +61,7 @@ export const cooperativeMobileAccessRouter = createTRPCRouter({
           cursor: z.uuid().optional(),
           limit: z.number().int().min(1).max(100).default(30),
         })
-        .strict()
+        // Not strict: tRPC infinite queries also send `direction`.
     )
     .query(({ ctx, input }) =>
       listCooperativeMobileAccessTerms({ ...actor(ctx), ...input })
@@ -74,7 +74,7 @@ export const cooperativeMobileAccessRouter = createTRPCRouter({
           cursor: z.uuid().optional(),
           limit: z.number().int().min(1).max(100).default(30),
         })
-        .strict()
+        // Not strict: tRPC infinite queries also send `direction`.
     )
     .query(({ ctx, input }) =>
       listCooperativeMobileAccessMembers({ ...actor(ctx), ...input })

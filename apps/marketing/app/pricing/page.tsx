@@ -1,4 +1,7 @@
-import { MarketingHeader } from "@/components/marketing/marketing-header"
+import {
+  MarketingHeader,
+  type MarketingHeaderLink,
+} from "@/components/marketing/marketing-header"
 import { MarketingFooter } from "@/components/marketing/trust-access-sections"
 import { PricingComparison } from "@/components/marketing/pricing-comparison"
 import { getMarketingConfig } from "@/lib/marketing-config"
@@ -13,26 +16,31 @@ export default async function PricingPage() {
   const earlyAccess = marketing.earlyAccessModeEnabled
   const signupHref = earlyAccess ? "/#early-access" : await getSignupHref()
   const ctaLabel = earlyAccess ? "Request access" : "Sign up"
-  // Passbook has no guided-setup, workflow or migration sections to link to.
-  const isPassbook =
-    resolveActiveMarketingExperienceId({
-      isProduction: process.env.NODE_ENV === "production",
-      requestedExperienceId: marketing.experience,
-    }) === "passbook-v3"
+  const activeExperienceId = resolveActiveMarketingExperienceId({
+    isProduction: process.env.NODE_ENV === "production",
+    requestedExperienceId: marketing.experience,
+  })
+  // Passbook and One Place have no guided-setup, workflow or migration
+  // sections, so the organic header's in-page links would go nowhere.
+  const headerLinks: readonly MarketingHeaderLink[] | undefined =
+    activeExperienceId === "passbook-v3"
+      ? [
+          ["/#product", "Product"],
+          ["/#trust", "Trust"],
+          ["/pricing", "Pricing"],
+        ]
+      : activeExperienceId === "one-place-v4"
+        ? [
+            ["/#product", "Product"],
+            ["/#how-it-works", "How it works"],
+            ["/pricing", "Pricing"],
+          ]
+        : undefined
 
   return (
     <>
       <MarketingHeader
-        {...(isPassbook
-          ? {
-              ctaLabel,
-              links: [
-                ["/#product", "Product"],
-                ["/#trust", "Trust"],
-                ["/pricing", "Pricing"],
-              ],
-            }
-          : {})}
+        {...(headerLinks ? { ctaLabel, links: headerLinks } : {})}
         signupHref={signupHref}
       />
       <PricingComparison ctaLabel={ctaLabel} signupHref={signupHref} />

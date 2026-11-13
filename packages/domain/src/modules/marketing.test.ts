@@ -34,6 +34,14 @@ describe("marketing config", () => {
 
     expect(getMarketingConfig().experience).toBe("passbook-v3")
 
+    process.env.MARKETING_EXPERIENCE = "organic-trust-v1"
+
+    expect(getMarketingConfig().experience).toBe("organic-trust-v1")
+
+    process.env.MARKETING_EXPERIENCE = "One-Place-V4"
+
+    expect(getMarketingConfig().experience).toBe("one-place-v4")
+
     process.env.MARKETING_EXPERIENCE = "unfinished-experiment"
 
     expect(getMarketingConfig().experience).toBe("organic-trust-v1")

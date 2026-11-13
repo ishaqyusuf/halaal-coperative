@@ -4,6 +4,7 @@ export const marketingExperienceProductionReadiness = {
   "organic-trust-v1": true,
   "ramp-v2": false,
   "passbook-v3": true,
+  "one-place-v4": true,
 } as const satisfies Record<MarketingExperienceId, boolean>
 
 export function resolveActiveMarketingExperienceId({

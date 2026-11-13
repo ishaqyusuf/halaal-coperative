@@ -13,6 +13,10 @@ const marketingExperienceRegistry = {
     import("./experiences/passbook-v3").then(
       (module) => module.PassbookV3Landing
     ),
+  "one-place-v4": () =>
+    import("./experiences/one-place-v4").then(
+      (module) => module.OnePlaceV4Landing
+    ),
 } satisfies Record<
   MarketingExperienceId,
   () => Promise<ComponentType<MarketingExperienceProps>>

@@ -29,6 +29,15 @@ describe("marketing experience activation policy", () => {
     ).toBe("passbook-v3")
   })
 
+  test("activates One Place in production when it is requested", () => {
+    expect(
+      resolveActiveMarketingExperienceId({
+        isProduction: true,
+        requestedExperienceId: "one-place-v4",
+      })
+    ).toBe("one-place-v4")
+  })
+
   test("keeps a production-ready experience active", () => {
     expect(
       resolveActiveMarketingExperienceId({

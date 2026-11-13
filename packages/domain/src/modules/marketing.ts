@@ -4,6 +4,7 @@ export const marketingExperienceIds = [
   "organic-trust-v1",
   "ramp-v2",
   "passbook-v3",
+  "one-place-v4",
 ] as const
 
 export type MarketingExperienceId = (typeof marketingExperienceIds)[number]

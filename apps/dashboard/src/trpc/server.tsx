@@ -6,12 +6,18 @@ import { dehydrate, HydrationBoundary } from "@tanstack/react-query"
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query"
 import { headers } from "next/headers"
 import { cache } from "react"
+import { requestContextLookups } from "@/lib/request-lookups"
 import { makeQueryClient } from "./query-client"
 
 export const getQueryClient = cache(makeQueryClient)
 
 const createServerTRPCContext = cache(async () => {
-  return buildRequestContext(new Headers(await headers()))
+  // Shares the session, tenant and membership lookups that
+  // `getDashboardServerContext` already made in this render.
+  return buildRequestContext(
+    new Headers(await headers()),
+    requestContextLookups
+  )
 })
 
 export const trpc = createTRPCOptionsProxy<AppRouter>({

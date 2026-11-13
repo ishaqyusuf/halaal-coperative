@@ -7,16 +7,13 @@ import {
 } from "@halaalvest/auth"
 import {
   createDbRuntime,
-  findMembershipsForUserAsync,
-  findUserByIdAsync,
-  getActiveQaAuthorization,
   getDashboardMetrics,
   getPendingMemberOnboardingForUser,
   getTenantOnboardingState,
   listChargeDefinitions,
   listContributions,
   listMembers,
-  resolveTenantAsync,
+  type resolveTenantAsync,
   selectActiveMembership,
   type MembershipRecord,
   type TenantResolution,
@@ -35,6 +32,12 @@ import {
 import { cookies, headers } from "next/headers"
 import { cache } from "react"
 import { getPublicRequestHost } from "@/lib/request-host"
+import {
+  findRequestMemberships,
+  findRequestUser,
+  getRequestQaAuthorization,
+  resolveRequestTenant,
+} from "@/lib/request-lookups"
 
 type DashboardMemberRow = {
   id: string
@@ -173,11 +176,6 @@ const getDashboardRequestSession = cache(
   }
 )
 
-const getRequestQaAuthorization = cache(
-  async (qaAuthorizationId: string | null) =>
-    qaAuthorizationId ? getActiveQaAuthorization(qaAuthorizationId) : null
-)
-
 /**
  * Quick Fill only needs the QA authorization behind the signed session, so
  * the root layout resolves that instead of the full server context.
@@ -203,14 +201,14 @@ export const getDashboardServerContext = cache(
     // session whose QA authorization is no longer active resolves no user.
     const [qaAuthorization, requestedUser] = await Promise.all([
       getRequestQaAuthorization(session.qaAuthorizationId),
-      findUserByIdAsync(session.requestedUserId),
+      findRequestUser(session.requestedUserId),
     ])
     const isSessionActive = Boolean(
       session.sessionToken && (!session.qaAuthorizationId || qaAuthorization)
     )
     const resolvedUser = isSessionActive ? requestedUser : null
     const [tenantResolution, userMemberships] = await Promise.all([
-      resolveTenantAsync({
+      resolveRequestTenant({
         fallbackTenantId:
           resolvedUser && !resolvedUser.isPlatformOwner
             ? resolvedUser.tenantId
@@ -218,7 +216,7 @@ export const getDashboardServerContext = cache(
         slug: session.tenantSlug,
         hostname: session.tenantHostname ?? session.host,
       }),
-      findMembershipsForUserAsync(resolvedUser?.id),
+      findRequestMemberships(resolvedUser?.id ?? null),
     ])
     const user =
       resolvedUser &&

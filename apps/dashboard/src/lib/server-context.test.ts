@@ -235,6 +235,48 @@ describe("dashboard server context", () => {
     expect(countBy(counting.calls, "user", "findFirst")).toBe(2)
   })
 
+  test("the server tRPC context reuses the render's session lookups", async () => {
+    const { buildRequestContext } = await import("@halaalvest/api/context")
+    const { getDashboardServerContext } = await import("./server-context")
+    const { requestContextLookups } = await import("./request-lookups")
+    const token = await createSignedSessionToken({ scope, userId })
+    const cookieHeader = `${getScopedAuthSessionCookieName(scope)}=${token}`
+    const apiHeaders = () =>
+      new Headers({
+        cookie: cookieHeader,
+        host,
+        "x-tenant-subdomain": "barakah",
+      })
+    const lookupCounts = () => ({
+      memberships: countBy(counting.calls, "membership", "findMany"),
+      qa: countBy(counting.calls, "qaClientAuthorization", "findFirst"),
+      tenants: countBy(counting.calls, "tenant", "findUnique"),
+      users: countBy(counting.calls, "user", "findFirst"),
+    })
+    const before = lookupCounts()
+
+    const [dashboard, shared] = await runRequest(cookieHeader, () =>
+      Promise.all([
+        getDashboardServerContext(),
+        buildRequestContext(apiHeaders(), requestContextLookups),
+      ])
+    )
+    const after = lookupCounts()
+
+    // Layout and tRPC prefetch resolved the session with one set of lookups.
+    expect(after.users - before.users).toBe(1)
+    expect(after.memberships - before.memberships).toBe(1)
+    expect(after.tenants - before.tenants).toBe(1)
+
+    // Same result as the tRPC context resolving on its own.
+    const standalone = await buildRequestContext(apiHeaders())
+    expect(shared.auth).toEqual(standalone.auth)
+    expect(shared.tenant).toEqual(standalone.tenant)
+    expect(shared.auth.session?.user.id).toBe(dashboard.auth.user?.id)
+    expect(shared.auth.activeMembership?.id).toBe(dashboard.auth.membership?.id)
+    expect(shared.tenant.current?.id).toBe(dashboard.tenant?.id)
+  })
+
   test("the root layout resolves no user, tenant or membership", async () => {
     const { getRequestQaQuickFillContext } = await import("./server-context")
     const token = await createSignedSessionToken({ scope, userId })

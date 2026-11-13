@@ -41,7 +41,30 @@ function getNetworkSignal(headers: Headers) {
   )
 }
 
-export async function buildRequestContext(headers: Headers) {
+/**
+ * The database lookups the request context makes. A caller that already
+ * resolves the same session in the same request (the dashboard's server
+ * render) passes request-cached versions so identical lookups run once.
+ * Auth rules stay here; only the data access is shared.
+ */
+export type RequestContextLookups = {
+  findMembershipsForUser: typeof findMembershipsForUserAsync
+  findUserById: typeof findUserByIdAsync
+  isQaAuthorizationActive: typeof isQaAuthorizationActive
+  resolveTenant: typeof resolveTenantAsync
+}
+
+const defaultRequestContextLookups: RequestContextLookups = {
+  findMembershipsForUser: findMembershipsForUserAsync,
+  findUserById: findUserByIdAsync,
+  isQaAuthorizationActive,
+  resolveTenant: resolveTenantAsync,
+}
+
+export async function buildRequestContext(
+  headers: Headers,
+  lookups: RequestContextLookups = defaultRequestContextLookups
+) {
   const requestHost = headers.get("host")
   const isMobileRequest =
     headers.get("x-trpc-source")?.trim().toLowerCase() === "mobile"
@@ -62,7 +85,7 @@ export async function buildRequestContext(headers: Headers) {
   })
   const signedBearerSession =
     verifiedSignedBearerSession?.qaAuthorizationId &&
-    !(await isQaAuthorizationActive(
+    !(await lookups.isQaAuthorizationActive(
       verifiedSignedBearerSession.qaAuthorizationId
     ))
       ? null
@@ -84,7 +107,7 @@ export async function buildRequestContext(headers: Headers) {
     !verifiedSignedCookieSession ||
     (cookieUserHint && cookieUserHint !== verifiedSignedCookieSession.userId) ||
     (verifiedSignedCookieSession.qaAuthorizationId &&
-      !(await isQaAuthorizationActive(
+      !(await lookups.isQaAuthorizationActive(
         verifiedSignedCookieSession.qaAuthorizationId
       )))
       ? null
@@ -119,17 +142,17 @@ export async function buildRequestContext(headers: Headers) {
   // Identity and role come only from a verified signed session. Client headers
   // such as x-user-id, x-session-token and x-user-role are never trusted.
   const signedSession = bearerSession ?? signedCookieSession
-  const user = await findUserByIdAsync(signedSession?.userId ?? null)
+  const user = await lookups.findUserById(signedSession?.userId ?? null)
   // Both lookups depend only on the verified user, so they run together.
   const [tenantResolution, userMemberships] = await Promise.all([
-    resolveTenantAsync({
+    lookups.resolveTenant({
       fallbackTenantId:
         bearerSession?.tenantId ??
         (user && !user.isPlatformOwner ? user.tenantId : null),
       slug: bearerToken ? null : forwardedTenantSlug,
       hostname: bearerToken ? null : (forwardedTenantHostname ?? requestHost),
     }),
-    findMembershipsForUserAsync(user?.id),
+    lookups.findMembershipsForUser(user?.id),
   ])
   const signedMembership = bearerSession?.membershipId
     ? (userMemberships.find(

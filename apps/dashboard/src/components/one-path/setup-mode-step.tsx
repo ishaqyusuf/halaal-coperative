@@ -151,7 +151,7 @@ export function SetupModeStep({
         >
           <RadioGroup
             aria-label="Where records start"
-            className="grid gap-3 md:grid-cols-2"
+            className="grid gap-3 @xl:grid-cols-2"
             disabled={modeLocked}
             onValueChange={(value) =>
               setMode(value as TenantMigrationSetupMode)

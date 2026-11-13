@@ -235,7 +235,7 @@ export function ProfitPolicyFields({
               <FormControl>
                 <RadioGroup
                   aria-labelledby="one-path-profit-frequency"
-                  className="grid grid-cols-2 gap-2 lg:grid-cols-4"
+                  className="grid grid-cols-2 gap-2 @2xl:grid-cols-4"
                   disabled={disabled}
                   onValueChange={(value) => field.onChange(value)}
                   value={field.value}

@@ -149,7 +149,12 @@ export function ProfitSharingStep({
       stepKey="profit"
       title="Profit sharing"
     >
-      <div aria-busy={isSaving} className="grid gap-8">
+      {/* minmax(0,1fr): the profit fields' 1fr radio grid otherwise sets
+          this column's min width and overflows the card (QA F10). */}
+      <div
+        aria-busy={isSaving}
+        className="grid grid-cols-[minmax(0,1fr)] gap-8"
+      >
         <ProfitPolicyFields
           disabled={isSaving}
           draft={policyDraft}

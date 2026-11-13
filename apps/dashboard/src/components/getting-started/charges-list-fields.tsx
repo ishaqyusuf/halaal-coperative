@@ -61,14 +61,19 @@ export function ChargesListFields({
   } = draft
   const showFromColumn = !isBroughtForward
   const rowGridClassName = cn(
-    "grid gap-3 sm:items-start",
+    "grid gap-3 @2xl:items-start",
     showFromColumn
-      ? "sm:grid-cols-[minmax(0,1fr)_9rem_minmax(0,12rem)_9.5rem_2.75rem]"
-      : "sm:grid-cols-[minmax(0,1fr)_9rem_minmax(0,12rem)_2.75rem]"
+      ? "@2xl:grid-cols-[minmax(0,1fr)_9rem_minmax(0,12rem)_9.5rem_2.75rem]"
+      : "@2xl:grid-cols-[minmax(0,1fr)_9rem_minmax(0,12rem)_2.75rem]"
   )
 
   return (
-    <section aria-labelledby="one-path-charges-heading" className="grid gap-4">
+    <section
+      aria-labelledby="one-path-charges-heading"
+      // Sized by the card it sits in, not the viewport: beside the step rail
+      // a wide viewport still leaves a narrow form column.
+      className="@container grid gap-4"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3
           className="text-base font-medium text-foreground"
@@ -92,7 +97,7 @@ export function ChargesListFields({
         aria-hidden
         className={cn(
           rowGridClassName,
-          "text-xs font-medium text-muted-foreground max-sm:hidden"
+          "text-xs font-medium text-muted-foreground @max-2xl:hidden"
         )}
       >
         <span>Charge</span>
@@ -193,7 +198,7 @@ function ChargeRowFields({
     <div className="grid gap-2 border-t border-border/70 pt-3">
       <div className={rowGridClassName}>
         <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-          <span className="sm:sr-only">Charge</span>
+          <span className="@2xl:sr-only">Charge</span>
           <Input
             disabled={disabled}
             onChange={(event) => onRowChange({ name: event.target.value })}
@@ -202,7 +207,7 @@ function ChargeRowFields({
           />
         </label>
         <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-          <span className="sm:sr-only">Amount</span>
+          <span className="@2xl:sr-only">Amount</span>
           {firstHistoryRow ? (
             <ChargeAmountInput
               disabled={disabled}
@@ -215,7 +220,7 @@ function ChargeRowFields({
           ) : null}
         </label>
         <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-          <span className="sm:sr-only">When</span>
+          <span className="@2xl:sr-only">When</span>
           <SelectFormInput
             disabled={disabled}
             onChange={(chargeFrequency) =>
@@ -230,7 +235,7 @@ function ChargeRowFields({
         </label>
         {showFromColumn && firstHistoryRow ? (
           <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-            <span className="sm:sr-only">From</span>
+            <span className="@2xl:sr-only">From</span>
             <DatePickerInput
               allowClear={false}
               disabled={disabled}
@@ -243,7 +248,7 @@ function ChargeRowFields({
             />
           </label>
         ) : null}
-        <div className="flex justify-end sm:pt-0.5">
+        <div className="flex justify-end @2xl:pt-0.5">
           <DeleteInlineRowButton
             disabled={disabled || !canDelete}
             label="charge"
@@ -271,7 +276,7 @@ function ChargeRowFields({
           </CollapsibleTrigger>
         </div>
         <CollapsibleContent className="mt-3 grid gap-3 border-l-2 border-primary/30 pl-4">
-          <div className="grid gap-3 sm:grid-cols-[10rem_12rem_9.5rem]">
+          <div className="grid gap-3 @xl:grid-cols-[10rem_12rem_9.5rem]">
             <label className="grid gap-1 text-xs font-medium text-muted-foreground">
               Value type
               <SelectFormInput
@@ -321,7 +326,7 @@ function ChargeRowFields({
             </p>
             {laterHistoryRows.map((historyRow) => (
               <div
-                className="grid gap-3 sm:grid-cols-[9.5rem_9rem_2.75rem] sm:items-start"
+                className="grid gap-3 @xl:grid-cols-[9.5rem_9rem_2.75rem] @xl:items-start"
                 key={historyRow.id}
               >
                 <label className="grid gap-1 text-xs font-medium text-muted-foreground">

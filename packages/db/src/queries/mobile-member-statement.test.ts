@@ -16,6 +16,12 @@ describe("mobile member statement", () => {
         totalEstimatedMonthlyServicing: 45_000,
         totalOutstandingPrincipal: 360_000,
         totalSavingsSnapshot: 480_000,
+        activeFoodPurchaseCount: 1,
+        activeProcurementCount: 1,
+        foodPurchaseOutstanding: 25_000,
+        procurementOutstanding: 500_000,
+        shareCapitalBalance: 10_000,
+        specialSavingsBalance: 205_000,
       },
     })
 
@@ -24,10 +30,14 @@ describe("mobile member statement", () => {
       "savings",
       "financing",
       "dividends",
+      "special-savings",
+      "share-capital",
+      "other-obligations",
     ])
     expect(stats.map((stat) => stat.value)).toEqual([
-      60_000, 480_000, 360_000, 12_500,
+      60_000, 480_000, 360_000, 12_500, 205_000, 10_000, 525_000,
     ])
+    expect(stats[6]?.detail).toBe("2 active procurement or food record(s)")
     expect(stats[3]?.detail).toBe("2 published allocation(s)")
   })
 

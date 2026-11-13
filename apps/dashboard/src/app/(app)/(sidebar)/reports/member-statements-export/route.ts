@@ -52,6 +52,12 @@ export async function GET(request: Request) {
       "Published Dividend Total",
       "Published Dividend Allocation Count",
       "Last Dividend Allocated At",
+      "Opening Special Savings",
+      "Special Savings Balance",
+      "Share Capital Balance",
+      "Procurement Outstanding",
+      "Food Purchase Outstanding",
+      "Total Obligations Outstanding",
     ],
     statements.map((statement) => [
       statement.fullName,
@@ -80,6 +86,12 @@ export async function GET(request: Request) {
       statement.totalDividendAllocations,
       statement.dividendAllocationCount,
       statement.lastDividendAllocatedAt?.toISOString() ?? "",
+      statement.openingSpecialSavingsBalance,
+      statement.specialSavingsBalance,
+      statement.shareCapitalBalance,
+      statement.procurementOutstanding,
+      statement.foodPurchaseOutstanding,
+      statement.totalObligationsOutstanding,
     ])
   )
 

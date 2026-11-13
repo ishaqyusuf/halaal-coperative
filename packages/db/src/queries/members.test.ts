@@ -1460,6 +1460,105 @@ describe("member statement dividend allocations", () => {
     })
   })
 
+  test("includes opening special savings, share capital, procurement and food balances", async () => {
+    const observed: Record<string, any> = {}
+    const record =
+      (name: string, rows: unknown[]) => async (args: Record<string, any>) => {
+        observed[name] = args
+        return rows
+      }
+    const prisma = {
+      ...createMemberStatementPrismaStub(),
+      foodPurchaseApplication: {
+        groupBy: record("food", [
+          {
+            _count: { _all: 1 },
+            _sum: { approvedAmount: 50000, paidAmount: 25000 },
+            memberId: "member-1",
+          },
+        ]),
+      },
+      memberOpeningBalance: {
+        groupBy: record("opening", [
+          { _sum: { specialSavingsBalance: 200000 }, memberId: "member-1" },
+        ]),
+      },
+      memberShareLedgerEntry: {
+        groupBy: record("shares", [
+          { _sum: { amount: 10000 }, memberId: "member-1" },
+        ]),
+      },
+      memberSpecialSavingsWithdrawal: {
+        groupBy: record("withdrawals", [
+          { _sum: { amount: 1000 }, memberId: "member-1" },
+        ]),
+      },
+      procurementRepaymentScheduleItem: {
+        groupBy: record("procurementSchedule", [
+          { _sum: { amount: 500000, paidAmount: 0 }, memberId: "member-1" },
+        ]),
+      },
+      procurementRequest: {
+        groupBy: record("procurementRequests", [
+          { _count: { _all: 1 }, memberId: "member-1" },
+        ]),
+      },
+    }
+
+    const summary = await getMemberStatementSummary(
+      "tenant-1",
+      "member-1",
+      prisma as never
+    )
+
+    expect(summary).toMatchObject({
+      activeFoodPurchaseCount: 1,
+      activeProcurementCount: 1,
+      foodPurchaseOutstanding: 25000,
+      openingSpecialSavingsBalance: 200000,
+      procurementOutstanding: 500000,
+      shareCapitalBalance: 10000,
+      // 200,000 opening + 5,000 posted extra savings - 1,000 refunded
+      specialSavingsBalance: 204000,
+      specialSavingsWithdrawals: 1000,
+      totalExtraSavingsContributions: 5000,
+      // 15,000 financing + 500,000 procurement + 25,000 food
+      totalObligationsOutstanding: 540000,
+    })
+    expect(observed.opening.where).toEqual({
+      memberId: "member-1",
+      status: "applied",
+      tenantId: "tenant-1",
+    })
+    expect(observed.procurementSchedule.where).toMatchObject({
+      memberId: "member-1",
+      procurementRequest: { status: { in: ["active", "purchased"] } },
+      tenantId: "tenant-1",
+    })
+    expect(observed.food.where).toMatchObject({
+      memberId: "member-1",
+      status: "approved",
+      tenantId: "tenant-1",
+    })
+    expect(observed.shares.where.effectiveDate.lte).toBeInstanceOf(Date)
+  })
+
+  test("reports zero opening balances when optional records are absent", async () => {
+    const summary = await getMemberStatementSummary(
+      "tenant-1",
+      "member-1",
+      createMemberStatementPrismaStub() as never
+    )
+
+    expect(summary).toMatchObject({
+      foodPurchaseOutstanding: 0,
+      procurementOutstanding: 0,
+      shareCapitalBalance: 0,
+      specialSavingsBalance: 5000,
+      totalObligationsOutstanding: 15000,
+    })
+  })
+
   test("loads published dividend allocation evidence into member statement detail", async () => {
     const detail = await getMemberStatementDetail(
       "tenant-1",

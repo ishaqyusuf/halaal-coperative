@@ -65,6 +65,12 @@ type StatementSummary = {
   totalEstimatedMonthlyServicing: number
   totalOutstandingPrincipal: number
   totalSavingsSnapshot: number
+  activeFoodPurchaseCount: number
+  activeProcurementCount: number
+  foodPurchaseOutstanding: number
+  procurementOutstanding: number
+  shareCapitalBalance: number
+  specialSavingsBalance: number
 } | null
 
 function formatDateLabel(value: Date | null | undefined) {
@@ -191,7 +197,46 @@ export function buildMobileMemberStatementStats(input: {
       label: "Dividends",
       value: input.summary?.totalDividendAllocations ?? 0,
     },
+    {
+      detail:
+        (input.summary?.specialSavingsBalance ?? 0) > 0
+          ? "Opening and voluntary special savings"
+          : "No special savings posted",
+      format: "currency",
+      key: "special-savings",
+      label: "Special savings",
+      value: input.summary?.specialSavingsBalance ?? 0,
+    },
+    {
+      detail:
+        (input.summary?.shareCapitalBalance ?? 0) > 0
+          ? "Share ledger balance as of today"
+          : "No share capital posted",
+      format: "currency",
+      key: "share-capital",
+      label: "Share capital",
+      value: input.summary?.shareCapitalBalance ?? 0,
+    },
+    {
+      detail: describeOtherObligations(input.summary),
+      format: "currency",
+      key: "other-obligations",
+      label: "Procurement and food",
+      value:
+        (input.summary?.procurementOutstanding ?? 0) +
+        (input.summary?.foodPurchaseOutstanding ?? 0),
+    },
   ]
+}
+
+function describeOtherObligations(summary: StatementSummary) {
+  const count =
+    (summary?.activeProcurementCount ?? 0) +
+    (summary?.activeFoodPurchaseCount ?? 0)
+
+  return count > 0
+    ? `${count} active procurement or food record(s)`
+    : "No procurement or food balance"
 }
 
 function buildProfileSection(
@@ -275,8 +320,7 @@ function buildCommitmentsSection(
     summary: detail.summary
       ? {
           contributionsCount: detail.summary.contributionsCount,
-          totalExtraSavingsContributions:
-            detail.summary.totalExtraSavingsContributions,
+          specialSavingsBalance: detail.summary.specialSavingsBalance,
           totalSavingsSnapshot: detail.summary.totalSavingsSnapshot,
         }
       : null,

@@ -166,7 +166,10 @@ describe("member workspace Midday conformance", () => {
     const importContent = read("../components/member-import-content.tsx")
 
     expect(detail).toContain("<MemberDetailActions")
-    expect(detail).toContain("grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4")
+    expect(detail).toContain("<MemberBalanceStatCards summary={detail.summary} />")
+    expect(read("../components/member-balance-stat-cards.tsx")).toContain(
+      "grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4"
+    )
     expect(detailActions).toContain("<MobileActionsDrawer")
     expect(detailActions).toContain('aria-label="More member detail actions"')
     expect(detailLoading).toContain("<MemberDetailSkeleton")

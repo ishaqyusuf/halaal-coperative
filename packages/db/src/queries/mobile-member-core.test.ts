@@ -34,6 +34,15 @@ const summary: MemberStatementSummary = {
   totalOutstandingPrincipal: 120_000,
   totalRepaymentsPosted: 80_000,
   totalSavingsSnapshot: 400_000,
+  activeFoodPurchaseCount: 0,
+  activeProcurementCount: 0,
+  foodPurchaseOutstanding: 0,
+  openingSpecialSavingsBalance: 200_000,
+  procurementOutstanding: 0,
+  shareCapitalBalance: 10_000,
+  specialSavingsBalance: 250_000,
+  specialSavingsWithdrawals: 0,
+  totalObligationsOutstanding: 120_000,
 }
 
 function metric(home: MobileMemberCoreHome, key: string) {
@@ -62,7 +71,7 @@ describe("mobile member core home", () => {
 
     expect(metric(home, "commitment")?.value).toBe(50_000)
     expect(metric(home, "savings")?.value).toBe(400_000)
-    expect(metric(home, "special-savings")?.value).toBe(50_000)
+    expect(metric(home, "special-savings")?.value).toBe(250_000)
     expect(metric(home, "financing")?.value).toBe(120_000)
     expect(metric(home, "share-capital")?.value).toBe(75_000)
     expect(new Set(home.stats.map((item) => item.key)).size).toBe(
@@ -151,7 +160,7 @@ describe("mobile member commitments", () => {
       generatedAt: new Date("2026-08-11T00:00:00.000Z"),
       summary: {
         contributionsCount: 8,
-        totalExtraSavingsContributions: 45_000,
+        specialSavingsBalance: 45_000,
         totalSavingsSnapshot: 445_000,
       },
     })

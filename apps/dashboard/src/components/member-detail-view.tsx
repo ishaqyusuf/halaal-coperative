@@ -9,12 +9,12 @@ import {
   DashboardActionLink,
   DashboardSectionCard,
   DashboardSectionHeader,
-  DashboardStatCard,
   DashboardSurfaceCard,
   TrendPill,
   WorkspaceEmptyState,
   WorkspacePageShell,
 } from "@/components/dashboard"
+import { MemberBalanceStatCards } from "@/components/member-balance-stat-cards"
 import { MemberDetailActions } from "@/components/member-detail-actions"
 import {
   OpenMemberDetailCommitmentSheet,
@@ -134,40 +134,7 @@ export function MemberDetailView({
         </Alert>
       ) : null}
 
-      <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-        <DashboardStatCard
-          detail={
-            activePlan
-              ? `From ${formatIsoDate(activePlan.startsAt)}`
-              : "No active commitment plan"
-          }
-          label="Active commitment"
-          value={formatCurrency(detail.summary?.activeCommitmentAmount ?? 0)}
-        />
-        <DashboardStatCard
-          detail={`${detail.summary?.contributionsCount ?? 0} posted contribution entries`}
-          label="Savings snapshot"
-          tone="positive"
-          value={formatCurrency(detail.summary?.totalSavingsSnapshot ?? 0)}
-        />
-        <DashboardStatCard
-          detail={`${detail.summary?.activeLoanCount ?? 0} active or open loan records`}
-          label="Outstanding loan balance"
-          tone={
-            detail.summary?.totalOutstandingPrincipal ? "warning" : "default"
-          }
-          value={formatCurrency(detail.summary?.totalOutstandingPrincipal ?? 0)}
-        />
-        <DashboardStatCard
-          detail={
-            detail.summary?.lastRepaymentAt
-              ? `Last repayment ${formatIsoDate(detail.summary.lastRepaymentAt)}`
-              : "No repayment recorded yet"
-          }
-          label="Repayments posted"
-          value={formatCurrency(detail.summary?.totalRepaymentsPosted ?? 0)}
-        />
-      </section>
+      <MemberBalanceStatCards summary={detail.summary} />
 
       <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <DashboardSectionCard>

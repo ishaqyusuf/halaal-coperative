@@ -1387,6 +1387,57 @@ export type MemberStatementSummary = {
   totalDividendAllocations: number
   dividendAllocationCount: number
   lastDividendAllocatedAt: Date | null
+  /** Applied brought-forward special savings (opening position). */
+  openingSpecialSavingsBalance: number
+  /** Special savings refunds paid out to the member. */
+  specialSavingsWithdrawals: number
+  /**
+   * Special savings the member holds now: applied opening special savings,
+   * plus posted extra savings, minus refunds. Same formula the special
+   * savings refund guard uses.
+   */
+  specialSavingsBalance: number
+  /** Member share ledger balance as of today, opening share capital included. */
+  shareCapitalBalance: number
+  /** Unpaid procurement instalments on purchased or active requests. */
+  procurementOutstanding: number
+  activeProcurementCount: number
+  /** Unpaid approved Foodstuff Purchase amounts. */
+  foodPurchaseOutstanding: number
+  activeFoodPurchaseCount: number
+  /** Financing principal + procurement + food purchase still owed. */
+  totalObligationsOutstanding: number
+}
+
+const statementPayableScheduleStatuses = [
+  "due",
+  "overdue",
+  "partially_paid",
+  "pending",
+] as const
+const statementActiveProcurementStatuses = ["active", "purchased"] as const
+
+function roundStatementMoney(value: number) {
+  return Math.round(value * 100) / 100
+}
+
+/**
+ * Runs an optional per-member groupBy. Narrow test doubles and older clients
+ * that lack a delegate yield no rows instead of failing the whole statement.
+ */
+async function optionalMemberGroupBy<T>(
+  delegate: { groupBy?: (args: any) => Promise<T[]> } | undefined,
+  args: Record<string, unknown>
+): Promise<T[]> {
+  return typeof delegate?.groupBy === "function"
+    ? delegate.groupBy({ by: ["memberId"], ...args })
+    : []
+}
+
+type MemberAmountGroup = {
+  memberId: string
+  _count?: { _all: number }
+  _sum: Record<string, unknown>
 }
 
 export async function listMemberStatementSummaries(
@@ -1397,12 +1448,24 @@ export async function listMemberStatementSummaries(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
+  const memberScope = { tenantId, ...(memberId ? { memberId } : {}) }
+  const optionalDelegates = prisma as unknown as Record<
+    string,
+    { groupBy?: (args: any) => Promise<MemberAmountGroup[]> } | undefined
+  >
+
   const [
     members,
     contributionTotals,
     repaymentTotals,
     loanTotals,
     dividendTotals,
+    openingSpecialTotals,
+    specialWithdrawalTotals,
+    shareLedgerTotals,
+    procurementScheduleTotals,
+    activeProcurementTotals,
+    foodPurchaseTotals,
   ] = await Promise.all([
     prisma.member.findMany({
       where: { tenantId, ...(memberId ? { id: memberId } : {}) },
@@ -1474,7 +1537,63 @@ export async function listMemberStatementSummaries(
       },
       _max: { createdAt: true },
     }),
+    optionalMemberGroupBy(optionalDelegates.memberOpeningBalance, {
+      where: { ...memberScope, status: "applied" },
+      _sum: { specialSavingsBalance: true },
+    }),
+    optionalMemberGroupBy(optionalDelegates.memberSpecialSavingsWithdrawal, {
+      where: memberScope,
+      _sum: { amount: true },
+    }),
+    optionalMemberGroupBy(optionalDelegates.memberShareLedgerEntry, {
+      where: { ...memberScope, effectiveDate: { lte: new Date() } },
+      _sum: { amount: true },
+    }),
+    optionalMemberGroupBy(optionalDelegates.procurementRepaymentScheduleItem, {
+      where: {
+        ...memberScope,
+        status: { in: [...statementPayableScheduleStatuses] },
+        procurementRequest: {
+          status: { in: [...statementActiveProcurementStatuses] },
+        },
+      },
+      _sum: { amount: true, paidAmount: true },
+    }),
+    optionalMemberGroupBy(optionalDelegates.procurementRequest, {
+      where: {
+        ...memberScope,
+        status: { in: [...statementActiveProcurementStatuses] },
+      },
+      _count: { _all: true },
+    }),
+    optionalMemberGroupBy(optionalDelegates.foodPurchaseApplication, {
+      where: {
+        ...memberScope,
+        approvedAmount: { not: null },
+        status: "approved",
+      },
+      _count: { _all: true },
+      _sum: { approvedAmount: true, paidAmount: true },
+    }),
   ])
+
+  const indexByMember = (groups: MemberAmountGroup[]) =>
+    new Map(groups.map((group) => [group.memberId, group]))
+  const openingSpecialMap = indexByMember(openingSpecialTotals)
+  const specialWithdrawalMap = indexByMember(specialWithdrawalTotals)
+  const shareLedgerMap = indexByMember(shareLedgerTotals)
+  const procurementScheduleMap = indexByMember(procurementScheduleTotals)
+  const activeProcurementMap = indexByMember(activeProcurementTotals)
+  const foodPurchaseMap = indexByMember(foodPurchaseTotals)
+  const sumOf = (
+    groups: Map<string, MemberAmountGroup>,
+    member: string,
+    field: string
+  ): number => Number(groups.get(member)?._sum[field] ?? 0)
+  const countOf = (
+    groups: Map<string, MemberAmountGroup>,
+    member: string
+  ): number => groups.get(member)?._count?._all ?? 0
 
   const contributionMap = new Map(
     contributionTotals.map((item) => [item.memberId, item])
@@ -1493,6 +1612,38 @@ export async function listMemberStatementSummaries(
     const repaymentTotal = repaymentMap.get(member.id)
     const loanTotal = loanMap.get(member.id)
     const dividendTotal = dividendMap.get(member.id)
+    const totalOutstandingPrincipal = Number(
+      loanTotal?._sum.outstandingPrincipal ?? 0
+    )
+    const openingSpecialSavingsBalance = sumOf(
+      openingSpecialMap,
+      member.id,
+      "specialSavingsBalance"
+    )
+    const specialSavingsWithdrawals = sumOf(
+      specialWithdrawalMap,
+      member.id,
+      "amount"
+    )
+    const specialSavingsBalance = roundStatementMoney(
+      openingSpecialSavingsBalance +
+        Number(contributionTotal?._sum.extraSavingsAmount ?? 0) -
+        specialSavingsWithdrawals
+    )
+    const procurementOutstanding = Math.max(
+      0,
+      roundStatementMoney(
+        sumOf(procurementScheduleMap, member.id, "amount") -
+          sumOf(procurementScheduleMap, member.id, "paidAmount")
+      )
+    )
+    const foodPurchaseOutstanding = Math.max(
+      0,
+      roundStatementMoney(
+        sumOf(foodPurchaseMap, member.id, "approvedAmount") -
+          sumOf(foodPurchaseMap, member.id, "paidAmount")
+      )
+    )
 
     return {
       memberId: member.id,
@@ -1517,9 +1668,7 @@ export async function listMemberStatementSummaries(
       contributionsCount: contributionTotal?._count._all ?? 0,
       lastContributionAt: contributionTotal?._max.postedAt ?? null,
       totalLoanPrincipal: Number(loanTotal?._sum.principalAmount ?? 0),
-      totalOutstandingPrincipal: Number(
-        loanTotal?._sum.outstandingPrincipal ?? 0
-      ),
+      totalOutstandingPrincipal,
       activeLoanCount: loanTotal?._count._all ?? 0,
       totalEstimatedMonthlyServicing: Number(
         loanTotal?._sum.estimatedMonthlyServicing ?? 0
@@ -1534,6 +1683,21 @@ export async function listMemberStatementSummaries(
       ),
       dividendAllocationCount: dividendTotal?._count._all ?? 0,
       lastDividendAllocatedAt: dividendTotal?._max.createdAt ?? null,
+      openingSpecialSavingsBalance,
+      specialSavingsWithdrawals,
+      specialSavingsBalance,
+      shareCapitalBalance: roundStatementMoney(
+        sumOf(shareLedgerMap, member.id, "amount")
+      ),
+      procurementOutstanding,
+      activeProcurementCount: countOf(activeProcurementMap, member.id),
+      foodPurchaseOutstanding,
+      activeFoodPurchaseCount: countOf(foodPurchaseMap, member.id),
+      totalObligationsOutstanding: roundStatementMoney(
+        totalOutstandingPrincipal +
+          procurementOutstanding +
+          foodPurchaseOutstanding
+      ),
     }
   })
 }

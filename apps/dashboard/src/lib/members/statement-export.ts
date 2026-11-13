@@ -1,4 +1,5 @@
 import type { getMemberStatementDetail } from "@halaalvest/db"
+import { buildMemberBalanceTextLines } from "./member-balances"
 
 type MemberStatementDetail = NonNullable<
   Awaited<ReturnType<typeof getMemberStatementDetail>>
@@ -44,11 +45,7 @@ export function buildMemberStatementText(detail: MemberStatementDetail) {
     `Email: ${detail.member.email ?? detail.member.user?.email ?? "n/a"}`,
     ``,
     `Summary`,
-    `Active Commitment: ${detail.summary?.activeCommitmentAmount ?? 0}`,
-    `Savings Snapshot: ${detail.summary?.totalSavingsSnapshot ?? 0}`,
-    `Outstanding Principal: ${detail.summary?.totalOutstandingPrincipal ?? 0}`,
-    `Repayments Posted: ${detail.summary?.totalRepaymentsPosted ?? 0}`,
-    `Published Dividends: ${detail.summary?.totalDividendAllocations ?? 0}`,
+    ...buildMemberBalanceTextLines(detail.summary),
     ``,
     `Recent Contributions`,
     ...detail.contributions

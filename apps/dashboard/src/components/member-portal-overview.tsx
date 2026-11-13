@@ -27,6 +27,11 @@ import {
 } from "@/components/dashboard"
 import { MemberDocumentSelfServiceForm } from "@/components/member-document-self-service-form"
 import { MemberPortalActions } from "@/components/member-portal-actions"
+import {
+  describeOtherObligations,
+  describeSpecialSavings,
+  getOtherObligationsOutstanding,
+} from "@/lib/members/member-balances"
 
 type MemberStatementDetail = NonNullable<
   Awaited<ReturnType<typeof getMemberStatementDetail>>
@@ -129,6 +134,7 @@ export function MemberPortalOverview({
     foodPurchaseApplications.filter(
       (application) => application.status === "approved"
     ).length
+  const otherObligationsOutstanding = getOtherObligationsOutstanding(summary)
 
   return (
     <DashboardPageFrame>
@@ -201,9 +207,9 @@ export function MemberPortalOverview({
           value={formatCurrency(summary?.totalSavingsSnapshot ?? 0)}
         />
         <DashboardStatCard
-          detail="Extra savings above regular commitment"
+          detail={describeSpecialSavings(summary)}
           label="Special savings"
-          value={formatCurrency(summary?.totalExtraSavingsContributions ?? 0)}
+          value={formatCurrency(summary?.specialSavingsBalance ?? 0)}
         />
         <DashboardStatCard
           detail={`${activeLoanCount(detail)} active financing records`}
@@ -212,10 +218,10 @@ export function MemberPortalOverview({
           value={formatCurrency(summary?.totalOutstandingPrincipal ?? 0)}
         />
         <DashboardStatCard
-          detail={`${activeObligationCount} active or approved items`}
-          label="Active obligations"
-          tone={activeObligationCount ? "warning" : "default"}
-          value={activeObligationCount.toString()}
+          detail={`${describeOtherObligations(summary)} · ${activeObligationCount} active or approved items`}
+          label="Procurement and food"
+          tone={otherObligationsOutstanding ? "warning" : "default"}
+          value={formatCurrency(otherObligationsOutstanding)}
         />
         <DashboardStatCard
           detail={`${summary?.dividendAllocationCount ?? 0} published allocations`}
@@ -282,17 +288,22 @@ export function MemberPortalOverview({
               value={formatStatus(sharePolicy.configurationMode)}
             />
             <MiniMetric
-              label="Unit value"
-              value={formatCurrency(sharePolicy.unitAmount)}
+              label="Share capital"
+              value={formatCurrency(summary?.shareCapitalBalance ?? 0)}
             />
-            <MiniMetric
-              label="Approved units"
-              value={
-                sharePosition
-                  ? sharePosition.totalApprovedUnits.toString()
-                  : "Monthly history"
-              }
-            />
+            {sharePosition ? (
+              <MiniMetric
+                label="Approved units"
+                value={`${sharePosition.totalApprovedUnits} × ${formatCurrency(
+                  sharePosition.unitAmount
+                )}`}
+              />
+            ) : (
+              <MiniMetric
+                label="Unit value"
+                value={formatCurrency(sharePolicy.unitAmount)}
+              />
+            )}
             <MiniMetric
               label="Pending requests"
               value={pendingShareApplications.length.toString()}

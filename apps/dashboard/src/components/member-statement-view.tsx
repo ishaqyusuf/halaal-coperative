@@ -3,10 +3,10 @@ import {
   DashboardActionLink,
   DashboardSectionCard,
   DashboardSectionHeader,
-  DashboardStatCard,
   DashboardSurfaceCard,
   TrendPill,
 } from "@/components/dashboard"
+import { MemberBalanceStatCards } from "@/components/member-balance-stat-cards"
 import type { MemberStatementPageData } from "@/lib/members"
 
 type ReadyMemberStatementPageData = Extract<
@@ -102,28 +102,7 @@ export function MemberStatementView({ detail }: ReadyMemberStatementPageData) {
         </div>
       </div>
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-5">
-        <DashboardStatCard
-          label="Commitment"
-          value={formatCurrency(detail.summary?.activeCommitmentAmount ?? 0)}
-        />
-        <DashboardStatCard
-          label="Savings"
-          value={formatCurrency(detail.summary?.totalSavingsSnapshot ?? 0)}
-        />
-        <DashboardStatCard
-          label="Outstanding loans"
-          value={formatCurrency(detail.summary?.totalOutstandingPrincipal ?? 0)}
-        />
-        <DashboardStatCard
-          label="Repayments"
-          value={formatCurrency(detail.summary?.totalRepaymentsPosted ?? 0)}
-        />
-        <DashboardStatCard
-          label="Published dividends"
-          value={formatCurrency(detail.summary?.totalDividendAllocations ?? 0)}
-        />
-      </section>
+      <MemberBalanceStatCards summary={detail.summary} />
 
       <DashboardSectionCard>
         <DashboardSectionHeader

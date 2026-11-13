@@ -35,12 +35,22 @@ describe("member statement Midday conformance", () => {
   test("keeps document actions, hierarchy, and summaries phone responsive", () => {
     const view = read("../components/member-statement-view.tsx")
     const section = read("../components/dashboard/section.tsx")
+    const balances = read("../components/member-balance-stat-cards.tsx")
 
     expect(view).toContain("statement-export")
     expect(view.match(/h-11 w-full md:h-9 md:w-auto/g)?.length).toBe(2)
-    expect(view).toContain(
-      "grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-5"
+    // Shared with the staff member detail so both show opening balances.
+    expect(view).toContain("<MemberBalanceStatCards summary={detail.summary} />")
+    expect(balances).toContain(
+      "grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4"
     )
+    for (const label of [
+      "Special savings",
+      "Share capital",
+      "Procurement and food",
+    ]) {
+      expect(balances).toContain(`label="${label}"`)
+    }
     expect(view.match(/headingLevel=\{2\}/g)?.length).toBe(3)
     expect(section).toContain('const Heading = headingLevel === 2 ? "h2" : "h3"')
   })

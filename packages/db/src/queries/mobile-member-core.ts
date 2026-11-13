@@ -10,7 +10,6 @@ import { listMemberPaymentReceipts } from "./payment-receipts"
 import { listProcurementRequests } from "./procurement"
 import { listFoodPurchaseApplications } from "./food-purchase"
 import { listSupportCases } from "./support"
-import { getMemberShareBalancesAtDate } from "./tenant-finance"
 
 export const mobileMemberSectionKeys = [
   "commitments",
@@ -96,7 +95,7 @@ type MobileMemberCommitmentsBuildInput = {
   generatedAt?: Date
   summary: {
     contributionsCount: number
-    totalExtraSavingsContributions: number
+    specialSavingsBalance: number
     totalSavingsSnapshot: number
   } | null
 }
@@ -272,13 +271,13 @@ export function buildMobileMemberCommitments(
       },
       {
         detail:
-          (summary?.totalExtraSavingsContributions ?? 0) > 0
-            ? "Voluntary savings posted"
+          (summary?.specialSavingsBalance ?? 0) > 0
+            ? "Opening and voluntary special savings"
             : "No special savings posted",
         format: "currency",
         key: "special-savings",
         label: "Special savings",
-        value: summary?.totalExtraSavingsContributions ?? 0,
+        value: summary?.specialSavingsBalance ?? 0,
       },
       {
         detail: "Posted contribution entries",
@@ -555,13 +554,13 @@ export function buildMobileMemberCoreHome(input: {
       },
       {
         detail:
-          (summary?.totalExtraSavingsContributions ?? 0) > 0
-            ? "Voluntary savings posted"
+          (summary?.specialSavingsBalance ?? 0) > 0
+            ? "Opening and voluntary special savings"
             : "No special savings posted",
         format: "currency",
         key: "special-savings",
         label: "Special savings",
-        value: summary?.totalExtraSavingsContributions ?? 0,
+        value: summary?.specialSavingsBalance ?? 0,
       },
       {
         detail:
@@ -627,7 +626,6 @@ export async function getMobileMemberCoreHome(input: {
     procurementRequests,
     foodPurchaseApplications,
     supportCases,
-    shareBalances,
   ] = await Promise.all([
     getMemberStatementSummary(input.tenantId, member.id, prisma),
     getTenantOperationProfile(input.tenantId, prisma),
@@ -648,11 +646,9 @@ export async function getMobileMemberCoreHome(input: {
       { limit: 1, memberId: member.id, tenantId: input.tenantId },
       prisma
     ),
-    getMemberShareBalancesAtDate(input.tenantId, new Date(), prisma),
   ])
-  const shareCapital =
-    shareBalances.find((balance) => balance.memberId === member.id)
-      ?.shareBalance ?? 0
+  // Share ledger balance as of today, from the same summary the web uses.
+  const shareCapital = summary?.shareCapitalBalance ?? 0
 
   return buildMobileMemberCoreHome({
     foodPurchaseRecords: foodPurchaseApplications.length,
@@ -720,8 +716,7 @@ export async function getMobileMemberCommitments(
     summary: detail.summary
       ? {
           contributionsCount: detail.summary.contributionsCount,
-          totalExtraSavingsContributions:
-            detail.summary.totalExtraSavingsContributions,
+          specialSavingsBalance: detail.summary.specialSavingsBalance,
           totalSavingsSnapshot: detail.summary.totalSavingsSnapshot,
         }
       : null,

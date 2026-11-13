@@ -1,12 +1,18 @@
 "use client"
 
+import { DashboardNativeQuickFill } from "@/components/dashboard-quick-fill"
 import { Badge } from "@halaalvest/ui/components/badge"
 import { Button } from "@halaalvest/ui/components/button"
 import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { Input } from "@halaalvest/ui/components/input"
 import { NativeSelect } from "@halaalvest/ui/components/native-select"
 import { Textarea } from "@halaalvest/ui/components/textarea"
-import { formatCurrency } from "@halaalvest/utils"
+import {
+  createQaAmount,
+  formatCurrency,
+  qaMonthLabel,
+  qaToday,
+} from "@halaalvest/utils"
 import { DatePickerInput } from "@/components/date-picker-input"
 import { useBusinessFormContext } from "@/components/business/form-context"
 import { ShareBusinessForm } from "@/components/forms/tenant-finance-forms"
@@ -243,6 +249,24 @@ export function BusinessContent() {
           action={createShareBusinessProfitEntryAction}
           className="grid gap-4 px-6"
         >
+          <DashboardNativeQuickFill
+            enabled={!isLocked}
+            values={() => {
+              const profit = Number(createQaAmount(200_000, 900_000, 10_000))
+              const expense = Math.round(profit * 0.15)
+              return {
+                allocatableProfitAmount: String(profit - expense),
+                expenseAmount: String(expense),
+                notes:
+                  "Reviewed against the business ledger and bank statement.",
+                profitAmount: String(profit),
+                profitDate:
+                  financeStartDate && financeStartDate > qaToday()
+                    ? financeStartDate
+                    : qaToday(),
+              }
+            }}
+          />
           <input name="shareBusinessId" type="hidden" value={business.id} />
           <label className="space-y-1 text-xs font-medium text-muted-foreground">
             Business
@@ -276,6 +300,13 @@ export function BusinessContent() {
   if (businessType === "edit" && business) {
     return (
       <form action={updateShareBusinessAction} className="grid gap-4 px-6">
+        <DashboardNativeQuickFill
+          enabled={!isLocked}
+          values={() => ({
+            capitalAmount: createQaAmount(500_000, 3_000_000, 50_000),
+            notes: `Capital confirmed at the ${qaMonthLabel()} general meeting.`,
+          })}
+        />
         <input name="shareBusinessId" type="hidden" value={business.id} />
         <label className="space-y-1 text-xs font-medium text-muted-foreground">
           Business name
@@ -371,6 +402,23 @@ export function BusinessContent() {
         action={updateShareBusinessProfitEntryAction}
         className="grid gap-4 px-6"
       >
+        <DashboardNativeQuickFill
+          enabled={!isLocked}
+          values={() => {
+            const profit = Number(createQaAmount(200_000, 900_000, 10_000))
+            const expense = Math.round(profit * 0.15)
+            return {
+              allocatableProfitAmount: String(profit - expense),
+              expenseAmount: String(expense),
+              notes: "Reviewed against the business ledger and bank statement.",
+              profitAmount: String(profit),
+              profitDate:
+                financeStartDate && financeStartDate > qaToday()
+                  ? financeStartDate
+                  : qaToday(),
+            }
+          }}
+        />
         <input name="profitEntryId" type="hidden" value={profitEntry.id} />
         <ProfitEntryFields
           businessEndDate={business?.endDate}

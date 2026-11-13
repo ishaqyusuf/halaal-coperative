@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from "../../generated/prisma/client"
+import { randomUUID } from "node:crypto"
 import { createPrismaClient } from "../prisma"
 import {
   ExpectedQueryError,
@@ -557,13 +558,30 @@ export async function listCooperativeMobileReceivables(
   }))
 }
 
-export async function recordCooperativeMobileRemittance(
-  input: {
-    actorUserId: string
-    invoiceId: string
-    reference: string
-    paidAt: string
-  },
+type Remittance = { invoiceId: string; reference: string; paidAt: string }
+type VerifiedPaystackPayment = {
+  mode: "test" | "live"
+  amount: number
+  currency: string
+}
+
+export function recordCooperativeMobileRemittance(
+  input: Remittance & { actorUserId: string },
+  override?: PrismaClient
+) {
+  return recordRemittance(input, { actorUserId: input.actorUserId }, override)
+}
+
+export function recordVerifiedCooperativeMobilePaystackPayment(
+  input: Remittance & VerifiedPaystackPayment,
+  override?: PrismaClient
+) {
+  return recordRemittance(input, { paystack: input }, override)
+}
+
+async function recordRemittance(
+  input: Remittance,
+  source: { actorUserId: string } | { paystack: VerifiedPaystackPayment },
   override?: PrismaClient
 ) {
   const db = requireDb(override)
@@ -585,13 +603,32 @@ export async function recordCooperativeMobileRemittance(
   try {
     return await db.$transaction(
       async (tx) => {
-        await requireBillingOperator(tx, input.actorUserId)
+        const paystack = "paystack" in source ? source.paystack : null
+        if ("actorUserId" in source)
+          await requireBillingOperator(tx, source.actorUserId)
         const invoice = await tx.cooperativeMobileInvoice.findFirst({
           where: { id: input.invoiceId, tenant: billableTenant },
           select: { ...invoiceListSelect, tenantId: true, paymentKey: true },
         })
         if (!invoice)
           throw ExpectedQueryError.notFound("Mobile access invoice not found.")
+        if (paystack) {
+          const checkout =
+            await tx.cooperativeMobilePaystackCheckout.findUnique({
+              where: { reference },
+            })
+          if (
+            checkout?.invoiceId !== invoice.id ||
+            checkout.mode !== paystack.mode ||
+            invoice.currencyCode !== paystack.currency ||
+            !invoice.totalAmount.times(100).equals(paystack.amount)
+          ) {
+            throw ExpectedQueryError.validation(
+              "The verified Paystack payment does not match this invoice."
+            )
+          }
+          if (checkout.verifiedAt) return invoiceSummary(invoice)
+        }
         if (input.paidAt < localDay(invoice.issuedAt)) {
           throw ExpectedQueryError.validation(
             "Payment date cannot precede the invoice."
@@ -604,9 +641,26 @@ export async function recordCooperativeMobileRemittance(
           ) {
             return invoiceSummary(invoice)
           }
-          throw ExpectedQueryError.conflict(
-            "This invoice already has a recorded remittance."
-          )
+          if (!paystack)
+            throw ExpectedQueryError.conflict(
+              "This invoice already has a recorded remittance."
+            )
+          await tx.cooperativeMobilePaystackCheckout.update({
+            where: { reference },
+            data: { verifiedAt: now },
+          })
+          await tx.auditLog.create({
+            data: {
+              tenantId: invoice.tenantId,
+              actorType: "system",
+              action: "mobile_billing.paystack_duplicate_payment",
+              entityType: "CooperativeMobileInvoice",
+              entityId: invoice.id,
+              metadata: { reference, paidAt: input.paidAt },
+              occurredAt: now,
+            },
+          })
+          return invoiceSummary(invoice)
         }
         const existingLedgerReference = await tx.ledgerTransaction.findFirst({
           where: {
@@ -633,11 +687,16 @@ export async function recordCooperativeMobileRemittance(
           throw ExpectedQueryError.conflict(
             "Invoice changed. Refresh and try again."
           )
+        if (paystack)
+          await tx.cooperativeMobilePaystackCheckout.update({
+            where: { reference },
+            data: { verifiedAt: now },
+          })
         await tx.auditLog.create({
           data: {
             tenantId: invoice.tenantId,
-            actorType: "user",
-            actorUserId: input.actorUserId,
+            actorType: paystack ? "system" : "user",
+            actorUserId: "actorUserId" in source ? source.actorUserId : null,
             action: "mobile_billing.remittance_recorded",
             entityType: "CooperativeMobileInvoice",
             entityId: invoice.id,
@@ -645,6 +704,7 @@ export async function recordCooperativeMobileRemittance(
               paidAt: input.paidAt,
               totalAmount: invoice.totalAmount.toFixed(2),
               currencyCode: invoice.currencyCode,
+              ...(paystack ? { provider: "paystack", reference } : {}),
             },
             occurredAt: now,
           },
@@ -666,4 +726,87 @@ export async function recordCooperativeMobileRemittance(
     }
     throw error
   }
+}
+
+export async function reserveCooperativeMobilePaystackCheckout(input: {
+  tenantId: string
+  invoiceId: string
+  mode: "test" | "live"
+  replaceReference?: string
+}) {
+  const db = requireDb()
+  return db.$transaction(async (tx) => {
+    await lockCooperativeMobileBilling(tx, input.tenantId)
+    const invoice = await tx.cooperativeMobileInvoice.findFirst({
+      where: {
+        id: input.invoiceId,
+        tenantId: input.tenantId,
+        tenant: financeReadyTenant,
+        currencyCode,
+        status: "issued",
+      },
+      select: { id: true, totalAmount: true },
+    })
+    if (!invoice)
+      throw ExpectedQueryError.precondition(
+        "This invoice cannot be paid online."
+      )
+    const amount = invoice.totalAmount.times(100).toNumber()
+    if (!Number.isSafeInteger(amount) || amount <= 0)
+      throw ExpectedQueryError.validation("Invalid invoice payment amount.")
+    const latest = await tx.cooperativeMobilePaystackCheckout.findFirst({
+      where: { invoiceId: invoice.id, mode: input.mode },
+      orderBy: [{ createdAt: "desc" }, { reference: "desc" }],
+    })
+    const checkout =
+      latest && latest.reference !== input.replaceReference
+        ? latest
+        : await tx.cooperativeMobilePaystackCheckout.create({
+            data: {
+              invoiceId: invoice.id,
+              mode: input.mode,
+              reference: `hv-invoice-${randomUUID()}`,
+            },
+          })
+    return {
+      reference: checkout.reference,
+      authorizationUrl: checkout.authorizationUrl,
+      amount,
+    }
+  })
+}
+
+export async function saveCooperativeMobilePaystackAuthorization(
+  reference: string,
+  authorizationUrl: string
+) {
+  await requireDb().cooperativeMobilePaystackCheckout.update({
+    where: { reference },
+    data: { authorizationUrl },
+  })
+}
+
+export async function findCooperativeMobilePaystackCheckout(
+  input: {
+    mode: "test" | "live"
+  } & (
+    | { reference: string; invoiceId?: never; tenantId?: never }
+    | { reference?: string; invoiceId: string; tenantId: string }
+  )
+) {
+  return requireDb().cooperativeMobilePaystackCheckout.findFirst({
+    where: {
+      reference: input.reference,
+      invoiceId: input.invoiceId,
+      mode: input.mode,
+      invoice: { tenantId: input.tenantId, tenant: billableTenant },
+    },
+    orderBy: [{ createdAt: "desc" }, { reference: "desc" }],
+    select: {
+      reference: true,
+      invoiceId: true,
+      verifiedAt: true,
+      invoice: { select: { tenantId: true } },
+    },
+  })
 }

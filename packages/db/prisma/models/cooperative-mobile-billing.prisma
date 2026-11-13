@@ -21,10 +21,25 @@ model CooperativeMobileInvoice {
 
   tenant Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   items  CooperativeMobileInvoiceItem[]
+  paystackCheckouts CooperativeMobilePaystackCheckout[]
 
   @@unique([tenantId, period], map: "coop_mobile_invoices_tenant_period_key")
   @@index([status, period], map: "coop_mobile_invoices_status_period_idx")
   @@map("cooperative_mobile_invoices")
+}
+
+model CooperativeMobilePaystackCheckout {
+  reference String @id @db.VarChar(120)
+  invoiceId String @map("invoice_id") @db.Uuid
+  mode String @db.VarChar(4)
+  authorizationUrl String? @map("authorization_url")
+  verifiedAt DateTime? @map("verified_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  invoice CooperativeMobileInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId, mode, createdAt])
+  @@map("cooperative_mobile_paystack_checkouts")
 }
 
 model CooperativeMobileInvoiceItem {

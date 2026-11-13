@@ -1,5 +1,6 @@
 "use client"
 
+import { Button } from "@halaalvest/ui/components/button"
 import {
   Dialog,
   DialogContent,
@@ -7,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@halaalvest/ui/components/dialog"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { useTRPC } from "@/trpc/client"
 import { MobileAccessLoadError, MobileAccessLoading } from "./access-page-state"
@@ -20,16 +21,46 @@ import { MobileInvoiceList } from "./mobile-invoice-list"
 
 function InvoiceDetail({
   invoiceId,
+  returnedFromPaystack,
   onClose,
 }: {
   invoiceId: string
+  returnedFromPaystack: boolean
   onClose: () => void
 }) {
   const trpc = useTRPC()
+  const queryClient = useQueryClient()
   const detail = useQuery(
     trpc.cooperativeMobileBilling.invoiceDetail.queryOptions({ invoiceId })
   )
   const invoice = detail.data
+  async function refreshInvoices() {
+    await Promise.all([
+      queryClient.invalidateQueries(
+        trpc.cooperativeMobileBilling.invoiceDetail.queryFilter({ invoiceId })
+      ),
+      queryClient.invalidateQueries(
+        trpc.cooperativeMobileBilling.listInvoices.queryFilter()
+      ),
+    ])
+  }
+  const checkout = useMutation(
+    trpc.cooperativeMobileBilling.startPaystackCheckout.mutationOptions({
+      onSuccess: (result) => {
+        if (result.status === "checkout") window.location.assign(result.url)
+        else return refreshInvoices()
+      },
+    })
+  )
+  const verify = useMutation(
+    trpc.cooperativeMobileBilling.verifyPaystackCheckout.mutationOptions({
+      onSuccess: ({ status }) =>
+        status === "paid" ? refreshInvoices() : undefined,
+    })
+  )
+  const openingCheckout =
+    checkout.isPending || checkout.data?.status === "checkout"
+  const busy = openingCheckout || verify.isPending
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -87,6 +118,69 @@ function InvoiceDetail({
               Total{" "}
               {formatAccessAmount(invoice.totalAmount, invoice.currencyCode)}
             </p>
+            {invoice.status === "paid" ? (
+              <p className="text-sm" role="status">
+                Payment recorded.
+              </p>
+            ) : (
+              <>
+                {(returnedFromPaystack && !verify.data) ||
+                verify.data?.status === "pending" ? (
+                  <p className="text-sm text-muted-foreground" role="status">
+                    Payment confirmation is pending.
+                  </p>
+                ) : null}
+                {verify.data?.status === "failed" ? (
+                  <p className="text-sm text-muted-foreground" role="status">
+                    Paystack reported that the payment failed.
+                  </p>
+                ) : null}
+                {verify.data?.status === "unavailable" ? (
+                  <p className="text-sm text-muted-foreground" role="status">
+                    No Paystack checkout was found for this invoice.
+                  </p>
+                ) : null}
+                {checkout.error || verify.error ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {(checkout.error ?? verify.error)?.message}
+                  </p>
+                ) : null}
+                {invoice.paystackPaymentPending ||
+                invoice.paystackCheckoutEnabled ? (
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {invoice.paystackPaymentPending ? (
+                      <Button
+                        disabled={busy}
+                        onClick={() => {
+                          checkout.reset()
+                          verify.mutate({ invoiceId })
+                        }}
+                        type="button"
+                        variant="outline"
+                      >
+                        {verify.isPending ? "Checking…" : "Check payment"}
+                      </Button>
+                    ) : null}
+                    {invoice.paystackCheckoutEnabled ? (
+                      <Button
+                        disabled={busy}
+                        onClick={() => {
+                          verify.reset()
+                          checkout.mutate({ invoiceId })
+                        }}
+                        type="button"
+                      >
+                        {openingCheckout
+                          ? "Opening Paystack…"
+                          : invoice.paystackPaymentPending
+                            ? "Open Paystack"
+                            : "Pay with Paystack"}
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </>
+            )}
           </>
         ) : null}
       </DialogContent>
@@ -94,12 +188,16 @@ function InvoiceDetail({
   )
 }
 
-export function CooperativeInvoicesView() {
+export function CooperativeInvoicesView({
+  returnedInvoiceId,
+}: {
+  returnedInvoiceId?: string
+}) {
   const trpc = useTRPC()
   const invoices = useQuery(
     trpc.cooperativeMobileBilling.listInvoices.queryOptions()
   )
-  const [invoiceId, setInvoiceId] = useState<string>()
+  const [invoiceId, setInvoiceId] = useState(returnedInvoiceId)
 
   return (
     <section className="space-y-4">
@@ -132,6 +230,7 @@ export function CooperativeInvoicesView() {
       {invoiceId ? (
         <InvoiceDetail
           invoiceId={invoiceId}
+          returnedFromPaystack={invoiceId === returnedInvoiceId}
           onClose={() => setInvoiceId(undefined)}
         />
       ) : null}

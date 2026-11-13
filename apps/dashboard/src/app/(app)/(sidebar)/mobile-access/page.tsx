@@ -3,6 +3,7 @@ import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
+import { z } from "zod"
 import { DashboardPageShell, DashboardPageTitle } from "@/components/dashboard"
 import { AdminAccessView } from "@/components/mobile-access/admin-access-view"
 import { CooperativeInvoicesView } from "@/components/mobile-access/cooperative-invoices-view"
@@ -15,7 +16,11 @@ export const metadata: Metadata = {
   title: "Mobile access | Halaalvest",
 }
 
-export default async function MobileAccessPage() {
+export default async function MobileAccessPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ paystackInvoice?: string | string[] }>
+}) {
   const context = await getDashboardServerContext()
   const role = normalizeRole(context.auth.membership?.role ?? null)
   const canReview = role === "tenant_admin" || role === "super_admin"
@@ -40,6 +45,9 @@ export default async function MobileAccessPage() {
   if (canViewInvoices) {
     prefetch(trpc.cooperativeMobileBilling.listInvoices.queryOptions())
   }
+  const paystackInvoiceId = canViewInvoices
+    ? z.uuid().safeParse((await searchParams).paystackInvoice).data
+    : undefined
 
   return (
     <HydrateClient>
@@ -66,7 +74,9 @@ export default async function MobileAccessPage() {
         />
         {isMember ? <MemberAccessView /> : null}
         {canReview ? <AdminAccessView /> : null}
-        {canViewInvoices ? <CooperativeInvoicesView /> : null}
+        {canViewInvoices ? (
+          <CooperativeInvoicesView returnedInvoiceId={paystackInvoiceId} />
+        ) : null}
       </DashboardPageShell>
     </HydrateClient>
   )

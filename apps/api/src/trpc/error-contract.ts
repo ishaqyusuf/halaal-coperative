@@ -8,6 +8,7 @@ const APPROVED_PUBLIC_MESSAGE_PATTERNS = [
   /^That mobile workspace is not available(?: for this account)?\.$/,
 ]
 const APPROVED_UNAVAILABLE_MESSAGES = new Set([
+  "Online invoice payments are unavailable.",
   "Financing requests are unavailable.",
   "Financing request review is unavailable.",
   "Foodstuff Purchase applications are unavailable.",
@@ -32,6 +33,12 @@ const APPROVED_UNAVAILABLE_MESSAGES = new Set([
   "Workspace invitation is unavailable.",
 ])
 const APPROVED_WORKFLOW_MESSAGES = new Set([
+  "Use a regular finance session.",
+  "The invoice checkout return URL is unavailable.",
+  "Paystack could not complete this request. Please try again.",
+  "Paystack did not return a valid checkout link.",
+  "Paystack did not return a valid payment status.",
+  "Paystack returned a payment for a different checkout.",
   "Member verification is required before financial or operational actions can continue.",
   "Resolve all live provider blockers before purging QA data.",
   "Subscription administration access is required for this action.",

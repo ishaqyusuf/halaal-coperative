@@ -585,6 +585,20 @@ async function recordRemittance(
   override?: PrismaClient
 ) {
   const db = requireDb(override)
+  const summary = await claimRemittance(input, source, db)
+  // The daily billing job stays the retry path. Posting here keeps the ledger
+  // current after a payment without an hourly schedule waking the database.
+  if (summary.status === "paid" && !summary.remittancePostedAt) {
+    await postInvoiceAccounting(summary.id, db, new Date()).catch(() => false)
+  }
+  return summary
+}
+
+async function claimRemittance(
+  input: Remittance,
+  source: { actorUserId: string } | { paystack: VerifiedPaystackPayment },
+  db: PrismaClient
+) {
   const now = new Date()
   const reference = input.reference.trim()
   const paidAt = databaseDate(input.paidAt)

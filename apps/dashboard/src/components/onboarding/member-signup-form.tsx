@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, type ComponentProps } from "react"
 import { z } from "zod"
 import type { QaNotificationPreview } from "@halaalvest/notifications"
 import {
@@ -11,6 +11,7 @@ import { Button } from "@halaalvest/ui/components/button"
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -19,30 +20,53 @@ import {
 import { Input } from "@halaalvest/ui/components/input"
 import {
   InputGroup,
+  InputGroupAddon,
   InputGroupInput,
   InputGroupText,
 } from "@halaalvest/ui/components/input-group"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
-import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
 import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
+import { PasswordInput } from "@/components/password-input"
+import { PublicAuthNotice } from "@/components/public-auth-notice"
+import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
 import { objectToFormData } from "@/lib/form-submit"
 import { submitMemberOnboardingAction } from "@/lib/public-actions"
 
 const memberSignupSchema = z
   .object({
-    confirmPassword: z.string().min(8, "Confirm your password."),
-    email: z.string().email("Enter a valid email."),
-    fullName: z.string().min(1, "Full name is required."),
-    memberNumber: z.string().min(1, "Cooperative number is required."),
-    password: z.string().min(8, "Password must be at least 8 characters."),
-    phoneNumber: z.string().min(1, "Phone number is required."),
+    confirmPassword: z.string().min(1, "Type your password again."),
+    email: z.string().trim().email("Enter an email like name@example.com."),
+    fullName: z.string().trim().min(1, "Enter your full name."),
+    memberNumber: z.string().trim().min(1, "Enter your member number."),
+    password: z.string().min(8, "Use at least 8 characters."),
+    phoneNumber: z.string().trim().min(1, "Enter your phone number."),
   })
   .refine((values) => values.password === values.confirmPassword, {
-    message: "Passwords do not match.",
+    message: "The two passwords are different.",
     path: ["confirmPassword"],
   })
 
 type MemberSignupValues = z.infer<typeof memberSignupSchema>
+
+const labelClassName = "text-lg font-semibold"
+
+// FormControl puts the field id on its child, so the prefix group forwards
+// every prop to the real input to keep the label linked.
+function PrefixedInput({
+  prefix,
+  ...props
+}: ComponentProps<"input"> & { prefix: string }) {
+  return (
+    <InputGroup>
+      <InputGroupAddon>
+        <InputGroupText className="text-base font-semibold text-foreground">
+          {prefix}
+        </InputGroupText>
+      </InputGroupAddon>
+      <InputGroupInput {...props} />
+    </InputGroup>
+  )
+}
 
 export function MemberSignupForm({
   devMode = false,
@@ -65,11 +89,10 @@ export function MemberSignupForm({
       phoneNumber: "",
     },
   })
-  const { publishQaPreviews, showError, showSuccess } = useNotifications()
-  const [isSubmitted, setIsSubmitted] = useState(false)
+  const { publishQaPreviews, showError } = useNotifications()
+  const [submittedEmail, setSubmittedEmail] = useState<string | null>(null)
   const [qaPreview, setQaPreview] = useState<QaNotificationPreview | null>(null)
   const [isPending, startTransition] = useTransition()
-  const isLocked = isPending || isSubmitted
 
   function onSubmit(values: MemberSignupValues) {
     startTransition(async () => {
@@ -79,72 +102,72 @@ export function MemberSignupForm({
         )
         publishQaPreviews(result.qaPreviews)
         setQaPreview(result.qaPreviews.at(-1) ?? null)
-        showSuccess(
-          "Verification email sent",
-          `We sent a verification link to ${result.email}. Confirm it to enter the ${tenantName} approval queue.`
-        )
-        form.reset({
-          ...values,
-          confirmPassword: "",
-          password: "",
-        })
-        setIsSubmitted(true)
+        setSubmittedEmail(result.email)
       } catch (error) {
         showError(
-          "Could not submit signup",
-          error instanceof Error ? error.message : "Something went wrong."
+          "We could not create your account",
+          error instanceof Error ? error.message : "Please try again."
         )
       }
     })
   }
 
+  if (submittedEmail) {
+    return (
+      <div className="grid gap-6">
+        <PublicAuthNotice title="Check your email" tone="success">
+          We sent a link to <strong>{submittedEmail}</strong>. Open it to
+          confirm your email. Then {tenantName} will review your request.
+        </PublicAuthNotice>
+        {qaPreview ? <QaNotificationPreviewCard preview={qaPreview} /> : null}
+      </div>
+    )
+  }
+
   return (
     <Form {...form}>
-      <form
-        className="grid gap-4 md:grid-cols-2"
-        onSubmit={form.handleSubmit(onSubmit)}
-      >
-        <div className="md:col-span-2">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs text-muted-foreground">
-                {signupToken
-                  ? "Invited member onboarding"
-                  : "Member onboarding"}
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold text-foreground">
-                Start your membership signup
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Submit your personal details, verify your email, and wait for
-                cooperative approval before your dashboard access is activated.
-              </p>
-            </div>
-            {devMode ? (
-              <DashboardQuickFill
-                enabled={!isLocked}
-                form={form}
-                onFill={({ emailDomain }) =>
-                  applyDashboardDevFormFill(form, "member_signup", undefined, {
-                    emailDomain,
-                  })
-                }
-              />
-            ) : null}
+      <form className="grid gap-6" onSubmit={form.handleSubmit(onSubmit)}>
+        {devMode ? (
+          <div className="flex justify-end">
+            <DashboardQuickFill
+              enabled={!isPending}
+              form={form}
+              onFill={({ emailDomain }) =>
+                applyDashboardDevFormFill(form, "member_signup", undefined, {
+                  emailDomain,
+                })
+              }
+            />
           </div>
-        </div>
+        ) : null}
 
         <FormField
           control={form.control}
           name="fullName"
           render={({ field }) => (
-            <FormItem className="md:col-span-2">
-              <FormLabel>Full name</FormLabel>
+            <FormItem>
+              <FormLabel className={labelClassName}>Full name</FormLabel>
+              <FormControl>
+                <Input {...field} autoComplete="name" disabled={isPending} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="phoneNumber"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className={labelClassName}>Phone number</FormLabel>
               <FormControl>
                 <Input
                   {...field}
-                  disabled={isLocked}
-                  placeholder="Amina Yusuf"
+                  autoComplete="tel"
+                  disabled={isPending}
+                  inputMode="tel"
+                  type="tel"
                 />
               </FormControl>
               <FormMessage />
@@ -157,31 +180,15 @@ export function MemberSignupForm({
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel className={labelClassName}>Email</FormLabel>
               <FormControl>
                 <Input
                   {...field}
-                  disabled={isLocked}
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  disabled={isPending}
+                  inputMode="email"
                   type="email"
-                  placeholder="amina@example.com"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="phoneNumber"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Phone number</FormLabel>
-              <FormControl>
-                <Input
-                  {...field}
-                  disabled={isLocked}
-                  placeholder="+234 800 000 0000"
                 />
               </FormControl>
               <FormMessage />
@@ -194,21 +201,22 @@ export function MemberSignupForm({
           name="memberNumber"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>UID / cooperative number</FormLabel>
+              <FormLabel className={labelClassName}>Member number</FormLabel>
               <FormControl>
                 {memberNumberPrefix ? (
-                  <InputGroup>
-                    <InputGroupText>{memberNumberPrefix}</InputGroupText>
-                    <InputGroupInput
-                      {...field}
-                      disabled={isLocked}
-                      placeholder="1024"
-                    />
-                  </InputGroup>
+                  <PrefixedInput
+                    {...field}
+                    disabled={isPending}
+                    inputMode="numeric"
+                    prefix={memberNumberPrefix}
+                  />
                 ) : (
-                  <Input {...field} disabled={isLocked} placeholder="1024" />
+                  <Input {...field} disabled={isPending} />
                 )}
               </FormControl>
+              <FormDescription className="text-base">
+                From your passbook or member card.
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -219,15 +227,17 @@ export function MemberSignupForm({
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Password</FormLabel>
+              <FormLabel className={labelClassName}>Password</FormLabel>
               <FormControl>
-                <Input
+                <PasswordInput
                   {...field}
-                  disabled={isLocked}
-                  type="password"
-                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
+                  disabled={isPending}
                 />
               </FormControl>
+              <FormDescription className="text-base">
+                At least 8 characters.
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -237,14 +247,15 @@ export function MemberSignupForm({
           control={form.control}
           name="confirmPassword"
           render={({ field }) => (
-            <FormItem className="md:col-span-2">
-              <FormLabel>Confirm password</FormLabel>
+            <FormItem>
+              <FormLabel className={labelClassName}>
+                Type your password again
+              </FormLabel>
               <FormControl>
-                <Input
+                <PasswordInput
                   {...field}
-                  disabled={isLocked}
-                  type="password"
-                  placeholder="Repeat your password"
+                  autoComplete="new-password"
+                  disabled={isPending}
                 />
               </FormControl>
               <FormMessage />
@@ -252,22 +263,9 @@ export function MemberSignupForm({
           )}
         />
 
-        <div className="flex flex-wrap items-center gap-3 pt-2 md:col-span-2">
-          <Button disabled={isLocked} type="submit" size="lg">
-            {isSubmitted
-              ? "Verification email sent"
-              : "Create account and send verification"}
-          </Button>
-          <p className="text-sm text-muted-foreground">
-            Your dashboard access will remain pending until cooperative
-            approval.
-          </p>
-        </div>
-        {qaPreview ? (
-          <div className="md:col-span-2">
-            <QaNotificationPreviewCard preview={qaPreview} />
-          </div>
-        ) : null}
+        <Button className="w-full" disabled={isPending} size="lg" type="submit">
+          {isPending ? "Creating your account…" : "Create my account"}
+        </Button>
       </form>
     </Form>
   )

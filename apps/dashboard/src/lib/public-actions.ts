@@ -3,7 +3,7 @@
 import { headers } from "next/headers"
 import {
   createMemberOnboardingRequest,
-  getTenantInitialMigrationState,
+  getTenantMigrationWriteAccess,
   getPendingMemberOnboardingForUser,
   recordNotificationDeliveryAudit,
 } from "@halaalvest/db"
@@ -32,12 +32,14 @@ function getRequiredString(formData: FormData, key: string) {
 }
 
 const memberSignupLockedMessage =
-  "Member signup is locked until this cooperative finishes its one-time historical migration and goes live."
+  "Joining opens once the cooperative has finished getting ready. Please try again later."
 
+// One tenant row answers "is the cooperative live?"; the full migration state
+// (~17 queries) is not needed for this guard.
 async function requireMemberSignupOpen(tenantId: string) {
-  const migrationState = await getTenantInitialMigrationState(tenantId)
+  const writeAccess = await getTenantMigrationWriteAccess(tenantId)
 
-  if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+  if (!writeAccess.canUseLiveFinancialWrites) {
     throw new Error(memberSignupLockedMessage)
   }
 }

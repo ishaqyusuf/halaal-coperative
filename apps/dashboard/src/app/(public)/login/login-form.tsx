@@ -1,99 +1,73 @@
 "use client"
 
 import { useState } from "react"
-import { Button, buttonVariants } from "@halaalvest/ui/components/button"
+import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
-import { cn } from "@halaalvest/ui/lib/utils"
+import { PasswordInput } from "@/components/password-input"
+import { PublicAuthField } from "@/components/public-auth-forms"
 
 export function LoginForm({
   action,
-  memberSignupHref,
+  codeExample,
   nextPath,
   resetPasswordHref,
-  showMemberSignupCta,
 }: {
   action: string
-  memberSignupHref: string
+  codeExample: string | null
   nextPath: string
   resetPasswordHref: string
-  showMemberSignupCta: boolean
 }) {
-  const [email, setEmail] = useState("")
+  const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
 
   return (
     <form
       action={action}
-      className="mt-6 space-y-4"
+      className="grid gap-6"
       data-quick-fill-exempt="true"
       method="post"
     >
-      <input type="hidden" name="next" value={nextPath} />
-      <label
-        className="grid gap-1.5 text-sm font-medium text-foreground"
-        htmlFor="identifier"
-      >
-        Email or cooperative access code
+      <input name="next" type="hidden" value={nextPath} />
+      <PublicAuthField htmlFor="identifier" label="Email or member code">
         <Input
+          autoCapitalize="none"
+          autoComplete="username"
           id="identifier"
-          type="text"
           name="identifier"
-          placeholder="name@cooperative.com or AMN-0042"
+          onChange={(event) => setIdentifier(event.target.value)}
+          placeholder={codeExample ? `For example ${codeExample}` : undefined}
           required
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          className="h-10 bg-background text-sm md:text-sm"
+          spellCheck={false}
+          type="text"
+          value={identifier}
         />
-      </label>
+      </PublicAuthField>
 
-      <div className="grid gap-1.5">
-        <div className="flex items-center justify-between gap-3">
-          <label
-            className="text-sm font-medium text-foreground"
-            htmlFor="password"
-          >
-            Password
-          </label>
+      <PublicAuthField
+        action={
           <a
-            className="text-xs font-medium text-[#1f7a3d] underline-offset-4 hover:underline dark:text-[#71d98b]"
+            className="inline-flex min-h-11 items-center text-base font-semibold text-primary underline underline-offset-4"
             href={resetPasswordHref}
           >
-            Reset password
+            Forgot password?
           </a>
-        </div>
-        <Input
+        }
+        htmlFor="password"
+        label="Password"
+      >
+        <PasswordInput
+          autoComplete="current-password"
           id="password"
-          type="password"
           name="password"
-          placeholder="Enter your password"
+          onChange={(event) => setPassword(event.target.value)}
           required
           value={password}
-          onChange={(event) => {
-            setPassword(event.target.value)
-          }}
-          className="h-10 bg-background text-sm md:text-sm"
         />
-      </div>
+      </PublicAuthField>
 
-      <Button
-        type="submit"
-        size="lg"
-        className="h-10 w-full bg-[#1f7a3d] text-white hover:bg-[#176332] dark:bg-[#3fbf70] dark:text-[#071b2c] dark:hover:bg-[#71d98b]"
-      >
+      <Button className="w-full" size="lg" type="submit">
         Sign in
       </Button>
-
-      {showMemberSignupCta ? (
-        <a
-          className={cn(
-            buttonVariants({ size: "lg", variant: "outline" }),
-            "h-10 w-full border-[#1f7a3d]/35 text-[#1f7a3d] hover:bg-[#1f7a3d]/10 dark:border-[#71d98b]/45 dark:text-[#71d98b]"
-          )}
-          href={memberSignupHref}
-        >
-          Start member signup
-        </a>
-      ) : null}
     </form>
   )
 }

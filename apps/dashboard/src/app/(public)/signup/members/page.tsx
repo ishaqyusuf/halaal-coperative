@@ -1,13 +1,15 @@
 import { headers } from "next/headers"
-import { getTenantInitialMigrationState } from "@halaalvest/db"
 import { buildTenantHref } from "@halaalvest/tenant-url"
 import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
-import { buttonVariants } from "@halaalvest/ui/components/button"
-import { cn } from "@halaalvest/ui/lib/utils"
 import { MemberSignupForm } from "@/components/onboarding/member-signup-form"
+import {
+  PublicAuthNotice,
+  publicAuthLinkClassName,
+} from "@/components/public-auth-notice"
 import { PublicAuthShell } from "@/components/public-auth-shell"
 import { resolveMemberSignupGate } from "@/lib/member-signup-access"
 import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
+import { getRequestMigrationGateState } from "@/lib/setup-gate"
 import { tenantRedirect } from "@/utils/tenant-redirect"
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
 
@@ -38,95 +40,61 @@ export default async function MemberSignupPage({
     await tenantRedirect("/")
   }
 
-  const migrationState = context.tenant
-    ? await getTenantInitialMigrationState(context.tenant.id)
-    : null
-  const memberSignupOpen = Boolean(
-    migrationState?.snapshot.canUseLiveFinancialWrites,
-  )
+  const tenant = context.tenant
+  // One tenant row decides whether joining is open (not the full migration state).
+  const memberSignupOpen = tenant
+    ? (await getRequestMigrationGateState(tenant.id)).writeAccess
+        .canUseLiveFinancialWrites
+    : false
   const gate =
-    context.tenant && !context.auth.membership && memberSignupOpen
-      ? await resolveMemberSignupGate({
-          tenantId: context.tenant.id,
-          token: signupToken,
-        })
+    tenant && memberSignupOpen
+      ? await resolveMemberSignupGate({ tenantId: tenant.id, token: signupToken })
       : null
   const loginHref = buildTenantHref(tenantUrlContext, "/login", tenantUrlConfig)
+  const canJoin = Boolean(tenant && gate?.access === "granted")
 
   return (
     <PublicAuthShell
-      badge="Membership signup"
-      contentClassName="max-w-2xl"
-      description="Create your member account, verify your email, and wait for cooperative approval before dashboard access is activated."
-      title={`Join ${context.tenant?.name ?? "this cooperative"}`}
+      cooperativeName={tenant?.name}
+      description={
+        canJoin ? "Fill in your details. The office will check them." : undefined
+      }
+      footer={
+        <p>
+          Already a member?{" "}
+          <a className={publicAuthLinkClassName} href={loginHref}>
+            Sign in
+          </a>
+        </p>
+      }
+      title={tenant ? `Join ${tenant.name}` : "Join your cooperative"}
     >
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">
-            Membership signup
-          </p>
-          <h2 className="mt-2 text-2xl leading-tight font-semibold text-foreground">
-            Create your member account
-          </h2>
-        </div>
-        <a
-          className={cn(buttonVariants({ size: "sm", variant: "outline" }))}
-          href={loginHref}
+      {!tenant ? (
+        <PublicAuthNotice title="Use your cooperative's link">
+          Open the joining link your cooperative gave you.
+        </PublicAuthNotice>
+      ) : !memberSignupOpen ? (
+        <PublicAuthNotice title="Joining opens soon">
+          {tenant.name} is still getting ready. Please try again later.
+        </PublicAuthNotice>
+      ) : gate?.access === "denied" ? (
+        <PublicAuthNotice
+          title={
+            gate.type === "invalid_token"
+              ? "This link does not work"
+              : "Ask the office to join"
+          }
         >
-          Already have an account?
-        </a>
-      </div>
-
-      {context.tenant && gate?.access === "granted" ? (
-        <div className="mb-6 rounded-md border border-border/70 bg-muted/20 p-4">
-          <p className="text-xs text-muted-foreground">
-            {gate.mode === "link"
-              ? "Staff-issued signup link"
-              : "Signup access"}
-          </p>
-          <p className="mt-2 text-sm leading-6 text-foreground">
-            {gate.mode === "link"
-              ? `This signup link is active for ${gate.link?.name ?? "member onboarding"}${gate.link?.maxSignups ? ` and has ${Math.max(0, gate.link.maxSignups - gate.link.currentSignupCount)} slots remaining.` : "."}`
-              : "This cooperative currently allows public member signup."}
-          </p>
-          {gate.link?.expiresAt ? (
-            <p className="mt-2 text-xs text-muted-foreground">
-              Expires on {gate.link.expiresAt.toISOString().slice(0, 10)}.
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-
-      {gate?.access === "denied" ? (
-        <div className="mb-6 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <p className="font-medium">Signup is restricted</p>
-          <p className="mt-2 leading-6">{gate.message}</p>
-        </div>
-      ) : null}
-
-      {context.tenant && !memberSignupOpen ? (
-        <div className="mb-6 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <p className="font-medium">Signup is temporarily locked</p>
-          <p className="mt-2 leading-6">
-            This cooperative is still completing its one-time historical
-            migration. Member signup will reopen after the workspace goes live.
-          </p>
-        </div>
-      ) : null}
-
-      {context.tenant && memberSignupOpen && gate?.access === "granted" ? (
+          {gate.message}
+        </PublicAuthNotice>
+      ) : gate?.access === "granted" ? (
         <MemberSignupForm
           devMode={canShowQuickFill(context)}
-          memberNumberPrefix={context.tenant.memberNumberPrefix}
+          memberNumberPrefix={tenant.memberNumberPrefix}
           signupToken={gate.token}
-          tenantName={context.tenant.name}
+          tenantName={tenant.name}
         />
-      ) : (
-        <p className="text-sm leading-7 text-muted-foreground">
-          Ask the cooperative office for an in-office signup session or a fresh
-          staff-issued signup link if you need remote access.
-        </p>
-      )}
+      ) : null}
     </PublicAuthShell>
   )
 }

@@ -1,15 +1,41 @@
 "use client"
 
-import type { ComponentProps } from "react"
+import type { ComponentProps, ReactNode } from "react"
 import { useState } from "react"
 import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
+import { PasswordInput } from "@/components/password-input"
 import {
   getPasswordSetupCopy,
   type PasswordSetupPurpose,
 } from "@/lib/password-setup-copy"
 
 type FormAction = ComponentProps<"form">["action"]
+
+// Label above its control, both large enough to read and tap.
+export function PublicAuthField({
+  action,
+  children,
+  htmlFor,
+  label,
+}: {
+  action?: ReactNode
+  children: ReactNode
+  htmlFor: string
+  label: string
+}) {
+  return (
+    <div className="grid gap-2">
+      <div className="flex items-end justify-between gap-3">
+        <label className="text-lg font-semibold text-foreground" htmlFor={htmlFor}>
+          {label}
+        </label>
+        {action}
+      </div>
+      {children}
+    </div>
+  )
+}
 
 export function PasswordResetRequestForm({
   action,
@@ -23,45 +49,49 @@ export function PasswordResetRequestForm({
   return (
     <form
       action={action}
-      className="mt-6 space-y-4"
+      className="grid gap-6"
       data-quick-fill-exempt="true"
       method="post"
     >
       {existingAccountEmails.length > 0 ? (
         <div className="flex justify-end">
           <Button
+            onClick={() => setEmail(existingAccountEmails[0] ?? "")}
             size="sm"
             type="button"
             variant="outline"
-            onClick={() => setEmail(existingAccountEmails[0] ?? "")}
           >
             Quick fill
           </Button>
         </div>
       ) : null}
-      <label className="grid gap-2 text-sm text-foreground">
-        <span>Email</span>
+      <PublicAuthField htmlFor="reset-email" label="Email">
         <Input
-          type="email"
+          autoComplete="email"
+          id="reset-email"
+          inputMode="email"
+          list={
+            existingAccountEmails.length > 0
+              ? "password-reset-qa-accounts"
+              : undefined
+          }
           name="email"
-          placeholder="name@cooperative.com"
-          required
-          className="h-11"
-          list="password-reset-qa-accounts"
-          value={email}
           onChange={(event) => setEmail(event.target.value)}
+          required
+          type="email"
+          value={email}
         />
-        {existingAccountEmails.length > 0 ? (
-          <datalist id="password-reset-qa-accounts">
-            {existingAccountEmails.map((accountEmail) => (
-              <option key={accountEmail} value={accountEmail} />
-            ))}
-          </datalist>
-        ) : null}
-      </label>
+      </PublicAuthField>
+      {existingAccountEmails.length > 0 ? (
+        <datalist id="password-reset-qa-accounts">
+          {existingAccountEmails.map((accountEmail) => (
+            <option key={accountEmail} value={accountEmail} />
+          ))}
+        </datalist>
+      ) : null}
 
-      <Button type="submit" size="lg" className="w-full">
-        Send reset link
+      <Button className="w-full" size="lg" type="submit">
+        Send me a link
       </Button>
     </form>
   )
@@ -79,39 +109,31 @@ export function PasswordResetConfirmForm({
   const copy = getPasswordSetupCopy(purpose)
 
   return (
-    <form
-      action={action}
-      className="mt-6 space-y-4"
-      method="post"
-    >
-      <input type="hidden" name="token" value={token} />
-      <input type="hidden" name="purpose" value={purpose} />
+    <form action={action} className="grid gap-6" method="post">
+      <input name="token" type="hidden" value={token} />
+      <input name="purpose" type="hidden" value={purpose} />
 
-      <label className="grid gap-2 text-sm text-foreground">
-        <span>{copy.passwordLabel}</span>
-        <Input
-          type="password"
+      <PublicAuthField htmlFor="new-password" label={copy.passwordLabel}>
+        <PasswordInput
+          autoComplete="new-password"
+          id="new-password"
+          minLength={8}
           name="password"
-          placeholder={copy.passwordPlaceholder}
           required
-          minLength={8}
-          className="h-11"
         />
-      </label>
+      </PublicAuthField>
 
-      <label className="grid gap-2 text-sm text-foreground">
-        <span>Confirm password</span>
-        <Input
-          type="password"
+      <PublicAuthField htmlFor="confirm-password" label="Type it again">
+        <PasswordInput
+          autoComplete="new-password"
+          id="confirm-password"
+          minLength={8}
           name="confirmPassword"
-          placeholder={copy.confirmPlaceholder}
           required
-          minLength={8}
-          className="h-11"
         />
-      </label>
+      </PublicAuthField>
 
-      <Button type="submit" size="lg" className="w-full">
+      <Button className="w-full" size="lg" type="submit">
         Save password
       </Button>
     </form>
@@ -125,8 +147,8 @@ export function ResendMemberVerificationForm({
 }) {
   return (
     <form action={action} data-quick-fill-exempt="true">
-      <Button type="submit" size="lg">
-        Resend verification email
+      <Button className="w-full" size="lg" type="submit">
+        Send the email again
       </Button>
     </form>
   )

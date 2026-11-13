@@ -17,9 +17,7 @@ describe("password setup copy", () => {
     const copy = getPasswordSetupCopy("invite")
 
     for (const text of [
-      copy.badge,
-      copy.eyebrow,
-      copy.heading,
+      copy.passwordLabel,
       copy.title,
       copy.description,
       ...Object.values(copy.errors),
@@ -30,7 +28,7 @@ describe("password setup copy", () => {
   })
 
   test("reset copy keeps the reset wording", () => {
-    expect(getPasswordSetupCopy("reset").badge).toBe("Password reset")
+    expect(getPasswordSetupCopy("reset").title).toBe("Choose a new password")
     expect(getPasswordSetupCopy("reset").loginNotice).toBe("complete")
   })
 

@@ -4,12 +4,16 @@ import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { PublicAuthShell } from "@/components/public-auth-shell"
+import {
+  PublicAuthNotice,
+} from "@/components/public-auth-notice"
 import { PasswordResetConfirmForm } from "@/components/public-auth-forms"
 import {
   getPasswordSetupCopy,
   getPasswordSetupError,
   parsePasswordSetupPurpose,
 } from "@/lib/password-setup-copy"
+import { getDashboardServerContext } from "@/lib/server-context"
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
 
 export default async function PasswordResetConfirmPage({
@@ -24,6 +28,7 @@ export default async function PasswordResetConfirmPage({
     headers: headerStore,
   })
   const params = await searchParams
+  const context = await getDashboardServerContext()
   const token = typeof params.token === "string" ? params.token : ""
   const error = typeof params.error === "string" ? params.error : null
   const purpose = parsePasswordSetupPurpose(params.purpose)
@@ -41,42 +46,35 @@ export default async function PasswordResetConfirmPage({
 
   return (
     <PublicAuthShell
-      badge={copy.badge}
-      description={copy.description}
+      cooperativeName={context.tenant?.name}
+      description={token ? copy.description : undefined}
       title={copy.title}
     >
-      <div className="space-y-2 text-center">
-        <p className="text-sm font-medium text-muted-foreground">
-          {copy.eyebrow}
-        </p>
-        <h2 className="text-2xl leading-tight font-semibold text-foreground">
-          {copy.heading}
-        </h2>
+      <div className="grid gap-6">
+        {error || !token ? (
+          <PublicAuthNotice tone="error">
+            {getPasswordSetupError(purpose, error ?? "missing-token")}
+          </PublicAuthNotice>
+        ) : null}
+
+        {token ? (
+          <PasswordResetConfirmForm
+            action={confirmAction}
+            purpose={purpose}
+            token={token}
+          />
+        ) : (
+          <a
+            className={cn(
+              buttonVariants({ size: "lg", variant: "outline" }),
+              "w-full"
+            )}
+            href={requestHref}
+          >
+            Get a new link
+          </a>
+        )}
       </div>
-
-      {error ? (
-        <div className="mt-6 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm leading-6 text-destructive">
-          {getPasswordSetupError(purpose, error)}
-        </div>
-      ) : null}
-
-      {!token ? (
-        <a
-          className={cn(
-            buttonVariants({ size: "lg", variant: "outline" }),
-            "mt-6 w-full"
-          )}
-          href={requestHref}
-        >
-          Request a new link
-        </a>
-      ) : (
-        <PasswordResetConfirmForm
-          action={confirmAction}
-          purpose={purpose}
-          token={token}
-        />
-      )}
     </PublicAuthShell>
   )
 }

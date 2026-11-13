@@ -1,16 +1,17 @@
 import { headers } from "next/headers"
-import {
-  getTenantInitialMigrationState,
-  verifyMemberOnboardingRequest,
-} from "@halaalvest/db"
+import { verifyMemberOnboardingRequest } from "@halaalvest/db"
 import { buildTenantHref } from "@halaalvest/tenant-url"
 import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import { cn } from "@halaalvest/ui/lib/utils"
+import { PublicAuthNotice } from "@/components/public-auth-notice"
 import { PublicAuthShell } from "@/components/public-auth-shell"
 import { verifyMemberOnboardingVerificationToken } from "@/lib/member-onboarding-token"
 import { getDashboardServerContext } from "@/lib/server-context"
+import { getRequestMigrationGateState } from "@/lib/setup-gate"
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
+
+type VerifyOutcome = "closed" | "failed" | "no-tenant" | "verified"
 
 export default async function MemberSignupVerificationPage({
   searchParams,
@@ -25,82 +26,70 @@ export default async function MemberSignupVerificationPage({
   })
   const params = await searchParams
   const context = await getDashboardServerContext()
+  const tenant = context.tenant
   const token = typeof params.token === "string" ? params.token : null
   const loginHref = buildTenantHref(tenantUrlContext, "/login", tenantUrlConfig)
-  const signupHref = buildTenantHref(tenantUrlContext, "/signup/members", tenantUrlConfig)
+  let outcome: VerifyOutcome = "failed"
 
-  let title = "Verification required"
-  let description = "We could not verify this signup link."
-  let tone = "warning"
-
-  if (!context.tenant) {
-    title = "Missing cooperative host"
-    description = "Open this verification link on the cooperative host where the signup started."
-  } else if (!(await getTenantInitialMigrationState(context.tenant.id)).snapshot.canUseLiveFinancialWrites) {
-    title = "Signup is locked"
-    description =
-      "This cooperative is still completing its one-time historical migration. Member signup verification will reopen after the workspace goes live."
-  } else if (!token) {
-    description = "The verification link is missing a token."
-  } else {
+  if (!tenant) {
+    outcome = "no-tenant"
+  } else if (
+    !(await getRequestMigrationGateState(tenant.id)).writeAccess
+      .canUseLiveFinancialWrites
+  ) {
+    outcome = "closed"
+  } else if (token) {
+    // The emailed link is the confirmation: a signed, single-request token
+    // whose second visit is a no-op, so this one GET write is deliberate.
     try {
       const payload = verifyMemberOnboardingVerificationToken(token)
 
-      if (payload.tenantId !== context.tenant.id) {
-        throw new Error("This verification link belongs to a different cooperative host.")
+      if (payload.tenantId === tenant.id) {
+        await verifyMemberOnboardingRequest({
+          requestId: payload.requestId,
+          tenantId: payload.tenantId,
+        })
+        outcome = "verified"
       }
-
-      const request = await verifyMemberOnboardingRequest({
-        requestId: payload.requestId,
-        tenantId: payload.tenantId,
-      })
-
-      title = "Email verified"
-      description =
-        request.status === "pending_approval"
-          ? "Your email has been confirmed. Your signup is now waiting for final cooperative approval."
-          : "Your email has already been verified."
-      tone = "success"
-    } catch (error) {
-      title = "Verification failed"
-      description = error instanceof Error ? error.message : "The verification link could not be completed."
-      tone = "destructive"
+    } catch {
+      outcome = "failed"
     }
   }
 
+  const tenantName = tenant?.name ?? "Your cooperative"
+
   return (
     <PublicAuthShell
-      badge="Signup verification"
-      description="Confirm your email address before cooperative staff complete the membership approval."
-      title={title}
+      cooperativeName={tenant?.name}
+      title={outcome === "verified" ? "Email confirmed" : "This link did not work"}
     >
-      <div>
-        <p className="text-sm font-medium text-muted-foreground">
-          Signup verification
-        </p>
-        <h2 className="mt-2 text-2xl leading-tight font-semibold text-foreground">
-          {title}
-        </h2>
-        <p className="mt-4 text-sm leading-7 text-muted-foreground">
-          {description}
-        </p>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <a
-            className={cn(buttonVariants({ size: "lg" }), "flex-1")}
-            href={loginHref}
-          >
-            {tone === "success" ? "Go to login" : "Back to login"}
-          </a>
-          <a
-            className={cn(
-              buttonVariants({ size: "lg", variant: "outline" }),
-              "flex-1"
-            )}
-            href={signupHref}
-          >
-            Open signup
-          </a>
-        </div>
+      <div className="grid gap-6">
+        {outcome === "verified" ? (
+          <PublicAuthNotice tone="success">
+            {tenantName} will now review your request. We will email you when
+            you can sign in.
+          </PublicAuthNotice>
+        ) : outcome === "closed" ? (
+          <PublicAuthNotice title="Joining opens soon">
+            {tenantName} is still getting ready. Please try again later.
+          </PublicAuthNotice>
+        ) : outcome === "no-tenant" ? (
+          <PublicAuthNotice>
+            Open the link from your email on your cooperative&apos;s page.
+          </PublicAuthNotice>
+        ) : (
+          <PublicAuthNotice tone="error">
+            The link may be old or already used. Sign in and we will send you
+            a new one.
+          </PublicAuthNotice>
+        )}
+
+        <a
+          className={cn(buttonVariants({ size: "lg" }), "w-full")}
+          href={loginHref}
+        >
+          Go to sign in
+        </a>
       </div>
     </PublicAuthShell>
   )

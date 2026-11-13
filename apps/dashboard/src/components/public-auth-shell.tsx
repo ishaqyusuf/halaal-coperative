@@ -1,93 +1,96 @@
 import type { ReactNode } from "react"
-import { Badge } from "@halaalvest/ui/components/badge"
 import { HalaalvestLogo } from "@halaalvest/ui/components/brand-logo"
 import { cn } from "@halaalvest/ui/lib/utils"
+import { resolveDashboardPublicLegalOrigin } from "@/lib/public-legal-origin"
 
+// One plain column for every public sign-in and joining page: logo bar,
+// the cooperative's name, one heading, at most one short line, then the form.
 export function PublicAuthShell({
-  badge,
   children,
-  className,
-  contentClassName,
+  cooperativeName,
   description,
   footer,
-  panel,
+  headerAction,
   title,
+  width = "narrow",
 }: {
-  badge: string
   children: ReactNode
-  className?: string
-  contentClassName?: string
-  description: string
+  cooperativeName?: string | null
+  description?: ReactNode
   footer?: ReactNode
-  panel?: ReactNode
-  title: string
+  headerAction?: ReactNode
+  title: ReactNode
+  width?: "narrow" | "wide"
 }) {
   return (
-    <main className="relative flex min-h-svh bg-public-canvas text-foreground">
-      <nav className="pointer-events-none fixed inset-x-0 top-0 z-50 w-full">
-        <div className="flex items-center px-4 py-3 sm:px-6">
-          <div className="pointer-events-auto">
-            <HalaalvestLogo
-              markClassName="size-8"
-              wordmarkClassName="text-base tracking-normal"
-            />
-          </div>
+    <main className="flex min-h-svh flex-col bg-background text-foreground">
+      <header className="border-b border-border">
+        <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between gap-4 px-4 sm:px-6">
+          <HalaalvestLogo
+            markClassName="size-8"
+            wordmarkClassName="text-lg tracking-normal"
+          />
+          {headerAction}
         </div>
-      </nav>
+      </header>
 
-      <section className="hidden w-1/2 border-r border-border bg-background/45 p-8 lg:flex">
-        <div className="flex w-full flex-col justify-center">
-          <div className="max-w-md">
-            <Badge variant="outline">{badge}</Badge>
-            <h1 className="mt-4 text-3xl leading-tight font-semibold">
-              {title}
-            </h1>
-            <p className="mt-4 text-sm leading-6 text-muted-foreground">
-              {description}
+      <div className="flex flex-1 justify-center px-4 pt-8 pb-12 sm:px-6 sm:pt-14">
+        <div
+          className={cn("w-full", width === "wide" ? "max-w-xl" : "max-w-md")}
+        >
+          {cooperativeName ? (
+            <p className="text-base font-semibold text-primary">
+              {cooperativeName}
             </p>
-          </div>
-          {panel ? (
-            <div className="mt-8 border border-border bg-background/70 p-4 text-sm">
-              {panel}
+          ) : null}
+          <h1 className="mt-2 text-3xl text-balance sm:text-4xl">{title}</h1>
+          {description ? (
+            <div className="mt-3 text-lg leading-relaxed text-muted-foreground">
+              {description}
             </div>
           ) : null}
-        </div>
-      </section>
 
-      <section className="flex w-full flex-col justify-center px-4 py-20 sm:px-6 lg:w-1/2 lg:px-12">
-        <div className={cn("mx-auto w-full max-w-md", contentClassName)}>
-          <div className="mb-6 lg:hidden">
-            <div className="flex items-center justify-between gap-4">
-              <HalaalvestLogo
-                markClassName="size-8"
-                wordmarkClassName="text-base tracking-normal"
-              />
-              <Badge variant="outline">{badge}</Badge>
-            </div>
-            <h1 className="mt-6 text-2xl leading-tight font-semibold">
-              {title}
-            </h1>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              {description}
-            </p>
-          </div>
-
-          <div
-            className={cn(
-              "border border-border bg-background p-5 shadow-sm sm:p-6",
-              className
-            )}
-          >
-            {children}
-          </div>
+          <div className="mt-8">{children}</div>
 
           {footer ? (
-            <div className="mt-4 text-center text-xs leading-5 text-muted-foreground">
-              {footer}
-            </div>
+            <div className="mt-8 text-lg text-foreground">{footer}</div>
           ) : null}
+
+          <PublicLegalLinks />
         </div>
-      </section>
+      </div>
     </main>
+  )
+}
+
+function PublicLegalLinks() {
+  const origin = resolveDashboardPublicLegalOrigin(
+    process.env.DASHBOARD_PUBLIC_LEGAL_ORIGIN
+  )
+
+  if (!origin) {
+    return null
+  }
+
+  return (
+    <nav
+      aria-label="Legal and support"
+      className="mt-12 flex flex-wrap gap-x-6 border-t border-border pt-4 text-base text-muted-foreground"
+    >
+      {[
+        ["Terms", "/terms"],
+        ["Privacy", "/privacy"],
+        ["Delete account", "/delete-account"],
+        ["Support", "/support"],
+      ].map(([label, path]) => (
+        <a
+          className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-foreground"
+          href={`${origin}${path}`}
+          key={path}
+        >
+          {label}
+        </a>
+      ))}
+    </nav>
   )
 }

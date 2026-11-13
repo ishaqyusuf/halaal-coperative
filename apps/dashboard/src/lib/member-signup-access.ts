@@ -38,7 +38,7 @@ export async function resolveMemberSignupGate(input: {
       access: "denied",
       link: null,
       message:
-        "This cooperative has disabled member self-service signup. Contact the cooperative office for onboarding.",
+        "Joining online is closed. Please visit or call the cooperative office.",
       token: null,
       type: "disabled",
     }
@@ -49,7 +49,7 @@ export async function resolveMemberSignupGate(input: {
       const payload = verifyMemberSignupLinkToken(providedToken)
 
       if (payload.tenantId !== input.tenantId) {
-        throw new Error("This signup link belongs to a different cooperative.")
+        throw new Error("This link is for a different cooperative.")
       }
 
       const link = await getMemberSignupLinkAccess({
@@ -59,19 +59,19 @@ export async function resolveMemberSignupGate(input: {
       })
 
       if (!link) {
-        throw new Error("This signup link is no longer available.")
+        throw new Error("This link has been replaced or removed. Ask the office for a new one.")
       }
 
       if (!link.isEnabled) {
-        throw new Error("This signup link is currently disabled.")
+        throw new Error("This link is turned off. Ask the office for a new one.")
       }
 
       if (link.expiresAt && link.expiresAt.getTime() <= Date.now()) {
-        throw new Error("This signup link has expired.")
+        throw new Error("This link has expired. Ask the office for a new one.")
       }
 
       if (link.maxSignups !== null && link.currentSignupCount >= link.maxSignups) {
-        throw new Error("This signup link has reached its signup limit.")
+        throw new Error("This link is full. Ask the office for a new one.")
       }
 
       return {
@@ -84,7 +84,7 @@ export async function resolveMemberSignupGate(input: {
       return {
         access: "denied",
         link: null,
-        message: error instanceof Error ? error.message : "The signup link could not be used.",
+        message: error instanceof Error ? error.message : "This link does not work. Ask the office for a new one.",
         token: null,
         type: "invalid_token",
       }
@@ -105,7 +105,7 @@ export async function resolveMemberSignupGate(input: {
       access: "denied",
       link: null,
       message:
-        "Member signup is hidden on this cooperative host. Ask the cooperative office for a staff-issued signup link.",
+        "Ask the cooperative office for a joining link.",
       token: null,
       type: "hidden",
     }
@@ -115,7 +115,7 @@ export async function resolveMemberSignupGate(input: {
     access: "denied",
     link: null,
     message:
-      "This cooperative only allows member signup in-office or through a staff-issued signup link.",
+      "Ask the cooperative office for a joining link.",
     token: null,
     type: "in_office_only",
   }

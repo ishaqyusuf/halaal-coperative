@@ -4,6 +4,7 @@ import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { ResendMemberVerificationForm } from "@/components/public-auth-forms"
+import { PublicAuthNotice } from "@/components/public-auth-notice"
 import { PublicAuthShell } from "@/components/public-auth-shell"
 import { resendMemberVerificationAction } from "@/lib/public-actions"
 import { getDashboardServerContext } from "@/lib/server-context"
@@ -32,47 +33,59 @@ export default async function AwaitingApprovalPage() {
   if (!request) {
     return tenantRedirect("/login?error=invalid-account")
   }
-  const logoutHref = buildTenantHref(tenantUrlContext, "/auth/logout", tenantUrlConfig)
-  const title =
-    request.status === "pending_email_verification"
-      ? "Verify your email to continue"
-      : "Your membership is awaiting approval"
-  const description =
-    request.status === "pending_email_verification"
-      ? "We created your account, but you still need to confirm your email address before the cooperative can review your signup."
-      : "Your account is signed in successfully, but cooperative staff still need to review and approve your membership details before dashboard access is enabled."
+
+  const logoutHref = buildTenantHref(
+    tenantUrlContext,
+    "/auth/logout",
+    tenantUrlConfig
+  )
+  const needsEmail = request.status === "pending_email_verification"
+  const tenantName = context.tenant?.name ?? "The cooperative"
 
   return (
     <PublicAuthShell
-      badge="Membership status"
-      description={description}
-      title={title}
+      cooperativeName={context.tenant?.name}
+      title={needsEmail ? "Confirm your email" : "Waiting for approval"}
     >
-      <div>
-        <p className="text-sm font-medium text-muted-foreground">
-          Membership status
-        </p>
-        <h2 className="mt-2 text-2xl leading-tight font-semibold text-foreground">
-          {title}
-        </h2>
-        <p className="mt-4 text-sm leading-7 text-muted-foreground">
-          {description}
-        </p>
+      <div className="grid gap-6">
+        <PublicAuthNotice tone={needsEmail ? "info" : "success"}>
+          {needsEmail ? (
+            <>
+              Open the link we sent to <strong>{request.email}</strong>. Then{" "}
+              {tenantName} can review your request.
+            </>
+          ) : (
+            <>
+              {tenantName} is checking your details. We will email you when you
+              can sign in.
+            </>
+          )}
+        </PublicAuthNotice>
 
-        <div className="mt-8 grid gap-3 rounded-md border border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
-          <p><span className="font-medium text-foreground">Name:</span> {request.fullName}</p>
-          <p><span className="font-medium text-foreground">Email:</span> {request.email}</p>
-          <p><span className="font-medium text-foreground">Cooperative number:</span> {request.memberNumber}</p>
-        </div>
+        <dl className="grid gap-4 text-lg">
+          {[
+            ["Name", request.fullName],
+            ["Email", request.email],
+            ["Member number", request.memberNumber],
+          ].map(([label, value]) => (
+            <div className="grid gap-0.5" key={label}>
+              <dt className="text-base text-muted-foreground">{label}</dt>
+              <dd className="font-semibold break-words">{value}</dd>
+            </div>
+          ))}
+        </dl>
 
-        <div className="mt-8 flex flex-wrap gap-3">
-          {request.status === "pending_email_verification" ? (
+        <div className="grid gap-3">
+          {needsEmail ? (
             <ResendMemberVerificationForm
               action={resendMemberVerificationAction}
             />
           ) : null}
           <a
-            className={cn(buttonVariants({ size: "lg", variant: "outline" }))}
+            className={cn(
+              buttonVariants({ size: "lg", variant: "outline" }),
+              "w-full"
+            )}
             href={logoutHref}
           >
             Sign out

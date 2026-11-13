@@ -393,6 +393,7 @@ export function OnboardingForm({
                     token: form.getValues("token"),
                   },
                   {
+                    cooperativeName: verification.cooperativeName,
                     emailDomain: quickFill.emailDomain,
                   }
                 )

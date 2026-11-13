@@ -1,15 +1,15 @@
 "use client"
 
 import type { FieldValues, UseFormReturn } from "react-hook-form"
+import { cooperativeSizeRanges } from "@halaalvest/domain"
 import {
-  cooperativeCountryOptions,
-  cooperativeSizeRanges,
-} from "@halaalvest/domain"
-import {
+  createQaAddress,
   createQaCooperative,
   createQaDigits,
+  createQaLocation,
   createQaPerson,
   pickQaValue,
+  qaLocations,
 } from "@halaalvest/utils"
 import {
   earlyAccessLaunchTimelineOptions,
@@ -69,19 +69,37 @@ function createSignupDefaults(emailDomain: string) {
   }
 }
 
-function createOnboardingDefaults(emailDomain: string) {
+/**
+ * The office location that matches the cooperative's name ("Kano Barakah …"
+ * is in Kano); otherwise one location drives address, city and state.
+ */
+function locationForCooperative(cooperativeName?: string) {
+  const name = cooperativeName?.toLowerCase() ?? ""
+  return (
+    qaLocations.find((location) =>
+      name.startsWith(location.city.split(" ")[0]!.toLowerCase())
+    ) ?? createQaLocation()
+  )
+}
+
+function createOnboardingDefaults(
+  emailDomain: string,
+  cooperativeName?: string
+) {
   const signup = createSignupDefaults(emailDomain)
-  const cooperative = createQaCooperative({ emailDomain })
+  const location = locationForCooperative(
+    cooperativeName ?? signup.cooperativeName
+  )
 
   return {
     ...signup,
-    city: cooperative.city,
+    city: location.city,
     // QA cooperatives use Nigerian names, cities and phone numbers.
-    country: cooperativeCountryOptions[0],
+    country: "Nigeria",
     currentSize: String(pickQaValue(cooperativeSizeRanges).value),
-    officeAddress: cooperative.officeAddress,
+    officeAddress: createQaAddress(location),
     startDate: randomStartDate(),
-    state: cooperative.state,
+    state: location.state,
     token: "",
   }
 }
@@ -108,13 +126,14 @@ type DevFormValues = {
 
 export async function getDevFormDefaults<TKind extends DevFormKind>(
   kind: TKind,
-  options?: { emailDomain?: string }
+  options?: { cooperativeName?: string; emailDomain?: string }
 ): Promise<DevFormValues[TKind]> {
   const emailDomain = options?.emailDomain || "example.test"
   const builders: { [Kind in DevFormKind]: () => DevFormValues[Kind] } = {
     deletionRequest: () => createDeletionRequestDefaults(emailDomain),
     earlyAccess: () => createEarlyAccessDefaults(emailDomain),
-    onboarding: () => createOnboardingDefaults(emailDomain),
+    onboarding: () =>
+      createOnboardingDefaults(emailDomain, options?.cooperativeName),
     signup: () => createSignupDefaults(emailDomain),
   }
   return builders[kind]()
@@ -124,7 +143,7 @@ export async function applyDevFormFill<TFieldValues extends FieldValues>(
   form: Pick<UseFormReturn<TFieldValues>, "reset">,
   kind: DevFormKind,
   overrides?: Partial<TFieldValues>,
-  options?: { emailDomain?: string }
+  options?: { cooperativeName?: string; emailDomain?: string }
 ) {
   const defaults = await getDevFormDefaults(kind, options)
 

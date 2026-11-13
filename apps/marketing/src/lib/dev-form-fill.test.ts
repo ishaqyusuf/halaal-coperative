@@ -83,4 +83,25 @@ describe("marketing QA quick fill", () => {
     expect(values.email).toMatch(nameEmail)
     expect(values.workspaceSlug).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
   })
+
+  test("onboarding address, city, state and country agree (QA F18)", async () => {
+    for (let index = 0; index < 50; index += 1) {
+      const values = await getDevFormDefaults("onboarding", {
+        emailDomain: "ishaq.qa.test",
+      })
+      expect(values.country).toBe("Nigeria")
+      expect(values.officeAddress).toContain(
+        `${values.city}, ${values.state} State`
+      )
+    }
+  })
+
+  test("onboarding location follows the verified cooperative's town", async () => {
+    const values = await getDevFormDefaults("onboarding", {
+      cooperativeName: "Kano Barakah Traders Cooperative Society",
+      emailDomain: "ishaq.qa.test",
+    })
+    expect(values.state).toBe("Kano")
+    expect(values.officeAddress).toContain("Kano State")
+  })
 })

@@ -1,4 +1,5 @@
 import {
+  hasLiveMobileDeviceSession,
   listTenantRoleNotificationRecipients,
   recordNotificationDeliveryAudit,
   resolveMobilePushRecipient,
@@ -77,6 +78,15 @@ async function queueMobilePushForEmailDraft(input: {
           userEmail: input.draft.recipient.value,
         })
   if (!resolved || !isMobileNotificationRole(resolved.intendedRole)) return
+  // Without a live mobile session the push job could only record a
+  // suppression, so skip the background run (and its database connection).
+  if (
+    !(await hasLiveMobileDeviceSession({
+      tenantId: input.tenantId,
+      userId: resolved.userId,
+    }))
+  )
+    return
 
   const routing = getMobileNotificationRouting(
     input.draft.notificationType,

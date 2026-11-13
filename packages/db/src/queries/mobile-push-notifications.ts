@@ -55,6 +55,26 @@ export async function resolveMobilePushRecipient(
   return user && role ? { intendedRole: role, userId: user.id } : null
 }
 
+// Most notification recipients never sign in on mobile. Checking for a live
+// device session here (indexed by tenant, user and state) lets callers skip
+// queueing a background push job that could only record a suppression.
+export async function hasLiveMobileDeviceSession(
+  input: { tenantId: string; userId: string },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = requirePrisma("Mobile device session lookup", prismaOverride)
+  const session = await prisma.mobileDeviceSession.findFirst({
+    select: { id: true },
+    where: {
+      expiresAt: { gt: new Date() },
+      revokedAt: null,
+      tenantId: input.tenantId,
+      userId: input.userId,
+    },
+  })
+  return session !== null
+}
+
 function normalizeProviderToken(value: string) {
   const token = value.trim()
   if (!expoPushTokenPattern.test(token)) {

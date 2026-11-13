@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
   getMobileUserNotificationPreferences,
   hashMobilePushToken,
+  hasLiveMobileDeviceSession,
   listEligibleMobilePushRegistrations,
   registerMobilePushEndpoint,
   resolveMobilePushRecipient,
@@ -226,5 +227,41 @@ describe("mobile push notification governance", () => {
       email: { equals: "member@example.com", mode: "insensitive" },
       tenantId: "tenant-1",
     })
+  })
+})
+
+describe("hasLiveMobileDeviceSession", () => {
+  test("looks up only an unrevoked, unexpired session for the tenant user", async () => {
+    let where: Record<string, unknown> | undefined
+    const live = await hasLiveMobileDeviceSession(
+      { tenantId: "tenant-1", userId: "user-1" },
+      {
+        mobileDeviceSession: {
+          findFirst: async (input: { where: Record<string, unknown> }) => {
+            where = input.where
+            return { id: "session-1" }
+          },
+        },
+      } as never
+    )
+
+    expect(live).toBe(true)
+    expect(where).toMatchObject({
+      revokedAt: null,
+      tenantId: "tenant-1",
+      userId: "user-1",
+    })
+    expect(
+      (where?.expiresAt as { gt: Date }).gt.getTime()
+    ).toBeGreaterThan(Date.now() - 5_000)
+  })
+
+  test("reports false when the user never signed in on mobile", async () => {
+    const live = await hasLiveMobileDeviceSession(
+      { tenantId: "tenant-1", userId: "user-1" },
+      { mobileDeviceSession: { findFirst: async () => null } } as never
+    )
+
+    expect(live).toBe(false)
   })
 })

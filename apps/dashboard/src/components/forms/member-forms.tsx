@@ -12,6 +12,7 @@ import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -43,6 +44,10 @@ import { DatePickerInput } from "@/components/date-picker-input"
 import { UploadEvidenceInput } from "@/components/upload-evidence-input"
 import { objectToFormData } from "@/lib/form-submit"
 import type { MemberCollectionSourceOption } from "@/lib/members/load-members-page"
+import {
+  getMemberKycStatusHint,
+  getMemberKycStatusOptions,
+} from "@/lib/members/member-kyc-transitions"
 import {
   createMemberAction,
   createMemberDocumentAction,
@@ -192,13 +197,6 @@ const memberTypeOptions = [
   { label: "Individual", value: "individual" },
   { label: "Civil servant", value: "civil_servant" },
   { label: "Business", value: "business" },
-]
-
-const kycStatusOptions = [
-  { label: "Not started", value: "not_started" },
-  { label: "Pending", value: "pending" },
-  { label: "Verified", value: "verified" },
-  { label: "Rejected", value: "rejected" },
 ]
 
 const reviewStatusOptions = [
@@ -703,6 +701,8 @@ export function MemberKycForm({
   onSuccess?: () => void
 }) {
   const form = useZodForm<MemberKycValues>(memberKycSchema, { defaultValues })
+  const kycStatusOptions = getMemberKycStatusOptions(defaultValues.kycStatus)
+  const kycStatusHint = getMemberKycStatusHint(defaultValues.kycStatus)
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
 
@@ -733,8 +733,8 @@ export function MemberKycForm({
               KYC details
             </h3>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Identity fields now follow the same shared dashboard form
-              standard.
+              Record the member's identity document and move the review on
+              one step at a time.
             </p>
           </div>
           {devMode ? (
@@ -748,7 +748,7 @@ export function MemberKycForm({
           control={form.control}
           name="kycStatus"
           render={({ field }) => (
-            <FormItem>
+            <FormItem className="md:col-span-2">
               <FormLabel>KYC status</FormLabel>
               <FormControl>
                 <SelectFormInput
@@ -757,6 +757,7 @@ export function MemberKycForm({
                   placeholder="Select status"
                 />
               </FormControl>
+              <FormDescription>{kycStatusHint}</FormDescription>
               <FormMessage />
             </FormItem>
           )}

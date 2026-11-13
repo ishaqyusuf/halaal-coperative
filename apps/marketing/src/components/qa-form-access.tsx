@@ -64,7 +64,13 @@ export function QaFormAccess() {
   }
 
   return (
-    <aside className="fixed right-3 bottom-3 z-50 w-[min(22rem,calc(100vw-1.5rem))] border border-neutral-300 bg-white text-neutral-950 shadow-lg">
+    // Bottom-left keeps it clear of the right-aligned primary actions in
+    // the sign-up and onboarding footers; collapsed it stays compact.
+    <aside
+      className={`fixed bottom-3 left-16 z-50 border border-neutral-300 bg-white text-neutral-950 shadow-lg ${
+        expanded ? "w-[min(22rem,calc(100vw-5rem))]" : "w-auto max-w-[16rem]"
+      }`}
+    >
       <button
         className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
         onClick={() => setExpanded((value) => !value)}

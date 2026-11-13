@@ -10,7 +10,8 @@ export function normalizeDashboardRedirectPath(
     return "/"
   }
 
-  if (value.startsWith("//")) {
+  // "//host" and "/\host" both leave the origin in browsers.
+  if (value.startsWith("//") || value.startsWith("/\\")) {
     return "/"
   }
 

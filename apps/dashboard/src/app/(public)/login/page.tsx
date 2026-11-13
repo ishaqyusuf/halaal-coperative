@@ -209,7 +209,7 @@ export default async function LoginPage({
               ) : null}
             </div>
 
-            <QaAccessPanel />
+            <QaAccessPanel nextPath={nextPath} />
 
             <div className="border border-border bg-background p-5 shadow-sm sm:p-6">
               <div className="flex items-start justify-between gap-4">

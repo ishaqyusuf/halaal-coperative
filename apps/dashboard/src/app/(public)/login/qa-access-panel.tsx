@@ -23,7 +23,7 @@ type QaState = {
   } | null
 }
 
-export function QaAccessPanel() {
+export function QaAccessPanel({ nextPath = "/" }: { nextPath?: string }) {
   const [state, setState] = useState<QaState | null>(null)
   const [qaDomain, setQaDomain] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -65,7 +65,7 @@ export function QaAccessPanel() {
     setError(null)
     try {
       const response = await fetch("/auth/qa", {
-        body: JSON.stringify({ action: "enter", selectionRef }),
+        body: JSON.stringify({ action: "enter", next: nextPath, selectionRef }),
         headers: { "content-type": "application/json" },
         method: "POST",
       })

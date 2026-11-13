@@ -3,6 +3,7 @@ import { buildRequestContext } from "@halaalvest/api/context"
 import { appRouter } from "@halaalvest/api/router"
 import { createCallerFactory } from "@halaalvest/api/trpc"
 import { NextResponse, type NextRequest } from "next/server"
+import { normalizeDashboardRedirectPath } from "@/lib/auth-redirect"
 import { toQaAccessErrorResponse } from "@/lib/qa-access-errors"
 import {
   buildSessionCookieOptions,
@@ -54,6 +55,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as {
     action?: "authorize" | "clear" | "enter"
+    next?: string
     qaDomain?: string
     selectionRef?: string
   }
@@ -113,7 +115,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "invalid-client" }, { status: 409 })
       }
       const scope = resolveRequestSessionScope(request.headers.get("host"))
-      const response = NextResponse.json({ ok: true, redirectTo: "/" })
+      // Same rule as password sign-in: only a same-origin path survives.
+      const response = NextResponse.json({
+        ok: true,
+        redirectTo: normalizeDashboardRedirectPath(body.next),
+      })
       return setDashboardSessionCookies(response, {
         request,
         scope,

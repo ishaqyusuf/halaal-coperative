@@ -130,6 +130,18 @@ describe("dashboard proxy route guard", () => {
     )
   })
 
+  test("keeps the deep link's query in next so sign-in returns to it", async () => {
+    const response = await proxy(
+      createTenantDashboardRequest(localTenantHost, {
+        pathname: "/loans?loanSheetType=request",
+      })
+    )
+
+    expect(response.headers.get("location")).toBe(
+      `https://${localTenantHost}/login?next=%2Floans%3FloanSheetType%3Drequest`
+    )
+  })
+
   test("lets protected routes through with the tenant-scoped session cookie", async () => {
     const response = await proxy(
       createTenantDashboardRequest(localTenantHost, {

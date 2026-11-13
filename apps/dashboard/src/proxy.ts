@@ -162,7 +162,7 @@ export async function proxy(request: NextRequest) {
     const signInUrl = new URL(
       buildTenantHref(
         tenantUrlContext,
-        `/login?next=${encodeURIComponent(productPath)}`,
+        `/login?next=${encodeURIComponent(`${productPath}${request.nextUrl.search}`)}`,
         config
       ),
       request.url

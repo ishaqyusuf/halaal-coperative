@@ -150,29 +150,16 @@ export function MembersChecklistView({
               <ol className="divide-y divide-border/70 border border-border/70">
                 <ChecklistRow
                   actions={
-                    <>
-                      <Link
-                        className={cn(buttonVariants({}), actionClassName)}
-                        href={adminMemberHref}
-                      >
-                        {adminMember
-                          ? isBroughtForward
-                            ? "Add my balances"
-                            : "Add my history"
-                          : "Add your own member record"}
-                      </Link>
-                      {adminMember && adminMember.kycStatus !== "verified" ? (
-                        <Link
-                          className={cn(
-                            buttonVariants({ variant: "outline" }),
-                            actionClassName
-                          )}
-                          href={`/members/${encodeURIComponent(adminMember.id)}?memberDetailSheetType=kyc`}
-                        >
-                          Verify my KYC
-                        </Link>
-                      ) : null}
-                    </>
+                    <Link
+                      className={cn(buttonVariants({}), actionClassName)}
+                      href={adminMemberHref}
+                    >
+                      {adminMember
+                        ? isBroughtForward
+                          ? "Add my balances"
+                          : "Add my history"
+                        : "Add your own member record"}
+                    </Link>
                   }
                   index={1}
                   title="Your own record"
@@ -194,9 +181,18 @@ export function MembersChecklistView({
                         <span className="text-foreground">
                           {adminMember.kycStatus.replace(/_/g, " ")}
                         </span>
-                        {adminMember.kycStatus === "verified"
-                          ? null
-                          : ". Verify it before going live so you can borrow and guarantee."}
+                        {adminMember.kycStatus === "verified" ? null : (
+                          <>
+                            . Verify it before going live so you can borrow
+                            and guarantee.{" "}
+                            <Link
+                              className="text-primary underline-offset-4 hover:underline"
+                              href={`/members/${encodeURIComponent(adminMember.id)}?memberDetailSheetType=kyc`}
+                            >
+                              Verify my KYC
+                            </Link>
+                          </>
+                        )}
                       </span>
                     </>
                   ) : (

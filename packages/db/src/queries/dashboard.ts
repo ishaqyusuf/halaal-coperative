@@ -5,6 +5,11 @@ import {
   getDeployableFundsSnapshot,
   getMonthlyFinancingCycleHealth,
 } from "./financing-cycles"
+import {
+  buildContributionHealth,
+  type ContributionHealth,
+  getCommitmentCollection,
+} from "./contribution-health"
 import { getTenantOperationProfile } from "./operation-profile"
 
 const activeFinancingStatuses = ["disbursed", "active"] as const
@@ -46,14 +51,7 @@ export type OverviewSummary = {
     href: string
     severity: OverviewSummarySeverity
   }>
-  contributionHealth: {
-    expectedThisMonth: number
-    receivedThisMonth: number
-    collectionGap: number
-    paidMemberCount: number
-    unpaidMemberCount: number
-    periodLabel: string
-  }
+  contributionHealth: ContributionHealth
   financingRisk: {
     outstandingPrincipal: number
     overdueAmount: number
@@ -136,12 +134,14 @@ function getEmptyOverviewSummary(input: {
     },
     actionQueue: [],
     contributionHealth: {
+      basis: "active_commitments",
       expectedThisMonth: 0,
       receivedThisMonth: 0,
       collectionGap: 0,
       paidMemberCount: 0,
       unpaidMemberCount: 0,
       periodLabel: getFallbackPeriodLabel(),
+      state: "no_commitments",
     },
     financingRisk: {
       financingCycleWarningCount: 0,
@@ -452,36 +452,20 @@ export async function getOverviewSummary(
   ])
 
   const monthlyRows = currentMonthlyRecord?.memberRows ?? []
-  const expectedThisMonth =
-    monthlyRows.length > 0
-      ? monthlyRows.reduce(
-          (total, row) => total + Number(row.calculatedPayableAmount),
-          0
-        )
-      : metrics.totalContributions
-  const receivedThisMonth =
-    monthlyRows.length > 0
-      ? monthlyRows.reduce(
-          (total, row) => total + Number(row.totalPaidAmount),
-          0
-        )
-      : metrics.totalContributions
-  const paidMemberCount =
-    monthlyRows.length > 0
-      ? monthlyRows.filter(
-          (row) => row.status === "applied" && Number(row.totalPaidAmount) > 0
-        ).length
-      : metrics.activeMemberCount
-  const unpaidMemberCount =
-    monthlyRows.length > 0
-      ? monthlyRows.filter(
-          (row) =>
-            row.status !== "cancelled" && Number(row.totalPaidAmount) <= 0
-        ).length
-      : 0
+  // Without a monthly record, estimate from active commitments and this
+  // month's posted contributions instead of all-time totals (F22).
+  const contributionHealth = buildContributionHealth({
+    commitments:
+      monthlyRows.length > 0
+        ? null
+        : await getCommitmentCollection(tenantId, { month, year }, prisma),
+    monthlyRows,
+    periodLabel: currentMonthlyRecord?.periodLabel ?? getFallbackPeriodLabel(),
+  })
+  const { collectionGap, expectedThisMonth, receivedThisMonth } =
+    contributionHealth
   const collectionCoverage =
     expectedThisMonth > 0 ? receivedThisMonth / expectedThisMonth : 0
-  const collectionGap = Math.max(0, expectedThisMonth - receivedThisMonth)
   const overdueAmount = overdueScheduleItems.reduce(
     (total, item) => total + Number(item.totalDue),
     0
@@ -718,15 +702,7 @@ export async function getOverviewSummary(
       portfolioAtRiskRate,
     },
     actionQueue,
-    contributionHealth: {
-      collectionGap,
-      expectedThisMonth,
-      paidMemberCount,
-      periodLabel:
-        currentMonthlyRecord?.periodLabel ?? getFallbackPeriodLabel(),
-      receivedThisMonth,
-      unpaidMemberCount,
-    },
+    contributionHealth,
     financingRisk: {
       financingCycleWarningCount: financingCycleHealth.warnings.length,
       outstandingPrincipal: metrics.outstandingLoans,

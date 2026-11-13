@@ -216,22 +216,16 @@ export function OperationProfileSetupForm({
   return (
     <OnePathStep
       aside={
-        <div className="space-y-2">
-          <p>
-            This decides which menus your staff see and what members can request
-            in the app.
-          </p>
-          <p>
-            Request limits and cycles keep their current values. You can change
-            them later in Settings, under Operation Profile.
-          </p>
-        </div>
+        <p>
+          This decides which menus your staff see and what members can request
+          in the app. Change it later in Settings.
+        </p>
       }
       backHref={backHref}
-      lede={`Tell us which services ${tenantName} runs today. You can change this later.`}
+      lede={`Which services does ${tenantName} run today?`}
       primary={
         <Button
-          className="h-11 sm:h-10"
+          className="h-11"
           disabled={isPending}
           form={operationProfileSetupFormId}
           type="submit"
@@ -309,7 +303,7 @@ export function OperationProfileSetupForm({
                 operationProfile.services.food_purchase.accessMode
               )
             )}
-            question="Do you run Foodstuff Purchase?"
+            question="Do you run foodstuff purchase?"
           >
             {foodPurchaseOffered ? (
               <div className="pt-3">

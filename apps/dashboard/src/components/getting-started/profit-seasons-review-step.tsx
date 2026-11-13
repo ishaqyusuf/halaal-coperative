@@ -63,7 +63,6 @@ export function ProfitSeasonsReviewStep({
         </p>
       }
       backHref={backHref}
-      eyebrow="Step 8 · follow-on"
       lede={
         isBroughtForward
           ? "Check past profit that hasn't been shared with members yet."
@@ -72,17 +71,14 @@ export function ProfitSeasonsReviewStep({
       primary={
         hasSeasons ? (
           <Button
-            className="h-11 sm:h-10"
+            className="h-11"
             form={profitSeasonsReviewFormId}
             type="submit"
           >
             Confirm seasons
           </Button>
         ) : (
-          <Link
-            className={cn(buttonVariants(), "h-11 sm:h-10")}
-            href={redirectTo}
-          >
+          <Link className={cn(buttonVariants(), "h-11")} href={redirectTo}>
             Continue
           </Link>
         )

@@ -127,7 +127,7 @@ export function SharesChargesStep({
       }
       primary={
         <Button
-          className="h-11 sm:h-10"
+          className="h-11"
           disabled={isBusy}
           onClick={continueToNextStep}
           type="button"

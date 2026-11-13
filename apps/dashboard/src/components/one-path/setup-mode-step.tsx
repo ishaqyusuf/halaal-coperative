@@ -108,14 +108,14 @@ export function SetupModeStep({
     <OnePathStep
       aside={
         <p>
-          This decides how you enter what members already have. Starting from
-          today is quicker; rebuilding history lets statements show every month.
+          Starting from today is quicker. Rebuilding history lets statements
+          show every month. You can switch until you add your first member.
         </p>
       }
       lede="Choose how you'll enter the records your members already have."
       primary={
         <Button
-          className="h-11 sm:h-10"
+          className="h-11"
           disabled={isPending || needsStartDate}
           form={setupModeFormId}
           type="submit"
@@ -164,7 +164,7 @@ export function SetupModeStep({
               return (
                 <label
                   className={cn(
-                    "flex cursor-pointer flex-col gap-3 border p-4 transition-colors has-[[data-disabled]]:cursor-not-allowed",
+                    "flex cursor-pointer flex-col gap-3 rounded-xl border p-4 transition-colors has-[[data-disabled]]:cursor-not-allowed",
                     selected
                       ? "border-primary bg-primary/5"
                       : "border-border/70 bg-muted/20 hover:bg-muted/40"
@@ -185,10 +185,10 @@ export function SetupModeStep({
                       Recommended for you
                     </Badge>
                   ) : null}
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-base text-muted-foreground">
                     {card.description}
                   </span>
-                  <span className="text-sm">
+                  <span className="text-base">
                     <span className="font-medium">You&apos;ll need:</span>{" "}
                     {card.needs}
                   </span>
@@ -198,16 +198,16 @@ export function SetupModeStep({
           </RadioGroup>
 
           {recommended && recommendationReason ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-base text-muted-foreground">
               {formatSetupModeRecommendationReason(recommendationReason)}
             </p>
           ) : null}
 
-          <p className="border-l-2 border-primary/40 pl-3 text-sm text-muted-foreground">
-            {modeLocked
-              ? "Member records have been added, so this stays fixed and every statement is consistent."
-              : "You can switch until you add your first member. After that it stays fixed, so every statement is consistent."}
-          </p>
+          {modeLocked ? (
+            <p className="text-base text-muted-foreground">
+              Members are added, so this can no longer change.
+            </p>
+          ) : null}
         </form>
       </div>
     </OnePathStep>

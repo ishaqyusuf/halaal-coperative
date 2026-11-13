@@ -210,7 +210,7 @@ export function ProfitPolicyFields({
             <p
               aria-live="polite"
               className={cn(
-                "text-xs",
+                "text-sm",
                 split.isComplete
                   ? "text-muted-foreground"
                   : "font-medium text-destructive"
@@ -329,7 +329,7 @@ export function ProfitPolicyFields({
         {/* Basis and expense treatment have one option each, so they are
             stated as a fact; buildProfitPolicyPayload still sends both, and
             the current history mode in brought-forward setup. */}
-        <p className="border-l-2 border-primary/30 pl-3 text-sm text-muted-foreground">
+        <p className="text-base text-muted-foreground">
           {profitSharingBasisFact}
         </p>
       </section>

@@ -115,14 +115,14 @@ describe("workflow presentation ownership", () => {
     }
   })
 
-  test("opens the member signup link generator in a centered form dialog", () => {
+  test("opens every member signup link workflow in a centered dialog", () => {
     const source = readFileSync(
       new URL("../lib/workflow-presentations.ts", import.meta.url),
       "utf8"
     )
 
     expect(source).toContain(
-      'memberSignupLink: {\n    access: dialog("form"),\n    create: dialog("form"),\n    edit: sheet(),'
+      'memberSignupLink: {\n    access: dialog("compact"),\n    create: dialog("form"),\n    edit: dialog("form"),'
     )
   })
 })

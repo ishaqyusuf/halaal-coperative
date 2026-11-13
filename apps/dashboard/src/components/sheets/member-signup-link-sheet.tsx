@@ -1,15 +1,29 @@
 "use client"
 
 import { MemberSignupLinkContent } from "@/components/signup-links/member-signup-link-content"
+import { WorkflowPresentation } from "@/components/workflow-presentation"
+import { WorkflowPresentationHeader } from "@/components/workflow-presentation-header"
+import { useMemberSignupLinkParams } from "@/hooks/use-member-signup-link-params"
 import type {
   MemberSignupLinkView,
   SignupAccessMode,
 } from "@/lib/signup-links/member-signup-links"
-import { MemberSignupLinkSheetHeader } from "@/components/signup-links/member-signup-link-sheet-header"
-import { WorkflowPresentation } from "@/components/workflow-presentation"
-import { useMemberSignupLinkParams } from "@/hooks/use-member-signup-link-params"
 import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
+const headerCopy = {
+  access: {
+    description: "New members still need your approval.",
+    title: "Who can join online",
+  },
+  create: {
+    description: "Share it by message. New members still need your approval.",
+    title: "New joining link",
+  },
+  edit: { description: "Change the name, last day or limit.", title: "Edit link" },
+} as const
+
+// Access, create and edit are short forms for a secondary record, so all
+// three are dialogs (ADR-20261105 SL1–SL3).
 export function MemberSignupLinkSheet({
   defaultMode,
   links,
@@ -23,18 +37,6 @@ export function MemberSignupLinkSheet({
     signupLinkSheetType === "edit"
       ? (links.find((link) => link.id === signupLinkId) ?? null)
       : null
-  const title =
-    signupLinkSheetType === "access"
-      ? "Member signup gate"
-      : signupLinkSheetType === "create"
-        ? "Create a staff signup link"
-        : signupLinkSheetType === "edit"
-          ? "Edit signup link"
-          : "Signup links"
-  const description =
-    signupLinkSheetType === "create"
-      ? "Generate a controlled signup URL for remote applicants when public signup is closed."
-      : "Manage member signup access and staff-issued signup links from a focused workflow."
   const isOpen = Boolean(signupLinkSheetType)
   const presentation = getWorkflowPresentation(
     "memberSignupLink",
@@ -54,23 +56,19 @@ export function MemberSignupLinkSheet({
       open={isOpen}
       onOpenChange={(open) => !open && closeSheet()}
     >
-      {isOpen ? (
-        <>
-          <MemberSignupLinkSheetHeader
-            description={description}
-            presentation={
-              presentation.presentation === "sheet" ? "sheet" : "dialog"
-            }
-            title={title}
+      {signupLinkSheetType ? (
+        <div className="grid gap-6">
+          <WorkflowPresentationHeader
+            description={headerCopy[signupLinkSheetType].description}
+            presentation={presentation.presentation}
+            title={headerCopy[signupLinkSheetType].title}
           />
-          <div className="px-6 pb-6">
-            <MemberSignupLinkContent
-              defaultMode={defaultMode}
-              selectedLink={selectedLink}
-              signupLinkSheetType={signupLinkSheetType}
-            />
-          </div>
-        </>
+          <MemberSignupLinkContent
+            defaultMode={defaultMode}
+            selectedLink={selectedLink}
+            signupLinkSheetType={signupLinkSheetType}
+          />
+        </div>
       ) : null}
     </WorkflowPresentation>
   )

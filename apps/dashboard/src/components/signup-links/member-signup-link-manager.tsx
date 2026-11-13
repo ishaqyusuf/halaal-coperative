@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
+import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import { useNotifications } from "@halaalvest/notifications-react"
 import {
   AlertDialog,
@@ -12,17 +13,18 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@halaalvest/ui/components/alert-dialog"
 import { Button } from "@halaalvest/ui/components/button"
 import {
-  CopyIcon,
-  PencilIcon,
-  RefreshCwIcon,
-  Settings2Icon,
-} from "lucide-react"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@halaalvest/ui/components/dropdown-menu"
+import { CopyIcon, MoreHorizontalIcon, PencilIcon } from "lucide-react"
 import { TrendPill } from "@/components/dashboard"
 import { MemberSignupLinkSheet } from "@/components/sheets/member-signup-link-sheet"
+import { useCopySignupLink } from "@/components/signup-links/member-signup-link-content"
 import { useMemberSignupLinkParams } from "@/hooks/use-member-signup-link-params"
 import {
   rotateMemberSignupLinkAction,
@@ -34,17 +36,32 @@ import {
   type MemberSignupLinkView,
   type SignupAccessMode,
 } from "@/lib/signup-links/member-signup-links"
+import { formatDayMonthYear } from "@/utils/format"
+
+const rowButtonClassName = "h-11 md:h-10"
 
 function availabilityTone(link: MemberSignupLinkView) {
-  if (link.availability === "available") {
-    return "positive" as const
-  }
-
-  if (link.availability === "disabled") {
-    return "neutral" as const
-  }
-
+  if (link.availability === "available") return "positive" as const
+  if (link.availability === "disabled") return "neutral" as const
   return "warning" as const
+}
+
+function linkFacts(link: MemberSignupLinkView) {
+  const used = link.analytics.totalRequests
+  const facts = [`${used} ${used === 1 ? "person" : "people"} joined`]
+
+  facts.push(
+    link.analytics.remainingSlots === null
+      ? "No limit"
+      : `${link.analytics.remainingSlots} places left`
+  )
+  facts.push(
+    link.expiresAt
+      ? `Last day ${formatDayMonthYear(link.expiresAt)}`
+      : "No end date"
+  )
+
+  return facts.join(" · ")
 }
 
 function MemberSignupLinkRow({
@@ -55,10 +72,12 @@ function MemberSignupLinkRow({
   onEdit: () => void
 }) {
   const router = useRouter()
+  const copyLink = useCopySignupLink()
   const { showError, showSuccess } = useNotifications()
-  const [isRotateOpen, setIsRotateOpen] = useState(false)
-  const [isRotating, startRotateTransition] = useTransition()
+  const [isReplaceOpen, setIsReplaceOpen] = useState(false)
+  const [isReplacing, startReplaceTransition] = useTransition()
   const [isToggling, startToggleTransition] = useTransition()
+  const waiting = link.analytics.pendingApprovalCount
 
   function onToggle() {
     startToggleTransition(async () => {
@@ -68,180 +87,134 @@ function MemberSignupLinkRow({
         formData.set("linkId", link.id)
         await toggleMemberSignupLinkAction(formData)
         showSuccess(
-          link.isEnabled ? "Signup link disabled" : "Signup link enabled",
-          `${link.name} is now ${link.isEnabled ? "disabled" : "enabled"}.`
+          link.isEnabled ? "Link turned off" : "Link turned on",
+          link.isEnabled
+            ? `${link.name} no longer works.`
+            : `${link.name} works again.`
         )
-        setIsRotateOpen(false)
         router.refresh()
       } catch (error) {
         showError(
-          "Could not update signup link",
-          error instanceof Error ? error.message : "Something went wrong."
+          "Could not change the link",
+          error instanceof Error ? error.message : "Please try again."
         )
       }
     })
   }
 
-  function onRotate() {
-    startRotateTransition(async () => {
+  function onReplace() {
+    startReplaceTransition(async () => {
       try {
         const formData = new FormData()
         formData.set("linkId", link.id)
         await rotateMemberSignupLinkAction(formData)
-        showSuccess(
-          "Signup link regenerated",
-          "The previous token is now invalid. Copy the replacement link before sharing it."
-        )
+        showSuccess("New link ready", "Copy it and share it again.")
+        setIsReplaceOpen(false)
         router.refresh()
       } catch (error) {
         showError(
-          "Could not regenerate signup link",
-          error instanceof Error ? error.message : "Something went wrong."
+          "Could not replace the link",
+          error instanceof Error ? error.message : "Please try again."
         )
       }
     })
   }
 
-  async function onCopy() {
-    try {
-      await navigator.clipboard.writeText(link.signupUrl)
-      showSuccess(
-        "Signup link copied",
-        "The full signup URL is now in your clipboard."
-      )
-    } catch {
-      showError(
-        "Could not copy signup link",
-        "Open Edit link to copy the URL manually."
-      )
-    }
-  }
-
   return (
-    <article className="py-6" data-signup-link-row={link.id}>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(30rem,auto)] xl:items-start">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-semibold text-foreground">{link.name}</h3>
-            <TrendPill tone={availabilityTone(link)}>
-              {signupLinkAvailabilityLabels[link.availability]}
-            </TrendPill>
-          </div>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Created {link.createdAt}. {link.notes ?? "No internal note."}
-          </p>
-          <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
-            <div>
-              <dt className="text-xs text-muted-foreground">Last used</dt>
-              <dd className="mt-0.5 text-foreground">
-                {link.lastUsedAt ?? "Not used yet"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground">Expiry</dt>
-              <dd className="mt-0.5 text-foreground">
-                {link.expiresAt ?? "No expiry"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground">Capacity</dt>
-              <dd className="mt-0.5 text-foreground">
-                {link.maxSignups ?? "Unlimited"}
-              </dd>
-            </div>
-          </dl>
+    <article
+      className="grid gap-4 py-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
+      data-signup-link-row={link.id}
+    >
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <h3 className="text-lg font-semibold break-words text-foreground">
+            {link.name}
+          </h3>
+          <TrendPill tone={availabilityTone(link)}>
+            {signupLinkAvailabilityLabels[link.availability]}
+          </TrendPill>
         </div>
-
-        <dl className="grid grid-cols-2 border-y border-border/70 md:grid-cols-4">
-          {[
-            ["Signups", link.analytics.totalRequests],
-            ["Remaining", link.analytics.remainingSlots ?? "Unlimited"],
-            ["Verified", link.analytics.verifiedCount],
-            ["Approved", link.analytics.approvedCount],
-          ].map(([label, value]) => (
-            <div className="px-3 py-3 first:pl-0 md:first:pl-3" key={label}>
-              <dt className="text-xs font-medium text-muted-foreground">
-                {label}
-              </dt>
-              <dd className="mt-1 text-lg font-semibold text-foreground">
-                {value}
-              </dd>
-            </div>
-          ))}
-        </dl>
+        <p className="mt-1 text-muted-foreground">{linkFacts(link)}</p>
+        {waiting > 0 ? (
+          <Link
+            className="mt-1 inline-flex min-h-11 items-center font-semibold text-primary underline underline-offset-4 md:min-h-0"
+            href="/membership-approvals?status=pending_approval"
+          >
+            {waiting} waiting for your approval
+          </Link>
+        ) : null}
       </div>
 
-      <p className="mt-4 text-xs text-muted-foreground">
-        Pending approval: {link.analytics.pendingApprovalCount} · Rejected:{" "}
-        {link.analytics.rejectedCount}
-      </p>
-
-      <div className="mt-5 grid grid-cols-2 gap-2 md:flex md:flex-wrap">
+      <div className="grid grid-cols-[1fr_1fr_auto] gap-2 md:flex">
         <Button
-          className="h-11 w-full md:h-9 md:w-auto"
-          onClick={onEdit}
+          className={rowButtonClassName}
+          disabled={link.availability !== "available"}
+          onClick={() => void copyLink(link)}
           type="button"
-        >
-          <PencilIcon />
-          Edit link
-        </Button>
-        <Button
-          className="h-11 w-full md:h-9 md:w-auto"
-          onClick={onCopy}
-          type="button"
-          variant="outline"
         >
           <CopyIcon />
           Copy link
         </Button>
-        <AlertDialog open={isRotateOpen} onOpenChange={setIsRotateOpen}>
-          <AlertDialogTrigger
+        <Button
+          className={rowButtonClassName}
+          onClick={onEdit}
+          type="button"
+          variant="outline"
+        >
+          <PencilIcon />
+          Edit
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger
             render={
               <Button
-                className="h-11 w-full md:h-9 md:w-auto"
-                disabled={isRotating}
+                aria-label={`More for ${link.name}`}
+                className="size-11 md:size-10"
+                disabled={isToggling || isReplacing}
+                size="icon"
                 type="button"
                 variant="outline"
               />
             }
           >
-            <RefreshCwIcon />
-            Regenerate
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Regenerate {link.name}?</AlertDialogTitle>
-              <AlertDialogDescription>
-                The currently shared URL will stop working immediately. Anyone
-                who still needs to apply must receive the replacement link.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Keep current link</AlertDialogCancel>
-              <AlertDialogAction
-                disabled={isRotating}
-                onClick={onRotate}
-                variant="destructive"
-              >
-                {isRotating ? "Regenerating..." : "Regenerate link"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-        <Button
-          className="h-11 w-full md:h-9 md:w-auto"
-          disabled={isToggling}
-          onClick={onToggle}
-          type="button"
-          variant="outline"
-        >
-          {isToggling
-            ? "Updating..."
-            : link.isEnabled
-              ? "Disable link"
-              : "Enable link"}
-        </Button>
+            <MoreHorizontalIcon />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuItem className="min-h-11" onClick={onToggle}>
+              {link.isEnabled ? "Turn off" : "Turn on"}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="min-h-11"
+              onClick={() => setIsReplaceOpen(true)}
+              variant="destructive"
+            >
+              Replace with a new link
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
+
+      <AlertDialog onOpenChange={setIsReplaceOpen} open={isReplaceOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Replace {link.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The old link stops working now. Share the new link with anyone
+              who still needs to join.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep the old link</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isReplacing}
+              onClick={onReplace}
+              variant="destructive"
+            >
+              {isReplacing ? "Replacing…" : "Replace link"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </article>
   )
 }
@@ -263,16 +236,21 @@ export function MemberSignupLinkManager({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="grid gap-8">
       <section
-        className="grid gap-4 border-y border-border/70 py-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
+        aria-labelledby="signup-access-title"
+        className="grid gap-3 border-b border-border/70 pb-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
         id="signup-access-mode"
       >
         <div className="min-w-0">
-          <p className="font-medium text-foreground">Member signup gate</p>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Current access: {signupAccessModeLabels[defaultMode]}. New
-            applicants still require admin approval.
+          <p
+            className="text-base font-medium text-muted-foreground"
+            id="signup-access-title"
+          >
+            Who can join online
+          </p>
+          <p className="mt-1 text-lg font-semibold text-foreground">
+            {signupAccessModeLabels[defaultMode]}
           </p>
         </div>
         <Button
@@ -281,39 +259,17 @@ export function MemberSignupLinkManager({
           type="button"
           variant="outline"
         >
-          <Settings2Icon />
-          Edit access mode
+          Change
         </Button>
       </section>
 
-      <section
-        aria-labelledby="staff-signup-links-title"
-        id="create-signup-link"
-      >
-        <div className="flex flex-col gap-3 pb-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h3
-              className="text-base font-semibold text-foreground"
-              id="staff-signup-links-title"
-            >
-              Staff signup links
-            </h3>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Each URL can have its own expiry and signup capacity. Regenerating
-              a token immediately invalidates the previously shared URL.
-            </p>
-          </div>
-          <Button
-            className="h-11 w-full md:h-10 md:w-auto"
-            onClick={() => openSheet("create")}
-            type="button"
-          >
-            Generate signup link
-          </Button>
-        </div>
+      <section aria-labelledby="signup-links-title" id="create-signup-link">
+        <h2 className="text-lg font-semibold" id="signup-links-title">
+          Links
+        </h2>
 
         {links.length > 0 ? (
-          <div className="divide-y divide-border/70 border-y border-border/70">
+          <div className="mt-2 divide-y divide-border/70 border-y border-border/70">
             {links.map((link) => (
               <MemberSignupLinkRow
                 key={link.id}
@@ -323,9 +279,17 @@ export function MemberSignupLinkManager({
             ))}
           </div>
         ) : (
-          <div className="border-y border-dashed border-border/70 py-8 text-sm leading-6 text-muted-foreground">
-            No signup links yet. Generate one when you need controlled remote
-            member signup.
+          <div className="mt-2 grid justify-items-start gap-4 border-y border-dashed border-border/70 py-8">
+            <p className="text-lg text-muted-foreground">
+              No links yet. Make one to let people join from their phone.
+            </p>
+            <Button
+              className="h-11 w-full md:h-10 md:w-auto"
+              onClick={() => openSheet("create")}
+              type="button"
+            >
+              Make a link
+            </Button>
           </div>
         )}
       </section>

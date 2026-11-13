@@ -25,12 +25,6 @@ export default async function MemberSignupLinksPage({
   }
 
   return (
-    <MemberSignupLinksView
-      availableLinks={state.availableLinks}
-      defaultMode={state.defaultMode}
-      links={state.links}
-      totalApproved={state.totalApproved}
-      totalSignups={state.totalSignups}
-    />
+    <MemberSignupLinksView defaultMode={state.defaultMode} links={state.links} />
   )
 }

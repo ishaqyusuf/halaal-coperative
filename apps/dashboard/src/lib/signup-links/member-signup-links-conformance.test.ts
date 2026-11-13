@@ -37,7 +37,7 @@ describe("member signup links Midday conformance", () => {
     )
     expect(loader).toContain("createMemberSignupLinkToken")
     expect(loader).toContain("buildTenantDashboardUrl")
-    expect(loader).toContain('availability === "available"')
+    expect(loader).toContain("getSignupLinkAvailability")
   })
 
   test("derives availability from every enforceable link blocker", () => {
@@ -104,17 +104,19 @@ describe("member signup links Midday conformance", () => {
     )
 
     expect(view).toContain("<MemberSignupLinksHeaderActions />")
-    expect(view).toContain('className="hidden gap-4 md:grid md:grid-cols-4"')
+    // No stat cards: the page is the access choice and the list of links.
+    expect(view).not.toContain("DashboardStatCard")
     expect(view).not.toContain("DashboardSectionCard")
     expect(manager).toContain("data-signup-link-row")
     expect(manager).toContain("divide-y divide-border/70 border-y")
     expect(manager).toContain('className="h-11 w-full md:h-10 md:w-auto"')
     expect(manager).toContain("router.refresh()")
-    expect(manager).toContain("Regenerate {link.name}?")
-    expect(manager).toContain("currently shared URL will stop working")
+    // Replacing a link is destructive, so it is a real AlertDialog.
+    expect(manager).toContain("<AlertDialogAction")
+    expect(manager).toContain("Replace {link.name}?")
+    expect(manager).toContain("The old link stops working now")
     expect(manager).not.toContain("rounded-lg border border-border/70")
-    expect(actions).toContain('aria-label="Create signup link"')
-    expect(actions).toContain("sr-only md:not-sr-only")
+    expect(actions).toContain("New link")
   })
 
   test("owns focused workflows in the URL and closes after success", () => {
@@ -131,7 +133,9 @@ describe("member signup links Midday conformance", () => {
     expect(content).toContain("await setParams")
     expect(content).toContain("router.refresh()")
     expect(content).toContain("await onSuccess()")
-    expect(content).toContain('className="h-11 w-full md:h-9 md:w-auto"')
+    expect(content).toContain('"h-11 w-full md:h-9 md:w-auto"')
     expect(content).not.toContain("rounded-lg border border-border/70")
+    // Every FormLabel sits inside a FormField (the old read-only URL label crashed Edit).
+    expect(content).toContain('htmlFor="signup-link-url"')
   })
 })

@@ -21,12 +21,9 @@ type MemberSignupLinksUnavailableState = {
 }
 
 type MemberSignupLinksReadyState = {
-  availableLinks: number
   defaultMode: SignupAccessMode
   links: MemberSignupLinkView[]
   status: "ready"
-  totalApproved: number
-  totalSignups: number
 }
 
 export type MemberSignupLinksPageState =
@@ -38,26 +35,26 @@ export async function loadMemberSignupLinksPage(): Promise<MemberSignupLinksPage
 
   if (!context.tenant) {
     return {
-      body: "Open a cooperative workspace before managing member signup access.",
+      body: "Open your cooperative's workspace to manage joining links.",
       status: "unavailable",
-      title: "Choose a cooperative workspace first.",
+      title: "No cooperative open",
     }
   }
   const tenant = context.tenant
 
   if (!hasAnyRole(context.auth.membership?.role, memberManagementRoles)) {
     return {
-      body: "Cooperative admins and operations officers can manage member signup access and issue staff links.",
+      body: "Ask a cooperative admin to give you member access.",
       status: "unavailable",
-      title: "Signup link management is limited to member-management roles.",
+      title: "You cannot manage joining links",
     }
   }
 
   if (createDbRuntime().status !== "database-configured") {
     return {
-      body: "Once the database runtime is configured, you can manage signup access, link expiry, and link analytics here.",
+      body: "Joining links are not available right now. Try again later.",
       status: "unavailable",
-      title: "Member signup links need the database runtime.",
+      title: "Links are not available",
     }
   }
 
@@ -101,18 +98,8 @@ export async function loadMemberSignupLinksPage(): Promise<MemberSignupLinksPage
   })
 
   return {
-    availableLinks: links.filter((link) => link.availability === "available")
-      .length,
     defaultMode: settings.memberSignupAccessMode,
     links,
     status: "ready",
-    totalApproved: links.reduce(
-      (sum, link) => sum + link.analytics.approvedCount,
-      0
-    ),
-    totalSignups: links.reduce(
-      (sum, link) => sum + link.analytics.totalRequests,
-      0
-    ),
   }
 }

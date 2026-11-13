@@ -28,22 +28,59 @@ export type MemberSignupLinkView = {
   signupUrl: string
 }
 
+export const memberSignupLinksPageCopy = {
+  description: "Share a link so new members can join from their phone.",
+  eyebrow: "Membership",
+  title: "Member signup links",
+} as const
+
 export const signupAccessModeLabels: Record<SignupAccessMode, string> = {
-  disabled: "Disabled",
-  hidden: "Hidden, links only",
-  in_office: "In-office only",
-  public: "Public signup",
+  disabled: "No one. Joining online is off.",
+  hidden: "Only people with a link",
+  in_office: "Only people with a link",
+  public: "Anyone can join",
+}
+
+/**
+ * The three choices staff see. `hidden` behaves like `in_office` for
+ * applicants (no direct joining, links work), so it is shown and saved as
+ * "Only people with a link".
+ */
+export const signupAccessModeChoices = [
+  {
+    description: "People join with a link you share.",
+    label: "Only people with a link",
+    value: "in_office",
+  },
+  {
+    description: "Anyone who opens your cooperative's page can join.",
+    label: "Anyone",
+    value: "public",
+  },
+  {
+    description: "Joining online is off. Links stop working.",
+    label: "No one",
+    value: "disabled",
+  },
+] as const satisfies readonly {
+  description: string
+  label: string
+  value: SignupAccessMode
+}[]
+
+export function toSignupAccessChoice(mode: SignupAccessMode) {
+  return mode === "hidden" ? "in_office" : mode
 }
 
 export const signupLinkAvailabilityLabels: Record<
   SignupLinkAvailability,
   string
 > = {
-  available: "Available",
-  blocked_by_gate: "Blocked by signup gate",
-  disabled: "Disabled",
-  expired: "Expired",
-  full: "Capacity reached",
+  available: "Working",
+  blocked_by_gate: "Off: joining is closed",
+  disabled: "Turned off",
+  expired: "Ended",
+  full: "Full",
 }
 
 export function getSignupLinkAvailability(input: {

@@ -6,7 +6,7 @@ import {
   platformSessionScope,
 } from "@halaalvest/auth"
 
-import { buildRequestContext } from "./context"
+import { buildRequestContext, getRequestOrigin } from "./context"
 
 const barakahHost = "barakah.halaalvest-dash.localhost"
 const barakahScope = "barakah"
@@ -379,5 +379,42 @@ describe("buildRequestContext mobile bearer sessions", () => {
     )
     expect(context.auth.session?.token).toBe(token)
     expect(context.request.mobileAuthenticated).toBe(true)
+  })
+})
+
+describe("getRequestOrigin", () => {
+  test("uses the forwarded scheme and host the proxy received", () => {
+    expect(
+      getRequestOrigin(
+        new Headers({
+          host: "localhost:1441",
+          "x-forwarded-host": "amana.halaalvest-dash.localhost",
+          "x-forwarded-proto": "https",
+        })
+      )
+    ).toBe("https://amana.halaalvest-dash.localhost")
+  })
+
+  test("keeps the first value of a forwarded chain", () => {
+    expect(
+      getRequestOrigin(
+        new Headers({
+          host: "internal:3000",
+          "x-forwarded-host": "coop.example.com, internal:3000",
+          "x-forwarded-proto": "https, http",
+        })
+      )
+    ).toBe("https://coop.example.com")
+  })
+
+  test("returns null without a trusted scheme", () => {
+    expect(getRequestOrigin(new Headers({ host: "localhost:1441" }))).toBe(
+      null
+    )
+    expect(
+      getRequestOrigin(
+        new Headers({ host: "localhost:1441", "x-forwarded-proto": "ftp" })
+      )
+    ).toBe(null)
   })
 })

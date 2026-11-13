@@ -495,6 +495,21 @@ async function requireDashboardActor(allowedRoles: MembershipRole[]) {
   }
 }
 
+/**
+ * A dashboard link for an email, built from the origin the acting user is on
+ * so it keeps their scheme and port (HTTPS behind Portless or Vercel) instead
+ * of the bare `http://` fallback.
+ */
+function buildActorDashboardUrl(
+  tenantSlug: string,
+  options: { pathname: string }
+) {
+  return buildTenantDashboardUrl(tenantSlug, {
+    currentOrigin: dashboardActionState.getStore()?.context.request.origin,
+    pathname: options.pathname,
+  })
+}
+
 async function requireActorMember(
   actor: Awaited<ReturnType<typeof requireDashboardActor>>
 ) {
@@ -1533,7 +1548,7 @@ export async function sendMemberPortalAccessEmailAction(formData: FormData) {
     tenantId: actor.tenant.id,
   })
   const setup = createPasswordSetupToken(access.user)
-  const setupUrl = buildTenantDashboardUrl(actor.tenant.slug, {
+  const setupUrl = buildActorDashboardUrl(actor.tenant.slug, {
     pathname: `/login/reset/confirm?token=${encodeURIComponent(setup.token)}`,
   })
   const bodyText = [
@@ -1588,7 +1603,7 @@ export async function approveMemberOnboardingAction(formData: FormData) {
   })
 
   const approvalDraft = createEmailDraftFromType("member.onboarding_approved", {
-    actionUrl: buildTenantDashboardUrl(actor.tenant.slug, { pathname: "/" }),
+    actionUrl: buildActorDashboardUrl(actor.tenant.slug, { pathname: "/" }),
     memberId: approved.member.id,
     recipientEmail: approved.user.email,
     recipientName: approved.user.fullName,
@@ -1625,7 +1640,7 @@ export async function rejectMemberOnboardingAction(formData: FormData) {
   const rejectionDraft = createEmailDraftFromType(
     "member.onboarding_rejected",
     {
-      actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
+      actionUrl: buildActorDashboardUrl(actor.tenant.slug, {
         pathname: "/login",
       }),
       reason: rejected.request.rejectionReason
@@ -3773,7 +3788,7 @@ export async function submitLoanRequestAction(formData: FormData) {
       "loan.guarantor_approval_requested",
       {
         actionLabel: "Review request",
-        actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
+        actionUrl: buildActorDashboardUrl(actor.tenant.slug, {
           pathname: "/guarantor-approvals",
         }),
         amount: requestedAmount,
@@ -4333,7 +4348,7 @@ function supportMemberEmailPayload(
   }
 
   return {
-    actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
+    actionUrl: buildActorDashboardUrl(actor.tenant.slug, {
       pathname: "/support",
     }),
     linkedRecordType: supportCase.linkedRecordType,
@@ -4448,7 +4463,7 @@ async function sendPaymentReceiptStatusMemberEmail(
   const draft = createEmailDraftFromType(
     "member_payment_receipt.status_changed",
     {
-      actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
+      actionUrl: buildActorDashboardUrl(actor.tenant.slug, {
         pathname: "/payment-receipts",
       }),
       amount: receipt.totalAmount,
@@ -4483,7 +4498,7 @@ async function sendMemberShareApplicationStatusEmail(
   const draft = createEmailDraftFromType(
     "member_share_application.status_changed",
     {
-      actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
+      actionUrl: buildActorDashboardUrl(actor.tenant.slug, {
         pathname: "/shares",
       }),
       approvedUnits: application.approvedUnits,
@@ -4519,7 +4534,7 @@ async function sendLoanRequestStatusMemberEmail(
   }
 
   const draft = createEmailDraftFromType("loan.request_status_changed", {
-    actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
+    actionUrl: buildActorDashboardUrl(actor.tenant.slug, {
       pathname: "/loans",
     }),
     amount: Number(request.requestedAmount),
@@ -4552,7 +4567,7 @@ async function sendProjectFinancingRequestStatusMemberEmail(
   const draft = createEmailDraftFromType(
     "project_financing.request_status_changed",
     {
-      actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
+      actionUrl: buildActorDashboardUrl(actor.tenant.slug, {
         pathname: "/project-financing",
       }),
       amount: request.approvedAmount ?? request.requestedAmount,
@@ -4586,7 +4601,7 @@ async function sendProcurementRequestStatusMemberEmail(
   }
 
   const draft = createEmailDraftFromType("procurement.request_status_changed", {
-    actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
+    actionUrl: buildActorDashboardUrl(actor.tenant.slug, {
       pathname: "/procurement",
     }),
     amount: request.approvedCost ?? request.requestedCost,
@@ -4626,7 +4641,7 @@ async function sendFoodPurchaseApplicationStatusMemberEmail(
   const draft = createEmailDraftFromType(
     "food_purchase.application_status_changed",
     {
-      actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
+      actionUrl: buildActorDashboardUrl(actor.tenant.slug, {
         pathname: "/food-purchase",
       }),
       amount: application.approvedAmount ?? application.requestedAmount,
@@ -4673,7 +4688,7 @@ async function sendFoodPurchaseAccountingStatusCommitteeEmail(
   const draft = createEmailDraftFromType(
     "food_purchase.accounting_status_changed",
     {
-      actionUrl: buildTenantDashboardUrl(actor.tenant.slug, {
+      actionUrl: buildActorDashboardUrl(actor.tenant.slug, {
         pathname: "/food-purchase",
       }),
       cycleId: cycle.id,

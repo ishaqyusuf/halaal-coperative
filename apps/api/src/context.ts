@@ -41,6 +41,31 @@ function getNetworkSignal(headers: Headers) {
   )
 }
 
+function firstForwardedValue(value: string | null) {
+  return value?.split(",")[0]?.trim() || null
+}
+
+/**
+ * The public origin the caller reached, honouring the proxy's forwarded
+ * scheme and host (Portless and Vercel terminate TLS in front of the app).
+ * Links in emails are built from it so they keep the scheme and port the
+ * user actually uses. Returns null when the headers name no usable origin.
+ */
+export function getRequestOrigin(headers: Headers) {
+  const protocol = firstForwardedValue(headers.get("x-forwarded-proto"))
+    ?.replace(/:$/, "")
+    .toLowerCase()
+  const host =
+    firstForwardedValue(headers.get("x-forwarded-host")) ??
+    firstForwardedValue(headers.get("host"))
+
+  if (!host || (protocol !== "http" && protocol !== "https")) {
+    return null
+  }
+
+  return `${protocol}://${host}`
+}
+
 /**
  * The database lookups the request context makes. A caller that already
  * resolves the same session in the same request (the dashboard's server
@@ -226,6 +251,7 @@ export async function buildRequestContext(
       },
       host: requestHost,
       networkSignal: getNetworkSignal(headers),
+      origin: getRequestOrigin(headers),
       receivedAt: new Date().toISOString(),
       requestId: getRequestId(headers),
       sessionScope,

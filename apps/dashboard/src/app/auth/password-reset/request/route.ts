@@ -1,3 +1,4 @@
+import { getRequestOrigin } from "@halaalvest/api/context"
 import {
   findUserByEmailAsync,
   getTenantByIdAsync,
@@ -54,7 +55,10 @@ export async function POST(request: NextRequest) {
     ) {
       const reset = createPasswordResetToken(user)
       const resetUrl = buildTenantDashboardUrl(tenant.slug, {
-        currentOrigin: request.headers.get("origin") ?? request.nextUrl.origin,
+        currentOrigin:
+          getRequestOrigin(request.headers) ??
+          request.headers.get("origin") ??
+          request.nextUrl.origin,
         pathname: `/login/reset/confirm?token=${encodeURIComponent(reset.token)}`,
         tenantHostname: request.headers.get("x-tenant-hostname"),
       })

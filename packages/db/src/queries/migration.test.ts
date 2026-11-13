@@ -5,6 +5,7 @@ import {
   getTenantInitialMigrationState,
   getTenantMigrationWriteAccess,
   hasClosedHistoricalMonths,
+  readMemberBackfillCoverage,
   markTenantBusinessProfitPoolsReviewed,
   markTenantLegacyLoansReviewed,
   setTenantInitialMigrationEmergencyUnlock,
@@ -347,6 +348,47 @@ describe("recent cooperative backfill gate", () => {
 
     expect(state.requiresHistoricalBackfill).toBe(false)
     expect(state.snapshot.missingStepKeys).toContain("member_ledger_backfill")
+  })
+})
+
+describe("member backfill coverage", () => {
+  test("counts in one SQL statement when the client supports raw queries", async () => {
+    const rawCalls: unknown[] = []
+    const scan = async () => {
+      throw new Error("coverage must not scan rows in memory")
+    }
+    const prisma = {
+      $queryRaw: async (...args: unknown[]) => {
+        rawCalls.push(args)
+        return [
+          {
+            applied_backfill_months: 48,
+            brought_forward_applied_members: 7,
+            historical_applied_members: 5,
+            historical_satisfied_members: 9,
+            member_profiles: 10,
+          },
+        ]
+      },
+      appliedBackfillMonth: { findMany: scan },
+      backfillBatch: { findMany: scan },
+      member: { findMany: scan },
+      memberOpeningBalance: { findMany: scan },
+    }
+
+    const coverage = await readMemberBackfillCoverage(
+      prisma,
+      "tenant-1",
+      new Date("2026-11-13T12:00:00.000Z")
+    )
+
+    expect(rawCalls).toHaveLength(1)
+    expect(coverage).toEqual({
+      appliedBackfillMonths: 48,
+      broughtForward: { appliedMembers: 7, satisfiedMembers: 7 },
+      historical: { appliedMembers: 5, satisfiedMembers: 9 },
+      memberProfiles: 10,
+    })
   })
 })
 

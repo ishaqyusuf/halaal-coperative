@@ -149,6 +149,258 @@ export function hasClosedHistoricalMonths(
   return monthDifference(startOfMonth(startDate), startOfMonth(asOf)) > 0
 }
 
+type MemberBackfillCoverageCounts = {
+  /** Distinct members with applied backfill evidence. */
+  appliedMembers: number
+  /** Applied members, plus members with nothing to backfill where allowed. */
+  satisfiedMembers: number
+}
+
+export type MemberBackfillCoverage = {
+  appliedBackfillMonths: number
+  /** Counts for brought-forward setup: applied opening balances count. */
+  broughtForward: MemberBackfillCoverageCounts
+  /** Counts for historical backfill setup. */
+  historical: MemberBackfillCoverageCounts
+  memberProfiles: number
+}
+
+/**
+ * The member-migration coverage rule, in memory. It is the reference for
+ * `readMemberBackfillCoverage`'s SQL and serves clients without `$queryRaw`.
+ *
+ * A member's backfill is applied when an applied batch or applied opening
+ * balance (brought-forward only) exists, or when applied months cover every
+ * expected closed month (`getExpectedMemberBackfillMonthKeys`). A member with
+ * no expected month counts as applied once any month was applied. In
+ * historical setup with a finance start date, members with no expected month
+ * are satisfied without evidence.
+ */
+export function summarizeMemberBackfillCoverage(input: {
+  appliedBatchMemberIds: Iterable<string>
+  appliedMonths: Array<{ memberId: string; month: Date }>
+  appliedOpeningBalanceMemberIds: Iterable<string>
+  asOf: Date
+  members: Array<{ id: string; joinedAt: Date }>
+  tenantStartDate: Date | null | undefined
+}): MemberBackfillCoverage {
+  const appliedMonthKeysByMemberId = new Map<string, Set<string>>()
+
+  for (const month of input.appliedMonths) {
+    const memberMonths =
+      appliedMonthKeysByMemberId.get(month.memberId) ?? new Set<string>()
+    memberMonths.add(monthKeyFromDate(month.month))
+    appliedMonthKeysByMemberId.set(month.memberId, memberMonths)
+  }
+
+  const membersWithoutHistoricalMonthIds = new Set<string>()
+  const appliedBackfillMonthMemberIds = new Set<string>()
+
+  for (const member of input.members) {
+    const expectedMonthKeys = getExpectedMemberBackfillMonthKeys({
+      asOf: input.asOf,
+      joinedAt: member.joinedAt,
+      tenantStartDate: input.tenantStartDate ?? null,
+    })
+    const appliedMonthKeys = appliedMonthKeysByMemberId.get(member.id)
+
+    if (expectedMonthKeys.length === 0) {
+      if (appliedMonthKeys?.size) {
+        appliedBackfillMonthMemberIds.add(member.id)
+      }
+      membersWithoutHistoricalMonthIds.add(member.id)
+    } else if (
+      expectedMonthKeys.every((monthKey) => appliedMonthKeys?.has(monthKey))
+    ) {
+      appliedBackfillMonthMemberIds.add(member.id)
+    }
+  }
+
+  const historicalApplied = new Set([
+    ...input.appliedBatchMemberIds,
+    ...appliedBackfillMonthMemberIds,
+  ])
+  const broughtForwardApplied = new Set([
+    ...historicalApplied,
+    ...input.appliedOpeningBalanceMemberIds,
+  ])
+  // Members with no closed month since the later of tenant start and join
+  // date have nothing to backfill. Brought-forward still needs an opening.
+  const historicalSatisfied = new Set([
+    ...historicalApplied,
+    ...(input.tenantStartDate ? membersWithoutHistoricalMonthIds : []),
+  ])
+
+  return {
+    appliedBackfillMonths: input.appliedMonths.length,
+    broughtForward: {
+      appliedMembers: broughtForwardApplied.size,
+      satisfiedMembers: broughtForwardApplied.size,
+    },
+    historical: {
+      appliedMembers: historicalApplied.size,
+      satisfiedMembers: historicalSatisfied.size,
+    },
+    memberProfiles: input.members.length,
+  }
+}
+
+type MemberBackfillCoverageRow = {
+  applied_backfill_months: number
+  brought_forward_applied_members: number
+  historical_applied_members: number
+  historical_satisfied_members: number
+  member_profiles: number
+}
+
+/**
+ * Member-migration coverage counted in Postgres: one statement with a
+ * bounded result, instead of loading every member, applied month, applied
+ * batch and opening balance of the tenant. Month boundaries are UTC, as in
+ * `getExpectedMemberBackfillMonthKeys`. Clients without `$queryRaw` (test
+ * stubs) use `summarizeMemberBackfillCoverage` over the same rows.
+ */
+export async function readMemberBackfillCoverage(
+  prisma: any,
+  tenantId: string,
+  asOf: Date
+): Promise<MemberBackfillCoverage> {
+  if (typeof prisma.$queryRaw !== "function") {
+    const [tenant, members, appliedMonths, appliedBatches, openingBalances] =
+      await Promise.all([
+        prisma.tenant.findUnique({
+          select: { startDate: true },
+          where: { id: tenantId },
+        }),
+        prisma.member.findMany({
+          select: { id: true, joinedAt: true },
+          where: { tenantId },
+        }),
+        typeof prisma.appliedBackfillMonth?.findMany === "function"
+          ? prisma.appliedBackfillMonth.findMany({
+              select: { memberId: true, month: true },
+              where: { tenantId },
+            })
+          : [],
+        prisma.backfillBatch.findMany({
+          select: { memberId: true },
+          where: { status: "applied", tenantId },
+        }),
+        typeof prisma.memberOpeningBalance?.findMany === "function"
+          ? prisma.memberOpeningBalance.findMany({
+              select: { memberId: true },
+              where: { status: "applied", tenantId },
+            })
+          : [],
+      ])
+
+    return summarizeMemberBackfillCoverage({
+      appliedBatchMemberIds: appliedBatches.map(
+        (row: { memberId: string }) => row.memberId
+      ),
+      appliedMonths,
+      appliedOpeningBalanceMemberIds: openingBalances.map(
+        (row: { memberId: string }) => row.memberId
+      ),
+      asOf,
+      members,
+      tenantStartDate: tenant?.startDate ?? null,
+    })
+  }
+
+  const asOfMonth = monthKeyFromDate(asOf) + "-01"
+  const [row] = (await prisma.$queryRaw`
+    WITH tenant AS (
+      SELECT start_date FROM tenants WHERE id = ${tenantId}::uuid
+    ),
+    member_ranges AS MATERIALIZED (
+      SELECT
+        m.id,
+        date_trunc(
+          'month',
+          CASE
+            WHEN t.start_date IS NOT NULL
+              AND (t.start_date::timestamp AT TIME ZONE 'UTC') > m.joined_at
+            THEN t.start_date::timestamp
+            ELSE m.joined_at AT TIME ZONE 'UTC'
+          END
+        ) AS start_month
+      FROM members m
+      LEFT JOIN tenant t ON TRUE
+      WHERE m.tenant_id = ${tenantId}::uuid
+    ),
+    member_coverage AS (
+      SELECT
+        r.id,
+        (
+          (EXTRACT(YEAR FROM ${asOfMonth}::date) - EXTRACT(YEAR FROM r.start_month)) * 12
+          + EXTRACT(MONTH FROM ${asOfMonth}::date) - EXTRACT(MONTH FROM r.start_month)
+        )::int AS expected_months,
+        COALESCE(applied.covered_months, 0)::int AS covered_months,
+        COALESCE(applied.applied_rows, 0) > 0 AS has_applied_months
+      FROM member_ranges r
+      -- One index range scan per member on (tenant_id, member_id, month).
+      LEFT JOIN LATERAL (
+        SELECT
+          count(DISTINCT date_trunc('month', a.month)) FILTER (
+            WHERE a.month >= r.start_month AND a.month < ${asOfMonth}::date
+          ) AS covered_months,
+          count(*) AS applied_rows
+        FROM applied_backfill_months a
+        WHERE a.tenant_id = ${tenantId}::uuid AND a.member_id = r.id
+      ) applied ON TRUE
+    ),
+    historical_applied AS (
+      SELECT member_id AS id
+      FROM backfill_batches
+      WHERE tenant_id = ${tenantId}::uuid AND status = 'applied'
+      UNION
+      SELECT id
+      FROM member_coverage
+      WHERE (expected_months <= 0 AND has_applied_months)
+        OR (expected_months > 0 AND covered_months >= expected_months)
+    ),
+    brought_forward_applied AS (
+      SELECT id FROM historical_applied
+      UNION
+      SELECT member_id
+      FROM member_opening_balances
+      WHERE tenant_id = ${tenantId}::uuid AND status = 'applied'
+    ),
+    historical_satisfied AS (
+      SELECT id FROM historical_applied
+      UNION
+      SELECT c.id
+      FROM member_coverage c
+      JOIN tenant t ON t.start_date IS NOT NULL
+      WHERE c.expected_months <= 0
+    )
+    SELECT
+      (SELECT count(*) FROM member_ranges)::int AS member_profiles,
+      (
+        SELECT count(*)
+        FROM applied_backfill_months
+        WHERE tenant_id = ${tenantId}::uuid
+      )::int AS applied_backfill_months,
+      (SELECT count(*) FROM historical_applied)::int AS historical_applied_members,
+      (SELECT count(*) FROM historical_satisfied)::int AS historical_satisfied_members,
+      (SELECT count(*) FROM brought_forward_applied)::int AS brought_forward_applied_members
+  `) as MemberBackfillCoverageRow[]
+
+  return {
+    appliedBackfillMonths: row?.applied_backfill_months ?? 0,
+    broughtForward: {
+      appliedMembers: row?.brought_forward_applied_members ?? 0,
+      satisfiedMembers: row?.brought_forward_applied_members ?? 0,
+    },
+    historical: {
+      appliedMembers: row?.historical_applied_members ?? 0,
+      satisfiedMembers: row?.historical_satisfied_members ?? 0,
+    },
+    memberProfiles: row?.member_profiles ?? 0,
+  }
+}
+
 /**
  * The write gates from the migration snapshot, read from the tenant row only.
  * `canUseLiveFinancialWrites` and `canUseMigrationTools` depend only on the
@@ -258,7 +510,7 @@ export async function getTenantInitialMigrationState(
     businessProfitPools,
     reviewedBusinessProfitEntries,
     shareCapitalPlans,
-    memberProfiles,
+    memberBackfillCoverage,
     liveLegacyLoans,
     legacyLoanMigrationDrafts,
     legacyLoanReviewMarkers,
@@ -266,9 +518,6 @@ export async function getTenantInitialMigrationState(
     tenantPolicySetup,
     broughtForwardPendingPastProfitEntries,
     appliedBackfillBatches,
-    appliedBackfillBatchMembers,
-    appliedBackfillMonths,
-    appliedOpeningBalanceMembers,
   ] = await Promise.all([
     prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -297,13 +546,7 @@ export async function getTenantInitialMigrationState(
     prisma.tenantShareStructureVersion.count({
       where: { tenantId },
     }),
-    prisma.member.findMany({
-      select: {
-        id: true,
-        joinedAt: true,
-      },
-      where: { tenantId },
-    }),
+    readMemberBackfillCoverage(prisma, tenantId, asOf),
     prisma.loan.count({
       where: { tenantId },
     }),
@@ -346,35 +589,6 @@ export async function getTenantInitialMigrationState(
         status: "applied",
       },
     }),
-    prisma.backfillBatch.findMany({
-      select: {
-        memberId: true,
-      },
-      where: {
-        tenantId,
-        status: "applied",
-      },
-    }),
-    typeof prisma.appliedBackfillMonth?.findMany === "function"
-      ? prisma.appliedBackfillMonth.findMany({
-          select: {
-            memberId: true,
-            month: true,
-          },
-          where: { tenantId },
-        })
-      : [],
-    typeof prisma.memberOpeningBalance?.findMany === "function"
-      ? prisma.memberOpeningBalance.findMany({
-          select: {
-            memberId: true,
-          },
-          where: {
-            status: "applied",
-            tenantId,
-          },
-        })
-      : [],
   ])
 
   const hasFinanceStartDate = Boolean(tenant?.startDate)
@@ -394,7 +608,7 @@ export async function getTenantInitialMigrationState(
   const hasShareCapitalPlan =
     tenantPolicySetup.shareConfigurationMode === "unit_based" ||
     shareCapitalPlans > 0
-  const memberProfileCount = memberProfiles.length
+  const memberProfileCount = memberBackfillCoverage.memberProfiles
   const hasMemberProfiles = memberProfileCount > 0
   const legacyLoans = liveLegacyLoans + legacyLoanMigrationDrafts
   const hasLegacyLoansReviewed = legacyLoans > 0 || legacyLoanReviewMarkers > 0
@@ -410,7 +624,7 @@ export async function getTenantInitialMigrationState(
       tenantHasClosedHistoricalMonths ||
       legacyLoans > 0 ||
       appliedBackfillBatches > 0 ||
-      appliedBackfillMonths.length > 0)
+      memberBackfillCoverage.appliedBackfillMonths > 0)
   const hasRequiredBusinessProfitPools =
     isBroughtForwardSetup || hasBusinessProfitPools
   const hasRequiredBusinessProfitSeasons = isBroughtForwardSetup
@@ -420,66 +634,12 @@ export async function getTenantInitialMigrationState(
     isBroughtForwardSetup ||
     hasLegacyLoansReviewed ||
     (hasFinanceStartDate && !tenantHasClosedHistoricalMonths)
-  const appliedMonthKeysByMemberId = new Map<string, Set<string>>()
-
-  for (const month of appliedBackfillMonths) {
-    const memberMonths =
-      appliedMonthKeysByMemberId.get(month.memberId) ?? new Set<string>()
-    memberMonths.add(monthKeyFromDate(month.month))
-    appliedMonthKeysByMemberId.set(month.memberId, memberMonths)
-  }
-
-  const appliedBackfillBatchMemberIds = new Set(
-    appliedBackfillBatchMembers.map(
-      (batch: { memberId: string }) => batch.memberId
-    )
-  )
-  const membersWithoutHistoricalMonthIds = new Set<string>()
-  const appliedBackfillMonthMemberIds = new Set<string>()
-
-  for (const member of memberProfiles as Array<{
-    id: string
-    joinedAt: Date
-  }>) {
-    const expectedMonthKeys = getExpectedMemberBackfillMonthKeys({
-      asOf,
-      joinedAt: member.joinedAt,
-      tenantStartDate: tenant?.startDate ?? null,
-    })
-    const appliedMonthKeys = appliedMonthKeysByMemberId.get(member.id)
-
-    if (expectedMonthKeys.length === 0) {
-      if (appliedMonthKeys?.size) {
-        appliedBackfillMonthMemberIds.add(member.id)
-      }
-      membersWithoutHistoricalMonthIds.add(member.id)
-    } else if (
-      expectedMonthKeys.every((monthKey) => appliedMonthKeys?.has(monthKey))
-    ) {
-      appliedBackfillMonthMemberIds.add(member.id)
-    }
-  }
-
-  const appliedBackfillMemberIds = new Set([
-    ...appliedBackfillBatchMemberIds,
-    ...appliedBackfillMonthMemberIds,
-    ...(isBroughtForwardSetup
-      ? appliedOpeningBalanceMembers.map(
-          (row: { memberId: string }) => row.memberId
-        )
-      : []),
-  ])
-  const appliedBackfillMembers = appliedBackfillMemberIds.size
-  // Members with no closed month since the later of tenant start and join date
-  // have nothing to backfill. Brought-forward still needs an opening position.
-  const satisfiedMemberIds = new Set([
-    ...appliedBackfillMemberIds,
-    ...(hasFinanceStartDate && !isBroughtForwardSetup
-      ? membersWithoutHistoricalMonthIds
-      : []),
-  ])
+  const coverage = isBroughtForwardSetup
+    ? memberBackfillCoverage.broughtForward
+    : memberBackfillCoverage.historical
+  const appliedBackfillMembers = coverage.appliedMembers
   const hasMemberLedgerBackfill =
-    hasMemberProfiles && satisfiedMemberIds.size >= memberProfileCount
+    hasMemberProfiles && coverage.satisfiedMembers >= memberProfileCount
   const historicalSetupComplete =
     hasMigrationSetupMode &&
     hasFinanceStartDate &&
@@ -511,7 +671,7 @@ export async function getTenantInitialMigrationState(
   return {
     counts: {
       appliedBackfillBatches,
-      appliedBackfillMonths: appliedBackfillMonths.length,
+      appliedBackfillMonths: memberBackfillCoverage.appliedBackfillMonths,
       appliedBackfillMembers,
       businessProfitPools,
       businessProfitSeasons: reviewedBusinessProfitEntries,

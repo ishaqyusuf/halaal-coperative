@@ -1,15 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useSyncExternalStore } from "react"
 import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import { HalaalvestLogo } from "@halaalvest/ui/components/brand-logo"
 import { cn } from "@halaalvest/ui/lib/utils"
 import type { NavModule } from "@halaalvest/site-nav"
 import { ChevronDownIcon } from "lucide-react"
-import {
-  DASHBOARD_SIDEBAR_COLLAPSED_WIDTH,
-  DASHBOARD_SIDEBAR_EXPANDED_WIDTH,
-} from "./constants"
+import { DASHBOARD_SIDEBAR_EXPANDED_WIDTH } from "./constants"
 import { DashboardSidebarSheet } from "@/components/sheets/dashboard-sidebar-sheet"
 import { getNavigationLockLabel } from "@/lib/setup-gate-routing"
 
@@ -114,7 +111,12 @@ function DashboardSidebarLink({
               {Icon ? <Icon className="size-[18px] shrink-0" /> : null}
             </div>
             {expanded ? (
-              <div className="pointer-events-none absolute top-0 right-[48px] left-[55px] flex h-[40px] items-center gap-2">
+              <div
+                className={cn(
+                  "pointer-events-none absolute top-0 left-[55px] flex h-[40px] items-center gap-2",
+                  hasChildren ? "right-[48px]" : "right-[24px]"
+                )}
+              >
                 <span
                   className={cn(
                     "truncate text-sm font-medium transition-colors",
@@ -238,6 +240,22 @@ function DashboardSidebarLink({
   )
 }
 
+const WIDE_VIEWPORT_QUERY = "(min-width: 1024px)"
+
+function subscribeToWideViewport(onChange: () => void) {
+  const query = window.matchMedia(WIDE_VIEWPORT_QUERY)
+  query.addEventListener("change", onChange)
+  return () => query.removeEventListener("change", onChange)
+}
+
+function useWideViewport() {
+  return useSyncExternalStore(
+    subscribeToWideViewport,
+    () => window.matchMedia(WIDE_VIEWPORT_QUERY).matches,
+    () => false
+  )
+}
+
 export function DashboardSidebar({
   mobileOpen = false,
   modules,
@@ -259,8 +277,11 @@ export function DashboardSidebar({
 }) {
   const [expanded, setExpanded] = useState(false)
   const [expandedItem, setExpandedItem] = useState<string | null>(null)
+  const isWide = useWideViewport()
   const closeMobile = () => onMobileOpenChange?.(false)
-  const isExpanded = mobileOpen || expanded
+  // From lg up the sidebar always shows its labels; between md and lg it stays
+  // an icon rail that expands on hover so the content keeps enough width.
+  const isExpanded = mobileOpen || expanded || isWide
   const lockLabelFor = (href: string) =>
     getNavigationLockLabel({ href, shouldRedirectAdminToSetup })
 
@@ -389,12 +410,12 @@ export function DashboardSidebar({
       </DashboardSidebarSheet>
 
       <aside
-        className="fixed top-0 left-0 z-40 hidden h-screen flex-shrink-0 overflow-hidden border-r border-border bg-background pb-4 transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] md:flex md:flex-col"
-        style={{
-          width: expanded
-            ? DASHBOARD_SIDEBAR_EXPANDED_WIDTH
-            : DASHBOARD_SIDEBAR_COLLAPSED_WIDTH,
-        }}
+        className="fixed top-0 left-0 z-40 hidden h-screen flex-shrink-0 overflow-hidden border-r border-border bg-background pb-4 transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] md:flex md:w-[70px] md:flex-col lg:w-[272px]"
+        style={
+          expanded && !isWide
+            ? { width: DASHBOARD_SIDEBAR_EXPANDED_WIDTH }
+            : undefined
+        }
         onMouseEnter={() => setExpanded(true)}
         onMouseLeave={() => setExpanded(false)}
       >

@@ -9,7 +9,7 @@ export function DashboardHomeSkeleton() {
       className="min-h-svh bg-background"
       role="status"
     >
-      <aside className="fixed inset-y-0 left-0 hidden w-[70px] flex-col items-center border-r border-border bg-background py-4 md:flex">
+      <aside className="fixed inset-y-0 left-0 hidden w-[70px] flex-col items-center border-r border-border bg-background py-4 md:flex lg:w-[272px]">
         <Skeleton className="size-9 rounded-lg" />
         <div className="mt-8 flex flex-col gap-4">
           {Array.from({ length: 8 }, (_, index) => (
@@ -18,7 +18,7 @@ export function DashboardHomeSkeleton() {
         </div>
       </aside>
 
-      <div className="md:pl-[70px]">
+      <div className="md:pl-[70px] lg:pl-[272px]">
         <header className="flex h-[70px] items-center gap-3 border-b border-border px-4 sm:px-6 lg:px-8">
           <Skeleton className="size-8 rounded-full md:hidden" />
           <div className="min-w-0 flex-1">

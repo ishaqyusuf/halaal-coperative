@@ -6,7 +6,10 @@ import Link from "next/link"
 import type { CooperativeRole } from "@halaalvest/auth/roles"
 import { getDashboardRouteTitle } from "@/lib/navigation/lib"
 import { GlobalSheetsProvider } from "@/components/sheets/global-sheets-provider"
-import { DASHBOARD_SIDEBAR_COLLAPSED_WIDTH } from "./dashboard/constants"
+import {
+  DASHBOARD_SIDEBAR_COLLAPSED_WIDTH,
+  DASHBOARD_SIDEBAR_EXPANDED_WIDTH,
+} from "./dashboard/constants"
 import { DashboardPageFrame } from "./dashboard/page"
 import { DashboardSidebar } from "./dashboard/sidebar"
 import { DashboardTopbar } from "./dashboard/topbar"
@@ -40,6 +43,8 @@ export function DashboardShellClient({
       style={{
         ["--dashboard-sidebar-offset" as string]:
           DASHBOARD_SIDEBAR_COLLAPSED_WIDTH,
+        ["--dashboard-sidebar-offset-wide" as string]:
+          DASHBOARD_SIDEBAR_EXPANDED_WIDTH,
       }}
     >
       <DashboardSidebar
@@ -54,7 +59,7 @@ export function DashboardShellClient({
       />
       <GlobalSheetsProvider />
 
-      <div className="md:[padding-left:var(--dashboard-sidebar-offset)]">
+      <div className="md:[padding-left:var(--dashboard-sidebar-offset)] lg:[padding-left:var(--dashboard-sidebar-offset-wide)]">
         <DashboardTopbar
           currentModuleSubtitle={currentModule?.subtitle}
           onOpenMobileNav={() => setMobileSidebarOpen(true)}

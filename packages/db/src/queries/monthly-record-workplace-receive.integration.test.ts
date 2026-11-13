@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { createPrismaClient } from "../prisma"
+import { createWorkplace, listWorkplaces, renameWorkplace } from "./imports"
 import { ensureTenantLedgerAccounts } from "./ledger"
 import { receiveWorkplaceMonthlyPayments } from "./monthly-records"
 
@@ -217,5 +218,32 @@ run("workplace bulk receiving", () => {
     await expect(
       receive(Array.from({ length: 501 }, () => crypto.randomUUID()))
     ).rejects.toThrow("at most 500")
+  })
+
+  it("adds and renames workplaces with unique names and member counts", async () => {
+    const added = await createWorkplace(
+      { actorUserId: userId, name: "  Water   Board ", tenantId },
+      db!
+    )
+    expect(added.name).toBe("Water Board")
+    await expect(
+      createWorkplace({ actorUserId: userId, name: "water board", tenantId }, db!)
+    ).rejects.toThrow("already exists")
+    await expect(
+      renameWorkplace(
+        { actorUserId: userId, id: added.id, name: "City Council", tenantId },
+        db!
+      )
+    ).rejects.toThrow("already exists")
+
+    const renamed = await renameWorkplace(
+      { actorUserId: userId, id: added.id, name: "State Water Board", tenantId },
+      db!
+    )
+    expect(renamed.name).toBe("State Water Board")
+
+    const list = await listWorkplaces(tenantId, db!)
+    expect(list.find((item) => item.id === workplaceId)?.memberCount).toBe(5)
+    expect(list.find((item) => item.id === added.id)?.memberCount).toBe(0)
   })
 })

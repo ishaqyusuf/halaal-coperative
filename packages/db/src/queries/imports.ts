@@ -677,6 +677,140 @@ export async function listActiveDeductionSources(
   })
 }
 
+// Workplaces are the member-facing name for deduction sources: the employer or
+// office that pays members' monthly amounts. One query plus one grouped count.
+export async function listWorkplaces(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const [workplaces, counts] = await Promise.all([
+    prisma.deductionSource.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, isActive: true, name: true },
+      where: { tenantId },
+    }),
+    prisma.member.groupBy({
+      _count: { _all: true },
+      by: ["deductionSourceId"],
+      where: {
+        deductionSourceId: { not: null },
+        status: { not: "exited" },
+        tenantId,
+      },
+    }),
+  ])
+  const countById = new Map(
+    counts.map((count) => [count.deductionSourceId, count._count._all])
+  )
+
+  return workplaces.map((workplace) => ({
+    ...workplace,
+    memberCount: countById.get(workplace.id) ?? 0,
+  }))
+}
+
+function normalizeWorkplaceName(name: string) {
+  const trimmed = name.trim().replace(/\s+/g, " ")
+  if (trimmed.length < 2 || trimmed.length > 120) {
+    throw ExpectedQueryError.validation("Enter a workplace name.")
+  }
+  return trimmed
+}
+
+async function assertWorkplaceNameFree(input: {
+  excludeId?: string
+  name: string
+  prisma: PrismaClient
+  tenantId: string
+}) {
+  const existing = await input.prisma.deductionSource.findFirst({
+    select: { id: true },
+    where: {
+      name: { equals: input.name, mode: "insensitive" },
+      tenantId: input.tenantId,
+      ...(input.excludeId ? { id: { not: input.excludeId } } : {}),
+    },
+  })
+  if (existing) {
+    throw ExpectedQueryError.conflict("A workplace with this name already exists.")
+  }
+}
+
+export async function createWorkplace(
+  input: { actorUserId: string; name: string; tenantId: string },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+  const name = normalizeWorkplaceName(input.name)
+  await assertWorkplaceNameFree({ name, prisma, tenantId: input.tenantId })
+
+  return prisma.$transaction(async (tx) => {
+    const workplace = await tx.deductionSource.create({
+      data: { name, tenantId: input.tenantId, type: "employer_payroll" },
+      select: { id: true, isActive: true, name: true },
+    })
+    await tx.auditLog.create({
+      data: {
+        action: "deduction_source.created",
+        actorType: "user",
+        actorUserId: input.actorUserId,
+        entityId: workplace.id,
+        entityType: "DeductionSource",
+        metadata: { name },
+        occurredAt: new Date(),
+        tenantId: input.tenantId,
+      },
+    })
+    return workplace
+  })
+}
+
+export async function renameWorkplace(
+  input: { actorUserId: string; id: string; name: string; tenantId: string },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+  const name = normalizeWorkplaceName(input.name)
+  await assertWorkplaceNameFree({
+    excludeId: input.id,
+    name,
+    prisma,
+    tenantId: input.tenantId,
+  })
+
+  return prisma.$transaction(async (tx) => {
+    const current = await tx.deductionSource.findFirst({
+      select: { name: true },
+      where: { id: input.id, tenantId: input.tenantId },
+    })
+    if (!current) throw ExpectedQueryError.notFound("Workplace not found.")
+
+    const workplace = await tx.deductionSource.update({
+      data: { name },
+      select: { id: true, isActive: true, name: true },
+      where: { id: input.id },
+    })
+    await tx.auditLog.create({
+      data: {
+        action: "deduction_source.renamed",
+        actorType: "user",
+        actorUserId: input.actorUserId,
+        entityId: workplace.id,
+        entityType: "DeductionSource",
+        metadata: { from: current.name, to: name },
+        occurredAt: new Date(),
+        tenantId: input.tenantId,
+      },
+    })
+    return workplace
+  })
+}
+
 function buildRepaymentSchedule(input: {
   monthlyRepaymentAmount?: number
   principalAmount: number

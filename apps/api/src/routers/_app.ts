@@ -33,6 +33,7 @@ import { cooperativeMobileAccessRouter } from "./cooperative-mobile-access.route
 import { cooperativeMobileBillingRouter } from "./cooperative-mobile-billing.route"
 import { storeRefundReviewsRouter } from "./store-refund-reviews.route"
 import { qaAcceleratorRouter } from "./qa-accelerator.route"
+import { workplacesRouter } from "./workplaces.route"
 
 export const appRouter = createTRPCRouter({
   legal: legalRouter,
@@ -55,6 +56,7 @@ export const appRouter = createTRPCRouter({
   qaAccelerator: qaAcceleratorRouter,
   shareApplications: shareApplicationsRouter,
   support: supportRouter,
+  workplaces: workplacesRouter,
   subscriptions: subscriptionsRouter,
   cooperativeMobileAccess: cooperativeMobileAccessRouter,
   cooperativeMobileBilling: cooperativeMobileBillingRouter,

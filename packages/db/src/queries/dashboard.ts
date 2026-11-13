@@ -1,7 +1,10 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
-import { getMobileBillingCommitmentAmount } from "./cooperative-mobile-billing"
-import { getMonthlyFinancingCycleHealth } from "./financing-cycles"
+import {
+  type DeployableFundsSnapshot,
+  getDeployableFundsSnapshot,
+  getMonthlyFinancingCycleHealth,
+} from "./financing-cycles"
 import { getTenantOperationProfile } from "./operation-profile"
 
 const activeFinancingStatuses = ["disbursed", "active"] as const
@@ -162,49 +165,32 @@ function getEmptyOverviewSummary(input: {
 
 export async function getDashboardMetrics(
   tenantId: string,
-  prismaOverride?: PrismaClient
+  prismaOverride?: PrismaClient,
+  options: {
+    /** Reuse a snapshot the caller already started, to avoid a second read. */
+    deployableFunds?: Promise<DeployableFundsSnapshot>
+  } = {}
 ): Promise<DashboardMetrics> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
-  const [
-    memberCount,
-    activeMemberCount,
-    activeLoanCount,
-    contributionSum,
-    outstandingLoanSum,
-    policy,
-    mobileBillingCommitmentAmount,
-  ] = await Promise.all([
-    prisma.member.count({ where: { tenantId } }),
-    prisma.member.count({ where: { tenantId, status: "active" } }),
-    prisma.loan.count({
-      where: { tenantId, status: { in: [...activeFinancingStatuses] } },
-    }),
-    prisma.contribution.aggregate({
-      where: { tenantId, status: "posted" },
-      _sum: { amount: true },
-    }),
-    prisma.loan.aggregate({
-      where: { tenantId, status: { in: [...activeFinancingStatuses] } },
-      _sum: { outstandingPrincipal: true },
-    }),
-    prisma.tenantPolicy.findUnique({ where: { tenantId } }),
-    getMobileBillingCommitmentAmount(tenantId, prisma),
-  ])
+  const [memberCount, activeMemberCount, activeLoanCount, deployableFunds] =
+    await Promise.all([
+      prisma.member.count({ where: { tenantId } }),
+      prisma.member.count({ where: { tenantId, status: "active" } }),
+      prisma.loan.count({
+        where: { tenantId, status: { in: [...activeFinancingStatuses] } },
+      }),
+      options.deployableFunds ??
+        getDeployableFundsSnapshot({ tenantId }, prisma),
+    ])
 
-  const totalContributions = Number(contributionSum._sum.amount ?? 0)
-  const outstandingLoans = Number(
-    outstandingLoanSum._sum.outstandingPrincipal ?? 0
-  )
-  const reserveBuffer = Number(policy?.reserveBufferAmount ?? 0)
-  const availablePool = Math.max(
-    0,
-    totalContributions -
-      outstandingLoans -
-      reserveBuffer -
-      mobileBillingCommitmentAmount
-  )
+  const totalContributions = deployableFunds.totalContributionAmount
+  const outstandingLoans = deployableFunds.outstandingFinancingAmount
+  const reserveBuffer = deployableFunds.reserveBufferAmount
+  // Same funding model as disbursement (member funds held − outstanding −
+  // reserve − billing); approved holds are subtracted by the caller.
+  const availablePool = deployableFunds.availablePoolAmount
 
   // Delinquency: loans with overdue schedule items / total active loans
   const overdueScheduleCount = await prisma.repaymentScheduleItem.count({
@@ -305,6 +291,7 @@ export async function getOverviewSummary(
       },
     }))
 
+  const deployableFundsSnapshot = getDeployableFundsSnapshot({ tenantId }, prisma)
   const [
     metrics,
     pendingMemberApprovals,
@@ -322,7 +309,6 @@ export async function getOverviewSummary(
     openSupportCases,
     failedImportCount,
     overdueScheduleItems,
-    approvedCommitments,
     activeShareBusinesses,
     shareLedgerBalance,
     pendingProfitEntries,
@@ -334,7 +320,9 @@ export async function getOverviewSummary(
     financingCycleHealth,
     operationProfile,
   ] = await Promise.all([
-    getDashboardMetrics(tenantId, prisma),
+    getDashboardMetrics(tenantId, prisma, {
+      deployableFunds: deployableFundsSnapshot,
+    }),
     prisma.memberOnboardingRequest.count({
       where: { status: "pending_approval", tenantId },
     }),
@@ -403,10 +391,6 @@ export async function getOverviewSummary(
         tenantId,
       },
     }),
-    prisma.loan.aggregate({
-      _sum: { principalAmount: true },
-      where: { status: "approved", tenantId },
-    }),
     prisma.shareBusiness.count({
       where: { status: "active", tenantId },
     }),
@@ -461,7 +445,9 @@ export async function getOverviewSummary(
       take: 3,
       where: { tenantId },
     }),
-    getMonthlyFinancingCycleHealth({ tenantId }, prisma),
+    getMonthlyFinancingCycleHealth({ tenantId }, prisma, {
+      deployableFunds: deployableFundsSnapshot,
+    }),
     getTenantOperationProfile(tenantId, prisma),
   ])
 
@@ -518,13 +504,8 @@ export async function getOverviewSummary(
       (getDaysOverdue(item.dueAt) >= 90 ? Number(item.principalDue) : 0),
     0
   )
-  const pendingCommitmentAmount = Number(
-    approvedCommitments._sum.principalAmount ?? 0
-  )
-  const deployableFunds = Math.max(
-    0,
-    metrics.availablePool - pendingCommitmentAmount
-  )
+  // One snapshot feeds disbursement, Loans, mobile and this overview.
+  const deployableFunds = financingCycleHealth.deployableFunds.deployableFunds
   const portfolioAtRiskRate =
     metrics.outstandingLoans > 0 ? overdueAmount / metrics.outstandingLoans : 0
   const pendingProfitAmount =

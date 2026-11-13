@@ -4,6 +4,7 @@ import {
   getLoanRequestChargeQuoteHash,
   getLoanDetail,
   getLoanRequestDetail,
+  listLoanOptions,
   listLoanRequestsPage,
   listLoansPage,
   listMemberLoanGuarantorApprovals,
@@ -1884,5 +1885,47 @@ describe("loan live write guards", () => {
 
     expect(prisma.ledgerLookups).toHaveLength(2)
     expect(prisma.loanLookups).toHaveLength(0)
+  })
+})
+
+describe("loan options", () => {
+  test("filters by status in SQL and selects only option fields", async () => {
+    const calls: any[] = []
+    const prisma = {
+      loan: {
+        findMany: async (args: any) => {
+          calls.push(args)
+          return [
+            {
+              id: "loan-1",
+              loanProduct: { name: "Quick loan" },
+              member: { fullName: "Amina", id: "member-1" },
+              outstandingPrincipal: { toString: () => "1500.50" },
+              status: "active",
+            },
+          ]
+        },
+      },
+    }
+
+    const options = await listLoanOptions(
+      "tenant-1",
+      { statuses: ["active", "disbursed"] },
+      prisma as never
+    )
+
+    expect(calls[0].where).toEqual({
+      status: { in: ["active", "disbursed"] },
+      tenantId: "tenant-1",
+    })
+    expect(calls[0].include).toBeUndefined()
+    expect(Object.keys(calls[0].select).sort()).toEqual([
+      "id",
+      "loanProduct",
+      "member",
+      "outstandingPrincipal",
+      "status",
+    ])
+    expect(options[0]?.outstandingPrincipal).toBe(1500.5)
   })
 })

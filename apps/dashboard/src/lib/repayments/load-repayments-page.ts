@@ -1,8 +1,8 @@
 import {
   createDbRuntime,
   getRepaymentSummary,
-  listLoans,
-  listTenantUsersWithMemberships,
+  listLoanOptions,
+  listTenantUsersWithRoles,
   type RepaymentSummary,
 } from "@halaalvest/db"
 import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
@@ -41,8 +41,13 @@ export async function loadRepaymentsPageData(): Promise<RepaymentsPageData> {
   }
 
   const [loans, tenantUsers, summary] = await Promise.all([
-    listLoans(context.tenant.id),
-    listTenantUsersWithMemberships(context.tenant.id),
+    listLoanOptions(context.tenant.id, { statuses: ["active", "disbursed"] }),
+    listTenantUsersWithRoles(context.tenant.id, [
+      "super_admin",
+      "tenant_admin",
+      "finance_officer",
+      "operations_officer",
+    ]),
     getRepaymentSummary({ tenantId: context.tenant.id }),
   ])
   const canPostRepayment = hasAnyRole(
@@ -51,29 +56,16 @@ export async function loadRepaymentsPageData(): Promise<RepaymentsPageData> {
   )
 
   return {
-    assignees: tenantUsers
-      .filter((user) =>
-        user.memberships.some((membership) =>
-          [
-            "super_admin",
-            "tenant_admin",
-            "finance_officer",
-            "operations_officer",
-          ].includes(membership.role)
-        )
-      )
-      .map((user) => ({
-        id: user.id,
-        label: `${user.fullName} (${user.email})`,
-      })),
+    assignees: tenantUsers.map((user) => ({
+      id: user.id,
+      label: `${user.fullName} (${user.email})`,
+    })),
     canPostRepayment,
-    loans: loans
-      .filter((loan) => ["active", "disbursed"].includes(loan.status))
-      .map((loan) => ({
-        id: loan.id,
-        label: `${loan.member.fullName} · ${loan.loanProduct.name}`,
-        outstandingPrincipal: Number(loan.outstandingPrincipal),
-      })),
+    loans: loans.map((loan) => ({
+      id: loan.id,
+      label: `${loan.member.fullName} · ${loan.loanProduct.name}`,
+      outstandingPrincipal: loan.outstandingPrincipal,
+    })),
     quickFillEnabled: canShowQuickFill(context),
     state: "ready",
     summary,

@@ -5,7 +5,7 @@ import {
   getSupportCaseSummary,
   getTenantOperationProfile,
   listMembers,
-  listTenantUsersWithMemberships,
+  listTenantUsersWithRoles,
   type SupportCaseCategory,
 } from "@halaalvest/db"
 import { getDashboardServerContext } from "@/lib/server-context"
@@ -110,22 +110,16 @@ export async function loadSupportPageData(
   const [summary, members, users, operationProfile] = await Promise.all([
     getSupportCaseSummary(context.tenant.id),
     listMembers(context.tenant.id, { page: 1, pageSize: 200 }),
-    listTenantUsersWithMemberships(context.tenant.id),
+    listTenantUsersWithRoles(context.tenant.id, allStaffRoles),
     getTenantOperationProfile(context.tenant.id),
   ])
 
   return {
     state: "staff-ready" as const,
-    assignees: users
-      .filter((user) =>
-        user.memberships.some((membership) =>
-          allStaffRoles.includes(membership.role)
-        )
-      )
-      .map((user) => ({
-        id: user.id,
-        label: `${user.fullName} (${user.email})`,
-      })),
+    assignees: users.map((user) => ({
+      id: user.id,
+      label: `${user.fullName} (${user.email})`,
+    })),
     canReviewFinancialAdjustments,
     canCreateSupportCases:
       operationProfile.services.support_cases.canStaffCreate,

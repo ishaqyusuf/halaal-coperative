@@ -1,4 +1,5 @@
 import type {
+  LoanStatus,
   PrismaClient,
   RepaymentScheduleStatus,
 } from "../../generated/prisma/client"
@@ -502,6 +503,40 @@ export async function listMemberLoanGuarantorApprovals(
   })
 
   return toPlainLoanDto(approvals)
+}
+
+/**
+ * Lean loan rows for pickers (repayments, receipts, contributions): only the
+ * fields an option label needs, filtered by status in SQL. `listLoans` loads
+ * the product, request and schedule for every loan of the tenant.
+ */
+export async function listLoanOptions(
+  tenantId: string,
+  options: { statuses?: LoanStatus[] } = {},
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const loans = await prisma.loan.findMany({
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      loanProduct: { select: { name: true } },
+      member: { select: { fullName: true, id: true } },
+      outstandingPrincipal: true,
+      status: true,
+    },
+    where: {
+      tenantId,
+      ...(options.statuses ? { status: { in: options.statuses } } : {}),
+    },
+  })
+
+  return loans.map((loan) => ({
+    ...loan,
+    outstandingPrincipal: Number(loan.outstandingPrincipal),
+  }))
 }
 
 export async function listLoans(
@@ -1150,42 +1185,35 @@ export async function quoteLoanRequest(
   assertPositiveInteger(input.requestedTermMonths, "Requested repayment term")
   const assessedAt = new Date()
 
-  const [
-    member,
-    product,
-    policy,
-    metrics,
-    cycleHealth,
-    charges,
-    writeAccess,
-  ] = await Promise.all([
-    prisma.member.findFirst({
-      where: { id: input.memberId, tenantId: input.tenantId },
-    }),
-    prisma.loanProduct.findFirst({
-      where: {
-        id: input.loanProductId,
-        isActive: true,
-        tenantId: input.tenantId,
-      },
-    }),
-    prisma.tenantPolicy.findUnique({
-      where: { tenantId: input.tenantId },
-    }),
-    getDashboardMetrics(input.tenantId, prisma),
-    getMonthlyFinancingCycleHealth({ tenantId: input.tenantId }, prisma),
-    quoteApplicableCharges(
-      {
-        assessedAt,
-        basisAmount: requestedAmount,
-        tenantId: input.tenantId,
-        trigger: "submission",
-        workflow: "loan_request",
-      },
-      prisma
-    ),
-    getTenantMigrationWriteAccess(input.tenantId, prisma),
-  ])
+  const [member, product, policy, metrics, cycleHealth, charges, writeAccess] =
+    await Promise.all([
+      prisma.member.findFirst({
+        where: { id: input.memberId, tenantId: input.tenantId },
+      }),
+      prisma.loanProduct.findFirst({
+        where: {
+          id: input.loanProductId,
+          isActive: true,
+          tenantId: input.tenantId,
+        },
+      }),
+      prisma.tenantPolicy.findUnique({
+        where: { tenantId: input.tenantId },
+      }),
+      getDashboardMetrics(input.tenantId, prisma),
+      getMonthlyFinancingCycleHealth({ tenantId: input.tenantId }, prisma),
+      quoteApplicableCharges(
+        {
+          assessedAt,
+          basisAmount: requestedAmount,
+          tenantId: input.tenantId,
+          trigger: "submission",
+          workflow: "loan_request",
+        },
+        prisma
+      ),
+      getTenantMigrationWriteAccess(input.tenantId, prisma),
+    ])
 
   if (!member) throw ExpectedQueryError.notFound("Member not found")
   if (!product) throw ExpectedQueryError.notFound("Loan product not found")

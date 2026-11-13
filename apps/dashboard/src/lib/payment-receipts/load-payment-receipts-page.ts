@@ -6,7 +6,7 @@ import {
   getTenantOperationProfile,
   listContributionPlans,
   listFoodPurchaseApplications,
-  listLoans,
+  listLoanOptions,
   listMemberContributionPlans,
   listMemberLoans,
   listMembers,
@@ -182,14 +182,12 @@ function buildMemberCommitmentPlanOptions(
     }))
 }
 
-function buildLoanOptions(loans: Awaited<ReturnType<typeof listLoans>>) {
-  return loans
-    .filter((loan) => ["approved", "disbursed", "active"].includes(loan.status))
-    .map((loan) => ({
-      id: loan.id,
-      label: `${loan.member.fullName} - ${loan.loanProduct.name} - ${Number(loan.outstandingPrincipal).toLocaleString("en-NG")}`,
-      memberId: loan.member.id,
-    }))
+function buildLoanOptions(loans: Awaited<ReturnType<typeof listLoanOptions>>) {
+  return loans.map((loan) => ({
+    id: loan.id,
+    label: `${loan.member.fullName} - ${loan.loanProduct.name} - ${loan.outstandingPrincipal.toLocaleString("en-NG")}`,
+    memberId: loan.member.id,
+  }))
 }
 
 function buildMemberLoanOptions(
@@ -327,7 +325,9 @@ export async function loadPaymentReceiptsPageData() {
     getMemberPaymentReceiptSummary(tenantId),
     listMembers(tenantId, { page: 1, pageSize: 200 }),
     listContributionPlans(tenantId),
-    listLoans(tenantId),
+    listLoanOptions(tenantId, {
+      statuses: ["approved", "disbursed", "active"],
+    }),
     listProcurementRequests({
       limit: 1000,
       status: "active",

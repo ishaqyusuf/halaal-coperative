@@ -5,7 +5,7 @@ import {
   listContributionPlans,
   listCollectionSourceContributionBatches,
   listActiveDeductionSources,
-  listLoans,
+  listLoanOptions,
   listMembers,
 } from "@halaalvest/db"
 import type { CollectionSourceBatchView } from "@halaalvest/db"
@@ -114,7 +114,7 @@ export async function loadContributionsPageData(
   ] = await Promise.all([
     listMembers(context.tenant.id, { page: 1, pageSize: 100 }),
     listContributionPlans(context.tenant.id),
-    listLoans(context.tenant.id),
+    listLoanOptions(context.tenant.id),
     canUseCollectionSourceBatches
       ? listActiveDeductionSources(context.tenant.id)
       : Promise.resolve([]),

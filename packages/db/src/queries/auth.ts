@@ -360,6 +360,45 @@ export async function findActiveMembershipAsync(input: {
   return selectActiveMembership(memberships, input.tenantId)
 }
 
+/**
+ * The tenant's users holding any of `roles`, for assignee pickers. Filters
+ * in SQL instead of loading every user (members with portal access are
+ * users too) and their memberships.
+ */
+export async function listTenantUsersWithRoles(
+  tenantId: string,
+  roles: readonly MembershipRole[]
+) {
+  const prisma = createPrismaClient()
+
+  if (!prisma) {
+    return seedUsers
+      .filter(
+        (user) =>
+          user.tenantId === tenantId &&
+          seedMemberships.some(
+            (membership) =>
+              membership.userId === user.id && roles.includes(membership.role)
+          )
+      )
+      .map((user) => ({
+        email: user.email,
+        fullName: user.fullName,
+        id: user.id,
+      }))
+  }
+
+  return prisma.user.findMany({
+    orderBy: { createdAt: "asc" },
+    select: { email: true, fullName: true, id: true },
+    where: {
+      deletedAt: null,
+      memberships: { some: { role: { in: [...roles] } } },
+      tenantId,
+    },
+  })
+}
+
 export async function listTenantUsersWithMemberships(tenantId: string) {
   const prisma = createPrismaClient()
 

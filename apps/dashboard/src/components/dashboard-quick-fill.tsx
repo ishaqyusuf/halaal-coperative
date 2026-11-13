@@ -164,3 +164,44 @@ export function DashboardNativeQuickFill({
     </span>
   )
 }
+
+/**
+ * Quick Fill for forms kept in `useState`: pass the current draft and how to
+ * restore it; Undo puts the draft back as it was before the fill.
+ */
+export function DashboardStateQuickFill<TDraft>({
+  className,
+  draft,
+  enabled,
+  isDirty,
+  label,
+  onFill,
+  restore,
+}: {
+  className?: string
+  draft: TDraft
+  enabled?: boolean
+  isDirty?: boolean
+  label?: string
+  onFill: (qa: { emailDomain: string }) => void
+  restore: (draft: TDraft) => void
+}) {
+  const [previous, setPrevious] = useState<{ draft: TDraft } | null>(null)
+
+  return (
+    <DashboardQuickFill
+      className={className}
+      enabled={enabled}
+      isDirty={isDirty}
+      label={label}
+      onFill={(qa) => {
+        setPrevious({ draft })
+        onFill(qa)
+      }}
+      onUndo={() => {
+        if (previous) restore(previous.draft)
+        setPrevious(null)
+      }}
+    />
+  )
+}

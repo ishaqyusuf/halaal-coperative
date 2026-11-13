@@ -13,6 +13,8 @@ import { Input } from "@halaalvest/ui/components/input"
 import { Label } from "@halaalvest/ui/components/label"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState, type FormEvent } from "react"
+import { createQaReference, qaToday } from "@halaalvest/utils"
+import { DashboardStateQuickFill } from "@/components/dashboard-quick-fill"
 import { useTRPC } from "@/trpc/client"
 import { formatAccessAmount, formatBillingMonth } from "./format"
 import type { MobileAccessInvoice } from "./mobile-invoice-list"
@@ -73,6 +75,19 @@ export function RemittanceDialog({
           </DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={submit}>
+          <DashboardStateQuickFill
+            draft={{ paidAt, reference }}
+            enabled={!remittance.isPending}
+            isDirty={Boolean(reference || paidAt)}
+            onFill={() => {
+              setReference(createQaReference("REMIT"))
+              setPaidAt(qaToday())
+            }}
+            restore={(draft) => {
+              setReference(draft.reference)
+              setPaidAt(draft.paidAt)
+            }}
+          />
           <div className="space-y-2">
             <Label htmlFor="mobile-remittance-reference">
               Bank transfer reference

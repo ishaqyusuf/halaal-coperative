@@ -9,6 +9,8 @@ import { Textarea } from "@halaalvest/ui/components/textarea"
 import { createOwnMemberDocumentAction } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
 import { UploadEvidenceInput } from "@/components/upload-evidence-input"
+import { DashboardStateQuickFill } from "@/components/dashboard-quick-fill"
+import { getDashboardRandomDevFormFill } from "@/lib/dev-form-fill"
 
 export function MemberDocumentSelfServiceForm() {
   const router = useRouter()
@@ -31,7 +33,10 @@ export function MemberDocumentSelfServiceForm() {
         setDocumentType("")
         setDocumentUrl("")
         setReviewNotes("")
-        showSuccess("Document submitted", "Your document is waiting for review.")
+        showSuccess(
+          "Document submitted",
+          "Your document is waiting for review."
+        )
         router.refresh()
       } catch (error) {
         showError(
@@ -44,6 +49,26 @@ export function MemberDocumentSelfServiceForm() {
 
   return (
     <div className="mt-5 border-t border-border pt-4">
+      <DashboardStateQuickFill
+        className="mb-3"
+        draft={{ documentType, documentUrl, reviewNotes }}
+        enabled={!isPending}
+        isDirty={Boolean(documentType || documentUrl || reviewNotes)}
+        onFill={() => {
+          const values = getDashboardRandomDevFormFill<{
+            documentType: string
+            documentUrl: string
+          }>("member_document")
+          setDocumentType(values.documentType)
+          setDocumentUrl(values.documentUrl)
+          setReviewNotes("Scanned copy of my NIN slip.")
+        }}
+        restore={(draft) => {
+          setDocumentType(draft.documentType)
+          setDocumentUrl(draft.documentUrl)
+          setReviewNotes(draft.reviewNotes)
+        }}
+      />
       <div className="grid gap-3 md:grid-cols-2">
         <label className="grid gap-1 text-xs font-medium text-muted-foreground">
           Document type

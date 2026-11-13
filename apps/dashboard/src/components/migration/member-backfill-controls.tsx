@@ -1,5 +1,6 @@
 "use client"
 
+import { DashboardNativeQuickFill } from "@/components/dashboard-quick-fill"
 import type { MemberLedgerBackfillRow } from "@halaalvest/backfill"
 import { Button } from "@halaalvest/ui/components/button"
 import { Checkbox } from "@halaalvest/ui/components/checkbox"
@@ -150,6 +151,15 @@ function AdjustmentEditor({
       >
         <input name="memberId" type="hidden" value={memberId} />
         <input name="month" type="hidden" value={row.month ?? ""} />
+        <DashboardNativeQuickFill
+          enabled={!disabled}
+          values={() => ({
+            loanRepaymentAmount: String(loan?.repaymentAmount || 25_000),
+            loanRepaymentOnTime: true,
+            notes: "Matched to the ledger book and bank statement.",
+            savingsContribution: String(row.savingsContribution || 10_000),
+          })}
+        />
         {isRepayment ? (
           <>
             <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">

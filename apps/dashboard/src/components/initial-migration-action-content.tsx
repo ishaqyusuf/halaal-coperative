@@ -1,5 +1,9 @@
 import type { InitialMigrationSnapshot } from "@halaalvest/domain"
-import { DashboardNativeQuickFill } from "@/components/dashboard-quick-fill"
+import {
+  LegacyLoanDraftCreateQuickFill,
+  LegacyLoanDraftEditQuickFill,
+  ProfitMigrationAdjustmentQuickFill,
+} from "@/components/initial-migration-quick-fills"
 import { Button } from "@halaalvest/ui/components/button"
 import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { Input } from "@halaalvest/ui/components/input"
@@ -59,13 +63,9 @@ export function ProfitMigrationAdjustmentContent({
   return (
     <>
       <form action={upsertMigrationProfitAdjustmentAction} id={formId}>
-        <DashboardNativeQuickFill
-          enabled={!disabled}
-          values={() => ({
-            allocatedProfitAmount: String(
-              Math.round(option.editableAvailableAmount / 4) || 0
-            ),
-          })}
+        <ProfitMigrationAdjustmentQuickFill
+          disabled={disabled}
+          editableAvailableAmount={option.editableAvailableAmount}
         />
         <input name="memberId" type="hidden" value={memberId ?? ""} />
         <input name="profitEntryId" type="hidden" value={option.id} />
@@ -181,6 +181,10 @@ export function CreateLegacyLoanMigrationDraftContent({
       action={createLegacyLoanMigrationDraftAction}
       className="grid gap-3 sm:grid-cols-2"
     >
+      <LegacyLoanDraftCreateQuickFill
+        className="sm:col-span-2"
+        memberId={memberOptions[0]?.id}
+      />
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
         Member
         <LabeledSelectInput
@@ -298,6 +302,7 @@ export function LegacyLoanDraftEditContent({
         action={updateLegacyLoanMigrationDraftAction}
         className="grid gap-3 sm:grid-cols-2"
       >
+        <LegacyLoanDraftEditQuickFill />
         <input name="draftId" type="hidden" value={loan.id} />
         <input name="memberId" type="hidden" value={loan.memberId} />
         <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">

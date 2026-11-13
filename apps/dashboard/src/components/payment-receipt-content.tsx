@@ -31,7 +31,13 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@halaalvest/ui/components/toggle-group"
-import { formatCurrency } from "@halaalvest/utils"
+import {
+  createQaAmount,
+  createQaReference,
+  formatCurrency,
+  qaMonthLabel,
+  qaToday,
+} from "@halaalvest/utils"
 import type {
   MemberPaymentReceiptAllocationRow,
   MemberPaymentReceiptRow,
@@ -47,6 +53,7 @@ import {
   reviewMemberPaymentReceiptAction,
 } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
+import { DashboardStateQuickFill } from "@/components/dashboard-quick-fill"
 import type { PaymentReceiptCategoryOption } from "@/lib/payment-receipts/load-payment-receipts-page"
 import { useTRPC } from "@/trpc/client"
 
@@ -401,6 +408,59 @@ export function PaymentReceiptCreateContent({
 
   return (
     <>
+      <DashboardStateQuickFill
+        className="mb-4"
+        draft={{
+          allocations,
+          memberId,
+          memberNotes,
+          paidAt,
+          paymentReference,
+          proofDocumentName,
+          proofDocumentUrl,
+          receiptAmount,
+        }}
+        enabled={!isPending && members.length > 0}
+        isDirty={Boolean(memberId || paymentReference || receiptAmount)}
+        onFill={() => {
+          const plan = commitmentPlans.find((option) => option.memberId)
+          const nextMemberId = memberId || plan?.memberId || members[0]!.id
+          const memberPlan =
+            commitmentPlans.find(
+              (option) => option.memberId === nextMemberId
+            ) ?? null
+          const amount = createQaAmount(10_000, 50_000, 5_000)
+          const reference = createQaReference("HVC")
+          setMemberId(nextMemberId)
+          setPaidAt(qaToday())
+          setChannel("transfer")
+          setPaymentReference(reference)
+          setProofDocumentName(`${reference.toLowerCase()}.pdf`)
+          setProofDocumentUrl(
+            `https://example.test/receipts/${reference.toLowerCase()}.pdf`
+          )
+          setMemberNotes(`${qaMonthLabel()} commitment paid by bank transfer.`)
+          setReceiptAmount(amount)
+          setAllocations([
+            {
+              ...emptyAllocation(),
+              amount,
+              contributionPlanId: memberPlan?.id ?? "",
+              notes: "Monthly commitment",
+            },
+          ])
+        }}
+        restore={(draft) => {
+          setAllocations(draft.allocations)
+          setMemberId(draft.memberId)
+          setMemberNotes(draft.memberNotes)
+          setPaidAt(draft.paidAt)
+          setPaymentReference(draft.paymentReference)
+          setProofDocumentName(draft.proofDocumentName)
+          setProofDocumentUrl(draft.proofDocumentUrl)
+          setReceiptAmount(draft.receiptAmount)
+        }}
+      />
       <div className="grid gap-4 md:grid-cols-2">
         <Field label="Member">
           <LabeledSelectInput
@@ -1253,6 +1313,16 @@ export function PaymentReceiptSupportCaseContent({
 
   return (
     <div className="flex flex-col gap-4 pt-4">
+      <DashboardStateQuickFill
+        draft={supportDescription}
+        isDirty={Boolean(supportDescription)}
+        onFill={() =>
+          setSupportDescription(
+            "The bank shows this transfer as successful but my statement does not include it yet."
+          )
+        }
+        restore={setSupportDescription}
+      />
       <Field label="Support note">
         <Textarea
           disabled={isPending}
@@ -1391,6 +1461,51 @@ export function MemberPaymentReceiptCreateContent({
 
   return (
     <>
+      <DashboardStateQuickFill
+        className="mb-4"
+        draft={{
+          allocations,
+          memberNotes,
+          paidAt,
+          paymentReference,
+          proofDocumentName,
+          proofDocumentUrl,
+          receiptAmount,
+        }}
+        enabled={!isPending}
+        isDirty={Boolean(paymentReference || receiptAmount)}
+        onFill={() => {
+          const memberPlan = planOptions[0] ?? null
+          const amount = createQaAmount(10_000, 50_000, 5_000)
+          const reference = createQaReference("HVC")
+          setPaidAt(qaToday())
+          setChannel("transfer")
+          setPaymentReference(reference)
+          setProofDocumentName(`${reference.toLowerCase()}.pdf`)
+          setProofDocumentUrl(
+            `https://example.test/receipts/${reference.toLowerCase()}.pdf`
+          )
+          setMemberNotes(`${qaMonthLabel()} commitment paid by bank transfer.`)
+          setReceiptAmount(amount)
+          setAllocations([
+            {
+              ...emptyAllocation(),
+              amount,
+              contributionPlanId: memberPlan?.value ?? "",
+              notes: "Monthly commitment",
+            },
+          ])
+        }}
+        restore={(draft) => {
+          setAllocations(draft.allocations)
+          setMemberNotes(draft.memberNotes)
+          setPaidAt(draft.paidAt)
+          setPaymentReference(draft.paymentReference)
+          setProofDocumentName(draft.proofDocumentName)
+          setProofDocumentUrl(draft.proofDocumentUrl)
+          setReceiptAmount(draft.receiptAmount)
+        }}
+      />
       <div className="grid gap-4 md:grid-cols-2">
         <Field label="Receipt amount">
           <CurrencyInput
@@ -1611,6 +1726,16 @@ export function MemberPaymentReceiptSupportCaseContent({
 
   return (
     <div className="flex flex-col gap-4 pt-4">
+      <DashboardStateQuickFill
+        draft={supportDescription}
+        isDirty={Boolean(supportDescription)}
+        onFill={() =>
+          setSupportDescription(
+            "The bank shows this transfer as successful but my statement does not include it yet."
+          )
+        }
+        restore={setSupportDescription}
+      />
       <Field label="Support note">
         <Textarea
           disabled={isPending}

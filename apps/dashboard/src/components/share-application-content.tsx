@@ -19,6 +19,7 @@ import {
   reviewMemberShareApplicationAction,
 } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
+import { DashboardStateQuickFill } from "@/components/dashboard-quick-fill"
 import { useTRPC } from "@/trpc/client"
 
 export type ShareApplicationMemberOption = {
@@ -82,6 +83,19 @@ export function MemberShareApplicationCreateContent({
 
   return (
     <>
+      <DashboardStateQuickFill
+        draft={{ notes, requestedUnits }}
+        enabled={remainingOptionalUnits > 0 && !isPending}
+        isDirty={Boolean(notes)}
+        onFill={() => {
+          setRequestedUnits(String(Math.min(2, remainingOptionalUnits)))
+          setNotes("Adding to my long-term ownership in the cooperative.")
+        }}
+        restore={(draft) => {
+          setRequestedUnits(draft.requestedUnits)
+          setNotes(draft.notes)
+        }}
+      />
       <div className="grid gap-3 md:grid-cols-[140px_minmax(0,1fr)]">
         <div>
           <p className="mb-1 text-xs font-medium text-muted-foreground">
@@ -181,6 +195,21 @@ export function ShareApplicationCreateContent({
 
   return (
     <>
+      <DashboardStateQuickFill
+        draft={{ memberId, notes, requestedUnits }}
+        enabled={memberSelectOptions.length > 0 && !isPending}
+        isDirty={Boolean(notes)}
+        onFill={() => {
+          setMemberId(memberId || (memberSelectOptions[0]?.value ?? ""))
+          setRequestedUnits("2")
+          setNotes("Requested at the office after the monthly meeting.")
+        }}
+        restore={(draft) => {
+          setMemberId(draft.memberId)
+          setRequestedUnits(draft.requestedUnits)
+          setNotes(draft.notes)
+        }}
+      />
       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_110px]">
         <div>
           <p className="mb-1 text-xs font-medium text-muted-foreground">
@@ -355,9 +384,7 @@ export function MemberShareApplicationDetailsContent({
       </dl>
       <div className="divide-y divide-border">
         <section className="py-4">
-          <p className="text-xs font-medium text-muted-foreground">
-            Your note
-          </p>
+          <p className="text-xs font-medium text-muted-foreground">Your note</p>
           <p className="mt-2 text-sm leading-6 text-foreground">
             {application.notes || "No note was added."}
           </p>

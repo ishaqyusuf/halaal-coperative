@@ -4,23 +4,14 @@ import { Badge } from "@halaalvest/ui/components/badge"
 import { formatCurrency } from "@halaalvest/utils"
 import type { ColumnDef } from "@tanstack/react-table"
 import {
-  OpenMonthlyRecordApplySheet,
-  OpenMonthlyRecordCancelSheet,
-} from "@/components/open-monthly-record-sheet"
+  monthlyRecordStatusLabel,
+  monthlyRecordStatusVariant,
+} from "@/components/monthly-records/monthly-record-status"
+import { MonthlyRecordRowActions } from "@/components/open-monthly-record-sheet"
 import type { MonthlyRecordMemberTableRow } from "./data-table"
-
-function statusVariant(status: string) {
-  if (status === "applied" || status === "open") return "default"
-  if (status === "cancelled" || status === "closed") return "destructive"
-  return "secondary"
-}
 
 function loanStatusLabel(status: string) {
   return status === "none" ? "No loan" : status.replace(/_/g, " ")
-}
-
-function monthlyRecordMemberStatusLabel(status: string) {
-  return status === "pending" ? "staged" : status
 }
 
 function AmountWithCalculatedDifference({
@@ -52,7 +43,7 @@ export const columns: ColumnDef<MonthlyRecordMemberTableRow>[] = [
         <p className="truncate font-medium text-foreground">
           {row.original.memberName}
         </p>
-        <p className="mt-1 truncate text-xs text-muted-foreground">
+        <p className="truncate text-muted-foreground">
           {row.original.memberNumber}
         </p>
       </div>
@@ -64,12 +55,44 @@ export const columns: ColumnDef<MonthlyRecordMemberTableRow>[] = [
     maxSize: 460,
     meta: {
       className:
-        "w-[300px] min-w-[240px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20",
+        "w-[250px] min-w-[220px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20",
       headerLabel: "Member",
       sticky: true,
     },
-    minSize: 240,
-    size: 300,
+    minSize: 220,
+    size: 250,
+  },
+  {
+    accessorKey: "workplaceName",
+    cell: ({ row }) => (
+      <span className="truncate">{row.original.workplaceName ?? "—"}</span>
+    ),
+    enableResizing: true,
+    header: "Workplace",
+    id: "workplace",
+    meta: {
+      className: "w-[180px] min-w-[150px]",
+      headerLabel: "Workplace",
+    },
+    minSize: 150,
+    size: 180,
+  },
+  {
+    accessorKey: "status",
+    cell: ({ row }) => (
+      <Badge variant={monthlyRecordStatusVariant(row.original.status)}>
+        {monthlyRecordStatusLabel(row.original.status)}
+      </Badge>
+    ),
+    enableResizing: true,
+    header: "Status",
+    id: "status",
+    meta: {
+      className: "w-[140px] min-w-[130px]",
+      headerLabel: "Status",
+    },
+    minSize: 130,
+    size: 140,
   },
   {
     accessorKey: "currentBalance",
@@ -144,24 +167,27 @@ export const columns: ColumnDef<MonthlyRecordMemberTableRow>[] = [
     accessorKey: "totalPayableAmount",
     cell: ({ row }) => formatCurrency(row.original.totalPayableAmount),
     enableResizing: true,
-    header: "Total payable",
+    header: "Due",
     id: "payable",
     meta: {
       className: "w-[160px] min-w-[140px]",
-      headerLabel: "Total payable",
+      headerLabel: "Due",
     },
     minSize: 140,
     size: 160,
   },
   {
     accessorKey: "totalPaidAmount",
-    cell: ({ row }) => formatCurrency(row.original.totalPaidAmount),
+    cell: ({ row }) =>
+      row.original.status === "applied"
+        ? formatCurrency(row.original.totalPaidAmount)
+        : "—",
     enableResizing: true,
-    header: "Total paid",
+    header: "Paid",
     id: "paid",
     meta: {
       className: "w-[150px] min-w-[130px]",
-      headerLabel: "Total paid",
+      headerLabel: "Paid",
     },
     minSize: 130,
     size: 150,
@@ -205,49 +231,17 @@ export const columns: ColumnDef<MonthlyRecordMemberTableRow>[] = [
     size: 170,
   },
   {
-    accessorKey: "status",
-    cell: ({ row }) => (
-      <Badge variant={statusVariant(row.original.status)}>
-        {monthlyRecordMemberStatusLabel(row.original.status)}
-      </Badge>
-    ),
-    enableResizing: true,
-    header: "Status",
-    id: "status",
-    meta: {
-      className: "w-[130px] min-w-[110px]",
-      headerLabel: "Status",
-    },
-    minSize: 110,
-    size: 130,
-  },
-  {
-    cell: ({ row }) => {
-      const canApply = row.original.status !== "applied"
-      const canCancel = row.original.status !== "cancelled"
-
-      return (
-        <div className="flex justify-end gap-2">
-          <OpenMonthlyRecordApplySheet
-            disabled={!canApply}
-            monthlyRecordMemberId={row.original.id}
-          />
-          <OpenMonthlyRecordCancelSheet
-            disabled={!canCancel}
-            monthlyRecordMemberId={row.original.id}
-          />
-        </div>
-      )
-    },
+    cell: ({ row }) => <MonthlyRecordRowActions row={row.original} />,
     enableHiding: false,
     header: "Actions",
     id: "actions",
-    maxSize: 220,
+    maxSize: 300,
     meta: {
-      className: "w-[200px] min-w-[180px] justify-end",
+      className:
+        "w-[240px] min-w-[230px] justify-end md:sticky md:right-0 z-30 bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] !border-l !border-border",
       headerLabel: "Actions",
     },
-    minSize: 180,
-    size: 200,
+    minSize: 230,
+    size: 240,
   },
 ]

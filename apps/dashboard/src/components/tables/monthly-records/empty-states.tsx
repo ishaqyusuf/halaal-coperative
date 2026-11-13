@@ -6,9 +6,9 @@ import { useMonthlyRecordFilterParams } from "@/hooks/use-monthly-record-filter-
 import { useMonthlyRecordParams } from "@/hooks/use-monthly-record-params"
 import { useSortParams } from "@/hooks/use-sort-params"
 
-// A month with no record, or a record with no seeded member rows. The page GET
-// never creates either; "Create month" opens the create confirm, which runs
-// `ensureMonthlyRecord` and seeds the rows.
+// A month with no record, or a record with no member rows. The page GET never
+// creates either; "Start month" opens the confirm, which runs
+// `ensureMonthlyRecord` and adds the rows.
 export function MonthlyRecordsEmptyState({
   month,
   periodLabel,
@@ -23,16 +23,11 @@ export function MonthlyRecordsEmptyState({
 
   return (
     <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 border-t px-4 py-10 text-center">
-      <div>
-        <p className="text-sm font-medium text-foreground">
-          {periodLabel
-            ? `${periodLabel} has no member rows yet.`
-            : "No monthly record for this month yet."}
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Create the month to stage a row for every active member.
-        </p>
-      </div>
+      <p className="font-medium text-foreground">
+        {periodLabel
+          ? `${periodLabel} has no members yet.`
+          : "This month has not started yet."}
+      </p>
       {canCreate ? (
         <Button
           onClick={() =>
@@ -43,11 +38,10 @@ export function MonthlyRecordsEmptyState({
               targetYear: year ?? null,
             })
           }
-          size="sm"
           type="button"
         >
           <PlusIcon data-icon="inline-start" />
-          Create month
+          Start month
         </Button>
       ) : null}
     </div>
@@ -60,17 +54,14 @@ export function MonthlyRecordsNoResults() {
 
   return (
     <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 border-t px-4 py-10 text-center">
-      <p className="text-sm text-muted-foreground">
-        No member rows match the current filters.
-      </p>
+      <p className="text-muted-foreground">No members match.</p>
       <Button
         onClick={() =>
           void Promise.all([
-            setFilter({ q: null, status: null }),
+            setFilter({ q: null, status: null, workplaceId: null }),
             setSortParams({ sort: null }),
           ])
         }
-        size="sm"
         type="button"
         variant="outline"
       >

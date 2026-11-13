@@ -15,6 +15,7 @@ const sortFields = new Set<string>([
   "status",
   "totalPaidAmount",
   "totalPayableAmount",
+  "workplaceName",
 ])
 
 function getSort(
@@ -36,11 +37,13 @@ export function getMonthlyRecordRowsInput(input: {
   q?: string | null
   sort?: string[] | null
   status?: MonthlyRecordMemberStatusValue | null
+  workplaceId?: string | null
 }) {
   return {
     monthlyRecordId: input.monthlyRecordId ?? undefined,
     q: input.q?.trim() || undefined,
     sort: getSort(input.sort),
     status: input.status ?? undefined,
+    workplaceId: input.workplaceId ?? undefined,
   }
 }

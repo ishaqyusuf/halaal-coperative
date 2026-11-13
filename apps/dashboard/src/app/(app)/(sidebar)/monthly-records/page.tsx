@@ -13,6 +13,7 @@ import { getMonthlyRecordRowsInput } from "@/components/tables/monthly-records/r
 import { loadMonthlyRecordFilterParams } from "@/hooks/use-monthly-record-filter-params"
 import { loadMonthlyRecordParams } from "@/hooks/use-monthly-record-params"
 import { loadSortParams } from "@/hooks/use-sort-params"
+import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { financeManagementRoles, hasAnyRole } from "@/lib/workspace-access"
 import { getQueryClient, HydrateClient, trpc } from "@/trpc/server"
@@ -49,14 +50,17 @@ export default async function MonthlyRecordsPage({
     return <MonthlyRecordsAccessUnavailableView />
   }
 
-  // Read-only: the GET never creates a month or seeds rows.
-  const [data, monthlyRecordTableSettings] = await Promise.all([
-    getMonthlyRecordsPageData({
-      selectedRecordId,
-      tenantId: context.tenant.id,
-    }),
-    getInitialTableSettings("monthlyRecords"),
-  ])
+  // Read-only: the GET never creates a month or seeds rows. The operation
+  // profile is the request-cached copy the sidebar already loaded.
+  const [data, monthlyRecordTableSettings, operationProfile] =
+    await Promise.all([
+      getMonthlyRecordsPageData({
+        selectedRecordId,
+        tenantId: context.tenant.id,
+      }),
+      getInitialTableSettings("monthlyRecords"),
+      getRequestTenantOperationProfile(context.tenant.id),
+    ])
 
   const selectedYear =
     requestedYear && Number.isInteger(requestedYear)
@@ -70,6 +74,7 @@ export default async function MonthlyRecordsPage({
     q: filter.q,
     sort,
     status: filter.status,
+    workplaceId: filter.workplaceId,
   })
   const monthlyRecordRowsOptions =
     trpc.monthlyRecords.rows.infiniteQueryOptions(monthlyRecordRowsInput, {
@@ -90,6 +95,9 @@ export default async function MonthlyRecordsPage({
     <HydrateClient>
       <MonthlyRecordsPageView
         {...data}
+        canManageWorkplaces={
+          operationProfile.services.collection_sources.canStaffCreate
+        }
         monthlyRecordTableSettings={monthlyRecordTableSettings}
         selectedYear={selectedYear}
       />

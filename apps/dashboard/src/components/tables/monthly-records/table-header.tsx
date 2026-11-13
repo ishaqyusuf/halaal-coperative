@@ -28,6 +28,7 @@ import {
   SORT_FIELD_MAPS,
   STICKY_COLUMNS,
 } from "@/utils/table-configs"
+import { columns } from "./columns"
 
 interface Props<TData> {
   loading?: boolean
@@ -264,19 +265,14 @@ function SortButton({
   )
 }
 
-function getHeaderLabel(columnId: string): string {
-  const labels: Record<string, string> = {
-    balance: "Current balance",
-    charges: "All charges",
-    finalIncome: "Final income",
-    loanDue: "Loan due",
-    loanStatus: "Loan status",
-    paid: "Total paid",
-    payable: "Total payable",
-    savings: "Savings due",
-    shareCharge: "Share charge",
-    status: "Status",
-  }
+// Labels come from the column definitions, so header and column picker agree.
+const headerLabels = new Map(
+  columns.map((column) => [
+    column.id,
+    (column.meta as { headerLabel?: string } | undefined)?.headerLabel,
+  ])
+)
 
-  return labels[columnId] || columnId
+function getHeaderLabel(columnId: string): string {
+  return headerLabels.get(columnId) ?? columnId
 }

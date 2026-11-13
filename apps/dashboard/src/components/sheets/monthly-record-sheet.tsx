@@ -1,6 +1,5 @@
 "use client"
 
-import { Suspense } from "react"
 import type {
   MonthlyRecordMemberRow,
   MonthlyRecordSettingView,
@@ -11,56 +10,53 @@ import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useMonthlyRecordParams } from "@/hooks/use-monthly-record-params"
 import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
-function isMonthlyRecordSheetOpen(type: string | null) {
-  return Boolean(
-    type === "generate" ||
-      type === "create" ||
-      type === "apply" ||
-      type === "cancel" ||
-      type === "settings"
-  )
-}
-
 export function MonthlyRecordSheet({
+  monthlyRecordId,
+  periodLabel,
   rows,
   settings,
 }: {
+  monthlyRecordId?: string
+  periodLabel?: string
   rows: MonthlyRecordMemberRow[]
   settings: MonthlyRecordSettingView
 }) {
   const { monthlyRecordSheetType, setParams } = useMonthlyRecordParams()
-  const isOpen = isMonthlyRecordSheetOpen(monthlyRecordSheetType)
+  const isOpen = Boolean(monthlyRecordSheetType)
   const presentation = getWorkflowPresentation(
     "monthlyRecord",
     monthlyRecordSheetType
   )
 
-  const handleOnOpenChange = (open: boolean) => {
-    if (open) {
-      return
-    }
-
-    setParams(null)
-  }
-
   return (
     <WorkflowPresentation
       config={presentation}
+      contentClassName={
+        monthlyRecordSheetType === "receive"
+          ? "flex min-h-full flex-col gap-5"
+          : "flex flex-col gap-5"
+      }
+      mobileFullScreen={monthlyRecordSheetType === "receive"}
+      onOpenChange={(open) => {
+        if (!open) void setParams(null)
+      }}
       open={isOpen}
-      onOpenChange={handleOnOpenChange}
     >
-        {isOpen ? (
-          <Suspense
-            fallback={
-              <div className="px-6 text-sm text-muted-foreground">
-                Loading monthly record action...
-              </div>
-            }
-          >
-            <MonthlyRecordSheetHeader />
-            <MonthlyRecordContent rows={rows} settings={settings} />
-          </Suspense>
-        ) : null}
+      {isOpen ? (
+        <>
+          <MonthlyRecordSheetHeader
+            periodLabel={periodLabel}
+            presentation={presentation.presentation}
+            rows={rows}
+          />
+          <MonthlyRecordContent
+            monthlyRecordId={monthlyRecordId}
+            periodLabel={periodLabel}
+            rows={rows}
+            settings={settings}
+          />
+        </>
+      ) : null}
     </WorkflowPresentation>
   )
 }

@@ -4,6 +4,7 @@ import { createLoader, parseAsString, parseAsStringEnum } from "nuqs/server"
 export const monthlyRecordFilterParamsSchema = {
   q: parseAsString,
   status: parseAsStringEnum(["pending", "applied", "cancelled"]),
+  workplaceId: parseAsString,
 }
 
 export function useMonthlyRecordFilterParams() {
@@ -11,7 +12,7 @@ export function useMonthlyRecordFilterParams() {
 
   return {
     filter,
-    hasFilters: Boolean(filter.q || filter.status),
+    hasFilters: Boolean(filter.q || filter.status || filter.workplaceId),
     setFilter,
   }
 }

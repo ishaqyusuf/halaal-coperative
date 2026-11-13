@@ -72,7 +72,6 @@ describe("dashboard table polling conformance", () => {
   const tables = [
     "audit",
     "charges",
-    "monthly-records",
     "notifications",
     "shares",
   ]
@@ -85,5 +84,20 @@ describe("dashboard table polling conformance", () => {
     expect(source).toContain("useLiveTablePollInterval()")
     expect(source).toContain("refetchInterval: livePollInterval")
     expect(source).not.toMatch(/refetchInterval:\s*\d/)
+  })
+})
+
+describe("monthly records rows", () => {
+  // Every write on the page (mark paid, undo, workplace receive, start month)
+  // refreshes or invalidates the rows, so the query does not poll.
+  test("do not poll", () => {
+    const source = readFileSync(
+      join(
+        import.meta.dir,
+        "../components/tables/monthly-records/use-monthly-records-query.ts"
+      ),
+      "utf8"
+    )
+    expect(source).not.toContain("refetchInterval")
   })
 })

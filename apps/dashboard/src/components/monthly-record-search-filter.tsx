@@ -21,8 +21,8 @@ import { useMonthlyRecordFilterParams } from "@/hooks/use-monthly-record-filter-
 import { useSortParams } from "@/hooks/use-sort-params"
 
 const statusFilters = [
-  { id: "pending", name: "Staged" },
-  { id: "applied", name: "Applied" },
+  { id: "pending", name: "Not paid" },
+  { id: "applied", name: "Paid" },
   { id: "cancelled", name: "Cancelled" },
 ] as const
 
@@ -61,7 +61,7 @@ export function MonthlyRecordSearchFilter() {
             filterOpen={isOpen}
             onChange={handleSearch}
             onFilterClick={isMobile ? () => setIsOpen(true) : undefined}
-            placeholder="Search members..."
+            placeholder="Search name or number"
             spellCheck="false"
             value={input}
           />
@@ -134,7 +134,7 @@ export function MonthlyRecordSearchFilter() {
               onClick={() => {
                 setInput("")
                 void Promise.all([
-                  setFilter({ q: null, status: null }),
+                  setFilter({ q: null, status: null, workplaceId: null }),
                   setSortParams({ sort: null }),
                 ])
               }}

@@ -7,29 +7,24 @@ import {
   TableCell,
   TableRow,
 } from "@halaalvest/ui/components/table"
-import { useSuspenseInfiniteQuery } from "@tanstack/react-query"
 import { getCoreRowModel } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
-import { useDeferredValue, useEffect, useMemo, useRef } from "react"
+import { useEffect, useRef } from "react"
 import type { MonthlyRecordMemberRow } from "@halaalvest/db"
 import { VirtualRow } from "@/components/tables/core"
 import { useDataTable } from "@/hooks/use-data-table"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
-import { useLiveTablePollInterval } from "@/hooks/use-live-table-poll-interval"
-import { useMonthlyRecordFilterParams } from "@/hooks/use-monthly-record-filter-params"
-import { useSortParams } from "@/hooks/use-sort-params"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
 import { useTableDnd } from "@/hooks/use-table-dnd"
 import { useTableScroll } from "@/hooks/use-table-scroll"
 import { useTableSettings } from "@/hooks/use-table-settings"
 import { useMonthlyRecordsTableStore } from "@/store/monthly-records"
-import { useTRPC } from "@/trpc/client"
 import { ROW_HEIGHTS, STICKY_COLUMNS } from "@/utils/table-configs"
 import { getColumnIds, type TableSettings } from "@/utils/table-settings"
 import { columns } from "./columns"
 import { MonthlyRecordsEmptyState, MonthlyRecordsNoResults } from "./empty-states"
-import { getMonthlyRecordRowsInput } from "./rows-input"
 import { MonthlyRecordsTableHeader } from "./table-header"
+import { useMonthlyRecordsQuery } from "./use-monthly-records-query"
 
 export type MonthlyRecordMemberTableRow = MonthlyRecordMemberRow
 
@@ -48,39 +43,15 @@ export function MonthlyRecordsDataTable({
   periodLabel?: string
   year?: number
 }) {
-  const trpc = useTRPC()
-  const { params } = useSortParams()
-  const { filter, hasFilters } = useMonthlyRecordFilterParams()
-  const deferredSearch = useDeferredValue(filter.q)
   const parentRef = useRef<HTMLDivElement>(null)
   const { setColumns } = useMonthlyRecordsTableStore()
-  const queryInput = useMemo(
-    () =>
-      getMonthlyRecordRowsInput({
-        monthlyRecordId,
-        q: deferredSearch,
-        sort: params.sort,
-        status: filter.status,
-      }),
-    [deferredSearch, filter.status, monthlyRecordId, params.sort]
-  )
-  // Polling stays behind the visibility/activity gate; the page hydrates the
-  // first page, so there is no refetch on mount.
-  const livePollInterval = useLiveTablePollInterval()
-  const infiniteQueryOptions = trpc.monthlyRecords.rows.infiniteQueryOptions(
-    queryInput,
-    {
-      getNextPageParam: ({ meta }) => meta?.cursor,
-      refetchInterval: livePollInterval,
-      refetchOnWindowFocus: true,
-    }
-  )
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useSuspenseInfiniteQuery(infiniteQueryOptions)
-  const tableData = useMemo(
-    () => data.pages.flatMap((page) => page.data),
-    [data.pages]
-  )
+  const {
+    fetchNextPage,
+    hasFilters,
+    hasNextPage,
+    isFetchingNextPage,
+    rows: tableData,
+  } = useMonthlyRecordsQuery(monthlyRecordId)
 
   const {
     columnOrder,
@@ -172,7 +143,7 @@ export function MonthlyRecordsDataTable({
             tableScroll.containerRef.current = element
           }}
           style={{
-            height: "calc(100vh - 430px + var(--header-offset, 0px))",
+            height: "calc(100vh - 380px + var(--header-offset, 0px))",
             minHeight: 360,
           }}
         >

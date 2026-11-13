@@ -73,7 +73,15 @@ export const defaultHiddenColumns: Record<TableId, string[]> = {
   loanPortfolio: [],
   loanRequests: [],
   membershipApprovals: [],
-  monthlyRecords: [],
+  monthlyRecords: [
+    "balance",
+    "loanStatus",
+    "savings",
+    "shareCharge",
+    "loanDue",
+    "charges",
+    "finalIncome",
+  ],
   notifications: [],
   audit: [],
 }

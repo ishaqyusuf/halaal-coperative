@@ -1,141 +1,49 @@
 "use client"
 
-import type { ReactNode } from "react"
 import { Button } from "@halaalvest/ui/components/button"
-import { CheckIcon, PlusIcon, RefreshCwIcon, Settings2Icon, XIcon } from "lucide-react"
+import { cn } from "@halaalvest/ui/lib/utils"
+import type { MonthlyRecordMemberRow } from "@halaalvest/db"
 import { useMonthlyRecordParams } from "@/hooks/use-monthly-record-params"
 
-export function OpenMonthlyRecordGenerateSheet() {
-  const { setParams } = useMonthlyRecordParams()
-
-  return (
-    <Button
-      onClick={() =>
-        setParams({
-          monthlyRecordMemberId: null,
-          monthlyRecordSheetType: "generate",
-          targetMonth: null,
-          targetYear: null,
-        })
-      }
-      size="sm"
-      type="button"
-      variant="outline"
-    >
-      <RefreshCwIcon data-icon="inline-start" />
-      Generate due records now
-    </Button>
-  )
-}
-
-export function OpenMonthlyRecordSettingsSheet() {
-  const { setParams } = useMonthlyRecordParams()
-
-  return (
-    <Button
-      onClick={() =>
-        setParams({
-          monthlyRecordMemberId: null,
-          monthlyRecordSheetType: "settings",
-          targetMonth: null,
-          targetYear: null,
-        })
-      }
-      size="sm"
-      type="button"
-      variant="outline"
-    >
-      <Settings2Icon data-icon="inline-start" />
-      Edit settings
-    </Button>
-  )
-}
-
-export function OpenMonthlyRecordCreateSheet({
-  children,
-  month,
-  year,
+// Row actions shared by the desktop table and the phone list: one clear action
+// for the state the row is in.
+export function MonthlyRecordRowActions({
+  fullWidth = false,
+  row,
 }: {
-  children: ReactNode
-  month: number
-  year: number
+  fullWidth?: boolean
+  row: Pick<MonthlyRecordMemberRow, "id" | "status">
 }) {
   const { setParams } = useMonthlyRecordParams()
+  const open = (monthlyRecordSheetType: "apply" | "cancel") =>
+    setParams({
+      monthlyRecordMemberId: row.id,
+      monthlyRecordSheetType,
+      targetMonth: null,
+      targetYear: null,
+    })
 
   return (
-    <button
-      className="block w-full text-left"
-      onClick={() =>
-        setParams({
-          monthlyRecordMemberId: null,
-          monthlyRecordSheetType: "create",
-          targetMonth: month,
-          targetYear: year,
-        })
-      }
-      type="button"
-    >
-      <PlusIcon className="sr-only" />
-      {children}
-    </button>
-  )
-}
-
-export function OpenMonthlyRecordApplySheet({
-  disabled,
-  monthlyRecordMemberId,
-}: {
-  disabled?: boolean
-  monthlyRecordMemberId: string
-}) {
-  const { setParams } = useMonthlyRecordParams()
-
-  return (
-    <Button
-      disabled={disabled}
-      onClick={() =>
-        setParams({
-          monthlyRecordMemberId,
-          monthlyRecordSheetType: "apply",
-          targetMonth: null,
-          targetYear: null,
-        })
-      }
-      size="sm"
-      type="button"
-    >
-      <CheckIcon data-icon="inline-start" />
-      Apply
-    </Button>
-  )
-}
-
-export function OpenMonthlyRecordCancelSheet({
-  disabled,
-  monthlyRecordMemberId,
-}: {
-  disabled?: boolean
-  monthlyRecordMemberId: string
-}) {
-  const { setParams } = useMonthlyRecordParams()
-
-  return (
-    <Button
-      disabled={disabled}
-      onClick={() =>
-        setParams({
-          monthlyRecordMemberId,
-          monthlyRecordSheetType: "cancel",
-          targetMonth: null,
-          targetYear: null,
-        })
-      }
-      size="sm"
-      type="button"
-      variant="outline"
-    >
-      <XIcon data-icon="inline-start" />
-      Cancel
-    </Button>
+    <div className={cn("flex gap-2", fullWidth ? "w-full" : "justify-end")}>
+      {row.status !== "applied" ? (
+        <Button
+          className={fullWidth ? "flex-1" : undefined}
+          onClick={() => void open("apply")}
+          type="button"
+        >
+          Mark paid
+        </Button>
+      ) : null}
+      {row.status !== "cancelled" ? (
+        <Button
+          className={fullWidth ? "flex-1" : undefined}
+          onClick={() => void open("cancel")}
+          type="button"
+          variant="outline"
+        >
+          {row.status === "applied" ? "Undo" : "Cancel"}
+        </Button>
+      ) : null}
+    </div>
   )
 }

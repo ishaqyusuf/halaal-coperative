@@ -108,16 +108,18 @@ export const workflowPresentations = {
     details: sheet("review"),
   },
   memberSignupLink: {
-    access: dialog("form"),
+    access: dialog("compact"),
     create: dialog("form"),
-    edit: sheet(),
+    edit: dialog("form"),
   },
   monthlyRecord: {
-    apply: dialog("form"),
+    apply: dialog("compact"),
     cancel: alertDialog(),
     create: alertDialog(),
     generate: alertDialog(),
-    settings: sheet(),
+    receive: sheet("review"),
+    settings: dialog("compact"),
+    workplaces: dialog("form"),
   },
   notificationPreference: {
     edit: dialog("compact"),

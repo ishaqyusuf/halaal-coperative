@@ -26,7 +26,7 @@ export const STICKY_COLUMNS: Record<TableId, StickyColumnConfig[]> = {
   loanPortfolio: [{ id: "member", width: 300 }],
   loanRequests: [{ id: "member", width: 300 }],
   membershipApprovals: [{ id: "applicant", width: 300 }],
-  monthlyRecords: [{ id: "member", width: 300 }],
+  monthlyRecords: [{ id: "member", width: 250 }],
   notifications: [{ id: "subject", width: 320 }],
   audit: [{ id: "action", width: 300 }],
 }
@@ -172,6 +172,7 @@ export const SORT_FIELD_MAPS: Record<TableId, Record<string, string>> = {
   },
   monthlyRecords: {
     member: "memberName",
+    workplace: "workplaceName",
     balance: "currentBalance",
     loanStatus: "loanStatus",
     savings: "contributionAmount",

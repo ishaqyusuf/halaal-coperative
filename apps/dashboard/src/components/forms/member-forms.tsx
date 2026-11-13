@@ -548,18 +548,18 @@ export function MemberCreateForm({
               name="deductionSourceId"
               render={({ field }) => (
                 <FormItem className={inSheet ? "sm:col-span-2" : undefined}>
-                  <FormLabel>Collection source</FormLabel>
+                  <FormLabel>Workplace</FormLabel>
                   <FormControl>
                     <SelectFormInput
                       {...field}
                       options={[
-                        { label: "None/manual", value: "none" },
+                        { label: "None", value: "none" },
                         ...collectionSourceOptions.map((source) => ({
                           label: source.label,
                           value: source.id,
                         })),
                       ]}
-                      placeholder="Select collection source"
+                      placeholder="Choose a workplace"
                     />
                   </FormControl>
                   <FormMessage />

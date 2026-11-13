@@ -279,18 +279,9 @@ export function MemberSignupLinkManager({
             ))}
           </div>
         ) : (
-          <div className="mt-2 grid justify-items-start gap-4 border-y border-dashed border-border/70 py-8">
-            <p className="text-lg text-muted-foreground">
-              No links yet. Make one to let people join from their phone.
-            </p>
-            <Button
-              className="h-11 w-full md:h-10 md:w-auto"
-              onClick={() => openSheet("create")}
-              type="button"
-            >
-              Make a link
-            </Button>
-          </div>
+          <p className="mt-2 border-y border-dashed border-border/70 py-8 text-lg text-muted-foreground">
+            No links yet. Use New link to make one.
+          </p>
         )}
       </section>
 

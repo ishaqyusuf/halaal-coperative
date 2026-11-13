@@ -62,15 +62,26 @@ export function SearchFilterPanel({
     return () => window.clearTimeout(timeout)
   }, [filters, searchKey])
 
+  const currentSearch = searchKey ? String(filters[searchKey] ?? "") : ""
+
   useEffect(() => {
     if (!searchKey) {
+      return
+    }
+
+    const nextSearch = prompt.trim() ? prompt : null
+
+    // A non-shallow URL update re-renders the route on the server (layout
+    // and page loaders), so only write when the search actually changed;
+    // otherwise every list page re-rendered itself right after mounting.
+    if ((nextSearch ?? "") === currentSearch) {
       return
     }
 
     const timeout = window.setTimeout(() => {
       setFilters(
         {
-          [searchKey]: prompt.trim() ? prompt : null,
+          [searchKey]: nextSearch,
         },
         {
           shallow: false,
@@ -79,7 +90,7 @@ export function SearchFilterPanel({
     }, 250)
 
     return () => window.clearTimeout(timeout)
-  }, [prompt, searchKey, setFilters])
+  }, [currentSearch, prompt, searchKey, setFilters])
 
   useEffect(() => {
     if (!isOpen || isMobile) {

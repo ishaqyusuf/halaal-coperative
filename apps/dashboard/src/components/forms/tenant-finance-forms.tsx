@@ -98,6 +98,7 @@ import {
   updateTenantFinancingPolicyAction,
   updateTenantSharePolicyAction,
 } from "@/lib/dashboard-actions"
+import { useMarkWorkflowSaved } from "@/components/workflow-presentation"
 
 export function DeleteInlineRowButton({
   disabled,
@@ -545,6 +546,7 @@ export function BusinessProfitPolicyForm({
     storageKey: preserveDraftKey ?? "tenant-finance:business-profit-policy",
   })
   const { showError, showSuccess } = useNotifications()
+  const markWorkflowSaved = useMarkWorkflowSaved()
   const [isPending, startTransition] = useTransition()
 
   function quickFillProfitPolicy() {
@@ -574,6 +576,8 @@ export function BusinessProfitPolicyForm({
               values.reserveRetentionPercentage?.trim() || "0",
           })
         )
+        form.reset(values)
+        markWorkflowSaved()
         showSuccess("Policy saved", "Business profit policy updated.")
         clearPreservedFormState()
         if (redirectTo) {
@@ -881,6 +885,7 @@ export function SharePolicyForm({
     storageKey: preserveDraftKey ?? "tenant-finance:share-policy",
   })
   const { showError, showSuccess } = useNotifications()
+  const markWorkflowSaved = useMarkWorkflowSaved()
   const [isPending, startTransition] = useTransition()
 
   useEffect(() => {
@@ -891,6 +896,8 @@ export function SharePolicyForm({
     startTransition(async () => {
       try {
         await persistSharePolicy(values)
+        form.reset(values)
+        markWorkflowSaved()
         showSuccess("Policy saved", "Share configuration updated.")
         clearPreservedFormState()
         if (redirectTo) {
@@ -1208,6 +1215,7 @@ export function FinancingPolicyForm({
     },
   })
   const { showError, showSuccess } = useNotifications()
+  const markWorkflowSaved = useMarkWorkflowSaved()
   const [isPending, startTransition] = useTransition()
 
   function onSubmit(values: FinancingPolicyValues) {
@@ -1216,6 +1224,8 @@ export function FinancingPolicyForm({
         await updateTenantFinancingPolicyAction(
           objectToFormData(values, { booleanMode: "true-false" })
         )
+        form.reset(values)
+        markWorkflowSaved()
         showSuccess("Policy saved", "Financing settings updated.")
       } catch (error) {
         showError(
@@ -1577,6 +1587,7 @@ export function LoanProductSettingsForm({
     }
   )
   const { showError, showSuccess } = useNotifications()
+  const markWorkflowSaved = useMarkWorkflowSaved()
   const [isPending, startTransition] = useTransition()
 
   function onSubmit(values: LoanProductSettingsValues) {
@@ -1585,6 +1596,8 @@ export function LoanProductSettingsForm({
         await updateLoanProductSettingsAction(
           objectToFormData(values, { booleanMode: "true-false" })
         )
+        form.reset(values)
+        markWorkflowSaved()
         showSuccess("Product saved", `${values.name} updated.`)
       } catch (error) {
         showError(
@@ -1710,6 +1723,7 @@ export function FinancingCycleControlForm({
     }
   )
   const { showError, showSuccess } = useNotifications()
+  const markWorkflowSaved = useMarkWorkflowSaved()
   const [isPending, startTransition] = useTransition()
 
   function onSubmit(values: FinancingCycleControlValues) {
@@ -1719,11 +1733,15 @@ export function FinancingCycleControlForm({
 
         if (currentCycle?.id) {
           await updateMonthlyFinancingCycleStatusAction(formData)
+          form.reset({ ...values, statusNote: "" })
+          markWorkflowSaved()
           showSuccess("Cycle updated", "Monthly financing cycle status saved.")
           return
         }
 
         await openMonthlyFinancingCycleAction(formData)
+        form.reset({ ...values, statusNote: "" })
+        markWorkflowSaved()
         showSuccess("Cycle opened", "Monthly capacity snapshot created.")
       } catch (error) {
         showError(
@@ -3516,6 +3534,7 @@ export function ChargeDefinitionVersionForm({
     },
   })
   const { showError, showSuccess } = useNotifications()
+  const markWorkflowSaved = useMarkWorkflowSaved()
   const [isPending, startTransition] = useTransition()
 
   function onSubmit(values: ChargeVersionValues) {
@@ -3532,6 +3551,7 @@ export function ChargeDefinitionVersionForm({
     startTransition(async () => {
       try {
         await createChargeDefinitionVersionAction(objectToFormData(values))
+        markWorkflowSaved()
         showSuccess("Charge update saved", "Charge amount history updated.")
         form.reset({
           amount: "",

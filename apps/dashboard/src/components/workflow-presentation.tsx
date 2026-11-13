@@ -1,6 +1,13 @@
 "use client"
 
-import { useEffect, useState, type ReactNode } from "react"
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -64,6 +71,24 @@ const mobileFullScreenSheetWidthClasses: Record<
   wide: "md:max-w-[92rem]!",
 }
 
+type WorkflowPresentationState = {
+  /** Clears the unsaved-changes guard after the form inside has saved. */
+  markSaved: () => void
+}
+
+const WorkflowPresentationContext = createContext<WorkflowPresentationState>({
+  markSaved: () => {},
+})
+
+/**
+ * For forms that stay open after a successful save: call the returned
+ * function once the save succeeds so closing the workflow does not ask to
+ * discard changes that are already saved. Outside a workflow it is a no-op.
+ */
+export function useMarkWorkflowSaved() {
+  return useContext(WorkflowPresentationContext).markSaved
+}
+
 export function WorkflowPresentation({
   children,
   className,
@@ -100,6 +125,11 @@ export function WorkflowPresentation({
     onOpenChange(nextOpen)
   }
 
+  const markSaved = useCallback(() => {
+    setIsDirty(false)
+    setShowDiscardConfirmation(false)
+  }, [])
+
   function discardChanges() {
     setIsDirty(false)
     setShowDiscardConfirmation(false)
@@ -107,13 +137,15 @@ export function WorkflowPresentation({
   }
 
   const content = (
-    <div
-      className={contentClassName}
-      onChangeCapture={() => setIsDirty(true)}
-      onInputCapture={() => setIsDirty(true)}
-    >
-      {children}
-    </div>
+    <WorkflowPresentationContext.Provider value={{ markSaved }}>
+      <div
+        className={contentClassName}
+        onChangeCapture={() => setIsDirty(true)}
+        onInputCapture={() => setIsDirty(true)}
+      >
+        {children}
+      </div>
+    </WorkflowPresentationContext.Provider>
   )
 
   const discardConfirmation = (

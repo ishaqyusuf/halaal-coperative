@@ -147,6 +147,15 @@ function addCalendarMonths(now: Date, months: number) {
   return new Date(expiry.getTime() - lagosOffsetMs)
 }
 
+function approvalDates(now: Date, termMonths: number) {
+  return {
+    approvedAt: now,
+    startsAt: now,
+    endsAt: addCalendarMonths(now, termMonths),
+    chargeDueAt: lagosMonthEnd(now),
+  }
+}
+
 async function auditAccess(
   db: Prisma.TransactionClient,
   actor: Actor,
@@ -524,12 +533,8 @@ export async function reviewCooperativeMobileAccess(
         status,
         reviewedAt: now,
         reviewNote: input.note ?? null,
-        ...(input.decision === "approve" && {
-          approvedAt: now,
-          startsAt: now,
-          endsAt: addCalendarMonths(now, term.termMonths),
-          chargeDueAt: lagosMonthEnd(now),
-        }),
+        ...(input.decision === "approve" &&
+          approvalDates(now, term.termMonths)),
         ...(input.decision === "revoke" && { revokedAt: now }),
         ...(input.decision === "reinstate" && { revokedAt: null }),
       },
@@ -545,4 +550,227 @@ export async function reviewCooperativeMobileAccess(
     })
     return presentTerm(updated, now)
   })
+}
+
+function memberAccessState(term: CooperativeMobileAccessTerm | null, now: Date) {
+  if (!term) return "not_requested" as const
+  const status = statusAt(term, now)
+  return status === "revoked" && !isWithinTerm(term, now) ? "expired" : status
+}
+
+/**
+ * Lists the cooperative's active members with their current mobile access so
+ * an administrator can enable access directly from the dashboard.
+ */
+export async function listCooperativeMobileAccessMembers(
+  input: Actor & { search?: string; cursor?: string; limit: number }
+) {
+  const db = database()
+  const tenant = await requireAdmin(db, input)
+  const search = input.search?.trim()
+  const where: Prisma.MemberWhereInput = {
+    tenantId: input.tenantId,
+    status: "active",
+    ...(search && {
+      OR: [
+        { fullName: { contains: search, mode: "insensitive" } },
+        { memberNumber: { contains: search, mode: "insensitive" } },
+      ],
+    }),
+  }
+  const cursor = input.cursor
+    ? await db.member.findFirst({
+        where: { ...where, id: input.cursor },
+        select: { id: true, fullName: true },
+      })
+    : null
+  if (input.cursor && !cursor)
+    throw ExpectedQueryError.validation(
+      "The member list changed. Refresh it and try again."
+    )
+  const rows = await db.member.findMany({
+    where: {
+      ...where,
+      ...(cursor && {
+        AND: {
+          OR: [
+            { fullName: { gt: cursor.fullName } },
+            { fullName: cursor.fullName, id: { gt: cursor.id } },
+          ],
+        },
+      }),
+    },
+    orderBy: [{ fullName: "asc" }, { id: "asc" }],
+    take: input.limit + 1,
+    select: {
+      id: true,
+      fullName: true,
+      memberNumber: true,
+      user: { select: { deletedAt: true, passwordHash: true } },
+      cooperativeMobileAccessTerms: {
+        orderBy: [{ requestedAt: "desc" }, { id: "desc" }],
+        take: 1,
+      },
+    },
+  })
+  const now = new Date()
+  const page = rows.slice(0, input.limit)
+  return {
+    ...terms,
+    enabled: tenant.cooperativeMobileAccessEnabled,
+    items: page.map((member) => {
+      const term = member.cooperativeMobileAccessTerms[0] ?? null
+      const accessStatus = memberAccessState(term, now)
+      const hasLogin = Boolean(
+        member.user?.passwordHash && !member.user.deletedAt
+      )
+      return {
+        memberId: member.id,
+        memberName: member.fullName,
+        memberNumber: member.memberNumber,
+        accessStatus,
+        accessEndsAt: accessStatus === "active" ? (term?.endsAt ?? null) : null,
+        hasLogin,
+        canEnable:
+          hasLogin &&
+          (accessStatus === "pending" || !term || !blocksNewTerm(term, now)),
+      }
+    }),
+    nextCursor: rows.length > page.length ? (page.at(-1)?.id ?? null) : null,
+  }
+}
+
+export type CooperativeMobileAccessGrantResult = {
+  memberId: string
+  memberName: string | null
+  outcome: "enabled" | "already_active" | "failed"
+  message?: string
+  endsAt?: Date | null
+}
+
+async function grantMemberAccess(
+  input: Actor & { memberId: string; note: string | null }
+): Promise<CooperativeMobileAccessGrantResult> {
+  return changeAccess(async (db) => {
+    await lockCooperativeMobileBilling(db, input.tenantId)
+    const tenant = await requireAdmin(db, input)
+    if (!tenant.cooperativeMobileAccessEnabled) {
+      throw ExpectedQueryError.precondition(
+        "Enable cooperative mobile access before enabling members."
+      )
+    }
+    const member = await db.member.findFirst({
+      where: {
+        id: input.memberId,
+        tenantId: input.tenantId,
+        status: "active",
+      },
+      select: { id: true, fullName: true },
+    })
+    if (!member) throw ExpectedQueryError.notFound("Active member not found.")
+    const now = new Date()
+    const previous = await latestTerm(db, input.tenantId, member.id)
+    if (previous && isWithinTerm(previous, now)) {
+      if (previous.status === "approved") {
+        return {
+          memberId: member.id,
+          memberName: member.fullName,
+          outcome: "already_active",
+          endsAt: previous.endsAt,
+        }
+      }
+      throw ExpectedQueryError.conflict(
+        "Access was revoked during the current term. Restore it from the approved list instead."
+      )
+    }
+    await ensureMobileCredential(db, {
+      tenantId: input.tenantId,
+      memberId: member.id,
+      cooperativeCodePrefix: tenant.cooperativeCodePrefix,
+    })
+    const reviewNote = input.note ?? "Enabled by a cooperative administrator."
+    const term =
+      previous?.status === "pending"
+        ? await db.cooperativeMobileAccessTerm.update({
+            where: { id: previous.id, tenantId: input.tenantId },
+            data: {
+              status: "approved",
+              reviewedAt: now,
+              reviewNote,
+              ...approvalDates(now, previous.termMonths),
+            },
+          })
+        : await db.cooperativeMobileAccessTerm.create({
+            data: {
+              ...terms,
+              tenantId: input.tenantId,
+              memberId: member.id,
+              status: "approved",
+              requestedAt: now,
+              reviewedAt: now,
+              reviewNote,
+              ...approvalDates(now, terms.termMonths),
+            },
+          })
+    await auditAccess(db, input, {
+      action: "granted",
+      termId: term.id,
+      metadata: {
+        source: "admin_direct",
+        memberAgreementConfirmed: true,
+        approvedPendingRequest: previous?.status === "pending",
+        termsVersion: term.termsVersion,
+        amount: term.amount.toNumber(),
+        currencyCode: term.currencyCode,
+        note: input.note,
+      },
+      occurredAt: now,
+    })
+    return {
+      memberId: member.id,
+      memberName: member.fullName,
+      outcome: "enabled",
+      endsAt: term.endsAt,
+    }
+  })
+}
+
+/**
+ * Enables mobile access for members chosen by a cooperative administrator.
+ * The administrator confirms each member agreed to the disclosed charge; the
+ * resulting term is billed exactly like an approved member request.
+ */
+export async function grantCooperativeMobileAccess(
+  input: Actor & {
+    memberIds: string[]
+    termsVersion: string
+    note?: string
+  }
+) {
+  if (input.termsVersion !== terms.termsVersion) {
+    throw ExpectedQueryError.conflict(
+      "Mobile access terms changed. Review the current terms and try again."
+    )
+  }
+  const results: CooperativeMobileAccessGrantResult[] = []
+  for (const memberId of new Set(input.memberIds)) {
+    try {
+      results.push(
+        await grantMemberAccess({ ...input, memberId, note: input.note ?? null })
+      )
+    } catch (error) {
+      if (!(error instanceof ExpectedQueryError)) throw error
+      if (error.code === "PERMISSION_DENIED") throw error
+      results.push({
+        memberId,
+        memberName: null,
+        outcome: "failed",
+        message: error.publicMessage,
+      })
+    }
+  }
+  return {
+    results,
+    enabled: results.filter((result) => result.outcome === "enabled").length,
+  }
 }

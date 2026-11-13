@@ -1,6 +1,8 @@
 import {
   getCooperativeMobileAccessSnapshot,
   getCooperativeMobileMemberStatus,
+  grantCooperativeMobileAccess,
+  listCooperativeMobileAccessMembers,
   listCooperativeMobileAccessTerms,
   requestCooperativeMobileAccess,
   reviewCooperativeMobileAccess,
@@ -63,6 +65,38 @@ export const cooperativeMobileAccessRouter = createTRPCRouter({
     )
     .query(({ ctx, input }) =>
       listCooperativeMobileAccessTerms({ ...actor(ctx), ...input })
+    ),
+  members: webProcedure
+    .input(
+      z
+        .object({
+          search: z.string().trim().max(100).optional(),
+          cursor: z.uuid().optional(),
+          limit: z.number().int().min(1).max(100).default(30),
+        })
+        .strict()
+    )
+    .query(({ ctx, input }) =>
+      listCooperativeMobileAccessMembers({ ...actor(ctx), ...input })
+    ),
+  grant: webProcedure
+    .input(
+      z
+        .object({
+          memberIds: z.array(z.uuid()).min(1).max(50),
+          termsVersion,
+          memberAgreementConfirmed: z.literal(true),
+          note: requiredNote.optional(),
+        })
+        .strict()
+    )
+    .mutation(({ ctx, input }) =>
+      grantCooperativeMobileAccess({
+        ...actor(ctx),
+        memberIds: input.memberIds,
+        termsVersion: input.termsVersion,
+        note: input.note,
+      })
     ),
   setEnabled: webProcedure
     .input(z.object({ enabled: z.boolean(), termsVersion }).strict())

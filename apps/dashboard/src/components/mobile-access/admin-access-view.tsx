@@ -24,6 +24,7 @@ import { WorkspaceEmptyState } from "@/components/dashboard"
 import { useTRPC } from "@/trpc/client"
 import { MobileAccessLoadError, MobileAccessLoading } from "./access-page-state"
 import { AccessReviewDialog, type AccessDecision } from "./access-review-dialog"
+import { EnableMembersSheet } from "./enable-members-sheet"
 import {
   accessStatusLabel,
   defaultAccessQueue,
@@ -50,6 +51,7 @@ export function AdminAccessView() {
     currencyCode: string
     termMonths: number
   }>()
+  const [enablingMembers, setEnablingMembers] = useState(false)
   const [decision, setDecision] = useState<{
     action: AccessDecision
     termId: string
@@ -131,22 +133,31 @@ export function AdminAccessView() {
   }
 
   const enrollmentAction = settings?.enabled
-    ? "Pause requests"
-    : "Enable requests"
+    ? "Pause mobile access"
+    : "Turn on mobile access"
 
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-semibold">Member requests</h2>
+          <h2 className="font-semibold">Member access</h2>
           {settings ? (
             <p className="mt-1 text-sm text-muted-foreground">
-              {settings.enabled ? "Requests are open." : "Requests are closed."}
+              {settings.enabled
+                ? "Mobile access is on. Enable members directly or approve their requests."
+                : "Mobile access is off. Turn it on to enable members."}
             </p>
           ) : null}
         </div>
         {settings ? (
           <div className="flex flex-wrap gap-2">
+            <Button
+              disabled={!settings.enabled}
+              onClick={() => setEnablingMembers(true)}
+              type="button"
+            >
+              Enable members
+            </Button>
             <Button
               disabled={queue.isFetching}
               onClick={() => void queue.refetch()}
@@ -331,6 +342,10 @@ export function AdminAccessView() {
         />
       ) : null}
 
+      {enablingMembers ? (
+        <EnableMembersSheet onClose={() => setEnablingMembers(false)} />
+      ) : null}
+
       {enrollmentIntent ? (
         <Dialog
           open
@@ -342,13 +357,13 @@ export function AdminAccessView() {
             <DialogHeader>
               <DialogTitle>
                 {enrollmentIntent.enabled
-                  ? "Enable requests"
-                  : "Pause requests"}
+                  ? "Turn on mobile access"
+                  : "Pause mobile access"}
               </DialogTitle>
               <DialogDescription>
                 {enrollmentIntent.enabled
                   ? `Your cooperative agrees to pay ${formatAccessAmount(enrollmentIntent.amount, enrollmentIntent.currencyCode)} per approved ${enrollmentIntent.termMonths}-month member term. Halaalvest invoices your cooperative monthly for terms due in that month.`
-                  : "Pausing closes new requests and approvals and turns off staff mobile access. Previously approved members keep access and their charges remain due."}
+                  : "Pausing stops new member access and approvals and turns off staff mobile access. Previously approved members keep access and their charges remain due."}
               </DialogDescription>
             </DialogHeader>
             {enrollment.isError ? (
@@ -379,7 +394,7 @@ export function AdminAccessView() {
                   ? "Saving…"
                   : enrollmentIntent.enabled
                     ? "Accept and enable"
-                    : "Pause requests"}
+                    : "Pause mobile access"}
               </Button>
             </DialogFooter>
           </DialogContent>

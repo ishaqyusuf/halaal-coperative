@@ -5,7 +5,11 @@ import { Button } from "@halaalvest/ui/components/button"
 type OpeningPositionQuickFillValues = {
   activeFinancingGuarantorOneMemberId?: string
   activeFinancingGuarantorTwoMemberId?: string
+  // Start dates on or after the member's joined date (QA F13).
+  activeFinancingOpenedAt: string
+  foodPurchaseOpenedAt: string
   openingDate: string
+  procurementOpenedAt: string
   shareCapitalBalance: string
 }
 
@@ -58,9 +62,9 @@ export function OpeningBalanceQuickFillButton({
     window.dispatchEvent(
       new CustomEvent("member-opening:add-sections", {
         detail: {
-          activeFinancingOpenedAt: "2026-01-01",
-          foodPurchaseOpenedAt: "2026-05-01",
-          procurementOpenedAt: "2026-06-01",
+          activeFinancingOpenedAt: values.activeFinancingOpenedAt,
+          foodPurchaseOpenedAt: values.foodPurchaseOpenedAt,
+          procurementOpenedAt: values.procurementOpenedAt,
           sections: ["financing", "procurement", "foodPurchase", "evidence"],
         },
       })
@@ -73,7 +77,7 @@ export function OpeningBalanceQuickFillButton({
         values.activeFinancingGuarantorTwoMemberId ?? "",
       activeFinancingInstallmentAmount: "66666.67",
       activeFinancingInstallmentsPaid: "5",
-      activeFinancingOpenedAt: "2026-01-01",
+      activeFinancingOpenedAt: values.activeFinancingOpenedAt,
       activeFinancingOriginalAmount: "1600000",
       activeFinancingRepaymentMonths: "24",
       activeFinancingOutstanding: "1266667",
@@ -81,7 +85,7 @@ export function OpeningBalanceQuickFillButton({
       foodPurchaseInstallmentAmount: "25000",
       foodPurchaseInstallmentsPaid: "1",
       foodPurchaseItemName: "Bag of rice",
-      foodPurchaseOpenedAt: "2026-05-01",
+      foodPurchaseOpenedAt: values.foodPurchaseOpenedAt,
       foodPurchaseOriginalAmount: "50000",
       foodPurchaseOutstanding: "25000",
       foodPurchaseRepaymentMonths: "2",
@@ -89,7 +93,7 @@ export function OpeningBalanceQuickFillButton({
       procurementInstallmentAmount: "166666.67",
       procurementInstallmentsPaid: "0",
       procurementItemName: "Phone",
-      procurementOpenedAt: "2026-06-01",
+      procurementOpenedAt: values.procurementOpenedAt,
       procurementOriginalAmount: "500000",
       procurementOutstanding: "500000",
       procurementRepaymentMonths: "3",

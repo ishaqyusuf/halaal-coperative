@@ -39,7 +39,6 @@ export function MemberOpeningSharePositionFields({
           name="shareUnits"
           onChange={(event) => setShareUnits(event.target.value)}
           placeholder="0"
-          required
           step="1"
           type="number"
           value={shareUnits}

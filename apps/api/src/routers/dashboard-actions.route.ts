@@ -156,12 +156,14 @@ import {
   tenantServiceKeys,
   type TenantServiceAccessMode,
   type TenantServiceKey,
+  getMemberById,
 } from "@halaalvest/db"
 import {
   createEmailDraftFromType,
   createNotificationEmailDraft,
 } from "@halaalvest/notifications"
 import {
+  findOpeningPositionDateIssues,
   isCooperativeCountry,
   parseCooperativeSizeRangeValue,
 } from "@halaalvest/domain"
@@ -4124,6 +4126,33 @@ export async function createMemberOpeningBalanceAction(formData: FormData) {
   const memberId = getRequiredString(formData, "memberId")
 
   await requireMemberMigrationDraftMutable(actor, memberId)
+
+  // No balance or obligation can start before the member joined (QA F13).
+  const member = await getMemberById(actor.tenant.id, memberId)
+  const dateIssues = findOpeningPositionDateIssues({
+    dates: {
+      activeFinancingOpenedAt: getOptionalTrimmedString(
+        formData,
+        "activeFinancingOpenedAt"
+      ),
+      foodPurchaseOpenedAt: getOptionalTrimmedString(
+        formData,
+        "foodPurchaseOpenedAt"
+      ),
+      openingDate: getOptionalTrimmedString(formData, "openingDate"),
+      procurementOpenedAt: getOptionalTrimmedString(
+        formData,
+        "procurementOpenedAt"
+      ),
+    },
+    joinedAt: member?.joinedAt.toISOString() ?? null,
+  })
+
+  if (dateIssues.length) {
+    throw new DashboardActionExpectedError(
+      dateIssues.map((issue) => issue.message).join(" ")
+    )
+  }
 
   await createMemberOpeningBalance({
     actorUserId: actor.user.id,

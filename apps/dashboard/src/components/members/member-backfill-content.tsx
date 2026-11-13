@@ -1,3 +1,7 @@
+import {
+  getDefaultOpeningPositionDate,
+  getOpeningPositionQuickFillDates,
+} from "@halaalvest/domain"
 import { Button } from "@halaalvest/ui/components/button"
 import {
   Field,
@@ -34,6 +38,7 @@ import { OpeningCurrencyInput } from "./opening-currency-input"
 import { MemberOpeningSharePositionFields } from "./member-opening-share-position-fields"
 import { OpeningBalanceOptionalSections } from "./opening-balance-optional-sections"
 import { OpeningBalanceQuickFillButton } from "./opening-balance-quick-fill-button"
+import { OpeningPositionDateGuard } from "./opening-position-date-guard"
 
 type MemberBackfillData = Extract<
   Awaited<ReturnType<typeof loadMemberBackfillWorkflowData>>,
@@ -207,7 +212,10 @@ export function OpeningBalanceCreateContent({
   const guarantorOptions = data.memberOptions.filter(
     (option) => option.id !== data.member.id
   )
-  const openingDate = data.tenantStartDate ?? data.member.joinedAt
+  const openingDate = getDefaultOpeningPositionDate({
+    joinedAt: data.member.joinedAt,
+    tenantStartDate: data.tenantStartDate,
+  })
   const shareCapitalQuickFillValue = isUnitBasedShare
     ? String(sharePolicy.unitAmount)
     : "10000"
@@ -234,6 +242,10 @@ export function OpeningBalanceCreateContent({
             disabled={disabled}
             formId={formId}
             values={{
+              ...getOpeningPositionQuickFillDates({
+                joinedAt: data.member.joinedAt,
+                openingDate,
+              }),
               activeFinancingGuarantorOneMemberId: guarantorOptions[0]?.id,
               activeFinancingGuarantorTwoMemberId: guarantorOptions[1]?.id,
               openingDate,
@@ -243,11 +255,18 @@ export function OpeningBalanceCreateContent({
         ) : null}
       </div>
 
+      <OpeningPositionDateGuard
+        formId={formId}
+        joinedAt={data.member.joinedAt || null}
+      />
+
       <FieldSet>
         <FieldLegend>Current balances</FieldLegend>
         <FieldDescription>
-          Required current book position for savings, special savings, and share
-          capital.
+          The member&apos;s savings, special savings and share capital on the
+          opening date. Leave a balance blank if it is ₦0. The opening date
+          can&apos;t be before they joined
+          {data.member.joinedAt ? ` (${data.member.joinedAt})` : ""}.
         </FieldDescription>
         <FieldGroup className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <OpeningDateInput
@@ -261,13 +280,11 @@ export function OpeningBalanceCreateContent({
             disabled={disabled}
             label="Commitment savings"
             name="commitmentSavingsBalance"
-            required
           />
           <OpeningAmountInput
             disabled={disabled}
             label="Special savings"
             name="specialSavingsBalance"
-            required
           />
           {isUnitBasedShare ? (
             <MemberOpeningSharePositionFields
@@ -279,7 +296,6 @@ export function OpeningBalanceCreateContent({
               disabled={disabled}
               label="Share capital"
               name="shareCapitalBalance"
-              required
             />
           )}
         </FieldGroup>

@@ -5,14 +5,12 @@ import { buttonVariants } from "@halaalvest/ui/components/button"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { PublicAuthShell } from "@/components/public-auth-shell"
 import { PasswordResetConfirmForm } from "@/components/public-auth-forms"
+import {
+  getPasswordSetupCopy,
+  getPasswordSetupError,
+  parsePasswordSetupPurpose,
+} from "@/lib/password-setup-copy"
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
-
-const errorMessages: Record<string, string> = {
-  "invalid-token": "This password reset link is invalid or has already been used.",
-  "missing-token": "Open the password reset link from your email.",
-  "password-mismatch": "Passwords do not match.",
-  "password-too-short": "Password must be at least 8 characters.",
-}
 
 export default async function PasswordResetConfirmPage({
   searchParams,
@@ -28,6 +26,8 @@ export default async function PasswordResetConfirmPage({
   const params = await searchParams
   const token = typeof params.token === "string" ? params.token : ""
   const error = typeof params.error === "string" ? params.error : null
+  const purpose = parsePasswordSetupPurpose(params.purpose)
+  const copy = getPasswordSetupCopy(purpose)
   const confirmAction = buildTenantHref(
     tenantUrlContext,
     "/auth/password-reset/confirm",
@@ -41,22 +41,22 @@ export default async function PasswordResetConfirmPage({
 
   return (
     <PublicAuthShell
-      badge="Password reset"
-      description="Use at least 8 characters. After saving, sign in with your email and new password."
-      title="Choose your password"
+      badge={copy.badge}
+      description={copy.description}
+      title={copy.title}
     >
       <div className="space-y-2 text-center">
         <p className="text-sm font-medium text-muted-foreground">
-          Password reset
+          {copy.eyebrow}
         </p>
         <h2 className="text-2xl leading-tight font-semibold text-foreground">
-          Save new password
+          {copy.heading}
         </h2>
       </div>
 
       {error ? (
         <div className="mt-6 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm leading-6 text-destructive">
-          {errorMessages[error] ?? errorMessages["invalid-token"]}
+          {getPasswordSetupError(purpose, error)}
         </div>
       ) : null}
 
@@ -71,7 +71,11 @@ export default async function PasswordResetConfirmPage({
           Request a new link
         </a>
       ) : (
-        <PasswordResetConfirmForm action={confirmAction} token={token} />
+        <PasswordResetConfirmForm
+          action={confirmAction}
+          purpose={purpose}
+          token={token}
+        />
       )}
     </PublicAuthShell>
   )

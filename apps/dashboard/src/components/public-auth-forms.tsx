@@ -4,6 +4,10 @@ import type { ComponentProps } from "react"
 import { useState } from "react"
 import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
+import {
+  getPasswordSetupCopy,
+  type PasswordSetupPurpose,
+} from "@/lib/password-setup-copy"
 
 type FormAction = ComponentProps<"form">["action"]
 
@@ -65,11 +69,15 @@ export function PasswordResetRequestForm({
 
 export function PasswordResetConfirmForm({
   action,
+  purpose = "reset",
   token,
 }: {
   action: string
+  purpose?: PasswordSetupPurpose
   token: string
 }) {
+  const copy = getPasswordSetupCopy(purpose)
+
   return (
     <form
       action={action}
@@ -77,13 +85,14 @@ export function PasswordResetConfirmForm({
       method="post"
     >
       <input type="hidden" name="token" value={token} />
+      <input type="hidden" name="purpose" value={purpose} />
 
       <label className="grid gap-2 text-sm text-foreground">
-        <span>New password</span>
+        <span>{copy.passwordLabel}</span>
         <Input
           type="password"
           name="password"
-          placeholder="Enter a new password"
+          placeholder={copy.passwordPlaceholder}
           required
           minLength={8}
           className="h-11"
@@ -95,7 +104,7 @@ export function PasswordResetConfirmForm({
         <Input
           type="password"
           name="confirmPassword"
-          placeholder="Confirm your new password"
+          placeholder={copy.confirmPlaceholder}
           required
           minLength={8}
           className="h-11"

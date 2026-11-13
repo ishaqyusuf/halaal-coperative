@@ -237,9 +237,11 @@ export default async function LoginPage({
                 </div>
               ) : null}
 
-              {reset === "complete" ? (
+              {reset === "complete" || reset === "invited" ? (
                 <div className="mt-5 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-950 dark:border-emerald-500/50 dark:bg-emerald-950/30 dark:text-emerald-100">
-                  Your password has been updated. Sign in with the new password.
+                  {reset === "invited"
+                    ? "Your password is set. Sign in with your email and new password."
+                    : "Your password has been updated. Sign in with the new password."}
                 </div>
               ) : null}
 

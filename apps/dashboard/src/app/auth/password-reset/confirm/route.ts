@@ -3,12 +3,18 @@ import { NextResponse, type NextRequest } from "next/server"
 import { buildDashboardRedirectUrl } from "@/lib/auth-redirect"
 import { hashPassword } from "@/lib/password"
 import {
+  getPasswordSetupCopy,
+  parsePasswordSetupPurpose,
+  type PasswordSetupPurpose,
+} from "@/lib/password-setup-copy"
+import {
   isPasswordResetTokenCurrent,
   verifyPasswordResetToken,
 } from "@/lib/password-reset-token"
 
 function redirectToConfirmError(
   request: NextRequest,
+  purpose: PasswordSetupPurpose,
   error: string,
   token?: string
 ) {
@@ -16,6 +22,10 @@ function redirectToConfirmError(
 
   if (token) {
     query.set("token", token)
+  }
+
+  if (purpose === "invite") {
+    query.set("purpose", purpose)
   }
 
   return NextResponse.redirect(
@@ -32,17 +42,18 @@ export async function POST(request: NextRequest) {
   const token = String(formData.get("token") ?? "").trim()
   const password = String(formData.get("password") ?? "")
   const confirmPassword = String(formData.get("confirmPassword") ?? "")
+  const purpose = parsePasswordSetupPurpose(formData.get("purpose"))
 
   if (!token) {
-    return redirectToConfirmError(request, "missing-token")
+    return redirectToConfirmError(request, purpose, "missing-token")
   }
 
   if (password !== confirmPassword) {
-    return redirectToConfirmError(request, "password-mismatch", token)
+    return redirectToConfirmError(request, purpose, "password-mismatch", token)
   }
 
   if (password.trim().length < 8) {
-    return redirectToConfirmError(request, "password-too-short", token)
+    return redirectToConfirmError(request, purpose, "password-too-short", token)
   }
 
   try {
@@ -53,7 +64,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!user || !isPasswordResetTokenCurrent(payload, user)) {
-      return redirectToConfirmError(request, "invalid-token")
+      return redirectToConfirmError(request, purpose, "invalid-token")
     }
 
     const updated = await updateUserPasswordHash({
@@ -63,14 +74,17 @@ export async function POST(request: NextRequest) {
     })
 
     if (!updated) {
-      return redirectToConfirmError(request, "invalid-token")
+      return redirectToConfirmError(request, purpose, "invalid-token")
     }
 
     return NextResponse.redirect(
-      buildDashboardRedirectUrl(request, "/login?reset=complete"),
+      buildDashboardRedirectUrl(
+        request,
+        `/login?reset=${getPasswordSetupCopy(purpose).loginNotice}`
+      ),
       303
     )
   } catch {
-    return redirectToConfirmError(request, "invalid-token")
+    return redirectToConfirmError(request, purpose, "invalid-token")
   }
 }

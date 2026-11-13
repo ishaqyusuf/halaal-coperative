@@ -1549,7 +1549,7 @@ export async function sendMemberPortalAccessEmailAction(formData: FormData) {
   })
   const setup = createPasswordSetupToken(access.user)
   const setupUrl = buildActorDashboardUrl(actor.tenant.slug, {
-    pathname: `/login/reset/confirm?token=${encodeURIComponent(setup.token)}`,
+    pathname: `/login/reset/confirm?purpose=invite&token=${encodeURIComponent(setup.token)}`,
   })
   const bodyText = [
     `Hello ${access.member.fullName},`,

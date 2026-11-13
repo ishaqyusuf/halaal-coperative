@@ -47,6 +47,7 @@ import {
   useNotifications,
 } from "@halaalvest/notifications-react"
 import type { QaQuickFillContext } from "@halaalvest/utils"
+import { QaQuickFillButton } from "@halaalvest/ui/components/qa-quick-fill-button"
 import { previewCooperativeAccessCode } from "@halaalvest/utils"
 import {
   cooperativeCountryOptions,
@@ -374,12 +375,12 @@ export function OnboardingForm({
       <JourneyStep
         action={
           quickFill.enabled ? (
-            <Button
-              size="sm"
-              type="button"
-              variant="outline"
-              onClick={() =>
-                void applyDevFormFill(
+            <QaQuickFillButton
+              form={form}
+              qaDomain={quickFill.emailDomain}
+              visible={quickFill.enabled}
+              onFill={() =>
+                applyDevFormFill(
                   form,
                   "onboarding",
                   {
@@ -396,9 +397,7 @@ export function OnboardingForm({
                   }
                 )
               }
-            >
-              Quick fill
-            </Button>
+            />
           ) : null
         }
         aside={

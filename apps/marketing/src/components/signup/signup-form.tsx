@@ -34,6 +34,7 @@ import {
   useNotifications,
 } from "@halaalvest/notifications-react"
 import type { QaQuickFillContext } from "@halaalvest/utils"
+import { QaQuickFillButton } from "@halaalvest/ui/components/qa-quick-fill-button"
 import { previewCooperativeAccessCode } from "@halaalvest/utils"
 import { CheckCircle2Icon, CircleAlertIcon, MailIcon } from "lucide-react"
 import { applyDevFormFill } from "@/lib/dev-form-fill"
@@ -474,12 +475,12 @@ export function SignupForm({
       <JourneyStep
         action={
           quickFill.enabled ? (
-            <Button
-              size="sm"
-              type="button"
-              variant="outline"
-              onClick={() =>
-                void applyDevFormFill(
+            <QaQuickFillButton
+              form={form}
+              qaDomain={quickFill.emailDomain}
+              visible={quickFill.enabled}
+              onFill={() =>
+                applyDevFormFill(
                   form,
                   "signup",
                   approvalLocked
@@ -491,9 +492,7 @@ export function SignupForm({
                   { emailDomain: quickFill.emailDomain }
                 )
               }
-            >
-              Quick fill
-            </Button>
+            />
           ) : null
         }
         aside={

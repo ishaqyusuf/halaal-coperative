@@ -18,7 +18,10 @@ import { Icon } from "@/components/ui/icon"
 import { Input } from "@/components/ui/input"
 import { Text } from "@/components/ui/text"
 import { Textarea } from "@/components/ui/textarea"
-import { mobileDevQuickFill } from "@/dev/mobile-dev-quick-fill"
+import {
+  mobileDevQuickFill,
+  mobileDevQuickFillFirstOfNextMonth,
+} from "@/dev/mobile-dev-quick-fill"
 import { NotificationDestinationNotice } from "@/features/notifications/public/notification-destination-notice"
 import { useDebounce } from "@/hooks/use-debounce"
 import { createClientSubmissionKey } from "@/lib/client-submission-key"
@@ -499,9 +502,7 @@ export function AdminFinancingOperationsScreen({
           } else if (formIntent.kind === "review") {
             setNotes(mobileDevQuickFill.adminFinancingOperations.reviewNote)
           } else {
-            setFirstRepaymentDueAt(
-              mobileDevQuickFill.adminFinancingOperations.firstRepaymentDueAt
-            )
+            setFirstRepaymentDueAt(mobileDevQuickFillFirstOfNextMonth())
           }
         }}
         placement="footer"

@@ -39,7 +39,11 @@ import type {
 } from "../model/member-receipt-types"
 import { isMobileReadCacheStale } from "@/lib/read-cache"
 import { canUseMobileFeatureData } from "@/dev/mobile-dev-session"
-import { mobileDevQuickFill } from "@/dev/mobile-dev-quick-fill"
+import {
+  mobileDevQuickFill,
+  mobileDevQuickFillDate,
+  mobileDevQuickFillReference,
+} from "@/dev/mobile-dev-quick-fill"
 import { NotificationDestinationNotice } from "@/features/notifications/public/notification-destination-notice"
 import { useRouter } from "expo-router"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -614,9 +618,12 @@ export function ReceiptsScreen({
                           label="Quick fill receipt"
                           onPress={() => {
                             const preset = mobileDevQuickFill.receipt
+                            const paidAt = mobileDevQuickFillDate(0)
                             setTotalAmount(preset.totalAmount)
-                            setPaidAt(preset.paidAt)
-                            setPaymentReference(preset.paymentReference)
+                            setPaidAt(paidAt)
+                            setPaymentReference(
+                              mobileDevQuickFillReference("HVC")
+                            )
                             setProofDocumentUrl(preset.proofDocumentUrl)
                             setMemberNotes(preset.memberNotes)
                             setAllocations([
@@ -624,13 +631,13 @@ export function ReceiptsScreen({
                                 amount: preset.allocationAmount,
                                 category: "commitment",
                                 id: `quick-fill-${Date.now()}`,
-                                notes: "August monthly commitment and savings",
+                                notes: "Monthly commitment and savings",
                                 periodIntent: "current_period",
                                 targetId:
                                   receipts.categories.find(
                                     (item) => item.value === "commitment"
                                   )?.targets[0]?.id ?? "",
-                                targetMonth: preset.paidAt.slice(0, 7),
+                                targetMonth: paidAt.slice(0, 7),
                               },
                             ])
                           }}

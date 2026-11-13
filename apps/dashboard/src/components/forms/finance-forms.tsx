@@ -22,6 +22,7 @@ import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { DatePickerInput } from "@/components/date-picker-input"
 import { WorkflowConfirmFooter } from "@/components/workflow-confirm-footer"
 import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
+import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
 import {
   applyChargeAction,
   createChargeDefinitionAction,
@@ -124,17 +125,19 @@ export function ContributionPlanForm({
       >
         {devMode ? (
           <div className="flex justify-end md:col-span-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                applyDashboardDevFormFill(form, "contribution_plan", {
-                  memberId: members[0]?.id ?? "",
-                })
+            <DashboardQuickFill
+              form={form}
+              onFill={({ emailDomain }) =>
+                applyDashboardDevFormFill(
+                  form,
+                  "contribution_plan",
+                  {
+                    memberId: members[0]?.id ?? "",
+                  },
+                  { emailDomain }
+                )
               }
-            >
-              Quick fill
-            </Button>
+            />
           </div>
         ) : null}
 
@@ -308,24 +311,26 @@ export function MemberPaymentForm({
       >
         {devMode ? (
           <div className="flex justify-end md:col-span-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
+            <DashboardQuickFill
+              form={form}
+              onFill={({ emailDomain }) => {
                 const loanId = loans[0]?.id ?? ""
 
-                applyDashboardDevFormFill(form, "member_payment", {
-                  contributionPlanId: commitmentPlans[0]?.id ?? "",
-                  extraLoanPaymentAmount: loanId ? "5000" : "",
-                  loanId,
-                  memberId: members[0]?.id ?? "",
-                  scheduledLoanServicingAmount: loanId ? "15000" : "",
-                  totalAmount: loanId ? "50000" : "30000",
-                })
+                applyDashboardDevFormFill(
+                  form,
+                  "member_payment",
+                  {
+                    contributionPlanId: commitmentPlans[0]?.id ?? "",
+                    extraLoanPaymentAmount: loanId ? "5000" : "",
+                    loanId,
+                    memberId: members[0]?.id ?? "",
+                    scheduledLoanServicingAmount: loanId ? "15000" : "",
+                    totalAmount: loanId ? "50000" : "30000",
+                  },
+                  { emailDomain }
+                )
               }}
-            >
-              Quick fill
-            </Button>
+            />
           </div>
         ) : null}
 
@@ -585,15 +590,17 @@ export function ChargeDefinitionForm({
       >
         {devMode ? (
           <div className="flex justify-end md:col-span-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                applyDashboardDevFormFill(form, "charge_definition")
+            <DashboardQuickFill
+              form={form}
+              onFill={({ emailDomain }) =>
+                applyDashboardDevFormFill(
+                  form,
+                  "charge_definition",
+                  undefined,
+                  { emailDomain }
+                )
               }
-            >
-              Quick fill
-            </Button>
+            />
           </div>
         ) : null}
         <FormField
@@ -789,18 +796,20 @@ export function ChargeApplicationForm({
       >
         {devMode ? (
           <div className="flex justify-end md:col-span-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                applyDashboardDevFormFill(form, "charge_application", {
-                  chargeDefinitionId: chargeDefinitions[0]?.id ?? "",
-                  memberId: members[0]?.id ?? "",
-                })
+            <DashboardQuickFill
+              form={form}
+              onFill={({ emailDomain }) =>
+                applyDashboardDevFormFill(
+                  form,
+                  "charge_application",
+                  {
+                    chargeDefinitionId: chargeDefinitions[0]?.id ?? "",
+                    memberId: members[0]?.id ?? "",
+                  },
+                  { emailDomain }
+                )
               }
-            >
-              Quick fill
-            </Button>
+            />
           </div>
         ) : null}
         <FormField
@@ -996,19 +1005,21 @@ export function LoanRequestForm({
       >
         {devMode ? (
           <div className="flex justify-end xl:col-span-6">
-            <Button
-              disabled={Boolean(disabledReason)}
-              type="button"
-              variant="outline"
-              onClick={() =>
-                applyDashboardDevFormFill(form, "loan_request", {
-                  loanProductId: loanProducts[0]?.id ?? "",
-                  memberId: fixedMember?.id ?? members[0]?.id ?? "",
-                })
+            <DashboardQuickFill
+              enabled={!Boolean(disabledReason)}
+              form={form}
+              onFill={({ emailDomain }) =>
+                applyDashboardDevFormFill(
+                  form,
+                  "loan_request",
+                  {
+                    loanProductId: loanProducts[0]?.id ?? "",
+                    memberId: fixedMember?.id ?? members[0]?.id ?? "",
+                  },
+                  { emailDomain }
+                )
               }
-            >
-              Quick fill
-            </Button>
+            />
           </div>
         ) : null}
         {disabledReason ? (
@@ -1270,17 +1281,19 @@ export function RepaymentPostForm({
             </p>
           </div>
           {devMode ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                applyDashboardDevFormFill(form, "repayment_post", {
-                  loanId: loans[0]?.id ?? "",
-                })
+            <DashboardQuickFill
+              form={form}
+              onFill={({ emailDomain }) =>
+                applyDashboardDevFormFill(
+                  form,
+                  "repayment_post",
+                  {
+                    loanId: loans[0]?.id ?? "",
+                  },
+                  { emailDomain }
+                )
               }
-            >
-              Quick fill
-            </Button>
+            />
           ) : null}
         </div>
         <FormField

@@ -1,3 +1,4 @@
+import type { QaQuickFillContext } from "@halaalvest/utils"
 import { ExternalDeletionRequestForm } from "@/components/external-deletion-request-form"
 import Link from "next/link"
 import {
@@ -10,8 +11,10 @@ import { isExternalDeletionRequestAvailable } from "@/lib/external-deletion-read
 
 export function PublicPolicyPage({
   policy,
+  quickFill,
 }: {
   policy: keyof typeof publicPolicies
+  quickFill?: QaQuickFillContext
 }) {
   const document = publicPolicies[policy]!
   const publication = policyPublications[policy]
@@ -58,7 +61,7 @@ export function PublicPolicyPage({
       </div>
       {deletion ? (
         isExternalDeletionRequestAvailable() ? (
-          <ExternalDeletionRequestForm />
+          <ExternalDeletionRequestForm quickFill={quickFill} />
         ) : (
           <p
             className="mt-8 rounded-xl border border-amber-600/40 p-5 text-sm leading-6"

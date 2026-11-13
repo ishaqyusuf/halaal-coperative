@@ -35,6 +35,7 @@ import type { SettingsAccessQaState } from "@/features/settings-access/model/set
 import { formatWorkspaceRoleLabel } from "@/features/settings-access/presentation/workspace-role-presentation"
 import { isMobileReadCacheStale } from "@/lib/read-cache"
 import { mobileDevQuickFill } from "@/dev/mobile-dev-quick-fill"
+import { mobileDevQuickFillIdentity } from "@/dev/mobile-dev-quick-fill-identity"
 import type { MobileProfile } from "@/lib/session-store"
 import { useRouter } from "expo-router"
 import { ScreenStatusBar } from "@/components/app/screen-status-bar"
@@ -592,9 +593,10 @@ export function MoreScreen({
             bottomOffset={92}
             label="Quick fill access invitation"
             onPress={() => {
-              setInviteFullName(mobileDevQuickFill.adminInvite.fullName)
-              setInviteEmail(mobileDevQuickFill.adminInvite.email)
-              setInviteRole("finance_officer")
+              const person = mobileDevQuickFillIdentity()
+              setInviteFullName(person.fullName)
+              setInviteEmail(person.email)
+              setInviteRole(mobileDevQuickFill.adminInvite.role)
               setInviteMakeDefault(true)
             }}
             portal={false}

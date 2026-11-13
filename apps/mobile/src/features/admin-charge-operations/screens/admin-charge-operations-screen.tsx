@@ -20,7 +20,10 @@ import { Icon } from "@/components/ui/icon"
 import { Input } from "@/components/ui/input"
 import { Text } from "@/components/ui/text"
 import { Textarea } from "@/components/ui/textarea"
-import { mobileDevQuickFill } from "@/dev/mobile-dev-quick-fill"
+import {
+  mobileDevQuickFill,
+  mobileDevQuickFillReference,
+} from "@/dev/mobile-dev-quick-fill"
 import { useDebounce } from "@/hooks/use-debounce"
 import { createClientSubmissionKey } from "@/lib/client-submission-key"
 import { todayDateOnly } from "@/lib/date-only"
@@ -1564,9 +1567,7 @@ export function AdminChargeOperationsScreen({
             <DevQuickFill
               onPress={() => {
                 setSubmitError(null)
-                setPaymentReference(
-                  mobileDevQuickFill.adminCharges.paymentReference
-                )
+                setPaymentReference(mobileDevQuickFillReference("QA-CHG"))
                 setNotes(mobileDevQuickFill.adminCharges.notes)
               }}
               placement="footer"

@@ -1,5 +1,6 @@
 "use client"
 
+import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
 import type { RefObject } from "react"
 import {
   closestCenter,
@@ -268,11 +269,7 @@ export function MemberImportSheetHeader({
         >
           {isReadingFile ? "Reading file..." : "Upload Excel/CSV"}
         </Button>
-        {devMode ? (
-          <Button type="button" variant="outline" onClick={onQuickFill}>
-            Quick fill
-          </Button>
-        ) : null}
+        {devMode ? <DashboardQuickFill onFill={onQuickFill} /> : null}
         <Button type="button" variant="ghost" onClick={onClose}>
           Close
         </Button>

@@ -5,280 +5,119 @@ import {
   cooperativeCountryOptions,
   cooperativeSizeRanges,
 } from "@halaalvest/domain"
-import { buildQaEmail, normalizeCooperativeQaSlug } from "@halaalvest/utils"
+import {
+  createQaCooperative,
+  createQaDigits,
+  createQaPerson,
+  pickQaValue,
+} from "@halaalvest/utils"
 import {
   earlyAccessLaunchTimelineOptions,
   earlyAccessRecordSystemOptions,
   earlyAccessSetupNeedOptions,
 } from "@/lib/early-access"
-import { createWorkspaceSlugSuggestion } from "@/lib/signup-flow"
 
-type FakerInstance = typeof import("@faker-js/faker").faker
-
-const cooperativeRegions = [
-  "Kaduna",
-  "Kano",
-  "Ilorin",
-  "Ikeja",
-  "Abuja",
-  "Ibadan",
-  "Abeokuta",
-  "Minna",
-  "Jos",
-  "Port Harcourt",
-]
-const cooperativeGroups = [
-  "Teachers",
-  "Market Traders",
-  "Civil Servants",
-  "Artisans",
-  "Health Workers",
-  "Small Business",
-  "Transport Workers",
-  "Professionals",
-  "Community",
-  "Staff",
-]
-const cooperativeQualifiers = [
-  "Unity",
-  "Heritage",
-  "Prosperity",
-  "Mutual",
-  "Forward",
-  "Trust",
-  "Growth",
-  "Solidarity",
-  "Reliable",
-  "Enterprise",
-]
-const cooperativeSuffixes = [
-  "Cooperative Society",
-  "Multipurpose Cooperative",
-  "Savings Cooperative",
-  "Thrift Cooperative",
-  "Mutual Aid Cooperative",
-]
-const streets = [
-  "Emir Road",
-  "Ahmadu Bello Way",
-  "Unity Close",
-  "Independence Avenue",
-  "Sultan Crescent",
-  "Central Market Road",
-  "Cooperative Avenue",
-  "Liberty Road",
-  "Station Road",
-  "Secretariat Drive",
-]
-const cities = [
-  "Kaduna North, Kaduna State",
-  "Kano Municipal, Kano State",
-  "Ilorin, Kwara State",
-  "Ikeja, Lagos State",
-  "Abuja Municipal, FCT",
-  "Ibadan North, Oyo State",
-  "Abeokuta South, Ogun State",
-  "Minna, Niger State",
-  "Jos North, Plateau State",
-  "Port Harcourt, Rivers State",
-]
-const locationDefaults = [
-  { city: "Lagos Island", state: "Lagos" },
-  { city: "Kano Municipal", state: "Kano" },
-  { city: "Ilorin", state: "Kwara" },
-  { city: "Ikeja", state: "Lagos" },
-  { city: "Abuja Municipal", state: "FCT" },
-  { city: "Ibadan North", state: "Oyo" },
-  { city: "Abeokuta South", state: "Ogun" },
-  { city: "Minna", state: "Niger" },
-  { city: "Jos North", state: "Plateau" },
-  { city: "Port Harcourt", state: "Rivers" },
-]
-async function getFaker() {
-  const { faker } = await import("@faker-js/faker")
-
-  return faker
-}
-
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ".")
-    .replace(/(^\.|\.$)/g, "")
-}
+/*
+ * Marketing Quick Fill recipes. Values come from the shared generator in
+ * @halaalvest/utils (Nigerian Muslim names, emails made only from the
+ * contact's name on the active QA Domain, unique cooperatives and numbers).
+ * Passwords, OTPs and verification tokens are never filled.
+ */
 
 function randomStartDate() {
-  const year = Math.floor(Math.random() * (2023 - 2014 + 1)) + 2014
-  const month = String(Math.floor(Math.random() * 12) + 1).padStart(2, "0")
-  const day = String(Math.floor(Math.random() * 28) + 1).padStart(2, "0")
-
+  const year = 2012 + Math.floor(Math.random() * 12)
+  const month = String(1 + Math.floor(Math.random() * 12)).padStart(2, "0")
+  const day = String(1 + Math.floor(Math.random() * 28)).padStart(2, "0")
   return `${year}-${month}-${day}`
 }
 
-function createRandomContact(
-  faker: FakerInstance,
-  emailDomain = "example.test"
-) {
-  const firstName = faker.person.firstName()
-  const lastName = faker.person.lastName()
-  const primaryContactFullName = `${firstName} ${lastName}`
-  const emailHandle = slugify(primaryContactFullName)
-  const emailSuffix = faker.number.int({ max: 9999, min: 100 })
+function pickSome<TValue>(values: readonly TValue[], min: number, max: number) {
+  const count = min + Math.floor(Math.random() * (max - min + 1))
+  return [...values].sort(() => Math.random() - 0.5).slice(0, count)
+}
+
+function createEarlyAccessDefaults(emailDomain: string) {
+  const cooperative = createQaCooperative({ emailDomain })
+  const contact = createQaPerson({ emailDomain })
 
   return {
-    primaryContactEmail: buildQaEmail(
-      `${emailHandle}-${emailSuffix}`,
-      emailDomain
-    ),
-    primaryContactFullName,
-    primaryContactMemberNumber: String(
-      faker.number.int({ max: 999999, min: 1000 })
+    cooperativeName: cooperative.name,
+    currentSize: String(pickQaValue(cooperativeSizeRanges).value),
+    launchTimeline: pickQaValue(earlyAccessLaunchTimelineOptions).value,
+    message: `${cooperative.name} wants guided setup for its existing member records.`,
+    phone: contact.phoneNumber,
+    primaryContactEmail: contact.email,
+    primaryContactFullName: contact.fullName,
+    recordSystem: pickQaValue(earlyAccessRecordSystemOptions).value,
+    setupNeeds: pickSome(earlyAccessSetupNeedOptions, 2, 4).map(
+      (option) => option.value
     ),
   }
 }
 
-function createRandomCooperativeName(faker: FakerInstance) {
-  const region = faker.helpers.arrayElement(cooperativeRegions)
-  const group = faker.helpers.arrayElement(cooperativeGroups)
-  const qualifier = faker.helpers.arrayElement(cooperativeQualifiers)
-  const suffix = faker.helpers.arrayElement(cooperativeSuffixes)
-
-  return `${region} ${qualifier} ${group} ${suffix}`
-}
-
-function createRandomOfficeAddress(faker: FakerInstance) {
-  const suite = faker.helpers.arrayElement([
-    `Suite ${faker.number.int({ max: 40, min: 1 })}`,
-    `Block ${faker.number.int({ max: 9, min: 1 })}`,
-    `Unit ${faker.number.int({ max: 24, min: 1 })}`,
-    "Main office",
-  ])
-
-  const streetAddress = `${faker.number.int({
-    max: 188,
-    min: 4,
-  })} ${faker.helpers.arrayElement(streets)}`
-
-  return `${suite}, ${streetAddress}, ${faker.helpers.arrayElement(cities)}`
-}
-
-function createEarlyAccessDefaults(faker: FakerInstance, emailDomain: string) {
-  const cooperativeName = `${createRandomCooperativeName(faker)} ${faker.number.int(
-    {
-      max: 9999,
-      min: 100,
-    }
-  )}`
-  const contact = createRandomContact(faker)
+function createSignupDefaults(emailDomain: string) {
+  const cooperative = createQaCooperative({ emailDomain })
+  const contact = createQaPerson({ emailDomain })
 
   return {
-    cooperativeName,
-    currentSize: String(
-      faker.helpers.arrayElement(cooperativeSizeRanges).value
-    ),
-    launchTimeline: faker.helpers.arrayElement(earlyAccessLaunchTimelineOptions)
-      .value,
-    message: "We want guided setup for our existing member records.",
-    phone: `+23480${faker.number.int({ max: 99999999, min: 10000000 })}`,
-    primaryContactEmail: buildQaEmail(
-      normalizeCooperativeQaSlug(cooperativeName),
-      emailDomain
-    ),
-    primaryContactFullName: contact.primaryContactFullName,
-    recordSystem: faker.helpers.arrayElement(earlyAccessRecordSystemOptions)
-      .value,
-    setupNeeds: faker.helpers
-      .arrayElements(earlyAccessSetupNeedOptions, { max: 4, min: 2 })
-      .map((option) => option.value),
+    cooperativeCodePrefix: cooperative.codePrefix,
+    cooperativeName: cooperative.name,
+    primaryContactEmail: contact.email,
+    primaryContactFullName: contact.fullName,
+    primaryContactMemberNumber: createQaDigits(6),
+    workspaceSlug: cooperative.slug,
   }
 }
 
-const devFormDefaults = {
-  onboarding: (faker: FakerInstance, emailDomain = "example.test") => {
-    const contact = createRandomContact(faker, emailDomain)
-    const location = faker.helpers.arrayElement(locationDefaults)
+function createOnboardingDefaults(emailDomain: string) {
+  const signup = createSignupDefaults(emailDomain)
+  const cooperative = createQaCooperative({ emailDomain })
 
-    return {
-      city: location.city,
-      cooperativeName: createRandomCooperativeName(faker),
-      country: faker.helpers.arrayElement(cooperativeCountryOptions),
-      currentSize: String(
-        faker.helpers.arrayElement(cooperativeSizeRanges).value
-      ),
-      officeAddress: createRandomOfficeAddress(faker),
-      cooperativeCodePrefix: faker.string.alpha({
-        casing: "upper",
-        length: 5,
-      }),
-      primaryContactEmail: contact.primaryContactEmail,
-      primaryContactFullName: contact.primaryContactFullName,
-      primaryContactMemberNumber: contact.primaryContactMemberNumber,
-      state: location.state,
-      startDate: randomStartDate(),
-      token: "",
-    }
-  },
-  signup: (faker: FakerInstance, emailDomain = "example.test") => {
-    const contact = createRandomContact(faker, emailDomain)
-    const cooperativeName = createRandomCooperativeName(faker)
-    const workspaceSlug = `${createWorkspaceSlugSuggestion(
-      cooperativeName
-    )}-${faker.number.int({ max: 999, min: 100 })}`
-
-    return {
-      cooperativeName,
-      cooperativeCodePrefix: faker.string.alpha({
-        casing: "upper",
-        length: 5,
-      }),
-      primaryContactEmail: buildQaEmail(workspaceSlug, emailDomain),
-      primaryContactFullName: contact.primaryContactFullName,
-      primaryContactMemberNumber: contact.primaryContactMemberNumber,
-      workspaceSlug,
-    }
-  },
-} as const
-
-export type DevFormKind = keyof typeof devFormDefaults | "earlyAccess"
-
-export function getDevFormDefaults(
-  kind: "earlyAccess",
-  options?: { emailDomain?: string }
-): Promise<ReturnType<typeof createEarlyAccessDefaults>>
-export function getDevFormDefaults(
-  kind: "onboarding",
-  options?: { emailDomain?: string }
-): Promise<ReturnType<(typeof devFormDefaults)["onboarding"]>>
-export function getDevFormDefaults(
-  kind: "signup",
-  options?: { emailDomain?: string }
-): Promise<ReturnType<(typeof devFormDefaults)["signup"]>>
-export function getDevFormDefaults(
-  kind: DevFormKind,
-  options?: { emailDomain?: string }
-): Promise<
-  | ReturnType<typeof createEarlyAccessDefaults>
-  | ReturnType<(typeof devFormDefaults)["onboarding"]>
-  | ReturnType<(typeof devFormDefaults)["signup"]>
->
-export async function getDevFormDefaults(
-  kind: DevFormKind,
-  options?: { emailDomain?: string }
-) {
-  const faker = await getFaker()
-
-  if (kind === "earlyAccess") {
-    return createEarlyAccessDefaults(
-      faker,
-      options?.emailDomain ?? "example.test"
-    )
+  return {
+    ...signup,
+    city: cooperative.city,
+    // QA cooperatives use Nigerian names, cities and phone numbers.
+    country: cooperativeCountryOptions[0],
+    currentSize: String(pickQaValue(cooperativeSizeRanges).value),
+    officeAddress: cooperative.officeAddress,
+    startDate: randomStartDate(),
+    state: cooperative.state,
+    token: "",
   }
+}
 
-  if (kind === "onboarding") {
-    return devFormDefaults.onboarding(faker, options?.emailDomain)
+function createDeletionRequestDefaults(emailDomain: string) {
+  return {
+    email: createQaPerson({ emailDomain }).email,
+    workspaceSlug: createQaCooperative({ emailDomain }).slug,
   }
+}
 
-  return devFormDefaults.signup(faker, options?.emailDomain)
+export type DevFormKind =
+  | "deletionRequest"
+  | "earlyAccess"
+  | "onboarding"
+  | "signup"
+
+type DevFormValues = {
+  deletionRequest: ReturnType<typeof createDeletionRequestDefaults>
+  earlyAccess: ReturnType<typeof createEarlyAccessDefaults>
+  onboarding: ReturnType<typeof createOnboardingDefaults>
+  signup: ReturnType<typeof createSignupDefaults>
+}
+
+export async function getDevFormDefaults<TKind extends DevFormKind>(
+  kind: TKind,
+  options?: { emailDomain?: string }
+): Promise<DevFormValues[TKind]> {
+  const emailDomain = options?.emailDomain || "example.test"
+  const builders: { [Kind in DevFormKind]: () => DevFormValues[Kind] } = {
+    deletionRequest: () => createDeletionRequestDefaults(emailDomain),
+    earlyAccess: () => createEarlyAccessDefaults(emailDomain),
+    onboarding: () => createOnboardingDefaults(emailDomain),
+    signup: () => createSignupDefaults(emailDomain),
+  }
+  return builders[kind]()
 }
 
 export async function applyDevFormFill<TFieldValues extends FieldValues>(

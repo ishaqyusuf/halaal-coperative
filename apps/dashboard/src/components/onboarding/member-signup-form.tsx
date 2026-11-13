@@ -24,7 +24,7 @@ import {
 } from "@halaalvest/ui/components/input-group"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
-import { useQaQuickFill } from "@/components/qa-quick-fill-provider"
+import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
 import { objectToFormData } from "@/lib/form-submit"
 import { submitMemberOnboardingAction } from "@/lib/public-actions"
 
@@ -55,7 +55,6 @@ export function MemberSignupForm({
   signupToken?: string | null
   tenantName: string
 }) {
-  const quickFill = useQaQuickFill()
   const form = useZodForm<MemberSignupValues>(memberSignupSchema, {
     defaultValues: {
       confirmPassword: "",
@@ -76,13 +75,13 @@ export function MemberSignupForm({
     startTransition(async () => {
       try {
         const result = await submitMemberOnboardingAction(
-          objectToFormData({ ...values, signupToken: signupToken ?? "" }),
+          objectToFormData({ ...values, signupToken: signupToken ?? "" })
         )
         publishQaPreviews(result.qaPreviews)
         setQaPreview(result.qaPreviews.at(-1) ?? null)
         showSuccess(
           "Verification email sent",
-          `We sent a verification link to ${result.email}. Confirm it to enter the ${tenantName} approval queue.`,
+          `We sent a verification link to ${result.email}. Confirm it to enter the ${tenantName} approval queue.`
         )
         form.reset({
           ...values,
@@ -93,7 +92,7 @@ export function MemberSignupForm({
       } catch (error) {
         showError(
           "Could not submit signup",
-          error instanceof Error ? error.message : "Something went wrong.",
+          error instanceof Error ? error.message : "Something went wrong."
         )
       }
     })
@@ -109,7 +108,9 @@ export function MemberSignupForm({
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs text-muted-foreground">
-                {signupToken ? "Invited member onboarding" : "Member onboarding"}
+                {signupToken
+                  ? "Invited member onboarding"
+                  : "Member onboarding"}
               </p>
               <h2 className="mt-2 text-2xl font-semibold text-foreground">
                 Start your membership signup
@@ -120,21 +121,15 @@ export function MemberSignupForm({
               </p>
             </div>
             {devMode ? (
-              <Button
-                disabled={isLocked}
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  applyDashboardDevFormFill(
-                    form,
-                    "member_signup",
-                    undefined,
-                    { emailDomain: quickFill.emailDomain },
-                  )
+              <DashboardQuickFill
+                enabled={!isLocked}
+                form={form}
+                onFill={({ emailDomain }) =>
+                  applyDashboardDevFormFill(form, "member_signup", undefined, {
+                    emailDomain,
+                  })
                 }
-              >
-                Quick fill
-              </Button>
+              />
             ) : null}
           </div>
         </div>
@@ -257,7 +252,7 @@ export function MemberSignupForm({
           )}
         />
 
-        <div className="md:col-span-2 flex flex-wrap items-center gap-3 pt-2">
+        <div className="flex flex-wrap items-center gap-3 pt-2 md:col-span-2">
           <Button disabled={isLocked} type="submit" size="lg">
             {isSubmitted
               ? "Verification email sent"

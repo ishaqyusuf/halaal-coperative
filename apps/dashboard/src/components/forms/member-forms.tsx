@@ -35,11 +35,8 @@ import {
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { cn } from "@halaalvest/ui/lib/utils"
-import {
-  applyDashboardDevFormFill,
-  applyDashboardRandomDevFormFill,
-} from "@/lib/dev-form-fill"
-import { useQaQuickFill } from "@/components/qa-quick-fill-provider"
+import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
+import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
 import { DatePickerInput } from "@/components/date-picker-input"
 import { UploadEvidenceInput } from "@/components/upload-evidence-input"
 import { objectToFormData } from "@/lib/form-submit"
@@ -301,6 +298,14 @@ export function MemberCommitmentForm({
       <form className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
         <input type="hidden" {...form.register("memberId")} />
         <input type="hidden" {...form.register("name")} />
+        <DashboardQuickFill
+          form={form}
+          onFill={({ emailDomain }) =>
+            applyDashboardDevFormFill(form, "member_commitment", undefined, {
+              emailDomain,
+            })
+          }
+        />
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px_auto]">
           <FormField
             control={form.control}
@@ -368,7 +373,6 @@ export function MemberCreateForm({
   memberNumberPrefix?: string | null
   onSuccess?: (member: CreatedMemberSummary) => void
 }) {
-  const quickFill = useQaQuickFill()
   const form = useZodForm<MemberCreateValues>(memberCreateSchema, {
     defaultValues: {
       address: initialValues?.address ?? "",
@@ -445,20 +449,14 @@ export function MemberCreateForm({
         {inSheet ? (
           devMode ? (
             <div className="flex justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  applyDashboardRandomDevFormFill(
-                    form,
-                    "member_create",
-                    undefined,
-                    { emailDomain: quickFill.emailDomain }
-                  )
+              <DashboardQuickFill
+                form={form}
+                onFill={({ emailDomain }) =>
+                  applyDashboardDevFormFill(form, "member_create", undefined, {
+                    emailDomain,
+                  })
                 }
-              >
-                Quick fill
-              </Button>
+              />
             </div>
           ) : null
         ) : (
@@ -473,20 +471,14 @@ export function MemberCreateForm({
               </p>
             </div>
             {devMode ? (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  applyDashboardRandomDevFormFill(
-                    form,
-                    "member_create",
-                    undefined,
-                    { emailDomain: quickFill.emailDomain }
-                  )
+              <DashboardQuickFill
+                form={form}
+                onFill={({ emailDomain }) =>
+                  applyDashboardDevFormFill(form, "member_create", undefined, {
+                    emailDomain,
+                  })
                 }
-              >
-                Quick fill
-              </Button>
+              />
             ) : null}
           </div>
         )}
@@ -916,21 +908,20 @@ export function MemberDocumentForm({
             </p>
           </div>
           {devMode ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                form.reset({
-                  documentType: "National ID",
-                  documentUrl: "https://example.com/kyc/member-document.pdf",
-                  memberId: defaultMemberId,
-                  reviewNotes: "Imported during KYC review.",
-                  reviewStatus: "pending",
-                })
+            <DashboardQuickFill
+              form={form}
+              onFill={({ emailDomain }) =>
+                applyDashboardDevFormFill(
+                  form,
+                  "member_document",
+                  {
+                    memberId: defaultMemberId,
+                    reviewNotes: "Checked against the member's NIN slip.",
+                  },
+                  { emailDomain }
+                )
               }
-            >
-              Quick fill
-            </Button>
+            />
           ) : null}
         </div>
 

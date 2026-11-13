@@ -15,6 +15,7 @@ import {
 import { Input } from "@halaalvest/ui/components/input"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
+import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
 import { objectToFormData } from "@/lib/form-submit"
 import { createTenantDomainAction } from "@/lib/dashboard-actions"
 
@@ -36,7 +37,10 @@ export function CustomDomainForm({ devMode }: { devMode: boolean }) {
         showSuccess("Domain added", "Custom domain saved.")
         form.reset()
       } catch (error) {
-        showError("Could not add domain", error instanceof Error ? error.message : "Something went wrong.")
+        showError(
+          "Could not add domain",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
       }
     })
   }
@@ -62,13 +66,20 @@ export function CustomDomainForm({ devMode }: { devMode: boolean }) {
         />
         {devMode ? (
           <div className="flex items-end">
-            <Button type="button" variant="outline" onClick={() => applyDashboardDevFormFill(form, "custom_domain")}>
-              Quick fill
-            </Button>
+            <DashboardQuickFill
+              form={form}
+              onFill={({ emailDomain }) =>
+                applyDashboardDevFormFill(form, "custom_domain", undefined, {
+                  emailDomain,
+                })
+              }
+            />
           </div>
         ) : null}
         <div className="flex items-end">
-          <Button disabled={isPending} type="submit">Add custom domain</Button>
+          <Button disabled={isPending} type="submit">
+            Add custom domain
+          </Button>
         </div>
       </form>
     </Form>

@@ -38,6 +38,8 @@ import {
   type DashboardImportReferenceData,
 } from "@/lib/import-csv"
 import { objectToFormData } from "@/lib/form-submit"
+import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
+import { createQaImportCsv } from "@/lib/dev-form-fill"
 import { useTRPC } from "@/trpc/client"
 
 const csvImportSchema = z.object({
@@ -512,15 +514,18 @@ export function DashboardImportForm({
                 Use template
               </Button>
               {devMode ? (
-                <Button
-                  className="h-11 md:h-9"
-                  disabled={isLocked}
-                  type="button"
-                  variant="outline"
-                  onClick={() => form.reset({ csvText: config.sampleCsv })}
-                >
-                  Quick fill
-                </Button>
+                <DashboardQuickFill
+                  enabled={!isLocked}
+                  form={form}
+                  onFill={({ emailDomain }) =>
+                    form.reset({
+                      ...form.getValues(),
+                      csvText: createQaImportCsv(importKind, config.sampleCsv, {
+                        emailDomain,
+                      }),
+                    })
+                  }
+                />
               ) : null}
             </div>
           </div>

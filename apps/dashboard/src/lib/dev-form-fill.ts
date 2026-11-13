@@ -1,288 +1,358 @@
 "use client"
 
-import { buildQaEmail, normalizeCooperativeQaSlug } from "@halaalvest/utils"
-import { createQaMemberFixture } from "@halaalvest/domain"
+import {
+  createQaAddress,
+  createQaAmount,
+  createQaCode,
+  createQaCooperative,
+  createQaDigits,
+  createQaOccupation,
+  createQaPerson,
+  createQaReference,
+  pickQaValue,
+  qaDateOffset,
+  qaMonthLabel,
+  qaToday,
+} from "@halaalvest/utils"
+
+/*
+ * Dashboard Quick Fill recipes (dev and preview only; the QA gate lives in
+ * `DashboardQuickFill`). Every identity comes from the shared generator in
+ * @halaalvest/utils: Nigerian Muslim names, emails built only from the
+ * person's name on the active QA Domain, and clock-based unique numbers and
+ * references. Passwords, OTPs and approval decisions are never filled.
+ */
 
 type FieldValues = Record<string, unknown>
 
 type DashboardFormReset<TFieldValues> = {
+  getValues?: () => TFieldValues
   reset: (values?: TFieldValues) => void
 }
 
-function randomItem<TValue>(items: readonly TValue[]) {
-  return items[Math.floor(Math.random() * items.length)]!
+type FillOptions = { emailDomain?: string }
+
+function randomRecentDate(fromYear: number, toYear: number) {
+  const year = fromYear + Math.floor(Math.random() * (toYear - fromYear + 1))
+  const month = 1 + Math.floor(Math.random() * 12)
+  const day = 1 + Math.floor(Math.random() * 28)
+  const value = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+  return value > qaToday() ? qaToday() : value
 }
 
-function randomInt(min: number, max: number) {
-  return Math.floor(Math.random() * (max - min + 1)) + min
-}
-
-function formatDate(year: number, month: number, day: number) {
-  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
-}
-
-function randomRecentDate(yearStart: number, yearEnd: number) {
-  return formatDate(
-    randomInt(yearStart, yearEnd),
-    randomInt(1, 12),
-    randomInt(1, 28)
-  )
-}
-
-function currentUtcDate() {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function currentUtcMonthLabel() {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    timeZone: "UTC",
-    year: "numeric",
-  }).format(new Date())
-}
-
-const memberFirstNames = [
-  "Amina",
-  "Zainab",
-  "Fatima",
-  "Maryam",
-  "Khadija",
-  "Hauwa",
-  "Musa",
-  "Ibrahim",
-  "Yusuf",
-  "Sadiq",
-]
-const memberLastNames = [
-  "Yusuf",
-  "Bello",
-  "Garba",
-  "Muhammad",
-  "Sule",
-  "Usman",
-  "Abdullahi",
-  "Ilyas",
-  "Kabir",
-  "Lawal",
-]
 const memberTypes = ["individual", "civil_servant", "business"] as const
 
-function createRandomMemberCreateDefaults() {
-  const fullName = `${randomItem(memberFirstNames)} ${randomItem(memberLastNames)}`
-  const memberNumber = String(randomInt(1000, 9999))
-  const joinedAt = randomRecentDate(2021, 2026)
-  const monthlyCommitment = String(
-    randomItem([10000, 15000, 20000, 25000, 30000, 50000])
-  )
-  const email = `${fullName.toLowerCase().replace(/\s+/g, ".")}@example.com`
-  const profileDefaults = {
-    address: `${randomInt(1, 48)} Cooperative Road, Kaduna`,
-    email,
-    occupation: randomItem([
-      "Trader",
-      "Teacher",
-      "Civil servant",
-      "Business owner",
-      "Tailor",
-    ]),
-    phoneNumber: `+23480${randomInt(10000000, 99999999)}`,
-  }
+const chargeNames = [
+  "Welfare Levy",
+  "Development Levy",
+  "Building Levy",
+  "Education Support Levy",
+  "Ramadan Support Levy",
+  "Admin Charge",
+  "Registration Fee",
+  "Passbook Fee",
+] as const
 
-  return {
-    ...profileDefaults,
-    fullName,
-    joinedAt,
-    monthlyCommitment,
-    memberNumber,
-    memberType: randomItem(memberTypes),
+const loanPurposes = [
+  "School fees for the new session",
+  "Restocking a provisions shop",
+  "Sewing machines for a tailoring business",
+  "Farm inputs for the planting season",
+  "Repairs to a commercial tricycle",
+] as const
+
+export function createDashboardDevFormFill(
+  kind: DashboardDevFormKind,
+  options?: FillOptions
+) {
+  const emailDomain = options?.emailDomain
+  const today = qaToday()
+
+  switch (kind) {
+    case "member_create": {
+      const person = createQaPerson({ emailDomain })
+      return {
+        address: createQaAddress(),
+        email: person.email,
+        fullName: person.fullName,
+        joinedAt: randomRecentDate(2021, 2026),
+        memberNumber: createQaDigits(6),
+        memberType: pickQaValue(memberTypes),
+        monthlyCommitment: createQaAmount(10_000, 50_000, 5_000),
+        occupation: createQaOccupation(),
+        phoneNumber: person.phoneNumber,
+      }
+    }
+    case "member_signup": {
+      const person = createQaPerson({ emailDomain })
+      return {
+        email: person.email,
+        fullName: person.fullName,
+        memberNumber: createQaDigits(6),
+        phoneNumber: person.phoneNumber,
+      }
+    }
+    case "role_assignment": {
+      const person = createQaPerson({ emailDomain })
+      return {
+        email: person.email,
+        fullName: person.fullName,
+        makeDefault: true,
+        role: "member",
+      }
+    }
+    case "charge_definition": {
+      const name = pickQaValue(chargeNames)
+      const code = createQaCode(name.split(" ")[0]!.slice(0, 5))
+      return {
+        amount: createQaAmount(500, 5_000, 250),
+        appliesToLoanRequests: false,
+        appliesToLoans: false,
+        appliesToMembers: true,
+        code,
+        effectiveFrom: today,
+        isMonthlyLevy: true,
+        kind: "fixed",
+        // The name carries the unique code so repeat fills never clash.
+        name: `${name} ${code.split("-")[1]}`,
+      }
+    }
+    case "charge_application":
+      return {
+        assessedAt: today,
+        notes: `${pickQaValue(chargeNames)} for ${qaMonthLabel()}.`,
+      }
+    case "contribution_plan":
+      return {
+        amount: createQaAmount(10_000, 50_000, 5_000),
+        name: "Monthly commitment",
+        startsAt: today,
+      }
+    case "cooperative_profile": {
+      const cooperative = createQaCooperative({ emailDomain })
+      return {
+        city: cooperative.city,
+        country: "Nigeria",
+        currentSize: "250",
+        memberNumberPrefix: `${cooperative.codePrefix.slice(0, 3)}-`,
+        name: cooperative.name,
+        officeAddress: cooperative.officeAddress,
+        state: cooperative.state,
+        timezone: "Africa/Lagos",
+      }
+    }
+    case "custom_domain":
+      return {
+        hostname: `${createQaCooperative({ emailDomain }).slug}.example.org`,
+      }
+    case "loan_request":
+      return {
+        extraMonthlySavingsAmount: "5000",
+        purpose: pickQaValue(loanPurposes),
+        requestedAmount: createQaAmount(50_000, 300_000, 10_000),
+        requestedTermMonths: pickQaValue(["6", "10", "12"] as const),
+      }
+    case "member_payment":
+      return {
+        channel: "transfer",
+        committedSavingsAmount: "25000",
+        extraLoanPaymentAmount: "5000",
+        extraSavingsAmount: "5000",
+        periodLabel: qaMonthLabel(),
+        postedAt: today,
+        reference: createQaReference("TRX"),
+        scheduledLoanServicingAmount: "15000",
+        totalAmount: "50000",
+      }
+    case "repayment_post":
+      return {
+        amount: "25000",
+        reference: createQaReference("PMT"),
+      }
+    case "member_commitment":
+      return {
+        amount: createQaAmount(10_000, 50_000, 5_000),
+        startsAt: today,
+      }
+    case "member_document":
+      return {
+        documentType: "National ID",
+        documentUrl: `https://example.test/kyc/${createQaReference("DOC").toLowerCase()}.pdf`,
+        reviewStatus: "pending",
+      }
+    case "signup_link":
+      return {
+        expiresAt: qaDateOffset(30),
+        maxSignups: "50",
+        name: `${qaMonthLabel()} member outreach ${createQaCode("").slice(1)}`,
+        notes: "Shared with the cooperative WhatsApp group after Jumu'ah.",
+      }
+    case "trust_profile": {
+      const person = createQaPerson({ emailDomain })
+      return {
+        backupRetentionNote:
+          "Nightly encrypted backups kept for 35 days; restore tested each quarter.",
+        dataProcessingUrl: "https://example.test/legal/data-processing",
+        incidentContactEmail: person.email,
+        incidentContactName: person.fullName,
+        legalTermsUrl: "https://example.test/legal/terms",
+        privacyPolicyUrl: "https://example.test/legal/privacy",
+        recoveryPointObjective: "24 hours",
+        recoveryTimeObjective: "8 hours",
+      }
+    }
+    case "loan_product": {
+      const code = createQaCode("LN")
+      return {
+        code,
+        isActive: true,
+        maxSavingsMultiple: "2",
+        name: `Murabaha Facility ${code.split("-")[1]}`,
+        termMonths: "12",
+      }
+    }
+    case "member_baseline": {
+      const person = createQaPerson({ emailDomain })
+      return {
+        address: createQaAddress(),
+        email: person.email,
+        fullName: person.fullName,
+        occupation: createQaOccupation(),
+        phoneNumber: person.phoneNumber,
+      }
+    }
   }
 }
 
-const dashboardDevFormDefaults = {
-  audit_filters: {
-    action: "loan_request",
-    from: "2026-04-01",
-    search: "approved",
-    to: "2026-04-14",
-  },
-  charge_application: {
-    amount: "2500",
-    assessedAt: "2026-04-14",
-    chargeDefinitionId: "",
-    memberId: "",
-    notes: "Monthly levy for April cycle",
-  },
-  charge_definition: {
-    amount: "2500",
-    appliesToLoanRequests: false,
-    appliesToLoans: false,
-    appliesToMembers: true,
-    code: "LEVY-APR",
-    effectiveFrom: "2026-04-01",
-    isMonthlyLevy: true,
-    kind: "fixed",
-    name: "Monthly Levy",
-  },
-  contribution_plan: {
-    amount: "25000",
-    memberId: "",
-    name: "Monthly commitment",
-    startsAt: "2026-04-01",
-  },
-  cooperative_profile: {
-    city: "Kaduna North",
-    country: "Nigeria",
-    currentSize: "250",
-    memberNumberPrefix: "MEM-",
-    name: "Noor Cooperative Society",
-    officeAddress: "12 Emir Road, Kaduna North, Kaduna State",
-    state: "Kaduna",
-    startDate: "2019-03-15",
-    timezone: "Africa/Lagos",
-  },
-  custom_domain: {
-    hostname: "coop.example.org",
-  },
-  loan_request: {
-    extraMonthlySavingsAmount: "5000",
-    loanProductId: "",
-    memberId: "",
-    purpose: "Education support",
-    requestedAmount: "150000",
-    requestedTermMonths: "12",
-  },
-  member_create: {
-    address: "12 Cooperative Road, Kaduna",
-    email: "amina.yusuf@example.com",
-    fullName: "Amina Yusuf",
-    joinedAt: "2026-04-14",
-    memberNumber: "1024",
-    memberType: "individual",
-    monthlyCommitment: "25000",
-    occupation: "Trader",
-    phoneNumber: "+234 800 000 0000",
-  },
-  member_signup: {
-    email: "amina.yusuf@example.com",
-    fullName: "Amina Yusuf",
-    memberNumber: "1024",
-    phoneNumber: "+234 800 000 0000",
-  },
-  member_payment: {
-    channel: "transfer",
-    committedSavingsAmount: "25000",
-    contributionPlanId: "",
-    extraLoanPaymentAmount: "5000",
-    extraSavingsAmount: "5000",
-    loanId: "",
-    memberId: "",
-    periodLabel: "April 2026",
-    postedAt: "2026-04-14",
-    reference: "TRX-APR-001",
-    scheduledLoanServicingAmount: "15000",
-    totalAmount: "50000",
-  },
-  repayment_post: {
-    amount: "25000",
-    loanId: "",
-    reference: "PMT-001",
-    repaymentScheduleItemId: "",
-  },
-  role_assignment: {
-    email: "amina@coop.org",
-    fullName: "Amina Yusuf",
-    makeDefault: true,
-    role: "member",
-  },
-} as const
-
-export type DashboardDevFormKind = keyof typeof dashboardDevFormDefaults
+export type DashboardDevFormKind =
+  | "charge_application"
+  | "charge_definition"
+  | "contribution_plan"
+  | "cooperative_profile"
+  | "custom_domain"
+  | "loan_product"
+  | "loan_request"
+  | "member_baseline"
+  | "member_commitment"
+  | "member_create"
+  | "member_document"
+  | "member_payment"
+  | "member_signup"
+  | "repayment_post"
+  | "role_assignment"
+  | "signup_link"
+  | "trust_profile"
 
 export function getDashboardRandomDevFormFill<TFieldValues extends FieldValues>(
   kind: DashboardDevFormKind,
-  options?: { emailDomain?: string }
+  options?: FillOptions
 ) {
-  const defaults =
-    kind === "member_create" && options?.emailDomain
-      ? createQaMemberFixture({
-          currencyCode: "NGN",
-          invocation: randomInt(1, 999_999),
-          qaDomain: options.emailDomain,
-          seed: "dashboard-member-create",
-          timezone: "Africa/Lagos",
-        })
-      : kind === "member_create"
-        ? createRandomMemberCreateDefaults()
-        : kind === "charge_definition"
-          ? {
-              ...dashboardDevFormDefaults.charge_definition,
-              effectiveFrom: currentUtcDate(),
-            }
-          : kind === "charge_application"
-            ? {
-                ...dashboardDevFormDefaults.charge_application,
-                assessedAt: currentUtcDate(),
-              }
-            : kind === "contribution_plan"
-              ? {
-                  ...dashboardDevFormDefaults.contribution_plan,
-                  startsAt: currentUtcDate(),
-                }
-              : kind === "member_payment"
-                ? {
-                    ...dashboardDevFormDefaults.member_payment,
-                    periodLabel: currentUtcMonthLabel(),
-                    postedAt: currentUtcDate(),
-                    reference: `TRX-${currentUtcDate().replaceAll("-", "")}-${randomInt(1000, 9999)}`,
-                  }
-                : dashboardDevFormDefaults[kind]
-  const emailDomain = options?.emailDomain
-
-  if (
-    emailDomain &&
-    "email" in defaults &&
-    typeof defaults.email === "string"
-  ) {
-    const fullName =
-      "fullName" in defaults && typeof defaults.fullName === "string"
-        ? defaults.fullName
-        : "qa-user"
-    const uniqueLocalPart = `${normalizeCooperativeQaSlug(fullName)}-${randomInt(
-      1000,
-      999999
-    )}`
-
-    return {
-      ...defaults,
-      email: buildQaEmail(uniqueLocalPart, emailDomain),
-    } as unknown as TFieldValues
-  }
-
-  return defaults as unknown as TFieldValues
+  return createDashboardDevFormFill(kind, options) as unknown as TFieldValues
 }
 
+/**
+ * Fills the form, keeping every field the recipe does not set (selected
+ * sources, purposes, passwords) instead of wiping it.
+ */
 export function applyDashboardDevFormFill<TFieldValues extends FieldValues>(
   form: DashboardFormReset<TFieldValues>,
   kind: DashboardDevFormKind,
   overrides?: Partial<TFieldValues>,
-  options?: { emailDomain?: string }
+  options?: FillOptions
 ) {
   form.reset({
+    ...(form.getValues?.() ?? {}),
     ...getDashboardRandomDevFormFill(kind, options),
     ...overrides,
   } as unknown as TFieldValues)
 }
 
-export function applyDashboardRandomDevFormFill<
-  TFieldValues extends FieldValues,
->(
-  form: DashboardFormReset<TFieldValues>,
-  kind: DashboardDevFormKind,
-  overrides?: Partial<TFieldValues>,
-  options?: { emailDomain?: string }
+export const applyDashboardRandomDevFormFill = applyDashboardDevFormFill
+
+function csvCell(value: string) {
+  return /[",\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value
+}
+
+/**
+ * A Quick Fill CSV for an import kind. The member, collection-source and
+ * loan-product imports get brand-new unique rows; the dependent imports keep
+ * the template's member numbers (they need those members to exist) but get
+ * unique references and codes so a rerun never collides.
+ */
+export function createQaImportCsv(
+  kind: string,
+  sampleCsv: string,
+  options?: FillOptions
 ) {
-  form.reset({
-    ...getDashboardRandomDevFormFill<TFieldValues>(kind, options),
-    ...overrides,
-  } as unknown as TFieldValues)
+  const [header = "", ...templateRows] = sampleCsv.split("\n")
+
+  if (kind === "members") {
+    const rows = templateRows.map((templateRow) => {
+      const template = templateRow.split(",")
+      const person = createQaPerson({ emailDomain: options?.emailDomain })
+      const columns: Record<string, string> = {
+        address: createQaAddress(),
+        email: person.email,
+        fullName: person.fullName,
+        governmentIdNumber: `NIN-${createQaDigits(7)}`,
+        memberNumber: createQaDigits(6),
+        monthlyCommitment: createQaAmount(10_000, 50_000, 5_000),
+        occupation: createQaOccupation(),
+        openingSavingsBalance: createQaAmount(20_000, 250_000, 5_000),
+        phoneNumber: person.phoneNumber,
+      }
+      return header
+        .split(",")
+        .map((name, index) => csvCell(columns[name] ?? template[index] ?? ""))
+        .join(",")
+    })
+    return [header, ...rows].join("\n")
+  }
+
+  if (kind === "deduction_sources") {
+    return [
+      header,
+      ...templateRows.map((row) => {
+        const [, type = "bank_transfer"] = row.split(",")
+        const code = createQaCode("SRC")
+        return [
+          `${createQaCooperative().city} Payroll Desk ${code.split("-")[1]}`,
+          type,
+          code,
+        ].join(",")
+      }),
+    ].join("\n")
+  }
+
+  if (kind === "loan_products") {
+    return [
+      header,
+      ...templateRows.map((row) => {
+        const [, , loanType = "normal", termMonths = "12", multiple = "2"] =
+          row.split(",")
+        const code = createQaCode("LN")
+        return [
+          code,
+          `Murabaha Facility ${code.split("-")[1]}`,
+          loanType,
+          termMonths,
+          multiple,
+        ].join(",")
+      }),
+    ].join("\n")
+  }
+
+  // Dependent imports: fresh references and charge codes on every fill.
+  return [
+    header,
+    ...templateRows.map((row) =>
+      row
+        .replace(/\b(TRX|PAY|LEGACY-RPY)-[A-Z0-9-]+/g, (_match, prefix: string) =>
+          createQaReference(prefix)
+        )
+        .replace(/\b(LEVY|REG)-[A-Z]+\b/g, (_match, prefix: string) =>
+          createQaCode(prefix)
+        )
+    ),
+  ].join("\n")
 }

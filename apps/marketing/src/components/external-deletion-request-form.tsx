@@ -1,14 +1,25 @@
 "use client"
 import { publicDeletionFlowCopy } from "@halaalvest/domain/public-policies"
 import { useState } from "react"
+import type { QaQuickFillContext } from "@halaalvest/utils"
+import { QaQuickFillButton } from "@halaalvest/ui/components/qa-quick-fill-button"
+import { getDevFormDefaults } from "@/lib/dev-form-fill"
 import {
   externalDeletionWorkspacePattern,
   normalizeExternalDeletionWorkspace,
 } from "@/lib/external-deletion-workspace"
 const copy = publicDeletionFlowCopy.request
-export function ExternalDeletionRequestForm() {
+export function ExternalDeletionRequestForm({
+  quickFill,
+}: {
+  quickFill?: QaQuickFillContext
+}) {
   const [email, setEmail] = useState("")
   const [workspaceSlug, setWorkspaceSlug] = useState("")
+  const [previousDraft, setPreviousDraft] = useState<{
+    email: string
+    workspaceSlug: string
+  } | null>(null)
   const [sending, setSending] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -37,7 +48,26 @@ export function ExternalDeletionRequestForm() {
       className="mt-8 space-y-4 rounded-xl border p-5"
       onSubmit={(event) => void submit(event)}
     >
-      <h2 className="text-xl font-semibold">{copy.title}</h2>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <h2 className="text-xl font-semibold">{copy.title}</h2>
+        <QaQuickFillButton
+          isDirty={Boolean(email || workspaceSlug)}
+          qaDomain={quickFill?.emailDomain}
+          visible={Boolean(quickFill?.enabled)}
+          onFill={async () => {
+            setPreviousDraft({ email, workspaceSlug })
+            const values = await getDevFormDefaults("deletionRequest", {
+              emailDomain: quickFill?.emailDomain,
+            })
+            setEmail(values.email)
+            setWorkspaceSlug(values.workspaceSlug)
+          }}
+          onUndo={() => {
+            setEmail(previousDraft?.email ?? "")
+            setWorkspaceSlug(previousDraft?.workspaceSlug ?? "")
+          }}
+        />
+      </div>
       <p className="text-sm text-muted-foreground">{copy.instructions}</p>
       <label className="block text-sm font-medium">
         {copy.emailLabel}

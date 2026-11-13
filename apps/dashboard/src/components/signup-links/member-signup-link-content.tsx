@@ -17,7 +17,9 @@ import { Input } from "@halaalvest/ui/components/input"
 import { NativeSelect } from "@halaalvest/ui/components/native-select"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
+import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
 import { DatePickerInput } from "@/components/date-picker-input"
+import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
 import { useMemberSignupLinkParams } from "@/hooks/use-member-signup-link-params"
 import {
   createMemberSignupLinkAction,
@@ -172,6 +174,14 @@ function CreateLinkForm({ onSuccess }: { onSuccess: () => Promise<void> }) {
     <section>
       <Form {...form}>
         <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
+          <DashboardQuickFill
+            form={form}
+            onFill={({ emailDomain }) =>
+              applyDashboardDevFormFill(form, "signup_link", undefined, {
+                emailDomain,
+              })
+            }
+          />
           <div className="grid gap-4 md:grid-cols-2">
             <FormField
               control={form.control}

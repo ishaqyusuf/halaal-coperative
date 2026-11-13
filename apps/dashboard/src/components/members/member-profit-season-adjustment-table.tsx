@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { Badge } from "@halaalvest/ui/components/badge"
-import { Button } from "@halaalvest/ui/components/button"
 import {
   Tooltip,
   TooltipContent,
@@ -10,6 +9,7 @@ import {
   TooltipTrigger,
 } from "@halaalvest/ui/components/tooltip"
 import { formatCurrency } from "@halaalvest/utils"
+import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
 
 import {
   MemberProfitSeasonAdjustmentPopover,
@@ -157,15 +157,10 @@ export function MemberProfitSeasonAdjustmentTable({
   return (
     <div className="grid gap-2">
       <div className="flex justify-end">
-        <Button
-          disabled={disabled || !hasQuickFillTargets}
-          onClick={quickFillSeasons}
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          Quick fill
-        </Button>
+        <DashboardQuickFill
+          enabled={!disabled && hasQuickFillTargets}
+          onFill={quickFillSeasons}
+        />
       </div>
       <div className="grid gap-3">
         {seasons.map((season) => {

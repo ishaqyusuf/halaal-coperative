@@ -33,7 +33,7 @@ import {
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
-import { useQaQuickFill } from "@/components/qa-quick-fill-provider"
+import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
 import { objectToFormData } from "@/lib/form-submit"
 import {
   provisionTenantUserRoleAction,
@@ -100,16 +100,18 @@ export function CooperativeProfileForm({
       <form className="grid gap-6" onSubmit={form.handleSubmit(onSubmit)}>
         {devMode ? (
           <div className="flex justify-end">
-            <Button
+            <DashboardQuickFill
               className="h-10 w-full sm:w-auto"
-              type="button"
-              variant="outline"
-              onClick={() =>
-                applyDashboardDevFormFill(form, "cooperative_profile")
+              form={form}
+              onFill={({ emailDomain }) =>
+                applyDashboardDevFormFill(
+                  form,
+                  "cooperative_profile",
+                  undefined,
+                  { emailDomain }
+                )
               }
-            >
-              Quick fill
-            </Button>
+            />
           </div>
         ) : null}
 
@@ -418,6 +420,14 @@ export function TenantTrustProfileForm({
   return (
     <Form {...form}>
       <form className="grid gap-6" onSubmit={form.handleSubmit(onSubmit)}>
+        <DashboardQuickFill
+          form={form}
+          onFill={({ emailDomain }) =>
+            applyDashboardDevFormFill(form, "trust_profile", undefined, {
+              emailDomain,
+            })
+          }
+        />
         <section aria-labelledby="trust-legal-documents-title">
           <h3
             className="text-base font-semibold text-foreground"
@@ -611,7 +621,6 @@ export function RoleAssignmentForm({
   onSuccess?: () => void
   roles: Array<{ label: string; value: string }>
 }) {
-  const quickFill = useQaQuickFill()
   const form = useZodForm<RoleValues>(roleSchema, {
     defaultValues: {
       email: "",
@@ -647,18 +656,15 @@ export function RoleAssignmentForm({
       >
         {devMode ? (
           <div className="flex justify-end md:col-span-2">
-            <Button
+            <DashboardQuickFill
               className="h-10 w-full sm:w-auto"
-              type="button"
-              variant="outline"
-              onClick={() =>
+              form={form}
+              onFill={({ emailDomain }) =>
                 applyDashboardDevFormFill(form, "role_assignment", undefined, {
-                  emailDomain: quickFill.emailDomain,
+                  emailDomain,
                 })
               }
-            >
-              Quick fill
-            </Button>
+            />
           </div>
         ) : null}
 

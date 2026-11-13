@@ -43,6 +43,7 @@ import { Spinner } from "@halaalvest/ui/components/spinner"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import type { QaQuickFillContext } from "@halaalvest/utils"
+import { QaQuickFillButton } from "@halaalvest/ui/components/qa-quick-fill-button"
 import {
   cooperativeSizeRanges,
   formatCooperativeSizeRangeLabel,
@@ -229,17 +230,16 @@ export function EarlyAccessForm({
                   </SelectContent>
                 </Select>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
+              <QaQuickFillButton
+                form={form}
+                qaDomain={qaDomain}
+                visible={quickFill.enabled}
+                onFill={() =>
                   applyDevFormFill(form, "earlyAccess", undefined, {
                     emailDomain: qaDomain,
                   })
                 }
-              >
-                Quick fill
-              </Button>
+              />
             </div>
           ) : null}
           <form

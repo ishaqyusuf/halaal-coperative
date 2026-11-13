@@ -1,5 +1,7 @@
 "use client"
 
+import { useDashboardQaEmailDomain } from "@/components/dashboard-quick-fill"
+import { createQaImportCsv } from "@/lib/dev-form-fill"
 import { useMemo, useRef, useState, useTransition } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { z } from "zod"
@@ -312,6 +314,8 @@ export function MemberImportContent({
     })
   }
 
+  const qaEmailDomain = useDashboardQaEmailDomain()
+
   function resetImportForm(nextCsvText = "") {
     const nextRows = getRowsFromCsvText(nextCsvText)
 
@@ -470,7 +474,13 @@ export function MemberImportContent({
         onColumnSettingsChange={onColumnSettingsChange}
         onDownloadTemplate={onDownloadTemplate}
         onImportFile={onImportFile}
-        onQuickFill={() => resetImportForm(config.sampleCsv)}
+        onQuickFill={() =>
+          resetImportForm(
+            createQaImportCsv("members", config.sampleCsv, {
+              emailDomain: qaEmailDomain,
+            })
+          )
+        }
       />
 
       <Form {...form}>

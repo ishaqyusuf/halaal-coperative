@@ -41,6 +41,7 @@ import { cn } from "@halaalvest/ui/lib/utils"
 import { ChevronsUpDownIcon, PlusIcon, Trash2Icon } from "lucide-react"
 import type { FieldErrors, FieldPath } from "react-hook-form"
 import { z } from "zod"
+import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
 import { DatePickerInput } from "@/components/date-picker-input"
 import { MemberCreateSheet } from "@/components/sheets/member-create-sheet"
 import { MemberBackfillFooterPortal } from "@/components/members/member-backfill-footer-slot"
@@ -741,15 +742,11 @@ function CommitmentHistoryQuickFillButton({
   }
 
   return (
-    <Button
-      disabled={disabled || !memberJoinedAt}
-      onClick={quickFillCommitments}
-      size="sm"
-      type="button"
-      variant="ghost"
-    >
-      Quick fill
-    </Button>
+    <DashboardQuickFill
+      enabled={!disabled && Boolean(memberJoinedAt)}
+      form={form}
+      onFill={quickFillCommitments}
+    />
   )
 }
 
@@ -779,15 +776,11 @@ function LoanHistoryQuickFillButton({
   }
 
   return (
-    <Button
-      disabled={disabled || !memberJoinedAt}
-      onClick={quickFillLoans}
-      size="sm"
-      type="button"
-      variant="ghost"
-    >
-      Quick fill
-    </Button>
+    <DashboardQuickFill
+      enabled={!disabled && Boolean(memberJoinedAt)}
+      form={form}
+      onFill={quickFillLoans}
+    />
   )
 }
 
@@ -1753,15 +1746,11 @@ export function LoanHistoryEntryForm({
                       }
                     />
                     <div className="mt-1 flex justify-end">
-                      <Button
-                        disabled={disabled || !memberId}
-                        onClick={() => quickFillGuarantors(row)}
-                        size="sm"
-                        type="button"
-                        variant="ghost"
-                      >
-                        Quick fill
-                      </Button>
+                      <DashboardQuickFill
+                        enabled={!disabled && Boolean(memberId)}
+                        label="Quick fill guarantors"
+                        onFill={() => quickFillGuarantors(row)}
+                      />
                     </div>
                   </div>
                   <GuarantorMemberInput

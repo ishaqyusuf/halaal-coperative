@@ -1,5 +1,8 @@
 "use client"
 
+import { createQaAmount, qaMonthLabel, qaToday } from "@halaalvest/utils"
+import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
+import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
 import {
   useCallback,
   useEffect,
@@ -346,6 +349,14 @@ export function FinanceStartDateForm({
   return (
     <Form {...form}>
       <form className="space-y-3" onSubmit={form.handleSubmit(onSubmit)}>
+        <DashboardQuickFill
+          form={form}
+          onFill={() =>
+            form.reset({
+              startDate: `${new Date().getUTCFullYear() - 1}-01-01`,
+            })
+          }
+        />
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
           <FormField
             control={form.control}
@@ -921,6 +932,18 @@ export function SharePolicyForm({
         id={resolvedFormId}
         onSubmit={form.handleSubmit(onSubmit)}
       >
+        <DashboardQuickFill
+          form={form}
+          onFill={() => {
+            form.reset({
+              compulsoryShareUnits: "2",
+              configurationMode: "unit_based",
+              maximumShareUnits: "40",
+              unitAmount: createQaAmount(2_000, 10_000, 1_000),
+            })
+            onConfigurationModeChange?.("unit_based")
+          }}
+        />
         <FormField
           control={form.control}
           name="configurationMode"
@@ -1239,6 +1262,22 @@ export function FinancingPolicyForm({
   return (
     <Form {...form}>
       <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
+        <DashboardQuickFill
+          form={form}
+          onFill={() =>
+            form.reset({
+              ...form.getValues(),
+              foodPurchaseMaximumPaybackMonths: "6",
+              loanEligibilityMultiple: "2",
+              normalLoanAllocationPercentage: "70",
+              normalLoanTermMonths: "12",
+              procurementMaximumPaybackMonths: "12",
+              quickLoanAllocationPercentage: "30",
+              quickLoanTermMonths: "6",
+              reserveBufferAmount: createQaAmount(100_000, 500_000, 50_000),
+            })
+          }
+        />
         <div className="grid gap-3 md:grid-cols-2">
           <FormField
             control={form.control}
@@ -1577,7 +1616,8 @@ export function LoanProductSettingsForm({
     {
       defaultValues: {
         code: product.code ?? "",
-        isActive: product.isActive,
+        // Setting up a missing product starts it active.
+        isActive: product.id ? product.isActive : true,
         loanProductId: product.id ?? "",
         loanType: product.loanType,
         maxSavingsMultiple: String(product.maxSavingsMultiple),
@@ -1611,6 +1651,17 @@ export function LoanProductSettingsForm({
   return (
     <Form {...form}>
       <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
+        <DashboardQuickFill
+          form={form}
+          onFill={({ emailDomain }) =>
+            applyDashboardDevFormFill(
+              form,
+              "loan_product",
+              { loanProductId: product.id ?? "", loanType: "normal" },
+              { emailDomain }
+            )
+          }
+        />
         <input type="hidden" {...form.register("loanProductId")} />
         <input type="hidden" {...form.register("loanType")} />
         <div className="grid gap-3 md:grid-cols-2">
@@ -3586,6 +3637,21 @@ export function ChargeDefinitionVersionForm({
         className="grid gap-4 md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
+        <DashboardQuickFill
+          className="md:col-span-2"
+          form={form}
+          onFill={() =>
+            form.reset({
+              ...form.getValues(),
+              amount: createQaAmount(500, 5_000, 250),
+              effectiveFrom:
+                financeStartDate && financeStartDate > qaToday()
+                  ? financeStartDate
+                  : qaToday(),
+              notes: `Rate review agreed at the ${qaMonthLabel()} general meeting.`,
+            })
+          }
+        />
         <FormField
           control={form.control}
           name="chargeDefinitionId"

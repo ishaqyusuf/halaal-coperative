@@ -181,7 +181,7 @@ describe("mobile Quick Fill values", () => {
         expect(value.length, label).toBeGreaterThanOrEqual(10)
       }
     }
-    expect(mobileDevQuickFillReference("QA-PO")).toMatch(/^QA-PO-\d{6}$/)
+    expect(mobileDevQuickFillReference("QA-PO")).toMatch(/^QA-PO-\d{8}-[0-9A-Z]{6}$/)
   })
 
   test("passes the feature parsers the forms validate with", () => {

@@ -20,7 +20,11 @@ import { Input } from "@/components/ui/input"
 import { Text } from "@/components/ui/text"
 import { Textarea } from "@/components/ui/textarea"
 import { canUseMobileFeatureData } from "@/dev/mobile-dev-session"
-import { mobileDevQuickFill } from "@/dev/mobile-dev-quick-fill"
+import {
+  mobileDevQuickFill,
+  mobileDevQuickFillMemberNumber,
+} from "@/dev/mobile-dev-quick-fill"
+import { mobileDevQuickFillIdentity } from "@/dev/mobile-dev-quick-fill-identity"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
 import { useLargeTextLayout } from "@/hooks/use-large-text-layout"
@@ -1033,12 +1037,13 @@ export function AdminMembersScreen({
               label="Quick fill member"
               onPress={() => {
                 const preset = mobileDevQuickFill.adminMember
-                setFullName(preset.fullName)
-                setMemberNumber(preset.memberNumber)
+                const person = mobileDevQuickFillIdentity()
+                setFullName(person.fullName)
+                setMemberNumber(mobileDevQuickFillMemberNumber())
                 setMemberType("individual")
                 setJoinedAt(preset.joinedAt)
-                setEmail(preset.email)
-                setPhoneNumber(preset.phoneNumber)
+                setEmail(person.email)
+                setPhoneNumber(person.phoneNumber)
                 setMonthlyCommitment(preset.monthlyCommitment)
               }}
               placement="footer"

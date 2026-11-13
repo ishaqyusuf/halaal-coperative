@@ -15,7 +15,10 @@ import { Input } from "@/components/ui/input"
 import { Text } from "@/components/ui/text"
 import { Textarea } from "@/components/ui/textarea"
 import { createClientSubmissionKey } from "@/lib/client-submission-key"
-import { mobileDevQuickFill } from "@/dev/mobile-dev-quick-fill"
+import {
+  mobileDevQuickFill,
+  mobileDevQuickFillReference,
+} from "@/dev/mobile-dev-quick-fill"
 import { captureMobileError } from "@/lib/sentry"
 import { todayDateOnly } from "@/lib/date-only"
 import { isMobileReadCacheStale } from "@/lib/read-cache"
@@ -407,15 +410,13 @@ export function AdminContributionOperationsScreen() {
           : "0"
       )
       setPaymentDate(todayDateOnly())
-      setPaymentReference(
-        mobileDevQuickFill.adminContributions.paymentReference
-      )
+      setPaymentReference(mobileDevQuickFillReference("QA-CON"))
     }
     if (formMode === "batch") {
       setBatchSourceId(workspace?.sources?.[0]?.id ?? "")
       setBatchYear(String(new Date().getFullYear()))
       setBatchMonth(String(new Date().getMonth() + 1))
-      setBatchReference(mobileDevQuickFill.adminContributions.batchReference)
+      setBatchReference(mobileDevQuickFillReference("QA-BATCH"))
       setBatchNotes(mobileDevQuickFill.adminContributions.batchNotes)
     }
     if (formMode === "row") {

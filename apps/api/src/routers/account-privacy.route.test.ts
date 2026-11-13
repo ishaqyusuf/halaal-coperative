@@ -38,9 +38,7 @@ describe("privacy API authorization", () => {
   test("lets a signed-in member review the notice without paid-plan infrastructure", async () => {
     const notice = await (await caller()).notice()
     expect(notice.version).toMatch(/^notice-sha256-[0-9a-f]{64}$/)
-    expect(notice.consequences.join(" ")).toContain(
-      "cancelled through the store"
-    )
+    expect(notice.consequences.join(" ")).not.toContain("store")
   })
   test("does not let a member read the operator queue or verify identities", async () => {
     const api = await caller()

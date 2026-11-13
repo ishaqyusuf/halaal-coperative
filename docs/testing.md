@@ -252,15 +252,12 @@ read-only) with the October dev-client debug build:
 
 ### Entering the app as a QA profile
 
-QA profiles are not a paid-access bypass. Before a QA profile can get past the mobile-access
-screen, two things must be in place:
-
-- The local API must run with `STORE_BILLING_ENVIRONMENT=sandbox` as well as a
-  `QA_ACCELERATOR_SECRET`. Without it, `mobileAppAccess.snapshot` fails and every profile lands on
-  "Access could not be checked".
-- The QA user needs a sandbox `MobileAppReviewGrant`, issued by a platform owner through the
-  audited `issueMobileAppReviewGrant`. Locally, write a gitignored `.scratch/` script that calls it
-  for your QA tenant's users against the loopback database.
+QA profiles are not a mobile-access bypass. Before a QA profile can get past the mobile-access
+screen, its cooperative must have mobile access turned on and the QA member needs an approved
+mobile access term. A cooperative admin can do both on the dashboard's Mobile access page: turn
+mobile access on, then use **Enable members**, or approve the member's request. Without an active
+term, `cooperativeMobileAccess.snapshot` keeps the profile on the mobile-access screen. QA
+cooperatives are excluded from invoices, so enabling QA members creates no real charge.
 
 Quick Fill appears only while the device holds QA authorization, and signing out clears it.
 Re-enter the QA Domain on sign-in before testing recovery Quick Fill.

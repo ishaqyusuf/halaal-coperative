@@ -76,9 +76,7 @@ export * from "./queries/production-qa-harness-fixtures"
 export * from "./queries/production-qa-invitation-proof"
 export * from "./filter-metadata"
 
-export * from "./queries/store-subscriptions"
 export * from "./queries/store-refund-reviews"
-export * from "./queries/mobile-app-access"
 export * from "./queries/cooperative-mobile-access"
 export * from "./queries/cooperative-mobile-billing"
 

@@ -1,6 +1,5 @@
 import { handleAppUpdateRequest } from "./app-update/handler"
 import { handleCooperativePaystackWebhook } from "./billing/cooperative-paystack-webhook"
-import { storeNotifications } from "./billing/store-notifications"
 import "./instrument"
 
 import { serve } from "@hono/node-server"
@@ -76,7 +75,6 @@ app.all("/api/internal/mobile/builds*", (c) =>
 )
 app.get("/api/mobile/builds/check", (c) => handleAppUpdateRequest(c.req.raw))
 
-app.route("/billing/store-notifications", storeNotifications)
 app.route("/", handleCooperativePaystackWebhook)
 
 app.get("/", (c) => {

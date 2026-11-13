@@ -40,6 +40,20 @@ export type AllTableSettings = {
 
 export const TABLE_SETTINGS_COOKIE = "table-settings"
 
+const TABLE_SETTINGS_COOKIE_MAX_AGE_SECONDS = 10 * 365 * 24 * 60 * 60
+
+/**
+ * Client-only. Writes the cookie that `getInitialTableSettings` reads on the
+ * next server render. A server action that sets a cookie makes Next.js
+ * re-render the whole route (layout and page loaders), so column changes
+ * are persisted from the browser instead.
+ */
+export function writeTableSettingsCookie(settings: AllTableSettings) {
+  document.cookie = `${TABLE_SETTINGS_COOKIE}=${encodeURIComponent(
+    JSON.stringify(settings)
+  )}; path=/; max-age=${TABLE_SETTINGS_COOKIE_MAX_AGE_SECONDS}; samesite=lax`
+}
+
 export const defaultHiddenColumns: Record<TableId, string[]> = {
   members: [],
   contributions: [],

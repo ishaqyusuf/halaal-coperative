@@ -13,13 +13,13 @@ import {
   useRef,
   useState,
 } from "react"
-import { updateTableSettingsAction } from "@/actions/update-table-settings-action"
 import {
   mergeWithDefaults,
   normalizeColumnOrder,
   TABLE_SETTINGS_COOKIE,
   type TableId,
   type TableSettings,
+  writeTableSettingsCookie,
 } from "@/utils/table-settings"
 
 interface UseTableSettingsProps {
@@ -69,7 +69,7 @@ export function useTableSettings({
         clearTimeout(debounceRef.current)
       }
 
-      debounceRef.current = setTimeout(async () => {
+      debounceRef.current = setTimeout(() => {
         try {
           const existingCookie = document.cookie
             .split("; ")
@@ -92,10 +92,7 @@ export function useTableSettings({
             order,
           }
 
-          await updateTableSettingsAction({
-            key: TABLE_SETTINGS_COOKIE,
-            data: allSettings,
-          })
+          writeTableSettingsCookie(allSettings)
         } catch (error) {
           console.error("Failed to persist table settings:", error)
         }

@@ -1,11 +1,7 @@
 "use client"
 
-import {
-  useRef,
-  useState,
-  useTransition,
-  type FormEvent,
-} from "react"
+import { DashboardNativeQuickFill } from "@/components/dashboard-quick-fill"
+import { useRef, useState, useTransition, type FormEvent } from "react"
 import type {
   TenantOperationProfilePolicy,
   TenantServiceAccessMode,
@@ -85,10 +81,18 @@ export function OperationProfileSettingsContent({
       onSubmit={handleSubmit}
       ref={formRef}
     >
+      <DashboardNativeQuickFill
+        values={() => ({
+          changeReason:
+            "Agreed at the monthly executive meeting to match current member demand.",
+        })}
+      />
       <FieldSet>
         <FieldGroup>
           <Field>
-            <FieldLabel htmlFor={getOperationProfileServiceInputName(serviceKey)}>
+            <FieldLabel
+              htmlFor={getOperationProfileServiceInputName(serviceKey)}
+            >
               Access mode
             </FieldLabel>
             <FieldDescription>{service.body}</FieldDescription>

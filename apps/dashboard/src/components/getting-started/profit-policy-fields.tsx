@@ -26,6 +26,7 @@ import {
 } from "@/components/forms/tenant-finance-forms"
 import { updateTenantBusinessProfitPolicyAction } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
+import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
 import {
   buildProfitPolicyPayload,
   defaultHistoricalProfitMigrationMode,
@@ -122,6 +123,20 @@ export function ProfitPolicyFields({
   return (
     <Form {...form}>
       <section aria-labelledby="one-path-profit-split" className="grid gap-6">
+        <DashboardQuickFill
+          enabled={!disabled}
+          form={form}
+          onFill={() =>
+            form.reset({
+              ...form.getValues(),
+              defaultDistributablePercentage: "80",
+              financialYearStartMonth: "1",
+              profitDistributionFrequency: "annual",
+              requiresProfitDistributionApproval: true,
+              reserveRetentionPercentage: "20",
+            })
+          }
+        />
         <div className="grid gap-3">
           <h3
             className="text-base font-medium text-foreground"

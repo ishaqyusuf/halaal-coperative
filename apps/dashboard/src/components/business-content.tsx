@@ -12,6 +12,7 @@ import { useBusinessFormContext } from "@/components/business/form-context"
 import { ShareBusinessForm } from "@/components/forms/tenant-finance-forms"
 import type { BusinessProfitEntry } from "@/components/tables/business/columns"
 import { useBusinessParams } from "@/hooks/use-business-params"
+import { useQaQuickFill } from "@/components/qa-quick-fill-provider"
 import {
   createShareBusinessProfitEntryAction,
   markBusinessProfitPoolsReviewedAction,
@@ -63,6 +64,7 @@ export function BusinessContent() {
   const { businessId, businessType, profitEntryId, setParams } =
     useBusinessParams()
   const { business, isBusinessLoading, setup } = useBusinessFormContext()
+  const quickFill = useQaQuickFill()
   const profitEntry = getSelectedProfitEntry(business, profitEntryId)
   const isLocked = setup.isLocked
   const financeStartDate = setup.financeStartDate
@@ -78,6 +80,7 @@ export function BusinessContent() {
           onSuccess={() => setParams(null)}
           profitHistoryLayout="single"
           profitHistoryMode
+          quickFillEnabled={quickFill.enabled}
           sourceType="manual"
         />
       </div>

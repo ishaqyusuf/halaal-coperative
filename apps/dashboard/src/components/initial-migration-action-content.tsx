@@ -1,4 +1,5 @@
 import type { InitialMigrationSnapshot } from "@halaalvest/domain"
+import { DashboardNativeQuickFill } from "@/components/dashboard-quick-fill"
 import { Button } from "@halaalvest/ui/components/button"
 import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { Input } from "@halaalvest/ui/components/input"
@@ -58,6 +59,14 @@ export function ProfitMigrationAdjustmentContent({
   return (
     <>
       <form action={upsertMigrationProfitAdjustmentAction} id={formId}>
+        <DashboardNativeQuickFill
+          enabled={!disabled}
+          values={() => ({
+            allocatedProfitAmount: String(
+              Math.round(option.editableAvailableAmount / 4) || 0
+            ),
+          })}
+        />
         <input name="memberId" type="hidden" value={memberId ?? ""} />
         <input name="profitEntryId" type="hidden" value={option.id} />
         <input

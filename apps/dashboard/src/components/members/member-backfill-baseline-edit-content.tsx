@@ -26,6 +26,13 @@ import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { updateMemberAction } from "@/lib/dashboard-actions"
+import {
+  createQaAddress,
+  createQaEmailForName,
+  createQaOccupation,
+  createQaPhoneNumber,
+} from "@halaalvest/utils"
+import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
 import { objectToFormData } from "@/lib/form-submit"
 import type { MemberCollectionSourceOption } from "@/lib/members/load-members-page"
 import type { MemberBackfillBaselineMember } from "@/components/members/member-backfill-baseline-edit-types"
@@ -39,11 +46,7 @@ const memberTypeOptions = [
 const memberBaselineEditSchema = z.object({
   address: z.string().optional(),
   deductionSourceId: z.string().optional(),
-  email: z
-    .string()
-    .email("Enter a valid email.")
-    .optional()
-    .or(z.literal("")),
+  email: z.string().email("Enter a valid email.").optional().or(z.literal("")),
   fullName: z.string().min(1, "Full name is required."),
   memberId: z.string().min(1),
   memberType: z.enum(["individual", "civil_servant", "business"]),
@@ -184,12 +187,9 @@ export function MemberBackfillBaselineEditContent({
   const [isPending, startTransition] = useTransition()
   const { showError, showSuccess } = useNotifications()
   const router = useRouter()
-  const form = useZodForm<MemberBaselineEditValues>(
-    memberBaselineEditSchema,
-    {
-      defaultValues: getDefaultValues(member),
-    }
-  )
+  const form = useZodForm<MemberBaselineEditValues>(memberBaselineEditSchema, {
+    defaultValues: getDefaultValues(member),
+  })
   const { reset } = form
 
   useEffect(() => {
@@ -218,6 +218,19 @@ export function MemberBackfillBaselineEditContent({
     <Form {...form}>
       <form className="mt-5 grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
         <input type="hidden" {...form.register("memberId")} />
+        <DashboardQuickFill
+          form={form}
+          onFill={({ emailDomain }) => {
+            const values = form.getValues()
+            form.reset({
+              ...values,
+              address: createQaAddress(),
+              email: createQaEmailForName(values.fullName, emailDomain),
+              occupation: createQaOccupation(),
+              phoneNumber: createQaPhoneNumber(),
+            })
+          }}
+        />
         <div className="grid gap-4 sm:grid-cols-4">
           <FormField
             control={form.control}

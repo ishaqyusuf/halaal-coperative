@@ -1,11 +1,16 @@
 "use client"
 
+import { DashboardNativeQuickFill } from "@/components/dashboard-quick-fill"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
 import { Textarea } from "@halaalvest/ui/components/textarea"
-import { formatCurrency } from "@halaalvest/utils"
+import {
+  createQaReference,
+  formatCurrency,
+  qaMonthLabel,
+} from "@halaalvest/utils"
 import {
   ContributionPlanCloseForm,
   ContributionPlanForm,
@@ -240,6 +245,16 @@ export function ContributionContent({
         }}
         className="grid gap-4"
       >
+        <DashboardNativeQuickFill
+          enabled={devMode}
+          values={() => ({
+            deductionSourceId: collectionSourceBatchOptions[0]?.id,
+            month: String(new Date().getMonth() + 1),
+            notes: `${qaMonthLabel()} payroll deductions from the source schedule.`,
+            reference: createQaReference("PAYROLL"),
+            year: String(new Date().getFullYear()),
+          })}
+        />
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="grid gap-2 text-sm font-medium text-foreground">
             Year
@@ -304,6 +319,10 @@ export function ContributionContent({
         }}
         className="grid gap-4"
       >
+        <DashboardNativeQuickFill
+          enabled={devMode}
+          values={() => ({ reference: createQaReference("BATCH") })}
+        />
         <input name="batchId" type="hidden" value={selectedBatch?.id ?? ""} />
         {collectedRows.map((row) => (
           <input key={row.id} name="rowId" type="hidden" value={row.id} />
@@ -341,6 +360,12 @@ export function ContributionContent({
         }}
         className="grid gap-4"
       >
+        <DashboardNativeQuickFill
+          enabled={devMode}
+          values={() => ({
+            paidAmount: String(selectedBatchRow?.expectedAmount || 25_000),
+          })}
+        />
         <input name="batchId" type="hidden" value={selectedBatch?.id ?? ""} />
         <input name="rowId" type="hidden" value={selectedBatchRow?.id ?? ""} />
         <input name="status" type="hidden" value="collected" />
@@ -385,6 +410,12 @@ export function ContributionContent({
         }}
         className="grid gap-4"
       >
+        <DashboardNativeQuickFill
+          enabled={devMode}
+          values={() => ({
+            exceptionReason: "Deduction missing from the ministry schedule.",
+          })}
+        />
         <input name="batchId" type="hidden" value={selectedBatch?.id ?? ""} />
         <input name="rowId" type="hidden" value={selectedBatchRow?.id ?? ""} />
         <input name="status" type="hidden" value="exception" />

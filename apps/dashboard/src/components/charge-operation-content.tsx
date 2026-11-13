@@ -1,5 +1,13 @@
 "use client"
 
+import {
+  createQaAmount,
+  createQaReference,
+  qaFirstOfNextMonth,
+  qaMonthLabel,
+  qaToday,
+} from "@halaalvest/utils"
+import { DashboardNativeQuickFill } from "@/components/dashboard-quick-fill"
 import { Button } from "@halaalvest/ui/components/button"
 import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import {
@@ -147,6 +155,14 @@ export function ChargeOperationContent({
         }}
         className="grid gap-4 px-6"
       >
+        <DashboardNativeQuickFill
+          enabled={devMode}
+          values={() => ({
+            notes: "Paid at the cooperative office.",
+            paidAt: qaToday(),
+            reference: createQaReference("CHG"),
+          })}
+        />
         <input
           name="chargeApplicationId"
           type="hidden"
@@ -260,6 +276,15 @@ export function ChargeOperationContent({
         }}
         className="grid gap-4 px-6"
       >
+        <DashboardNativeQuickFill
+          enabled={devMode}
+          values={() => ({
+            amount: createQaAmount(500, 5_000, 250),
+            // A dated update must come after the current version.
+            effectiveFrom: qaFirstOfNextMonth(),
+            notes: `Rate agreed at the ${qaMonthLabel()} general meeting.`,
+          })}
+        />
         <input
           name="chargeDefinitionId"
           type="hidden"

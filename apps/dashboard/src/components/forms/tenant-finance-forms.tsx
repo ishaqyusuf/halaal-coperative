@@ -1,6 +1,11 @@
 "use client"
 
-import { createQaAmount, qaMonthLabel, qaToday } from "@halaalvest/utils"
+import {
+  createQaAmount,
+  qaFirstOfNextMonth,
+  qaMonthLabel,
+  qaToday,
+} from "@halaalvest/utils"
 import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
 import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
 import {
@@ -3645,9 +3650,9 @@ export function ChargeDefinitionVersionForm({
               ...form.getValues(),
               amount: createQaAmount(500, 5_000, 250),
               effectiveFrom:
-                financeStartDate && financeStartDate > qaToday()
+                financeStartDate && financeStartDate > qaFirstOfNextMonth()
                   ? financeStartDate
-                  : qaToday(),
+                  : qaFirstOfNextMonth(),
               notes: `Rate review agreed at the ${qaMonthLabel()} general meeting.`,
             })
           }
@@ -6103,6 +6108,27 @@ export function ShareBusinessProfitEntryForm({
         className="grid gap-4 md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
+        <DashboardQuickFill
+          className="md:col-span-2"
+          form={form}
+          onFill={() => {
+            const profit = Number(createQaAmount(200_000, 900_000, 10_000))
+            const expense = Math.round(profit * 0.15)
+            form.reset({
+              ...form.getValues(),
+              allocatableProfitAmount: String(profit - expense),
+              expenseAmount: String(expense),
+              notes: "Reviewed against the business ledger and bank statement.",
+              profitAmount: String(profit),
+              profitDate:
+                financeStartDate && financeStartDate > qaToday()
+                  ? financeStartDate
+                  : qaToday(),
+              shareBusinessId:
+                form.getValues("shareBusinessId") || (businesses[0]?.id ?? ""),
+            })
+          }}
+        />
         <FormField
           control={form.control}
           name="shareBusinessId"

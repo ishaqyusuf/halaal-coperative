@@ -1,12 +1,16 @@
 "use client"
 
+import { DashboardNativeQuickFill } from "@/components/dashboard-quick-fill"
 import { useState } from "react"
 import { Button } from "@halaalvest/ui/components/button"
 import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { Input } from "@halaalvest/ui/components/input"
-import type { MonthlyRecordMemberRow, MonthlyRecordSettingView } from "@halaalvest/db"
-import { formatCurrency } from "@halaalvest/utils"
+import type {
+  MonthlyRecordMemberRow,
+  MonthlyRecordSettingView,
+} from "@halaalvest/db"
+import { createQaAmount, formatCurrency } from "@halaalvest/utils"
 import { WorkflowConfirmFooter } from "@/components/workflow-confirm-footer"
 import { useMonthlyRecordParams } from "@/hooks/use-monthly-record-params"
 import {
@@ -84,17 +88,21 @@ export function MonthlyRecordContent({
     }
 
     return (
-      <form
-        action={applyMonthlyRecordMemberAction}
-        className="grid gap-4 px-6"
-      >
+      <form action={applyMonthlyRecordMemberAction} className="grid gap-4 px-6">
+        <DashboardNativeQuickFill
+          values={() => ({
+            totalPaidAmount: createQaAmount(10_000, 50_000, 5_000),
+          })}
+        />
         <input
           name="monthlyRecordMemberId"
           type="hidden"
           value={selectedRow.id}
         />
         <div className="rounded-lg border p-4">
-          <p className="font-medium text-foreground">{selectedRow.memberName}</p>
+          <p className="font-medium text-foreground">
+            {selectedRow.memberName}
+          </p>
           <p className="mt-1 text-sm text-muted-foreground">
             Payable {formatCurrency(selectedRow.totalPayableAmount)}
           </p>
@@ -151,6 +159,9 @@ export function MonthlyRecordContent({
         action={updateMonthlyRecordSettingsAction}
         className="grid gap-4 px-6"
       >
+        <DashboardNativeQuickFill
+          values={() => ({ generationDayOfMonth: "25" })}
+        />
         <label className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
           <input
             name="autoGenerateEnabled"

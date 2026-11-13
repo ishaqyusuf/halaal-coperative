@@ -1,5 +1,11 @@
 "use client"
 
+import {
+  createQaAmount,
+  qaFirstOfNextMonth,
+  qaMonthLabel,
+} from "@halaalvest/utils"
+import { DashboardNativeQuickFill } from "@/components/dashboard-quick-fill"
 import { Button } from "@halaalvest/ui/components/button"
 import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { Input } from "@halaalvest/ui/components/input"
@@ -51,6 +57,18 @@ export function ChargeContent() {
         action={createChargeDefinitionVersionAction}
         className="grid gap-4 px-6"
       >
+        <DashboardNativeQuickFill
+          enabled={!isLocked && quickFillEnabled}
+          values={() => ({
+            amount: createQaAmount(500, 5_000, 250),
+            // A dated update must come after the current version.
+            effectiveFrom:
+              financeStartDate && financeStartDate > qaFirstOfNextMonth()
+                ? financeStartDate
+                : qaFirstOfNextMonth(),
+            notes: `Rate agreed at the ${qaMonthLabel()} general meeting.`,
+          })}
+        />
         <input name="chargeDefinitionId" type="hidden" value={charge.id} />
         <input name="kind" type="hidden" value={charge.kind} />
         <input
@@ -116,6 +134,18 @@ export function ChargeContent() {
         action={updateChargeDefinitionVersionAction}
         className="grid gap-4 px-6"
       >
+        <DashboardNativeQuickFill
+          enabled={!isLocked && quickFillEnabled}
+          values={() => ({
+            amount: createQaAmount(500, 5_000, 250),
+            // A dated update must come after the current version.
+            effectiveFrom:
+              financeStartDate && financeStartDate > qaFirstOfNextMonth()
+                ? financeStartDate
+                : qaFirstOfNextMonth(),
+            notes: `Rate agreed at the ${qaMonthLabel()} general meeting.`,
+          })}
+        />
         <input
           name="chargeDefinitionVersionId"
           type="hidden"

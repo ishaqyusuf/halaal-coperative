@@ -6,6 +6,7 @@ import {
   type QaQuickFillForm,
 } from "@halaalvest/ui/components/qa-quick-fill-button"
 import { useQaQuickFill } from "@/components/qa-quick-fill-provider"
+import { qaQuickFillInputEvent } from "@/lib/qa-quick-fill-input"
 
 /**
  * The dashboard's Quick Fill control. Visible only when the request carries a
@@ -60,6 +61,14 @@ function setNativeValue(
 ) {
   if (element instanceof HTMLInputElement && element.type === "checkbox") {
     if (element.checked !== Boolean(value)) element.click()
+    return
+  }
+  if (element instanceof HTMLInputElement && element.type === "hidden") {
+    // Date pickers and selects keep state behind a hidden input; they listen
+    // for this event (see useQaQuickFillInput).
+    element.dispatchEvent(
+      new CustomEvent(qaQuickFillInputEvent, { detail: String(value) })
+    )
     return
   }
   const prototype =

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useQaQuickFillInput } from "@/lib/qa-quick-fill-input"
 import {
   Select,
   SelectContent,
@@ -60,38 +61,44 @@ export function LabeledSelectInput({
     onValueChange?.(nextValue)
   }
 
+  const quickFillRef = useQaQuickFillInput(handleValueChange)
+
   return (
     <>
-      {name ? <input name={name} type="hidden" value={currentValue} /> : null}
+      {name ? (
+        <input
+          name={name}
+          ref={quickFillRef}
+          type="hidden"
+          value={currentValue}
+        />
+      ) : null}
       <Select
         disabled={disabled}
         required={required}
         value={selectValue}
         onValueChange={handleValueChange}
       >
-        <SelectTrigger
-          className={cn("w-full", triggerClassName)}
-          id={id}
-        >
+        <SelectTrigger className={cn("w-full", triggerClassName)} id={id}>
           <span
             className={cn(
               "truncate",
-              selectedLabel ? undefined : "text-muted-foreground",
+              selectedLabel ? undefined : "text-muted-foreground"
             )}
           >
             {selectedLabel ?? placeholder}
           </span>
         </SelectTrigger>
-      <SelectContent>
-        <SelectGroup>
-          {!hasEmptyOption && placeholder ? (
-            <SelectItem disabled value={emptySelectValue}>
-              {placeholder}
-            </SelectItem>
-          ) : null}
-          {options.map((option) => (
-            <SelectItem
-              key={option.value || emptySelectValue}
+        <SelectContent>
+          <SelectGroup>
+            {!hasEmptyOption && placeholder ? (
+              <SelectItem disabled value={emptySelectValue}>
+                {placeholder}
+              </SelectItem>
+            ) : null}
+            {options.map((option) => (
+              <SelectItem
+                key={option.value || emptySelectValue}
                 value={option.value || emptySelectValue}
               >
                 {option.label}

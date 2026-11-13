@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic"
 import { type ComponentProps, useState } from "react"
+import { useQaQuickFillInput } from "@/lib/qa-quick-fill-input"
 import { Button } from "@halaalvest/ui/components/button"
 import {
   Popover,
@@ -123,6 +124,7 @@ export function DatePickerInput({
     onChange?.(nextValue)
     onBlur?.()
   }
+  const quickFillRef = useQaQuickFillInput(updateValue)
 
   return (
     <div className="flex min-w-0 gap-2">
@@ -130,6 +132,7 @@ export function DatePickerInput({
         <input
           disabled={disabled}
           name={name}
+          ref={quickFillRef}
           required={required}
           type="hidden"
           value={currentValue}

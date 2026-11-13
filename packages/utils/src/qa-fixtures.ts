@@ -752,6 +752,14 @@ export function qaDateOffset(days: number) {
   return date.toISOString().slice(0, 10)
 }
 
+/** The first day of next month (UTC), e.g. a first repayment due date. */
+export function qaFirstOfNextMonth() {
+  const date = new Date()
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1))
+    .toISOString()
+    .slice(0, 10)
+}
+
 export function qaMonthLabel(date = new Date()) {
   return new Intl.DateTimeFormat("en-US", {
     month: "long",

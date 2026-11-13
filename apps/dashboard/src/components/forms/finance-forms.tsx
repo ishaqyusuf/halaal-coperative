@@ -22,6 +22,11 @@ import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { DatePickerInput } from "@/components/date-picker-input"
 import { WorkflowConfirmFooter } from "@/components/workflow-confirm-footer"
 import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
+import {
+  createQaAmount,
+  qaDateOffset,
+  qaFirstOfNextMonth,
+} from "@halaalvest/utils"
 import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
 import {
   applyChargeAction,
@@ -1483,6 +1488,17 @@ export function ContributionPlanUpdateForm({
         className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_160px_auto]"
         onSubmit={form.handleSubmit(onSubmit)}
       >
+        <DashboardQuickFill
+          className="md:col-span-3"
+          form={form}
+          onFill={() =>
+            form.reset({
+              ...form.getValues(),
+              amount: createQaAmount(10_000, 60_000, 5_000),
+              name: "Monthly commitment",
+            })
+          }
+        />
         <FormField
           control={form.control}
           name="name"
@@ -1782,6 +1798,15 @@ export function LoanDisbursementForm({
   return (
     <Form {...form}>
       <form className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
+        <DashboardQuickFill
+          form={form}
+          onFill={() =>
+            form.reset({
+              ...form.getValues(),
+              firstRepaymentDueAt: qaFirstOfNextMonth(),
+            })
+          }
+        />
         <FormField
           control={form.control}
           name="firstRepaymentDueAt"
@@ -1883,6 +1908,23 @@ export function CollectionFollowUpForm({
         className="grid gap-5 md:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
+        <DashboardQuickFill
+          className="md:col-span-2"
+          form={form}
+          onFill={() =>
+            form.reset({
+              ...form.getValues(),
+              assignedToUserId: assignees[0]?.id ?? "",
+              caseStage: "promise_tracking",
+              nextActionAt: qaDateOffset(3),
+              note: "Member confirmed a transfer after Friday market day.",
+              priority: "high",
+              promiseToPayAt: qaDateOffset(2),
+              resolutionStatus: "open",
+              status: "promise_to_pay",
+            })
+          }
+        />
         <div className="md:col-span-2">
           <h3 className="text-base font-semibold text-foreground">
             Outcome and ownership

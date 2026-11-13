@@ -26,6 +26,7 @@ import { cn } from "@halaalvest/ui/lib/utils"
 import { AlertCircleIcon } from "lucide-react"
 import { z } from "zod"
 import { OnePathStep } from "@/components/one-path/one-path-step"
+import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
 import { saveTenantOperationProfileAction } from "@/lib/dashboard-actions"
 import { navigateWithFreshWizardState } from "@/lib/getting-started/navigate-with-fresh-state"
 import {
@@ -249,6 +250,19 @@ export function OperationProfileSetupForm({
           noValidate
           onSubmit={form.handleSubmit(onSubmit)}
         >
+          <DashboardQuickFill
+            form={form}
+            onFill={() =>
+              form.reset({
+                commitmentCollection: "mixed",
+                foodPurchaseOffered: "yes",
+                foodPurchaseRequestChannel: "member",
+                procurementOffered: "yes",
+                procurementRequestChannel: "member",
+                supportAccess: "member",
+              })
+            }
+          />
           {serverError ? (
             <Alert variant="destructive">
               <AlertCircleIcon />

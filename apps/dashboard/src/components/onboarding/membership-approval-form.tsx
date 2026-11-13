@@ -23,6 +23,8 @@ import {
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { DatePickerInput } from "@/components/date-picker-input"
+import { createQaAmount } from "@halaalvest/utils"
+import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
 import { objectToFormData } from "@/lib/form-submit"
 import {
   approveMemberOnboardingAction,
@@ -284,6 +286,18 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
   return (
     <Form {...form}>
       <form className="space-y-6" onSubmit={form.handleSubmit(onApprove)}>
+        <DashboardQuickFill
+          form={form}
+          onFill={() =>
+            form.reset({
+              ...form.getValues(),
+              currentSavingsBalance: createQaAmount(20_000, 250_000, 5_000),
+              hasServingLoan: false,
+              monthlyCommitment: createQaAmount(10_000, 50_000, 5_000),
+              reason: "Membership confirmed at the monthly general meeting.",
+            })
+          }
+        />
         <div className="rounded-md border border-border/70 bg-muted/20 p-4">
           <div className="mb-4">
             <h3 className="text-base font-semibold text-foreground">
@@ -528,10 +542,7 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <Button
-            disabled={isApproving}
-            type="submit"
-          >
+          <Button disabled={isApproving} type="submit">
             Approve member
           </Button>
           <Button

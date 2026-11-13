@@ -1,5 +1,11 @@
 "use client"
 
+import {
+  createQaAmount,
+  qaFirstOfNextMonth,
+  qaMonthLabel,
+} from "@halaalvest/utils"
+import { DashboardNativeQuickFill } from "@/components/dashboard-quick-fill"
 import { Button } from "@halaalvest/ui/components/button"
 import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { NativeSelect } from "@halaalvest/ui/components/native-select"
@@ -53,6 +59,14 @@ export function ShareContent() {
       action={updateTenantShareStructureVersionAction}
       className="grid gap-4 px-6"
     >
+      <DashboardNativeQuickFill
+        values={() => ({
+          amount: createQaAmount(2_000, 10_000, 500),
+          effectiveFrom: qaFirstOfNextMonth(),
+          notes: `Share value reviewed at the ${qaMonthLabel()} general meeting.`,
+          valueType: "fixed_amount",
+        })}
+      />
       <input name="shareStructureVersionId" type="hidden" value={version.id} />
       <label className="space-y-1 text-xs font-medium text-muted-foreground">
         Effective date

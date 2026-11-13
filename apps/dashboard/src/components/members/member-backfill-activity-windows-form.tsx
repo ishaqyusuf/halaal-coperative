@@ -27,6 +27,7 @@ import { useRouter } from "next/navigation"
 import { z } from "zod"
 import { upsertMemberActivityEventAction } from "@/lib/dashboard-actions"
 import { MemberBackfillFooterPortal } from "./member-backfill-footer-slot"
+import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
 
 type ActivityWindowStatus = "active" | "inactive" | ""
 
@@ -87,6 +88,40 @@ function createActivityWindowFormSchema(minMonth: string) {
         }
       }
     })
+}
+
+function addMonths(month: string, offset: number) {
+  const [year = 2024, monthNumber = 1] = month.split("-").map(Number)
+  const date = new Date(Date.UTC(year, monthNumber - 1 + offset, 1))
+  return date.toISOString().slice(0, 7)
+}
+
+/** QA rows: a pause a few months after joining, then a return to active. */
+function buildQuickFillActivityRows(minMonth: string) {
+  const currentMonth = new Date().toISOString().slice(0, 7)
+  const start = minMonth || addMonths(currentMonth, -12)
+  const pause = addMonths(start, 3) < currentMonth ? addMonths(start, 3) : start
+  const resume =
+    addMonths(pause, 2) <= currentMonth ? addMonths(pause, 2) : pause
+  return [
+    {
+      ...createActivityWindowRow(),
+      effectiveMonth: pause,
+      reason: "Travelled for Hajj and paused contributions.",
+      status: "inactive" as const,
+    },
+    ...(resume > pause
+      ? [
+          {
+            ...createActivityWindowRow(),
+            effectiveMonth: resume,
+            reason: "Returned and resumed monthly contributions.",
+            status: "active" as const,
+          },
+        ]
+      : []),
+    createActivityWindowRow(),
+  ]
 }
 
 function createActivityWindowRow(id?: string): ActivityWindowInputRow {
@@ -256,6 +291,9 @@ export function MemberBackfillActivityWindowsForm({
     buildActivityWindowRows(initialRows)
   )
   const [errors, setErrors] = useState<ActivityWindowErrorMap>({})
+  const [previousRows, setPreviousRows] = useState<
+    ActivityWindowInputRow[] | null
+  >(null)
 
   function updateRow(rowId: string, patch: Partial<ActivityWindowInputRow>) {
     setErrors({})
@@ -341,6 +379,18 @@ export function MemberBackfillActivityWindowsForm({
       <div className="flex items-center gap-3">
         <h3 className="shrink-0 text-sm font-medium">Activity Windows</h3>
         <div className="min-w-10 flex-1 border-t border-border/70" />
+        <DashboardQuickFill
+          enabled={!disabled}
+          onFill={() => {
+            setPreviousRows(rows)
+            setErrors({})
+            setRows(buildQuickFillActivityRows(minMonth))
+          }}
+          onUndo={() => {
+            if (previousRows) setRows(previousRows)
+            setPreviousRows(null)
+          }}
+        />
         {showSubmitButton ? (
           <Button disabled={disabled} size="sm" type="submit" variant="ghost">
             Save activity

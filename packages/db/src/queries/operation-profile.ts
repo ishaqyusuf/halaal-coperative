@@ -365,12 +365,17 @@ export async function getTenantOperationProfile(
   prismaOverride?: PrismaClient
 ): Promise<TenantOperationProfileReadModel> {
   const prisma = getPrisma(prismaOverride)
-  const profile = await ensureTenantOperationProfileDefaults(tenantId, prisma)
-
-  const [settings, policy] = await Promise.all([
+  const readSettings = () =>
     prisma.tenantServiceSetting.findMany({
       where: { tenantId },
-    }),
+    })
+
+  // Read first: the profile is read on most dashboard requests (nav, setup
+  // gate, write guards), and default rows exist for every initialized tenant.
+  // Defaults are only written when the profile or a service row is missing.
+  let [profile, settings, policy] = await Promise.all([
+    findTenantOperationProfileByTenantId(tenantId, prisma),
+    readSettings(),
     prisma.tenantPolicy.findUnique({
       select: {
         foodPurchaseMaximumActiveObligationsPerMember: true,
@@ -380,6 +385,18 @@ export async function getTenantOperationProfile(
       where: { tenantId },
     }),
   ])
+  const settingKeys = new Set(
+    settings.map((setting: { serviceKey: string }) => setting.serviceKey)
+  )
+
+  if (
+    !profile ||
+    tenantServiceKeys.some((serviceKey) => !settingKeys.has(serviceKey))
+  ) {
+    profile = await ensureTenantOperationProfileDefaults(tenantId, prisma)
+    settings = await readSettings()
+  }
+
   return buildOperationProfileReadModel({
     policy,
     profile: {

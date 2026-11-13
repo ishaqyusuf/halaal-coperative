@@ -286,6 +286,41 @@ describe("tenant operation profile", () => {
     })
   })
 
+  test("reads an initialized profile without writing defaults", async () => {
+    const prisma = createOperationProfilePrismaStub({
+      settings: tenantServiceKeys.map((serviceKey) => ({
+        accessMode: defaultTenantServiceAccessModes[serviceKey],
+        serviceKey,
+        tenantId: "tenant-1",
+      })),
+    })
+
+    const profile = await getTenantOperationProfile("tenant-1", prisma as never)
+
+    expect(prisma.serviceSettingUpserts).toHaveLength(0)
+    expect(profile.services.support_cases.accessMode).toBe(
+      "member_self_service"
+    )
+  })
+
+  test("writes defaults when a service row is missing, then reads them", async () => {
+    const prisma = createOperationProfilePrismaStub({
+      settings: [
+        {
+          accessMode: "member_self_service",
+          serviceKey: "procurement",
+          tenantId: "tenant-1",
+        },
+      ],
+    })
+
+    const profile = await getTenantOperationProfile("tenant-1", prisma as never)
+
+    expect(prisma.serviceSettingUpserts).toHaveLength(tenantServiceKeys.length)
+    expect(profile.services.procurement.accessMode).toBe("member_self_service")
+    expect(profile.services.payment_receipts.accessMode).toBe("office_only")
+  })
+
   test("falls back to safe policy defaults when tenant policy is missing", async () => {
     const prisma = createOperationProfilePrismaStub({ policy: null })
 

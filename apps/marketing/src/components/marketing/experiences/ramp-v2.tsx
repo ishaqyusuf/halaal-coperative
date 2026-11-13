@@ -135,6 +135,12 @@ function RampHeader({
               Talk to us
             </Link>
             <Link
+              className="inline-flex min-h-10 items-center text-sm hover:opacity-55"
+              href="/login"
+            >
+              Sign in
+            </Link>
+            <Link
               className={buttonVariants({
                 className:
                   "h-10 rounded-md !bg-[#171717] px-4 text-sm !text-white shadow-none hover:!bg-black sm:px-5",

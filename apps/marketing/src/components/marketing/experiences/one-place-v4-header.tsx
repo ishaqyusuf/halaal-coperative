@@ -80,6 +80,9 @@ export function OnePlaceHeader({
           ))}
         </nav>
         <div className="header-actions">
+          <a className="signin-link" href="/login">
+            Sign in
+          </a>
           <a className="btn btn-go btn-sm" href={signupHref}>
             {ctaLabel}
           </a>

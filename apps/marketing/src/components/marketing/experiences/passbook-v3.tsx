@@ -532,15 +532,23 @@ function PassbookHeader({
             Pricing
           </Link>
         </nav>
-        <Link
-          className={buttonVariants({
-            className:
-              "h-10 rounded-[10px] !bg-[#1F7A3D] px-4 text-[15px] font-semibold !text-white shadow-none hover:!bg-[#165C2D]",
-          })}
-          href={signupHref}
-        >
-          {cta}
-        </Link>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Link
+            className="inline-flex min-h-10 items-center px-2 text-[15px] font-medium text-[#33475B] hover:text-[#0B1F36]"
+            href="/login"
+          >
+            Sign in
+          </Link>
+          <Link
+            className={buttonVariants({
+              className:
+                "h-10 rounded-[10px] !bg-[#1F7A3D] px-4 text-[15px] font-semibold !text-white shadow-none hover:!bg-[#165C2D]",
+            })}
+            href={signupHref}
+          >
+            {cta}
+          </Link>
+        </div>
       </div>
     </header>
   )

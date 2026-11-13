@@ -51,17 +51,25 @@ export function MarketingHeader({
           ))}
         </nav>
 
-        <Link
-          className={buttonVariants({
-            className:
-              "h-10 rounded-full !bg-[#0B1F36] px-4 text-sm !text-white shadow-none hover:!bg-[#123455] sm:px-5",
-          })}
-          href={signupHref}
-        >
-          <span className="hidden sm:inline">{ctaLabel}</span>
-          <span className="sm:hidden">Get started</span>
-          <ArrowUpRightIcon aria-hidden="true" className="size-4" />
-        </Link>
+        <div className="flex items-center gap-1 sm:gap-3">
+          <Link
+            className="inline-flex min-h-10 items-center rounded-full px-3 text-sm font-medium text-[#0B1F36]/80 transition-colors hover:text-[#0B1F36]"
+            href="/login"
+          >
+            Sign in
+          </Link>
+          <Link
+            className={buttonVariants({
+              className:
+                "h-10 rounded-full !bg-[#0B1F36] px-4 text-sm !text-white shadow-none hover:!bg-[#123455] sm:px-5",
+            })}
+            href={signupHref}
+          >
+            <span className="hidden sm:inline">{ctaLabel}</span>
+            <span className="sm:hidden">Get started</span>
+            <ArrowUpRightIcon aria-hidden="true" className="size-4" />
+          </Link>
+        </div>
       </div>
     </header>
   )

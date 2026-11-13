@@ -1,0 +1,248 @@
+/*
+ * Halaalvest dashboard theme · 01 Clear
+ * Workshop: https://workshop.localhost/halaal-coperative/dashboard/readable-theme
+ * (selected revision 875ecc28-3628-4f70-84cf-3f55067322ef)
+ *
+ * Loaded only by apps/dashboard, after @halaalvest/ui/globals.css. The marketing
+ * app shares globals.css and the @halaalvest/ui components, so every readability
+ * change lives here as runtime CSS variables:
+ *   - colour tokens override the shared shadcn tokens;
+ *   - --text-* override Tailwind's type scale (base-lyra sizes almost everything
+ *     with text-xs, which becomes 16px here instead of 12px);
+ *   - --ui-* feed the control, table and surface sizes in packages/ui, which fall
+ *     back to their original values when these are not set.
+ * Selectors use html:root / html.dark so they win over globals.css regardless of
+ * stylesheet order.
+ */
+
+html:root {
+  /* Type: 16px minimum for controls and table text, 17px body. */
+  --text-xs: 1rem;
+  --text-xs--line-height: 1.5;
+  --text-sm: 1.0625rem;
+  --text-sm--line-height: 1.6;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.6;
+  --text-lg: 1.1875rem;
+  --text-lg--line-height: 1.5;
+  --text-xl: 1.3125rem;
+  --text-xl--line-height: 1.4;
+  --text-2xl: 1.625rem;
+  --text-2xl--line-height: 1.3;
+  --text-3xl: 2rem;
+  --text-3xl--line-height: 1.2;
+  --text-4xl: 2.25rem;
+  --text-4xl--line-height: 1.15;
+
+  /* Controls, tables and surfaces (consumed by packages/ui components). */
+  --ui-control-h: 3rem;
+  --ui-control-h-sm: 2.5rem;
+  --ui-control-h-xs: 2rem;
+  --ui-control-h-lg: 3.25rem;
+  --ui-control-px: 1rem;
+  --ui-control-px-sm: 0.75rem;
+  --ui-radius-control: 10px;
+  --ui-radius-surface: 12px;
+  --ui-radius-item: 8px;
+  --ui-radius-badge: 999px;
+  --ui-radius-check: 5px;
+  --ui-check-size: 1.375rem;
+  --ui-radio-dot: 0.625rem;
+  --ui-badge-h: 1.75rem;
+  --ui-badge-px: 0.625rem;
+  --ui-table-head-h: 2.875rem;
+  --ui-cell-px: 1rem;
+  --ui-cell-py: 0.875rem;
+  --ui-tabs-h: 2.75rem;
+  --ui-tabs-px: 0.875rem;
+  --ui-dialog-p: 1.5rem;
+  --ui-popover-p: 1rem;
+  --ui-alert-px: 1rem;
+  --ui-alert-py: 0.75rem;
+  --radius: 0.75rem;
+
+  /* Colour: navy ink, one brand green, AAA body text. */
+  --canvas: #f4f7f5;
+  --background: #ffffff;
+  --foreground: #0b1f36;
+  --card: #ffffff;
+  --card-foreground: #0b1f36;
+  --popover: #ffffff;
+  --popover-foreground: #0b1f36;
+  --primary: #1f7a3d;
+  --primary-foreground: #ffffff;
+  --secondary: #eef2f0;
+  --secondary-foreground: #0b1f36;
+  --muted: #eef2f0;
+  --muted-foreground: #46535f;
+  --accent: #e3f5e9;
+  --accent-foreground: #14572b;
+  --destructive: #b42318;
+  --border: #dfe6e2;
+  --input: #7c8995;
+  --ring: #1f7a3d;
+  --chart-1: #1f7a3d;
+  --chart-2: #1c46c2;
+  --chart-3: #c98a1b;
+  --chart-4: #b42318;
+  --chart-5: #46535f;
+  --surface-subtle: #f4f7f5;
+  --surface-muted: #eef2f0;
+  --surface-elevated: #ffffff;
+  --surface-strong: #e3e9e6;
+  --success-soft: #e3f5e9;
+  --warning-soft: #fcebcb;
+  --dashboard-canvas-start: #f4f7f5;
+  --dashboard-canvas-end: #f4f7f5;
+  --public-canvas-start: #f4f7f5;
+  --public-canvas-end: #f4f7f5;
+  --waiting-canvas-start: #f4f7f5;
+  --waiting-canvas-end: #f4f7f5;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #23303d;
+  --sidebar-primary: #1f7a3d;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e3f5e9;
+  --sidebar-accent-foreground: #14572b;
+  --sidebar-border: #dfe6e2;
+  --sidebar-ring: #1f7a3d;
+}
+
+html.dark {
+  --canvas: #0a1622;
+  --background: #0e1c2a;
+  --foreground: #f1f5f8;
+  --card: #112233;
+  --card-foreground: #f1f5f8;
+  --popover: #112233;
+  --popover-foreground: #f1f5f8;
+  --primary: #4ed07f;
+  --primary-foreground: #06210f;
+  --secondary: #1a2d40;
+  --secondary-foreground: #f1f5f8;
+  --muted: #1a2d40;
+  --muted-foreground: #b4c1cd;
+  --accent: #123524;
+  --accent-foreground: #8ee6b0;
+  --destructive: #ff7b6b;
+  --border: #243a4f;
+  --input: #7f93a6;
+  --ring: #4ed07f;
+  --chart-1: #4ed07f;
+  --chart-2: #a9c2ff;
+  --chart-3: #e0a83e;
+  --chart-4: #ff7b6b;
+  --chart-5: #b4c1cd;
+  --surface-subtle: #0a1622;
+  --surface-muted: #1a2d40;
+  --surface-elevated: #112233;
+  --surface-strong: #203448;
+  --success-soft: #103222;
+  --warning-soft: #33250a;
+  --dashboard-canvas-start: #0a1622;
+  --dashboard-canvas-end: #0a1622;
+  --public-canvas-start: #0a1622;
+  --public-canvas-end: #0a1622;
+  --waiting-canvas-start: #0a1622;
+  --waiting-canvas-end: #0a1622;
+  --sidebar: #0e1c2a;
+  --sidebar-foreground: #d7e0e8;
+  --sidebar-primary: #4ed07f;
+  --sidebar-primary-foreground: #06210f;
+  --sidebar-accent: #123524;
+  --sidebar-accent-foreground: #8ee6b0;
+  --sidebar-border: #243a4f;
+  --sidebar-ring: #4ed07f;
+}
+
+/*
+ * Status palette. Many dashboard chips use Tailwind's amber / emerald / rose /
+ * red / sky utilities directly. Remapping those palette steps keeps every chip
+ * on the theme's status colours (all AA or better on their tints) without
+ * touching markup.
+ */
+html:root {
+  --color-emerald-50: #e3f5e9;
+  --color-emerald-100: #cdefd8;
+  --color-emerald-200: #a9ddba;
+  --color-emerald-300: #8ee6b0;
+  --color-emerald-600: #1f7a3d;
+  --color-emerald-700: #14572b;
+  --color-emerald-800: #114a25;
+  --color-emerald-900: #0e3d1f;
+  --color-emerald-950: #08261a;
+  --color-amber-50: #fcebcb;
+  --color-amber-100: #fbe2b0;
+  --color-amber-200: #edc57e;
+  --color-amber-300: #f7c873;
+  --color-amber-700: #6e3f05;
+  --color-amber-800: #5f3604;
+  --color-amber-900: #4f2c03;
+  --color-amber-950: #33250a;
+  --color-rose-50: #fdecea;
+  --color-rose-200: #f4b4ac;
+  --color-rose-300: #ffa79b;
+  --color-rose-700: #a21f15;
+  --color-red-50: #fdecea;
+  --color-red-200: #f4b4ac;
+  --color-red-700: #a21f15;
+  --color-sky-50: #e8eeff;
+  --color-sky-200: #b7c8f8;
+  --color-sky-300: #a9c2ff;
+  --color-sky-700: #1c46c2;
+}
+
+html body {
+  font-size: var(--text-base);
+  line-height: var(--text-base--line-height);
+  /* Money and counts line up in every column. */
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Headings use the brand display face (Inter Tight), as on the marketing site. */
+html h1,
+html h2,
+html [data-slot="card-title"],
+html [data-slot="sheet-title"],
+html [data-slot="dialog-title"],
+html [data-slot="alert-dialog-title"] {
+  font-family: var(--font-display, var(--font-sans));
+  letter-spacing: -0.01em;
+  font-weight: 700;
+  color: var(--foreground);
+}
+html h1 {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+html [data-slot="sheet-title"],
+html [data-slot="dialog-title"],
+html [data-slot="alert-dialog-title"] {
+  font-size: var(--text-xl);
+  line-height: var(--text-xl--line-height);
+}
+
+/* One clear, thick keyboard focus ring everywhere (beats outline-none utilities). */
+html :focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Placeholders stay readable (AA on white) instead of faint grey. */
+html ::placeholder {
+  color: #6a7682;
+  opacity: 1;
+}
+html.dark ::placeholder {
+  color: #8e9dab;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html *,
+  html *::before,
+  html *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

@@ -5532,7 +5532,7 @@ function ShareBusinessSingleForm({
             </p>
             <Button
               aria-label="Quick fill business form"
-              className="h-11! w-full sm:w-auto! md:h-8!"
+              className="h-11! w-full sm:w-auto!"
               data-business-quick-fill
               disabled={isPending}
               onClick={quickFillBusinessDraft}
@@ -5584,7 +5584,7 @@ function ShareBusinessSingleForm({
               <FormControl>
                 <Input
                   {...field}
-                  className="h-11 md:h-8"
+                  className="h-11"
                   placeholder="Community retail pool"
                 />
               </FormControl>
@@ -5601,7 +5601,7 @@ function ShareBusinessSingleForm({
               <FormControl>
                 <CurrencyFormInput
                   {...field}
-                  className="h-11 md:h-8"
+                  className="h-11"
                   placeholder="500000"
                 />
               </FormControl>
@@ -5638,7 +5638,7 @@ function ShareBusinessSingleForm({
                 <DatePickerInput
                   {...field}
                   allowClear={false}
-                  className="h-11 md:h-8"
+                  className="h-11"
                   min={
                     isMigrationHistory
                       ? (financeStartDate ?? undefined)
@@ -5666,7 +5666,7 @@ function ShareBusinessSingleForm({
               <FormControl>
                 <DatePickerInput
                   {...field}
-                  className="h-11 md:h-8"
+                  className="h-11"
                   min={
                     watchedStartDate ||
                     (isMigrationHistory ? financeStartDate : undefined) ||
@@ -5694,7 +5694,7 @@ function ShareBusinessSingleForm({
                     { label: "Completed", value: "completed" },
                     { label: "Archived", value: "archived" },
                   ]}
-                  triggerClassName="h-11! md:h-8!"
+                  triggerClassName="h-11!"
                   value={field.value}
                 />
               </FormControl>
@@ -5719,7 +5719,7 @@ function ShareBusinessSingleForm({
                         value: period.id,
                       })),
                     ]}
-                    triggerClassName="h-11! md:h-8!"
+                    triggerClassName="h-11!"
                     value={field.value ?? ""}
                   />
                 </FormControl>
@@ -5745,7 +5745,7 @@ function ShareBusinessSingleForm({
               </div>
               <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
                 <Button
-                  className="h-11 w-full sm:w-auto! md:h-8"
+                  className="h-11 w-full sm:w-auto!"
                   onClick={sortProfitHistoryRows}
                   size="sm"
                   type="button"
@@ -5758,7 +5758,7 @@ function ShareBusinessSingleForm({
                   Sort
                 </Button>
                 <Button
-                  className="h-11 w-full sm:w-auto! md:h-8"
+                  className="h-11 w-full sm:w-auto!"
                   onClick={resetProfitHistoryRows}
                   size="sm"
                   type="button"
@@ -5783,7 +5783,7 @@ function ShareBusinessSingleForm({
                       </p>
                       <Button
                         aria-label={`Remove profit entry ${index + 1}`}
-                        className="size-11 text-muted-foreground md:size-8"
+                        className="size-11 text-muted-foreground"
                         disabled={isPending || isLiveProfitCaptureBlocked}
                         onClick={() => removeProfitHistoryRow(row.id)}
                         size="icon-sm"
@@ -5800,7 +5800,7 @@ function ShareBusinessSingleForm({
                         </FieldLabel>
                         <DatePickerInput
                           allowClear={false}
-                          className="h-11 md:h-8"
+                          className="h-11"
                           disabled={isPending || isLiveProfitCaptureBlocked}
                           id={`profit-history-date-${row.id}`}
                           max={profitDateMax}
@@ -5817,7 +5817,7 @@ function ShareBusinessSingleForm({
                           Profit amount
                         </FieldLabel>
                         <CurrencyFormInput
-                          className="h-11 md:h-8"
+                          className="h-11"
                           disabled={isPending || isLiveProfitCaptureBlocked}
                           id={`profit-history-amount-${row.id}`}
                           onChange={(amount) =>
@@ -5834,7 +5834,7 @@ function ShareBusinessSingleForm({
                           Deduction
                         </FieldLabel>
                         <CurrencyFormInput
-                          className="h-11 md:h-8"
+                          className="h-11"
                           disabled={isPending || isLiveProfitCaptureBlocked}
                           id={`profit-history-deduction-${row.id}`}
                           onChange={(deductionAmount) =>
@@ -5849,7 +5849,7 @@ function ShareBusinessSingleForm({
                           Deduction reason
                         </FieldLabel>
                         <Input
-                          className="h-11 md:h-8"
+                          className="h-11"
                           disabled={isPending || isLiveProfitCaptureBlocked}
                           id={`profit-history-reason-${row.id}`}
                           onChange={(event) =>

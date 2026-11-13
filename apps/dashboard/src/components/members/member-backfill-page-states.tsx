@@ -8,7 +8,7 @@ function FormFieldSkeleton() {
   return (
     <div>
       <Skeleton className="h-3 w-28" />
-      <Skeleton className="mt-2 h-11 w-full md:h-8" />
+      <Skeleton className="mt-2 h-11 w-full" />
     </div>
   )
 }
@@ -63,7 +63,7 @@ export function MemberBackfillSkeleton() {
               ))}
             </div>
             <div className="mt-6 flex justify-end">
-              <Skeleton className="h-11 w-40 md:h-8" />
+              <Skeleton className="h-11 w-40" />
             </div>
           </DashboardSectionCard>
         </div>

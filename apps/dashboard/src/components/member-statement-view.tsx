@@ -67,7 +67,7 @@ export function MemberStatementView({ detail }: ReadyMemberStatementPageData) {
       <div className="rounded-lg border border-border/70 bg-card px-4 py-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] sm:px-6 sm:py-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
-            <p className="text-[11px] font-medium text-muted-foreground uppercase">
+            <p className="text-xs font-medium text-muted-foreground">
               Member statement
             </p>
             <h1 className="mt-3 text-2xl font-semibold text-foreground sm:text-[32px]">

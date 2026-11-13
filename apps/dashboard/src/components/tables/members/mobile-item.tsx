@@ -127,7 +127,7 @@ export function MemberMobileItem({
             {member.user?.email ?? "No linked user"}
           </ItemDescription>
           <dl className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2">
-            <dt className="text-[11px] text-muted-foreground">
+            <dt className="text-xs text-muted-foreground">
               Migration setup
             </dt>
             <dd className="flex justify-end">
@@ -137,12 +137,12 @@ export function MemberMobileItem({
               />
             </dd>
 
-            <dt className="text-[11px] text-muted-foreground">Member status</dt>
+            <dt className="text-xs text-muted-foreground">Member status</dt>
             <dd className="flex justify-end">
               <MemberStatusBadge status={member.status} />
             </dd>
 
-            <dt className="text-[11px] text-muted-foreground">KYC</dt>
+            <dt className="text-xs text-muted-foreground">KYC</dt>
             <dd className="flex justify-end">
               <KycBadge status={member.kycStatus} />
             </dd>

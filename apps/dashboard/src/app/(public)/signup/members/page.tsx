@@ -79,7 +79,7 @@ export default async function MemberSignupPage({
 
       {context.tenant && gate?.access === "granted" ? (
         <div className="mb-6 rounded-md border border-border/70 bg-muted/20 p-4">
-          <p className="text-xs uppercase text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             {gate.mode === "link"
               ? "Staff-issued signup link"
               : "Signup access"}

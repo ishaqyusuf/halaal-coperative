@@ -103,7 +103,7 @@ export default async function SidebarLayout({
           >
             <main className="mx-auto flex min-h-[60vh] w-full max-w-3xl flex-col justify-center px-6 py-12">
               <div className="rounded-lg border border-border/70 bg-card p-6">
-                <p className="text-xs font-semibold text-muted-foreground uppercase">
+                <p className="text-xs font-semibold text-muted-foreground">
                   Initial migration required
                 </p>
                 <h1 className="mt-3 text-2xl font-semibold text-foreground">

@@ -84,7 +84,7 @@ export function DomainsView({
                       </p>
                     ) : null}
                     {domain.verificationTarget ? (
-                      <p className="mt-1 text-xs font-medium text-muted-foreground uppercase">
+                      <p className="mt-1 text-xs font-medium text-muted-foreground">
                         {domain.verificationRecordType} target:{" "}
                         {domain.verificationTarget}
                       </p>

@@ -40,7 +40,7 @@ export function DashboardSectionHeader({
     <div className="flex flex-col gap-3 border-b border-border/70 pb-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
         {eyebrow ? (
-          <p className="text-[11px] font-medium text-muted-foreground uppercase">
+          <p className="text-xs font-medium text-muted-foreground">
             {eyebrow}
           </p>
         ) : null}

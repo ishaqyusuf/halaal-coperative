@@ -52,13 +52,13 @@ function RailSteps({
             <div className="flex items-baseline justify-between gap-2 px-2 pb-1">
               <h2
                 className={cn(
-                  "text-[11px] font-semibold tracking-[0.1em] uppercase",
+                  "text-xs font-semibold",
                   active ? "text-primary" : "text-muted-foreground"
                 )}
               >
                 {part.title}
               </h2>
-              <span className="text-[11px] whitespace-nowrap text-muted-foreground">
+              <span className="text-xs whitespace-nowrap text-muted-foreground">
                 {part.estimate}
               </span>
             </div>
@@ -70,7 +70,7 @@ function RailSteps({
                   <>
                     <span
                       className={cn(
-                        "flex size-[22px] shrink-0 items-center justify-center rounded-full border text-[10.5px] font-semibold",
+                        "flex size-[22px] shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
                         state === "complete" &&
                           "border-primary bg-primary text-primary-foreground",
                         state === "current" &&
@@ -94,7 +94,7 @@ function RailSteps({
                 const className = cn(
                   "flex min-h-10 w-full items-center gap-3 px-2 py-2 text-left text-sm transition-colors",
                   state === "current" && "bg-muted font-medium text-foreground",
-                  state === "complete" && "text-foreground/85",
+                  state === "complete" && "text-foreground",
                   state === "upcoming" && "text-muted-foreground"
                 )
 

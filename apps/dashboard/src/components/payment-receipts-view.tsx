@@ -144,7 +144,7 @@ export function MemberPaymentReceiptsView({
 function SummaryTile({ label, value }: { label: string; value: number }) {
   return (
     <div className="px-4 py-4">
-      <p className="text-xs font-medium tracking-normal text-muted-foreground uppercase">
+      <p className="text-xs font-medium tracking-normal text-muted-foreground">
         {label}
       </p>
       <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>

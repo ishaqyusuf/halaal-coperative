@@ -25,7 +25,7 @@ export function ActionQueue({
       actions={
         <OverviewPill tone={activeItems.length ? "warning" : "positive"}>
           {activeItems.length
-            ? `${activeItems.length} queues open`
+            ? `${activeItems.length} ${activeItems.length === 1 ? "queue" : "queues"} open`
             : "No open queues"}
         </OverviewPill>
       }

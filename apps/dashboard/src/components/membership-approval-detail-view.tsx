@@ -84,7 +84,7 @@ export function MembershipApprovalDetailView({
           />
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase">
+              <p className="text-xs font-medium text-muted-foreground">
                 Name
               </p>
               <p className="mt-2 text-sm font-medium text-foreground">
@@ -92,7 +92,7 @@ export function MembershipApprovalDetailView({
               </p>
             </div>
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase">
+              <p className="text-xs font-medium text-muted-foreground">
                 Email
               </p>
               <p className="mt-2 text-sm font-medium text-foreground">
@@ -100,7 +100,7 @@ export function MembershipApprovalDetailView({
               </p>
             </div>
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase">
+              <p className="text-xs font-medium text-muted-foreground">
                 Phone number
               </p>
               <p className="mt-2 text-sm font-medium text-foreground">
@@ -108,7 +108,7 @@ export function MembershipApprovalDetailView({
               </p>
             </div>
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase">
+              <p className="text-xs font-medium text-muted-foreground">
                 Cooperative number
               </p>
               <p className="mt-2 text-sm font-medium text-foreground">

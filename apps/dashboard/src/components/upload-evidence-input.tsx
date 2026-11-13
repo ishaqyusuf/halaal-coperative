@@ -108,7 +108,7 @@ export function UploadEvidenceInput({
         <span>{isUploading ? "Uploading..." : `PDF, image, CSV, or text up to ${DASHBOARD_UPLOAD_MAX_SIZE_LABEL}.`}</span>
         {value ? (
           <a
-            className="inline-flex h-8 items-center justify-center border border-border bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted"
+            className="inline-flex h-11 items-center justify-center border border-border bg-background px-4 text-xs font-medium text-foreground transition hover:bg-muted"
             href={value}
             rel="noreferrer"
             target="_blank"

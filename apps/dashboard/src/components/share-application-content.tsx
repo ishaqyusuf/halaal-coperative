@@ -355,7 +355,7 @@ export function MemberShareApplicationDetailsContent({
       </dl>
       <div className="divide-y divide-border">
         <section className="py-4">
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          <p className="text-xs font-medium text-muted-foreground">
             Your note
           </p>
           <p className="mt-2 text-sm leading-6 text-foreground">
@@ -363,7 +363,7 @@ export function MemberShareApplicationDetailsContent({
           </p>
         </section>
         <section className="py-4">
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          <p className="text-xs font-medium text-muted-foreground">
             Finance review
           </p>
           <p className="mt-2 text-sm leading-6 text-foreground">

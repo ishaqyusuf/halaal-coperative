@@ -56,18 +56,18 @@ export function DashboardTopbar({
           type="button"
           onClick={onOpenMobileNav}
           className={cn(
-            buttonVariants({ size: "icon-sm", variant: "ghost" }),
+            buttonVariants({ size: "icon", variant: "ghost" }),
             "rounded-full md:hidden"
           )}
           aria-label="Open navigation menu"
         >
-          <MenuIcon className="size-3.5" />
+          <MenuIcon className="size-5" />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-medium text-muted-foreground uppercase">
+          <p className="hidden truncate text-xs font-medium text-muted-foreground sm:block">
             {currentModuleSubtitle ?? "Cooperative workspace"}
           </p>
-          <h1 className="mt-1 truncate text-2xl font-semibold text-foreground">
+          <h1 className="truncate text-xl font-semibold text-foreground sm:mt-0.5 sm:text-2xl">
             {title}
           </h1>
         </div>
@@ -76,7 +76,7 @@ export function DashboardTopbar({
             <p className="truncate text-xs font-medium text-foreground">
               {userName}
             </p>
-            <p className="truncate text-[11px] text-muted-foreground">
+            <p className="truncate text-xs text-muted-foreground">
               {roleLabel}
             </p>
           </div>
@@ -85,13 +85,13 @@ export function DashboardTopbar({
         <Link
           href="/auth/logout"
           className={cn(
-            buttonVariants({ size: "icon-sm", variant: "ghost" }),
+            buttonVariants({ size: "icon", variant: "ghost" }),
             "rounded-full"
           )}
           aria-label="Logout"
           title="Logout"
         >
-          <LogoutIcon className="size-3.5" />
+          <LogoutIcon className="size-5" />
         </Link>
       </header>
     </div>

@@ -137,7 +137,7 @@ function AdjustmentEditor({
               : "No active loan"}
           </p>
           {activeLoans.length > 1 ? (
-            <p className="mt-1 text-[11px] text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground">
               {activeLoans.length} active loans in this period
             </p>
           ) : null}

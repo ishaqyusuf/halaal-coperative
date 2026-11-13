@@ -179,7 +179,7 @@ function LedgerDomainValue({
 
 function LedgerColorLegend() {
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium">
       {ledgerLegendItems.map((item) => (
         <span className="inline-flex items-center gap-1.5" key={item.key}>
           <span
@@ -246,7 +246,7 @@ function LedgerMetricBlock({
 }) {
   return (
     <div className={className}>
-      <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
       <div className="mt-1 text-sm font-medium text-foreground">{children}</div>
     </div>
   )
@@ -257,7 +257,7 @@ function SegmentReasonList({ reasons }: { reasons: string[] }) {
     <div className="mb-1 flex flex-wrap gap-1.5">
       {reasons.map((reason) => (
         <span
-          className="text-[11px] font-semibold text-muted-foreground uppercase"
+          className="text-xs font-semibold text-muted-foreground"
           key={reason}
         >
           {reason}
@@ -433,7 +433,7 @@ function MonthlyLedgerSegmentTable({
               >
                 <div className="grid gap-4 xl:grid-cols-[7rem_minmax(0,1fr)_auto] xl:items-start">
                   <div>
-                    <p className="text-[11px] font-medium text-muted-foreground">
+                    <p className="text-xs font-medium text-muted-foreground">
                       Period
                     </p>
                     <p className="mt-1 text-sm font-semibold text-foreground">
@@ -581,7 +581,7 @@ function MonthlyLedgerSegmentTable({
                               )}
                             </LedgerDomainValue>
                             {rowLoan.repaymentOnTime ? (
-                              <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+                              <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700">
                                 On-time
                               </span>
                             ) : null}

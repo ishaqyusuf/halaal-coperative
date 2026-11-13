@@ -472,7 +472,7 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
 
               <div className="grid gap-3 rounded-md border border-border/60 bg-muted/25 p-4 sm:grid-cols-3 md:col-span-2 xl:col-span-5">
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase">
+                  <p className="text-xs font-medium text-muted-foreground">
                     Pending
                   </p>
                   <p className="mt-2 text-lg font-semibold text-foreground">
@@ -482,7 +482,7 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase">
+                  <p className="text-xs font-medium text-muted-foreground">
                     Total monthly
                   </p>
                   <p className="mt-2 text-lg font-semibold text-foreground">
@@ -495,7 +495,7 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase">
+                  <p className="text-xs font-medium text-muted-foreground">
                     Estimated end month
                   </p>
                   <p className="mt-2 text-lg font-semibold text-foreground">

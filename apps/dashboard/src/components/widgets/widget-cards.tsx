@@ -28,11 +28,13 @@ function WidgetCard({
     <OverviewActionLink
       href={href}
       variant="ghost"
-      className="group flex h-full min-h-[112px] flex-col items-start justify-between rounded-none border border-border bg-background p-4 text-left hover:border-foreground/20 hover:bg-muted"
+      className="group flex h-full min-h-[112px] flex-col items-start justify-start gap-2 rounded-(--ui-radius-surface) border border-border bg-background p-5 text-left hover:border-foreground/20 hover:bg-muted"
     >
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <div className="mt-4">
-        <span className="text-2xl font-medium text-foreground">{value}</span>
+      <span className="text-xs font-semibold text-foreground">{label}</span>
+      <div>
+        <span className="font-[family-name:var(--font-display)] text-3xl font-bold text-foreground">
+          {value}
+        </span>
         {detail ? (
           <p className="mt-2 text-xs leading-5 text-muted-foreground">
             {detail}

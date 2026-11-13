@@ -130,7 +130,7 @@ export function SearchFilterPanel({
     <div className="relative flex w-full min-w-0 flex-col gap-3" ref={panelRef}>
       <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:items-center">
         {searchKey ? (
-          <InputGroup className="h-11 w-full md:h-8 lg:max-w-[420px]">
+          <InputGroup className="h-11 w-full lg:max-w-[420px]">
             <InputGroupAddon align="inline-start">
               <HugeiconsIcon icon={Search01Icon} size={16} />
             </InputGroupAddon>
@@ -159,7 +159,7 @@ export function SearchFilterPanel({
         ) : (
           <Button
             className={cn(
-              "h-11 w-fit md:h-8",
+              "h-11 w-fit",
               (hasFilters || isOpen) && "border border-border"
             )}
             onClick={() => setIsOpen((current) => !current)}

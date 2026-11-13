@@ -85,19 +85,19 @@ export function MembershipApprovalMobileItem({
             {request.email}
           </ItemDescription>
           <dl className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2">
-            <dt className="text-[11px] text-muted-foreground">Phone</dt>
+            <dt className="text-xs text-muted-foreground">Phone</dt>
             <dd className="text-right text-xs text-foreground">
               {request.phoneNumber ?? "No phone"}
             </dd>
 
-            <dt className="text-[11px] text-muted-foreground">Verification</dt>
+            <dt className="text-xs text-muted-foreground">Verification</dt>
             <dd className="flex justify-end">
               <MembershipApprovalVerificationBadge
                 verified={Boolean(request.emailVerifiedAt)}
               />
             </dd>
 
-            <dt className="text-[11px] text-muted-foreground">
+            <dt className="text-xs text-muted-foreground">
               Request status
             </dt>
             <dd className="flex justify-end">

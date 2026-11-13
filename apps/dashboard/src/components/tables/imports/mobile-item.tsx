@@ -105,23 +105,23 @@ export function ImportMobileItem({
 
         <ItemContent className="min-w-0 basis-full">
           <dl className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2">
-            <dt className="text-[11px] text-muted-foreground">Status</dt>
+            <dt className="text-xs text-muted-foreground">Status</dt>
             <dd className="flex justify-end capitalize">
               <ImportStatusBadge status={batch.status} />
             </dd>
 
-            <dt className="text-[11px] text-muted-foreground">Valid rows</dt>
+            <dt className="text-xs text-muted-foreground">Valid rows</dt>
             <dd className="text-right text-xs font-medium text-foreground">
               {batch.validRows}/{totalRows}
             </dd>
 
-            <dt className="text-[11px] text-muted-foreground">Review flags</dt>
+            <dt className="text-xs text-muted-foreground">Review flags</dt>
             <dd className="text-right text-xs text-foreground">
               {batch.existingMatchCount} matches · {batch.duplicateRowCount}{" "}
               duplicates
             </dd>
 
-            <dt className="text-[11px] text-muted-foreground">Created by</dt>
+            <dt className="text-xs text-muted-foreground">Created by</dt>
             <dd className="max-w-48 truncate text-right text-xs text-foreground">
               {batch.createdByUser.fullName}
             </dd>

@@ -383,7 +383,7 @@ function AppliedOpeningPositionSuccess({
             <CheckCircle2Icon className="size-5" />
           </div>
           <div>
-            <p className="text-xs font-medium text-emerald-700 uppercase dark:text-emerald-300">
+            <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
               Applied successfully
             </p>
             <h3 className="mt-1 text-lg font-semibold">
@@ -474,7 +474,7 @@ function OpeningPositionPanel({
           <div className="grid gap-3">
             {appliedOpeningPosition ? (
               <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase">
+                <p className="text-xs font-medium text-muted-foreground">
                   Brought-forward details
                 </p>
                 <h3 className="mt-1 text-base font-semibold text-foreground">
@@ -615,7 +615,7 @@ function StepRail({
     <aside className="hidden xl:sticky xl:top-24 xl:block xl:self-start">
       <DashboardSectionCard className="p-0">
         <div className="border-b border-border/70 p-4">
-          <p className="text-[11px] font-semibold text-muted-foreground uppercase">
+          <p className="text-xs font-semibold text-muted-foreground">
             {data.migrationSetupMode === "brought_forward"
               ? "Brought-forward path"
               : "Backfill path"}

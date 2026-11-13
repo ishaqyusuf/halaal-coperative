@@ -18,7 +18,7 @@ export default function DashboardHomeError({
   return (
     <main className="flex min-h-screen items-center justify-center bg-background p-6">
       <section className="w-full max-w-md rounded-lg border border-border bg-card p-6 text-center shadow-sm">
-        <p className="text-xs font-medium text-muted-foreground uppercase">
+        <p className="text-xs font-medium text-muted-foreground">
           Dashboard overview
         </p>
         <h1 className="mt-3 text-xl font-semibold text-foreground">

@@ -77,7 +77,7 @@ export function MemberDetailView({
       }
       eyebrow="Members"
       title={detail.member.fullName}
-      description="A Midday-style member workspace for identity review, KYC, savings history, loan exposure, repayments, and ledger activity."
+      description="Identity and KYC, savings, financing, repayments and ledger activity for this member."
     >
       {!operationalReadiness.isReady ? (
         <Alert className="items-start border-amber-300 bg-amber-50 px-4 py-4 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">

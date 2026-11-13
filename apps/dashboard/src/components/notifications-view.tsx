@@ -133,7 +133,7 @@ export function NotificationsView({
           <div className="mt-5 space-y-3">
             {managedNotificationTypes.slice(0, 6).map((notificationType) => (
               <DashboardSurfaceCard key={notificationType}>
-                <p className="text-xs font-medium uppercase text-muted-foreground">
+                <p className="text-xs font-medium text-muted-foreground">
                   registered
                 </p>
                 <h3 className="mt-2 text-sm font-medium text-foreground">

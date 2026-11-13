@@ -118,7 +118,7 @@ export function LedgerColumnVisibilityFrame({
             .filter((item) => !isColumnKeyVisible(item.columnKey))
             .map((item) => (
               <button
-                className="inline-flex items-center gap-1.5 border border-border/70 px-2 py-1 text-[11px] transition-colors hover:border-foreground/30 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="inline-flex items-center gap-1.5 border border-border/70 px-2 py-1 text-xs transition-colors hover:border-foreground/30 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 key={`${item.columnKey}-${item.label}`}
                 type="button"
                 onClick={() => showColumn(item.columnKey)}

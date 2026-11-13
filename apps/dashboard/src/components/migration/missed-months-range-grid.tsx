@@ -92,7 +92,7 @@ export function MissedMonthsRangeGrid({
   return (
     <div className="space-y-3">
       <div className="grid gap-2 border border-border/70 p-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(10rem,0.9fr)_auto] md:items-end">
-        <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
+        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
           From
           <Input
             disabled={disabled}
@@ -103,7 +103,7 @@ export function MissedMonthsRangeGrid({
             onChange={(event) => setFromMonth(event.target.value)}
           />
         </label>
-        <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
+        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
           To
           <Input
             disabled={disabled}
@@ -114,7 +114,7 @@ export function MissedMonthsRangeGrid({
             onChange={(event) => setToMonth(event.target.value)}
           />
         </label>
-        <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
+        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
           Status
           <LabeledSelectInput
             disabled={disabled}
@@ -141,7 +141,7 @@ export function MissedMonthsRangeGrid({
         <div className="space-y-4">
           {yearGroups.map((group) => (
             <section className="space-y-2" key={group.year}>
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase">
+              <p className="text-xs font-semibold text-muted-foreground">
                 {group.year}
               </p>
               <div className="grid grid-cols-3 gap-2 md:grid-cols-6">

@@ -62,7 +62,7 @@ export function DateRangeFilter({
           return (
             <button
               className={cn(
-                "flex h-11 w-full items-center gap-2 px-2 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground md:h-8",
+                "flex h-11 w-full items-center gap-2 px-2 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
                 selected && "bg-accent font-medium text-accent-foreground"
               )}
               aria-pressed={selected}

@@ -18,7 +18,7 @@ import {
 } from "@halaalvest/ui/components/sheet"
 import type { WorkflowPresentation } from "@/lib/workflow-presentations"
 
-const eyebrowClassName = "text-xs font-medium text-muted-foreground uppercase"
+const eyebrowClassName = "text-xs font-medium text-muted-foreground"
 
 // Title and description parts that match the overlay a registry mode renders,
 // so a sheet, dialog and alert dialog each label their own popup.

@@ -16,7 +16,7 @@ export function OverviewActionLink({
     <Link
       href={href}
       className={cn(
-        "inline-flex h-11 shrink-0 items-center justify-center rounded-md px-3 text-xs font-medium transition-colors md:h-7 md:px-2.5",
+        "inline-flex min-h-11 shrink-0 items-center justify-center rounded-md px-3 text-xs font-medium transition-colors md:min-h-10 md:px-3.5",
         variant === "outline" &&
           "border border-border bg-background hover:bg-muted",
         variant === "secondary" &&
@@ -40,7 +40,7 @@ export function OverviewPill({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-md px-2 py-1 text-[11px] font-medium",
+        "inline-flex items-center rounded-md px-2 py-1 text-xs font-medium",
         tone === "neutral" && "bg-muted text-muted-foreground",
         tone === "positive" && "bg-emerald-50 text-emerald-700",
         tone === "warning" && "bg-amber-50 text-amber-700"
@@ -76,7 +76,7 @@ export function OverviewSection({
       <div className="flex flex-col gap-3 border-b border-border pb-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           {eyebrow ? (
-            <p className="text-[11px] font-medium text-muted-foreground uppercase">
+            <p className="text-xs font-medium text-muted-foreground">
               {eyebrow}
             </p>
           ) : null}

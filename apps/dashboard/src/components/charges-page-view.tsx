@@ -263,7 +263,7 @@ function ChargeSectionHeader({
   return (
     <div className="flex flex-col gap-4 border-y border-border py-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <p className="text-xs font-medium text-muted-foreground uppercase">
+        <p className="text-xs font-medium text-muted-foreground">
           {eyebrow}
         </p>
         <h2 className="mt-1 text-base font-semibold text-foreground">

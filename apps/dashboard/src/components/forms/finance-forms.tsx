@@ -1774,7 +1774,7 @@ export function LoanDisbursementForm({
           name="firstRepaymentDueAt"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-xs text-muted-foreground uppercase">
+              <FormLabel className="text-xs text-muted-foreground">
                 First repayment due
               </FormLabel>
               <FormControl>

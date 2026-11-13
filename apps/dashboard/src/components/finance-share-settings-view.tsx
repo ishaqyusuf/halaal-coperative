@@ -43,7 +43,7 @@ export function FinanceShareSettingsView({
         <SecondaryMenu items={financeMenuItems} />
 
         <div>
-          <p className="text-xs font-medium text-muted-foreground uppercase">
+          <p className="text-xs font-medium text-muted-foreground">
             Finance settings
           </p>
           <h1 className="mt-2 text-2xl font-semibold text-foreground">

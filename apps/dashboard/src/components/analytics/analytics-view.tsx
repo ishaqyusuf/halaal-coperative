@@ -424,7 +424,7 @@ export function AnalyticsView() {
       <section className="border-b border-border pb-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase">
+            <p className="text-xs font-medium text-muted-foreground">
               Analytics
             </p>
             <h1 className="mt-3 text-2xl font-medium text-foreground sm:text-3xl">

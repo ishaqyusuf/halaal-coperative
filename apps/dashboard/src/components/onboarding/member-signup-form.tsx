@@ -108,7 +108,7 @@ export function MemberSignupForm({
         <div className="md:col-span-2">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs uppercase text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 {signupToken ? "Invited member onboarding" : "Member onboarding"}
               </p>
               <h2 className="mt-2 text-2xl font-semibold text-foreground">

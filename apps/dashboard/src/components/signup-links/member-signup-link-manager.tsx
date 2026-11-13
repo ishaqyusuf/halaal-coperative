@@ -160,7 +160,7 @@ function MemberSignupLinkRow({
             ["Approved", link.analytics.approvedCount],
           ].map(([label, value]) => (
             <div className="px-3 py-3 first:pl-0 md:first:pl-3" key={label}>
-              <dt className="text-[11px] font-medium text-muted-foreground uppercase">
+              <dt className="text-xs font-medium text-muted-foreground">
                 {label}
               </dt>
               <dd className="mt-1 text-lg font-semibold text-foreground">

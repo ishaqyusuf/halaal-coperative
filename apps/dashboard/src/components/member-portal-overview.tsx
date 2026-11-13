@@ -133,7 +133,7 @@ export function MemberPortalOverview({
   return (
     <DashboardPageFrame>
       <section className="space-y-2">
-        <p className="text-[11px] font-medium text-muted-foreground uppercase">
+        <p className="text-xs font-medium text-muted-foreground">
           Member dashboard
         </p>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -485,7 +485,7 @@ function MemberLink({
 }) {
   return (
     <Link
-      className="inline-flex h-11 items-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground hover:bg-muted md:h-8"
+      className="inline-flex h-11 items-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground hover:bg-muted"
       href={href}
     >
       {children}

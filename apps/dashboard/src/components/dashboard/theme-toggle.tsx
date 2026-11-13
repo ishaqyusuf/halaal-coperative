@@ -36,13 +36,13 @@ export function DashboardThemeToggle() {
     <Button
       type="button"
       onClick={() => setTheme(nextTheme)}
-      size="icon-sm"
+      size="icon"
       variant="ghost"
       className="rounded-full"
       aria-label={mounted ? `Switch to ${nextTheme} theme` : "Toggle theme"}
       title={mounted ? `Switch to ${nextTheme} theme` : "Toggle theme"}
     >
-      {mounted && isDark ? <SunIcon className="size-3.5" /> : <MoonIcon className="size-3.5" />}
+      {mounted && isDark ? <SunIcon className="size-5" /> : <MoonIcon className="size-5" />}
     </Button>
   )
 }

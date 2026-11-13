@@ -35,8 +35,8 @@ export function OverviewSkeleton() {
             <Skeleton className="mt-3 h-4 w-full max-w-2xl" />
           </div>
           <div className="flex gap-2">
-            <Skeleton className="h-11 w-32 md:h-7" />
-            <Skeleton className="h-11 w-32 md:h-7" />
+            <Skeleton className="h-11 w-32" />
+            <Skeleton className="h-11 w-32" />
           </div>
         </div>
       </section>

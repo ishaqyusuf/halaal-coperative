@@ -111,7 +111,7 @@ export function RepaymentsPageView({
 function SummaryMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 px-4 py-4">
-      <p className="text-xs text-muted-foreground uppercase">{label}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-2 truncate text-xl font-semibold text-foreground">
         {value}
       </p>

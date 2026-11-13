@@ -204,7 +204,7 @@ function LoanSummaryMetric({
 }) {
   return (
     <div className="min-w-0 px-4 py-4 xl:px-5">
-      <p className="text-[11px] font-medium text-muted-foreground uppercase">
+      <p className="text-xs font-medium text-muted-foreground">
         {label}
       </p>
       <p className="mt-2 truncate text-xl font-semibold text-foreground tabular-nums">

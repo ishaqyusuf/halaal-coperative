@@ -1,8 +1,9 @@
 import { EventsProvider } from "@halaalvest/events/client"
 import "@halaalvest/ui/globals.css"
+import "./dashboard-theme.css"
 import { NotificationsProvider } from "@halaalvest/notifications-react"
 import { cn } from "@halaalvest/ui/lib/utils"
-import { Inter } from "next/font/google"
+import { Inter, Inter_Tight } from "next/font/google"
 import { NuqsAdapter } from "nuqs/adapters/next/app"
 import { QaQuickFillProvider } from "@/components/qa-quick-fill-provider"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -11,6 +12,11 @@ import { getRequestQaQuickFillContext } from "@/lib/server-context"
 import { TRPCReactProvider } from "@/trpc/client"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
+const interTight = Inter_Tight({
+  subsets: ["latin"],
+  variable: "--font-display",
+  weight: ["600", "700", "800"],
+})
 const iconName =
   process.env.NODE_ENV === "development"
     ? "halaalvest-icon-dev"
@@ -53,7 +59,11 @@ export default async function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn("font-sans antialiased", inter.variable)}
+      className={cn(
+        "font-sans antialiased",
+        inter.variable,
+        interTight.variable
+      )}
     >
       <body>
         <NuqsAdapter>

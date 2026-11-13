@@ -106,24 +106,24 @@ export function BusinessMobileItem({
             {business.notes ?? "No internal note"}
           </ItemDescription>
           <dl className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2">
-            <dt className="text-[11px] text-muted-foreground">Status</dt>
+            <dt className="text-xs text-muted-foreground">Status</dt>
             <dd className="flex justify-end">
               <BusinessStatusBadge status={business.status} />
             </dd>
 
-            <dt className="text-[11px] text-muted-foreground">Capital</dt>
+            <dt className="text-xs text-muted-foreground">Capital</dt>
             <dd className="text-right text-xs font-medium text-foreground">
               {formatCurrency(business.capitalAmount)}
             </dd>
 
-            <dt className="text-[11px] text-muted-foreground">
+            <dt className="text-xs text-muted-foreground">
               Allocatable profit
             </dt>
             <dd className="text-right text-xs font-medium text-foreground">
               {formatCurrency(getBusinessAllocatableProfit(business))}
             </dd>
 
-            <dt className="text-[11px] text-muted-foreground">
+            <dt className="text-xs text-muted-foreground">
               Latest profit
             </dt>
             <dd className="text-right text-xs text-foreground">

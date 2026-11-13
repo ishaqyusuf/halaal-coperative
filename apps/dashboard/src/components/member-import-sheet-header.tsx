@@ -237,7 +237,7 @@ export function MemberImportSheetHeader({
   return (
     <DialogHeader className="border-b border-border/70 px-4 py-4 text-left sm:flex-row sm:items-center sm:justify-between sm:px-6">
       <div>
-        <p className="text-[11px] font-medium text-muted-foreground uppercase">
+        <p className="text-xs font-medium text-muted-foreground">
           Import
         </p>
         <DialogTitle>Import members</DialogTitle>

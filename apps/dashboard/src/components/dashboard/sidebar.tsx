@@ -128,7 +128,7 @@ function DashboardSidebarLink({
                   {label}
                 </span>
                 {lockLabel ? (
-                  <span className="ml-auto shrink-0 text-[10px] font-medium whitespace-nowrap text-muted-foreground">
+                  <span className="ml-auto shrink-0 text-xs font-medium whitespace-nowrap text-muted-foreground">
                     {lockLabel}
                   </span>
                 ) : null}
@@ -149,7 +149,7 @@ function DashboardSidebarLink({
             }}
             className={cn(
               "absolute top-1 right-[18px] flex size-8 items-center justify-center text-muted-foreground transition hover:text-foreground",
-              isActive ? "text-foreground/70" : null
+              isActive ? "text-foreground" : null
             )}
           >
             <ChevronDownIcon
@@ -224,7 +224,7 @@ function DashboardSidebarLink({
                     {childLabel}
                   </span>
                   {childLockLabel ? (
-                    <span className="ml-auto shrink-0 pr-1 text-[10px] font-medium whitespace-nowrap text-muted-foreground">
+                    <span className="ml-auto shrink-0 pr-1 text-xs font-medium whitespace-nowrap text-muted-foreground">
                       {childLockLabel}
                     </span>
                   ) : null}
@@ -278,7 +278,7 @@ export function DashboardSidebar({
             .map((section) => (
               <section key={`${section.moduleName}-${section.name}`}>
                 {isExpanded ? (
-                  <p className="mb-2 px-[19px] text-[10px] font-semibold text-muted-foreground/60 uppercase">
+                  <p className="mb-2 px-[19px] text-xs font-semibold text-muted-foreground">
                     {section.title ?? section.moduleName}
                   </p>
                 ) : null}
@@ -322,7 +322,7 @@ export function DashboardSidebar({
 
   const userCard = (
     <div className="relative h-[36px] w-full">
-      <div className="absolute bottom-0 left-[19px] flex h-[32px] w-[32px] items-center justify-center border border-border/70 bg-background text-[11px] font-semibold text-foreground">
+      <div className="absolute bottom-0 left-[19px] flex h-[32px] w-[32px] items-center justify-center border border-border/70 bg-background text-xs font-semibold text-foreground">
         {userName
           .split(" ")
           .map((part) => part[0])
@@ -336,7 +336,7 @@ export function DashboardSidebar({
             <p className="truncate text-sm leading-none font-medium text-foreground">
               {tenantName}
             </p>
-            <p className="mt-1 truncate text-[11px] leading-none text-muted-foreground">
+            <p className="mt-1 truncate text-xs leading-none text-muted-foreground">
               {roleLabel}
             </p>
           </div>
@@ -363,7 +363,7 @@ export function DashboardSidebar({
           wordmarkClassName="text-base"
         />
         {isExpanded ? (
-          <span className="border-l border-border pl-2 text-[11px] font-medium text-muted-foreground uppercase">
+          <span className="hidden border-l border-border pl-2 text-xs font-medium text-muted-foreground md:inline">
             Dashboard
           </span>
         ) : null}

@@ -94,7 +94,7 @@ export function QaAccessPanel() {
     >
       <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div>
-          <p className="text-xs font-semibold tracking-[0.08em] text-emerald-700 uppercase dark:text-emerald-300">
+          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
             QA access
           </p>
           <h2 id="qa-access-title" className="mt-1 text-base font-semibold">

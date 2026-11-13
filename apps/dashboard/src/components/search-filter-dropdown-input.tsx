@@ -37,7 +37,7 @@ export function SearchFilterDropdownInput({
   onFilterClick?: () => void
 }) {
   return (
-    <InputGroup className="h-11 w-full sm:w-[350px] md:h-8">
+    <InputGroup className="h-11 w-full sm:w-[350px]">
       <InputGroupAddon align="inline-start">
         <HugeiconsIcon icon={Search01Icon} size={16} />
       </InputGroupAddon>

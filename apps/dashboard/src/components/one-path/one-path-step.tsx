@@ -58,7 +58,7 @@ export function OnePathStep({
       <Card className="@container">
         <CardHeader>
           {action ? <CardAction>{action}</CardAction> : null}
-          <p className="text-xs font-semibold tracking-[0.08em] text-primary uppercase">
+          <p className="text-xs font-semibold text-primary">
             {eyebrow ?? `Step ${step.number} · ${step.label}`}
           </p>
           <CardTitle

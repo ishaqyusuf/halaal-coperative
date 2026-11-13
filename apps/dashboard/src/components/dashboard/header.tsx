@@ -20,14 +20,14 @@ export function DashboardPageHeader({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             {eyebrow ? (
-              <p className="text-[11px] font-medium text-muted-foreground uppercase">
+              <p className="text-xs font-medium text-muted-foreground">
                 {eyebrow}
               </p>
             ) : null}
             {badge ? (
               <Badge
                 variant="outline"
-                className="rounded-full px-2.5 py-0.5 text-[11px]"
+                className="rounded-full px-2.5 py-0.5 text-xs"
               >
                 {badge}
               </Badge>

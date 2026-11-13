@@ -281,7 +281,7 @@ function RepaymentStatusBadge({ status }: { status: string }) {
 function DetailMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 px-3 py-4">
-      <p className="text-xs text-muted-foreground uppercase">{label}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-2 break-words text-sm font-semibold text-foreground">
         {value}
       </p>
@@ -292,7 +292,7 @@ function DetailMetric({ label, value }: { label: string; value: string }) {
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs text-muted-foreground uppercase">{label}</dt>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="mt-1 text-foreground">{value}</dd>
     </div>
   )

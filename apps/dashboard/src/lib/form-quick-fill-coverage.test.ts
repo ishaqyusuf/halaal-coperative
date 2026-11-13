@@ -39,4 +39,62 @@ describe("dashboard Quick fill coverage", () => {
 
     expect(filesWithExemptions).toEqual(approvedExemptions)
   })
+
+  test("every covered form uses the shared, QA-gated Quick Fill", async () => {
+    // Recipe forms (see .brain/features/form-quick-fill-coverage.md).
+    const coveredForms = [
+      "components/business-content.tsx",
+      "components/charge-content.tsx",
+      "components/charge-operation-content.tsx",
+      "components/contribution-content.tsx",
+      "components/forms/finance-forms.tsx",
+      "components/forms/import-forms.tsx",
+      "components/forms/member-forms.tsx",
+      "components/forms/misc-forms.tsx",
+      "components/forms/settings-forms.tsx",
+      "components/forms/tenant-finance-forms.tsx",
+      "components/getting-started/profit-policy-fields.tsx",
+      "components/initial-migration-quick-fills.tsx",
+      "components/member-document-self-service-form.tsx",
+      "components/member-import-sheet-header.tsx",
+      "components/members/member-backfill-activity-windows-form.tsx",
+      "components/members/member-backfill-baseline-edit-content.tsx",
+      "components/members/member-profit-season-adjustment-table.tsx",
+      "components/migration/member-backfill-controls.tsx",
+      "components/migration/member-migration-history-forms.tsx",
+      "components/mobile-access/remittance-dialog.tsx",
+      "components/monthly-record-content.tsx",
+      "components/onboarding/member-signup-form.tsx",
+      "components/onboarding/membership-approval-form.tsx",
+      "components/operation-profile-settings-content.tsx",
+      "components/operation-profile-setup-form.tsx",
+      "components/payment-receipt-content.tsx",
+      "components/share-application-content.tsx",
+      "components/share-content.tsx",
+      "components/signup-links/member-signup-link-content.tsx",
+    ]
+
+    for (const file of coveredForms) {
+      const source = await Bun.file(`${dashboardSourceRoot}/${file}`).text()
+      expect(
+        /<Dashboard(Native|State)?QuickFill\b/.test(source),
+        `${file} should render the shared Quick Fill`
+      ).toBe(true)
+    }
+
+    const shared = await Bun.file(
+      new URL("../components/dashboard-quick-fill.tsx", import.meta.url)
+    ).text()
+    expect(shared).toContain("visible={quickFill.enabled && enabled !== false}")
+  })
+
+  test("Quick Fill recipes never use digit-suffixed or example.com emails", async () => {
+    const source = await Bun.file(
+      new URL("./dev-form-fill.ts", import.meta.url)
+    ).text()
+
+    expect(source).not.toContain("@example.com")
+    expect(source).not.toContain("createQaMemberFixture")
+    expect(source).not.toMatch(/randomInt\(1000/)
+  })
 })

@@ -268,11 +268,11 @@ function getHeaderLabel(columnId: string): string {
   const labels: Record<string, string> = {
     actions: "Actions",
     applicant: "Applicant",
-    number: "Cooperative number",
+    number: "Member no.",
     phone: "Phone",
     status: "Status",
-    submitted: "Submitted",
-    verification: "Verification",
+    submitted: "Asked to join",
+    verification: "Email",
   }
 
   return labels[columnId] || columnId

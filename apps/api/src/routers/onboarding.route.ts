@@ -1,5 +1,6 @@
 import {
   createTenantWorkspaceBootstrap,
+  getMemberOnboardingRequestById,
   getMemberOnboardingRequestSummary,
   getTenantOnboardingState,
   listMemberOnboardingRequests,
@@ -16,7 +17,10 @@ import {
   createTRPCRouter,
   tenantProcedure,
 } from "../lib.trpc"
-import { listMembershipApprovalsSchema } from "../schemas/onboarding"
+import {
+  getMembershipApprovalSchema,
+  listMembershipApprovalsSchema,
+} from "../schemas/onboarding"
 
 const membershipApprovalProcedure = tenantProcedure.use(({ ctx, next }) => {
   if (!roleCan(ctx.auth.activeMembership.role, "manage_members")) {
@@ -33,6 +37,24 @@ export const onboardingRouter = createTRPCRouter({
   membershipApprovalSummary: membershipApprovalProcedure.query(({ ctx }) =>
     getMemberOnboardingRequestSummary(ctx.tenant.current.id)
   ),
+
+  membershipApproval: membershipApprovalProcedure
+    .input(getMembershipApprovalSchema)
+    .query(async ({ ctx, input }) => {
+      const request = await getMemberOnboardingRequestById(
+        ctx.tenant.current.id,
+        input.requestId
+      )
+
+      if (!request) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "This membership request no longer exists.",
+        })
+      }
+
+      return request
+    }),
 
   membershipApprovals: membershipApprovalProcedure
     .input(listMembershipApprovalsSchema)

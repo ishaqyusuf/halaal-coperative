@@ -1,8 +1,17 @@
 "use client"
 
-import { useMemo, useTransition } from "react"
+import { useMemo, useState, useTransition } from "react"
 import { z } from "zod"
 import { useNotifications } from "@halaalvest/notifications-react"
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@halaalvest/ui/components/alert-dialog"
 import { Button } from "@halaalvest/ui/components/button"
 import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
@@ -15,40 +24,42 @@ import {
   FormMessage,
 } from "@halaalvest/ui/components/form"
 import { Input } from "@halaalvest/ui/components/input"
-import {
-  InputGroup,
-  InputGroupInput,
-  InputGroupText,
-} from "@halaalvest/ui/components/input-group"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
-import { DatePickerInput } from "@/components/date-picker-input"
 import { createQaAmount } from "@halaalvest/utils"
+import { useQueryClient } from "@tanstack/react-query"
+import type { MembershipApprovalRequest } from "@/components/membership-approval-content"
 import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
-import { objectToFormData } from "@/lib/form-submit"
+import { DatePickerInput } from "@/components/date-picker-input"
+import { useMembershipApprovalParams } from "@/hooks/use-membership-approval-params"
 import {
   approveMemberOnboardingAction,
   rejectMemberOnboardingAction,
 } from "@/lib/dashboard-actions"
+import { objectToFormData } from "@/lib/form-submit"
+import { useTRPC } from "@/trpc/client"
 
 function CurrencyFormInput({
   onChange,
   placeholder,
   value,
+  ...props
 }: {
+  id?: string
   onChange: (value: string) => void
   placeholder?: string
   value?: string
 }) {
   return (
     <CurrencyInput
+      {...props}
       allowNegative={false}
       decimalScale={2}
       inputMode="decimal"
+      onValueChange={(values) => onChange(values.value)}
       placeholder={placeholder}
       value={value ?? ""}
       valueIsNumericString
-      onValueChange={(values) => onChange(values.value)}
     />
   )
 }
@@ -84,75 +95,79 @@ const membershipApprovalSchema = z
     const served = Number(values.loanServed ?? "0")
     const monthly = Number(values.loanMonthlyCommitment ?? "")
     const topup = Number(values.loanTopupAmount ?? "0")
+    const issue = (path: string, message: string) =>
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message, path: [path] })
 
     if (!values.loanStartDate) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Loan start date is required.",
-        path: ["loanStartDate"],
-      })
+      issue("loanStartDate", "Enter the date the loan started.")
     } else if (values.loanStartDate > getTodayDateValue()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Loan start date cannot be in the future.",
-        path: ["loanStartDate"],
-      })
+      issue("loanStartDate", "The start date cannot be in the future.")
     }
     if (!values.loanAmount || Number.isNaN(amount) || amount <= 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Loan amount must be greater than 0.",
-        path: ["loanAmount"],
-      })
+      issue("loanAmount", "Enter the loan amount.")
     }
     if (
       !values.loanMonthlyCommitment ||
       Number.isNaN(monthly) ||
       monthly <= 0
     ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Monthly servicing must be greater than 0.",
-        path: ["loanMonthlyCommitment"],
-      })
+      issue("loanMonthlyCommitment", "Enter the monthly repayment.")
     }
     if (
       !values.loanPaymentMonths ||
       !Number.isInteger(paymentMonths) ||
       paymentMonths <= 0
     ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Payment months must be greater than 0.",
-        path: ["loanPaymentMonths"],
-      })
+      issue("loanPaymentMonths", "Enter how many months, for example 12.")
     }
     if (values.loanTopupAmount && (Number.isNaN(topup) || topup < 0)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Topup amount cannot be negative.",
-        path: ["loanTopupAmount"],
-      })
+      issue("loanTopupAmount", "This cannot be less than 0.")
     }
     if (Number.isNaN(served) || served < 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Served amount cannot be negative.",
-        path: ["loanServed"],
-      })
+      issue("loanServed", "This cannot be less than 0.")
     }
     if (!Number.isNaN(amount) && !Number.isNaN(served) && served > amount) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Served amount cannot be more than the loan amount.",
-        path: ["loanServed"],
-      })
+      issue("loanServed", "This cannot be more than the loan amount.")
     }
   })
 
 type MembershipApprovalValues = z.infer<typeof membershipApprovalSchema>
 
-export function MembershipApprovalForm({ requestId }: { requestId: string }) {
+function formatAmount(value: number) {
+  return Number.isFinite(value) ? value.toLocaleString("en-NG") : "0"
+}
+
+function calculateMonthlyService(
+  amount: string | number,
+  served: string | number,
+  paymentMonths: string | number
+) {
+  const principalAmount = Number(amount || 0)
+  const amountServed = Number(served || 0)
+  const months = Number(paymentMonths || 0)
+
+  if (
+    !Number.isFinite(principalAmount) ||
+    !Number.isFinite(amountServed) ||
+    !Number.isInteger(months) ||
+    months <= 0
+  ) {
+    return ""
+  }
+
+  return String(
+    Number((Math.max(0, principalAmount - amountServed) / months).toFixed(2))
+  )
+}
+
+export function MembershipApprovalForm({
+  request,
+}: {
+  request: MembershipApprovalRequest
+}) {
+  const trpc = useTRPC()
+  const queryClient = useQueryClient()
+  const { setParams } = useMembershipApprovalParams()
   const form = useZodForm<MembershipApprovalValues>(membershipApprovalSchema, {
     defaultValues: {
       currentSavingsBalance: "",
@@ -165,12 +180,15 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
       loanTopupAmount: "",
       monthlyCommitment: "",
       reason: "",
-      requestId,
+      requestId: request.id,
     },
   })
   const { showError, showSuccess } = useNotifications()
   const [isApproving, startApproveTransition] = useTransition()
   const [isRejecting, startRejectTransition] = useTransition()
+  const [isDeclineOpen, setIsDeclineOpen] = useState(false)
+  const canApprove = request.status === "pending_approval"
+  const isBusy = isApproving || isRejecting
   const hasServingLoan = form.watch("hasServingLoan")
   const today = getTodayDateValue()
   const loanAmount = Number(form.watch("loanAmount") || 0)
@@ -194,35 +212,12 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
     const endDate = new Date(`${loanStartDate}T00:00:00.000Z`)
     endDate.setUTCMonth(endDate.getUTCMonth() + loanPaymentMonths)
 
-    return endDate.toLocaleDateString("en-US", {
+    return endDate.toLocaleDateString("en-GB", {
       month: "long",
-      year: "numeric",
       timeZone: "UTC",
+      year: "numeric",
     })
   }, [hasServingLoan, loanPaymentMonths, loanStartDate, pendingAmount])
-
-  function calculateMonthlyService(
-    amount: string | number,
-    served: string | number,
-    paymentMonths: string | number
-  ) {
-    const principalAmount = Number(amount || 0)
-    const amountServed = Number(served || 0)
-    const months = Number(paymentMonths || 0)
-
-    if (
-      !Number.isFinite(principalAmount) ||
-      !Number.isFinite(amountServed) ||
-      !Number.isInteger(months) ||
-      months <= 0
-    ) {
-      return ""
-    }
-
-    return String(
-      Number((Math.max(0, principalAmount - amountServed) / months).toFixed(2))
-    )
-  }
 
   function updateCalculatedMonthlyService(
     nextValues: Partial<
@@ -246,38 +241,44 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
     }
   }
 
+  async function finish() {
+    await queryClient.invalidateQueries({
+      queryKey: trpc.onboarding.pathKey(),
+    })
+    await setParams({ membershipRequestId: null })
+  }
+
   function onApprove(values: MembershipApprovalValues) {
     startApproveTransition(async () => {
       try {
         await approveMemberOnboardingAction(objectToFormData(values))
-        showSuccess("Member approved", "The member now has dashboard access.")
+        showSuccess("Approved", `${request.fullName} can sign in now.`)
+        await finish()
       } catch (error) {
         showError(
-          "Could not approve member",
-          error instanceof Error ? error.message : "Something went wrong."
+          "Could not approve",
+          error instanceof Error ? error.message : "Please try again."
         )
       }
     })
   }
 
-  function onReject() {
+  function onDecline() {
     startRejectTransition(async () => {
       try {
-        const values = form.getValues()
         await rejectMemberOnboardingAction(
           objectToFormData({
-            requestId: values.requestId,
-            reason: values.reason,
+            reason: form.getValues("reason"),
+            requestId: request.id,
           })
         )
-        showSuccess(
-          "Request rejected",
-          "The applicant was updated with the rejection status."
-        )
+        setIsDeclineOpen(false)
+        showSuccess("Declined", `We will email ${request.fullName}.`)
+        await finish()
       } catch (error) {
         showError(
-          "Could not reject request",
-          error instanceof Error ? error.message : "Something went wrong."
+          "Could not decline",
+          error instanceof Error ? error.message : "Please try again."
         )
       }
     })
@@ -285,7 +286,7 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
 
   return (
     <Form {...form}>
-      <form className="space-y-6" onSubmit={form.handleSubmit(onApprove)}>
+      <form className="grid gap-6" onSubmit={form.handleSubmit(onApprove)}>
         <DashboardQuickFill
           form={form}
           onFill={() =>
@@ -298,88 +299,30 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
             })
           }
         />
-        <div className="rounded-md border border-border/70 bg-muted/20 p-4">
-          <div className="mb-4">
-            <h3 className="text-base font-semibold text-foreground">
-              Approval metadata
-            </h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Confirm the member’s existing balance and monthly cooperative
-              commitments before approval.
-            </p>
-          </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="currentSavingsBalance"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Current balance</FormLabel>
-                  <FormControl>
-                    <CurrencyFormInput {...field} placeholder="0.00" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="monthlyCommitment"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Monthly commitment</FormLabel>
-                  <FormControl>
-                    <CurrencyFormInput {...field} placeholder="25000" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        </div>
+        {canApprove ? (
+          <section
+            aria-labelledby="approval-records-title"
+            className="grid gap-5 border-t border-border/70 pt-6"
+          >
+            <div>
+              <h3 className="text-lg font-semibold" id="approval-records-title">
+                Their records so far
+              </h3>
+              <p className="text-muted-foreground">
+                Leave empty if they are new.
+              </p>
+            </div>
 
-        <div className="rounded-md border border-border/70 bg-background/80 p-4">
-          <FormField
-            control={form.control}
-            name="hasServingLoan"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-start gap-3 space-y-0">
-                <FormControl>
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={(checked) =>
-                      field.onChange(checked === true)
-                    }
-                  />
-                </FormControl>
-                <div className="space-y-1">
-                  <FormLabel>Serving loan</FormLabel>
-                  <p className="text-sm text-muted-foreground">
-                    Seed an active loan snapshot with separate repayment and
-                    savings topup amounts.
-                  </p>
-                  <FormMessage />
-                </div>
-              </FormItem>
-            )}
-          />
-
-          {hasServingLoan ? (
-            <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div className="grid gap-5 sm:grid-cols-2">
               <FormField
                 control={form.control}
-                name="loanStartDate"
+                name="currentSavingsBalance"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Loan start date</FormLabel>
+                    <FormLabel>Savings so far</FormLabel>
                     <FormControl>
-                      <DatePickerInput
-                        {...field}
-                        allowClear={false}
-                        max={today}
-                        placeholder="Select loan start date"
-                      />
+                      <CurrencyFormInput {...field} placeholder="0.00" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -387,174 +330,231 @@ export function MembershipApprovalForm({ requestId }: { requestId: string }) {
               />
               <FormField
                 control={form.control}
-                name="loanAmount"
+                name="monthlyCommitment"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Loan amount</FormLabel>
+                    <FormLabel>Monthly savings</FormLabel>
                     <FormControl>
-                      <CurrencyFormInput
-                        {...field}
-                        placeholder="500000"
-                        onChange={(value) => {
-                          field.onChange(value)
-                          updateCalculatedMonthlyService({ loanAmount: value })
-                        }}
-                      />
+                      <CurrencyFormInput {...field} placeholder="0.00" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="loanPaymentMonths"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Payment months</FormLabel>
-                    <FormControl>
-                      <InputGroup>
-                        <InputGroupInput
+            </div>
+
+            <FormField
+              control={form.control}
+              name="hasServingLoan"
+              render={({ field }) => (
+                <FormItem className="flex min-h-11 flex-row items-center gap-3 space-y-0">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={(checked) =>
+                        field.onChange(checked === true)
+                      }
+                    />
+                  </FormControl>
+                  <FormLabel className="text-lg font-semibold">
+                    Already has a loan
+                  </FormLabel>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {hasServingLoan ? (
+              <div className="grid gap-5 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="loanStartDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Loan start date</FormLabel>
+                      <FormControl>
+                        <DatePickerInput
+                          {...field}
+                          allowClear={false}
+                          max={today}
+                          placeholder="Choose a date"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="loanAmount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Loan amount</FormLabel>
+                      <FormControl>
+                        <CurrencyFormInput
+                          {...field}
+                          onChange={(value) => {
+                            field.onChange(value)
+                            updateCalculatedMonthlyService({ loanAmount: value })
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="loanPaymentMonths"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Months to repay</FormLabel>
+                      <FormControl>
+                        <Input
                           {...field}
                           inputMode="numeric"
                           min={1}
-                          placeholder="12"
-                          type="number"
                           onChange={(event) => {
                             field.onChange(event)
                             updateCalculatedMonthlyService({
                               loanPaymentMonths: event.target.value,
                             })
                           }}
+                          placeholder="12"
+                          type="number"
                         />
-                        <InputGroupText>months</InputGroupText>
-                      </InputGroup>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="loanServed"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Served amount</FormLabel>
-                    <FormControl>
-                      <CurrencyFormInput
-                        {...field}
-                        placeholder="200000"
-                        onChange={(value) => {
-                          field.onChange(value)
-                          updateCalculatedMonthlyService({ loanServed: value })
-                        }}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="loanMonthlyCommitment"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Monthly loan service</FormLabel>
-                    <FormControl>
-                      <CurrencyFormInput {...field} placeholder="50000" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="loanTopupAmount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Topup amount</FormLabel>
-                    <FormControl>
-                      <CurrencyFormInput
-                        {...field}
-                        value={field.value ?? ""}
-                        placeholder="5000"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="loanServed"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Already repaid</FormLabel>
+                      <FormControl>
+                        <CurrencyFormInput
+                          {...field}
+                          onChange={(value) => {
+                            field.onChange(value)
+                            updateCalculatedMonthlyService({ loanServed: value })
+                          }}
+                          placeholder="0.00"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="loanMonthlyCommitment"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Monthly repayment</FormLabel>
+                      <FormControl>
+                        <CurrencyFormInput {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="loanTopupAmount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Extra savings each month</FormLabel>
+                      <FormControl>
+                        <CurrencyFormInput
+                          {...field}
+                          placeholder="0.00"
+                          value={field.value ?? ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <div className="grid gap-3 rounded-md border border-border/60 bg-muted/25 p-4 sm:grid-cols-3 md:col-span-2 xl:col-span-5">
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Pending
-                  </p>
-                  <p className="mt-2 text-lg font-semibold text-foreground">
-                    {Number.isFinite(pendingAmount)
-                      ? pendingAmount.toLocaleString()
-                      : "0"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Total monthly
-                  </p>
-                  <p className="mt-2 text-lg font-semibold text-foreground">
-                    {Number.isFinite(totalMonthlyDeduction)
-                      ? totalMonthlyDeduction.toLocaleString()
-                      : "0"}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Loan service + topup to member savings
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Estimated end month
-                  </p>
-                  <p className="mt-2 text-lg font-semibold text-foreground">
-                    {estimatedEndMonth ?? "Waiting for loan inputs"}
-                  </p>
-                </div>
+                <dl className="grid gap-4 rounded-(--ui-radius-control) bg-muted p-4 sm:col-span-2 sm:grid-cols-3">
+                  {[
+                    ["Still owed", formatAmount(pendingAmount)],
+                    ["Paid each month", formatAmount(totalMonthlyDeduction)],
+                    ["Last payment", estimatedEndMonth ?? "—"],
+                  ].map(([label, value]) => (
+                    <div key={label}>
+                      <dt className="text-base text-muted-foreground">
+                        {label}
+                      </dt>
+                      <dd className="text-lg font-semibold">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
-            </div>
+            ) : null}
+          </section>
+        ) : (
+          <p className="rounded-(--ui-radius-control) border border-border bg-muted px-4 py-3">
+            They have not confirmed their email yet. You can approve once they
+            do.
+          </p>
+        )}
+
+        <div className="flex flex-col-reverse gap-3 border-t border-border/70 pt-5 sm:flex-row sm:justify-end">
+          <Button
+            className="h-11"
+            disabled={isBusy}
+            onClick={() => setIsDeclineOpen(true)}
+            type="button"
+            variant="outline"
+          >
+            Decline
+          </Button>
+          {canApprove ? (
+            <Button className="h-11" disabled={isBusy} type="submit">
+              {isApproving ? "Approving…" : "Approve"}
+            </Button>
           ) : null}
         </div>
+      </form>
 
-        <div className="rounded-md border border-border/70 bg-background/80 p-4">
+      <AlertDialog onOpenChange={setIsDeclineOpen} open={isDeclineOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Decline {request.fullName}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              We will email them. They will not be able to sign in.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
           <FormField
             control={form.control}
             name="reason"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Rejection reason</FormLabel>
+                <FormLabel>Reason (optional)</FormLabel>
                 <FormControl>
-                  <Textarea
-                    {...field}
-                    value={field.value ?? ""}
-                    placeholder="Optional reason if you need to reject this request."
-                  />
+                  <Textarea {...field} rows={3} value={field.value ?? ""} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <Button disabled={isApproving} type="submit">
-            Approve member
-          </Button>
-          <Button
-            disabled={isRejecting}
-            type="button"
-            variant="outline"
-            onClick={onReject}
-          >
-            Reject request
-          </Button>
-        </div>
-      </form>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isRejecting}>Cancel</AlertDialogCancel>
+            <Button
+              disabled={isRejecting}
+              onClick={onDecline}
+              type="button"
+              variant="destructive"
+            >
+              {isRejecting ? "Declining…" : "Decline"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Form>
   )
 }

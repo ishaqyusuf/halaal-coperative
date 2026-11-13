@@ -4,6 +4,7 @@ import {
   MembershipApprovalsUnavailableView,
   MembershipApprovalsView,
 } from "@/components/membership-approvals-view"
+import { loadMembershipApprovalParams } from "@/hooks/use-membership-approval-params"
 import { loadMembershipApprovalsFilterParams } from "@/hooks/use-membership-approvals-filter-params"
 import { loadSortParams } from "@/hooks/use-sort-params"
 import { getMembershipApprovalsListInput } from "@/lib/membership-approvals/list-input"
@@ -24,6 +25,8 @@ export default async function MembershipApprovalsPage({
   const resolvedSearchParams = await searchParams
   const params = loadMembershipApprovalsFilterParams(resolvedSearchParams)
   const { sort } = loadSortParams(resolvedSearchParams)
+  const { membershipRequestId } =
+    loadMembershipApprovalParams(resolvedSearchParams)
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
   const canManage = hasAnyRole(
@@ -51,6 +54,14 @@ export default async function MembershipApprovalsPage({
     batchPrefetch([
       listOptions,
       trpc.onboarding.membershipApprovalSummary.queryOptions(),
+      // A deep link (old detail URL, email) opens the review sheet with data.
+      ...(membershipRequestId
+        ? [
+            trpc.onboarding.membershipApproval.queryOptions({
+              requestId: membershipRequestId,
+            }),
+          ]
+        : []),
     ])
   }
 

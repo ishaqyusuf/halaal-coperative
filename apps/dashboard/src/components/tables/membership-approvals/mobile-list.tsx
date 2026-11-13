@@ -23,7 +23,7 @@ export function MembershipApprovalsMobileList() {
   } = useMembershipApprovalsQuery()
   const rowVirtualizer = useVirtualizer({
     count: requests.length,
-    estimateSize: () => 208,
+    estimateSize: () => 140,
     getScrollElement: () => parentRef.current,
     overscan: 6,
   })

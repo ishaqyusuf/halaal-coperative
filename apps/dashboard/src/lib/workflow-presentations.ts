@@ -107,6 +107,9 @@ export const workflowPresentations = {
     create: sheet("form"),
     details: sheet("review"),
   },
+  membershipApproval: {
+    review: sheet("form"),
+  },
   memberSignupLink: {
     access: dialog("compact"),
     create: dialog("form"),

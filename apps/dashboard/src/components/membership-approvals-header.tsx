@@ -15,7 +15,7 @@ export function MembershipApprovalsHeader({
         <div className="flex flex-wrap items-center justify-end gap-2">
           {showLinkGenerator ? (
             <DashboardActionLink href="/member-signup-links">
-              Open link generator
+              Joining links
             </DashboardActionLink>
           ) : null}
           <MembershipApprovalColumnVisibility />

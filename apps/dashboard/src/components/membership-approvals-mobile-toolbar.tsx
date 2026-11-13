@@ -1,18 +1,18 @@
 "use client"
 
-import { Button } from "@halaalvest/ui/components/button"
+import { TenantLink } from "@halaalvest/tenant-url/next"
+import { Button, buttonVariants } from "@halaalvest/ui/components/button"
+import { cn } from "@halaalvest/ui/lib/utils"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
 } from "@halaalvest/ui/components/input-group"
-import { MoreHorizontal, Search } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { Search } from "lucide-react"
 import { useState } from "react"
 import { MembershipApprovalsFilterDrawer } from "@/components/membership-approvals-filter-drawer"
 import { MiddayFilterIcon } from "@/components/search-filter-dropdown-input"
-import { MobileActionsDrawer } from "@/components/tables/core/mobile-actions-drawer"
 import { useMembershipApprovalsFilterParams } from "@/hooks/use-membership-approvals-filter-params"
 import { useSortParams } from "@/hooks/use-sort-params"
 
@@ -21,11 +21,9 @@ export function MembershipApprovalsMobileToolbar({
 }: {
   showLinkGenerator: boolean
 }) {
-  const router = useRouter()
   const { filter, hasFilters, setFilter } = useMembershipApprovalsFilterParams()
   const { params, setParams } = useSortParams()
   const [filterOpen, setFilterOpen] = useState(false)
-  const [actionsOpen, setActionsOpen] = useState(false)
   const hasActiveControls = hasFilters || Boolean(params.sort)
 
   function clearFilters() {
@@ -33,11 +31,6 @@ export function MembershipApprovalsMobileToolbar({
       setFilter({ search: null, status: null }),
       setParams({ sort: null }),
     ])
-  }
-
-  function openLinkGenerator() {
-    setActionsOpen(false)
-    router.push("/member-signup-links")
   }
 
   return (
@@ -59,7 +52,7 @@ export function MembershipApprovalsMobileToolbar({
               onChange={(event) =>
                 setFilter({ search: event.target.value || null })
               }
-              placeholder="Search membership requests..."
+              placeholder="Search by name or number"
               spellCheck="false"
               type="search"
               value={filter.search ?? ""}
@@ -96,16 +89,15 @@ export function MembershipApprovalsMobileToolbar({
           </div>
 
           {showLinkGenerator ? (
-            <Button
-              aria-label="More membership approval actions"
-              className="size-11"
-              onClick={() => setActionsOpen(true)}
-              size="icon-lg"
-              type="button"
-              variant="outline"
+            <TenantLink
+              className={cn(
+                buttonVariants({ variant: "outline" }),
+                "h-11"
+              )}
+              href="/member-signup-links"
             >
-              <MoreHorizontal />
-            </Button>
+              Joining links
+            </TenantLink>
           ) : null}
         </div>
       </div>
@@ -117,21 +109,6 @@ export function MembershipApprovalsMobileToolbar({
         />
       ) : null}
 
-      <MobileActionsDrawer
-        description="Choose a membership approval action."
-        onOpenChange={setActionsOpen}
-        open={actionsOpen}
-        title="Membership approval actions"
-      >
-        <Button
-          className="h-11 w-full justify-start"
-          onClick={openLinkGenerator}
-          type="button"
-          variant="ghost"
-        >
-          Open link generator
-        </Button>
-      </MobileActionsDrawer>
     </>
   )
 }

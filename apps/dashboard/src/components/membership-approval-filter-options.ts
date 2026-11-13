@@ -1,16 +1,16 @@
 export const membershipApprovalStatusFilters = [
-  { id: "pending_email_verification", name: "Awaiting verification" },
-  { id: "pending_approval", name: "Pending approval" },
+  { id: "pending_approval", name: "Waiting for approval" },
+  { id: "pending_email_verification", name: "Email not confirmed" },
   { id: "approved", name: "Approved" },
-  { id: "rejected", name: "Rejected" },
+  { id: "rejected", name: "Declined" },
   { id: "cancelled", name: "Cancelled" },
 ]
 
 export const membershipApprovalSortOptions = [
-  { id: "submittedAt,desc", name: "Newest submitted" },
-  { id: "submittedAt,asc", name: "Oldest submitted" },
-  { id: "fullName,asc", name: "Applicant A–Z" },
-  { id: "fullName,desc", name: "Applicant Z–A" },
-  { id: "status,asc", name: "Request status" },
-  { id: "emailVerifiedAt,desc", name: "Verification status" },
+  { id: "submittedAt,desc", name: "Newest first" },
+  { id: "submittedAt,asc", name: "Oldest first" },
+  { id: "fullName,asc", name: "Name A–Z" },
+  { id: "fullName,desc", name: "Name Z–A" },
+  { id: "status,asc", name: "Status" },
+  { id: "emailVerifiedAt,desc", name: "Email confirmed" },
 ] as const

@@ -50,6 +50,7 @@ import {
   getImportBatchKind,
   getImportReferenceData,
   getTenantInitialMigrationState,
+  getTenantMigrationWriteAccess,
   getMemberByUserId,
   getSupportCase,
   importCharges,
@@ -562,17 +563,16 @@ async function requireInitialMigrationToolsOpen(
 async function requireLiveFinancialWritesOpen(
   actor: Awaited<ReturnType<typeof requireDashboardActor>>
 ) {
-  const migrationState = await getTenantInitialMigrationState(actor.tenant.id)
+  // One tenant row decides this; the full migration state is ~17 queries.
+  const writeAccess = await getTenantMigrationWriteAccess(actor.tenant.id)
 
-  if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+  if (!writeAccess.canUseLiveFinancialWrites) {
     throw new AppError({
       code: "PRECONDITION_FAILED",
       publicMessage:
         "Live record creation and updates are locked until initial migration is finalized.",
     })
   }
-
-  return migrationState
 }
 
 async function requireInitialMigrationOrLiveWritesOpen(

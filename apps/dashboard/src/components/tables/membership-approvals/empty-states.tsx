@@ -7,10 +7,9 @@ export function MembershipApprovalsEmptyState() {
   return (
     <div className="flex items-center justify-center">
       <div className="mt-32 max-w-md space-y-2 text-center">
-        <h2 className="text-lg font-medium">No membership requests yet</h2>
-        <p className="text-sm text-muted-foreground">
-          Verified member signup requests will appear here once applicants
-          complete the onboarding link.
+        <h2 className="text-lg font-medium">No one has asked to join yet</h2>
+        <p className="text-muted-foreground">
+          People who join with your link will show here.
         </p>
       </div>
     </div>
@@ -25,8 +24,8 @@ export function MembershipApprovalsNoResults() {
       <div className="mt-32 max-w-md space-y-5 text-center">
         <div className="space-y-2">
           <h2 className="text-lg font-medium">No matching requests</h2>
-          <p className="text-sm text-muted-foreground">
-            Try another search or clear the current status filter.
+          <p className="text-muted-foreground">
+            Try another name or clear the filter.
           </p>
         </div>
         <Button

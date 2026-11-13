@@ -4,6 +4,7 @@ import type { RouterOutputs } from "@halaalvest/api/trpc/routers/_app"
 import { Badge } from "@halaalvest/ui/components/badge"
 import type { ColumnDef } from "@tanstack/react-table"
 import { memo } from "react"
+import { formatDayMonthYear } from "@/utils/format"
 import { MembershipApprovalActionsMenu } from "./actions-menu"
 
 export type MembershipApprovalRow =
@@ -11,11 +12,15 @@ export type MembershipApprovalRow =
 
 export function formatMembershipApprovalStatus(status: string) {
   if (status === "pending_email_verification") {
-    return "Awaiting verification"
+    return "Email not confirmed"
   }
 
   if (status === "pending_approval") {
-    return "Pending approval"
+    return "Waiting for approval"
+  }
+
+  if (status === "rejected") {
+    return "Declined"
   }
 
   return `${status.charAt(0).toUpperCase()}${status.slice(1).replaceAll("_", " ")}`
@@ -57,7 +62,7 @@ export const MembershipApprovalVerificationBadge = memo(
         }
         variant="outline"
       >
-        {verified ? "Verified" : "Pending"}
+        {verified ? "Confirmed" : "Not yet"}
       </Badge>
     )
   }
@@ -109,12 +114,12 @@ export const columns: ColumnDef<MembershipApprovalRow>[] = [
     accessorKey: "memberNumber",
     cell: ({ row }) => row.original.memberNumber,
     enableResizing: true,
-    header: "Cooperative number",
+    header: "Member no.",
     id: "number",
     maxSize: 220,
     meta: {
       className: "w-[180px] min-w-[150px]",
-      headerLabel: "Cooperative number",
+      headerLabel: "Member no.",
       skeleton: { type: "text", width: "w-20" },
     },
     minSize: 150,
@@ -122,7 +127,7 @@ export const columns: ColumnDef<MembershipApprovalRow>[] = [
   },
   {
     accessorKey: "phoneNumber",
-    cell: ({ row }) => row.original.phoneNumber ?? "No phone",
+    cell: ({ row }) => row.original.phoneNumber ?? "Not given",
     enableResizing: true,
     header: "Phone",
     id: "phone",
@@ -143,12 +148,12 @@ export const columns: ColumnDef<MembershipApprovalRow>[] = [
       />
     ),
     enableResizing: true,
-    header: "Verification",
+    header: "Email",
     id: "verification",
     maxSize: 180,
     meta: {
       className: "w-[150px] min-w-[130px]",
-      headerLabel: "Verification",
+      headerLabel: "Email confirmed",
       skeleton: { type: "badge", width: "w-16" },
     },
     minSize: 130,
@@ -173,14 +178,14 @@ export const columns: ColumnDef<MembershipApprovalRow>[] = [
   },
   {
     accessorKey: "createdAt",
-    cell: ({ row }) => row.original.createdAt.toISOString().slice(0, 10),
+    cell: ({ row }) => formatDayMonthYear(row.original.createdAt),
     enableResizing: true,
-    header: "Submitted",
+    header: "Asked to join",
     id: "submitted",
     maxSize: 180,
     meta: {
       className: "w-[140px] min-w-[120px]",
-      headerLabel: "Submitted",
+      headerLabel: "Asked to join",
       skeleton: { type: "text", width: "w-20" },
     },
     minSize: 120,

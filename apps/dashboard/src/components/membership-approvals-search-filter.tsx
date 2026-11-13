@@ -43,7 +43,7 @@ export function MembershipApprovalsSearchFilter() {
             filterActive={hasStatusFilter}
             filterOpen={isOpen}
             onChange={handleSearch}
-            placeholder="Search membership requests..."
+            placeholder="Search by name or number"
             spellCheck="false"
             value={filter.search ?? ""}
           />

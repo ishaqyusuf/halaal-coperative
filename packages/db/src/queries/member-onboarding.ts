@@ -6,7 +6,7 @@ import { AppError, type ErrorCode } from "@halaalvest/errors"
 import { createPrismaClient } from "../prisma"
 import { composeCooperativeAccessCode } from "@halaalvest/utils"
 import { createMemberWithState, type CreateMemberInput } from "./members"
-import { getTenantInitialMigrationState } from "./migration"
+import { getTenantMigrationWriteAccess } from "./migration"
 import { assertQaIdentityLane } from "./qa-maintenance"
 
 export type ListMemberOnboardingFilters = {
@@ -31,9 +31,10 @@ async function assertMemberOnboardingWritesOpen(
   prisma: PrismaClient,
   operation: string
 ) {
-  const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
+  // One tenant row; the full migration state (~17 queries) is not needed here.
+  const writeAccess = await getTenantMigrationWriteAccess(tenantId, prisma)
 
-  if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+  if (!writeAccess.canUseLiveFinancialWrites) {
     throw memberOnboardingError(
       "PRECONDITION_FAILED",
       "Member onboarding writes are locked until initial migration is finalized.",
@@ -356,6 +357,35 @@ export async function verifyMemberOnboardingRequest(
   })
 }
 
+// Only what the approval list and review show; the mobile admin list also
+// reads the linked user's email.
+const memberOnboardingListSelect = {
+  createdAt: true,
+  email: true,
+  emailVerifiedAt: true,
+  fullName: true,
+  id: true,
+  memberNumber: true,
+  phoneNumber: true,
+  status: true,
+  user: { select: { email: true } },
+} as const
+
+const memberOnboardingDetailSelect = {
+  approvedAt: true,
+  createdAt: true,
+  email: true,
+  emailVerifiedAt: true,
+  fullName: true,
+  id: true,
+  memberNumber: true,
+  phoneNumber: true,
+  rejectedAt: true,
+  rejectionReason: true,
+  signupLink: { select: { name: true } },
+  status: true,
+} as const
+
 export async function listMemberOnboardingRequests(
   tenantId: string,
   filters?: ListMemberOnboardingFilters,
@@ -421,16 +451,7 @@ export async function listMemberOnboardingRequests(
         ? { cursor: { id: filters.cursor }, skip: 1 }
         : { skip: (page - 1) * pageSize }),
       take: pageSize,
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            fullName: true,
-            phoneNumber: true,
-          },
-        },
-      },
+      select: memberOnboardingListSelect,
     }),
     prisma.memberOnboardingRequest.count({ where }),
   ])
@@ -478,16 +499,7 @@ export async function getMemberOnboardingRequestById(
       id: requestId,
       tenantId,
     },
-    include: {
-      user: {
-        select: {
-          id: true,
-          email: true,
-          fullName: true,
-          phoneNumber: true,
-        },
-      },
-    },
+    select: memberOnboardingDetailSelect,
   })
 }
 
@@ -535,12 +547,12 @@ export async function approveMemberOnboardingRequest(
   if (!prisma) throw memberOnboardingDatabaseError(operation)
 
   return prisma.$transaction(async (tx) => {
-    const migrationState = await getTenantInitialMigrationState(
+    const writeAccess = await getTenantMigrationWriteAccess(
       input.tenantId,
       tx as PrismaClient
     )
 
-    if (!migrationState.snapshot.canUseLiveFinancialWrites) {
+    if (!writeAccess.canUseLiveFinancialWrites) {
       throw memberOnboardingError(
         "PRECONDITION_FAILED",
         "Member onboarding approvals are locked until initial migration is finalized.",

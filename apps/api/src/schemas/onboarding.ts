@@ -29,3 +29,7 @@ export const listMembershipApprovalsSchema = z
     status: membershipApprovalStatusSchema.nullable().optional(),
   })
   .optional()
+
+export const getMembershipApprovalSchema = z.object({
+  requestId: z.uuid(),
+})

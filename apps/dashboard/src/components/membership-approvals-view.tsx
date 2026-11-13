@@ -1,9 +1,5 @@
 import { Suspense } from "react"
-import {
-  CollapsibleSummary,
-  DashboardEmptyState,
-  ScrollableContent,
-} from "@/components/dashboard"
+import { DashboardEmptyState, ScrollableContent } from "@/components/dashboard"
 import { MembershipApprovalsHeader } from "@/components/membership-approvals-header"
 import {
   MembershipApprovalsSummary,
@@ -17,8 +13,8 @@ export function MembershipApprovalsUnavailableView() {
   return (
     <ScrollableContent>
       <DashboardEmptyState
-        body="Once the database runtime is configured, verified signup requests will appear here for cooperative review."
-        title="Membership approvals need the database runtime."
+        body="Try again in a moment."
+        title="Approvals are not available right now"
       />
     </ScrollableContent>
   )
@@ -33,41 +29,34 @@ export function MembershipApprovalsView({
   initialTableSettings: Partial<TableSettings>
   showLinkGenerator: boolean
 }) {
+  if (!canManage) {
+    return (
+      <ScrollableContent>
+        <DashboardEmptyState
+          body="Ask a cooperative admin to give you member access."
+          title="You cannot approve members"
+        />
+      </ScrollableContent>
+    )
+  }
+
+  // The review sheet is mounted once in GlobalSheets (?membershipRequestId=).
   return (
     <ScrollableContent>
-      <div className="flex flex-col gap-6">
-        {canManage ? (
-          <div className="hidden md:block">
-            <CollapsibleSummary>
-              <Suspense fallback={<MembershipApprovalsSummarySkeleton />}>
-                <MembershipApprovalsSummary />
-              </Suspense>
-            </CollapsibleSummary>
-          </div>
-        ) : null}
+      <div className="flex flex-col gap-5">
+        <Suspense fallback={<MembershipApprovalsSummarySkeleton />}>
+          <MembershipApprovalsSummary />
+        </Suspense>
 
-        <MembershipApprovalsHeader
-          showLinkGenerator={showLinkGenerator && canManage}
-        />
+        <MembershipApprovalsHeader showLinkGenerator={showLinkGenerator} />
 
-        {canManage ? (
-          <Suspense
-            fallback={
-              <MembershipApprovalsSkeleton
-                initialSettings={initialTableSettings}
-              />
-            }
-          >
-            <MembershipApprovalsDataView
-              initialSettings={initialTableSettings}
-            />
-          </Suspense>
-        ) : (
-          <DashboardEmptyState
-            body="Cooperative admins and operations officers can review and approve member signups from this queue."
-            title="Approval access is limited to member-management roles."
-          />
-        )}
+        <Suspense
+          fallback={
+            <MembershipApprovalsSkeleton initialSettings={initialTableSettings} />
+          }
+        >
+          <MembershipApprovalsDataView initialSettings={initialTableSettings} />
+        </Suspense>
       </div>
     </ScrollableContent>
   )

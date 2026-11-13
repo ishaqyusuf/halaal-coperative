@@ -43,9 +43,10 @@ describe("membership approvals Midday conformance", () => {
       "membershipApprovalSummary: membershipApprovalProcedure"
     )
     expect(router).toContain("membershipApprovals: membershipApprovalProcedure")
+    expect(router).toContain("membershipApproval: membershipApprovalProcedure")
   })
 
-  test("uses responsive mobile items, drawers, and breakpoint-aware skeletons", () => {
+  test("uses responsive mobile items, a filter drawer, and breakpoint-aware skeletons", () => {
     const page = read("../../app/(app)/(sidebar)/membership-approvals/page.tsx")
     const view = read("../../components/membership-approvals-view.tsx")
     const header = read("../../components/membership-approvals-header.tsx")
@@ -63,17 +64,35 @@ describe("membership approvals Midday conformance", () => {
     )
 
     expect(page).toContain("export const metadata")
-    expect(view).toContain('className="hidden md:block"')
+    expect(view).toContain("<MembershipApprovalsSummary />")
     expect(header).toContain("<MembershipApprovalsMobileToolbar")
     expect(toolbar).toContain("<MembershipApprovalsFilterDrawer")
-    expect(toolbar).toContain("<MobileActionsDrawer")
+    // The only extra action is a plain link, so there is no actions drawer.
+    expect(toolbar).not.toContain("<MobileActionsDrawer")
     expect(dataView).toContain("<ResponsiveDataView")
     expect(dataView).toContain("mobile={<MembershipApprovalsMobileList />}")
     expect(mobileItem).toContain('from "@halaalvest/ui/components/item"')
-    expect(mobileItem).toContain("<dl")
-    expect(mobileItem).toContain("Request status")
+    expect(mobileItem).toContain("membershipRequestId: request.id")
+    expect(mobileItem).not.toContain("MobileActionsDrawer")
     expect(skeleton).toContain('className="md:hidden"')
     expect(skeleton).toContain("<MembershipApprovalsMobileSkeleton")
+  })
+
+  test("reviews a request in a URL-addressed sheet; the old route redirects", () => {
+    const detailRoute = read(
+      "../../app/(app)/(sidebar)/membership-approvals/[requestId]/page.tsx"
+    )
+    const sheet = read("../../components/sheets/membership-approval-sheet.tsx")
+    const globalSheets = read("../../components/sheets/global-sheets.tsx")
+    const form = read("../../components/onboarding/membership-approval-form.tsx")
+
+    expect(detailRoute).toContain("tenantRedirect")
+    expect(detailRoute).toContain("membershipRequestId=")
+    expect(sheet).toContain('getWorkflowPresentation("membershipApproval", "review")')
+    expect(globalSheets).toContain("<MembershipApprovalSheet />")
+    // Declining is consequential: a real AlertDialog with an optional reason.
+    expect(form).toContain("<AlertDialogContent>")
+    expect(form).toContain("trpc.onboarding.pathKey()")
   })
 
   test("provides a retryable route error boundary", () => {

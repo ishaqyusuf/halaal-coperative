@@ -1,6 +1,5 @@
 "use client"
 
-import { useTenantRouter } from "@halaalvest/tenant-url/next"
 import { closestCenter, DndContext } from "@dnd-kit/core"
 import {
   Table,
@@ -19,6 +18,7 @@ import { useStickyColumns } from "@/hooks/use-sticky-columns"
 import { useTableDnd } from "@/hooks/use-table-dnd"
 import { useTableScroll } from "@/hooks/use-table-scroll"
 import { useTableSettings } from "@/hooks/use-table-settings"
+import { useMembershipApprovalParams } from "@/hooks/use-membership-approval-params"
 import { useMembershipApprovalTableStore } from "@/store/membership-approvals"
 import {
   ROW_HEIGHTS,
@@ -42,7 +42,7 @@ export function MembershipApprovalsDataTable({
 }: {
   initialSettings?: Partial<TableSettings>
 }) {
-  const router = useTenantRouter()
+  const { setParams } = useMembershipApprovalParams()
   const parentRef = useRef<HTMLDivElement>(null)
   const { setColumns } = useMembershipApprovalTableStore()
   const {
@@ -126,9 +126,9 @@ export function MembershipApprovalsDataTable({
   const openRequest = useCallback(
     (id?: string) => {
       if (!id) return
-      router.push(`/membership-approvals/${id}`)
+      void setParams({ membershipRequestId: id })
     },
-    [router]
+    [setParams]
   )
 
   if (!requests.length && hasActiveControls) {

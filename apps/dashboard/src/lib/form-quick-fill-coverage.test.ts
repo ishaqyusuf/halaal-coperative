@@ -45,7 +45,7 @@ describe("dashboard Quick fill coverage", () => {
     // monthly-record-content.tsx is being reworked (workplaces); re-add it
     // once that lands with its Quick Fill.
     const coveredForms = [
-      "components/business-content.tsx",
+      "components/business/business-forms.tsx",
       "components/charge-content.tsx",
       "components/charge-operation-content.tsx",
       "components/contribution-content.tsx",

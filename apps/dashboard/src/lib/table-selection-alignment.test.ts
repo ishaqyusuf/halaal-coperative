@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 
-const selectableTables: [string][] = [["business"], ["members"]]
+// /business is a plain list since thread 12 (no table, no selection).
+const selectableTables: [string][] = [["members"]]
 
 const individualActionTables: [string][] = [["payment-receipts"], ["support"]]
 

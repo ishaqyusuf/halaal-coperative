@@ -59,7 +59,7 @@ function RailSteps({
               className="flex min-h-11 items-center gap-3 px-2 text-sm text-foreground"
               key={part.key}
             >
-              <span className="flex size-[26px] shrink-0 items-center justify-center rounded-full border border-primary bg-primary text-primary-foreground">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-primary bg-primary text-primary-foreground">
                 <CheckIcon aria-hidden="true" className="size-4" />
               </span>
               <span>
@@ -88,7 +88,7 @@ function RailSteps({
                   <>
                     <span
                       className={cn(
-                        "flex size-[26px] shrink-0 items-center justify-center rounded-full border text-sm font-semibold",
+                        "flex size-8 shrink-0 items-center justify-center rounded-full border text-sm font-semibold",
                         state === "complete" &&
                           "border-primary bg-primary text-primary-foreground",
                         state === "current" &&

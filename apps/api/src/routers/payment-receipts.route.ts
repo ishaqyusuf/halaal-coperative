@@ -4,8 +4,13 @@ import {
   getMemberPaymentReceipt,
   getMemberByUserId,
   listMemberPaymentReceiptPage,
+  listPaymentReceiptMemberOptions,
 } from "@halaalvest/db"
-import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
+import {
+  createTRPCRouter,
+  permissionProcedure,
+  tenantProcedure,
+} from "../lib.trpc"
 
 const paymentReceiptSortFieldSchema = z.enum([
   "memberName",
@@ -51,6 +56,17 @@ const listPaymentReceiptsSchema = z
   .optional()
 
 export const paymentReceiptsRouter = createTRPCRouter({
+  // What a receipt for one member can be allocated to. The receipt sheet asks
+  // for it when staff pick a member, instead of the page loading every
+  // member's plans, loans and requests.
+  memberOptions: permissionProcedure("view_contribution_operations")
+    .input(z.object({ memberId: z.string().uuid() }))
+    .query(({ ctx, input }) =>
+      listPaymentReceiptMemberOptions({
+        memberId: input.memberId,
+        tenantId: ctx.tenant.current.id,
+      })
+    ),
   get: tenantProcedure
     .input(z.object({ receiptId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {

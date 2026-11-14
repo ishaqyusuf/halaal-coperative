@@ -109,13 +109,7 @@ export function PaymentReceiptsPageView({
       <PaymentReceiptsView
         canCreateReceipt={data.canCreateReceipt}
         categoryOptions={data.categoryOptions}
-        commitmentPlans={data.commitmentPlans}
-        foodPurchaseApplications={data.foodPurchaseApplications}
-        loans={data.loans}
-        members={data.members}
         initialSettings={paymentReceiptsInitialSettings}
-        procurementSchedules={data.procurementSchedules}
-        projectFinancingRequests={data.projectFinancingRequests}
         summary={data.summary}
       />
     </WorkspacePageShell>

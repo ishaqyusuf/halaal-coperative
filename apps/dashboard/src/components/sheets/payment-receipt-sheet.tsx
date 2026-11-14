@@ -22,22 +22,22 @@ import { useTRPC } from "@/trpc/client"
 
 export function PaymentReceiptSheet({
   categoryOptions,
-  commitmentPlans,
-  foodPurchaseApplications,
-  loans,
+  commitmentPlans = [],
+  foodPurchaseApplications = [],
+  loans = [],
   member,
-  members = [],
-  procurementSchedules,
-  projectFinancingRequests,
+  procurementSchedules = [],
+  projectFinancingRequests = [],
 }: {
   categoryOptions: PaymentReceiptCategoryOption[]
-  commitmentPlans: PaymentReceiptOption[]
-  foodPurchaseApplications: PaymentReceiptOption[]
-  loans: PaymentReceiptOption[]
+  // A member's own lists (member mode). Staff forms load one member's lists
+  // when that member is chosen.
+  commitmentPlans?: PaymentReceiptOption[]
+  foodPurchaseApplications?: PaymentReceiptOption[]
+  loans?: PaymentReceiptOption[]
   member?: { id: string }
-  members?: PaymentReceiptOption[]
-  procurementSchedules: PaymentReceiptOption[]
-  projectFinancingRequests: PaymentReceiptOption[]
+  procurementSchedules?: PaymentReceiptOption[]
+  projectFinancingRequests?: PaymentReceiptOption[]
 }) {
   const { paymentReceiptId, paymentReceiptSheetType, setParams } =
     usePaymentReceiptParams()
@@ -77,13 +77,7 @@ export function PaymentReceiptSheet({
               <div className="px-4 pb-6 md:px-6">
                 <PaymentReceiptCreateContent
                   categoryOptions={categoryOptions}
-                  commitmentPlans={commitmentPlans}
-                  foodPurchaseApplications={foodPurchaseApplications}
-                  loans={loans}
-                  members={members}
                   onClose={closeSheet}
-                  procurementSchedules={procurementSchedules}
-                  projectFinancingRequests={projectFinancingRequests}
                 />
               </div>
             </>
@@ -106,12 +100,7 @@ export function PaymentReceiptSheet({
           ) : paymentReceiptId ? (
             <SelectedPaymentReceiptContent
               categoryOptions={categoryOptions}
-              commitmentPlans={commitmentPlans}
-              foodPurchaseApplications={foodPurchaseApplications}
-              loans={loans}
               onClose={closeSheet}
-              procurementSchedules={procurementSchedules}
-              projectFinancingRequests={projectFinancingRequests}
               receiptId={paymentReceiptId}
               type={paymentReceiptSheetType}
             />
@@ -128,22 +117,12 @@ export function PaymentReceiptSheet({
 
 function SelectedPaymentReceiptContent({
   categoryOptions,
-  commitmentPlans,
-  foodPurchaseApplications,
-  loans,
   onClose,
-  procurementSchedules,
-  projectFinancingRequests,
   receiptId,
   type,
 }: {
   categoryOptions: PaymentReceiptCategoryOption[]
-  commitmentPlans: PaymentReceiptOption[]
-  foodPurchaseApplications: PaymentReceiptOption[]
-  loans: PaymentReceiptOption[]
   onClose: () => void | Promise<void>
-  procurementSchedules: PaymentReceiptOption[]
-  projectFinancingRequests: PaymentReceiptOption[]
   receiptId: string
   type: PaymentReceiptSheetType
 }) {
@@ -168,12 +147,7 @@ function SelectedPaymentReceiptContent({
       {type === "review" ? (
         <PaymentReceiptReviewContent
           categoryOptions={categoryOptions}
-          commitmentPlans={commitmentPlans}
-          foodPurchaseApplications={foodPurchaseApplications}
-          loans={loans}
           onClose={onClose}
-          procurementSchedules={procurementSchedules}
-          projectFinancingRequests={projectFinancingRequests}
           receipt={receipt}
         />
       ) : type === "support" ? (

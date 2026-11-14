@@ -1,209 +1,23 @@
 import {
+  buildPaymentReceiptCategoryOptions,
   createDbRuntime,
   getMemberByUserId,
   getMemberPaymentReceiptSummary,
   getMemberScopedPaymentReceiptSummary,
-  getTenantOperationProfile,
-  listContributionPlans,
-  listFoodPurchaseApplications,
-  listLoanOptions,
-  listMemberContributionPlans,
-  listMemberLoans,
-  listMembers,
-  listProcurementRequests,
-  listProjectFinancingRequests,
+  listPaymentReceiptMemberOptions,
+  type PaymentReceiptCategoryOption,
 } from "@halaalvest/db"
+import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { allStaffRoles, hasAnyRole } from "@/lib/workspace-access"
 
-export type PaymentReceiptCategoryOption = {
-  label: string
-  value:
-    | "commitment"
-    | "special_savings"
-    | "loan_servicing"
-    | "loan_extra_payment"
-    | "shares"
-    | "procurement"
-    | "project_financing"
-    | "food_purchase"
-    | "other"
-}
+export { buildPaymentReceiptCategoryOptions, type PaymentReceiptCategoryOption }
 
-const baseCategoryOptions = [
-  { label: "Commitment", value: "commitment" },
-  { label: "Special savings", value: "special_savings" },
-  { label: "Loan servicing", value: "loan_servicing" },
-  { label: "Extra loan payment", value: "loan_extra_payment" },
-  { label: "Shares", value: "shares" },
-  { label: "Project financing", value: "project_financing" },
-  { label: "Other", value: "other" },
-] as const satisfies PaymentReceiptCategoryOption[]
-
-const payableProcurementScheduleStatuses = new Set([
-  "due",
-  "overdue",
-  "partially_paid",
-  "pending",
-])
-
-function buildProcurementScheduleOptions(
-  requests: Awaited<ReturnType<typeof listProcurementRequests>>
-) {
-  return requests.flatMap((request) =>
-    request.repaymentScheduleItems
-      .filter((schedule) => {
-        const outstanding =
-          Number(schedule.amount) - Number(schedule.paidAmount)
-
-        return (
-          payableProcurementScheduleStatuses.has(schedule.status) &&
-          outstanding > 0
-        )
-      })
-      .map((schedule) => {
-        const outstanding =
-          Number(schedule.amount) - Number(schedule.paidAmount)
-
-        return {
-          id: schedule.id,
-          label: `${request.member.fullName} - ${request.itemName} #${schedule.installmentNumber} - ${outstanding.toLocaleString("en-NG")}`,
-          memberId: request.memberId,
-        }
-      })
-  )
-}
-
-function buildFoodPurchaseApplicationOptions(
-  applications: Awaited<ReturnType<typeof listFoodPurchaseApplications>>
-) {
-  return applications
-    .filter((application) => {
-      const approvedAmount = Number(application.approvedAmount ?? 0)
-      const outstanding = approvedAmount - Number(application.paidAmount)
-
-      return application.status === "approved" && outstanding > 0
-    })
-    .map((application) => {
-      const approvedAmount = Number(application.approvedAmount ?? 0)
-      const outstanding = approvedAmount - Number(application.paidAmount)
-      const itemLabel =
-        application.itemDescription ??
-        application.cycle.periodMonth.toISOString().slice(0, 7)
-
-      return {
-        id: application.id,
-        label: `${application.member.fullName} - ${itemLabel} - ${outstanding.toLocaleString("en-NG")}`,
-        memberId: application.memberId,
-      }
-    })
-}
-
-function buildProjectFinancingRequestOptions(
-  requests: Awaited<ReturnType<typeof listProjectFinancingRequests>>
-) {
-  return requests
-    .filter((request) => {
-      const approvedAmount = Number(request.approvedAmount ?? 0)
-      const outstanding = approvedAmount - Number(request.paidAmount)
-
-      return (
-        request.approvedStructure === "repayable_facility" &&
-        ["approved", "active"].includes(request.status) &&
-        outstanding > 0
-      )
-    })
-    .map((request) => {
-      const approvedAmount = Number(request.approvedAmount ?? 0)
-      const outstanding = approvedAmount - Number(request.paidAmount)
-
-      return {
-        id: request.id,
-        label: `${request.member.fullName} - ${request.businessName} - ${outstanding.toLocaleString("en-NG")}`,
-        memberId: request.memberId,
-      }
-    })
-}
-
-export function buildPaymentReceiptCategoryOptions(input: {
-  foodPurchaseAccessMode: string
-  foodPurchaseApplicationsCount: number
-  procurementAccessMode: string
-  procurementSchedulesCount: number
-}): PaymentReceiptCategoryOption[] {
-  const categoryOptions: PaymentReceiptCategoryOption[] = [
-    ...baseCategoryOptions,
-  ]
-  const shouldShowProcurement =
-    input.procurementAccessMode !== "disabled" ||
-    input.procurementSchedulesCount > 0
-  const shouldShowFoodPurchase =
-    input.foodPurchaseAccessMode !== "disabled" ||
-    input.foodPurchaseApplicationsCount > 0
-
-  if (shouldShowProcurement) {
-    categoryOptions.splice(5, 0, {
-      label: "Procurement",
-      value: "procurement",
-    })
-  }
-
-  if (shouldShowFoodPurchase) {
-    categoryOptions.splice(shouldShowProcurement ? 7 : 6, 0, {
-      label: "Foodstuff Purchase",
-      value: "food_purchase",
-    })
-  }
-
-  return categoryOptions
-}
-
-function buildCommitmentPlanOptions(
-  plans: Awaited<ReturnType<typeof listContributionPlans>>
-) {
-  return plans
-    .filter((plan) => plan.isActive)
-    .map((plan) => ({
-      id: plan.id,
-      label: `${plan.member.fullName} - ${Number(plan.amount).toLocaleString("en-NG")}`,
-      memberId: plan.member.id,
-    }))
-}
-
-function buildMemberCommitmentPlanOptions(
-  plans: Awaited<ReturnType<typeof listMemberContributionPlans>>
-) {
-  return plans
-    .filter((plan) => plan.isActive)
-    .map((plan) => ({
-      id: plan.id,
-      label: `${plan.member.fullName} - ${Number(plan.amount).toLocaleString("en-NG")}`,
-      memberId: plan.member.id,
-    }))
-}
-
-function buildLoanOptions(loans: Awaited<ReturnType<typeof listLoanOptions>>) {
-  return loans.map((loan) => ({
-    id: loan.id,
-    label: `${loan.member.fullName} - ${loan.loanProduct.name} - ${loan.outstandingPrincipal.toLocaleString("en-NG")}`,
-    memberId: loan.member.id,
-  }))
-}
-
-function buildMemberLoanOptions(
-  loans: Awaited<ReturnType<typeof listMemberLoans>>
-) {
-  return loans
-    .filter((loan) => ["approved", "disbursed", "active"].includes(loan.status))
-    .map((loan) => ({
-      id: loan.id,
-      label: `${loan.loanProduct.name} - ${Number(
-        loan.outstandingPrincipal
-      ).toLocaleString("en-NG")}`,
-      memberId: loan.member.id,
-    }))
-}
-
+// Staff pages load only the summary and the category list. A receipt's
+// plans, loans and requests are loaded for one member when staff pick that
+// member in the receipt sheet (`paymentReceipts.memberOptions`); the page no
+// longer reads every member's lists on each visit. A member's own page loads
+// their lists up front, which is bounded to that member.
 export async function loadPaymentReceiptsPageData() {
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
@@ -233,151 +47,47 @@ export async function loadPaymentReceiptsPageData() {
       return { state: "member-profile-missing" as const }
     }
 
-    const [
-      summary,
-      plans,
-      loans,
-      procurementRequests,
-      foodPurchaseApplications,
-      activeProjectFinancingRequests,
-      approvedProjectFinancingRequests,
-      operationProfile,
-    ] = await Promise.all([
+    const [summary, options, operationProfile] = await Promise.all([
       getMemberScopedPaymentReceiptSummary({
         memberId: member.id,
         tenantId,
       }),
-      listMemberContributionPlans({
-        memberId: member.id,
-        tenantId,
-      }),
-      listMemberLoans({
-        memberId: member.id,
-        tenantId,
-      }),
-      listProcurementRequests({
-        limit: 100,
-        memberId: member.id,
-        status: "active",
-        tenantId,
-      }),
-      listFoodPurchaseApplications({
-        limit: 100,
-        memberId: member.id,
-        status: "approved",
-        tenantId,
-      }),
-      listProjectFinancingRequests({
-        limit: 100,
-        memberId: member.id,
-        status: "active",
-        tenantId,
-      }),
-      listProjectFinancingRequests({
-        limit: 100,
-        memberId: member.id,
-        status: "approved",
-        tenantId,
-      }),
-      getTenantOperationProfile(tenantId),
+      listPaymentReceiptMemberOptions({ memberId: member.id, tenantId }),
+      getRequestTenantOperationProfile(tenantId),
     ])
-    const procurementSchedules =
-      buildProcurementScheduleOptions(procurementRequests)
-    const foodPurchaseApplicationOptions = buildFoodPurchaseApplicationOptions(
-      foodPurchaseApplications
-    )
 
     return {
       state: "member-ready" as const,
       canCreateReceipt:
         operationProfile.services.payment_receipts.canMemberCreate,
-      categoryOptions: buildPaymentReceiptCategoryOptions({
-        foodPurchaseAccessMode:
-          operationProfile.services.food_purchase.accessMode,
-        foodPurchaseApplicationsCount: foodPurchaseApplicationOptions.length,
-        procurementAccessMode: operationProfile.services.procurement.accessMode,
-        procurementSchedulesCount: procurementSchedules.length,
-      }),
-      commitmentPlans: buildMemberCommitmentPlanOptions(plans),
-      foodPurchaseApplications: foodPurchaseApplicationOptions,
-      loans: buildMemberLoanOptions(loans),
+      categoryOptions: options.categoryOptions,
+      commitmentPlans: options.commitmentPlans,
+      foodPurchaseApplications: options.foodPurchaseApplications,
+      loans: options.loans,
       member,
-      procurementSchedules,
-      projectFinancingRequests: buildProjectFinancingRequestOptions([
-        ...activeProjectFinancingRequests,
-        ...approvedProjectFinancingRequests,
-      ]),
+      procurementSchedules: options.procurementSchedules,
+      projectFinancingRequests: options.projectFinancingRequests,
       summary,
     }
   }
 
-  const [
-    summary,
-    members,
-    plans,
-    loans,
-    procurementRequests,
-    foodPurchaseApplications,
-    activeProjectFinancingRequests,
-    approvedProjectFinancingRequests,
-    operationProfile,
-  ] = await Promise.all([
+  const [summary, operationProfile] = await Promise.all([
     getMemberPaymentReceiptSummary(tenantId),
-    listMembers(tenantId, { page: 1, pageSize: 200 }),
-    listContributionPlans(tenantId),
-    listLoanOptions(tenantId, {
-      statuses: ["approved", "disbursed", "active"],
-    }),
-    listProcurementRequests({
-      limit: 1000,
-      status: "active",
-      tenantId,
-    }),
-    listFoodPurchaseApplications({
-      limit: 1000,
-      status: "approved",
-      tenantId,
-    }),
-    listProjectFinancingRequests({
-      limit: 1000,
-      status: "active",
-      tenantId,
-    }),
-    listProjectFinancingRequests({
-      limit: 1000,
-      status: "approved",
-      tenantId,
-    }),
-    getTenantOperationProfile(tenantId),
+    getRequestTenantOperationProfile(tenantId),
   ])
-  const procurementSchedules =
-    buildProcurementScheduleOptions(procurementRequests)
-  const foodPurchaseApplicationOptions = buildFoodPurchaseApplicationOptions(
-    foodPurchaseApplications
-  )
 
   return {
     state: "staff-ready" as const,
     canCreateReceipt: operationProfile.services.payment_receipts.canStaffCreate,
+    // Before a member is chosen: categories by service mode only. Choosing a
+    // member refines them with that member's own obligations.
     categoryOptions: buildPaymentReceiptCategoryOptions({
       foodPurchaseAccessMode:
         operationProfile.services.food_purchase.accessMode,
-      foodPurchaseApplicationsCount: foodPurchaseApplicationOptions.length,
+      foodPurchaseApplicationsCount: 0,
       procurementAccessMode: operationProfile.services.procurement.accessMode,
-      procurementSchedulesCount: procurementSchedules.length,
+      procurementSchedulesCount: 0,
     }),
-    commitmentPlans: buildCommitmentPlanOptions(plans),
-    foodPurchaseApplications: foodPurchaseApplicationOptions,
-    loans: buildLoanOptions(loans),
-    members: members.items.map((member) => ({
-      id: member.id,
-      label: `${member.fullName} (${member.memberNumber})`,
-    })),
-    procurementSchedules,
-    projectFinancingRequests: buildProjectFinancingRequestOptions([
-      ...activeProjectFinancingRequests,
-      ...approvedProjectFinancingRequests,
-    ]),
     summary,
   }
 }

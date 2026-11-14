@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
-import { useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNotifications } from "@halaalvest/notifications-react"
 import {
   Alert,
@@ -44,6 +44,7 @@ import type {
 } from "@halaalvest/db"
 import { ExternalLinkIcon, PlusIcon, Trash2Icon } from "lucide-react"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
+import { MemberCombobox } from "@/components/member-combobox"
 import { UploadEvidenceInput } from "@/components/upload-evidence-input"
 import {
   createMemberPaymentReceiptAction,
@@ -245,6 +246,40 @@ function selectOptionsForMember(
     .map((option) => ({ label: option.label, value: option.id }))
 }
 
+// Staff receipt forms load one member's plans, loans and requests when that
+// member is chosen (`paymentReceipts.memberOptions`), instead of the page
+// loading every member's lists. Before a member is chosen the page's category
+// list is used.
+function useReceiptMemberOptions(
+  memberId: string,
+  fallbackCategoryOptions: PaymentReceiptCategoryOption[]
+) {
+  const trpc = useTRPC()
+  const query = useQuery(
+    trpc.paymentReceipts.memberOptions.queryOptions(
+      { memberId },
+      { enabled: Boolean(memberId) }
+    )
+  )
+
+  return useMemo(() => {
+    const data = memberId ? query.data : undefined
+    const toSelect = (options?: PaymentReceiptOption[]) =>
+      selectOptionsForMember(options ?? [], memberId)
+
+    return {
+      categoryOptions: data?.categoryOptions ?? fallbackCategoryOptions,
+      data,
+      foodPurchaseApplications: toSelect(data?.foodPurchaseApplications),
+      isLoading: Boolean(memberId) && query.isFetching,
+      loans: toSelect(data?.loans),
+      plans: toSelect(data?.commitmentPlans),
+      procurementSchedules: toSelect(data?.procurementSchedules),
+      projectFinancingRequests: toSelect(data?.projectFinancingRequests),
+    }
+  }, [fallbackCategoryOptions, memberId, query.data, query.isFetching])
+}
+
 function Field({ children, label }: { children: ReactNode; label: string }) {
   return (
     <label className="block space-y-1 text-sm">
@@ -293,25 +328,15 @@ function clearIncompatibleTargets(category: AllocationCategory) {
 }
 
 export function PaymentReceiptCreateContent({
-  categoryOptions,
-  commitmentPlans,
-  foodPurchaseApplications,
-  loans,
-  members,
+  categoryOptions: pageCategoryOptions,
   onClose,
-  projectFinancingRequests,
-  procurementSchedules,
 }: {
   categoryOptions: PaymentReceiptCategoryOption[]
-  commitmentPlans: PaymentReceiptOption[]
-  foodPurchaseApplications: PaymentReceiptOption[]
-  loans: PaymentReceiptOption[]
-  members: PaymentReceiptOption[]
   onClose: () => void | Promise<void>
-  projectFinancingRequests: PaymentReceiptOption[]
-  procurementSchedules: PaymentReceiptOption[]
 }) {
   const router = useRouter()
+  const trpc = useTRPC()
+  const queryClient = useQueryClient()
   const refreshPaymentReceipts = useRefreshPaymentReceipts()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
@@ -326,30 +351,15 @@ export function PaymentReceiptCreateContent({
   const [allocations, setAllocations] = useState<AllocationDraft[]>([
     emptyAllocation(),
   ])
-  const selectedMemberPlans = useMemo(
-    () => selectOptionsForMember(commitmentPlans, memberId),
-    [commitmentPlans, memberId]
-  )
-  const selectedMemberLoans = useMemo(
-    () => selectOptionsForMember(loans, memberId),
-    [loans, memberId]
-  )
-  const selectedMemberFoodPurchaseApplications = useMemo(
-    () => selectOptionsForMember(foodPurchaseApplications, memberId),
-    [foodPurchaseApplications, memberId]
-  )
-  const selectedMemberProjectFinancingRequests = useMemo(
-    () => selectOptionsForMember(projectFinancingRequests, memberId),
-    [memberId, projectFinancingRequests]
-  )
-  const selectedMemberProcurementSchedules = useMemo(
-    () => selectOptionsForMember(procurementSchedules, memberId),
-    [memberId, procurementSchedules]
-  )
-  const memberOptions = useMemo(
-    () => members.map((member) => ({ label: member.label, value: member.id })),
-    [members]
-  )
+  const memberOptions = useReceiptMemberOptions(memberId, pageCategoryOptions)
+  const categoryOptions = memberOptions.categoryOptions
+  const selectedMemberPlans = memberOptions.plans
+  const selectedMemberLoans = memberOptions.loans
+  const selectedMemberFoodPurchaseApplications =
+    memberOptions.foodPurchaseApplications
+  const selectedMemberProjectFinancingRequests =
+    memberOptions.projectFinancingRequests
+  const selectedMemberProcurementSchedules = memberOptions.procurementSchedules
   const allocationTotal = allocations.reduce(
     (sum, allocation) => sum + Number(allocation.amount || 0),
     0
@@ -420,15 +430,25 @@ export function PaymentReceiptCreateContent({
           proofDocumentUrl,
           receiptAmount,
         }}
-        enabled={!isPending && members.length > 0}
+        enabled={!isPending}
         isDirty={Boolean(memberId || paymentReference || receiptAmount)}
-        onFill={() => {
-          const plan = commitmentPlans.find((option) => option.memberId)
-          const nextMemberId = memberId || plan?.memberId || members[0]!.id
-          const memberPlan =
-            commitmentPlans.find(
-              (option) => option.memberId === nextMemberId
-            ) ?? null
+        onFill={async () => {
+          // Quick Fill picks the first member when none is chosen, then that
+          // member's first plan, through the same lazy lookups as the form.
+          const nextMemberId =
+            memberId ||
+            (
+              await queryClient.fetchQuery(
+                trpc.members.options.queryOptions({})
+              )
+            )[0]?.id
+          if (!nextMemberId) return
+          const options = await queryClient.fetchQuery(
+            trpc.paymentReceipts.memberOptions.queryOptions({
+              memberId: nextMemberId,
+            })
+          )
+          const memberPlan = options.commitmentPlans[0] ?? null
           const amount = createQaAmount(10_000, 50_000, 5_000)
           const reference = createQaReference("HVC")
           setMemberId(nextMemberId)
@@ -463,10 +483,9 @@ export function PaymentReceiptCreateContent({
       />
       <div className="grid gap-4 md:grid-cols-2">
         <Field label="Member">
-          <LabeledSelectInput
+          <MemberCombobox
             disabled={isPending}
             onValueChange={setMemberId}
-            options={memberOptions}
             value={memberId}
           />
         </Field>
@@ -645,22 +664,12 @@ export function PaymentReceiptCreateContent({
 }
 
 export function PaymentReceiptReviewContent({
-  categoryOptions,
-  commitmentPlans,
-  foodPurchaseApplications,
-  loans,
+  categoryOptions: pageCategoryOptions,
   onClose,
-  projectFinancingRequests,
-  procurementSchedules,
   receipt,
 }: {
   categoryOptions: PaymentReceiptCategoryOption[]
-  commitmentPlans: PaymentReceiptOption[]
-  foodPurchaseApplications: PaymentReceiptOption[]
-  loans: PaymentReceiptOption[]
   onClose: () => void | Promise<void>
-  projectFinancingRequests: PaymentReceiptOption[]
-  procurementSchedules: PaymentReceiptOption[]
   receipt: MemberPaymentReceiptRow
 }) {
   const router = useRouter()
@@ -680,26 +689,16 @@ export function PaymentReceiptReviewContent({
       ),
     [receipt.allocations]
   )
-  const receiptLoans = useMemo(
-    () => selectOptionsForMember(loans, receipt.memberId),
-    [loans, receipt.memberId]
+  const memberOptions = useReceiptMemberOptions(
+    receipt.memberId,
+    pageCategoryOptions
   )
-  const receiptPlans = useMemo(
-    () => selectOptionsForMember(commitmentPlans, receipt.memberId),
-    [commitmentPlans, receipt.memberId]
-  )
-  const receiptFoodPurchaseApplications = useMemo(
-    () => selectOptionsForMember(foodPurchaseApplications, receipt.memberId),
-    [foodPurchaseApplications, receipt.memberId]
-  )
-  const receiptProjectFinancingRequests = useMemo(
-    () => selectOptionsForMember(projectFinancingRequests, receipt.memberId),
-    [projectFinancingRequests, receipt.memberId]
-  )
-  const receiptProcurementSchedules = useMemo(
-    () => selectOptionsForMember(procurementSchedules, receipt.memberId),
-    [procurementSchedules, receipt.memberId]
-  )
+  const categoryOptions = memberOptions.categoryOptions
+  const receiptLoans = memberOptions.loans
+  const receiptPlans = memberOptions.plans
+  const receiptFoodPurchaseApplications = memberOptions.foodPurchaseApplications
+  const receiptProjectFinancingRequests = memberOptions.projectFinancingRequests
+  const receiptProcurementSchedules = memberOptions.procurementSchedules
   const allocationPayload = useMemo(
     () => toAllocationPayload(allocations),
     [allocations]
@@ -817,6 +816,7 @@ export function PaymentReceiptReviewContent({
           <div className="flex flex-wrap items-center gap-2">
             {receipt.proofDocumentUrl ? (
               <Button
+                nativeButton={false}
                 render={
                   <a
                     href={receipt.proofDocumentUrl}

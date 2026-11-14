@@ -14,37 +14,17 @@ import type { TableSettings } from "@/utils/table-settings"
 export function PaymentReceiptsView({
   canCreateReceipt,
   categoryOptions,
-  commitmentPlans,
-  foodPurchaseApplications,
   initialSettings,
-  loans,
-  members,
-  projectFinancingRequests,
-  procurementSchedules,
   summary,
 }: {
   canCreateReceipt: boolean
   categoryOptions: PaymentReceiptCategoryOption[]
-  commitmentPlans: PaymentReceiptOption[]
-  foodPurchaseApplications: PaymentReceiptOption[]
   initialSettings?: Partial<TableSettings>
-  loans: PaymentReceiptOption[]
-  members: PaymentReceiptOption[]
-  projectFinancingRequests: PaymentReceiptOption[]
-  procurementSchedules: PaymentReceiptOption[]
   summary: MemberPaymentReceiptSummary
 }) {
   return (
     <div className="space-y-6">
-      <PaymentReceiptSheet
-        categoryOptions={categoryOptions}
-        commitmentPlans={commitmentPlans}
-        foodPurchaseApplications={foodPurchaseApplications}
-        loans={loans}
-        members={members}
-        procurementSchedules={procurementSchedules}
-        projectFinancingRequests={projectFinancingRequests}
-      />
+      <PaymentReceiptSheet categoryOptions={categoryOptions} />
       <section className="hidden divide-x divide-border border-y border-border md:grid md:grid-cols-4">
         <SummaryTile label="To review" value={summary.pendingReviewReceipts} />
         <SummaryTile label="New" value={summary.submittedReceipts} />

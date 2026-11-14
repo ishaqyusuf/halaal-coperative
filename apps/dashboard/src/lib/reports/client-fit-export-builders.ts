@@ -879,7 +879,8 @@ export async function buildSpecialSavingsExportCsv({
     fromDate: filters.fromDate,
     memberId: memberId || undefined,
     page: 1,
-    pageSize: 500,
+    // Matches EXPORT_ROW_LIMIT in the reports export utils.
+    pageSize: 20_000,
     search: search || undefined,
     specialSavingsOnly: true,
     toDate: filters.toDate,

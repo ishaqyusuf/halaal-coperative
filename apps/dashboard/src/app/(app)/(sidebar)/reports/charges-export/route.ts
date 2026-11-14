@@ -4,6 +4,7 @@ import {
   getReportsDateFilters,
   requireReportsExportContext,
   toCsv,
+  EXPORT_ROW_LIMIT,
 } from "../export-utils"
 
 function formatChargeSource(
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
   )
   const charges = await listChargeApplications(context.tenant.id, {
     fromDate: filters.fromDate,
-    limit: 500,
+    limit: EXPORT_ROW_LIMIT,
     toDate: filters.toDate,
   })
 

@@ -1,5 +1,11 @@
 import { listAuditLogs } from "@halaalvest/db"
-import { createCsvResponse, getReportsDateFilters, requireReportsExportContext, toCsv } from "../export-utils"
+import {
+  createCsvResponse,
+  getReportsDateFilters,
+  requireReportsExportContext,
+  toCsv,
+  EXPORT_ROW_LIMIT,
+} from "../export-utils"
 
 function getMetadataString(metadata: unknown, key: string) {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
@@ -37,22 +43,38 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url)
-  const filters = getReportsDateFilters(Object.fromEntries(searchParams.entries()))
+  const filters = getReportsDateFilters(
+    Object.fromEntries(searchParams.entries())
+  )
   const search = searchParams.get("search") ?? undefined
   const status = searchParams.get("status")
   const type = searchParams.get("type") ?? undefined
   const logs = await listAuditLogs(context.tenant.id, {
-    action: status === "queued" || status === "sent" || status === "failed" ? `notification.email_${status}` : "notification.email",
+    action:
+      status === "queued" || status === "sent" || status === "failed"
+        ? `notification.email_${status}`
+        : "notification.email",
     fromDate: filters.fromDate,
-    limit: 500,
+    limit: EXPORT_ROW_LIMIT,
     search: search || undefined,
     toDate: filters.toDate,
   })
   const entries = type
-    ? logs.filter((entry) => getMetadataString(entry.metadata, "notificationType") === type)
+    ? logs.filter(
+        (entry) =>
+          getMetadataString(entry.metadata, "notificationType") === type
+      )
     : logs
   const csv = toCsv(
-    ["Created At", "Recipient", "Notification Type", "Status", "Attempts", "Message ID", "Source"],
+    [
+      "Created At",
+      "Recipient",
+      "Notification Type",
+      "Status",
+      "Attempts",
+      "Message ID",
+      "Source",
+    ],
     entries.map((entry) => [
       entry.occurredAt.toISOString(),
       getMetadataString(entry.metadata, "recipient") ?? "",
@@ -61,8 +83,11 @@ export async function GET(request: Request) {
       getMetadataCsvValue(entry.metadata, "attempts"),
       entry.entityId ?? "",
       getMetadataString(entry.metadata, "source") ?? "",
-    ]),
+    ])
   )
 
-  return createCsvResponse(`${context.tenant.slug}-notification-report.csv`, csv)
+  return createCsvResponse(
+    `${context.tenant.slug}-notification-report.csv`,
+    csv
+  )
 }

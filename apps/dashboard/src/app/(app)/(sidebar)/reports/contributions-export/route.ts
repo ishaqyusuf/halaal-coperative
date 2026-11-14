@@ -1,5 +1,11 @@
 import { listContributions } from "@halaalvest/db"
-import { createCsvResponse, getReportsDateFilters, requireReportsExportContext, toCsv } from "../export-utils"
+import {
+  createCsvResponse,
+  getReportsDateFilters,
+  requireReportsExportContext,
+  toCsv,
+  EXPORT_ROW_LIMIT,
+} from "../export-utils"
 
 export async function GET(request: Request) {
   const context = await requireReportsExportContext()
@@ -9,16 +15,24 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url)
-  const filters = getReportsDateFilters(Object.fromEntries(searchParams.entries()))
+  const filters = getReportsDateFilters(
+    Object.fromEntries(searchParams.entries())
+  )
   const channel = searchParams.get("channel") ?? undefined
   const memberId = searchParams.get("memberId") ?? undefined
   const search = searchParams.get("search") ?? undefined
   const contributions = await listContributions(context.tenant.id, {
-    channel: channel === "payroll" || channel === "transfer" || channel === "cash" || channel === "manual" ? channel : undefined,
+    channel:
+      channel === "payroll" ||
+      channel === "transfer" ||
+      channel === "cash" ||
+      channel === "manual"
+        ? channel
+        : undefined,
     fromDate: filters.fromDate,
     memberId: memberId || undefined,
     page: 1,
-    pageSize: 500,
+    pageSize: EXPORT_ROW_LIMIT,
     search: search || undefined,
     toDate: filters.toDate,
   })
@@ -46,8 +60,11 @@ export async function GET(request: Request) {
       contribution.status,
       contribution.periodLabel ?? "",
       contribution.reference ?? "",
-    ]),
+    ])
   )
 
-  return createCsvResponse(`${context.tenant.slug}-contributions-report.csv`, csv)
+  return createCsvResponse(
+    `${context.tenant.slug}-contributions-report.csv`,
+    csv
+  )
 }

@@ -3,6 +3,12 @@ import { getDashboardServerContext } from "@/lib/server-context"
 import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
 export { toCsv } from "@/lib/reports/csv"
 
+/**
+ * Most rows one CSV download holds. Downloads used to stop silently at 500
+ * rows; this keeps a ceiling for safety but covers a whole cooperative.
+ */
+export const EXPORT_ROW_LIMIT = 20_000
+
 type ReportsExportContext = Awaited<
   ReturnType<typeof getDashboardServerContext>
 >

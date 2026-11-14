@@ -1,5 +1,11 @@
 import { listLedgerTransactions } from "@halaalvest/db"
-import { createCsvResponse, getReportsDateFilters, requireReportsExportContext, toCsv } from "../export-utils"
+import {
+  createCsvResponse,
+  getReportsDateFilters,
+  requireReportsExportContext,
+  toCsv,
+  EXPORT_ROW_LIMIT,
+} from "../export-utils"
 
 export async function GET(request: Request) {
   const context = await requireReportsExportContext()
@@ -9,10 +15,12 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url)
-  const filters = getReportsDateFilters(Object.fromEntries(searchParams.entries()))
+  const filters = getReportsDateFilters(
+    Object.fromEntries(searchParams.entries())
+  )
   const transactions = await listLedgerTransactions(context.tenant.id, {
     fromDate: filters.fromDate,
-    limit: 500,
+    limit: EXPORT_ROW_LIMIT,
     toDate: filters.toDate,
   })
 
@@ -39,9 +47,12 @@ export async function GET(request: Request) {
         entry.ledgerAccount.name,
         entry.direction,
         Number(entry.amount),
-      ]),
-    ),
+      ])
+    )
   )
 
-  return createCsvResponse(`${context.tenant.slug}-member-ledgers-report.csv`, csv)
+  return createCsvResponse(
+    `${context.tenant.slug}-member-ledgers-report.csv`,
+    csv
+  )
 }

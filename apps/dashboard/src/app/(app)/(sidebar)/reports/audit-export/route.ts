@@ -1,5 +1,11 @@
 import { listActivityReportEvents } from "@halaalvest/db"
-import { createCsvResponse, getReportsDateFilters, requireReportsExportContext, toCsv } from "../export-utils"
+import {
+  createCsvResponse,
+  getReportsDateFilters,
+  requireReportsExportContext,
+  toCsv,
+  EXPORT_ROW_LIMIT,
+} from "../export-utils"
 
 export async function GET(request: Request) {
   const context = await requireReportsExportContext()
@@ -9,35 +15,33 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url)
-  const filters = getReportsDateFilters(Object.fromEntries(searchParams.entries()))
+  const filters = getReportsDateFilters(
+    Object.fromEntries(searchParams.entries())
+  )
   const logs = await listActivityReportEvents(context.tenant.id, {
     fromDate: filters.fromDate,
-    limit: 500,
+    limit: EXPORT_ROW_LIMIT,
     toDate: filters.toDate,
   })
   const csv = toCsv(
     [
-      "Occurred At",
-      "Action",
-      "Actor Type",
-      "Performed By",
-      "Authorizer Role",
-      "Authorizer",
-      "Entity Type",
-      "Entity Id",
+      "When",
+      "What happened",
+      "Who",
+      "Record",
+      "Record id",
+      "Approved or checked by",
       "Details",
     ],
     logs.map((log) => [
       log.occurredAt.toISOString(),
       log.actionLabel,
-      log.actorType,
       log.actorLabel,
-      log.authorizationRole,
-      log.authorizerLabel,
-      log.entityType,
+      log.entityLabel,
       log.entityId ?? "",
+      log.authorizerUserId ? log.authorizerLabel : "",
       log.metadataSummary.join("; "),
-    ]),
+    ])
   )
 
   return createCsvResponse(`${context.tenant.slug}-audit-report.csv`, csv)

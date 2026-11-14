@@ -2,6 +2,7 @@ import { CachedReadBanner } from "@/components/app/cached-read-banner"
 import { EmptyState } from "@/components/app/empty-state"
 import { ProfileHeader } from "@/components/app/profile-header"
 import { ServiceTile } from "@/components/app/service-tile"
+import { HomeAskBar } from "@/features/assistant/public/home-ask-bar"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { SafeArea } from "@/components/safe-area"
 import { Icon } from "@/components/ui/icon"
@@ -132,6 +133,7 @@ export function MemberHomeScreen({
     <SafeArea className="bg-background">
       <ScrollView contentContainerClassName="px-5 pb-8 pt-4">
         <ProfileHeader notificationHref="/notifications" profile={profile} />
+        <HomeAskBar role="member" />
 
         {homeCache?.status === "stale" ? (
           <View className="mt-4">

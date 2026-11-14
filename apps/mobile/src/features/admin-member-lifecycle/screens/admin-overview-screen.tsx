@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
 import { Text } from "@/components/ui/text"
 import { canUseMobileFeatureData } from "@/dev/mobile-dev-session"
+import { HomeAskBar } from "@/features/assistant/public/home-ask-bar"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useEffect, useState } from "react"
 import { ScrollView, View } from "react-native"
@@ -128,6 +129,12 @@ export function AdminOverviewScreen({
             />
           </View>
         )}
+
+        {canUseOverview ? (
+          <View className="px-5">
+            <HomeAskBar role="staff" />
+          </View>
+        ) : null}
 
         {!canUseOverview ? (
           <View className="px-5 py-6">

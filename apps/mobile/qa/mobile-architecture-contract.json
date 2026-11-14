@@ -398,6 +398,20 @@
       "tenantBoundary": "Only notifications addressed to the active signed tenant membership; deep links re-authorize their destination."
     },
     {
+      "file": "src/app/ask-assistant.tsx",
+      "path": "/ask-assistant",
+      "feature": "assistant",
+      "roles": [
+        "member",
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Only the active signed membership's assistant chats; every read, draft and confirmation is re-authorized by the assistant router for that tenant and role, and the screen pauses if the session or workspace changes.",
+      "controller": "@/features/assistant/routes/ask-assistant-route-controller"
+    },
+    {
       "file": "src/app/updates.tsx",
       "path": "/updates",
       "feature": "updates",

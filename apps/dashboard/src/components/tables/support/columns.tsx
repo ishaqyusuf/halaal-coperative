@@ -120,12 +120,12 @@ export const columns: ColumnDef<SupportCase>[] = [
     id: "status",
     maxSize: 220,
     meta: {
-      className: "w-[170px] min-w-[150px]",
+      className: "w-[160px] min-w-[140px]",
       headerLabel: "Status",
       skeleton: { type: "badge" },
     },
-    minSize: 150,
-    size: 170,
+    minSize: 140,
+    size: 160,
   },
   {
     cell: ({ row, table }) => (
@@ -139,12 +139,12 @@ export const columns: ColumnDef<SupportCase>[] = [
     id: "latestReply",
     maxSize: 480,
     meta: {
-      className: "w-[280px] min-w-[200px]",
+      className: "w-[260px] min-w-[200px]",
       headerLabel: "Last message",
       skeleton: { type: "text", width: "w-40" },
     },
     minSize: 200,
-    size: 280,
+    size: 260,
   },
   {
     accessorKey: "assignedToUser",
@@ -154,12 +154,12 @@ export const columns: ColumnDef<SupportCase>[] = [
     id: "assignee",
     maxSize: 240,
     meta: {
-      className: "w-[160px] min-w-[130px]",
+      className: "w-[170px] min-w-[140px]",
       headerLabel: "Handled by",
       skeleton: { type: "text", width: "w-24" },
     },
-    minSize: 130,
-    size: 160,
+    minSize: 140,
+    size: 170,
   },
   {
     accessorKey: "createdAt",
@@ -169,12 +169,12 @@ export const columns: ColumnDef<SupportCase>[] = [
     id: "createdAt",
     maxSize: 200,
     meta: {
-      className: "w-[130px] min-w-[120px]",
+      className: "w-[150px] min-w-[140px]",
       headerLabel: "Opened",
       skeleton: { type: "text", width: "w-20" },
     },
-    minSize: 120,
-    size: 130,
+    minSize: 140,
+    size: 150,
   },
 ]
 

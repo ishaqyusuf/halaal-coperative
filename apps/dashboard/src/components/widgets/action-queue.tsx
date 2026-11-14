@@ -54,7 +54,7 @@ export function ActionQueue({ items }: { items: OverviewAttentionItem[] }) {
             aria-hidden="true"
             className="size-6 shrink-0 text-emerald-600"
           />
-          You're all caught up.
+          {"You're all caught up."}
         </p>
       )}
     </section>

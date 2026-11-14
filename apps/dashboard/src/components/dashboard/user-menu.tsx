@@ -14,7 +14,7 @@ import {
 import { cn } from "@halaalvest/ui/lib/utils"
 import { ChevronDown, LogOut, Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
-import { useEffect, useState } from "react"
+import { useSyncExternalStore } from "react"
 
 export function getUserInitials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean)
@@ -26,6 +26,8 @@ export function getUserInitials(name: string) {
   return initials || "?"
 }
 
+const subscribeToNothing = () => () => {}
+
 /** Account menu in the top bar: who is signed in, theme and sign out. */
 export function DashboardUserMenu({
   roleLabel,
@@ -35,11 +37,13 @@ export function DashboardUserMenu({
   userName: string
 }) {
   const { resolvedTheme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  // False on the server and during hydration, true after: the theme is only
+  // known in the browser.
+  const mounted = useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false
+  )
 
   const isDark = mounted && resolvedTheme === "dark"
 

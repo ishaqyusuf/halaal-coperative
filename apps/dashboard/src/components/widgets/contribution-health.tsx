@@ -71,7 +71,7 @@ export function ContributionHealth({ data }: { data: ContributionHealthData }) {
           </dl>
           {data.basis === "active_commitments" ? (
             <p className="mt-3 text-base text-muted-foreground">
-              Estimated until this month's record is created.
+              {"Estimated until this month's record is created."}
             </p>
           ) : null}
         </>

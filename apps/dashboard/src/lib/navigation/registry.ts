@@ -272,12 +272,18 @@ export const dashboardNavRegistry: NavModule[] = [
         FinanceSetupIcon,
         "/settings/finance",
         [
-          createNavSubLink("Overview", "/settings/finance").data,
-          createNavSubLink("Business", "/settings/finance/business").data,
+          // childPaths keeps deeper pages (a member's opening balance, the
+          // past-profit worksheet) under "Finance setup" in the top bar.
+          createNavSubLink("Overview", "/settings/finance").childPaths(
+            "/settings/finance"
+          ).data,
+          createNavSubLink("Loans", "/settings/finance/loan").data,
           createNavSubLink("Charges", "/settings/finance/charges").data,
-          createNavSubLink("Loan", "/settings/finance/loan").data,
-          createNavSubLink("Migration", "/settings/finance/migration").data,
           createNavSubLink("Shares", "/settings/finance/shares").data,
+          createNavSubLink("Business profit", "/settings/finance/business")
+            .childPaths("/settings/finance/business").data,
+          createNavSubLink("Opening balances", "/settings/finance/migration")
+            .childPaths("/settings/finance/migration").data,
         ],
         [role.in("super_admin", "tenant_admin", "finance_officer")]
       )

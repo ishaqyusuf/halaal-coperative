@@ -7,15 +7,18 @@ import { ShareSheetFormProvider } from "@/components/share/form-context"
 import { ShareSheetHeader } from "@/components/share-sheet-header"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useShareParams } from "@/hooks/use-share-params"
-import type { Share } from "@/components/tables/shares/columns"
+import type { Share } from "@/components/share/share-types"
 import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 export function ShareSheet({
+  canChangeModel = false,
   financeStartDate,
   isLocked,
   rows,
   sharePolicy,
 }: {
+  /** The share model itself can change only while past setup is open. */
+  canChangeModel?: boolean
   financeStartDate?: string | null
   isLocked: boolean
   rows: Share[]
@@ -37,27 +40,31 @@ export function ShareSheet({
   return (
     <WorkflowPresentation
       config={presentation}
+      mobileFullScreen
       open={isOpen}
       onOpenChange={handleOnOpenChange}
     >
         {isOpen ? (
           <Suspense
             fallback={
-              <div className="px-6 text-sm text-muted-foreground">
-                Loading share form...
+              <div className="px-6 text-base text-muted-foreground">
+                Loading…
               </div>
             }
           >
             <ShareSheetFormProvider
               value={{
+                canChangeModel,
                 financeStartDate,
                 isLocked,
                 rows,
                 sharePolicy,
               }}
             >
-              <ShareSheetHeader />
-              <ShareContent />
+              <div className="grid gap-5 px-6 pb-8">
+                <ShareSheetHeader />
+                <ShareContent />
+              </div>
             </ShareSheetFormProvider>
           </Suspense>
         ) : null}

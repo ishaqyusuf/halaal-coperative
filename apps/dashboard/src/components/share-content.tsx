@@ -11,16 +11,14 @@ import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { NativeSelect } from "@halaalvest/ui/components/native-select"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { DatePickerInput } from "@/components/date-picker-input"
-import {
-  SharePolicyForm,
-  ShareStructureVersionForm,
-} from "@/components/forms/tenant-finance-forms"
+import { ShareModelForm } from "@/components/finance-settings/share-model-form"
+import { ShareStructureVersionForm } from "@/components/forms/tenant-finance-forms"
 import { useShareSheetFormContext } from "@/components/share/form-context"
 import { useShareParams } from "@/hooks/use-share-params"
 import { updateTenantShareStructureVersionAction } from "@/lib/dashboard-actions"
 
 export function ShareContent() {
-  const { financeStartDate, isLocked, rows, sharePolicy } =
+  const { canChangeModel, financeStartDate, isLocked, rows, sharePolicy } =
     useShareSheetFormContext()
   const { setParams, shareId, shareType } = useShareParams()
   const isCreate = shareType === "create"
@@ -29,35 +27,34 @@ export function ShareContent() {
 
   if (isPolicy) {
     return (
-      <div className="px-6">
-        <SharePolicyForm defaultPolicy={sharePolicy} />
-      </div>
+      <ShareModelForm
+        canChangeModel={canChangeModel ?? false}
+        policy={sharePolicy}
+      />
     )
   }
 
   if (isCreate) {
     return (
-      <div className="px-6">
-        <ShareStructureVersionForm
-          financeStartDate={financeStartDate}
-          onSuccess={() => setParams(null)}
-        />
-      </div>
+      <ShareStructureVersionForm
+        financeStartDate={financeStartDate}
+        onSuccess={() => setParams(null)}
+      />
     )
   }
 
   if (!version) {
     return (
-      <div className="px-6 text-sm text-muted-foreground">
-        Select a share rule to edit.
-      </div>
+      <p className="text-base text-muted-foreground">
+        This amount wasn’t found. Close and pick it again.
+      </p>
     )
   }
 
   return (
     <form
       action={updateTenantShareStructureVersionAction}
-      className="grid gap-4 px-6"
+      className="grid gap-5"
     >
       <DashboardNativeQuickFill
         values={() => ({
@@ -68,8 +65,8 @@ export function ShareContent() {
         })}
       />
       <input name="shareStructureVersionId" type="hidden" value={version.id} />
-      <label className="space-y-1 text-xs font-medium text-muted-foreground">
-        Effective date
+      <label className="grid gap-2 text-base font-medium text-foreground">
+        Starts from
         <DatePickerInput
           defaultValue={version.effectiveFrom}
           disabled={isLocked}
@@ -79,19 +76,19 @@ export function ShareContent() {
           required
         />
       </label>
-      <label className="space-y-1 text-xs font-medium text-muted-foreground">
-        Rule
+      <label className="grid gap-2 text-base font-medium text-foreground">
+        How it’s worked out
         <NativeSelect
           defaultValue={version.valueType}
           disabled={isLocked}
           name="valueType"
         >
-          <option value="fixed_amount">Fixed amount</option>
-          <option value="percentage">Percentage after charges</option>
+          <option value="fixed_amount">A fixed amount</option>
+          <option value="percentage">A part of each payment, after charges</option>
         </NativeSelect>
       </label>
-      <label className="space-y-1 text-xs font-medium text-muted-foreground">
-        Value
+      <label className="grid gap-2 text-base font-medium text-foreground">
+        Amount
         <CurrencyPrefixInput
           defaultValue={version.amount}
           disabled={isLocked}
@@ -102,16 +99,16 @@ export function ShareContent() {
           type="number"
         />
       </label>
-      <label className="space-y-1 text-xs font-medium text-muted-foreground">
-        Notes
+      <label className="grid gap-2 text-base font-medium text-foreground">
+        Note (optional)
         <Textarea
           defaultValue={version.notes ?? ""}
           disabled={isLocked}
           name="notes"
-          placeholder="Reason or board reference"
+          placeholder="For example: agreed at the general meeting"
         />
       </label>
-      <Button disabled={isLocked} type="submit">
+      <Button className="h-12" disabled={isLocked} type="submit">
         Save changes
       </Button>
     </form>

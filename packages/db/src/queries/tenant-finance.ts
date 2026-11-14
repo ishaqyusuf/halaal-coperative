@@ -19,6 +19,7 @@ import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
 import { mobileAccessChargeCode } from "./cooperative-mobile-billing-constants"
 import {
+  getTenantFinanceSetupLock,
   getTenantInitialMigrationState,
   getTenantMigrationWriteAccess,
 } from "./migration"
@@ -676,19 +677,15 @@ async function assertHistoricalFinanceSetupMutationOpen(
   tenantId: string,
   prisma: PrismaClient
 ) {
-  const migrationState = await getTenantInitialMigrationState(tenantId, prisma)
+  const lock = await getTenantFinanceSetupLock(tenantId, prisma)
 
-  if (!migrationState.snapshot.canUseMigrationTools) {
+  if (!lock.canUseMigrationTools) {
     throw ExpectedQueryError.precondition(
       "Historical finance setup is locked because initial migration is finalized."
     )
   }
 
-  if (
-    migrationState.counts.appliedBackfillBatches > 0 ||
-    migrationState.counts.appliedBackfillMembers > 0 ||
-    migrationState.counts.appliedBackfillMonths > 0
-  ) {
+  if (lock.hasAppliedMemberBackfill) {
     throw ExpectedQueryError.precondition(
       "Historical finance setup is locked because member ledger backfill has already started."
     )
@@ -1175,23 +1172,19 @@ async function assertBusinessProfitMutationOpen(
   },
   prisma: PrismaClient
 ) {
-  const migrationState = await getTenantInitialMigrationState(
-    input.tenantId,
-    prisma
-  )
+  // One statement: the write gates plus "member backfill applied". Work out
+  // shares calls this once per profit entry, so the full migration state
+  // (~14 statements) here was repeated for every entry in a season.
+  const lock = await getTenantFinanceSetupLock(input.tenantId, prisma)
 
   if (isHistoricalBusinessProfitSource(input.sourceType)) {
-    if (!migrationState.snapshot.canUseMigrationTools) {
+    if (!lock.canUseMigrationTools) {
       throw ExpectedQueryError.precondition(
         "Historical business profit migration records are locked because initial migration is finalized."
       )
     }
 
-    if (
-      migrationState.counts.appliedBackfillBatches > 0 ||
-      migrationState.counts.appliedBackfillMembers > 0 ||
-      migrationState.counts.appliedBackfillMonths > 0
-    ) {
+    if (lock.hasAppliedMemberBackfill) {
       throw ExpectedQueryError.precondition(
         "Historical business profit migration records are locked because member ledger backfill has already started."
       )
@@ -1200,24 +1193,17 @@ async function assertBusinessProfitMutationOpen(
     return
   }
 
-  if (
-    migrationState.snapshot.canUseLiveFinancialWrites ||
-    migrationState.snapshot.status === "finalized"
-  ) {
+  if (lock.canUseLiveFinancialWrites) {
     return
   }
 
-  if (!migrationState.snapshot.canUseMigrationTools) {
+  if (!lock.canUseMigrationTools) {
     throw ExpectedQueryError.precondition(
       "Business profit records are locked until live operations are available."
     )
   }
 
-  if (
-    migrationState.counts.appliedBackfillBatches > 0 ||
-    migrationState.counts.appliedBackfillMembers > 0 ||
-    migrationState.counts.appliedBackfillMonths > 0
-  ) {
+  if (lock.hasAppliedMemberBackfill) {
     throw ExpectedQueryError.precondition(
       "Business profit records are locked because member ledger backfill has already started. Finish migration or create live business records after go-live."
     )

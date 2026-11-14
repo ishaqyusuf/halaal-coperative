@@ -1,13 +1,7 @@
 "use client"
 
 import { Button } from "@halaalvest/ui/components/button"
-import {
-  DashboardPageShell,
-  DashboardSectionCard,
-  DashboardSectionHeader,
-} from "@/components/dashboard"
-import { financeMenuItems } from "@/components/finance-menu"
-import { SecondaryMenu } from "@/components/secondary-menu"
+import { FinanceSettingsFrame } from "@/components/finance-settings/finance-settings-frame"
 
 export default function FinanceSettingsError({
   reset,
@@ -16,24 +10,18 @@ export default function FinanceSettingsError({
   reset: () => void
 }) {
   return (
-    <DashboardPageShell>
-      <div className="w-full max-w-[980px]">
-        <SecondaryMenu items={financeMenuItems} />
-        <main className="mt-4 min-w-0">
-          <DashboardSectionCard>
-            <DashboardSectionHeader
-              description="The finance configuration could not be loaded. No settings were changed."
-              eyebrow="Finance settings"
-              title="Something went wrong"
-            />
-            <div className="mt-5">
-              <Button onClick={reset} type="button">
-                Try again
-              </Button>
-            </div>
-          </DashboardSectionCard>
-        </main>
-      </div>
-    </DashboardPageShell>
+    <FinanceSettingsFrame>
+      <section className="grid gap-3">
+        <h2 className="text-xl font-semibold">This page didn't load</h2>
+        <p className="text-lg text-muted-foreground">
+          Nothing was changed. Please try again.
+        </p>
+        <div>
+          <Button className="h-12 text-base" onClick={reset} type="button">
+            Try again
+          </Button>
+        </div>
+      </section>
+    </FinanceSettingsFrame>
   )
 }

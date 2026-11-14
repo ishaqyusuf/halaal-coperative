@@ -287,11 +287,11 @@ function OpeningBalanceRow({
       {pending ? (
         <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-border/70 pt-3">
           <MemberBackfillActionSheet
-            description="Cancel this staged opening position and return to the capture form. The cancellation remains in the audit history."
+            description="Remove this opening balance before it is added. It stays in the activity record."
             disabled={disabled}
             mode="cancel"
             targetId={row.id}
-            title="Cancel staged opening position"
+            title="Remove this opening balance?"
             triggerLabel="Cancel staging"
           >
             <OpeningBalanceCancelContent
@@ -301,11 +301,11 @@ function OpeningBalanceRow({
             />
           </MemberBackfillActionSheet>
           <MemberBackfillActionSheet
-            description="Approve or reject this staged opening position after reviewing the evidence."
+            description="Check the figures, then approve or send back."
             disabled={disabled}
             mode="review"
             targetId={row.id}
-            title="Review opening position"
+            title="Check opening balance"
             triggerLabel="Review"
           >
             <OpeningBalanceReviewContent
@@ -318,11 +318,11 @@ function OpeningBalanceRow({
       ) : approved ? (
         <div className="mt-3 flex justify-end border-t border-border/70 pt-3">
           <MemberBackfillActionSheet
-            description="Apply the approved opening position to the member ledger and related opening obligations."
+            description="Add these figures to the member's records. Their savings, shares and loans start from here."
             disabled={disabled}
             mode="apply"
             targetId={row.id}
-            title="Apply opening position"
+            title="Add to member's records?"
             triggerLabel="Apply"
             variant="default"
           >
@@ -336,11 +336,11 @@ function OpeningBalanceRow({
       ) : applied && showAppliedAction ? (
         <div className="mt-3 flex justify-end border-t border-border/70 pt-3">
           <MemberBackfillActionSheet
-            description="Reverse a previously applied opening position with an audit note."
+            description="Undo the opening balance that was added. Say why; it stays in the activity record."
             disabled={disabled}
             mode="reverse"
             targetId={row.id}
-            title="Reverse opening position"
+            title="Undo opening balance?"
             triggerLabel="Reverse"
           >
             <OpeningBalanceReverseContent
@@ -399,11 +399,11 @@ function AppliedOpeningPositionSuccess({
           </div>
         </div>
         <MemberBackfillActionSheet
-          description="Reverse the applied brought-forward position with a required audit note. Posted opening entries will be reversed rather than deleted."
+          description="Undo the opening balance that was added, so it can be entered again. Say why; nothing is deleted."
           disabled={disabled}
           mode="reverse"
           targetId={row.id}
-          title="Reset brought-forward position"
+          title="Start this opening balance again?"
           triggerLabel="Reset / reverse"
         >
           <OpeningBalanceReverseContent
@@ -448,8 +448,8 @@ function OpeningPositionPanel({
         />
       ))
     ) : (
-      <div className="border border-dashed border-border/70 p-3 text-sm text-muted-foreground">
-        No brought-forward opening position has been staged for this member.
+      <div className="border border-dashed border-border/70 p-4 text-base text-muted-foreground">
+        No opening balance added for this member yet.
       </div>
     )
 
@@ -474,15 +474,11 @@ function OpeningPositionPanel({
           <div className="grid gap-3">
             {appliedOpeningPosition ? (
               <div>
-                <p className="text-xs font-medium text-muted-foreground">
-                  Brought-forward details
-                </p>
-                <h3 className="mt-1 text-base font-semibold text-foreground">
-                  Applied opening position
+                <h3 className="text-lg font-semibold text-foreground">
+                  Opening balance added
                 </h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  These are the balances and obligations carried into the
-                  member&apos;s live records.
+                <p className="mt-1 text-base text-muted-foreground">
+                  What this member had and owed when they joined Halaalvest.
                 </p>
               </div>
             ) : null}
@@ -497,23 +493,19 @@ function OpeningPositionPanel({
     <div className="border border-border/70 bg-background p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <Badge variant="outline">Brought-forward</Badge>
-          <h3 className="mt-3 text-sm font-semibold">
-            Start from current book position
-          </h3>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Capture current balances and obligations as staged opening evidence.
+          <h3 className="text-lg font-semibold">Opening balance</h3>
+          <p className="mt-1 text-base text-muted-foreground">
+            What this member has and owes today, from your old records.
           </p>
         </div>
-        <TrendPill tone="neutral">Review/apply</TrendPill>
       </div>
       <div className="mt-4">
         <MemberBackfillActionSheet
-          description="Capture current balances and active obligations as staged brought-forward evidence."
+          description="What this member has and owes today, from your old records. It is checked before it is added."
           disabled={disabled}
           mode="capture"
-          title="Stage opening position"
-          triggerLabel="Stage opening position"
+          title="Add opening balance"
+          triggerLabel="Add opening balance"
           variant="default"
         >
           <OpeningBalanceCreateContent

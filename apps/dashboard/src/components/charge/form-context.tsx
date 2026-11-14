@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext } from "react"
-import type { Charge } from "@/components/tables/charges/columns"
+import type { Charge } from "@/components/charge/charge-types"
 
 type ChargeSheetFormContextValue = {
   financeStartDate?: string | null

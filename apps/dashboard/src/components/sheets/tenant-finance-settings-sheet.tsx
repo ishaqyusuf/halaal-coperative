@@ -1,91 +1,63 @@
 "use client"
 
-import { Suspense } from "react"
-import type {
-  TenantBusinessProfitPolicySettings,
-  TenantFinancingSettingsWorkspace,
-} from "@halaalvest/db"
-import { TenantFinanceSettingsContent } from "@/components/tenant-finance-settings-content"
-import { TenantFinanceSettingsSheetHeader } from "@/components/tenant-finance-settings-sheet-header"
+import type { TenantBusinessProfitPolicySettings } from "@halaalvest/db"
+import {
+  type FinancingSettingsView,
+  TenantFinanceSettingsContent,
+} from "@/components/tenant-finance-settings-content"
+import {
+  TenantFinanceSettingsSheetHeader,
+  tenantFinanceOverlayCopy,
+} from "@/components/tenant-finance-settings-sheet-header"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useTenantFinanceSettingsParams } from "@/hooks/use-tenant-finance-settings-params"
 import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
-type FinancingSettingsView = {
-  currentCyclePreview: Omit<
-    TenantFinancingSettingsWorkspace["currentCyclePreview"],
-    "periodEnd" | "periodStart"
-  > & {
-    periodEnd: string | null
-    periodStart: string | null
-  }
-  policy: TenantFinancingSettingsWorkspace["policy"]
-  products: TenantFinancingSettingsWorkspace["products"]
-}
-
-function isTenantFinanceSettingsSheetOpen(type: string | null) {
-  return Boolean(
-    type === "startDate" ||
-    type === "financingPolicy" ||
-      type === "financingCycle" ||
-      type === "quickProduct" ||
-      type === "normalProduct" ||
-      type === "businessProfitPolicy"
-  )
-}
-
+/**
+ * Finance setup overlays, opened by `tenantFinanceSettingsSheetType`:
+ * loan rules, loan types and profit sharing are sheets; the start date and
+ * this month's loan requests are short dialogs.
+ */
 export function TenantFinanceSettingsSheet({
   businessPolicy,
+  canChangePastProfit,
   devMode,
   financingSettings,
   tenantStartDate,
 }: {
   businessPolicy?: TenantBusinessProfitPolicySettings
+  canChangePastProfit?: boolean
   devMode?: boolean
   financingSettings?: FinancingSettingsView
   tenantStartDate: string | null
 }) {
-  const { setParams, tenantFinanceSettingsSheetType } =
+  const { setParams, tenantFinanceSettingsSheetType: type } =
     useTenantFinanceSettingsParams()
-  const isOpen = isTenantFinanceSettingsSheetOpen(
-    tenantFinanceSettingsSheetType
-  )
-  const presentation = getWorkflowPresentation(
-    "tenantFinance",
-    tenantFinanceSettingsSheetType
-  )
-
-  const handleOnOpenChange = (open: boolean) => {
-    if (open) {
-      return
-    }
-
-    setParams(null)
-  }
+  const presentation = getWorkflowPresentation("tenantFinance", type)
+  const copy = type ? tenantFinanceOverlayCopy[type] : null
+  const isSheet = presentation.presentation === "sheet"
 
   return (
     <WorkflowPresentation
       config={presentation}
-      open={isOpen}
-      onOpenChange={handleOnOpenChange}
+      mobileFullScreen={isSheet}
+      open={Boolean(copy)}
+      onOpenChange={(open) => {
+        if (!open) void setParams(null)
+      }}
     >
-        {isOpen ? (
-          <Suspense
-            fallback={
-              <div className="px-6 text-sm text-muted-foreground">
-                Loading finance settings...
-              </div>
-            }
-          >
-            <TenantFinanceSettingsSheetHeader />
-            <TenantFinanceSettingsContent
-              businessPolicy={businessPolicy}
-              devMode={devMode}
-              financingSettings={financingSettings}
-              tenantStartDate={tenantStartDate}
-            />
-          </Suspense>
-        ) : null}
+      {copy ? (
+        <div className={isSheet ? "grid gap-5 px-6 pb-8" : "grid gap-5"}>
+          <TenantFinanceSettingsSheetHeader />
+          <TenantFinanceSettingsContent
+            businessPolicy={businessPolicy}
+            canChangePastProfit={canChangePastProfit}
+            devMode={devMode}
+            financingSettings={financingSettings}
+            tenantStartDate={tenantStartDate}
+          />
+        </div>
+      ) : null}
     </WorkflowPresentation>
   )
 }

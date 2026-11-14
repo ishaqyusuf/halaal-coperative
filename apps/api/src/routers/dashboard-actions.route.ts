@@ -53,6 +53,8 @@ import {
   openMonthlyFinancingCycle,
   getImportBatchKind,
   getImportReferenceData,
+  getTenantFinanceSetupLock,
+  getTenantSharePolicy,
   getTenantInitialMigrationState,
   getTenantMigrationWriteAccess,
   getMemberByUserId,
@@ -599,6 +601,26 @@ async function requireInitialMigrationOrLiveWritesOpen(
   return migrationState
 }
 
+/**
+ * The same gate as `requireInitialMigrationOrLiveWritesOpen` from one
+ * statement, for callers that only need the flags (not the setup steps).
+ */
+async function requireFinanceSetupLockOpen(
+  actor: Awaited<ReturnType<typeof requireDashboardActor>>
+) {
+  const lock = await getTenantFinanceSetupLock(actor.tenant.id)
+
+  if (!lock.canUseMigrationTools && !lock.canUseLiveFinancialWrites) {
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage:
+        "This tenant is locked until initial migration is finalized or temporarily unlocked.",
+    })
+  }
+
+  return lock
+}
+
 function hasAppliedInitialMigrationBackfill(
   migrationState: Awaited<ReturnType<typeof getTenantInitialMigrationState>>
 ) {
@@ -612,9 +634,17 @@ function hasAppliedInitialMigrationBackfill(
 async function requireHistoricalFinanceSetupMutable(
   actor: Awaited<ReturnType<typeof requireDashboardActor>>
 ) {
-  const migrationState = await requireInitialMigrationToolsOpen(actor)
+  const lock = await getTenantFinanceSetupLock(actor.tenant.id)
 
-  if (hasAppliedInitialMigrationBackfill(migrationState)) {
+  if (!lock.canUseMigrationTools) {
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage:
+        "Initial migration tools are locked for this tenant. Use normal live adjustment or reversal workflows instead.",
+    })
+  }
+
+  if (lock.hasAppliedMemberBackfill) {
     throw new AppError({
       code: "PRECONDITION_FAILED",
       publicMessage:
@@ -622,7 +652,7 @@ async function requireHistoricalFinanceSetupMutable(
     })
   }
 
-  return migrationState
+  return lock
 }
 
 type BusinessProfitActionSourceType = "manual" | "backfill" | "import"
@@ -637,10 +667,11 @@ async function requireBusinessProfitOperationOpen(
   actor: Awaited<ReturnType<typeof requireDashboardActor>>,
   sourceType: BusinessProfitActionSourceType | string | null = "manual"
 ) {
-  const migrationState = await getTenantInitialMigrationState(actor.tenant.id)
+  // Flags only: one statement instead of the full migration state.
+  const lock = await getTenantFinanceSetupLock(actor.tenant.id)
 
   if (isHistoricalBusinessProfitActionSource(sourceType)) {
-    if (!migrationState.snapshot.canUseMigrationTools) {
+    if (!lock.canUseMigrationTools) {
       throw new AppError({
         code: "PRECONDITION_FAILED",
         publicMessage:
@@ -648,7 +679,7 @@ async function requireBusinessProfitOperationOpen(
       })
     }
 
-    if (hasAppliedInitialMigrationBackfill(migrationState)) {
+    if (lock.hasAppliedMemberBackfill) {
       throw new AppError({
         code: "PRECONDITION_FAILED",
         publicMessage:
@@ -656,17 +687,14 @@ async function requireBusinessProfitOperationOpen(
       })
     }
 
-    return migrationState
+    return lock
   }
 
-  if (
-    migrationState.snapshot.canUseLiveFinancialWrites ||
-    migrationState.snapshot.status === "finalized"
-  ) {
-    return migrationState
+  if (lock.canUseLiveFinancialWrites) {
+    return lock
   }
 
-  if (!migrationState.snapshot.canUseMigrationTools) {
+  if (!lock.canUseMigrationTools) {
     throw new AppError({
       code: "PRECONDITION_FAILED",
       publicMessage:
@@ -674,7 +702,7 @@ async function requireBusinessProfitOperationOpen(
     })
   }
 
-  if (hasAppliedInitialMigrationBackfill(migrationState)) {
+  if (lock.hasAppliedMemberBackfill) {
     throw new AppError({
       code: "PRECONDITION_FAILED",
       publicMessage:
@@ -682,7 +710,7 @@ async function requireBusinessProfitOperationOpen(
     })
   }
 
-  return migrationState
+  return lock
 }
 
 async function requireImportWindowOpen(
@@ -738,12 +766,12 @@ async function requireMemberDataImportPrerequisitesComplete(
 async function requireChargeDefinitionWritesOpen(
   actor: Awaited<ReturnType<typeof requireDashboardActor>>
 ) {
-  const migrationState = await requireInitialMigrationOrLiveWritesOpen(actor)
+  const lock = await requireFinanceSetupLockOpen(actor)
 
   if (
-    migrationState.snapshot.canUseMigrationTools &&
-    !migrationState.snapshot.canUseLiveFinancialWrites &&
-    hasAppliedInitialMigrationBackfill(migrationState)
+    lock.canUseMigrationTools &&
+    !lock.canUseLiveFinancialWrites &&
+    lock.hasAppliedMemberBackfill
   ) {
     throw new AppError({
       code: "PRECONDITION_FAILED",
@@ -752,7 +780,7 @@ async function requireChargeDefinitionWritesOpen(
     })
   }
 
-  return migrationState
+  return lock
 }
 
 async function requireMemberProfileWritesOpen(
@@ -803,10 +831,10 @@ async function requireMemberContributionPlanWritesOpen(
   actor: Awaited<ReturnType<typeof requireDashboardActor>>,
   memberId: string
 ) {
-  const migrationState = await requireInitialMigrationOrLiveWritesOpen(actor)
+  const lock = await requireFinanceSetupLockOpen(actor)
 
-  if (migrationState.snapshot.canUseLiveFinancialWrites) {
-    return migrationState
+  if (lock.canUseLiveFinancialWrites) {
+    return lock
   }
 
   const memberReview = await getInitialMigrationMemberReview({
@@ -826,14 +854,14 @@ async function requireMemberContributionPlanWritesOpen(
     })
   }
 
-  return migrationState
+  return lock
 }
 
 async function requireMemberMigrationDraftMutable(
   actor: Awaited<ReturnType<typeof requireDashboardActor>>,
   memberId: string
 ) {
-  await requireInitialMigrationOrLiveWritesOpen(actor)
+  await requireFinanceSetupLockOpen(actor)
 
   const memberReview = await getInitialMigrationMemberReview({
     memberId,
@@ -2664,6 +2692,20 @@ export async function updateTenantSharePolicyAction(formData: FormData) {
   const configurationMode = getRequiredString(formData, "configurationMode") as
     | "monthly_history"
     | "unit_based"
+  const [currentPolicy, lock] = await Promise.all([
+    getTenantSharePolicy(actor.tenant.id),
+    getTenantFinanceSetupLock(actor.tenant.id),
+  ])
+
+  // Members' share balances follow the model they were recorded under, so the
+  // model itself can't switch once past setup is locked (live or backfilled).
+  if (lock.isLocked && currentPolicy.configurationMode !== configurationMode) {
+    throw new AppError({
+      code: "PRECONDITION_FAILED",
+      publicMessage:
+        "The share model can't change once members' past records are in. You can still change the unit price and limits.",
+    })
+  }
   const unitAmount = (formData.get("unitAmount") as string | null)?.trim()
   const compulsoryShareUnits = (
     formData.get("compulsoryShareUnits") as string | null
@@ -3529,9 +3571,9 @@ export async function saveBusinessProfitSeasonReviewAction(formData: FormData) {
   const redirectTo = requestedRedirectTo.startsWith("?")
     ? `/getting-started${requestedRedirectTo}`
     : requestedRedirectTo
-  const migrationState = await getTenantInitialMigrationState(actor.tenant.id)
+  const writeAccess = await getTenantMigrationWriteAccess(actor.tenant.id)
 
-  if (migrationState.snapshot.canUseLiveFinancialWrites) {
+  if (writeAccess.canUseLiveFinancialWrites) {
     return { redirectTo }
   }
 

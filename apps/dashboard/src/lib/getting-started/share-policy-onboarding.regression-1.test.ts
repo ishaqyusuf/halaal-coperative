@@ -14,7 +14,9 @@ describe("Getting Started share policy controls", () => {
     // saves whichever share model is selected, then the charges.
     const fields = read("../../components/getting-started/share-model-fields.tsx")
     const step = read("../../components/getting-started/shares-charges-step.tsx")
-    const workspace = read("../../components/share-model-workspace.tsx")
+    const workspace = read(
+      "../../components/finance-settings/share-settings-view.tsx"
+    )
 
     const policySave = fields.indexOf("await persistSharePolicy(values)")
     const historySave = fields.indexOf(

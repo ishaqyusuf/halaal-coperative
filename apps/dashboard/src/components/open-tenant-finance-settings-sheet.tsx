@@ -1,43 +1,18 @@
 "use client"
 
 import { Button } from "@halaalvest/ui/components/button"
-import {
-  CalendarClockIcon,
-  ChartPieIcon,
-  GaugeIcon,
-  PackageCheckIcon,
-  PlayCircleIcon,
-  Settings2Icon,
-} from "lucide-react"
 import { useTenantFinanceSettingsParams } from "@/hooks/use-tenant-finance-settings-params"
 
-const sheetLabels = {
-  businessProfitPolicy: {
-    icon: ChartPieIcon,
-    label: "Edit profit policy",
-  },
-  financingCycle: {
-    icon: PlayCircleIcon,
-    label: "Manage cycle",
-  },
-  financingPolicy: {
-    icon: GaugeIcon,
-    label: "Edit policy",
-  },
-  normalProduct: {
-    icon: PackageCheckIcon,
-    label: "Edit normal product",
-  },
-  quickProduct: {
-    icon: PackageCheckIcon,
-    label: "Edit quick product",
-  },
-  startDate: {
-    icon: CalendarClockIcon,
-    label: "Set start date",
-  },
+const defaultLabels = {
+  businessProfitPolicy: "Change",
+  financingCycle: "Loan requests",
+  financingPolicy: "Change rules",
+  normalProduct: "Change",
+  quickProduct: "Change",
+  startDate: "Change start date",
 } as const
 
+/** Opens one Finance setup overlay through `tenantFinanceSettingsSheetType`. */
 export function OpenTenantFinanceSettingsSheet({
   disabled,
   label,
@@ -45,24 +20,21 @@ export function OpenTenantFinanceSettingsSheet({
   variant = "outline",
 }: {
   disabled?: boolean
-  /** Overrides the default label, e.g. "Set up quick product". */
   label?: string
-  type: keyof typeof sheetLabels
+  type: keyof typeof defaultLabels
   variant?: "default" | "outline"
 }) {
   const { setParams } = useTenantFinanceSettingsParams()
-  const Icon = sheetLabels[type].icon ?? Settings2Icon
 
   return (
     <Button
+      className="h-11 text-base"
       disabled={disabled}
       onClick={() => setParams({ tenantFinanceSettingsSheetType: type })}
-      size="sm"
       type="button"
       variant={variant}
     >
-      <Icon data-icon="inline-start" />
-      {label ?? sheetLabels[type].label}
+      {label ?? defaultLabels[type]}
     </Button>
   )
 }

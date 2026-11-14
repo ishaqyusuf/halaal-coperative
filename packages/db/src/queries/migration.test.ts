@@ -9,6 +9,7 @@ import {
   markTenantBusinessProfitPoolsReviewed,
   markTenantLegacyLoansReviewed,
   setTenantInitialMigrationEmergencyUnlock,
+  toTenantFinanceSetupLock,
 } from "./migration"
 
 function createMigrationStatePrismaStub(input: {
@@ -1372,5 +1373,63 @@ describe("tenant initial migration state query", () => {
         },
       },
     })
+  })
+})
+
+describe("finance setup lock", () => {
+  const row = {
+    has_applied_batch: false,
+    has_applied_month: false,
+    has_applied_opening: false,
+    initial_migration_status: "historical_setup_in_progress" as const,
+    migration_emergency_unlock_until: null,
+    migration_setup_mode: "historical_backfill",
+  }
+
+  test("past setup is open before go-live and before any backfill", () => {
+    expect(toTenantFinanceSetupLock(row)).toEqual({
+      canUseLiveFinancialWrites: false,
+      canUseMigrationTools: true,
+      emergencyUnlockActive: false,
+      hasAppliedMemberBackfill: false,
+      isLive: false,
+      isLocked: false,
+    })
+  })
+
+  test("an applied backfill month locks past setup", () => {
+    expect(
+      toTenantFinanceSetupLock({ ...row, has_applied_month: true }).isLocked
+    ).toBe(true)
+  })
+
+  test("an applied opening position counts only in brought-forward setup", () => {
+    expect(
+      toTenantFinanceSetupLock({ ...row, has_applied_opening: true })
+        .hasAppliedMemberBackfill
+    ).toBe(false)
+    expect(
+      toTenantFinanceSetupLock({
+        ...row,
+        has_applied_opening: true,
+        migration_setup_mode: "brought_forward",
+      }).hasAppliedMemberBackfill
+    ).toBe(true)
+  })
+
+  test("live is locked unless an emergency unlock is running", () => {
+    const live = { ...row, initial_migration_status: "live_operations" as const }
+
+    expect(toTenantFinanceSetupLock(live)).toMatchObject({
+      canUseLiveFinancialWrites: true,
+      isLive: true,
+      isLocked: true,
+    })
+    expect(
+      toTenantFinanceSetupLock({
+        ...live,
+        migration_emergency_unlock_until: new Date(Date.now() + 86_400_000),
+      }).canUseMigrationTools
+    ).toBe(true)
   })
 })

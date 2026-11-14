@@ -6,7 +6,7 @@ import {
 import {
   buildBackfillDraftInputForMember,
   createDbRuntime,
-  getTenantFinanceSetup,
+  getTenantFinanceSetupLock,
   getTenantFinancingSettingsWorkspace,
   getTenantInitialMigrationState,
   listInitialMigrationMemberReview,
@@ -16,13 +16,14 @@ import {
   listMembers,
   listMigrationProfitAdjustmentOptions,
 } from "@halaalvest/db"
+import { LoanSettingsView } from "@/components/finance-settings/loan-settings-view"
+import { MigrationDoneView } from "@/components/finance-settings/migration-done-view"
 import { FinanceSettingsUnavailableView } from "@/components/finance-settings-page-states"
+import { InitialMigrationPreview } from "@/components/initial-migration-preview"
 import { TenantFinancePageView } from "@/components/tenant-finance-page-view"
 import { loadGoLiveChecklistData } from "@/lib/getting-started/load-go-live-checklist"
-import type { TenantFinanceSection } from "@/components/tenant-finance-page-view"
 import { loadTenantFinanceSettingsParams } from "@/hooks/use-tenant-finance-settings-params"
 import {
-  toFinanceSetupViewModel,
   toFinancingSettingsView,
   toLegacyLoanDraftRows,
   toMemberActivityEventRows,
@@ -36,97 +37,52 @@ import {
   getDashboardServerContext,
 } from "@/lib/server-context"
 
-export async function FinanceSettingsRoute({
-  migrationMemberId,
-  searchParams,
-  section = "overview",
+export type FinanceRouteSection = "loan" | "migration" | "migration-member"
+
+type Context = Awaited<ReturnType<typeof getDashboardServerContext>>
+type Tenant = NonNullable<Context["tenant"]>
+
+/**
+ * The opening-balances workspace (past loans, members' past records, go
+ * live). It is loaded only while past setup can still change.
+ */
+async function loadMigrationWorkspace({
+  context,
+  memberId,
+  section,
+  tenant,
 }: {
-  migrationMemberId?: string
-  searchParams?: Promise<SearchParams>
-  section?: TenantFinanceSection
+  context: Context
+  memberId?: string
+  section: FinanceRouteSection
+  tenant: Tenant
 }) {
-  const resolvedSearchParams = searchParams ? await searchParams : {}
-  loadTenantFinanceSettingsParams(resolvedSearchParams)
-
-  const requestedMigrationMemberId =
-    migrationMemberId ??
-    (typeof resolvedSearchParams.migrationMemberId === "string"
-      ? resolvedSearchParams.migrationMemberId
-      : undefined)
-  const context = await getDashboardServerContext()
-  const runtime = createDbRuntime()
-
-  if (!context.tenant) {
-    return (
-      <FinanceSettingsUnavailableView
-        body="Choose a cooperative workspace before reviewing finance setup."
-        title="Finance settings need a cooperative workspace."
-      />
-    )
-  }
-
-  if (runtime.status !== "database-configured") {
-    return (
-      <FinanceSettingsUnavailableView
-        body="Configure the database runtime to review finance policy, historical setup, and migration readiness."
-        title="Finance settings need the database runtime."
-      />
-    )
-  }
-
-  const needsMigrationWorkspace =
-    section === "loan" ||
-    section === "migration" ||
-    section === "migration-member"
-  const legacyLoanDraftsPromise = needsMigrationWorkspace
-    ? listLegacyLoanMigrationDrafts(context.tenant.id)
-    : Promise.resolve(
-        [] as Awaited<ReturnType<typeof listLegacyLoanMigrationDrafts>>
-      )
-  const memberItemsPromise = needsMigrationWorkspace
-    ? listMembers(context.tenant.id, { page: 1, pageSize: 200 }).then(
+  const [migrationState, migrationMemberReview, legacyLoanDrafts, memberItems] =
+    await Promise.all([
+      getTenantInitialMigrationState(tenant.id),
+      listInitialMigrationMemberReview(tenant.id),
+      listLegacyLoanMigrationDrafts(tenant.id),
+      listMembers(tenant.id, { page: 1, pageSize: 200 }).then(
         (result) => result.items
-      )
-    : Promise.resolve([] as Awaited<ReturnType<typeof listMembers>>["items"])
-  const [
-    data,
-    financingSettings,
-    migrationState,
-    migrationMemberReview,
-    legacyLoanDrafts,
-    memberItems,
-  ] = await Promise.all([
-    getTenantFinanceSetup(context.tenant.id),
-    getTenantFinancingSettingsWorkspace({ tenantId: context.tenant.id }),
-    getTenantInitialMigrationState(context.tenant.id),
-    listInitialMigrationMemberReview(context.tenant.id),
-    legacyLoanDraftsPromise,
-    memberItemsPromise,
-  ])
-  const previewMember = requestedMigrationMemberId
-    ? (memberItems.find((member) => member.id === requestedMigrationMemberId) ??
-      null)
+      ),
+    ])
+  const previewMember = memberId
+    ? (memberItems.find((member) => member.id === memberId) ?? null)
     : null
-  const selectedMemberMigrationInputs = previewMember
+  const [amountLogs, activityEvents, profitOptions] = previewMember
     ? await Promise.all([
-        listMemberAmountLogs({
-          memberId: previewMember.id,
-          tenantId: context.tenant.id,
-        }),
+        listMemberAmountLogs({ memberId: previewMember.id, tenantId: tenant.id }),
         listMemberActivityEvents({
           memberId: previewMember.id,
-          tenantId: context.tenant.id,
+          tenantId: tenant.id,
         }),
         listMigrationProfitAdjustmentOptions(
-          context.tenant.id,
+          tenant.id,
           undefined,
           previewMember.id
         ),
       ])
-    : null
-  const selectedMemberAmountLogs = selectedMemberMigrationInputs?.[0] ?? []
-  const selectedMemberActivityEvents = selectedMemberMigrationInputs?.[1] ?? []
-  const profitMigrationOptions = selectedMemberMigrationInputs?.[2] ?? []
+    : [[], [], []]
   const canGenerateMemberBackfillPreview =
     !migrationState.snapshot.missingStepKeys.some((stepKey) =>
       [
@@ -138,59 +94,107 @@ export async function FinanceSettingsRoute({
       ].includes(stepKey)
     )
   const generatedLedgerRows =
-    (section === "migration" || section === "migration-member") &&
-    previewMember &&
-    canGenerateMemberBackfillPreview
+    section !== "loan" && previewMember && canGenerateMemberBackfillPreview
       ? projectBackfillDraftToMemberLedgerRows(
           buildBackfillDraft(
             await buildBackfillDraftInputForMember({
               memberId: previewMember.id,
-              tenantId: context.tenant.id,
+              tenantId: tenant.id,
             })
           )
         )
       : undefined
-  const setup = toFinanceSetupViewModel(data)
   const goLiveChecklist =
     section === "migration" &&
     migrationState.snapshot.status === "migration_review"
       ? await loadGoLiveChecklistData({
-          tenantId: context.tenant.id,
+          tenantId: tenant.id,
           user: context.auth.user,
         })
       : null
 
   return (
-    <TenantFinancePageView
-      chargeDefinitions={setup.chargeDefinitions}
-      financingSettings={toFinancingSettingsView(financingSettings)}
+    <InitialMigrationPreview
       generatedLedgerRows={generatedLedgerRows}
       goLiveChecklist={goLiveChecklist}
-      initialMigrationSnapshot={migrationState.snapshot}
-      tenantName={context.tenant.name}
       legacyLoanDrafts={toLegacyLoanDraftRows(legacyLoanDrafts)}
-      memberActivityEvents={toMemberActivityEventRows(
-        selectedMemberActivityEvents
-      )}
-      memberAmountLogs={toMemberAmountLogRows(selectedMemberAmountLogs)}
+      memberActivityEvents={toMemberActivityEventRows(activityEvents)}
+      memberAmountLogs={toMemberAmountLogRows(amountLogs)}
+      memberNumberPrefix={tenant.memberNumberPrefix}
       memberOptions={toMemberOptions(memberItems)}
-      memberNumberPrefix={context.tenant.memberNumberPrefix}
       migrationMemberReview={toMigrationMemberReviewRows(migrationMemberReview)}
-      profitMigrationOptions={toProfitMigrationOptionRows(
-        profitMigrationOptions
-      )}
+      migrationSnapshot={migrationState.snapshot}
+      profitMigrationOptions={toProfitMigrationOptionRows(profitOptions)}
       quickFillEnabled={canShowQuickFill(context)}
-      section={section}
+      section={
+        section === "loan"
+          ? "loans"
+          : section === "migration-member"
+            ? "member-preview"
+            : "overview"
+      }
       selectedMigrationMemberId={previewMember?.id ?? null}
       selectedMigrationMemberLabel={
         previewMember
           ? `${previewMember.fullName} (${previewMember.memberNumber})`
           : null
       }
-      shareBusinesses={setup.shareBusinesses}
-      sharePolicy={setup.sharePolicy}
-      shareStructureVersions={setup.shareStructureVersions}
-      tenantStartDate={setup.tenantStartDate}
+      tenantName={tenant.name}
+      tenantStartDate={tenant.startDate ?? null}
     />
+  )
+}
+
+export async function FinanceSettingsRoute({
+  migrationMemberId,
+  searchParams,
+  section,
+}: {
+  migrationMemberId?: string
+  searchParams?: Promise<SearchParams>
+  section: FinanceRouteSection
+}) {
+  loadTenantFinanceSettingsParams(searchParams ? await searchParams : {})
+  const context = await getDashboardServerContext()
+  const tenant = context.tenant
+
+  if (!tenant || createDbRuntime().status !== "database-configured") {
+    return <FinanceSettingsUnavailableView />
+  }
+
+  if (section === "loan") {
+    const [financingSettings, lock] = await Promise.all([
+      getTenantFinancingSettingsWorkspace({ tenantId: tenant.id }),
+      getTenantFinanceSetupLock(tenant.id),
+    ])
+
+    return (
+      <LoanSettingsView
+        financingSettings={toFinancingSettingsView(financingSettings)}
+        historicalLoans={
+          lock.canUseMigrationTools
+            ? await loadMigrationWorkspace({ context, section, tenant })
+            : null
+        }
+        lock={lock}
+      />
+    )
+  }
+
+  const lock = await getTenantFinanceSetupLock(tenant.id)
+
+  if (!lock.canUseMigrationTools) {
+    return <MigrationDoneView memberId={migrationMemberId} />
+  }
+
+  return (
+    <TenantFinancePageView>
+      {await loadMigrationWorkspace({
+        context,
+        memberId: migrationMemberId,
+        section,
+        tenant,
+      })}
+    </TenantFinancePageView>
   )
 }

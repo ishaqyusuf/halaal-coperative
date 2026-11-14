@@ -46,13 +46,14 @@ export function SecondaryMenu({ items }: Props) {
 
   return (
     <nav className="py-4">
-      <ul className="scrollbar-hide hidden space-x-6 overflow-auto text-sm md:flex">
+      <ul className="scrollbar-hide hidden gap-6 overflow-auto text-base md:flex">
         {items.map((item) => (
           <Link
+            aria-current={activeItem?.path === item.path ? "page" : undefined}
             className={cn(
-              "text-[#606060]",
+              "inline-flex min-h-11 shrink-0 items-center text-muted-foreground hover:text-foreground",
               activeItem?.path === item.path &&
-                "font-medium text-primary underline underline-offset-8"
+                "font-semibold text-primary underline underline-offset-8"
             )}
             href={item.path}
             key={item.path}
@@ -67,7 +68,7 @@ export function SecondaryMenu({ items }: Props) {
         <Drawer>
           <DrawerTrigger asChild>
             <Button
-              className="flex h-11 w-full items-center justify-between md:hidden"
+              className="flex h-12 w-full items-center justify-between text-base md:hidden"
               type="button"
               variant="outline"
             >
@@ -80,8 +81,8 @@ export function SecondaryMenu({ items }: Props) {
           <DrawerContent className="max-h-[85dvh] md:hidden">
             <DrawerHeader className="shrink-0 border-b border-border text-left">
               <DrawerTitle>Settings section</DrawerTitle>
-              <DrawerDescription>
-                Choose the settings workspace you want to open.
+              <DrawerDescription className="sr-only">
+                Pick a part of these settings.
               </DrawerDescription>
             </DrawerHeader>
             <div className="min-h-0 flex-1 divide-y divide-border overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
@@ -93,7 +94,7 @@ export function SecondaryMenu({ items }: Props) {
                     <Link
                       aria-current={isActive ? "page" : undefined}
                       className={cn(
-                        "flex min-h-11 items-center justify-between gap-3 py-3 text-sm text-foreground",
+                        "flex min-h-12 items-center justify-between gap-3 py-3 text-base text-foreground",
                         isActive && "font-medium text-primary"
                       )}
                       href={item.path}

@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { FinanceSettingsRoute } from "../finance-route"
 
 export const metadata: Metadata = {
-  title: "Migration | Finance Settings",
+  title: "Opening balances | Finance setup",
 }
 
 export default function FinanceMigrationPage({

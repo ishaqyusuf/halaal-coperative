@@ -3,8 +3,7 @@ import { notFound } from "next/navigation"
 import {
   createDbRuntime,
   getBusinessProfitMigrationWorksheet,
-  getTenantInitialMigrationState,
-  listInitialMigrationMemberReview,
+  getTenantFinanceSetupLock,
 } from "@halaalvest/db"
 import {
   type BusinessProfitMigrationWorksheetData,
@@ -13,7 +12,7 @@ import { FinanceBusinessProfitMigrationView } from "@/components/finance-busines
 import { getDashboardServerContext } from "@/lib/server-context"
 
 export const metadata: Metadata = {
-  title: "Migrate Business Profit | Finance Settings",
+  title: "Past profit | Finance setup",
 }
 
 function toDateString(value: Date | string) {
@@ -79,25 +78,15 @@ export default async function BusinessProfitMigrationPage({
     notFound()
   }
 
-  const [migrationState, migrationMemberReview, worksheet] =
-    await Promise.all([
-      getTenantInitialMigrationState(context.tenant.id),
-      listInitialMigrationMemberReview(context.tenant.id),
-      getBusinessProfitMigrationWorksheet({
-        profitEntryId,
-        tenantId: context.tenant.id,
-      }),
-    ])
-  const hasAppliedMemberBackfill = migrationMemberReview.some(
-    (member) =>
-      member.status === "backfill_applied" ||
-      member.appliedBackfillBatches > 0 ||
-      member.appliedBackfillMonths > 0
-  )
+  const [lock, worksheet] = await Promise.all([
+    getTenantFinanceSetupLock(context.tenant.id),
+    getBusinessProfitMigrationWorksheet({
+      profitEntryId,
+      tenantId: context.tenant.id,
+    }),
+  ])
   const isLocked =
-    !migrationState.snapshot.canUseMigrationTools ||
-    hasAppliedMemberBackfill ||
-    worksheet.profitEntry.hasPublishedAllocations
+    lock.isLocked || worksheet.profitEntry.hasPublishedAllocations
 
   return (
     <FinanceBusinessProfitMigrationView

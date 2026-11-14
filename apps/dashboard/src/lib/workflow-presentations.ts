@@ -201,12 +201,14 @@ export const workflowPresentations = {
     update: sheet("review"),
   },
   tenantFinance: {
-    businessProfitPolicy: sheet("review"),
-    financingCycle: sheet(),
-    financingPolicy: sheet("review"),
-    normalProduct: sheet("review"),
-    quickProduct: sheet("review"),
-    startDate: sheet(),
+    businessProfitPolicy: sheet("form"),
+    // One choice and a note: a short dialog (audit TF4).
+    financingCycle: dialog("compact"),
+    financingPolicy: sheet("form"),
+    normalProduct: sheet("form"),
+    quickProduct: sheet("form"),
+    // One date: a short dialog (audit TF3).
+    startDate: dialog("compact"),
   },
   trust: {
     edit: sheet("form"),

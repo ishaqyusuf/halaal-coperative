@@ -18,6 +18,7 @@ import {
   saveBusinessProfitMigrationWorksheetAction,
 } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
+import { formatDayMonthYear } from "@/utils/format"
 
 type AllocationMode = "percentage" | "value"
 
@@ -85,11 +86,7 @@ function createExpenseLineId() {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(`${value}T00:00:00.000Z`))
+  return formatDayMonthYear(`${value}T00:00:00.000Z`) ?? value
 }
 
 function PublishShareProfitAllocationsButton({
@@ -279,14 +276,11 @@ export function BusinessProfitMigrationWorksheet({
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <p className="text-xs font-medium text-muted-foreground">
-            Business profit migration
-          </p>
-          <h1 className="mt-2 text-2xl font-semibold text-foreground">
-            {worksheet.shareBusiness.name}
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Share basis uses members joined on or before{" "}
+          <h2 className="text-xl font-semibold text-foreground">
+            Past profit: {worksheet.shareBusiness.name}
+          </h2>
+          <p className="mt-1 text-base text-muted-foreground">
+            Shared among members who joined by{" "}
             {formatDate(worksheet.shareBusiness.startDate)}.
           </p>
         </div>
@@ -296,7 +290,7 @@ export function BusinessProfitMigrationWorksheet({
             variant="outline"
             onClick={() => window.location.reload()}
           >
-            Load shareable members
+            Refresh members
           </Button>
           <PublishShareProfitAllocationsButton
             disabled={!canPublish}
@@ -306,9 +300,9 @@ export function BusinessProfitMigrationWorksheet({
       </div>
 
       {isLocked ? (
-        <div className="border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Historical finance setup is locked. This worksheet is read-only.
-        </div>
+        <p className="rounded-(--ui-radius-control) border border-border bg-muted/50 px-4 py-3 text-base">
+          Past records can't change any more, so you can only look at this.
+        </p>
       ) : null}
 
       <div className="grid gap-3 lg:grid-cols-6">
@@ -359,11 +353,11 @@ export function BusinessProfitMigrationWorksheet({
 
         <section className="space-y-3">
           <div className="grid gap-3 md:grid-cols-4">
-            <label className="space-y-1 text-xs font-medium text-muted-foreground">
+            <label className="grid gap-2 text-base font-medium text-foreground">
               Business
               <Input disabled value={worksheet.shareBusiness.name} />
             </label>
-            <label className="space-y-1 text-xs font-medium text-muted-foreground">
+            <label className="grid gap-2 text-base font-medium text-foreground">
               Profit date
               <DatePickerInput
                 disabled={isLocked}
@@ -374,7 +368,7 @@ export function BusinessProfitMigrationWorksheet({
                 value={profitDate}
               />
             </label>
-            <label className="space-y-1 text-xs font-medium text-muted-foreground">
+            <label className="grid gap-2 text-base font-medium text-foreground">
               Total profit
               <CurrencyPrefixInput
                 disabled={isLocked}
@@ -387,7 +381,7 @@ export function BusinessProfitMigrationWorksheet({
                 value={profitAmount}
               />
             </label>
-            <label className="space-y-1 text-xs font-medium text-muted-foreground">
+            <label className="grid gap-2 text-base font-medium text-foreground">
               Allocation mode
               <NativeSelect
                 disabled={isLocked}
@@ -406,10 +400,10 @@ export function BusinessProfitMigrationWorksheet({
         <section className="space-y-2">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-semibold text-foreground">
+              <h2 className="text-lg font-semibold text-foreground">
                 Expense lines
               </h2>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-base text-muted-foreground">
                 These reduce total profit before member dividends are allocated.
               </p>
             </div>
@@ -477,7 +471,7 @@ export function BusinessProfitMigrationWorksheet({
         <section className="space-y-2">
           <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
             <div>
-              <h2 className="text-sm font-semibold text-foreground">
+              <h2 className="text-lg font-semibold text-foreground">
                 Member allocation worksheet
               </h2>
               <p className="text-xs text-muted-foreground">

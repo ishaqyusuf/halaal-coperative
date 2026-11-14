@@ -15,7 +15,7 @@ describe("member opening position actions", () => {
     }
     expect(source).toContain('triggerLabel="Reset / reverse"')
     expect(source).toContain("AppliedOpeningPositionSuccess")
-    expect(source).toContain("Brought-forward details")
+    expect(source).toContain("Opening balance added")
     expect(source).toContain("{canCaptureOpeningPosition ? (")
     expect(source).not.toContain("MemberBackfillActionModal")
     expect(source).not.toContain("@/components/modals/")

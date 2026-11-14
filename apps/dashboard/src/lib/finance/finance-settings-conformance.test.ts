@@ -14,7 +14,7 @@ describe("finance settings Midday conformance", () => {
 
     expect(page).toContain("export const metadata")
     expect(page).toContain("Promise<SearchParams>")
-    expect(page).toContain("searchParams={searchParams}")
+    expect(page).toContain("loadTenantFinanceSettingsParams")
     expect(route).toContain("loadTenantFinanceSettingsParams")
   })
 
@@ -24,7 +24,7 @@ describe("finance settings Midday conformance", () => {
     )
 
     expect(route).toContain("FinanceSettingsUnavailableView")
-    expect(route).toContain('runtime.status !== "database-configured"')
+    expect(route).toContain('.status !== "database-configured"')
     expect(route).not.toContain("tenant-amanah-demo")
     expect(route).not.toContain("demoFinance")
     expect(route).not.toContain("demoShare")
@@ -36,7 +36,7 @@ describe("finance settings Midday conformance", () => {
     )
     const viewModel = read("./finance-settings-view-model.ts")
 
-    expect(route).toContain("toFinanceSetupViewModel(data)")
+    expect(route).toContain("toFinancingSettingsView(financingSettings)")
     expect(route).not.toContain(".chargeDefinitions.map")
     expect(route).not.toContain(": any")
     expect(viewModel).toContain("toFinancingSettingsView")
@@ -63,6 +63,9 @@ describe("finance settings Midday conformance", () => {
     )
     const content = read("../../components/tenant-finance-settings-content.tsx")
     const forms = read("../../components/forms/tenant-finance-forms.tsx")
+    const save = read(
+      "../../components/finance-settings/use-finance-settings-save.ts"
+    )
 
     expect(params).toContain("tenantFinanceSettingsSheetType")
     expect(sheet).toContain("useTenantFinanceSettingsParams")
@@ -70,5 +73,21 @@ describe("finance settings Midday conformance", () => {
     expect(sheet).toContain("setParams(null)")
     expect(content).toContain("onSuccess={() => setParams(null)}")
     expect(forms).toContain("onSuccess?.()")
+    expect(save).toContain("router.refresh()")
+  })
+
+  test("pages read the lean finance setup reads, not the full setup", () => {
+    for (const path of [
+      "../../app/(app)/(sidebar)/settings/finance/page.tsx",
+      "../../app/(app)/(sidebar)/settings/finance/charges/page.tsx",
+      "../../app/(app)/(sidebar)/settings/finance/shares/page.tsx",
+      "../../app/(app)/(sidebar)/settings/finance/business/page.tsx",
+      "../../app/(app)/(sidebar)/settings/finance/finance-route.tsx",
+    ]) {
+      const source = read(path)
+
+      expect(source).not.toContain("getTenantFinanceSetup(")
+      expect(source).not.toContain("listInitialMigrationMemberReview(context")
+    }
   })
 })

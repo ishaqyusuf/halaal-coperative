@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { FinanceSettingsRoute } from "../../finance-route"
 
 export const metadata: Metadata = {
-  title: "Member migration | Finance Settings",
+  title: "Member opening balance | Finance setup",
 }
 
 export default async function FinanceMigrationMemberPage({

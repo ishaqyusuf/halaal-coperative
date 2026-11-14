@@ -19,13 +19,16 @@ function functionBody(name: string) {
 
 // These finance settings forms keep their sheet open after a save, so they
 // must clear the sheet's unsaved-changes guard themselves (QA F7).
-const formsThatStayOpen = [
-  "BusinessProfitPolicyForm",
-  "ChargeDefinitionVersionForm",
-  "FinancingCycleControlForm",
-  "FinancingPolicyForm",
-  "LoanProductSettingsForm",
-  "SharePolicyForm",
+const formsThatStayOpen = ["ChargeDefinitionVersionForm"]
+
+// The plain Finance setup forms save through one hook that marks the
+// overlay saved before it closes.
+const plainForms = [
+  "loan-product-form.tsx",
+  "loan-rules-form.tsx",
+  "loan-window-form.tsx",
+  "profit-rules-form.tsx",
+  "share-model-form.tsx",
 ]
 
 describe("finance settings saved state", () => {
@@ -34,6 +37,28 @@ describe("finance settings saved state", () => {
     expect(presentationSource).toContain(
       "<WorkflowPresentationContext.Provider value={{ markSaved }}>"
     )
+  })
+
+  test("the Finance setup save hook marks the overlay saved", () => {
+    const hook = readFileSync(
+      new URL(
+        "../../components/finance-settings/use-finance-settings-save.ts",
+        import.meta.url
+      ),
+      "utf8"
+    )
+
+    expect(hook).toContain("const markWorkflowSaved = useMarkWorkflowSaved()")
+    expect(hook).toContain("markWorkflowSaved()")
+
+    for (const file of plainForms) {
+      const source = readFileSync(
+        new URL(`../../components/finance-settings/${file}`, import.meta.url),
+        "utf8"
+      )
+
+      expect(source).toContain("useFinanceSettingsSave(")
+    }
   })
 
   for (const name of formsThatStayOpen) {

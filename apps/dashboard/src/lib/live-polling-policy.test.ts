@@ -68,21 +68,23 @@ describe("resolveLiveTablePollInterval", () => {
   })
 })
 
-describe("dashboard table polling conformance", () => {
-  // The activity log (/reports/audit) is a plain paged list with no polling.
-  const tables = [
-    "charges",
-    "shares",
-  ]
-
-  test.each(tables)("%s table uses the activity-gated poll interval", (table) => {
-    const source = readFileSync(
-      join(import.meta.dir, "../components/tables", table, "data-table.tsx"),
-      "utf8"
-    )
-    expect(source).toContain("useLiveTablePollInterval()")
-    expect(source).toContain("refetchInterval: livePollInterval")
-    expect(source).not.toMatch(/refetchInterval:\s*\d/)
+describe("finance setup pages", () => {
+  // The finance charge and share tables polled every few seconds; the plain
+  // Finance setup lists are server-rendered and refresh after each save.
+  test("do not poll", () => {
+    for (const file of [
+      "charge-settings-view.tsx",
+      "share-settings-view.tsx",
+      "finance-overview-view.tsx",
+      "loan-settings-view.tsx",
+    ]) {
+      const source = readFileSync(
+        join(import.meta.dir, "../components/finance-settings", file),
+        "utf8"
+      )
+      expect(source).not.toContain("refetchInterval")
+      expect(source).not.toContain("useLiveTablePollInterval")
+    }
   })
 })
 

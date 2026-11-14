@@ -6,7 +6,7 @@ import { ChargeSheetFormProvider } from "@/components/charge/form-context"
 import { ChargeSheetHeader } from "@/components/charge-sheet-header"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useChargeParams } from "@/hooks/use-charge-params"
-import type { Charge } from "@/components/tables/charges/columns"
+import type { Charge } from "@/components/charge/charge-types"
 import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 export function ChargeSheet({
@@ -43,8 +43,8 @@ export function ChargeSheet({
         {isOpen ? (
           <Suspense
             fallback={
-              <div className="px-6 text-sm text-muted-foreground">
-                Loading charge form...
+              <div className="px-6 text-base text-muted-foreground">
+                Loading…
               </div>
             }
           >
@@ -56,8 +56,10 @@ export function ChargeSheet({
                 rows,
               }}
             >
-              <ChargeSheetHeader />
-              <ChargeContent />
+              <div className="grid gap-5 px-6 pb-8">
+                <ChargeSheetHeader />
+                <ChargeContent />
+              </div>
             </ChargeSheetFormProvider>
           </Suspense>
         ) : null}

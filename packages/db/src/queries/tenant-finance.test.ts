@@ -36,6 +36,17 @@ function withMigrationState(
   const initialMigrationStatus =
     overrides.initialMigrationStatus ?? "historical_setup_in_progress"
   const base = {
+    // getTenantFinanceSetupLock: one row with the write gates and flags.
+    $queryRaw: async () => [
+      {
+        has_applied_batch: appliedBackfillBatches > 0,
+        has_applied_month: false,
+        has_applied_opening: false,
+        initial_migration_status: initialMigrationStatus,
+        migration_emergency_unlock_until: null,
+        migration_setup_mode: "historical_backfill",
+      },
+    ],
     appliedBackfillMonth: {
       findMany: async () => [],
     },

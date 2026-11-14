@@ -15,6 +15,7 @@ import {
   ChargeDefinitionForm,
   ChargeDefinitionVersionForm,
 } from "@/components/forms/tenant-finance-forms"
+import { ChargeAmountsList } from "@/components/charge/charge-amounts-list"
 import { useChargeSheetFormContext } from "@/components/charge/form-context"
 import { useChargeParams } from "@/hooks/use-charge-params"
 import {
@@ -41,13 +42,11 @@ export function ChargeContent() {
 
   if (isCreate) {
     return (
-      <div className="px-6">
-        <ChargeDefinitionForm
-          devMode={quickFillEnabled}
-          financeStartDate={financeStartDate}
-          onSuccess={() => setParams(null)}
-        />
-      </div>
+      <ChargeDefinitionForm
+        devMode={quickFillEnabled}
+        financeStartDate={financeStartDate}
+        onSuccess={() => setParams(null)}
+      />
     )
   }
 
@@ -55,7 +54,7 @@ export function ChargeContent() {
     return (
       <form
         action={createChargeDefinitionVersionAction}
-        className="grid gap-4 px-6"
+        className="grid gap-5"
       >
         <DashboardNativeQuickFill
           enabled={!isLocked && quickFillEnabled}
@@ -76,21 +75,21 @@ export function ChargeContent() {
           type="hidden"
           value={charge.chargeValueType}
         />
-        <label className="space-y-1 text-xs font-medium text-muted-foreground">
+        <label className="grid gap-2 text-base font-medium text-foreground">
           Charge
           <Input disabled value={charge.name} />
         </label>
-        <label className="space-y-1 text-xs font-medium text-muted-foreground">
-          Effective date
+        <label className="grid gap-2 text-base font-medium text-foreground">
+          Starts from
           <DatePickerInput
             disabled={isLocked}
             min={financeStartDate ?? undefined}
             name="effectiveFrom"
-            placeholder="Select effective date"
+            placeholder="Pick a date"
             required
           />
         </label>
-        <label className="space-y-1 text-xs font-medium text-muted-foreground">
+        <label className="grid gap-2 text-base font-medium text-foreground">
           Amount
           <CurrencyPrefixInput
             disabled={isLocked}
@@ -102,16 +101,16 @@ export function ChargeContent() {
             type="number"
           />
         </label>
-        <label className="space-y-1 text-xs font-medium text-muted-foreground">
-          Notes
+        <label className="grid gap-2 text-base font-medium text-foreground">
+          Note (optional)
           <Textarea
             disabled={isLocked}
             name="notes"
-            placeholder="Reason or board reference"
+            placeholder="For example: agreed at the general meeting"
           />
         </label>
-        <Button disabled={isLocked} type="submit">
-          Save update
+        <Button className="h-12" disabled={isLocked} type="submit">
+          Save new amount
         </Button>
       </form>
     )
@@ -119,12 +118,23 @@ export function ChargeContent() {
 
   if (isUpdate) {
     return (
-      <div className="px-6">
-        <ChargeDefinitionVersionForm
-          chargeDefinitions={chargeOptions}
-          financeStartDate={financeStartDate}
-        />
-      </div>
+      <ChargeDefinitionVersionForm
+        chargeDefinitions={chargeOptions}
+        financeStartDate={financeStartDate}
+      />
+    )
+  }
+
+  if (charge && !chargeVersionId) {
+    return (
+      <ChargeAmountsList
+        charge={charge}
+        isLocked={isLocked}
+        onAdd={() =>
+          setParams({ chargeType: "update", chargeVersionId: null })
+        }
+        onPick={(versionId) => setParams({ chargeVersionId: versionId })}
+      />
     )
   }
 
@@ -132,7 +142,7 @@ export function ChargeContent() {
     return (
       <form
         action={updateChargeDefinitionVersionAction}
-        className="grid gap-4 px-6"
+        className="grid gap-5"
       >
         <DashboardNativeQuickFill
           enabled={!isLocked && quickFillEnabled}
@@ -156,18 +166,18 @@ export function ChargeContent() {
           type="hidden"
           value={version.chargeValueType}
         />
-        <label className="space-y-1 text-xs font-medium text-muted-foreground">
-          Effective date
+        <label className="grid gap-2 text-base font-medium text-foreground">
+          Starts from
           <DatePickerInput
             defaultValue={version.effectiveFrom}
             disabled={isLocked}
             min={financeStartDate ?? undefined}
             name="effectiveFrom"
-            placeholder="Select effective date"
+            placeholder="Pick a date"
             required
           />
         </label>
-        <label className="space-y-1 text-xs font-medium text-muted-foreground">
+        <label className="grid gap-2 text-base font-medium text-foreground">
           Amount
           <CurrencyPrefixInput
             defaultValue={version.amount}
@@ -179,16 +189,16 @@ export function ChargeContent() {
             type="number"
           />
         </label>
-        <label className="space-y-1 text-xs font-medium text-muted-foreground">
-          Notes
+        <label className="grid gap-2 text-base font-medium text-foreground">
+          Note (optional)
           <Textarea
             defaultValue={version.notes ?? ""}
             disabled={isLocked}
             name="notes"
-            placeholder="Reason or board reference"
+            placeholder="For example: agreed at the general meeting"
           />
         </label>
-        <Button disabled={isLocked} type="submit">
+        <Button className="h-12" disabled={isLocked} type="submit">
           Save changes
         </Button>
       </form>
@@ -196,8 +206,8 @@ export function ChargeContent() {
   }
 
   return (
-    <div className="px-6 text-sm text-muted-foreground">
-      Select a charge update to edit.
-    </div>
+    <p className="text-base text-muted-foreground">
+      This charge wasn't found. Close and pick it again.
+    </p>
   )
 }

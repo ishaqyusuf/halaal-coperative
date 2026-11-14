@@ -2,9 +2,10 @@
 
 import { createContext, useContext } from "react"
 import type { TenantSharePolicySettings } from "@halaalvest/db"
-import type { Share } from "@/components/tables/shares/columns"
+import type { Share } from "@/components/share/share-types"
 
 type ShareSheetFormContextValue = {
+  canChangeModel?: boolean
   financeStartDate?: string | null
   isLocked: boolean
   rows: Share[]

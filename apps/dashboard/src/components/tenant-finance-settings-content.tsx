@@ -4,16 +4,15 @@ import type {
   TenantBusinessProfitPolicySettings,
   TenantFinancingSettingsWorkspace,
 } from "@halaalvest/db"
-import {
-  BusinessProfitPolicyForm,
-  FinancingCycleControlForm,
-  FinancingPolicyForm,
-  FinanceStartDateForm,
-  LoanProductSettingsForm,
-} from "@/components/forms/tenant-finance-forms"
+import { LoanProductForm } from "@/components/finance-settings/loan-product-form"
+import { LoanRulesForm } from "@/components/finance-settings/loan-rules-form"
+import { getLoanMonthLabel } from "@/components/finance-settings/loan-month-label"
+import { LoanWindowForm } from "@/components/finance-settings/loan-window-form"
+import { ProfitRulesForm } from "@/components/finance-settings/profit-rules-form"
+import { FinanceStartDateForm } from "@/components/forms/tenant-finance-forms"
 import { useTenantFinanceSettingsParams } from "@/hooks/use-tenant-finance-settings-params"
 
-type FinancingSettingsView = {
+export type FinancingSettingsView = {
   currentCyclePreview: Omit<
     TenantFinancingSettingsWorkspace["currentCyclePreview"],
     "periodEnd" | "periodStart"
@@ -25,119 +24,84 @@ type FinancingSettingsView = {
   products: TenantFinancingSettingsWorkspace["products"]
 }
 
+function NotAvailable() {
+  return (
+    <p className="text-base text-muted-foreground">
+      This setting isn’t available here. Close and try again from its page.
+    </p>
+  )
+}
+
 export function TenantFinanceSettingsContent({
   businessPolicy,
+  canChangePastProfit = false,
   devMode,
   financingSettings,
   tenantStartDate,
 }: {
   businessPolicy?: TenantBusinessProfitPolicySettings
+  canChangePastProfit?: boolean
   devMode?: boolean
   financingSettings?: FinancingSettingsView
   tenantStartDate: string | null
 }) {
-  const { setParams, tenantFinanceSettingsSheetType } =
+  const { setParams, tenantFinanceSettingsSheetType: type } =
     useTenantFinanceSettingsParams()
 
-  if (tenantFinanceSettingsSheetType === "businessProfitPolicy") {
-    if (!businessPolicy) {
-      return (
-        <div className="px-6 text-sm text-muted-foreground">
-          Business profit policy is not available.
-        </div>
-      )
-    }
-
+  if (type === "startDate") {
     return (
-      <div className="px-6">
-        <BusinessProfitPolicyForm
-          defaultPolicy={businessPolicy}
-          devMode={devMode}
-        />
-      </div>
+      <FinanceStartDateForm
+        defaultStartDate={tenantStartDate}
+        onSuccess={() => setParams(null)}
+      />
     )
   }
 
-  if (tenantFinanceSettingsSheetType === "startDate") {
-    return (
-      <div className="px-6">
-        <FinanceStartDateForm
-          defaultStartDate={tenantStartDate}
-          onSuccess={() => setParams(null)}
-        />
-      </div>
+  if (type === "businessProfitPolicy") {
+    return businessPolicy ? (
+      <ProfitRulesForm
+        canChangePastProfit={canChangePastProfit}
+        key={devMode ? "dev" : "form"}
+        policy={businessPolicy}
+      />
+    ) : (
+      <NotAvailable />
     )
   }
 
-  if (tenantFinanceSettingsSheetType === "financingPolicy") {
-    if (!financingSettings) {
-      return (
-        <div className="px-6 text-sm text-muted-foreground">
-          Financing policy settings are not available.
-        </div>
-      )
-    }
+  if (!financingSettings) return <NotAvailable />
 
+  if (type === "financingPolicy") {
     return (
-      <div className="px-6">
-        <FinancingPolicyForm defaultPolicy={financingSettings.policy} />
-      </div>
+      <LoanRulesForm
+        policy={financingSettings.policy}
+        preview={financingSettings.currentCyclePreview}
+      />
     )
   }
 
-  if (tenantFinanceSettingsSheetType === "financingCycle") {
-    if (!financingSettings) {
-      return (
-        <div className="px-6 text-sm text-muted-foreground">
-          Monthly financing cycle settings are not available.
-        </div>
-      )
-    }
-
+  if (type === "financingCycle") {
     return (
-      <div className="px-6">
-        <FinancingCycleControlForm
-          currentCycle={financingSettings.currentCyclePreview.existingCycle}
-        />
-      </div>
+      <LoanWindowForm
+        monthLabel={getLoanMonthLabel(
+          financingSettings.currentCyclePreview.periodStart
+        )}
+        preview={financingSettings.currentCyclePreview}
+      />
     )
   }
 
-  if (tenantFinanceSettingsSheetType === "quickProduct") {
-    if (!financingSettings) {
-      return (
-        <div className="px-6 text-sm text-muted-foreground">
-          Quick financing product settings are not available.
-        </div>
-      )
-    }
-
+  if (type === "quickProduct" || type === "normalProduct") {
     return (
-      <div className="px-6">
-        <LoanProductSettingsForm product={financingSettings.products.quick} />
-      </div>
+      <LoanProductForm
+        product={
+          type === "quickProduct"
+            ? financingSettings.products.quick
+            : financingSettings.products.normal
+        }
+      />
     )
   }
 
-  if (tenantFinanceSettingsSheetType === "normalProduct") {
-    if (!financingSettings) {
-      return (
-        <div className="px-6 text-sm text-muted-foreground">
-          Normal financing product settings are not available.
-        </div>
-      )
-    }
-
-    return (
-      <div className="px-6">
-        <LoanProductSettingsForm product={financingSettings.products.normal} />
-      </div>
-    )
-  }
-
-  return (
-    <div className="px-6 text-sm text-muted-foreground">
-      Select a finance setting to update.
-    </div>
-  )
+  return <NotAvailable />
 }

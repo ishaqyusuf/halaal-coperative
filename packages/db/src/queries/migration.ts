@@ -447,6 +447,94 @@ export async function getTenantMigrationWriteAccess(
   }
 }
 
+export type TenantFinanceSetupLock = {
+  canUseLiveFinancialWrites: boolean
+  canUseMigrationTools: boolean
+  emergencyUnlockActive: boolean
+  /** Member ledger backfill (or a brought-forward opening position) is applied. */
+  hasAppliedMemberBackfill: boolean
+  /** Past setup (start date, dated charges and shares, past profit) can't change. */
+  isLocked: boolean
+  isLive: boolean
+}
+
+type TenantFinanceSetupLockRow = {
+  has_applied_batch: boolean
+  has_applied_month: boolean
+  has_applied_opening: boolean
+  initial_migration_status: InitialMigrationStatus | null
+  migration_emergency_unlock_until: Date | null
+  migration_setup_mode: string | null
+}
+
+export function toTenantFinanceSetupLock(
+  row: TenantFinanceSetupLockRow | undefined
+): TenantFinanceSetupLock {
+  const terminal = isTerminalInitialMigrationStatus(
+    row?.initial_migration_status ?? null
+  )
+  const emergencyUnlockActive = getActiveEmergencyUnlock(
+    row?.migration_emergency_unlock_until
+  )
+  const canUseMigrationTools = !terminal || emergencyUnlockActive
+  const hasAppliedMemberBackfill = Boolean(
+    row?.has_applied_batch ||
+      row?.has_applied_month ||
+      (row?.migration_setup_mode === "brought_forward" &&
+        row?.has_applied_opening)
+  )
+
+  return {
+    canUseLiveFinancialWrites: terminal,
+    canUseMigrationTools,
+    emergencyUnlockActive,
+    hasAppliedMemberBackfill,
+    isLocked: !canUseMigrationTools || hasAppliedMemberBackfill,
+    isLive: terminal,
+  }
+}
+
+/**
+ * The finance-setup lock in one statement: the tenant's write gates plus
+ * whether member backfill has been applied. It matches the API's
+ * `hasAppliedInitialMigrationBackfill` rule (applied batch, applied month,
+ * or an applied opening position in brought-forward setup) without the
+ * ~14-statement `getTenantInitialMigrationState` or the per-member review.
+ */
+export async function getTenantFinanceSetupLock(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+): Promise<TenantFinanceSetupLock> {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+
+  if (!prisma) {
+    return toTenantFinanceSetupLock(undefined)
+  }
+
+  const [row] = (await prisma.$queryRaw`
+    SELECT
+      t.initial_migration_status::text AS initial_migration_status,
+      t.migration_emergency_unlock_until,
+      tp.migration_setup_mode::text AS migration_setup_mode,
+      EXISTS (
+        SELECT 1 FROM backfill_batches b
+        WHERE b.tenant_id = t.id AND b.status = 'applied'
+      ) AS has_applied_batch,
+      EXISTS (
+        SELECT 1 FROM applied_backfill_months a WHERE a.tenant_id = t.id
+      ) AS has_applied_month,
+      EXISTS (
+        SELECT 1 FROM member_opening_balances o
+        WHERE o.tenant_id = t.id AND o.status = 'applied'
+      ) AS has_applied_opening
+    FROM tenants t
+    LEFT JOIN tenant_policies tp ON tp.tenant_id = t.id
+    WHERE t.id = ${tenantId}::uuid
+  `) as TenantFinanceSetupLockRow[]
+
+  return toTenantFinanceSetupLock(row)
+}
+
 export async function getTenantInitialMigrationState(
   tenantId: string,
   prismaOverride?: PrismaClient,

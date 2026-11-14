@@ -1,15 +1,16 @@
 import type { Metadata } from "next"
 import {
   createDbRuntime,
-  defaultTenantBusinessProfitPolicy,
-  getTenantFinanceSetup,
+  getTenantBusinessProfitPolicy,
+  getTenantFinanceSetupLock,
 } from "@halaalvest/db"
-import { FinanceBusinessSettingsView } from "@/components/finance-business-settings-view"
+import { ProfitSettingsView } from "@/components/finance-settings/profit-settings-view"
+import { FinanceSettingsUnavailableView } from "@/components/finance-settings-page-states"
 import { loadTenantFinanceSettingsParams } from "@/hooks/use-tenant-finance-settings-params"
 import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
 
 export const metadata: Metadata = {
-  title: "Business | Finance Settings",
+  title: "Business profit | Finance setup",
 }
 
 export default async function FinanceBusinessPage({
@@ -17,26 +18,23 @@ export default async function FinanceBusinessPage({
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const resolvedSearchParams = searchParams ? await searchParams : {}
-  loadTenantFinanceSettingsParams(resolvedSearchParams)
+  loadTenantFinanceSettingsParams(searchParams ? await searchParams : {})
   const context = await getDashboardServerContext()
-  const runtime = createDbRuntime()
-  const quickFillEnabled = canShowQuickFill(context)
 
-  let businessPolicy = defaultTenantBusinessProfitPolicy
-  let tenantName = context.tenant?.name ?? "Demo cooperative"
-
-  if (context.tenant && runtime.status === "database-configured") {
-    const data = await getTenantFinanceSetup(context.tenant.id)
-    tenantName = data.tenant?.name ?? context.tenant.name
-    businessPolicy = data.businessPolicy
+  if (!context.tenant || createDbRuntime().status !== "database-configured") {
+    return <FinanceSettingsUnavailableView />
   }
 
+  const [businessPolicy, lock] = await Promise.all([
+    getTenantBusinessProfitPolicy(context.tenant.id),
+    getTenantFinanceSetupLock(context.tenant.id),
+  ])
+
   return (
-    <FinanceBusinessSettingsView
+    <ProfitSettingsView
       businessPolicy={businessPolicy}
-      quickFillEnabled={quickFillEnabled}
-      tenantName={tenantName}
+      canChangePastProfit={!lock.isLocked}
+      quickFillEnabled={canShowQuickFill(context)}
     />
   )
 }

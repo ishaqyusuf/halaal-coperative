@@ -5,7 +5,6 @@ import {
 import type { InitialMigrationSnapshot } from "@halaalvest/domain"
 import { formatCurrency } from "@halaalvest/utils"
 import {
-  DashboardSectionHeader,
   DashboardSurfaceCard,
   TrendPill,
 } from "@/components/dashboard"
@@ -296,15 +295,6 @@ type ProfitMigrationOptionRow = {
   seasonLabel?: string | null
   seasonPeriodEnd?: string | null
   totalDisbursedAmount: number
-}
-
-const statusLabels: Record<InitialMigrationSnapshot["status"], string> = {
-  finalized: "Finalized",
-  historical_setup_in_progress: "Historical setup",
-  live_operations: "Live operations",
-  member_migration_in_progress: "Member migration",
-  migration_review: "Migration review",
-  not_started: "Not started",
 }
 
 function BusinessProfitMigrationPanel({
@@ -706,11 +696,8 @@ export function InitialMigrationPreview({
           memberNumber: null,
         }
       : null
-  const migrationStatus = migrationSnapshot
-    ? statusLabels[migrationSnapshot.status]
-    : "Preview mode"
   const readinessDetail = migrationSnapshot
-    ? `${migrationSnapshot.completedStepCount}/${migrationSnapshot.totalStepCount} steps complete`
+    ? `${migrationSnapshot.completedStepCount} of ${migrationSnapshot.totalStepCount} steps done`
     : "Real cooperative readiness will appear here."
   const blockingFinalizationSteps =
     migrationSnapshot?.missingStepKeys.filter(
@@ -910,85 +897,35 @@ export function InitialMigrationPreview({
 
   return (
     <section>
-      <DashboardSectionHeader
-        eyebrow="Initial migration"
-        title={
-          isLoansOnly
-            ? "Legacy loan setup"
+      <div className="grid gap-1">
+        <h2 className="text-xl font-semibold text-foreground">
+          {isLoansOnly
+            ? "Loans from before Halaalvest"
             : isMemberPreview
-              ? "Member migration inputs"
-              : "Migration overview"
-        }
-        description={
-          isLoansOnly
-            ? "Configure principal-only opening loan positions, monthly repayment, and savings during loan before member ledger backfill."
+              ? "This member's past records"
+              : "Opening balances"}
+        </h2>
+        <p className="text-base text-muted-foreground">
+          {isLoansOnly
+            ? "Loans members still owed when you started. Add each one before adding members' past records."
             : isMemberPreview
-              ? "Save commitment history, loan history, activity windows, profit adjustments, and review the generated ledger."
-              : "Track migration readiness and choose the next focused workflow without mixing member creation, loans, and generated ledger rows on one page."
-        }
-        actions={
-          <>
-            <TrendPill
-              tone={
-                isMigrationOverview || generatedLedgerRows?.length
-                  ? "positive"
-                  : "warning"
-              }
-            >
-              {isLoansOnly
-                ? "Loan domain"
-                : isMemberPreview
-                  ? generatedLedgerRows?.length
-                    ? "Generated preview"
-                    : "No preview"
-                  : migrationStatus}
-            </TrendPill>
-            <TrendPill tone="neutral">
-              {isMigrationOverview
-                ? readinessDetail
-                : "Principal-only loan balance"}
-            </TrendPill>
-          </>
-        }
-      />
+              ? "Their past savings, loans and profit. Check the records it makes, then add them."
+              : "Bring in each member's past records, check them, then go live."}
+        </p>
+      </div>
 
       {isMigrationOverview && migrationSnapshot ? (
-        <section
-          className={`mt-4 border-l-2 px-3 py-2 text-sm ${
+        <p
+          className={`mt-4 rounded-(--ui-radius-control) border px-4 py-3 text-base ${
             memberBackfillBlockingLabels.length > 0
               ? "border-amber-300 bg-amber-50 text-amber-950"
-              : "border-emerald-300 bg-emerald-50 text-emerald-950"
+              : "border-border bg-muted/50 text-foreground"
           }`}
         >
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="font-medium">
-                {memberBackfillBlockingLabels.length > 0
-                  ? "Setup blockers"
-                  : "Ready for member preview"}
-              </p>
-              <p className="mt-1 text-xs">
-                {memberBackfillBlockingLabels.length > 0
-                  ? `Missing: ${memberBackfillBlockingLabels.join(", ")}.`
-                  : "Select a member to review generated opening ledger rows."}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <TrendPill
-                tone={
-                  migrationSnapshot.canUseMigrationTools
-                    ? "warning"
-                    : "positive"
-                }
-              >
-                {migrationSnapshot.canUseMigrationTools
-                  ? "Migration tools open"
-                  : "Migration tools locked"}
-              </TrendPill>
-              <TrendPill tone="neutral">{readinessDetail}</TrendPill>
-            </div>
-          </div>
-        </section>
+          {memberBackfillBlockingLabels.length > 0
+            ? `Still to do first: ${memberBackfillBlockingLabels.join(", ")}.`
+            : `Ready. Pick a member to check their past records. ${readinessDetail}.`}
+        </p>
       ) : null}
 
       {isMigrationOverview ? (

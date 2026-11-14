@@ -140,11 +140,19 @@ export function getDashboardRouteTitle(
   const currentModule = getCurrentDashboardModule(pathname, titleModules)
   const offNavTitle = activeItem ? null : getOffNavRouteTitle(pathname)
 
+  const sectionHref = activeItem?.href ?? null
+
   return {
     activeItem,
     currentModule,
+    // True on a section's own page (for example `/members`), false on the
+    // records below it (`/members/[id]`).
+    isSectionRoot: sectionHref
+      ? normalizePath(pathname).toLowerCase() ===
+        normalizePath(sectionHref).toLowerCase()
+      : Boolean(offNavTitle),
     modules,
-    pageSubtitle: offNavTitle?.subtitle ?? currentModule?.subtitle ?? null,
+    pageSubtitle: offNavTitle?.subtitle ?? null,
     pageTitle: offNavTitle?.title ?? activeItem?.title ?? "Dashboard",
     roleLabel: getRoleDisplayName(role),
   }
@@ -209,6 +217,22 @@ export function canAccessDashboardPath(
     .sort((left, right) => right.href.length - left.href.length)[0]
 
   return partialMatch ? partialMatch.data.hasAccess !== false : true
+}
+
+/**
+ * The top bar is the page title. A page header repeats a title only when it
+ * names something the top bar does not, such as one member on `/members/[id]`.
+ */
+export function shouldShowPageHeaderTitle(input: {
+  isSectionRoot: boolean
+  routeTitle: string
+  title: string
+}) {
+  if (input.isSectionRoot) return false
+
+  return (
+    input.title.trim().toLowerCase() !== input.routeTitle.trim().toLowerCase()
+  )
 }
 
 export type DashboardRouteTitle = ReturnType<typeof getDashboardRouteTitle>

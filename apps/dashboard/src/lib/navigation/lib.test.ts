@@ -3,6 +3,7 @@ import {
   canAccessDashboardPath,
   getDashboardRouteTitle,
   getVisibleDashboardNav,
+  shouldShowPageHeaderTitle,
 } from "./lib"
 
 function visibleHrefs(
@@ -104,5 +105,56 @@ describe("dashboard navigation route titles", () => {
     const route = getDashboardRouteTitle("/members", "tenant_admin")
 
     expect(route.pageTitle).toBe("Member registry")
+  })
+
+  test("marks a section's own page as the section root, not its records", () => {
+    expect(
+      getDashboardRouteTitle("/members", "tenant_admin").isSectionRoot
+    ).toBe(true)
+    expect(
+      getDashboardRouteTitle("/members/abc", "tenant_admin").isSectionRoot
+    ).toBe(false)
+    expect(
+      getDashboardRouteTitle("/settings/finance/business", "tenant_admin")
+        .isSectionRoot
+    ).toBe(false)
+  })
+
+  test("drops the module subtitle so the top bar shows one title", () => {
+    expect(
+      getDashboardRouteTitle("/members", "tenant_admin").pageSubtitle
+    ).toBeNull()
+  })
+})
+
+describe("shouldShowPageHeaderTitle", () => {
+  test("hides a page header title on a section's own page", () => {
+    expect(
+      shouldShowPageHeaderTitle({
+        isSectionRoot: true,
+        routeTitle: "Repayments",
+        title: "Repayment tracking",
+      })
+    ).toBe(false)
+  })
+
+  test("hides a title that repeats the top bar", () => {
+    expect(
+      shouldShowPageHeaderTitle({
+        isSectionRoot: false,
+        routeTitle: "Member registry",
+        title: "member registry ",
+      })
+    ).toBe(false)
+  })
+
+  test("shows a record title below a section", () => {
+    expect(
+      shouldShowPageHeaderTitle({
+        isSectionRoot: false,
+        routeTitle: "Member registry",
+        title: "Aisha Bello",
+      })
+    ).toBe(true)
   })
 })

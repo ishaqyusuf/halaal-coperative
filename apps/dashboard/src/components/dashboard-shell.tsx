@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { usePathname } from "next/navigation"
-import Link from "next/link"
+import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import type { CooperativeRole } from "@halaalvest/auth/roles"
 import { getDashboardRouteTitle } from "@/lib/navigation/lib"
 import { DeepLinkSheetPlaceholder } from "@/components/deep-link-sheet-placeholders"
@@ -12,6 +12,7 @@ import {
   DASHBOARD_SIDEBAR_EXPANDED_WIDTH,
 } from "./dashboard/constants"
 import { DashboardPageFrame } from "./dashboard/page"
+import { DashboardRouteTitleProvider } from "./dashboard/route-title-context"
 import { DashboardSidebar } from "./dashboard/sidebar"
 import { DashboardTopbar } from "./dashboard/topbar"
 
@@ -38,7 +39,7 @@ export function DashboardShellClient({
 }) {
   const pathname = usePathname()
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
-  const { modules, pageSubtitle, pageTitle, roleLabel } =
+  const { isSectionRoot, modules, pageSubtitle, pageTitle, roleLabel } =
     getDashboardRouteTitle(pathname, role, hiddenNavPaths)
 
   return (
@@ -89,7 +90,9 @@ export function DashboardShellClient({
               </Link>
             </div>
           ) : null}
-          {children}
+          <DashboardRouteTitleProvider value={{ isSectionRoot, pageTitle }}>
+            {children}
+          </DashboardRouteTitleProvider>
         </DashboardPageFrame>
       </div>
     </div>

@@ -19,6 +19,7 @@ export { DashboardSidebar } from "./sidebar"
 export { ScrollableContent } from "./scrollable-content"
 export { DashboardThemeToggle } from "./theme-toggle"
 export { DashboardTopbar } from "./topbar"
+export { DashboardUserMenu } from "./user-menu"
 export { TrendPill } from "./trend-badge"
 export {
   DashboardPageShell,

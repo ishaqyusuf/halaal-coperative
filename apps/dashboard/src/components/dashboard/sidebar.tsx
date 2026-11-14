@@ -5,7 +5,7 @@ import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import { HalaalvestLogo } from "@halaalvest/ui/components/brand-logo"
 import { cn } from "@halaalvest/ui/lib/utils"
 import type { NavModule } from "@halaalvest/site-nav"
-import { ChevronDownIcon } from "lucide-react"
+import { Building2, ChevronDownIcon } from "lucide-react"
 import { DASHBOARD_SIDEBAR_EXPANDED_WIDTH } from "./constants"
 import { DashboardSidebarSheet } from "@/components/sheets/dashboard-sidebar-sheet"
 import { OnboardingIcon } from "@/lib/navigation/icons"
@@ -108,18 +108,18 @@ function DashboardSidebarLink({
           <div className={cn("relative", lockLabel ? "opacity-60" : null)}>
             <div
               className={cn(
-                "mr-[15px] ml-[15px] h-[40px] border border-transparent transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]",
+                "mr-[13px] ml-[13px] h-[44px] border border-transparent transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]",
                 isActive
-                  ? "border-border bg-[#f7f7f7] dark:bg-[#131313]"
+                  ? "border-border bg-muted"
                   : lockLabel
                     ? "bg-transparent"
                     : "bg-transparent group-hover/link:border-border/70 group-hover/link:bg-muted/30",
-                expanded ? "w-[calc(100%-30px)]" : "w-[40px]"
+                expanded ? "w-[calc(100%-26px)]" : "w-[44px]"
               )}
             />
             <div
               className={cn(
-                "pointer-events-none absolute top-0 left-[15px] flex h-[40px] w-[40px] items-center justify-center transition-colors",
+                "pointer-events-none absolute top-0 left-[13px] flex h-[44px] w-[44px] items-center justify-center transition-colors",
                 isActive
                   ? "text-foreground"
                   : lockLabel
@@ -132,7 +132,7 @@ function DashboardSidebarLink({
             {expanded ? (
               <div
                 className={cn(
-                  "pointer-events-none absolute top-0 left-[55px] flex h-[40px] items-center gap-2",
+                  "pointer-events-none absolute top-0 left-[57px] flex h-[44px] items-center gap-2",
                   hasChildren ? "right-[48px]" : "right-[24px]"
                 )}
               >
@@ -169,7 +169,7 @@ function DashboardSidebarLink({
               onToggle?.()
             }}
             className={cn(
-              "absolute top-1 right-[18px] flex size-8 items-center justify-center text-muted-foreground transition hover:text-foreground",
+              "absolute top-0 right-[14px] flex size-11 items-center justify-center text-muted-foreground transition hover:text-foreground",
               isActive ? "text-foreground" : null
             )}
           >
@@ -221,7 +221,7 @@ function DashboardSidebarLink({
               >
                 <div
                   className={cn(
-                    "mr-[15px] ml-[35px] flex h-[32px] items-center border-l border-border/70 pl-3 transition-all duration-200 ease-out",
+                    "mr-[13px] ml-[35px] flex min-h-11 items-center border-l border-border/70 pl-3 transition-all duration-200 ease-out",
                     isItemExpanded
                       ? "translate-x-0 opacity-100"
                       : "-translate-x-2 opacity-0"
@@ -234,11 +234,11 @@ function DashboardSidebarLink({
                 >
                   <span
                     className={cn(
-                      "truncate text-xs font-medium whitespace-nowrap transition",
+                      "truncate text-sm font-medium whitespace-nowrap transition",
                       childLockLabel
                         ? "text-muted-foreground opacity-60"
                         : isChildActive
-                          ? "text-foreground group-hover/child:text-foreground"
+                          ? "font-semibold text-foreground group-hover/child:text-foreground"
                           : "text-muted-foreground group-hover/child:text-foreground"
                     )}
                   >
@@ -284,7 +284,6 @@ export function DashboardSidebar({
   shouldRedirectAdminToSetup = false,
   showSetupNav = false,
   tenantName,
-  userName,
 }: {
   mobileOpen?: boolean
   modules: NavModule[]
@@ -294,7 +293,8 @@ export function DashboardSidebar({
   shouldRedirectAdminToSetup?: boolean
   showSetupNav?: boolean
   tenantName: string
-  userName: string
+  /** Kept for callers; the account menu in the top bar shows the user. */
+  userName?: string
 }) {
   const [expanded, setExpanded] = useState(false)
   const [expandedItem, setExpandedItem] = useState<string | null>(null)
@@ -371,23 +371,22 @@ export function DashboardSidebar({
     </nav>
   )
 
+  // The account menu lives in the top bar; this card names the cooperative.
   const userCard = (
-    <div className="relative h-[36px] w-full">
-      <div className="absolute bottom-0 left-[19px] flex h-[32px] w-[32px] items-center justify-center border border-border/70 bg-background text-xs font-semibold text-foreground">
-        {userName
-          .split(" ")
-          .map((part) => part[0])
-          .join("")
-          .slice(0, 2)
-          .toUpperCase()}
+    <div
+      className="relative h-[44px] w-full"
+      title={isExpanded ? undefined : tenantName}
+    >
+      <div className="absolute bottom-0 left-[13px] flex size-11 items-center justify-center rounded-(--ui-radius-control) border border-border bg-muted text-muted-foreground">
+        <Building2 aria-hidden="true" className="size-5" />
       </div>
       {isExpanded ? (
-        <div className="absolute right-4 bottom-0 left-[62px] flex h-[32px] min-w-0 items-center">
+        <div className="absolute right-4 bottom-0 left-[66px] flex h-[44px] min-w-0 items-center">
           <div className="min-w-0">
-            <p className="truncate text-sm leading-none font-medium text-foreground">
+            <p className="truncate text-sm font-medium text-foreground">
               {tenantName}
             </p>
-            <p className="mt-1 truncate text-xs leading-none text-muted-foreground">
+            <p className="truncate text-sm text-muted-foreground">
               {roleLabel}
             </p>
           </div>

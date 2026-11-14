@@ -1,11 +1,19 @@
-import { Badge } from "@halaalvest/ui/components/badge"
-import { cn } from "@halaalvest/ui/lib/utils"
+"use client"
 
+import { cn } from "@halaalvest/ui/lib/utils"
+import { shouldShowPageHeaderTitle } from "@/lib/navigation/lib"
+import { useDashboardRouteTitle } from "./route-title-context"
+
+/**
+ * The top bar already shows the page title as the page's h1. This header adds
+ * a title only when it names something more specific (a member, a statement),
+ * then a short description and the page actions.
+ *
+ * `eyebrow` and `badge` are accepted for older callers and no longer shown.
+ */
 export function DashboardPageHeader({
   actions,
-  badge,
   description,
-  eyebrow,
   title,
 }: {
   actions?: React.ReactNode
@@ -14,38 +22,44 @@ export function DashboardPageHeader({
   eyebrow?: string
   title: string
 }) {
+  const routeTitle = useDashboardRouteTitle()
+  const showTitle = routeTitle
+    ? shouldShowPageHeaderTitle({
+        isSectionRoot: routeTitle.isSectionRoot,
+        routeTitle: routeTitle.pageTitle,
+        title,
+      })
+    : true
+
+  if (!showTitle && !description && !actions) {
+    return null
+  }
+
   return (
-    <section className="border-b border-border/70 pb-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            {eyebrow ? (
-              <p className="text-xs font-medium text-muted-foreground">
-                {eyebrow}
-              </p>
-            ) : null}
-            {badge ? (
-              <Badge
-                variant="outline"
-                className="rounded-full px-2.5 py-0.5 text-xs"
-              >
-                {badge}
-              </Badge>
-            ) : null}
-          </div>
-          <h2 className="mt-3 text-2xl font-semibold tracking-normal text-foreground sm:text-3xl">
+    <section
+      className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
+      data-page-header
+    >
+      <div className="min-w-0">
+        {showTitle ? (
+          <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">
             {title}
           </h2>
-          {description ? (
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-              {description}
-            </p>
-          ) : null}
-        </div>
-        {actions ? (
-          <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>
+        ) : null}
+        {description ? (
+          <p
+            className={cn(
+              "max-w-3xl text-base leading-7 text-muted-foreground",
+              showTitle && "mt-2"
+            )}
+          >
+            {description}
+          </p>
         ) : null}
       </div>
+      {actions ? (
+        <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>
+      ) : null}
     </section>
   )
 }

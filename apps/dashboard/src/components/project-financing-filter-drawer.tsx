@@ -1,5 +1,8 @@
 "use client"
 
+import type { ProjectFinancingRequestStatus } from "@halaalvest/db"
+import { getRequestStatusFilterOptions } from "@/lib/requests/request-status-words"
+
 import {
   MobileFilterGroup,
   filterOptionSummary,
@@ -14,20 +17,17 @@ import { MobileFilterDrawer } from "@/components/search-filter/mobile-filter-dra
 import { useProjectFinancingFilterParams } from "@/hooks/use-project-financing-filter-params"
 import { useSortParams } from "@/hooks/use-sort-params"
 
-export const projectFinancingStatusOptions = [
-  { id: "submitted", name: "Submitted" },
-  { id: "under_review", name: "Under review" },
-  { id: "approved", name: "Approved" },
-  { id: "active", name: "Active" },
-  { id: "completed", name: "Completed" },
-  { id: "rejected", name: "Rejected" },
-  { id: "cancelled", name: "Cancelled" },
-] as const
+export const projectFinancingStatusOptions = getRequestStatusFilterOptions(
+  "projectFinancing"
+).map((option) => ({
+  id: option.value as ProjectFinancingRequestStatus,
+  name: option.label,
+}))
 
 const projectFinancingSortOptions = [
-  { id: "requestedAt,desc", name: "Newest requests" },
-  { id: "requestedAt,asc", name: "Oldest requests" },
-  { id: "requestedAmount,desc", name: "Highest requested amount" },
+  { id: "requestedAt,desc", name: "Newest first" },
+  { id: "requestedAt,asc", name: "Oldest first" },
+  { id: "requestedAmount,desc", name: "Largest amount" },
 ] as const
 
 function Options<T extends string>({

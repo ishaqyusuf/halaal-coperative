@@ -1,188 +1,45 @@
 "use client"
 
 import { Button } from "@halaalvest/ui/components/button"
+import { PlusIcon } from "lucide-react"
 import {
-  CalculatorIcon,
-  CheckCircle2Icon,
-  ClipboardCheckIcon,
-  FilePlus2Icon,
-  HandCoinsIcon,
-  ShoppingBasketIcon,
-} from "lucide-react"
-import { useFoodPurchaseParams } from "@/hooks/use-food-purchase-params"
+  type FoodPurchaseSheetType,
+  useFoodPurchaseParams,
+} from "@/hooks/use-food-purchase-params"
 
-export function OpenFoodPurchaseReleaseSheet({
-  iconOnly = false,
-}: {
-  iconOnly?: boolean
-} = {}) {
-  const { setParams } = useFoodPurchaseParams()
-
-  return (
-    <Button
-      aria-label={iconOnly ? "Record fund release evidence" : undefined}
-      className={iconOnly ? "size-11" : undefined}
-      onClick={() =>
-        setParams({
-          foodPurchaseApplicationId: null,
-          foodPurchaseCycleId: null,
-          foodPurchaseSheetType: "release",
-        })
-      }
-      type="button"
-      size={iconOnly ? "icon-lg" : undefined}
-    >
-      <HandCoinsIcon data-icon="inline-start" />
-      {iconOnly ? (
-        <span className="sr-only">Record release</span>
-      ) : (
-        "Record release evidence"
-      )}
-    </Button>
-  )
+const labels: Partial<Record<FoodPurchaseSheetType, string>> = {
+  application: "New request",
+  release: "Open a month",
+  "self-service": "Ask for foodstuff",
 }
 
-export function OpenFoodPurchaseApplicationSheet({
+/** Opens one of the foodstuff create sheets. */
+export function OpenFoodPurchaseSheet({
+  className,
   disabled,
-  iconOnly = false,
+  type,
 }: {
+  className?: string
   disabled?: boolean
-  iconOnly?: boolean
+  type: "application" | "release" | "self-service"
 }) {
   const { setParams } = useFoodPurchaseParams()
 
   return (
     <Button
-      aria-label={
-        iconOnly ? "Record Foodstuff Purchase application" : undefined
-      }
-      className={iconOnly ? "size-11" : undefined}
+      className={className}
       disabled={disabled}
       onClick={() =>
-        setParams({
+        void setParams({
           foodPurchaseApplicationId: null,
           foodPurchaseCycleId: null,
-          foodPurchaseSheetType: "application",
+          foodPurchaseSheetType: type,
         })
       }
       type="button"
-      variant="outline"
-      size={iconOnly ? "icon-lg" : undefined}
     >
-      <FilePlus2Icon data-icon="inline-start" />
-      {iconOnly ? (
-        <span className="sr-only">Record application</span>
-      ) : (
-        "Record application"
-      )}
-    </Button>
-  )
-}
-
-export function OpenMemberFoodPurchaseApplicationSheet({
-  disabled,
-  iconOnly = false,
-}: {
-  disabled?: boolean
-  iconOnly?: boolean
-}) {
-  const { setParams } = useFoodPurchaseParams()
-
-  return (
-    <Button
-      aria-label={iconOnly ? "Apply for Foodstuff Purchase" : undefined}
-      className={iconOnly ? "size-11" : undefined}
-      disabled={disabled}
-      onClick={() =>
-        setParams({
-          foodPurchaseApplicationId: null,
-          foodPurchaseCycleId: null,
-          foodPurchaseSheetType: "self-service",
-        })
-      }
-      type="button"
-      size={iconOnly ? "icon-lg" : undefined}
-    >
-      <ShoppingBasketIcon data-icon="inline-start" />
-      {iconOnly ? <span className="sr-only">Apply</span> : "Apply"}
-    </Button>
-  )
-}
-
-export function OpenFoodPurchaseAccountingSheet({
-  cycleId,
-}: {
-  cycleId: string
-}) {
-  const { setParams } = useFoodPurchaseParams()
-
-  return (
-    <Button
-      onClick={() =>
-        setParams({
-          foodPurchaseApplicationId: null,
-          foodPurchaseCycleId: cycleId,
-          foodPurchaseSheetType: "accounting",
-        })
-      }
-      size="sm"
-      type="button"
-      variant="outline"
-    >
-      <CalculatorIcon data-icon="inline-start" />
-      Record accounting
-    </Button>
-  )
-}
-
-export function OpenFoodPurchaseAccountingReviewSheet({
-  cycleId,
-}: {
-  cycleId: string
-}) {
-  const { setParams } = useFoodPurchaseParams()
-
-  return (
-    <Button
-      onClick={() =>
-        setParams({
-          foodPurchaseApplicationId: null,
-          foodPurchaseCycleId: cycleId,
-          foodPurchaseSheetType: "accounting-review",
-        })
-      }
-      size="sm"
-      type="button"
-      variant="outline"
-    >
-      <ClipboardCheckIcon data-icon="inline-start" />
-      Review accounting
-    </Button>
-  )
-}
-
-export function OpenFoodPurchaseApplicationReviewSheet({
-  applicationId,
-}: {
-  applicationId: string
-}) {
-  const { setParams } = useFoodPurchaseParams()
-
-  return (
-    <Button
-      onClick={() =>
-        setParams({
-          foodPurchaseApplicationId: applicationId,
-          foodPurchaseCycleId: null,
-          foodPurchaseSheetType: "review",
-        })
-      }
-      size="sm"
-      type="button"
-      variant="outline"
-    >
-      <CheckCircle2Icon data-icon="inline-start" />
-      Review application
+      <PlusIcon data-icon="inline-start" />
+      {labels[type]}
     </Button>
   )
 }

@@ -9,7 +9,7 @@ import {
 } from "@halaalvest/ui/components/table"
 import { getCoreRowModel } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useRef } from "react"
 import { VirtualRow } from "@/components/tables/core"
 import { useDataTable } from "@/hooks/use-data-table"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
@@ -31,7 +31,7 @@ import { ProjectFinancingEmptyState } from "./empty-states"
 import { ProjectFinancingTableHeader } from "./table-header"
 import { useProjectFinancingQuery } from "./use-project-financing-query"
 
-const NON_CLICKABLE_COLUMNS = new Set(["actions"])
+const NON_CLICKABLE_COLUMNS = new Set<string>()
 const COLUMN_IDS = getColumnIds(columns)
 
 type Props = {
@@ -112,26 +112,17 @@ export function ProjectFinancingDataTable({
     overscan: 10,
   })
 
+  // Every action lives in the request's sheet, so a row always opens it.
   const openRequest = useCallback(
     (id?: string) => {
       if (!id) return
 
-      const request = tableData.find((candidate) => candidate.id === id)
-      if (!request) return
-
-      const projectFinancingSheetType =
-        canReview && ["submitted", "under_review"].includes(request.status)
-          ? "review"
-          : canReview && request.status === "approved"
-            ? "disbursement"
-            : "details"
-
       void setParams({
         projectFinancingRequestId: id,
-        projectFinancingSheetType,
+        projectFinancingSheetType: "details",
       })
     },
-    [canReview, setParams, tableData]
+    [setParams]
   )
 
   useInfiniteScroll<HTMLDivElement>({
@@ -178,30 +169,35 @@ export function ProjectFinancingDataTable({
                 position: "relative",
               }}
             >
-              {rowVirtualizer.getVirtualItems().map((virtualRow: VirtualItem) => {
-                const row = rows[virtualRow.index]
-                if (!row) return null
+              {rowVirtualizer
+                .getVirtualItems()
+                .map((virtualRow: VirtualItem) => {
+                  const row = rows[virtualRow.index]
+                  if (!row) return null
 
-                return (
-                  <VirtualRow
-                    columnOrder={columnOrder}
-                    columnSizing={columnSizing}
-                    columnVisibility={columnVisibility}
-                    getStickyClassName={getStickyClassName}
-                    getStickyStyle={getStickyStyle}
-                    isSelected={false}
-                    key={row.id}
-                    nonClickableColumns={NON_CLICKABLE_COLUMNS}
-                    onCellClick={openRequest}
-                    row={row}
-                    rowHeight={ROW_HEIGHTS.projectFinancing}
-                    virtualStart={virtualRow.start}
-                  />
-                )
-              })}
+                  return (
+                    <VirtualRow
+                      columnOrder={columnOrder}
+                      columnSizing={columnSizing}
+                      columnVisibility={columnVisibility}
+                      getStickyClassName={getStickyClassName}
+                      getStickyStyle={getStickyStyle}
+                      isSelected={false}
+                      key={row.id}
+                      nonClickableColumns={NON_CLICKABLE_COLUMNS}
+                      onCellClick={openRequest}
+                      row={row}
+                      rowHeight={ROW_HEIGHTS.projectFinancing}
+                      virtualStart={virtualRow.start}
+                    />
+                  )
+                })}
               {!rows.length ? (
                 <TableRow>
-                  <TableCell className="h-24 text-center" colSpan={columns.length}>
+                  <TableCell
+                    className="h-24 text-center"
+                    colSpan={columns.length}
+                  >
                     No results.
                   </TableCell>
                 </TableRow>

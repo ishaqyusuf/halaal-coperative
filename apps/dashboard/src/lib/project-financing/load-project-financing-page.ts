@@ -1,9 +1,9 @@
 import {
   createDbRuntime,
   getMemberByUserId,
+  getMemberOperationalReadiness,
   getProjectFinancingSummary,
   tenantHasMembers,
-  quoteApplicableCharges,
 } from "@halaalvest/db"
 import { getDashboardServerContext } from "@/lib/server-context"
 import {
@@ -45,54 +45,34 @@ export async function loadProjectFinancingPageData() {
       return { state: "member-profile-missing" as const }
     }
 
-    const [summary, chargeOptions] = await Promise.all([
+    // A member who is not verified sees a plain notice, not a form that fails.
+    const [summary, readiness] = await Promise.all([
       getProjectFinancingSummary(context.tenant.id, undefined, member.id),
-      quoteApplicableCharges({
-        basisAmount: 100,
+      getMemberOperationalReadiness({
+        memberId: member.id,
         tenantId: context.tenant.id,
-        trigger: "submission",
-        workflow: "project_financing_request",
       }),
     ])
 
     return {
       state: "member-ready" as const,
-      canCreate: true,
-      chargeOptions,
-      member,
+      canCreate: Boolean(readiness?.isReady),
+      needsVerification: !readiness?.isReady,
       summary,
     }
   }
 
-  const [
-    summary,
-    hasMembers,
-    submissionChargeOptions,
-    approvalChargeOptions,
-  ] = await Promise.all([
+  // Charges load only when a form opens.
+  const [summary, hasMembers] = await Promise.all([
     getProjectFinancingSummary(context.tenant.id),
     tenantHasMembers(context.tenant.id),
-    quoteApplicableCharges({
-      basisAmount: 100,
-      tenantId: context.tenant.id,
-      trigger: "submission",
-      workflow: "project_financing_request",
-    }),
-    quoteApplicableCharges({
-      basisAmount: 100,
-      tenantId: context.tenant.id,
-      trigger: "approval",
-      workflow: "project_financing_request",
-    }),
   ])
 
   return {
     state: "staff-ready" as const,
-    approvalChargeOptions,
     canCreate: canSubmit,
     canReview,
     hasMembers,
-    submissionChargeOptions,
     summary,
   }
 }

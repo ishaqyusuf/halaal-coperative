@@ -7,52 +7,29 @@ import { useQuery } from "@tanstack/react-query"
 import {
   FoodPurchaseAccountingContent,
   FoodPurchaseAccountingReviewContent,
-  FoodPurchaseApplicationCreateContent,
-  FoodPurchaseApplicationReviewContent,
+  FoodPurchaseApplicationDetails,
+  FoodPurchaseApplicationForm,
   FoodPurchaseReleaseContent,
-  MemberFoodPurchaseApplicationCreateContent,
-  type FoodPurchaseOption,
 } from "@/components/food-purchase-content"
 import { FoodPurchaseSheetHeader } from "@/components/food-purchase-sheet-header"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
-import type { WorkflowChargeOption } from "@/components/workflow-charge-summary"
 import { useFoodPurchaseParams } from "@/hooks/use-food-purchase-params"
 import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 import { useTRPC } from "@/trpc/client"
 
-type FoodPurchaseSheetType =
-  | "accounting"
-  | "accounting-review"
-  | "application"
-  | "release"
-  | "review"
-  | "self-service"
-
-function isFoodPurchaseSheetType(
-  value: string | null
-): value is FoodPurchaseSheetType {
-  return (
-    value === "accounting" ||
-    value === "accounting-review" ||
-    value === "application" ||
-    value === "release" ||
-    value === "review" ||
-    value === "self-service"
-  )
-}
-
 const disabledFoodPurchaseApplicationId = "00000000-0000-4000-8000-000000000000"
 
+/**
+ * One URL-addressed host for foodstuff: new request, the request itself (staff
+ * decide inside it), opening a month and the month-end figures. Charges load
+ * inside the forms that show them.
+ */
 export function FoodPurchaseSheet({
-  approvalChargeOptions = [],
+  canReview = false,
   cycles,
-  selfServiceChargeOptions = [],
-  submissionChargeOptions = [],
 }: {
-  approvalChargeOptions?: WorkflowChargeOption[]
+  canReview?: boolean
   cycles: FoodPurchaseCycleRow[]
-  selfServiceChargeOptions?: WorkflowChargeOption[]
-  submissionChargeOptions?: WorkflowChargeOption[]
 }) {
   const trpc = useTRPC()
   const {
@@ -61,7 +38,7 @@ export function FoodPurchaseSheet({
     foodPurchaseSheetType,
     setParams,
   } = useFoodPurchaseParams()
-  const isOpen = isFoodPurchaseSheetType(foodPurchaseSheetType)
+  const isOpen = foodPurchaseSheetType !== null
   const presentation = getWorkflowPresentation(
     "foodPurchase",
     foodPurchaseSheetType
@@ -102,9 +79,7 @@ export function FoodPurchaseSheet({
       {isOpen ? (
         <Suspense
           fallback={
-            <div className="px-6 text-sm text-muted-foreground">
-              Loading Foodstuff Purchase form...
-            </div>
+            <div className="px-6 text-sm text-muted-foreground">Loading...</div>
           }
         >
           <FoodPurchaseSheetHeader
@@ -116,16 +91,15 @@ export function FoodPurchaseSheet({
             {foodPurchaseSheetType === "release" ? (
               <FoodPurchaseReleaseContent onClose={closeSheet} />
             ) : foodPurchaseSheetType === "application" ? (
-              <FoodPurchaseApplicationCreateContent
-                chargeOptions={submissionChargeOptions}
+              <FoodPurchaseApplicationForm
                 cycles={cycles}
                 onClose={closeSheet}
               />
             ) : foodPurchaseSheetType === "self-service" ? (
-              <MemberFoodPurchaseApplicationCreateContent
-                chargeOptions={selfServiceChargeOptions}
+              <FoodPurchaseApplicationForm
                 cycles={cycles}
                 onClose={closeSheet}
+                selfService
               />
             ) : foodPurchaseSheetType === "accounting" && selectedCycle ? (
               <FoodPurchaseAccountingContent
@@ -140,21 +114,12 @@ export function FoodPurchaseSheet({
               />
             ) : shouldLoadSelectedApplication &&
               isSelectedApplicationLoading ? (
-              <p className="text-sm text-muted-foreground">
-                Loading Foodstuff Purchase application...
-              </p>
+              <p className="text-base text-muted-foreground">Loading...</p>
             ) : shouldLoadSelectedApplication && isSelectedApplicationError ? (
-              <div className="space-y-3 border-y border-border py-5">
-                <div>
-                  <p className="text-sm font-medium">
-                    Could not load this application
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Check your connection and try again.
-                  </p>
-                </div>
+              <div className="grid gap-3">
+                <p className="text-base">This request could not be loaded.</p>
                 <Button
-                  className="h-11 md:h-9"
+                  className="h-12 w-full sm:w-auto"
                   onClick={() => void refetchSelectedApplication()}
                   type="button"
                   variant="outline"
@@ -162,15 +127,17 @@ export function FoodPurchaseSheet({
                   Try again
                 </Button>
               </div>
-            ) : foodPurchaseSheetType === "review" && selectedApplication ? (
-              <FoodPurchaseApplicationReviewContent
+            ) : (foodPurchaseSheetType === "details" ||
+                foodPurchaseSheetType === "review") &&
+              selectedApplication ? (
+              <FoodPurchaseApplicationDetails
                 application={selectedApplication}
-                chargeOptions={approvalChargeOptions}
+                canReview={canReview}
                 onClose={closeSheet}
               />
             ) : (
-              <p className="text-sm text-muted-foreground">
-                This Foodstuff Purchase record could not be found.
+              <p className="text-base text-muted-foreground">
+                This could not be found.
               </p>
             )}
           </div>

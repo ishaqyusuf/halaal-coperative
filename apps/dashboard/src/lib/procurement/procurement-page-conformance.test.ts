@@ -41,19 +41,21 @@ describe("procurement workspace Midday conformance", () => {
   test("closes workflow URL before invalidation and refresh", () => {
     const sheet = read("components/sheets/procurement-request-sheet.tsx")
     const content = read("components/procurement-request-content.tsx")
+    const refresh = read("components/requests/use-request-refresh.ts")
 
-    const closeAt = content.indexOf("await onClose()")
-    const invalidateAt = content.indexOf("await Promise.all(invalidations)")
-    const refreshAt = content.indexOf("router.refresh()")
+    const closeAt = refresh.indexOf("await onClose()")
+    const invalidateAt = refresh.indexOf("queryClient.invalidateQueries")
+    const refreshAt = refresh.indexOf("router.refresh()")
 
     expect(sheet).toContain("const closeSheet = async () =>")
     expect(sheet).toContain("mobileFullScreen")
     expect(closeAt).toBeGreaterThan(-1)
     expect(invalidateAt).toBeGreaterThan(closeAt)
     expect(refreshAt).toBeGreaterThan(invalidateAt)
+    expect(content).toContain("useRequestRefresh()")
     expect(
       content.match(/await refreshProcurement\(onClose/g) ?? []
-    ).toHaveLength(4)
+    ).toHaveLength(3)
   })
 
   test("offers explicit desktop filter recovery", () => {

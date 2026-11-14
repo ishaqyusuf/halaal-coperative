@@ -1,226 +1,163 @@
 "use client"
 
-import { Badge } from "@halaalvest/ui/components/badge"
 import { formatCurrency } from "@halaalvest/utils"
 import type { ProcurementRequestRow } from "@halaalvest/db"
 import type { ColumnDef } from "@tanstack/react-table"
 import { memo } from "react"
-import { ProcurementActionsMenu } from "./actions-menu"
+import { RequestStatusBadge } from "@/components/requests/request-status-badge"
+import {
+  formatMonths,
+  monthlyAmount,
+} from "@/lib/requests/request-status-words"
+import { formatDayMonthYear } from "@/utils/format"
 
 export type ProcurementRequest = ProcurementRequestRow
 
-type ProcurementTableMeta = {
-  canReview: boolean
-}
+/** The amount that counts now: approved when approved, else what was asked. */
+export function getProcurementAmount(request: ProcurementRequest) {
+  const approved = request.approvedCost !== null
 
-export function formatProcurementDate(value: Date | string) {
-  const date = value instanceof Date ? value : new Date(value)
-
-  return date.toLocaleDateString("en-NG", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
-
-function displayEnum(value: string) {
-  return value.replaceAll("_", " ")
-}
-
-function statusClassName(status: ProcurementRequest["status"]) {
-  if (
-    status === "approved" ||
-    status === "purchased" ||
-    status === "active" ||
-    status === "completed"
-  ) {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700"
+  return {
+    amount: approved ? (request.approvedCost ?? 0) : request.requestedCost,
+    months: approved
+      ? (request.approvedRepaymentMonths ?? request.requestedRepaymentMonths)
+      : request.requestedRepaymentMonths,
   }
-
-  if (status === "rejected" || status === "cancelled") {
-    return "border-rose-200 bg-rose-50 text-rose-700"
-  }
-
-  return "border-amber-200 bg-amber-50 text-amber-700"
 }
 
-export function getProcurementScheduleCounts(request: ProcurementRequest) {
-  return request.repaymentScheduleItems.reduce(
-    (summary, schedule) => {
-      const outstanding = Math.max(0, schedule.amount - schedule.paidAmount)
-
-      if (schedule.status === "due") {
-        summary.due += 1
-      }
-
-      if (schedule.status === "overdue") {
-        summary.overdue += 1
-      }
-
-      summary.outstanding += outstanding
-
-      return summary
-    },
-    { due: 0, outstanding: 0, overdue: 0 }
-  )
+export function getProcurementLatePayments(request: ProcurementRequest) {
+  return request.repaymentScheduleItems.filter(
+    (item) => item.status === "overdue"
+  ).length
 }
 
 const RequestCell = memo(({ request }: { request: ProcurementRequest }) => (
-  <div>
+  <div className="min-w-0">
     <p className="truncate font-medium text-foreground">{request.itemName}</p>
-    <p className="mt-1 truncate text-xs text-muted-foreground">
-      {request.member.fullName} · {request.member.memberNumber}
+    <p className="mt-0.5 truncate text-sm text-muted-foreground">
+      {request.member.fullName}
     </p>
   </div>
 ))
 
 RequestCell.displayName = "RequestCell"
 
-export const ProcurementStatusBadge = memo(
-  ({ status }: { status: ProcurementRequest["status"] }) => (
-    <Badge className={statusClassName(status)} variant="outline">
-      {displayEnum(status)}
-    </Badge>
-  )
-)
-
-ProcurementStatusBadge.displayName = "ProcurementStatusBadge"
-
 export const columns: ColumnDef<ProcurementRequest>[] = [
   {
     accessorKey: "itemName",
     cell: ({ row }) => <RequestCell request={row.original} />,
     enableResizing: true,
-    header: "Request",
+    header: "Item",
     id: "request",
     maxSize: 520,
     meta: {
       className:
-        "w-[320px] min-w-[240px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20",
-      headerLabel: "Request",
+        "w-[300px] min-w-[220px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20",
+      headerLabel: "Item",
       skeleton: { type: "avatar-text", width: "w-36" },
       sticky: true,
     },
-    minSize: 240,
-    size: 320,
+    minSize: 220,
+    size: 300,
   },
   {
     accessorKey: "status",
     cell: ({ row }) => (
-      <ProcurementStatusBadge status={row.original.status} />
+      <RequestStatusBadge kind="procurement" status={row.original.status} />
     ),
     enableResizing: true,
     enableSorting: false,
     header: "Status",
     id: "status",
-    maxSize: 180,
+    maxSize: 200,
     meta: {
-      className: "w-[140px] min-w-[120px]",
+      className: "w-[150px] min-w-[130px]",
       headerLabel: "Status",
       skeleton: { type: "badge" },
     },
-    minSize: 120,
-    size: 140,
+    minSize: 130,
+    size: 150,
   },
   {
     accessorKey: "requestedCost",
-    cell: ({ row }) => (
-      <div>
-        <p className="font-medium">
-          {formatCurrency(row.original.requestedCost)}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {row.original.requestedRepaymentMonths} months
-        </p>
-      </div>
-    ),
-    enableResizing: true,
-    header: "Requested",
-    id: "requested",
-    maxSize: 220,
-    meta: {
-      className: "w-[170px] min-w-[150px]",
-      headerLabel: "Requested",
-      skeleton: { type: "text", width: "w-24" },
-    },
-    minSize: 150,
-    size: 170,
-  },
-  {
-    cell: ({ row }) => (
-      <div>
-        <p className="font-medium">
-          {row.original.approvedCost
-            ? formatCurrency(row.original.approvedCost)
-            : "Not approved"}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {row.original.approvedRepaymentMonths
-            ? `${row.original.approvedRepaymentMonths} months`
-            : "Awaiting review"}
-        </p>
-      </div>
-    ),
-    enableResizing: true,
-    header: "Approved",
-    id: "approved",
-    maxSize: 220,
-    meta: {
-      className: "w-[170px] min-w-[150px]",
-      headerLabel: "Approved",
-      skeleton: { type: "text", width: "w-24" },
-    },
-    minSize: 150,
-    size: 170,
-  },
-  {
-    accessorKey: "estimatedMonthlyRepayment",
-    cell: ({ row }) => (
-      <div>
-        <p className="font-medium">
-          {formatCurrency(
-            row.original.approvedMonthlyRepayment ??
-              row.original.estimatedMonthlyRepayment
-          )}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">monthly</p>
-      </div>
-    ),
-    enableResizing: true,
-    header: "Monthly",
-    id: "monthly",
-    maxSize: 180,
-    meta: {
-      className: "w-[140px] min-w-[120px]",
-      headerLabel: "Monthly",
-      skeleton: { type: "text", width: "w-20" },
-    },
-    minSize: 120,
-    size: 140,
-  },
-  {
     cell: ({ row }) => {
-      const counts = getProcurementScheduleCounts(row.original)
+      const { amount, months } = getProcurementAmount(row.original)
 
       return (
         <div>
-          <p className="font-medium">
-            {formatCurrency(counts.outstanding)}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {counts.due} due · {counts.overdue} overdue
+          <p className="font-medium tabular-nums">{formatCurrency(amount)}</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {formatMonths(months)}
           </p>
         </div>
       )
     },
     enableResizing: true,
+    header: "Amount",
+    id: "requested",
+    maxSize: 240,
+    meta: {
+      className: "w-[180px] min-w-[150px]",
+      headerLabel: "Amount",
+      skeleton: { type: "text", width: "w-24" },
+    },
+    minSize: 150,
+    size: 180,
+  },
+  {
+    accessorKey: "estimatedMonthlyRepayment",
+    cell: ({ row }) => {
+      const { amount, months } = getProcurementAmount(row.original)
+      const monthly =
+        row.original.approvedMonthlyRepayment ?? monthlyAmount(amount, months)
+
+      return (
+        <span className="tabular-nums">
+          {monthly ? formatCurrency(monthly) : "—"}
+        </span>
+      )
+    },
+    enableResizing: true,
+    header: "Each month",
+    id: "monthly",
+    maxSize: 200,
+    meta: {
+      className: "w-[150px] min-w-[130px]",
+      headerLabel: "Each month",
+      skeleton: { type: "text", width: "w-20" },
+    },
+    minSize: 130,
+    size: 150,
+  },
+  {
+    cell: ({ row }) => {
+      const late = getProcurementLatePayments(row.original)
+
+      if (!row.original.repaymentScheduleItems.length) {
+        return <span className="text-muted-foreground">—</span>
+      }
+
+      return (
+        <div>
+          <p className="font-medium tabular-nums">
+            {formatCurrency(row.original.outstandingAmount)}
+          </p>
+          {late ? (
+            <p className="mt-0.5 text-sm font-medium text-amber-800 dark:text-amber-400">
+              {late === 1 ? "1 late payment" : `${late} late payments`}
+            </p>
+          ) : null}
+        </div>
+      )
+    },
+    enableResizing: true,
     enableSorting: false,
-    header: "Schedule",
+    header: "Still owed",
     id: "schedule",
-    maxSize: 220,
+    maxSize: 240,
     meta: {
       className: "w-[170px] min-w-[150px]",
-      headerLabel: "Schedule",
+      headerLabel: "Still owed",
       skeleton: { type: "text", width: "w-24" },
     },
     minSize: 150,
@@ -228,67 +165,32 @@ export const columns: ColumnDef<ProcurementRequest>[] = [
   },
   {
     accessorKey: "requestedAt",
-    cell: ({ row }) => (
-      <div>
-        <p>{formatProcurementDate(row.original.requestedAt)}</p>
-        <p className="mt-1 truncate text-xs text-muted-foreground">
-          {row.original.createdByUser.fullName}
-        </p>
-      </div>
-    ),
+    cell: ({ row }) => formatDayMonthYear(row.original.requestedAt),
     enableResizing: true,
-    header: "Requested at",
+    header: "Asked on",
     id: "requestedAt",
     maxSize: 220,
     meta: {
-      className: "w-[170px] min-w-[140px]",
-      headerLabel: "Requested at",
+      className: "w-[150px] min-w-[130px]",
+      headerLabel: "Asked on",
       skeleton: { type: "text", width: "w-24" },
     },
-    minSize: 140,
-    size: 170,
+    minSize: 130,
+    size: 150,
   },
   {
     accessorKey: "vendorName",
-    cell: ({ row }) => row.original.vendorName ?? "No vendor",
+    cell: ({ row }) => row.original.vendorName ?? "—",
     enableResizing: true,
-    header: "Vendor",
+    header: "Shop or seller",
     id: "vendor",
-    maxSize: 220,
+    maxSize: 260,
     meta: {
-      className: "w-[170px] min-w-[140px]",
-      headerLabel: "Vendor",
+      className: "w-[180px] min-w-[140px]",
+      headerLabel: "Shop or seller",
       skeleton: { type: "text", width: "w-24" },
     },
     minSize: 140,
-    size: 170,
-  },
-  {
-    cell: ({ row, table }) => {
-      const meta = table.options.meta as ProcurementTableMeta
-      const request = row.original
-
-      return (
-        <ProcurementActionsMenu
-          canReview={meta.canReview}
-          request={request}
-        />
-      )
-    },
-    enableHiding: false,
-    enableResizing: false,
-    enableSorting: false,
-    header: "Actions",
-    id: "actions",
-    maxSize: 140,
-    meta: {
-      className:
-        "text-right sticky right-0 bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-30 justify-center !border-l !border-border",
-      headerLabel: "Actions",
-      skeleton: { type: "icon" },
-      sticky: true,
-    },
-    minSize: 120,
-    size: 120,
+    size: 180,
   },
 ]

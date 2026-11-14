@@ -27,9 +27,9 @@ describe("Foodstuff Purchase workspace Midday conformance", () => {
     const drawer = read("components/food-purchase-filter-drawer.tsx")
     const empty = read("components/tables/food-purchase/empty-states.tsx")
 
-    expect(view).toContain("grid-cols-3 divide-x divide-border/70")
-    expect(view).not.toContain("rounded-lg border border-border bg-card p-4")
-    expect(view).toContain("border-y border-border px-4 py-8 text-center")
+    expect(view).toContain("<RequestSummaryGrid>")
+    expect(view).toContain("<SummaryCard")
+    expect(view).toContain("<RequestClosedNotice>")
     expect(drawer).toContain("divide-y divide-border border-y border-border")
     expect(drawer).not.toContain("border border-border px-3")
     expect(drawer.match(/await Promise\.all/g) ?? []).toHaveLength(1)
@@ -55,18 +55,20 @@ describe("Foodstuff Purchase workspace Midday conformance", () => {
   test("closes workflow URL before invalidation and refresh", () => {
     const sheet = read("components/sheets/food-purchase-sheet.tsx")
     const content = read("components/food-purchase-content.tsx")
+    const refresh = read("components/requests/use-request-refresh.ts")
 
-    const closeAt = content.indexOf("await onClose()")
-    const invalidateAt = content.indexOf("await Promise.all(invalidations)")
-    const refreshAt = content.indexOf("router.refresh()")
+    const closeAt = refresh.indexOf("await onClose()")
+    const invalidateAt = refresh.indexOf("queryClient.invalidateQueries")
+    const refreshAt = refresh.indexOf("router.refresh()")
 
     expect(sheet).toContain("const closeSheet = async () =>")
     expect(sheet).toContain("mobileFullScreen")
     expect(closeAt).toBeGreaterThan(-1)
     expect(invalidateAt).toBeGreaterThan(closeAt)
     expect(refreshAt).toBeGreaterThan(invalidateAt)
+    expect(content).toContain("useRequestRefresh()")
     expect(
       content.match(/await refreshFoodPurchase\(onClose/g) ?? []
-    ).toHaveLength(6)
+    ).toHaveLength(5)
   })
 })

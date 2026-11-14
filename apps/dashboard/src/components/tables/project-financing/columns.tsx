@@ -1,59 +1,72 @@
 "use client"
 
-import { Badge } from "@halaalvest/ui/components/badge"
 import { formatCurrency } from "@halaalvest/utils"
-import type {
-  ProjectFinancingRequestRow,
-  ProjectFinancingStructure,
-} from "@halaalvest/db"
+import type { ProjectFinancingRequestRow } from "@halaalvest/db"
 import type { ColumnDef } from "@tanstack/react-table"
 import { memo } from "react"
-import { ProjectFinancingActionsMenu } from "./actions-menu"
+import { RequestStatusBadge } from "@/components/requests/request-status-badge"
+import {
+  getProjectFinancingTypeLabel,
+  monthlyAmount,
+} from "@/lib/requests/request-status-words"
+import { formatDayMonthYear } from "@/utils/format"
 
 export type ProjectFinancingRequest = ProjectFinancingRequestRow
 
-type ProjectFinancingTableMeta = {
-  canReview: boolean
-}
+/** The amount that counts now: approved when approved, else what was asked. */
+export function getProjectFinancingAmount(request: ProjectFinancingRequest) {
+  const approved = request.approvedAmount !== null
+  const type = request.approvedStructure ?? request.proposedStructure
+  const amount = approved
+    ? (request.approvedAmount ?? 0)
+    : request.requestedAmount
+  const months = approved
+    ? request.approvedPaybackMonths
+    : request.requestedPaybackMonths
 
-export function formatProjectFinancingDate(value: Date | string) {
-  const date = value instanceof Date ? value : new Date(value)
-
-  return date.toLocaleDateString("en-NG", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
-
-export function formatProjectFinancingStructure(
-  value: ProjectFinancingStructure | null
-) {
-  if (!value) return "Not set"
-
-  return value.replace(/_/g, " ")
-}
-
-function statusClassName(status: ProjectFinancingRequest["status"]) {
-  if (status === "approved" || status === "active" || status === "completed") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700"
+  return {
+    amount,
+    monthly:
+      type === "repayable_facility"
+        ? (request.approvedMonthlyPayback ??
+          request.estimatedMonthlyPayback ??
+          monthlyAmount(amount, months ?? 0))
+        : null,
+    repayable: type === "repayable_facility",
+    type,
   }
+}
 
-  if (status === "rejected" || status === "cancelled") {
-    return "border-rose-200 bg-rose-50 text-rose-700"
-  }
+export function getProjectFinancingOwed(request: ProjectFinancingRequest) {
+  const { repayable } = getProjectFinancingAmount(request)
 
-  return "border-amber-200 bg-amber-50 text-amber-700"
+  if (!repayable || !request.disbursedAt) return null
+
+  return Math.max(0, (request.approvedAmount ?? 0) - (request.paidAmount ?? 0))
+}
+
+export function ProjectFinancingStatusBadge({
+  request,
+}: {
+  request: ProjectFinancingRequest
+}) {
+  return (
+    <RequestStatusBadge
+      kind="projectFinancing"
+      repayable={getProjectFinancingAmount(request).repayable}
+      status={request.status}
+    />
+  )
 }
 
 const RequestCell = memo(
   ({ request }: { request: ProjectFinancingRequest }) => (
-    <div>
+    <div className="min-w-0">
       <p className="truncate font-medium text-foreground">
         {request.businessName}
       </p>
-      <p className="mt-1 truncate text-xs text-muted-foreground">
-        {request.member.fullName} · {formatProjectFinancingStructure(request.proposedStructure)}
+      <p className="mt-0.5 truncate text-sm text-muted-foreground">
+        {request.member.fullName}
       </p>
     </div>
   )
@@ -61,187 +74,137 @@ const RequestCell = memo(
 
 RequestCell.displayName = "RequestCell"
 
-export const ProjectFinancingStatusBadge = memo(
-  ({ status }: { status: ProjectFinancingRequest["status"] }) => (
-    <Badge className={statusClassName(status)} variant="outline">
-      {status.replaceAll("_", " ")}
-    </Badge>
-  )
-)
-
-ProjectFinancingStatusBadge.displayName = "ProjectFinancingStatusBadge"
-
 export const columns: ColumnDef<ProjectFinancingRequest>[] = [
   {
     cell: ({ row }) => <RequestCell request={row.original} />,
     enableResizing: true,
-    header: "Request",
+    header: "Business",
     id: "request",
     maxSize: 520,
     meta: {
       className:
-        "w-[320px] min-w-[240px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20",
-      headerLabel: "Request",
+        "w-[300px] min-w-[220px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20",
+      headerLabel: "Business",
       skeleton: { type: "avatar-text", width: "w-36" },
       sticky: true,
     },
-    minSize: 240,
-    size: 320,
+    minSize: 220,
+    size: 300,
   },
   {
     accessorKey: "status",
-    cell: ({ row }) => <ProjectFinancingStatusBadge status={row.original.status} />,
+    cell: ({ row }) => <ProjectFinancingStatusBadge request={row.original} />,
     enableResizing: true,
+    enableSorting: false,
     header: "Status",
     id: "status",
-    maxSize: 180,
+    maxSize: 200,
     meta: {
-      className: "w-[140px] min-w-[120px]",
+      className: "w-[150px] min-w-[130px]",
       headerLabel: "Status",
       skeleton: { type: "badge" },
     },
-    minSize: 120,
-    size: 140,
+    minSize: 130,
+    size: 150,
   },
   {
     accessorKey: "requestedAmount",
     cell: ({ row }) => (
-      <div>
-        <p className="font-medium">
-          {formatCurrency(row.original.requestedAmount)}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {row.original.requestedPaybackMonths
-            ? `${row.original.requestedPaybackMonths} months`
-            : "No term"}
-        </p>
-      </div>
+      <span className="font-medium tabular-nums">
+        {formatCurrency(getProjectFinancingAmount(row.original).amount)}
+      </span>
     ),
     enableResizing: true,
-    header: "Requested",
+    header: "Amount",
     id: "requested",
-    maxSize: 220,
-    meta: {
-      className: "w-[170px] min-w-[150px]",
-      headerLabel: "Requested",
-      skeleton: { type: "text", width: "w-24" },
-    },
-    minSize: 150,
-    size: 170,
-  },
-  {
-    cell: ({ row }) => (
-      <div>
-        <p className="font-medium">
-          {row.original.approvedAmount
-            ? formatCurrency(row.original.approvedAmount)
-            : "Not approved"}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {formatProjectFinancingStructure(row.original.approvedStructure)}
-        </p>
-      </div>
-    ),
-    enableResizing: true,
-    header: "Approved",
-    id: "approved",
     maxSize: 240,
     meta: {
-      className: "w-[190px] min-w-[150px]",
-      headerLabel: "Approved",
+      className: "w-[170px] min-w-[150px]",
+      headerLabel: "Amount",
       skeleton: { type: "text", width: "w-24" },
     },
     minSize: 150,
-    size: 190,
-  },
-  {
-    cell: ({ row }) => (
-      <div>
-        <p className="font-medium">
-          {row.original.approvedMonthlyPayback
-            ? formatCurrency(row.original.approvedMonthlyPayback)
-            : row.original.estimatedMonthlyPayback
-              ? formatCurrency(row.original.estimatedMonthlyPayback)
-              : "Not set"}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">monthly</p>
-      </div>
-    ),
-    enableResizing: true,
-    header: "Monthly",
-    id: "monthly",
-    maxSize: 180,
-    meta: {
-      className: "w-[140px] min-w-[120px]",
-      headerLabel: "Monthly",
-      skeleton: { type: "text", width: "w-20" },
-    },
-    minSize: 120,
-    size: 140,
-  },
-  {
-    accessorKey: "requestedAt",
-    cell: ({ row }) => (
-      <div>
-        <p>{formatProjectFinancingDate(row.original.requestedAt)}</p>
-        <p className="mt-1 truncate text-xs text-muted-foreground">
-          {row.original.createdByUser.fullName}
-        </p>
-      </div>
-    ),
-    enableResizing: true,
-    header: "Requested at",
-    id: "requestedAt",
-    maxSize: 220,
-    meta: {
-      className: "w-[170px] min-w-[140px]",
-      headerLabel: "Requested at",
-      skeleton: { type: "text", width: "w-24" },
-    },
-    minSize: 140,
     size: 170,
   },
   {
     cell: ({ row }) =>
-      row.original.disbursedAt
-        ? formatProjectFinancingDate(row.original.disbursedAt)
-        : "No",
+      getProjectFinancingTypeLabel(
+        getProjectFinancingAmount(row.original).type
+      ),
     enableResizing: true,
-    header: "Disbursed",
-    id: "disbursed",
-    maxSize: 180,
+    enableSorting: false,
+    header: "Paid back by",
+    id: "approved",
+    maxSize: 240,
     meta: {
-      className: "w-[140px] min-w-[120px]",
-      headerLabel: "Disbursed",
-      skeleton: { type: "text", width: "w-20" },
+      className: "w-[170px] min-w-[150px]",
+      headerLabel: "Paid back by",
+      skeleton: { type: "text", width: "w-24" },
     },
-    minSize: 120,
-    size: 140,
+    minSize: 150,
+    size: 170,
   },
   {
-    cell: ({ row, table }) => {
-      const meta = table.options.meta as ProjectFinancingTableMeta
+    cell: ({ row }) => {
+      const owed = getProjectFinancingOwed(row.original)
+      const { monthly } = getProjectFinancingAmount(row.original)
+
+      if (owed === null && !monthly) {
+        return <span className="text-muted-foreground">—</span>
+      }
+
       return (
-        <ProjectFinancingActionsMenu
-          canReview={meta.canReview}
-          request={row.original}
-        />
+        <div>
+          <p className="font-medium tabular-nums">
+            {formatCurrency(owed ?? monthly ?? 0)}
+          </p>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {owed !== null ? "still owed" : "a month"}
+          </p>
+        </div>
       )
     },
-    enableHiding: false,
-    enableResizing: false,
+    enableResizing: true,
     enableSorting: false,
-    header: "Actions",
-    id: "actions",
-    maxSize: 140,
+    header: "Repayment",
+    id: "monthly",
+    maxSize: 240,
     meta: {
-      className:
-        "text-right sticky right-0 bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-30 justify-center !border-l !border-border",
-      headerLabel: "Actions",
-      skeleton: { type: "icon" },
-      sticky: true,
+      className: "w-[170px] min-w-[150px]",
+      headerLabel: "Repayment",
+      skeleton: { type: "text", width: "w-20" },
     },
-    minSize: 120,
-    size: 120,
+    minSize: 150,
+    size: 170,
+  },
+  {
+    accessorKey: "requestedAt",
+    cell: ({ row }) => formatDayMonthYear(row.original.requestedAt),
+    enableResizing: true,
+    header: "Asked on",
+    id: "requestedAt",
+    maxSize: 220,
+    meta: {
+      className: "w-[150px] min-w-[130px]",
+      headerLabel: "Asked on",
+      skeleton: { type: "text", width: "w-24" },
+    },
+    minSize: 130,
+    size: 150,
+  },
+  {
+    accessorKey: "disbursedAt",
+    cell: ({ row }) => formatDayMonthYear(row.original.disbursedAt) ?? "—",
+    enableResizing: true,
+    header: "Paid out on",
+    id: "disbursed",
+    maxSize: 220,
+    meta: {
+      className: "w-[150px] min-w-[130px]",
+      headerLabel: "Paid out on",
+      skeleton: { type: "text", width: "w-24" },
+    },
+    minSize: 130,
+    size: 150,
   },
 ]

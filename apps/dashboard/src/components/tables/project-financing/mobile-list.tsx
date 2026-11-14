@@ -24,7 +24,7 @@ export function ProjectFinancingMobileList({
   } = useProjectFinancingQuery()
   const rowVirtualizer = useVirtualizer({
     count: requests.length,
-    estimateSize: () => 236,
+    estimateSize: () => 140,
     getScrollElement: () => parentRef.current,
     overscan: 6,
   })

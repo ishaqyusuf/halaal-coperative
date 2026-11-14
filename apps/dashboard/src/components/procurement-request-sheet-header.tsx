@@ -16,44 +16,27 @@ function getHeaderCopy(
   type: ProcurementSheetType,
   request?: ProcurementRequestRow
 ) {
-  if (type === "details") {
-    return {
-      description:
-        "Review request, approval, purchase, and repayment schedule evidence.",
-      title: request ? request.itemName : "Procurement details",
-    }
-  }
-
-  if (type === "review") {
-    return {
-      description:
-        "Review the requested cost, repayment months, and approval charges before saving a decision.",
-      title: request ? `Review ${request.itemName}` : "Review procurement",
-    }
+  if (type === "details" || type === "review") {
+    return { description: null, title: request?.itemName ?? "Request" }
   }
 
   if (type === "purchase") {
     return {
-      description:
-        "Record purchase evidence and first repayment due date before activating the repayment schedule.",
-      title: request
-        ? `Record purchase for ${request.itemName}`
-        : "Record procurement purchase",
+      description: request?.itemName ?? null,
+      title: "Record purchase",
     }
   }
 
   if (type === "self-service") {
     return {
-      description:
-        "Request an item purchase from the cooperative and choose your preferred repayment months.",
-      title: "Request item purchase",
+      description: "The cooperative buys it. You pay back monthly.",
+      title: "Ask for an item",
     }
   }
 
   return {
-    description:
-      "Capture the item, expected cost, repayment months, and submission charges before finance review.",
-    title: "New procurement request",
+    description: "The cooperative buys it. The member pays back monthly.",
+    title: "New item request",
   }
 }
 
@@ -68,8 +51,12 @@ export function ProcurementRequestSheetHeader({
 
   return (
     <SheetHeader>
-      <SheetTitle>{copy.title}</SheetTitle>
-      <SheetDescription>{copy.description}</SheetDescription>
+      <SheetTitle className="text-2xl">{copy.title}</SheetTitle>
+      {copy.description ? (
+        <SheetDescription className="text-base">
+          {copy.description}
+        </SheetDescription>
+      ) : null}
     </SheetHeader>
   )
 }

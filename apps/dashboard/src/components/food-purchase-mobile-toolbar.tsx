@@ -16,11 +16,13 @@ import { useFoodPurchaseParams } from "@/hooks/use-food-purchase-params"
 import { useSortParams } from "@/hooks/use-sort-params"
 
 export function FoodPurchaseMobileToolbar({
-  canSubmitApplications,
+  canCreate,
   hasOpenCycle,
+  selfService = false,
 }: {
-  canSubmitApplications: boolean
+  canCreate: boolean
   hasOpenCycle: boolean
+  selfService?: boolean
 }) {
   const { filter, setFilter } = useFoodPurchaseFilterParams()
   const { params, setParams: setSortParams } = useSortParams()
@@ -32,22 +34,22 @@ export function FoodPurchaseMobileToolbar({
     <>
       <div className="space-y-3 md:hidden">
         <div className="flex items-center gap-2">
-          <InputGroup className="h-11 min-w-0 flex-1">
+          <InputGroup className="h-12 min-w-0 flex-1">
             <InputGroupAddon align="inline-start">
               <Search aria-hidden className="size-4" />
             </InputGroupAddon>
             <InputGroupInput
-              aria-label="Search Foodstuff Purchase applications"
+              aria-label="Search foodstuff requests"
               onChange={(event) =>
                 void setFilter({ q: event.target.value || null })
               }
-              placeholder="Search applications..."
+              placeholder="Search"
               type="search"
               value={filter.q ?? ""}
             />
             <InputGroupAddon align="inline-end">
               <InputGroupButton
-                aria-label="Filter Foodstuff Purchase applications"
+                aria-label="Filter foodstuff requests"
                 className="size-11"
                 onClick={() => setFilterOpen(true)}
                 size="icon-sm"
@@ -56,31 +58,32 @@ export function FoodPurchaseMobileToolbar({
               </InputGroupButton>
             </InputGroupAddon>
           </InputGroup>
-          {canSubmitApplications ? (
+          {canCreate ? (
             <Button
               aria-describedby={
                 hasOpenCycle ? undefined : "food-purchase-create-disabled"
               }
-              aria-label="Record Foodstuff Purchase application"
-              className="size-11"
+              className="h-12 px-4"
               disabled={!hasOpenCycle}
               onClick={() =>
                 void setParams({
                   foodPurchaseApplicationId: null,
                   foodPurchaseCycleId: null,
-                  foodPurchaseSheetType: "application",
+                  foodPurchaseSheetType: selfService
+                    ? "self-service"
+                    : "application",
                 })
               }
-              size="icon-lg"
               type="button"
             >
-              <Plus />
+              <Plus data-icon="inline-start" />
+              New
             </Button>
           ) : null}
         </div>
-        {canSubmitApplications && !hasOpenCycle ? (
+        {canCreate && !hasOpenCycle ? (
           <p className="sr-only" id="food-purchase-create-disabled">
-            Open a monthly cycle before recording an application.
+            No month is open for requests.
           </p>
         ) : null}
         {hasActiveControls ? (

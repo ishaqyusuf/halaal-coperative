@@ -1,11 +1,11 @@
 import {
   createDbRuntime,
   getMemberByUserId,
-  getTenantOperationProfile,
+  getMemberOperationalReadiness,
   getProcurementSummary,
   tenantHasMembers,
-  quoteApplicableCharges,
 } from "@halaalvest/db"
+import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
 import { getDashboardServerContext } from "@/lib/server-context"
 import {
   allStaffRoles,
@@ -13,6 +13,10 @@ import {
   hasAnyRole,
 } from "@/lib/workspace-access"
 
+/**
+ * Procurement page data. The operation profile is the per-request copy the
+ * sidebar already read; charges load only when a form opens.
+ */
 export async function loadProcurementPageData() {
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
@@ -31,7 +35,9 @@ export async function loadProcurementPageData() {
     return { state: "unavailable" as const }
   }
 
-  const operationProfile = await getTenantOperationProfile(context.tenant.id)
+  const operationProfile = await getRequestTenantOperationProfile(
+    context.tenant.id
+  )
   const procurementCapability = operationProfile.services.procurement
 
   if (canUseMemberProcurement) {
@@ -48,11 +54,17 @@ export async function loadProcurementPageData() {
       return { state: "member-profile-missing" as const }
     }
 
-    const summary = await getProcurementSummary(
-      context.tenant.id,
-      undefined,
-      member.id
-    )
+    // Readiness is read only when the member could ask, so a member who is
+    // not verified sees a plain notice instead of a form that will fail.
+    const [summary, readiness] = await Promise.all([
+      getProcurementSummary(context.tenant.id, undefined, member.id),
+      procurementCapability.canMemberCreate
+        ? getMemberOperationalReadiness({
+            memberId: member.id,
+            tenantId: context.tenant.id,
+          })
+        : null,
+    ])
 
     if (
       procurementCapability.accessMode === "disabled" &&
@@ -63,38 +75,16 @@ export async function loadProcurementPageData() {
 
     return {
       state: "member-ready" as const,
-      chargeOptions: await quoteApplicableCharges({
-        basisAmount: 100,
-        tenantId: context.tenant.id,
-        trigger: "submission",
-        workflow: "procurement_request",
-      }),
-      canCreate: procurementCapability.canMemberCreate,
-      member,
+      canCreate: Boolean(readiness?.isReady),
+      needsVerification:
+        procurementCapability.canMemberCreate && !readiness?.isReady,
       summary,
     }
   }
 
-  const [
-    summary,
-    hasMembers,
-    submissionChargeOptions,
-    approvalChargeOptions,
-  ] = await Promise.all([
+  const [summary, hasMembers] = await Promise.all([
     getProcurementSummary(context.tenant.id),
     tenantHasMembers(context.tenant.id),
-    quoteApplicableCharges({
-      basisAmount: 100,
-      tenantId: context.tenant.id,
-      trigger: "submission",
-      workflow: "procurement_request",
-    }),
-    quoteApplicableCharges({
-      basisAmount: 100,
-      tenantId: context.tenant.id,
-      trigger: "approval",
-      workflow: "procurement_request",
-    }),
   ])
 
   if (
@@ -106,11 +96,9 @@ export async function loadProcurementPageData() {
 
   return {
     state: "staff-ready" as const,
-    approvalChargeOptions,
     canCreate: procurementCapability.canStaffCreate,
     canReview,
     hasMembers,
-    submissionChargeOptions,
     summary,
   }
 }

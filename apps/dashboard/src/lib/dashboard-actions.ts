@@ -735,6 +735,10 @@ export async function recordFoodPurchaseAccountingAction(formData: FormData) {
   return callDashboardFormAction("recordFoodPurchaseAccountingAction", formData)
 }
 
+export async function setFoodPurchaseIntakeAction(formData: FormData) {
+  return callDashboardFormAction("setFoodPurchaseIntakeAction", formData)
+}
+
 export async function reviewFoodPurchaseAccountingAction(formData: FormData) {
   return callDashboardFormAction("reviewFoodPurchaseAccountingAction", formData)
 }

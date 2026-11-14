@@ -1,27 +1,37 @@
 "use client"
 
-import { formatCurrency } from "@halaalvest/utils"
+import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
+import { useNotifications } from "@halaalvest/notifications-react"
+import { Badge } from "@halaalvest/ui/components/badge"
 import { Button } from "@halaalvest/ui/components/button"
+import { formatCurrency } from "@halaalvest/utils"
 import type { FoodPurchaseCycleRow } from "@halaalvest/db"
-import type { FoodPurchaseOption } from "@/components/food-purchase-content"
-import { FoodPurchaseMobileToolbar } from "@/components/food-purchase-mobile-toolbar"
-import { MobileActionsDrawer } from "@/components/tables/core/mobile-actions-drawer"
 import { FoodPurchaseHeader } from "@/components/food-purchase-header"
+import { FoodPurchaseMobileToolbar } from "@/components/food-purchase-mobile-toolbar"
+import { OpenFoodPurchaseSheet } from "@/components/open-food-purchase-sheet"
+import { RequestConfirmDialog } from "@/components/requests/request-confirm-dialog"
 import {
-  OpenFoodPurchaseAccountingReviewSheet,
-  OpenFoodPurchaseAccountingSheet,
-  OpenFoodPurchaseReleaseSheet,
-  OpenMemberFoodPurchaseApplicationSheet,
-} from "@/components/open-food-purchase-sheet"
+  RequestClosedNotice,
+  RequestSummaryGrid,
+  RequestSummaryWide,
+  memberNeedsVerificationNotice,
+} from "@/components/requests/request-summary"
 import { FoodPurchaseSheet } from "@/components/sheets/food-purchase-sheet"
+import { SummaryCard } from "@/components/summary-card"
 import { FoodPurchaseDataView } from "@/components/tables/food-purchase/data-view"
-import type { WorkflowChargeOption } from "@/components/workflow-charge-summary"
-import type { TableSettings } from "@/utils/table-settings"
-import { MoreHorizontalIcon } from "lucide-react"
-import { useState } from "react"
 import { useFoodPurchaseFilterParams } from "@/hooks/use-food-purchase-filter-params"
 import { useFoodPurchaseParams } from "@/hooks/use-food-purchase-params"
 import { useSortParams } from "@/hooks/use-sort-params"
+import { setFoodPurchaseIntakeAction } from "@/lib/dashboard-actions"
+import { objectToFormData } from "@/lib/form-submit"
+import { memberStateToneClassNames } from "@/lib/members/member-status-words"
+import {
+  formatMonthYear,
+  getFoodCycleState,
+} from "@/lib/requests/request-status-words"
+import type { TableSettings } from "@/utils/table-settings"
+import { formatDayMonthYear } from "@/utils/format"
 
 type FoodPurchaseViewName = "applications" | "cycles"
 
@@ -34,37 +44,6 @@ type FoodPurchaseSummary = {
   totalReleasedAmount: number
 }
 
-function formatDate(value: Date | string) {
-  const date = value instanceof Date ? value : new Date(value)
-
-  return date.toLocaleDateString("en-NG", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
-
-function formatMonth(value: Date | string) {
-  const date = value instanceof Date ? value : new Date(value)
-
-  return date.toLocaleDateString("en-NG", {
-    month: "short",
-    year: "numeric",
-  })
-}
-
-function statusTone(status: string) {
-  if (status.includes("approved") || status === "closed") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700"
-  }
-
-  if (status.includes("rejected") || status === "cancelled") {
-    return "border-rose-200 bg-rose-50 text-rose-700"
-  }
-
-  return "border-amber-200 bg-amber-50 text-amber-700"
-}
-
 function FoodPurchaseViewTabs({
   activeView,
   onSelect,
@@ -73,14 +52,14 @@ function FoodPurchaseViewTabs({
   onSelect: (view: FoodPurchaseViewName) => void
 }) {
   const views = [
-    { label: "Applications", value: "applications" },
-    { label: "Monthly cycles", value: "cycles" },
+    { label: "Requests", value: "applications" },
+    { label: "Months", value: "cycles" },
   ] as const
 
   return (
     <div
-      aria-label="Foodstuff Purchase workspace view"
-      className="flex min-w-0 gap-1 overflow-x-auto border-b border-border"
+      aria-label="Foodstuff view"
+      className="flex min-w-0 gap-1 border-b border-border"
       role="tablist"
     >
       {views.map((view) => {
@@ -90,7 +69,7 @@ function FoodPurchaseViewTabs({
           <Button
             aria-controls={`food-purchase-${view.value}-view`}
             aria-selected={selected}
-            className="h-11 shrink-0 rounded-none border-x-0 border-t-0 border-b-2 border-transparent px-4 text-sm data-[active=true]:border-primary data-[active=true]:bg-transparent"
+            className="h-12 shrink-0 rounded-none border-x-0 border-t-0 border-b-2 border-transparent px-4 text-base data-[active=true]:border-primary data-[active=true]:bg-transparent data-[active=true]:font-semibold"
             data-active={selected}
             id={`food-purchase-${view.value}-tab`}
             key={view.value}
@@ -108,7 +87,6 @@ function FoodPurchaseViewTabs({
 }
 
 export function FoodPurchaseView({
-  approvalChargeOptions,
   canRecordAccounting,
   canReviewAccounting,
   canReleaseFunds,
@@ -116,10 +94,8 @@ export function FoodPurchaseView({
   canSubmitApplications,
   cycles,
   initialSettings,
-  submissionChargeOptions,
   summary,
 }: {
-  approvalChargeOptions: WorkflowChargeOption[]
   canRecordAccounting: boolean
   canReviewAccounting: boolean
   canReleaseFunds: boolean
@@ -127,7 +103,6 @@ export function FoodPurchaseView({
   canSubmitApplications: boolean
   cycles: FoodPurchaseCycleRow[]
   initialSettings?: Partial<TableSettings>
-  submissionChargeOptions: WorkflowChargeOption[]
   summary: FoodPurchaseSummary
 }) {
   const hasOpenCycle = cycles.some((cycle) => cycle.status === "open")
@@ -142,36 +117,30 @@ export function FoodPurchaseView({
 
   return (
     <div className="space-y-6">
-      <FoodPurchaseSheet
-        approvalChargeOptions={approvalChargeOptions}
-        cycles={cycles}
-        submissionChargeOptions={submissionChargeOptions}
-      />
-      <section className="hidden border-y border-border/70 md:block">
-        <div className="grid grid-cols-3 divide-x divide-border/70 xl:grid-cols-6">
-          <SummaryMetric label="Open cycles" value={summary.openCycles} />
-          <SummaryMetric
-            label="Pending applications"
-            value={summary.pendingApplications}
-          />
-          <SummaryMetric
-            label="Approved applications"
-            value={summary.approvedApplications}
-          />
-          <SummaryMetric
-            label="Release evidence"
+      <FoodPurchaseSheet canReview={canReviewApplications} cycles={cycles} />
+      <RequestSummaryGrid>
+        <SummaryCard
+          label="To check"
+          tone={summary.pendingApplications ? "attention" : "default"}
+          value={String(summary.pendingApplications)}
+        />
+        <SummaryCard
+          label="Approved"
+          value={String(summary.approvedApplications)}
+        />
+        <SummaryCard
+          detail={summary.openCycles ? "Taking requests" : "None open"}
+          label="Open months"
+          tone={summary.openCycles ? "good" : "default"}
+          value={String(summary.openCycles)}
+        />
+        <RequestSummaryWide>
+          <SummaryCard
+            label="Money given"
             value={formatCurrency(summary.totalReleasedAmount)}
           />
-          <SummaryMetric
-            label="Accounting submitted"
-            value={summary.submittedAccounting}
-          />
-          <SummaryMetric
-            label="Reported profit"
-            value={formatCurrency(summary.reportedProfit)}
-          />
-        </div>
-      </section>
+        </RequestSummaryWide>
+      </RequestSummaryGrid>
 
       <FoodPurchaseViewTabs
         activeView={activeView}
@@ -181,89 +150,32 @@ export function FoodPurchaseView({
       {activeView === "cycles" ? (
         <section
           aria-labelledby="food-purchase-cycles-tab"
-          className="space-y-3"
+          className="grid gap-4"
           id="food-purchase-cycles-view"
           role="tabpanel"
         >
-          <div className="flex min-h-11 items-center justify-between gap-3 border-b border-border pb-3">
-            <SectionHeading title="Monthly cycles" />
-            {canReleaseFunds ? (
-              <>
-                <span className="md:hidden">
-                  <OpenFoodPurchaseReleaseSheet iconOnly />
-                </span>
-                <span className="hidden md:inline-flex">
-                  <OpenFoodPurchaseReleaseSheet />
-                </span>
-              </>
-            ) : null}
-          </div>
-          {cycles.length ? (
-            <div className="divide-y divide-border border-y border-border">
-              {cycles.map((cycle) => (
-                <article className="py-4" key={cycle.id}>
-                  <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium text-foreground">
-                          {formatMonth(cycle.periodMonth)}
-                        </p>
-                        <span
-                          className={`rounded-full border px-2 py-0.5 text-xs capitalize ${statusTone(
-                            cycle.status
-                          )}`}
-                        >
-                          {cycle.status.replace(/_/g, " ")}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Released {formatCurrency(cycle.releasedAmount)} on{" "}
-                        {formatDate(cycle.releasedAt)} by{" "}
-                        {cycle.releasedByUser.fullName}
-                      </p>
-                      {cycle.releaseNotes ? (
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          {cycle.releaseNotes}
-                        </p>
-                      ) : null}
-                      {cycle.profitAmount != null ? (
-                        <p className="mt-2 text-sm text-foreground">
-                          Sales {formatCurrency(cycle.salesAmount ?? 0)}, cost{" "}
-                          {formatCurrency(cycle.purchaseCostAmount ?? 0)},
-                          expenses{" "}
-                          {formatCurrency(cycle.operatingExpenseAmount ?? 0)},
-                          profit {formatCurrency(cycle.profitAmount)}
-                        </p>
-                      ) : null}
-                      {cycle.accountingNotes ? (
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          {cycle.accountingNotes}
-                        </p>
-                      ) : null}
-                      {cycle.accountingSubmittedAt ? (
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          Accounting submitted by{" "}
-                          {cycle.accountingSubmittedByUser?.fullName ??
-                            "committee"}{" "}
-                          on {formatDate(cycle.accountingSubmittedAt)}
-                        </p>
-                      ) : null}
-                    </div>
-
-                    <CycleActions
-                      canRecordAccounting={canRecordAccounting}
-                      canReviewAccounting={canReviewAccounting}
-                      cycle={cycle}
-                    />
-                  </div>
-                </article>
-              ))}
+          {canReleaseFunds ? (
+            <div>
+              <OpenFoodPurchaseSheet
+                className="h-12 w-full sm:w-auto"
+                type="release"
+              />
             </div>
+          ) : null}
+          {cycles.length ? (
+            <ul className="grid gap-3">
+              {cycles.map((cycle) => (
+                <FoodPurchaseCycleCard
+                  canManageIntake={canReleaseFunds}
+                  canRecordAccounting={canRecordAccounting}
+                  canReviewAccounting={canReviewAccounting}
+                  cycle={cycle}
+                  key={cycle.id}
+                />
+              ))}
+            </ul>
           ) : (
-            <EmptyState
-              body="Monthly Foodstuff Purchase cycles will appear here."
-              title="No Foodstuff Purchase cycles yet"
-            />
+            <RequestClosedNotice>No months yet.</RequestClosedNotice>
           )}
         </section>
       ) : (
@@ -273,12 +185,19 @@ export function FoodPurchaseView({
           id="food-purchase-applications-view"
           role="tabpanel"
         >
+          {canSubmitApplications && !hasOpenCycle ? (
+            <div className="mb-4">
+              <RequestClosedNotice>
+                No month is open. Open one under Months to take requests.
+              </RequestClosedNotice>
+            </div>
+          ) : null}
           <FoodPurchaseMobileToolbar
-            canSubmitApplications={canSubmitApplications}
+            canCreate={canSubmitApplications}
             hasOpenCycle={hasOpenCycle}
           />
           <FoodPurchaseHeader
-            canSubmitApplications={canSubmitApplications}
+            canCreate={canSubmitApplications}
             hasOpenCycle={hasOpenCycle}
           />
           <FoodPurchaseDataView
@@ -293,84 +212,71 @@ export function FoodPurchaseView({
 
 export function MemberFoodPurchaseView({
   canCreateApplication,
-  chargeOptions,
   cycles,
   initialSettings,
-  member,
+  needsVerification = false,
   summary,
 }: {
   canCreateApplication: boolean
-  chargeOptions: WorkflowChargeOption[]
   cycles: FoodPurchaseCycleRow[]
   initialSettings?: Partial<TableSettings>
-  member: {
-    fullName: string
-    memberNumber: string
-  }
+  needsVerification?: boolean
   summary: {
     approvedApplications: number
     pendingApplications: number
   }
 }) {
   const openCycles = cycles.filter((cycle) => cycle.status === "open")
+  const hasOpenCycle = openCycles.length > 0
 
   return (
     <div className="space-y-6">
-      <FoodPurchaseSheet
-        cycles={cycles}
-        selfServiceChargeOptions={chargeOptions}
-      />
-      <section className="hidden border-y border-border/70 md:block">
-        <div className="grid grid-cols-3 divide-x divide-border/70">
-          <SummaryMetric label="Open cycles" value={openCycles.length} />
-          <SummaryMetric
-            label="Pending requests"
-            value={summary.pendingApplications}
-          />
-          <SummaryMetric
-            label="Approved requests"
-            value={summary.approvedApplications}
-          />
-        </div>
-      </section>
-
-      {canCreateApplication ? (
-        <section className="flex flex-wrap items-center justify-between gap-3 border-y border-border py-4">
-          <div>
-            <p className="text-sm font-medium text-foreground">
-              Apply for Foodstuff Purchase
-            </p>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              {member.fullName} ({member.memberNumber})
-            </p>
-          </div>
-          <span className="md:hidden">
-            <OpenMemberFoodPurchaseApplicationSheet
-              disabled={openCycles.length === 0}
-              iconOnly
-            />
-          </span>
-          <span className="hidden md:inline-flex">
-            <OpenMemberFoodPurchaseApplicationSheet
-              disabled={openCycles.length === 0}
-            />
-          </span>
-        </section>
-      ) : (
-        <EmptyState
-          body="New Foodstuff Purchase applications are handled by the cooperative office. Existing applications remain visible here."
-          title="Foodstuff Purchase requests are office-managed"
+      <FoodPurchaseSheet cycles={cycles} />
+      <RequestSummaryGrid>
+        <SummaryCard
+          label="Waiting"
+          tone={summary.pendingApplications ? "attention" : "default"}
+          value={String(summary.pendingApplications)}
         />
-      )}
+        <SummaryCard
+          label="Approved"
+          value={String(summary.approvedApplications)}
+        />
+        <RequestSummaryWide>
+          <SummaryCard
+            label="Open month"
+            tone={hasOpenCycle ? "good" : "default"}
+            value={
+              hasOpenCycle
+                ? formatMonthYear(openCycles[0]!.periodMonth)
+                : "None"
+            }
+          />
+        </RequestSummaryWide>
+      </RequestSummaryGrid>
+
+      {!canCreateApplication ? (
+        <RequestClosedNotice>
+          {needsVerification
+            ? memberNeedsVerificationNotice
+            : "To ask for foodstuff, contact the cooperative office."}
+        </RequestClosedNotice>
+      ) : !hasOpenCycle ? (
+        <RequestClosedNotice>
+          There is no open month for foodstuff requests right now.
+        </RequestClosedNotice>
+      ) : null}
 
       <section className="min-w-0">
         <FoodPurchaseMobileToolbar
-          canSubmitApplications={false}
-          hasOpenCycle={openCycles.length > 0}
+          canCreate={canCreateApplication}
+          hasOpenCycle={hasOpenCycle}
+          selfService
         />
         <FoodPurchaseHeader
-          canSubmitApplications={false}
-          hasOpenCycle={openCycles.length > 0}
+          canCreate={canCreateApplication}
+          hasOpenCycle={hasOpenCycle}
+          selfService
         />
         <FoodPurchaseDataView
           canReviewApplications={false}
@@ -381,27 +287,37 @@ export function MemberFoodPurchaseView({
   )
 }
 
-function CycleActions({
+/** One month: what was given, the figures, and the one next step. */
+function FoodPurchaseCycleCard({
+  canManageIntake,
   canRecordAccounting,
   canReviewAccounting,
   cycle,
 }: {
+  canManageIntake: boolean
   canRecordAccounting: boolean
   canReviewAccounting: boolean
   cycle: FoodPurchaseCycleRow
 }) {
   const { setParams } = useFoodPurchaseParams()
-  const [open, setOpen] = useState(false)
+  const router = useRouter()
+  const { showError, showSuccess } = useNotifications()
+  const [isPending, startTransition] = useTransition()
+  const [confirm, setConfirm] = useState<
+    "close_intake" | "reopen_intake" | null
+  >(null)
+  const state = getFoodCycleState(cycle.status)
+  const month = formatMonthYear(cycle.periodMonth)
+  // The server takes figures only after requests stop (or to fix them).
   const canRecord =
     canRecordAccounting &&
-    ["accounting_rejected", "open"].includes(cycle.status)
+    ["accounting_rejected", "intake_closed"].includes(cycle.status)
   const canReview =
     canReviewAccounting && cycle.status === "accounting_submitted"
+  const canClose = canManageIntake && cycle.status === "open"
+  const canReopen = canManageIntake && cycle.status === "intake_closed"
 
-  if (!canRecord && !canReview) return null
-
-  function openWorkflow(type: "accounting" | "accounting-review") {
-    setOpen(false)
+  function open(type: "accounting" | "accounting-review") {
     void setParams({
       foodPurchaseApplicationId: null,
       foodPurchaseCycleId: cycle.id,
@@ -409,89 +325,115 @@ function CycleActions({
     })
   }
 
+  function setIntake(transition: "close_intake" | "reopen_intake") {
+    startTransition(async () => {
+      try {
+        await setFoodPurchaseIntakeAction(
+          objectToFormData({ cycleId: cycle.id, transition })
+        )
+        setConfirm(null)
+        showSuccess(
+          transition === "close_intake"
+            ? "Requests stopped"
+            : "Taking requests again",
+          month
+        )
+        router.refresh()
+      } catch (error) {
+        showError(
+          "Could not change the month",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
+      }
+    })
+  }
+
   return (
-    <>
-      <div className="hidden flex-wrap gap-2 xl:flex xl:justify-end">
-        {canRecord ? (
-          <OpenFoodPurchaseAccountingSheet cycleId={cycle.id} />
-        ) : null}
-        {canReview ? (
-          <OpenFoodPurchaseAccountingReviewSheet cycleId={cycle.id} />
-        ) : null}
-      </div>
-      <div className="flex justify-end xl:hidden">
-        <Button
-          aria-label={`Open ${formatMonth(cycle.periodMonth)} cycle actions`}
-          className="size-11"
-          onClick={() => setOpen(true)}
-          size="icon-lg"
-          type="button"
-          variant="ghost"
+    <li className="grid gap-3 rounded-(--ui-radius-surface) border border-border bg-card p-4 sm:p-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <h3 className="text-lg font-semibold">{month}</h3>
+        <Badge
+          className={memberStateToneClassNames[state.tone]}
+          variant="outline"
         >
-          <MoreHorizontalIcon />
-        </Button>
+          {state.label}
+        </Badge>
       </div>
-      <MobileActionsDrawer
-        description={`Choose how to continue with the ${formatMonth(
-          cycle.periodMonth
-        )} cycle.`}
-        onOpenChange={setOpen}
-        open={open}
-        title="Cycle actions"
-      >
-        <div className="space-y-2">
-          {canRecord ? (
-            <Button
-              className="h-11 w-full justify-start"
-              onClick={() => openWorkflow("accounting")}
-              type="button"
-              variant="ghost"
-            >
-              Record accounting
+      <p className="text-base">
+        {formatCurrency(cycle.releasedAmount)} given on{" "}
+        {formatDayMonthYear(cycle.releasedAt)}
+      </p>
+      {cycle.profitAmount != null ? (
+        <p className="text-base">
+          Sales {formatCurrency(cycle.salesAmount ?? 0)} · Profit{" "}
+          <span className="font-semibold">
+            {formatCurrency(cycle.profitAmount)}
+          </span>
+        </p>
+      ) : null}
+      {cycle.accountingNotes ? (
+        <p className="text-base text-muted-foreground">
+          {cycle.accountingNotes}
+        </p>
+      ) : null}
+      {canRecord || canReview || canClose || canReopen ? (
+        <div className="grid gap-3 sm:flex sm:flex-wrap [&_button]:h-12 [&_button]:w-full sm:[&_button]:w-auto">
+          {canReview ? (
+            <Button onClick={() => open("accounting-review")} type="button">
+              Check figures
             </Button>
           ) : null}
-          {canReview ? (
+          {canRecord ? (
             <Button
-              className="h-11 w-full justify-start"
-              onClick={() => openWorkflow("accounting-review")}
+              onClick={() => open("accounting")}
+              type="button"
+              variant={canReview ? "outline" : "default"}
+            >
+              {cycle.status === "accounting_rejected"
+                ? "Fix month-end figures"
+                : "Add month-end figures"}
+            </Button>
+          ) : null}
+          {canClose ? (
+            <Button
+              disabled={isPending}
+              onClick={() => setConfirm("close_intake")}
+              type="button"
+              variant="outline"
+            >
+              Stop taking requests
+            </Button>
+          ) : null}
+          {canReopen ? (
+            <Button
+              disabled={isPending}
+              onClick={() => setConfirm("reopen_intake")}
               type="button"
               variant="ghost"
             >
-              Review accounting
+              Take requests again
             </Button>
           ) : null}
         </div>
-      </MobileActionsDrawer>
-    </>
-  )
-}
+      ) : null}
 
-function SummaryMetric({
-  label,
-  value,
-}: {
-  label: string
-  value: number | string
-}) {
-  return (
-    <div className="min-w-0 px-4 py-4">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-2 truncate text-xl font-semibold text-foreground">
-        {value}
-      </p>
-    </div>
-  )
-}
-
-function SectionHeading({ title }: { title: string }) {
-  return <p className="text-sm font-medium text-foreground">{title}</p>
-}
-
-function EmptyState({ body, title }: { body: string; title: string }) {
-  return (
-    <div className="border-y border-border px-4 py-8 text-center">
-      <p className="font-medium text-foreground">{title}</p>
-      <p className="mt-2 text-sm text-muted-foreground">{body}</p>
-    </div>
+      <RequestConfirmDialog
+        confirmLabel="Stop requests"
+        description="Members can't ask for this month any more. Then add the month-end figures."
+        onConfirm={() => setIntake("close_intake")}
+        onOpenChange={(next) => setConfirm(next ? "close_intake" : null)}
+        open={confirm === "close_intake"}
+        pending={isPending}
+        title={`Stop taking requests for ${month}?`}
+      />
+      <RequestConfirmDialog
+        confirmLabel="Take requests"
+        onConfirm={() => setIntake("reopen_intake")}
+        onOpenChange={(next) => setConfirm(next ? "reopen_intake" : null)}
+        open={confirm === "reopen_intake"}
+        pending={isPending}
+        title={`Take requests again for ${month}?`}
+      />
+    </li>
   )
 }

@@ -1,5 +1,6 @@
 "use client"
 
+import type { ProcurementRequestStatus } from "@halaalvest/db"
 import {
   MobileFilterGroup,
   filterOptionSummary,
@@ -13,22 +14,19 @@ import { useState } from "react"
 import { MobileFilterDrawer } from "@/components/search-filter/mobile-filter-drawer"
 import { useProcurementFilterParams } from "@/hooks/use-procurement-filter-params"
 import { useSortParams } from "@/hooks/use-sort-params"
+import { getRequestStatusFilterOptions } from "@/lib/requests/request-status-words"
 
-export const procurementStatusOptions = [
-  { id: "submitted", name: "Submitted" },
-  { id: "under_review", name: "Under review" },
-  { id: "approved", name: "Approved" },
-  { id: "purchased", name: "Purchased" },
-  { id: "active", name: "Active" },
-  { id: "completed", name: "Completed" },
-  { id: "rejected", name: "Rejected" },
-  { id: "cancelled", name: "Cancelled" },
-] as const
+export const procurementStatusOptions = getRequestStatusFilterOptions(
+  "procurement"
+).map((option) => ({
+  id: option.value as ProcurementRequestStatus,
+  name: option.label,
+}))
 
 const procurementSortOptions = [
-  { id: "requestedAt,desc", name: "Newest requests" },
-  { id: "requestedAt,asc", name: "Oldest requests" },
-  { id: "requestedCost,desc", name: "Highest requested cost" },
+  { id: "requestedAt,desc", name: "Newest first" },
+  { id: "requestedAt,asc", name: "Oldest first" },
+  { id: "requestedCost,desc", name: "Largest amount" },
 ] as const
 
 function Options<T extends string>({

@@ -1,17 +1,15 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 
-const selectableTables: [string][] = [
-  ["business"],
-  ["members"],
-]
+const selectableTables: [string][] = [["business"], ["members"]]
 
-const individualActionTables: [string][] = [
+const individualActionTables: [string][] = [["payment-receipts"], ["support"]]
+
+// Request tables: a row opens the request's sheet, where every action lives.
+const rowOpensSheetTables: [string][] = [
   ["food-purchase"],
-  ["payment-receipts"],
   ["procurement"],
   ["project-financing"],
-  ["support"],
 ]
 
 const virtualRowSource = readFileSync(
@@ -31,6 +29,18 @@ describe("shared table selection alignment", () => {
       expect(source).toContain('id: "actions"')
     }
   )
+  test.each(rowOpensSheetTables)(
+    "%s has no bulk selection and no row menu",
+    (table) => {
+      const source = readFileSync(
+        new URL(`../components/tables/${table}/columns.tsx`, import.meta.url),
+        "utf8"
+      )
+      expect(source).not.toContain('id: "select"')
+      expect(source).not.toContain('id: "actions"')
+    }
+  )
+
   test("centers select cells and their checkbox wrappers", () => {
     expect(virtualRowSource).toContain('const isSelect = columnId === "select"')
     expect(virtualRowSource).toContain('isSelect && "justify-center px-0"')

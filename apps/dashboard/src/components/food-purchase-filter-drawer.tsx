@@ -15,18 +15,18 @@ import { useFoodPurchaseFilterParams } from "@/hooks/use-food-purchase-filter-pa
 import { useSortParams } from "@/hooks/use-sort-params"
 
 const statusOptions = [
-  { id: "submitted", name: "Submitted" },
-  { id: "under_review", name: "Under review" },
+  { id: "submitted", name: "Waiting" },
+  { id: "under_review", name: "Being checked" },
   { id: "approved", name: "Approved" },
-  { id: "rejected", name: "Rejected" },
+  { id: "rejected", name: "Declined" },
   { id: "cancelled", name: "Cancelled" },
 ] as const
 
 const sortOptions = [
-  { id: "requestedAt,desc", name: "Most recently requested" },
-  { id: "requestedAt,asc", name: "Oldest requested first" },
-  { id: "requestedAmount,desc", name: "Highest requested amount" },
-  { id: "approvedAmount,desc", name: "Highest approved amount" },
+  { id: "requestedAt,desc", name: "Newest first" },
+  { id: "requestedAt,asc", name: "Oldest first" },
+  { id: "requestedAmount,desc", name: "Largest amount asked" },
+  { id: "approvedAmount,desc", name: "Largest amount approved" },
 ] as const
 
 function Options({

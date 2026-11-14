@@ -34,7 +34,7 @@ export function ProjectFinancingMobileToolbar({
     <>
       <div className="space-y-3 md:hidden">
         <div className="flex items-center gap-2">
-          <InputGroup className="h-11 min-w-0 flex-1">
+          <InputGroup className="h-12 min-w-0 flex-1">
             <InputGroupAddon align="inline-start">
               <Search aria-hidden className="size-4" />
             </InputGroupAddon>
@@ -43,7 +43,7 @@ export function ProjectFinancingMobileToolbar({
               onChange={(event) =>
                 void setFilter({ q: event.target.value || null })
               }
-              placeholder="Search requests..."
+              placeholder="Search"
               type="search"
               value={filter.q ?? ""}
             />
@@ -63,12 +63,7 @@ export function ProjectFinancingMobileToolbar({
               aria-describedby={
                 createDisabled ? "project-financing-create-disabled" : undefined
               }
-              aria-label={
-                selfService
-                  ? "Request business funding"
-                  : "Create project financing request"
-              }
-              className="size-11"
+              className="h-12 px-4"
               disabled={createDisabled}
               onClick={() =>
                 void setProjectFinancingParams({
@@ -78,16 +73,16 @@ export function ProjectFinancingMobileToolbar({
                     : "create",
                 })
               }
-              size="icon-lg"
               type="button"
             >
-              <Plus />
+              <Plus data-icon="inline-start" />
+              New
             </Button>
           ) : null}
         </div>
         {canCreate && createDisabled ? (
           <p className="sr-only" id="project-financing-create-disabled">
-            Add an eligible member before creating a project financing request.
+            Add a member first.
           </p>
         ) : null}
         {hasActiveControls ? (

@@ -20,10 +20,10 @@ import { useFoodPurchaseFilterParams } from "@/hooks/use-food-purchase-filter-pa
 import { useSortParams } from "@/hooks/use-sort-params"
 
 export const foodPurchaseStatusFilters = [
-  { id: "submitted", name: "Submitted" },
-  { id: "under_review", name: "Under review" },
+  { id: "submitted", name: "Waiting" },
+  { id: "under_review", name: "Being checked" },
   { id: "approved", name: "Approved" },
-  { id: "rejected", name: "Rejected" },
+  { id: "rejected", name: "Declined" },
   { id: "cancelled", name: "Cancelled" },
 ]
 
@@ -67,7 +67,7 @@ export function FoodPurchaseSearchFilter() {
             filterActive={hasValidFilters}
             filterOpen={isOpen}
             onChange={handleSearch}
-            placeholder="Search food applications..."
+            placeholder="Search name or food"
             spellCheck="false"
             value={filter.q ?? ""}
           />

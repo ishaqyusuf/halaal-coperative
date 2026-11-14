@@ -31,7 +31,7 @@ import { ProcurementEmptyState } from "./empty-states"
 import { ProcurementTableHeader } from "./table-header"
 import { useProcurementQuery } from "./use-procurement-query"
 
-const NON_CLICKABLE_COLUMNS = new Set(["actions"])
+const NON_CLICKABLE_COLUMNS = new Set<string>()
 const COLUMN_IDS = getColumnIds(columns)
 
 type Props = {
@@ -39,10 +39,7 @@ type Props = {
   initialSettings?: Partial<TableSettings>
 }
 
-export function ProcurementDataTable({
-  canReview,
-  initialSettings,
-}: Props) {
+export function ProcurementDataTable({ canReview, initialSettings }: Props) {
   const parentRef = useRef<HTMLDivElement>(null)
   const { setParams } = useProcurementParams()
   const { setColumns } = useProcurementStore()
@@ -120,42 +117,17 @@ export function ProcurementDataTable({
     overscan: 10,
   })
 
+  // Every action lives in the request's sheet, so a row always opens it.
   const openRequest = useCallback(
     (id?: string) => {
-      if (!id) {
-        return
-      }
+      if (!id) return
 
-      const request = tableData.find((candidate) => candidate.id === id)
-
-      if (!request) {
-        return
-      }
-
-      if (["submitted", "under_review"].includes(request.status)) {
-        if (canReview) {
-          setParams({
-            procurementRequestId: id,
-            procurementSheetType: "review",
-          })
-          return
-        }
-      }
-
-      if (request.status === "approved" && canReview) {
-        setParams({
-          procurementRequestId: id,
-          procurementSheetType: "purchase",
-        })
-        return
-      }
-
-      setParams({
+      void setParams({
         procurementRequestId: id,
         procurementSheetType: "details",
       })
     },
-    [canReview, tableData, setParams]
+    [setParams]
   )
 
   useInfiniteScroll<HTMLDivElement>({
@@ -194,10 +166,7 @@ export function ProcurementDataTable({
             sensors={sensors}
           >
             <Table className="w-full min-w-full">
-              <ProcurementTableHeader
-                table={table}
-                tableScroll={tableScroll}
-              />
+              <ProcurementTableHeader table={table} tableScroll={tableScroll} />
 
               <TableBody
                 className="block border-x-0"

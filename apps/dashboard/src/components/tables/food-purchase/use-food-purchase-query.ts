@@ -22,8 +22,14 @@ export function useFoodPurchaseQuery() {
       })
     )
 
+  // Flatten once per data change so the table's row model stays stable.
+  const applications = useMemo(
+    () => data.pages.flatMap((page) => page.data),
+    [data.pages]
+  )
+
   return {
-    applications: data.pages.flatMap((page) => page.data),
+    applications,
     fetchNextPage,
     hasActiveControls: Boolean(filter.q || filter.status || params.sort),
     hasNextPage,

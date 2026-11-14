@@ -1,12 +1,7 @@
 "use client"
 
 import { Button } from "@halaalvest/ui/components/button"
-import {
-  CheckCircle2Icon,
-  PackageCheckIcon,
-  PlusIcon,
-  ShoppingBagIcon,
-} from "lucide-react"
+import { PlusIcon } from "lucide-react"
 import { useProcurementParams } from "@/hooks/use-procurement-params"
 
 export function OpenProcurementRequestCreateSheet({
@@ -21,7 +16,6 @@ export function OpenProcurementRequestCreateSheet({
   return (
     <Button
       disabled={disabled}
-      aria-label="New procurement request"
       className={iconOnly ? "size-11" : undefined}
       onClick={() =>
         setParams({
@@ -47,7 +41,6 @@ export function OpenMemberProcurementRequestCreateSheet({
 
   return (
     <Button
-      aria-label="Request item purchase"
       className={iconOnly ? "size-11" : undefined}
       onClick={() =>
         setParams({
@@ -58,61 +51,12 @@ export function OpenMemberProcurementRequestCreateSheet({
       type="button"
       size={iconOnly ? "icon-lg" : "default"}
     >
-      <ShoppingBagIcon data-icon="inline-start" />
+      <PlusIcon data-icon="inline-start" />
       {iconOnly ? (
-        <span className="sr-only">Request purchase</span>
+        <span className="sr-only">Ask for an item</span>
       ) : (
-        "Request purchase"
+        "Ask for an item"
       )}
-    </Button>
-  )
-}
-
-export function OpenProcurementRequestReviewSheet({
-  requestId,
-}: {
-  requestId: string
-}) {
-  const { setParams } = useProcurementParams()
-
-  return (
-    <Button
-      onClick={() =>
-        setParams({
-          procurementRequestId: requestId,
-          procurementSheetType: "review",
-        })
-      }
-      size="sm"
-      type="button"
-      variant="outline"
-    >
-      <CheckCircle2Icon data-icon="inline-start" />
-      Review
-    </Button>
-  )
-}
-
-export function OpenProcurementPurchaseSheet({
-  requestId,
-}: {
-  requestId: string
-}) {
-  const { setParams } = useProcurementParams()
-
-  return (
-    <Button
-      onClick={() =>
-        setParams({
-          procurementRequestId: requestId,
-          procurementSheetType: "purchase",
-        })
-      }
-      size="sm"
-      type="button"
-    >
-      <PackageCheckIcon data-icon="inline-start" />
-      Record purchase
     </Button>
   )
 }

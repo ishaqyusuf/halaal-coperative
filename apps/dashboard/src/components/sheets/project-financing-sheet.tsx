@@ -4,16 +4,12 @@ import { Suspense } from "react"
 import { Button } from "@halaalvest/ui/components/button"
 import { useQuery } from "@tanstack/react-query"
 import {
-  MemberProjectFinancingRequestCreateContent,
   ProjectFinancingDisbursementContent,
-  ProjectFinancingRequestCreateContent,
-  ProjectFinancingRequestDetailsContent,
-  ProjectFinancingReviewContent,
-  type ProjectFinancingMemberOption,
+  ProjectFinancingRequestDetails,
+  ProjectFinancingRequestForm,
 } from "@/components/project-financing-content"
 import { ProjectFinancingSheetHeader } from "@/components/project-financing-sheet-header"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
-import type { WorkflowChargeOption } from "@/components/workflow-charge-summary"
 import { useProjectFinancingParams } from "@/hooks/use-project-financing-params"
 import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 import { useTRPC } from "@/trpc/client"
@@ -41,14 +37,15 @@ const disabledProjectFinancingRequestId = "00000000-0000-4000-8000-000000000000"
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
+/**
+ * One URL-addressed sheet for project financing: new request, the request
+ * itself (staff decide inside it; `review` is kept for older links) and the
+ * payout dialog. Charges load inside the forms that show them.
+ */
 export function ProjectFinancingSheet({
-  approvalChargeOptions = [],
-  selfServiceChargeOptions = [],
-  submissionChargeOptions = [],
+  canReview = false,
 }: {
-  approvalChargeOptions?: WorkflowChargeOption[]
-  selfServiceChargeOptions?: WorkflowChargeOption[]
-  submissionChargeOptions?: WorkflowChargeOption[]
+  canReview?: boolean
 }) {
   const trpc = useTRPC()
   const { projectFinancingRequestId, projectFinancingSheetType, setParams } =
@@ -99,7 +96,7 @@ export function ProjectFinancingSheet({
         <Suspense
           fallback={
             <div className="px-4 text-sm text-muted-foreground md:px-6">
-              Loading project financing form...
+              Loading...
             </div>
           }
         >
@@ -109,26 +106,16 @@ export function ProjectFinancingSheet({
           />
           <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-6 md:pb-6">
             {projectFinancingSheetType === "create" ? (
-              <ProjectFinancingRequestCreateContent
-                chargeOptions={submissionChargeOptions}
-                onClose={closeSheet}
-              />
+              <ProjectFinancingRequestForm onClose={closeSheet} />
             ) : projectFinancingSheetType === "self-service" ? (
-              <MemberProjectFinancingRequestCreateContent
-                chargeOptions={selfServiceChargeOptions}
-                onClose={closeSheet}
-              />
+              <ProjectFinancingRequestForm onClose={closeSheet} selfService />
             ) : shouldLoadSelectedRequest && isSelectedRequestLoading ? (
-              <p className="text-sm text-muted-foreground">
-                Loading project financing request...
-              </p>
+              <p className="text-base text-muted-foreground">Loading...</p>
             ) : shouldLoadSelectedRequest && isSelectedRequestError ? (
-              <div className="space-y-3 border-y border-border py-4">
-                <p className="text-sm text-muted-foreground">
-                  Project financing details could not be loaded.
-                </p>
+              <div className="grid gap-3">
+                <p className="text-base">This request could not be loaded.</p>
                 <Button
-                  className="h-11 md:h-9"
+                  className="h-12 w-full sm:w-auto"
                   onClick={() => void refetchSelectedRequest()}
                   type="button"
                   variant="outline"
@@ -136,25 +123,24 @@ export function ProjectFinancingSheet({
                   Try again
                 </Button>
               </div>
-            ) : projectFinancingSheetType === "review" && selectedRequest ? (
-              <ProjectFinancingReviewContent
-                chargeOptions={approvalChargeOptions}
+            ) : (projectFinancingSheetType === "details" ||
+                projectFinancingSheetType === "review") &&
+              selectedRequest ? (
+              <ProjectFinancingRequestDetails
+                canReview={canReview}
                 onClose={closeSheet}
                 request={selectedRequest}
               />
-            ) : projectFinancingSheetType === "details" && selectedRequest ? (
-              <ProjectFinancingRequestDetailsContent
-                request={selectedRequest}
-              />
             ) : projectFinancingSheetType === "disbursement" &&
-              selectedRequest ? (
+              selectedRequest &&
+              canReview ? (
               <ProjectFinancingDisbursementContent
                 onClose={closeSheet}
                 request={selectedRequest}
               />
             ) : (
-              <p className="text-sm text-muted-foreground">
-                This project financing request could not be found.
+              <p className="text-base text-muted-foreground">
+                This request could not be found.
               </p>
             )}
           </div>

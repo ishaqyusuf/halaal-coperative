@@ -19,17 +19,14 @@ import { FinanceFilterList } from "@/components/finance-filter-list"
 import { SearchFilterDropdownInput } from "@/components/search-filter-dropdown-input"
 import { useProcurementFilterParams } from "@/hooks/use-procurement-filter-params"
 import { useSortParams } from "@/hooks/use-sort-params"
+import { getRequestStatusFilterOptions } from "@/lib/requests/request-status-words"
 
-const statusFilters = [
-  { id: "submitted", name: "Submitted" },
-  { id: "under_review", name: "Under review" },
-  { id: "approved", name: "Approved" },
-  { id: "purchased", name: "Purchased" },
-  { id: "active", name: "Active" },
-  { id: "completed", name: "Completed" },
-  { id: "rejected", name: "Rejected" },
-  { id: "cancelled", name: "Cancelled" },
-] satisfies Array<{ id: ProcurementRequestStatus; name: string }>
+const statusFilters = getRequestStatusFilterOptions("procurement").map(
+  (option) => ({
+    id: option.value as ProcurementRequestStatus,
+    name: option.label,
+  })
+)
 
 export function ProcurementSearchFilter() {
   const { filter, setFilter } = useProcurementFilterParams()
@@ -78,7 +75,7 @@ export function ProcurementSearchFilter() {
             filterActive={hasValidFilters}
             filterOpen={isOpen}
             onChange={handleSearch}
-            placeholder="Search procurement..."
+            placeholder="Search name or item"
             spellCheck="false"
             value={input}
           />

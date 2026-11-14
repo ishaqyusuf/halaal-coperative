@@ -1,8 +1,7 @@
 "use client"
 
-import { useState, useTransition, type ReactNode } from "react"
-import { useRouter } from "next/navigation"
-import { useQueryClient } from "@tanstack/react-query"
+import { useState, useTransition } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
@@ -14,13 +13,24 @@ import {
   qaToday,
 } from "@halaalvest/utils"
 import type { ProcurementRequestRow } from "@halaalvest/db"
-import { MemberCombobox } from "@/components/member-combobox"
 import { DashboardStateQuickFill } from "@/components/dashboard-quick-fill"
-import { createQaProcurementRequest } from "@/lib/dev-form-fill"
+import { MemberCombobox } from "@/components/member-combobox"
+import { RequestConfirmDialog } from "@/components/requests/request-confirm-dialog"
+import { RequestDecision } from "@/components/requests/request-decision"
 import {
-  WorkflowChargeSummary,
-  type WorkflowChargeOption,
-} from "@/components/workflow-charge-summary"
+  RequestFacts,
+  RequestSection,
+} from "@/components/requests/request-facts"
+import {
+  RequestField,
+  RequestFormActions,
+} from "@/components/requests/request-field"
+import { RequestStatusBadge } from "@/components/requests/request-status-badge"
+import { RequestSteps } from "@/components/requests/request-steps"
+import { useRequestRefresh } from "@/components/requests/use-request-refresh"
+import { WorkflowChargeSummary } from "@/components/workflow-charge-summary"
+import { useProcurementParams } from "@/hooks/use-procurement-params"
+import { createQaProcurementRequest } from "@/lib/dev-form-fill"
 import {
   createOwnProcurementRequestAction,
   createProcurementRequestAction,
@@ -28,113 +38,130 @@ import {
   reviewProcurementRequestAction,
 } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
+import {
+  firstOfNextMonthInputValue,
+  formatMonths,
+  getRepaymentStatusLabel,
+  getRequestNextStep,
+  isPendingRequest,
+  monthlyAmount,
+  readableReference,
+  todayInputValue,
+} from "@/lib/requests/request-status-words"
 import { useTRPC } from "@/trpc/client"
+import { formatDayMonthYear } from "@/utils/format"
 
 export type ProcurementMemberOption = {
   id: string
   label: string
 }
 
-function Field({
-  children,
-  className,
-  label,
-}: {
-  children: ReactNode
-  className?: string
-  label: string
-}) {
-  return (
-    <label className={`block ${className ?? ""}`}>
-      <span className="mb-1 block text-xs font-medium text-muted-foreground">
-        {label}
-      </span>
-      {children}
-    </label>
-  )
-}
-
 function useRefreshProcurement() {
-  const queryClient = useQueryClient()
-  const router = useRouter()
+  const refresh = useRequestRefresh()
   const trpc = useTRPC()
 
-  return async (
-    onClose: () => Promise<void>,
-    procurementRequestId?: string
-  ) => {
-    await onClose()
-
-    const invalidations = [
-      queryClient.invalidateQueries(
-        trpc.procurement.list.infiniteQueryFilter()
-      ),
-    ]
-
-    if (procurementRequestId) {
-      invalidations.push(
-        queryClient.invalidateQueries(
-          trpc.procurement.get.queryFilter({ procurementRequestId })
-        )
-      )
-    }
-
-    await Promise.all(invalidations)
-    router.refresh()
-  }
+  return (onClose: () => Promise<void>, procurementRequestId?: string) =>
+    refresh(onClose, [
+      trpc.procurement.list.infiniteQueryFilter(),
+      ...(procurementRequestId
+        ? [trpc.procurement.get.queryFilter({ procurementRequestId })]
+        : []),
+    ])
 }
 
-export function ProcurementRequestCreateContent({
-  chargeOptions,
+/** Charges are read only when a form that shows them is open. */
+function useProcurementCharges(trigger: "approval" | "submission") {
+  const trpc = useTRPC()
+  const { data } = useQuery(
+    trpc.procurement.chargeOptions.queryOptions(
+      { trigger },
+      { retry: 1, staleTime: 5 * 60_000 }
+    )
+  )
+
+  return data ?? []
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Something went wrong."
+}
+
+function costLine(amount: number, months: number | null | undefined) {
+  const monthly = months ? monthlyAmount(amount, months) : null
+  const over = formatMonths(months)
+
+  return [
+    formatCurrency(amount),
+    over ? `over ${over}` : null,
+    monthly ? `(${formatCurrency(monthly)} a month)` : null,
+  ]
+    .filter(Boolean)
+    .join(" ")
+}
+
+/**
+ * New request. Staff pick the member; a member asks for themselves
+ * (`selfService`). Both confirm the amount and charges before saving.
+ */
+export function ProcurementRequestForm({
   onClose,
+  selfService = false,
 }: {
-  chargeOptions: WorkflowChargeOption[]
   onClose: () => Promise<void>
+  selfService?: boolean
 }) {
   const refreshProcurement = useRefreshProcurement()
+  const chargeOptions = useProcurementCharges("submission")
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const [memberId, setMemberId] = useState("")
   const [itemName, setItemName] = useState("")
   const [itemDescription, setItemDescription] = useState("")
   const [vendorName, setVendorName] = useState("")
   const [requestedCost, setRequestedCost] = useState("")
   const [requestedRepaymentMonths, setRequestedRepaymentMonths] = useState("")
+  const cost = Number(requestedCost)
+  const months = Number(requestedRepaymentMonths)
+  const monthly = monthlyAmount(cost, months)
+  const canSubmit =
+    (selfService || Boolean(memberId)) &&
+    Boolean(itemName.trim()) &&
+    monthly !== null
 
   function submitRequest() {
     startTransition(async () => {
+      const values = {
+        itemDescription,
+        itemName,
+        requestedCost,
+        requestedRepaymentMonths,
+        vendorName,
+      }
+
       try {
-        await createProcurementRequestAction(
-          objectToFormData({
-            itemDescription,
-            itemName,
-            memberId,
-            requestedCost,
-            requestedRepaymentMonths,
-            vendorName,
-          })
+        if (selfService) {
+          await createOwnProcurementRequestAction(objectToFormData(values))
+        } else {
+          await createProcurementRequestAction(
+            objectToFormData({ ...values, memberId })
+          )
+        }
+        setConfirmOpen(false)
+        showSuccess(
+          selfService ? "Request sent" : "Request saved",
+          "The cooperative will check it."
         )
-        setItemDescription("")
-        setItemName("")
-        setMemberId("")
-        setRequestedCost("")
-        setRequestedRepaymentMonths("")
-        setVendorName("")
-        showSuccess("Procurement request saved", "Request is pending review.")
         await refreshProcurement(onClose)
       } catch (error) {
-        showError(
-          "Could not save procurement request",
-          error instanceof Error ? error.message : "Something went wrong."
-        )
+        showError("Could not save the request", errorMessage(error))
       }
     })
   }
 
   return (
-    <div className="grid gap-3 md:grid-cols-2">
+    <div className="grid gap-5">
       <DashboardStateQuickFill
-        className="md:col-span-2"
         draft={{
           itemDescription,
           itemName,
@@ -160,499 +187,352 @@ export function ProcurementRequestCreateContent({
           setVendorName(draft.vendorName)
         }}
       />
-      <Field label="Member">
-        <MemberCombobox
-          disabled={isPending}
-          onValueChange={setMemberId}
-          value={memberId}
-        />
-      </Field>
-      <Field label="Item">
+      {selfService ? null : (
+        <RequestField label="Member">
+          <MemberCombobox
+            disabled={isPending}
+            onValueChange={setMemberId}
+            value={memberId}
+          />
+        </RequestField>
+      )}
+      <RequestField label="What item?">
         <Input
           disabled={isPending}
           onChange={(event) => setItemName(event.target.value)}
+          placeholder="For example, a fridge"
           value={itemName}
         />
-      </Field>
-      <Field label="Vendor">
+      </RequestField>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <RequestField label="Cost (₦)">
+          <Input
+            disabled={isPending}
+            inputMode="decimal"
+            onChange={(event) => setRequestedCost(event.target.value)}
+            value={requestedCost}
+          />
+        </RequestField>
+        <RequestField
+          hint={
+            monthly ? `About ${formatCurrency(monthly)} a month` : undefined
+          }
+          label="Pay back over (months)"
+        >
+          <Input
+            disabled={isPending}
+            inputMode="numeric"
+            onChange={(event) =>
+              setRequestedRepaymentMonths(event.target.value)
+            }
+            value={requestedRepaymentMonths}
+          />
+        </RequestField>
+      </div>
+      <RequestField label="Shop or seller" optional>
         <Input
           disabled={isPending}
           onChange={(event) => setVendorName(event.target.value)}
           value={vendorName}
         />
-      </Field>
-      <Field label="Requested cost">
-        <Input
-          disabled={isPending}
-          inputMode="decimal"
-          onChange={(event) => setRequestedCost(event.target.value)}
-          value={requestedCost}
-        />
-      </Field>
-      <Field label="Repayment months">
-        <Input
-          disabled={isPending}
-          inputMode="numeric"
-          onChange={(event) => setRequestedRepaymentMonths(event.target.value)}
-          value={requestedRepaymentMonths}
-        />
-      </Field>
-      <Field className="md:col-span-2" label="Description">
+      </RequestField>
+      <RequestField label="More details" optional>
         <Textarea
           disabled={isPending}
           onChange={(event) => setItemDescription(event.target.value)}
           value={itemDescription}
         />
-      </Field>
-      <div className="md:col-span-2">
-        <WorkflowChargeSummary
-          basisAmount={Number(requestedCost) || 0}
-          charges={chargeOptions}
-          title="Submission charges"
-        />
-      </div>
-      <div className="md:col-span-2">
+      </RequestField>
+      <WorkflowChargeSummary
+        basisAmount={cost || 0}
+        charges={chargeOptions}
+        title="Charges"
+      />
+      <RequestFormActions>
         <Button
-          className="h-11 w-full md:h-9 md:w-auto"
-          disabled={isPending}
-          onClick={submitRequest}
+          disabled={isPending || !canSubmit}
+          onClick={() => setConfirmOpen(true)}
           type="button"
         >
-          Save request
+          {selfService ? "Send request" : "Save request"}
         </Button>
-      </div>
+      </RequestFormActions>
+
+      <RequestConfirmDialog
+        confirmLabel={selfService ? "Send request" : "Save request"}
+        facts={[
+          { label: "Item", value: itemName.trim() },
+          { label: "Cost", value: costLine(cost, months) },
+        ]}
+        onConfirm={submitRequest}
+        onOpenChange={setConfirmOpen}
+        open={confirmOpen}
+        pending={isPending}
+        title={selfService ? "Send this request?" : "Save this request?"}
+      >
+        <WorkflowChargeSummary
+          basisAmount={cost || 0}
+          charges={chargeOptions}
+          title="Charges"
+        />
+      </RequestConfirmDialog>
     </div>
   )
 }
 
-export function MemberProcurementRequestCreateContent({
-  chargeOptions,
+/**
+ * Everything about one request: where it is, the facts, repayments and the
+ * next thing staff can do (decide, or record the purchase).
+ */
+export function ProcurementRequestDetails({
+  canReview,
   onClose,
-}: {
-  chargeOptions: WorkflowChargeOption[]
-  onClose: () => Promise<void>
-}) {
-  const refreshProcurement = useRefreshProcurement()
-  const { showError, showSuccess } = useNotifications()
-  const [isPending, startTransition] = useTransition()
-  const [itemName, setItemName] = useState("")
-  const [itemDescription, setItemDescription] = useState("")
-  const [vendorName, setVendorName] = useState("")
-  const [requestedCost, setRequestedCost] = useState("")
-  const [requestedRepaymentMonths, setRequestedRepaymentMonths] = useState("")
-
-  function submitRequest() {
-    startTransition(async () => {
-      try {
-        await createOwnProcurementRequestAction(
-          objectToFormData({
-            itemDescription,
-            itemName,
-            requestedCost,
-            requestedRepaymentMonths,
-            vendorName,
-          })
-        )
-        setItemDescription("")
-        setItemName("")
-        setRequestedCost("")
-        setRequestedRepaymentMonths("")
-        setVendorName("")
-        showSuccess("Procurement request sent", "Request is pending review.")
-        await refreshProcurement(onClose)
-      } catch (error) {
-        showError(
-          "Could not send procurement request",
-          error instanceof Error ? error.message : "Something went wrong."
-        )
-      }
-    })
-  }
-
-  return (
-    <div className="grid gap-3 md:grid-cols-2">
-      <DashboardStateQuickFill
-        className="md:col-span-2"
-        draft={{
-          itemDescription,
-          itemName,
-          requestedCost,
-          requestedRepaymentMonths,
-          vendorName,
-        }}
-        enabled={!isPending}
-        isDirty={Boolean(itemName || vendorName || requestedCost)}
-        onFill={() => {
-          const values = createQaProcurementRequest()
-          setItemDescription(values.itemDescription)
-          setItemName(values.itemName)
-          setRequestedCost(values.requestedCost)
-          setRequestedRepaymentMonths(values.requestedRepaymentMonths)
-          setVendorName(values.vendorName)
-        }}
-        restore={(draft) => {
-          setItemDescription(draft.itemDescription)
-          setItemName(draft.itemName)
-          setRequestedCost(draft.requestedCost)
-          setRequestedRepaymentMonths(draft.requestedRepaymentMonths)
-          setVendorName(draft.vendorName)
-        }}
-      />
-      <Field label="Item">
-        <Input
-          disabled={isPending}
-          onChange={(event) => setItemName(event.target.value)}
-          value={itemName}
-        />
-      </Field>
-      <Field label="Vendor">
-        <Input
-          disabled={isPending}
-          onChange={(event) => setVendorName(event.target.value)}
-          value={vendorName}
-        />
-      </Field>
-      <Field label="Requested cost">
-        <Input
-          disabled={isPending}
-          inputMode="decimal"
-          onChange={(event) => setRequestedCost(event.target.value)}
-          value={requestedCost}
-        />
-      </Field>
-      <Field label="Repayment months">
-        <Input
-          disabled={isPending}
-          inputMode="numeric"
-          onChange={(event) => setRequestedRepaymentMonths(event.target.value)}
-          value={requestedRepaymentMonths}
-        />
-      </Field>
-      <Field className="md:col-span-2" label="Description">
-        <Textarea
-          disabled={isPending}
-          onChange={(event) => setItemDescription(event.target.value)}
-          value={itemDescription}
-        />
-      </Field>
-      <div className="md:col-span-2">
-        <WorkflowChargeSummary
-          basisAmount={Number(requestedCost) || 0}
-          charges={chargeOptions}
-          title="Applicable charges"
-        />
-      </div>
-      <div className="md:col-span-2">
-        <Button
-          className="h-11 w-full md:h-9 md:w-auto"
-          disabled={isPending}
-          onClick={submitRequest}
-          type="button"
-        >
-          Send request
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-function formatProcurementEvidenceDate(value: Date | string | null) {
-  if (!value) return "Not recorded"
-
-  return new Date(value).toLocaleDateString("en-NG", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
-
-export function ProcurementRequestDetailsContent({
   request,
 }: {
+  canReview: boolean
+  onClose: () => Promise<void>
   request: ProcurementRequestRow
 }) {
+  const { setParams } = useProcurementParams()
+  const stateInput = { kind: "procurement" as const, status: request.status }
+  const nextStep = getRequestNextStep(stateInput)
+  const approved = request.approvedCost !== null
+
   return (
-    <div className="space-y-6">
-      <section className="border-y border-border py-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="font-medium text-foreground">{request.itemName}</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+    <div className="grid gap-6">
+      <div className="grid gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <RequestStatusBadge {...stateInput} />
+          {canReview ? (
+            <span className="text-base text-muted-foreground">
               {request.member.fullName} · {request.member.memberNumber}
-            </p>
-          </div>
-          <span className="border border-border px-2 py-1 text-xs capitalize">
-            {request.status.replaceAll("_", " ")}
-          </span>
+            </span>
+          ) : null}
         </div>
-        {request.itemDescription ? (
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            {request.itemDescription}
-          </p>
+        <RequestSteps {...stateInput} />
+        {canReview ? null : nextStep ? (
+          <p className="text-base text-foreground">{nextStep}</p>
         ) : null}
-      </section>
+      </div>
 
-      <DetailsSection title="Request and approval">
-        <DetailsGrid>
-          <Detail
-            label="Requested cost"
-            value={formatCurrency(request.requestedCost)}
-          />
-          <Detail
-            label="Requested term"
-            value={`${request.requestedRepaymentMonths} months`}
-          />
-          <Detail
-            label="Approved cost"
-            value={
-              request.approvedCost
-                ? formatCurrency(request.approvedCost)
-                : "Not approved"
-            }
-          />
-          <Detail
-            label="Approved term"
-            value={
-              request.approvedRepaymentMonths
-                ? `${request.approvedRepaymentMonths} months`
-                : "Not approved"
-            }
-          />
-          <Detail label="Vendor" value={request.vendorName ?? "Not provided"} />
-          <Detail
-            label="Requested on"
-            value={formatProcurementEvidenceDate(request.requestedAt)}
-          />
-        </DetailsGrid>
-        {request.reviewNotes ? (
-          <p className="mt-3 text-sm text-muted-foreground">
-            Review note: {request.reviewNotes}
-          </p>
-        ) : null}
-      </DetailsSection>
+      <RequestFacts
+        items={[
+          {
+            label: "Asked for",
+            value:
+              approved &&
+              request.approvedCost === request.requestedCost &&
+              request.approvedRepaymentMonths ===
+                request.requestedRepaymentMonths
+                ? null
+                : costLine(
+                    request.requestedCost,
+                    request.requestedRepaymentMonths
+                  ),
+          },
+          {
+            label: "Approved",
+            value: approved
+              ? costLine(
+                  request.approvedCost ?? 0,
+                  request.approvedRepaymentMonths
+                )
+              : null,
+          },
+          {
+            label: "Still owed",
+            value: request.repaymentScheduleItems.length
+              ? formatCurrency(request.outstandingAmount)
+              : null,
+          },
+          { label: "Shop or seller", value: request.vendorName },
+          {
+            label: "Asked on",
+            value: formatDayMonthYear(request.requestedAt),
+          },
+          {
+            label: "Bought on",
+            value: formatDayMonthYear(request.purchasedAt),
+          },
+          {
+            label: "Receipt or invoice",
+            value: readableReference(request.purchaseReference),
+          },
+          { label: "Note from the office", value: request.reviewNotes },
+          { label: "More details", value: request.itemDescription },
+        ]}
+      />
 
-      <DetailsSection title="Purchase evidence">
-        <DetailsGrid>
-          <Detail
-            label="Purchased on"
-            value={formatProcurementEvidenceDate(request.purchasedAt)}
-          />
-          <Detail
-            label="Reference"
-            value={request.purchaseReference ?? "Not recorded"}
-          />
-        </DetailsGrid>
-        {request.purchaseNotes ? (
-          <p className="mt-3 text-sm text-muted-foreground">
-            {request.purchaseNotes}
-          </p>
-        ) : null}
-      </DetailsSection>
-
-      <DetailsSection title="Repayment schedule">
-        {request.repaymentScheduleItems.length ? (
-          <div className="divide-y divide-border border-y border-border">
+      {request.repaymentScheduleItems.length ? (
+        <RequestSection title="Repayments">
+          <ul className="divide-y divide-border border-y border-border">
             {request.repaymentScheduleItems.map((item) => (
-              <div
-                className="grid grid-cols-[1fr_auto] gap-3 py-3 text-sm"
+              <li
+                className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3 text-base"
                 key={item.id}
               >
-                <div>
-                  <p className="font-medium">
-                    Installment {item.installmentNumber}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Due {formatProcurementEvidenceDate(item.dueDate)} ·{" "}
-                    <span className="capitalize">
-                      {item.status.replaceAll("_", " ")}
-                    </span>
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p>{formatCurrency(item.amount)}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {formatCurrency(item.paidAmount)} paid
-                  </p>
-                </div>
-              </div>
+                <span>
+                  <span className="font-medium">
+                    {formatDayMonthYear(item.dueDate)}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · {getRepaymentStatusLabel(item.status)}
+                  </span>
+                </span>
+                <span className="tabular-nums">
+                  {formatCurrency(item.amount)}
+                </span>
+              </li>
             ))}
-          </div>
-        ) : (
-          <p className="border-y border-border py-4 text-sm text-muted-foreground">
-            Repayment schedule has not started.
+          </ul>
+        </RequestSection>
+      ) : null}
+
+      {canReview && isPendingRequest(request.status) ? (
+        <ProcurementDecision onClose={onClose} request={request} />
+      ) : null}
+
+      {canReview && request.status === "approved" ? (
+        <RequestSection title="Next step">
+          <p className="text-base">
+            When the item is bought, record it to start the repayments.
           </p>
-        )}
-      </DetailsSection>
+          <div>
+            <Button
+              className="h-12 w-full sm:w-auto"
+              onClick={() =>
+                void setParams({
+                  procurementRequestId: request.id,
+                  procurementSheetType: "purchase",
+                })
+              }
+              type="button"
+            >
+              Record purchase
+            </Button>
+          </div>
+        </RequestSection>
+      ) : null}
     </div>
   )
 }
 
-function DetailsSection({
-  children,
-  title,
-}: {
-  children: ReactNode
-  title: string
-}) {
-  return (
-    <section>
-      <h3 className="mb-3 text-sm font-medium text-foreground">{title}</h3>
-      {children}
-    </section>
-  )
-}
-
-function DetailsGrid({ children }: { children: ReactNode }) {
-  return <dl className="grid gap-3 sm:grid-cols-2">{children}</dl>
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-sm text-foreground">{value}</dd>
-    </div>
-  )
-}
-
-export function ProcurementRequestReviewContent({
-  chargeOptions,
+function ProcurementDecision({
   onClose,
   request,
 }: {
-  chargeOptions: WorkflowChargeOption[]
   onClose: () => Promise<void>
   request: ProcurementRequestRow
 }) {
   const refreshProcurement = useRefreshProcurement()
+  const chargeOptions = useProcurementCharges("approval")
   const { showError, showSuccess } = useNotifications()
-  const [isPending, startTransition] = useTransition()
-  const [approvedCost, setApprovedCost] = useState("")
-  const [approvedMonths, setApprovedMonths] = useState("")
-  const [notes, setNotes] = useState("")
+  const [approvedCost, setApprovedCost] = useState(
+    String(request.requestedCost)
+  )
+  const [approvedMonths, setApprovedMonths] = useState(
+    String(request.requestedRepaymentMonths)
+  )
+  const cost = Number(approvedCost)
+  const months = Number(approvedMonths)
+  const canApprove = monthlyAmount(cost, months) !== null
 
-  function reviewRequest(status: "approved" | "rejected" | "under_review") {
-    startTransition(async () => {
-      try {
-        await reviewProcurementRequestAction(
-          objectToFormData({
-            approvedCost,
-            approvedRepaymentMonths: approvedMonths,
-            notes,
-            procurementRequestId: request.id,
-            status,
-          })
-        )
-        showSuccess(
-          "Procurement review saved",
-          `Request marked ${status.replace(/_/g, " ")}.`
-        )
-        await refreshProcurement(onClose, request.id)
-      } catch (error) {
-        showError(
-          "Could not save procurement review",
-          error instanceof Error ? error.message : "Something went wrong."
-        )
-      }
-    })
+  async function decide(
+    status: "approved" | "rejected" | "under_review",
+    notes = ""
+  ) {
+    try {
+      await reviewProcurementRequestAction(
+        objectToFormData({
+          approvedCost: status === "approved" ? approvedCost : "",
+          approvedRepaymentMonths: status === "approved" ? approvedMonths : "",
+          notes,
+          procurementRequestId: request.id,
+          status,
+        })
+      )
+      showSuccess(
+        status === "approved"
+          ? "Request approved"
+          : status === "rejected"
+            ? "Request declined"
+            : "Marked as being checked",
+        status === "under_review" ? "" : "The member will be told."
+      )
+      await refreshProcurement(onClose, request.id)
+      return true
+    } catch (error) {
+      showError("Could not save the decision", errorMessage(error))
+      return false
+    }
   }
 
   return (
-    <div className="grid gap-3">
+    <RequestDecision
+      approveExtra={
+        <WorkflowChargeSummary
+          basisAmount={cost || request.requestedCost}
+          charges={chargeOptions}
+          title="Charges"
+        />
+      }
+      approveFacts={[
+        { label: "Item", value: request.itemName },
+        { label: "Member", value: request.member.fullName },
+        { label: "Amount", value: costLine(cost, months) },
+      ]}
+      canApprove={canApprove}
+      onApprove={() => decide("approved")}
+      onDecline={(reason) => decide("rejected", reason)}
+      onStartChecking={
+        request.status === "submitted"
+          ? () => decide("under_review")
+          : undefined
+      }
+    >
       <DashboardStateQuickFill
-        draft={{ approvedCost, approvedMonths, notes }}
-        enabled={!isPending}
-        isDirty={Boolean(approvedCost || approvedMonths || notes)}
+        draft={{ approvedCost, approvedMonths }}
+        enabled
+        isDirty={false}
         onFill={() => {
           setApprovedCost(String(request.requestedCost))
           setApprovedMonths(String(request.requestedRepaymentMonths))
-          setNotes(
-            "Within the cooperative policy and the member's affordability."
-          )
         }}
         restore={(draft) => {
           setApprovedCost(draft.approvedCost)
           setApprovedMonths(draft.approvedMonths)
-          setNotes(draft.notes)
         }}
       />
-      <section className="border-y border-border py-4">
-        <p className="font-medium text-foreground">{request.itemName}</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {request.member.fullName} · {request.member.memberNumber}
-        </p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Requested {formatCurrency(request.requestedCost)} over{" "}
-          {request.requestedRepaymentMonths} months
-        </p>
-      </section>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <Field label="Approved cost">
+      <div className="grid gap-5 sm:grid-cols-2">
+        <RequestField label="Approve amount (₦)">
           <Input
-            disabled={isPending}
             inputMode="decimal"
             onChange={(event) => setApprovedCost(event.target.value)}
-            placeholder={request.requestedCost.toString()}
             value={approvedCost}
           />
-        </Field>
-        <Field label="Approved repayment months">
+        </RequestField>
+        <RequestField
+          hint={`Up to ${formatMonths(request.policyMaximumPaybackMonths)}`}
+          label="Pay back over (months)"
+        >
           <Input
-            disabled={isPending}
             inputMode="numeric"
             onChange={(event) => setApprovedMonths(event.target.value)}
-            placeholder={request.requestedRepaymentMonths.toString()}
             value={approvedMonths}
           />
-        </Field>
+        </RequestField>
       </div>
       <WorkflowChargeSummary
-        basisAmount={Number(approvedCost) || request.requestedCost}
+        basisAmount={cost || request.requestedCost}
         charges={chargeOptions}
-        title="Approval charges"
+        title="Charges on approval"
       />
-      <Field label="Review note">
-        <Textarea
-          disabled={isPending}
-          onChange={(event) => setNotes(event.target.value)}
-          placeholder="Explain the review decision"
-          value={notes}
-        />
-      </Field>
-      <div className="grid gap-2 sm:flex sm:flex-wrap">
-        {request.status === "submitted" ? (
-          <Button
-            disabled={isPending}
-            onClick={() => reviewRequest("under_review")}
-            className="h-11 w-full sm:h-9 sm:w-auto"
-            type="button"
-            variant="outline"
-          >
-            Mark under review
-          </Button>
-        ) : null}
-        <Button
-          disabled={isPending}
-          onClick={() => reviewRequest("approved")}
-          className="h-11 w-full sm:h-9 sm:w-auto"
-          type="button"
-        >
-          Approve
-        </Button>
-        <Button
-          disabled={isPending}
-          onClick={() => reviewRequest("rejected")}
-          className="h-11 w-full sm:h-9 sm:w-auto"
-          type="button"
-          variant="outline"
-        >
-          Reject
-        </Button>
-      </div>
-    </div>
+    </RequestDecision>
   )
 }
 
+/** Record that the item was bought. This starts the monthly repayments. */
 export function ProcurementPurchaseContent({
   onClose,
   request,
@@ -663,10 +543,15 @@ export function ProcurementPurchaseContent({
   const refreshProcurement = useRefreshProcurement()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
-  const [purchaseDate, setPurchaseDate] = useState("")
-  const [firstDueDate, setFirstDueDate] = useState("")
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [purchaseDate, setPurchaseDate] = useState(() => todayInputValue())
+  const [firstDueDate, setFirstDueDate] = useState(() =>
+    firstOfNextMonthInputValue()
+  )
   const [purchaseReference, setPurchaseReference] = useState("")
   const [purchaseNotes, setPurchaseNotes] = useState("")
+  const months = request.approvedRepaymentMonths ?? 0
+  const cost = request.approvedCost ?? 0
 
   function recordPurchase() {
     startTransition(async () => {
@@ -680,26 +565,21 @@ export function ProcurementPurchaseContent({
             purchaseReference,
           })
         )
-        showSuccess(
-          "Procurement purchase recorded",
-          "Repayment schedule is now active."
-        )
+        setConfirmOpen(false)
+        showSuccess("Purchase recorded", "Monthly repayments have started.")
         await refreshProcurement(onClose, request.id)
       } catch (error) {
-        showError(
-          "Could not record procurement purchase",
-          error instanceof Error ? error.message : "Something went wrong."
-        )
+        showError("Could not record the purchase", errorMessage(error))
       }
     })
   }
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-5">
       <DashboardStateQuickFill
         draft={{ firstDueDate, purchaseDate, purchaseNotes, purchaseReference }}
         enabled={!isPending}
-        isDirty={Boolean(purchaseDate || purchaseReference || purchaseNotes)}
+        isDirty={Boolean(purchaseReference || purchaseNotes)}
         onFill={() => {
           setPurchaseDate(qaToday())
           setFirstDueDate(qaFirstOfNextMonth())
@@ -713,55 +593,68 @@ export function ProcurementPurchaseContent({
           setPurchaseReference(draft.purchaseReference)
         }}
       />
-      <section className="border-y border-border py-4">
-        <p className="font-medium text-foreground">{request.itemName}</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {request.member.fullName} · approved for{" "}
-          {formatCurrency(request.approvedCost ?? 0)}
-        </p>
-      </section>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <Field label="Purchase date">
+      <p className="text-base">
+        {request.member.fullName} · {costLine(cost, months)}
+      </p>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <RequestField label="Date bought">
           <Input
             disabled={isPending}
             onChange={(event) => setPurchaseDate(event.target.value)}
             type="date"
             value={purchaseDate}
           />
-        </Field>
-        <Field label="First repayment due date">
+        </RequestField>
+        <RequestField label="First payment due">
           <Input
             disabled={isPending}
             onChange={(event) => setFirstDueDate(event.target.value)}
             type="date"
             value={firstDueDate}
           />
-        </Field>
+        </RequestField>
       </div>
-      <Field label="Invoice or purchase reference">
+      <RequestField label="Receipt or invoice number" optional>
         <Input
           disabled={isPending}
           onChange={(event) => setPurchaseReference(event.target.value)}
-          placeholder="Enter invoice or receipt reference"
           value={purchaseReference}
         />
-      </Field>
-      <Field label="Purchase note">
+      </RequestField>
+      <RequestField label="Note" optional>
         <Textarea
           disabled={isPending}
           onChange={(event) => setPurchaseNotes(event.target.value)}
-          placeholder="Add purchase or fulfilment notes"
           value={purchaseNotes}
         />
-      </Field>
-      <Button
-        disabled={isPending || !purchaseDate || !firstDueDate}
-        onClick={recordPurchase}
-        className="h-11 w-full md:h-9 md:w-auto"
-        type="button"
-      >
-        Record purchase
-      </Button>
+      </RequestField>
+      <RequestFormActions>
+        <Button
+          disabled={isPending || !purchaseDate || !firstDueDate}
+          onClick={() => setConfirmOpen(true)}
+          type="button"
+        >
+          Record purchase
+        </Button>
+      </RequestFormActions>
+
+      <RequestConfirmDialog
+        confirmLabel="Record purchase"
+        facts={[
+          { label: "Item", value: request.itemName },
+          { label: "Member", value: request.member.fullName },
+          { label: "Repayments", value: costLine(cost, months) },
+          {
+            label: "First payment due",
+            value: formatDayMonthYear(firstDueDate),
+          },
+        ]}
+        onConfirm={recordPurchase}
+        onOpenChange={setConfirmOpen}
+        open={confirmOpen}
+        pending={isPending}
+        title="Record this purchase?"
+      />
     </div>
   )
 }

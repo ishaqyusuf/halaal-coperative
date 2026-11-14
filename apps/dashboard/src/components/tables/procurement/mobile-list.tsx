@@ -9,11 +9,7 @@ import { ProcurementEmptyState } from "./empty-states"
 import { ProcurementMobileItem } from "./mobile-item"
 import { useProcurementQuery } from "./use-procurement-query"
 
-export function ProcurementMobileList({
-  canReview,
-}: {
-  canReview: boolean
-}) {
+export function ProcurementMobileList({ canReview }: { canReview: boolean }) {
   const parentRef = useRef<HTMLDivElement>(null)
   const {
     fetchNextPage,
@@ -24,7 +20,7 @@ export function ProcurementMobileList({
   } = useProcurementQuery()
   const rowVirtualizer = useVirtualizer({
     count: requests.length,
-    estimateSize: () => 238,
+    estimateSize: () => 140,
     getScrollElement: () => parentRef.current,
     overscan: 6,
   })
@@ -82,9 +78,7 @@ export function ProcurementMobileList({
         {isFetchingNextPage ? (
           <div className="absolute inset-x-0 bottom-0 flex h-12 items-center justify-center text-muted-foreground">
             <LoaderCircle aria-hidden className="size-4 animate-spin" />
-            <span className="sr-only">
-              Loading more procurement requests
-            </span>
+            <span className="sr-only">Loading more procurement requests</span>
           </div>
         ) : null}
       </div>

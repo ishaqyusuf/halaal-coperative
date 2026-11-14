@@ -2,10 +2,10 @@ import {
   createDbRuntime,
   getFoodPurchaseApplicationSummary,
   getMemberByUserId,
-  getTenantOperationProfile,
+  getMemberOperationalReadiness,
   listFoodPurchaseCycles,
-  quoteApplicableCharges,
 } from "@halaalvest/db"
+import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
 import { getDashboardServerContext } from "@/lib/server-context"
 import {
   allStaffRoles,
@@ -34,7 +34,10 @@ export async function loadFoodPurchasePageData() {
     return { state: "unavailable" as const }
   }
 
-  const operationProfile = await getTenantOperationProfile(context.tenant.id)
+  // The per-request copy the sidebar already read; charges load when a form opens.
+  const operationProfile = await getRequestTenantOperationProfile(
+    context.tenant.id
+  )
   const foodPurchaseCapability = operationProfile.services.food_purchase
 
   if (canUseMemberFoodPurchase) {
@@ -51,18 +54,19 @@ export async function loadFoodPurchasePageData() {
       return { state: "member-profile-missing" as const }
     }
 
-    const [cycles, applicationSummary, chargeOptions] = await Promise.all([
+    // A member who is not verified sees a plain notice, not a form that fails.
+    const [cycles, applicationSummary, readiness] = await Promise.all([
       listFoodPurchaseCycles({ tenantId: context.tenant.id }),
       getFoodPurchaseApplicationSummary({
         memberId: member.id,
         tenantId: context.tenant.id,
       }),
-      quoteApplicableCharges({
-        basisAmount: 100,
-        tenantId: context.tenant.id,
-        trigger: "submission",
-        workflow: "food_purchase_application",
-      }),
+      foodPurchaseCapability.canMemberCreate
+        ? getMemberOperationalReadiness({
+            memberId: member.id,
+            tenantId: context.tenant.id,
+          })
+        : null,
     ])
 
     if (
@@ -75,8 +79,9 @@ export async function loadFoodPurchasePageData() {
 
     return {
       state: "member-ready" as const,
-      canCreateApplication: foodPurchaseCapability.canMemberCreate,
-      chargeOptions,
+      canCreateApplication: Boolean(readiness?.isReady),
+      needsVerification:
+        foodPurchaseCapability.canMemberCreate && !readiness?.isReady,
       cycles: cycles.map((cycle) => ({
         ...cycle,
         accountingSubmittedByUser: cycle.accountingSubmittedByUser
@@ -90,34 +95,13 @@ export async function loadFoodPurchasePageData() {
           id: cycle.releasedByUser.id,
         },
       })),
-      member: {
-        fullName: member.fullName,
-        memberNumber: member.memberNumber,
-      },
       summary: applicationSummary,
     }
   }
 
-  const [
-    cycles,
-    applicationSummary,
-    submissionChargeOptions,
-    approvalChargeOptions,
-  ] = await Promise.all([
+  const [cycles, applicationSummary] = await Promise.all([
     listFoodPurchaseCycles({ tenantId: context.tenant.id }),
     getFoodPurchaseApplicationSummary({ tenantId: context.tenant.id }),
-    quoteApplicableCharges({
-      basisAmount: 100,
-      tenantId: context.tenant.id,
-      trigger: "submission",
-      workflow: "food_purchase_application",
-    }),
-    quoteApplicableCharges({
-      basisAmount: 100,
-      tenantId: context.tenant.id,
-      trigger: "approval",
-      workflow: "food_purchase_application",
-    }),
   ])
 
   if (
@@ -130,7 +114,6 @@ export async function loadFoodPurchasePageData() {
 
   return {
     state: "staff-ready" as const,
-    approvalChargeOptions,
     canRecordAccounting: canSubmitApplications,
     canReleaseFunds: canReleaseFunds && foodPurchaseCapability.canStaffCreate,
     canReviewAccounting: canReleaseFunds,
@@ -138,7 +121,6 @@ export async function loadFoodPurchasePageData() {
     canSubmitApplications:
       canSubmitApplications && foodPurchaseCapability.canStaffCreate,
     cycles,
-    submissionChargeOptions,
     summary: {
       approvedApplications: applicationSummary.approvedApplications,
       openCycles: cycles.filter((cycle) => cycle.status === "open").length,

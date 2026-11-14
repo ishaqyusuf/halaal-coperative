@@ -24,7 +24,7 @@ export function FoodPurchaseMobileList({
   } = useFoodPurchaseQuery()
   const rowVirtualizer = useVirtualizer({
     count: applications.length,
-    estimateSize: () => 238,
+    estimateSize: () => 140,
     getScrollElement: () => parentRef.current,
     overscan: 6,
   })

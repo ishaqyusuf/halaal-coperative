@@ -7,23 +7,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@halaalvest/ui/components/sheet"
-
-type FoodPurchaseSheetType =
-  | "accounting"
-  | "accounting-review"
-  | "application"
-  | "release"
-  | "review"
-  | "self-service"
-
-function formatMonth(value: Date | string) {
-  const date = value instanceof Date ? value : new Date(value)
-
-  return date.toLocaleDateString("en-NG", {
-    month: "short",
-    year: "numeric",
-  })
-}
+import type { FoodPurchaseSheetType } from "@/hooks/use-food-purchase-params"
+import { formatMonthYear } from "@/lib/requests/request-status-words"
 
 function getHeaderCopy({
   application,
@@ -34,57 +19,33 @@ function getHeaderCopy({
   cycle?: FoodPurchaseCycleRow
   type: FoodPurchaseSheetType
 }) {
-  if (type === "application") {
-    return {
-      description:
-        "Submit a Foodstuff Purchase request for a member against an open cycle.",
-      title: "Record member application",
-    }
-  }
+  const month = cycle ? formatMonthYear(cycle.periodMonth) : null
 
-  if (type === "self-service") {
-    return {
-      description:
-        "Submit your Foodstuff Purchase request against an open cooperative cycle.",
-      title: "Apply for Foodstuff Purchase",
-    }
-  }
-
-  if (type === "accounting") {
-    return {
-      description: cycle
-        ? `Enter sales, cost, and expense details for ${formatMonth(
-            cycle.periodMonth
-          )}.`
-        : "Enter sales, cost, and expense details for this cycle.",
-      title: "Record cycle accounting",
-    }
-  }
-
-  if (type === "accounting-review") {
-    return {
-      description: cycle
-        ? `Approve or request corrections for ${formatMonth(
-            cycle.periodMonth
-          )} accounting.`
-        : "Approve or request corrections for this cycle accounting.",
-      title: "Review cycle accounting",
-    }
-  }
-
-  if (type === "review") {
-    return {
-      description: application
-        ? `Review ${application.member.fullName}'s Foodstuff Purchase request.`
-        : "Review this Foodstuff Purchase request.",
-      title: "Review application",
-    }
-  }
-
-  return {
-    description:
-      "Record evidence of the monthly committee release before members apply. This does not post a cash or ledger transaction.",
-    title: "Record monthly release evidence",
+  switch (type) {
+    case "application":
+      return { description: null, title: "New foodstuff request" }
+    case "self-service":
+      return {
+        description: "The cooperative buys food in bulk. You pay back monthly.",
+        title: "Ask for foodstuff",
+      }
+    case "accounting":
+      return { description: month, title: "Month-end figures" }
+    case "accounting-review":
+      return { description: month, title: "Check month-end figures" }
+    case "details":
+    case "review":
+      return {
+        description: application
+          ? formatMonthYear(application.cycle.periodMonth)
+          : null,
+        title: application?.member.fullName ?? "Foodstuff request",
+      }
+    default:
+      return {
+        description: "Record the money given to the committee to buy food.",
+        title: "Open a month",
+      }
   }
 }
 
@@ -101,8 +62,12 @@ export function FoodPurchaseSheetHeader({
 
   return (
     <SheetHeader>
-      <SheetTitle>{copy.title}</SheetTitle>
-      <SheetDescription>{copy.description}</SheetDescription>
+      <SheetTitle className="text-2xl">{copy.title}</SheetTitle>
+      {copy.description ? (
+        <SheetDescription className="text-base">
+          {copy.description}
+        </SheetDescription>
+      ) : null}
     </SheetHeader>
   )
 }

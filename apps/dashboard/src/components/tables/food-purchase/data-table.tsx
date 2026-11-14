@@ -31,7 +31,7 @@ import { FoodPurchaseEmptyState } from "./empty-states"
 import { FoodPurchaseTableHeader } from "./table-header"
 import { useFoodPurchaseQuery } from "./use-food-purchase-query"
 
-const NON_CLICKABLE_COLUMNS = new Set(["actions"])
+const NON_CLICKABLE_COLUMNS = new Set<string>()
 const COLUMN_IDS = getColumnIds(columns)
 
 type Props = {
@@ -120,29 +120,18 @@ export function FoodPurchaseDataTable({
     overscan: 10,
   })
 
+  // Every action lives in the request's sheet, so a row always opens it.
   const openApplication = useCallback(
     (id?: string) => {
-      if (!id || !canReviewApplications) {
-        return
-      }
+      if (!id) return
 
-      const application = tableData.find((candidate) => candidate.id === id)
-
-      if (
-        !application ||
-        application.cycle.status !== "open" ||
-        !["submitted", "under_review"].includes(application.status)
-      ) {
-        return
-      }
-
-      setParams({
+      void setParams({
         foodPurchaseApplicationId: id,
         foodPurchaseCycleId: null,
-        foodPurchaseSheetType: "review",
+        foodPurchaseSheetType: "details",
       })
     },
-    [canReviewApplications, tableData, setParams]
+    [setParams]
   )
 
   useInfiniteScroll<HTMLDivElement>({

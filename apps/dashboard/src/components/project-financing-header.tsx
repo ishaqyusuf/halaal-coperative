@@ -1,17 +1,33 @@
 "use client"
 
-import type { ReactNode } from "react"
-import { OpenProjectFinancingRequestSheet } from "@/components/open-project-financing-sheet"
+import {
+  OpenMemberProjectFinancingRequestSheet,
+  OpenProjectFinancingRequestSheet,
+} from "@/components/open-project-financing-sheet"
 import { ProjectFinancingColumnVisibility } from "@/components/project-financing-column-visibility"
 import { ProjectFinancingSearchFilter } from "@/components/project-financing-search-filter"
 
-export function ProjectFinancingHeader({ action }: { action?: ReactNode }) {
+export function ProjectFinancingHeader({
+  canCreate,
+  hasMemberOptions = true,
+  selfService = false,
+}: {
+  canCreate: boolean
+  hasMemberOptions?: boolean
+  selfService?: boolean
+}) {
   return (
-    <div className="hidden items-center justify-between gap-3 border-b border-border bg-background px-4 py-3 md:flex">
+    <div className="hidden items-center justify-between gap-3 pb-4 md:flex">
       <ProjectFinancingSearchFilter />
       <div className="flex items-center gap-2">
         <ProjectFinancingColumnVisibility />
-        {action === undefined ? <OpenProjectFinancingRequestSheet /> : action}
+        {canCreate ? (
+          selfService ? (
+            <OpenMemberProjectFinancingRequestSheet />
+          ) : (
+            <OpenProjectFinancingRequestSheet disabled={!hasMemberOptions} />
+          )
+        ) : null}
       </div>
     </div>
   )

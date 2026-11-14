@@ -41,30 +41,37 @@ describe("project financing workspace Midday conformance", () => {
   test("closes workflow URL before invalidation and refresh", () => {
     const sheet = read("components/sheets/project-financing-sheet.tsx")
     const content = read("components/project-financing-content.tsx")
+    const refresh = read("components/requests/use-request-refresh.ts")
 
-    const closeAt = content.indexOf("await onClose()")
-    const invalidateAt = content.indexOf("await Promise.all(invalidations)")
-    const refreshAt = content.indexOf("router.refresh()")
+    const closeAt = refresh.indexOf("await onClose()")
+    const invalidateAt = refresh.indexOf("queryClient.invalidateQueries")
+    const refreshAt = refresh.indexOf("router.refresh()")
 
     expect(sheet).toContain("const closeSheet = async () =>")
     expect(sheet).toContain("mobileFullScreen")
     expect(closeAt).toBeGreaterThan(-1)
     expect(invalidateAt).toBeGreaterThan(closeAt)
     expect(refreshAt).toBeGreaterThan(invalidateAt)
+    expect(content).toContain("useRequestRefresh()")
     expect(
       content.match(/await refreshProjectFinancing\(onClose/g) ?? []
-    ).toHaveLength(4)
+    ).toHaveLength(3)
   })
 
   test("mirrors structure-aware server validation in create and review forms", () => {
     const content = read("components/project-financing-content.tsx")
 
-    expect(content.match(/const canSubmit =/g) ?? []).toHaveLength(2)
-    expect(content).toContain('proposedStructure === "repayable_facility"')
-    expect(content).toContain('approvedStructure !== "repayable_facility"')
-    expect(content).toContain("disabled={isPending || !canApprove}")
+    expect(content).toContain("function monthsAreValid(")
+    expect(content).toContain('type === "repayable_facility"')
+    expect(content).toContain(
+      "monthsAreValid(proposedStructure, requestedPaybackMonths)"
+    )
+    expect(content).toContain(
+      "monthsAreValid(approvedStructure, approvedPaybackMonths)"
+    )
     expect(content).toContain("disabled={isPending || !canSubmit}")
-    expect(content).toContain("new Date().toISOString().slice(0, 10)")
+    expect(content).toContain("canApprove={canApprove}")
+    expect(content).toContain("todayInputValue()")
   })
 
   test("provides explicit desktop filter recovery", () => {

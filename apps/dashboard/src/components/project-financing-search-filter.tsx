@@ -1,5 +1,7 @@
 "use client"
 
+import { getRequestStatusFilterOptions } from "@/lib/requests/request-status-words"
+
 import type { ChangeEvent, FormEvent } from "react"
 import { useState } from "react"
 import type { ProjectFinancingRequestStatus } from "@halaalvest/db"
@@ -20,15 +22,12 @@ import { SearchFilterDropdownInput } from "@/components/search-filter-dropdown-i
 import { useProjectFinancingFilterParams } from "@/hooks/use-project-financing-filter-params"
 import { useSortParams } from "@/hooks/use-sort-params"
 
-const statusFilters = [
-  { id: "submitted", name: "Submitted" },
-  { id: "under_review", name: "Under review" },
-  { id: "approved", name: "Approved" },
-  { id: "active", name: "Active" },
-  { id: "completed", name: "Completed" },
-  { id: "rejected", name: "Rejected" },
-  { id: "cancelled", name: "Cancelled" },
-] satisfies Array<{ id: ProjectFinancingRequestStatus; name: string }>
+const statusFilters = getRequestStatusFilterOptions("projectFinancing").map(
+  (option) => ({
+    id: option.value as ProjectFinancingRequestStatus,
+    name: option.label,
+  })
+)
 
 export function ProjectFinancingSearchFilter() {
   const { filter, setFilter } = useProjectFinancingFilterParams()
@@ -77,7 +76,7 @@ export function ProjectFinancingSearchFilter() {
             filterActive={hasValidFilters}
             filterOpen={isOpen}
             onChange={handleSearch}
-            placeholder="Search project financing..."
+            placeholder="Search name or business"
             spellCheck="false"
             value={input}
           />

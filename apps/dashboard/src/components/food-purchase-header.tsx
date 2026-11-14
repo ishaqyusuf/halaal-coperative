@@ -2,22 +2,27 @@
 
 import { FoodPurchaseColumnVisibility } from "@/components/food-purchase-column-visibility"
 import { FoodPurchaseSearchFilter } from "@/components/food-purchase-search-filter"
-import { OpenFoodPurchaseApplicationSheet } from "@/components/open-food-purchase-sheet"
+import { OpenFoodPurchaseSheet } from "@/components/open-food-purchase-sheet"
 
 export function FoodPurchaseHeader({
-  canSubmitApplications,
+  canCreate,
   hasOpenCycle,
+  selfService = false,
 }: {
-  canSubmitApplications: boolean
+  canCreate: boolean
   hasOpenCycle: boolean
+  selfService?: boolean
 }) {
   return (
-    <div className="hidden border-b border-border bg-background px-4 py-3 md:flex md:items-center md:justify-between md:gap-3">
+    <div className="hidden pb-4 md:flex md:items-center md:justify-between md:gap-3">
       <FoodPurchaseSearchFilter />
       <div className="flex items-center gap-2">
         <FoodPurchaseColumnVisibility />
-        {canSubmitApplications ? (
-          <OpenFoodPurchaseApplicationSheet disabled={!hasOpenCycle} />
+        {canCreate ? (
+          <OpenFoodPurchaseSheet
+            disabled={!hasOpenCycle}
+            type={selfService ? "self-service" : "application"}
+          />
         ) : null}
       </div>
     </div>

@@ -19,44 +19,27 @@ function getHeaderCopy({
   request?: ProjectFinancingRequestRow
   type: ProjectFinancingSheetType
 }) {
-  if (type === "details") {
-    return {
-      description:
-        "Review the request, approval, funding, and payment evidence for this project.",
-      title: request?.businessName ?? "Project financing details",
-    }
-  }
-
-  if (type === "review") {
-    return {
-      description: request
-        ? `Review ${request.member.fullName}'s project financing request.`
-        : "Review this project financing request.",
-      title: "Review project financing",
-    }
+  if (type === "details" || type === "review") {
+    return { description: null, title: request?.businessName ?? "Request" }
   }
 
   if (type === "disbursement") {
     return {
-      description: request
-        ? `Record disbursement evidence for ${request.businessName}.`
-        : "Record disbursement evidence for this project financing request.",
-      title: "Record disbursement",
+      description: request?.businessName ?? null,
+      title: "Record payout",
     }
   }
 
   if (type === "self-service") {
     return {
-      description:
-        "Submit your business funding request for cooperative review.",
-      title: "Request business funding",
+      description: "Ask the cooperative to fund your business.",
+      title: "Ask for business funding",
     }
   }
 
   return {
-    description:
-      "Capture the member business, requested amount, and preferred financing structure.",
-    title: "New project financing request",
+    description: "Funding for a member's business.",
+    title: "New funding request",
   }
 }
 
@@ -71,8 +54,12 @@ export function ProjectFinancingSheetHeader({
 
   return (
     <SheetHeader>
-      <SheetTitle>{copy.title}</SheetTitle>
-      <SheetDescription>{copy.description}</SheetDescription>
+      <SheetTitle className="text-2xl">{copy.title}</SheetTitle>
+      {copy.description ? (
+        <SheetDescription className="text-base">
+          {copy.description}
+        </SheetDescription>
+      ) : null}
     </SheetHeader>
   )
 }

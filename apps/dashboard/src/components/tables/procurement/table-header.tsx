@@ -20,10 +20,7 @@ import {
 import { DraggableHeader } from "@/components/tables/draggable-header"
 import { ResizeHandle } from "@/components/tables/resize-handle"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
-import {
-  NON_REORDERABLE_COLUMNS,
-  STICKY_COLUMNS,
-} from "@/utils/table-configs"
+import { NON_REORDERABLE_COLUMNS, STICKY_COLUMNS } from "@/utils/table-configs"
 
 interface Props<TData> {
   loading?: boolean
@@ -165,7 +162,7 @@ function renderHeaderContent<TData>(
   if (columnId === "request") {
     return (
       <div className="flex w-full items-center justify-between overflow-hidden">
-        <span className="truncate">Request</span>
+        <span className="truncate">Item</span>
         {tableScroll?.isScrollable ? (
           <HorizontalPagination
             canScrollLeft={tableScroll.canScrollLeft}

@@ -50,11 +50,14 @@ export const workflowPresentations = {
     stageBatch: sheet("review"),
   },
   foodPurchase: {
-    accounting: sheet("review"),
-    "accounting-review": dialog("review"),
+    // Four figures on an existing month: a dialog (audit FP4).
+    accounting: dialog("form"),
+    "accounting-review": dialog("form"),
     application: sheet("review"),
+    details: sheet("review"),
     release: sheet(),
-    review: dialog("review"),
+    // Older links open the request's own sheet, where staff decide.
+    review: sheet("review"),
     "self-service": sheet("review"),
   },
   guarantorApproval: {
@@ -144,7 +147,8 @@ export const workflowPresentations = {
     create: sheet("review"),
     details: sheet("review"),
     purchase: dialog("form"),
-    review: dialog("review"),
+    // Staff decide inside the request's own sheet (ADR-20261105 rule 3).
+    review: sheet("review"),
     "self-service": sheet("review"),
   },
   profile: {
@@ -154,7 +158,8 @@ export const workflowPresentations = {
     create: sheet("review"),
     details: sheet("review"),
     disbursement: dialog("form"),
-    review: dialog("review"),
+    // Staff decide inside the request's own sheet (ADR-20261105 rule 3).
+    review: sheet("review"),
     "self-service": sheet("review"),
   },
   repayment: {

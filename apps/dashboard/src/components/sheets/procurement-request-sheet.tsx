@@ -3,16 +3,12 @@
 import { Suspense } from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
-  MemberProcurementRequestCreateContent,
   ProcurementPurchaseContent,
-  ProcurementRequestCreateContent,
-  ProcurementRequestDetailsContent,
-  ProcurementRequestReviewContent,
-  type ProcurementMemberOption,
+  ProcurementRequestDetails,
+  ProcurementRequestForm,
 } from "@/components/procurement-request-content"
 import { ProcurementRequestSheetHeader } from "@/components/procurement-request-sheet-header"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
-import type { WorkflowChargeOption } from "@/components/workflow-charge-summary"
 import { useProcurementParams } from "@/hooks/use-procurement-params"
 import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 import { useTRPC } from "@/trpc/client"
@@ -38,14 +34,15 @@ function isProcurementSheetType(
 
 const disabledProcurementRequestId = "00000000-0000-4000-8000-000000000000"
 
+/**
+ * One URL-addressed sheet for procurement: new request, the request itself
+ * (staff decide inside it; `review` is kept for older links) and the purchase
+ * dialog. Charges load inside the forms that show them.
+ */
 export function ProcurementRequestSheet({
-  approvalChargeOptions = [],
-  selfServiceChargeOptions = [],
-  submissionChargeOptions = [],
+  canReview = false,
 }: {
-  approvalChargeOptions?: WorkflowChargeOption[]
-  selfServiceChargeOptions?: WorkflowChargeOption[]
-  submissionChargeOptions?: WorkflowChargeOption[]
+  canReview?: boolean
 }) {
   const trpc = useTRPC()
   const { procurementRequestId, procurementSheetType, setParams } =
@@ -95,9 +92,7 @@ export function ProcurementRequestSheet({
       {isOpen ? (
         <Suspense
           fallback={
-            <div className="px-6 text-sm text-muted-foreground">
-              Loading procurement form...
-            </div>
+            <div className="px-6 text-sm text-muted-foreground">Loading...</div>
           }
         >
           <ProcurementRequestSheetHeader
@@ -106,35 +101,29 @@ export function ProcurementRequestSheet({
           />
           <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-6 md:pb-6">
             {procurementSheetType === "create" ? (
-              <ProcurementRequestCreateContent
-                chargeOptions={submissionChargeOptions}
-                onClose={closeSheet}
-              />
+              <ProcurementRequestForm onClose={closeSheet} />
             ) : procurementSheetType === "self-service" ? (
-              <MemberProcurementRequestCreateContent
-                chargeOptions={selfServiceChargeOptions}
-                onClose={closeSheet}
-              />
+              <ProcurementRequestForm onClose={closeSheet} selfService />
             ) : shouldLoadSelectedRequest && isSelectedRequestLoading ? (
-              <p className="text-sm text-muted-foreground">
-                Loading procurement request...
-              </p>
-            ) : procurementSheetType === "review" && selectedRequest ? (
-              <ProcurementRequestReviewContent
-                chargeOptions={approvalChargeOptions}
+              <p className="text-base text-muted-foreground">Loading...</p>
+            ) : (procurementSheetType === "details" ||
+                procurementSheetType === "review") &&
+              selectedRequest ? (
+              <ProcurementRequestDetails
+                canReview={canReview}
                 onClose={closeSheet}
                 request={selectedRequest}
               />
-            ) : procurementSheetType === "details" && selectedRequest ? (
-              <ProcurementRequestDetailsContent request={selectedRequest} />
-            ) : procurementSheetType === "purchase" && selectedRequest ? (
+            ) : procurementSheetType === "purchase" &&
+              selectedRequest &&
+              canReview ? (
               <ProcurementPurchaseContent
                 onClose={closeSheet}
                 request={selectedRequest}
               />
             ) : (
-              <p className="text-sm text-muted-foreground">
-                This procurement request could not be found.
+              <p className="text-base text-muted-foreground">
+                This request could not be found.
               </p>
             )}
           </div>

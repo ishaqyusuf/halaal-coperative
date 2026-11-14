@@ -1,70 +1,64 @@
 "use client"
 
-import { Badge } from "@halaalvest/ui/components/badge"
 import { formatCurrency } from "@halaalvest/utils"
 import type { FoodPurchaseApplicationRow } from "@halaalvest/db"
 import type { ColumnDef } from "@tanstack/react-table"
 import { memo } from "react"
-import { OpenFoodPurchaseApplicationReviewSheet } from "@/components/open-food-purchase-sheet"
+import { RequestStatusBadge } from "@/components/requests/request-status-badge"
+import {
+  formatMonths,
+  formatMonthYear,
+} from "@/lib/requests/request-status-words"
+import { formatDayMonthYear } from "@/utils/format"
 
 export type FoodPurchaseApplication = FoodPurchaseApplicationRow
 
-type FoodPurchaseTableMeta = {
-  canReviewApplications: boolean
-}
+/** The amount that counts now: approved when approved, else what was asked. */
+export function getFoodPurchaseAmount(application: FoodPurchaseApplication) {
+  const approved = application.approvedAmount !== null
 
-export function formatFoodPurchaseDate(value: Date | string) {
-  const date = value instanceof Date ? value : new Date(value)
-
-  return date.toLocaleDateString("en-NG", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
-
-export function formatFoodPurchaseMonth(value: Date | string) {
-  const date = value instanceof Date ? value : new Date(value)
-
-  return date.toLocaleDateString("en-NG", {
-    month: "short",
-    year: "numeric",
-  })
-}
-
-export function formatFoodPurchaseLabel(value: string) {
-  return value.replaceAll("_", " ")
-}
-
-function statusClassName(status: string) {
-  if (status.includes("approved") || status === "closed") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700"
+  return {
+    amount: approved
+      ? (application.approvedAmount ?? 0)
+      : application.requestedAmount,
+    months: approved
+      ? (application.approvedPaybackMonths ??
+        application.requestedPaybackMonths)
+      : application.requestedPaybackMonths,
   }
-
-  if (status.includes("rejected") || status === "cancelled") {
-    return "border-rose-200 bg-rose-50 text-rose-700"
-  }
-
-  return "border-amber-200 bg-amber-50 text-amber-700"
 }
 
 export function getFoodPurchaseOutstandingAmount(
   application: FoodPurchaseApplication
 ) {
-  const approvedAmount = application.approvedAmount ?? 0
+  if (application.approvedAmount === null) return null
 
-  return Math.max(approvedAmount - application.paidAmount, 0)
+  return Math.max((application.approvedAmount ?? 0) - application.paidAmount, 0)
+}
+
+export function FoodPurchaseStatusBadge({
+  application,
+}: {
+  application: FoodPurchaseApplication
+}) {
+  return (
+    <RequestStatusBadge
+      approvedAmount={application.approvedAmount}
+      kind="foodPurchase"
+      paidAmount={application.paidAmount}
+      status={application.status}
+    />
+  )
 }
 
 const ApplicationCell = memo(
   ({ application }: { application: FoodPurchaseApplication }) => (
-    <div>
+    <div className="min-w-0">
       <p className="truncate font-medium text-foreground">
         {application.member.fullName}
       </p>
-      <p className="mt-1 truncate text-xs text-muted-foreground">
-        {formatFoodPurchaseMonth(application.cycle.periodMonth)} ·{" "}
-        {application.itemDescription ?? "Foodstuff Purchase request"}
+      <p className="mt-0.5 truncate text-sm text-muted-foreground">
+        {formatMonthYear(application.cycle.periodMonth)}
       </p>
     </div>
   )
@@ -72,119 +66,82 @@ const ApplicationCell = memo(
 
 ApplicationCell.displayName = "ApplicationCell"
 
-export const FoodPurchaseStatusBadge = memo(
-  ({ status }: { status: string }) => (
-    <Badge className={statusClassName(status)} variant="outline">
-      {formatFoodPurchaseLabel(status)}
-    </Badge>
-  )
-)
-
-FoodPurchaseStatusBadge.displayName = "FoodPurchaseStatusBadge"
-
 export const columns: ColumnDef<FoodPurchaseApplication>[] = [
   {
     cell: ({ row }) => <ApplicationCell application={row.original} />,
     enableResizing: true,
-    header: "Application",
+    header: "Member",
     id: "application",
     maxSize: 520,
     meta: {
       className:
-        "w-[320px] min-w-[240px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20",
-      headerLabel: "Application",
+        "w-[300px] min-w-[220px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20",
+      headerLabel: "Member",
       skeleton: { type: "avatar-text", width: "w-36" },
       sticky: true,
     },
-    minSize: 240,
-    size: 320,
+    minSize: 220,
+    size: 300,
   },
   {
     accessorKey: "status",
-    cell: ({ row }) => <FoodPurchaseStatusBadge status={row.original.status} />,
+    cell: ({ row }) => <FoodPurchaseStatusBadge application={row.original} />,
     enableResizing: true,
     header: "Status",
     id: "status",
-    maxSize: 180,
+    maxSize: 200,
     meta: {
-      className: "w-[140px] min-w-[120px]",
+      className: "w-[150px] min-w-[130px]",
       headerLabel: "Status",
       skeleton: { type: "badge" },
     },
-    minSize: 120,
-    size: 140,
+    minSize: 130,
+    size: 150,
   },
   {
     accessorKey: "requestedAmount",
-    cell: ({ row }) => (
-      <div>
-        <p className="font-medium">
-          {formatCurrency(row.original.requestedAmount)}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {row.original.requestedPaybackMonths} month
-          {row.original.requestedPaybackMonths === 1 ? "" : "s"}
-        </p>
-      </div>
-    ),
+    cell: ({ row }) => {
+      const { amount, months } = getFoodPurchaseAmount(row.original)
+
+      return (
+        <div>
+          <p className="font-medium tabular-nums">{formatCurrency(amount)}</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {formatMonths(months)}
+          </p>
+        </div>
+      )
+    },
     enableResizing: true,
-    header: "Requested",
+    header: "Amount",
     id: "requested",
-    maxSize: 220,
+    maxSize: 240,
     meta: {
-      className: "w-[170px] min-w-[150px]",
-      headerLabel: "Requested",
+      className: "w-[180px] min-w-[150px]",
+      headerLabel: "Amount",
       skeleton: { type: "text", width: "w-24" },
     },
     minSize: 150,
-    size: 170,
+    size: 180,
   },
   {
-    cell: ({ row }) => (
-      <div>
-        <p className="font-medium">
-          {row.original.approvedAmount
-            ? formatCurrency(row.original.approvedAmount)
-            : "Not approved"}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {row.original.approvedPaybackMonths
-            ? `${row.original.approvedPaybackMonths} month${
-                row.original.approvedPaybackMonths === 1 ? "" : "s"
-              }`
-            : "Awaiting review"}
-        </p>
-      </div>
-    ),
-    enableResizing: true,
-    header: "Approved",
-    id: "approved",
-    maxSize: 220,
-    meta: {
-      className: "w-[170px] min-w-[150px]",
-      headerLabel: "Approved",
-      skeleton: { type: "text", width: "w-24" },
+    accessorKey: "paidAmount",
+    cell: ({ row }) => {
+      const owed = getFoodPurchaseOutstandingAmount(row.original)
+
+      return owed === null ? (
+        <span className="text-muted-foreground">—</span>
+      ) : (
+        <span className="font-medium tabular-nums">{formatCurrency(owed)}</span>
+      )
     },
-    minSize: 150,
-    size: 170,
-  },
-  {
-    cell: ({ row }) => (
-      <div>
-        <p className="font-medium">{formatCurrency(row.original.paidAmount)}</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {formatCurrency(getFoodPurchaseOutstandingAmount(row.original))}{" "}
-          outstanding
-        </p>
-      </div>
-    ),
     enableResizing: true,
-    header: "Payment",
+    header: "Still owed",
     id: "payment",
-    maxSize: 220,
+    maxSize: 240,
     meta: {
       className: "w-[170px] min-w-[150px]",
-      headerLabel: "Payment",
+      headerLabel: "Still owed",
       skeleton: { type: "text", width: "w-24" },
     },
     minSize: 150,
@@ -192,74 +149,34 @@ export const columns: ColumnDef<FoodPurchaseApplication>[] = [
   },
   {
     accessorKey: "requestedAt",
-    cell: ({ row }) => (
-      <div>
-        <p>{formatFoodPurchaseDate(row.original.requestedAt)}</p>
-        <p className="mt-1 truncate text-xs text-muted-foreground">
-          {formatFoodPurchaseMonth(row.original.cycle.periodMonth)}
-        </p>
-      </div>
-    ),
+    cell: ({ row }) => formatDayMonthYear(row.original.requestedAt),
     enableResizing: true,
-    header: "Requested at",
+    header: "Asked on",
     id: "requestedAt",
     maxSize: 220,
     meta: {
-      className: "w-[170px] min-w-[140px]",
-      headerLabel: "Requested at",
+      className: "w-[150px] min-w-[130px]",
+      headerLabel: "Asked on",
       skeleton: { type: "text", width: "w-24" },
     },
-    minSize: 140,
-    size: 170,
+    minSize: 130,
+    size: 150,
   },
   {
     accessorKey: "itemDescription",
-    cell: ({ row }) => row.original.itemDescription ?? "No item note",
+    cell: ({ row }) => (
+      <span className="truncate">{row.original.itemDescription ?? "—"}</span>
+    ),
     enableResizing: true,
-    header: "Item",
+    header: "What food",
     id: "item",
-    maxSize: 280,
+    maxSize: 360,
     meta: {
       className: "w-[220px] min-w-[160px]",
-      headerLabel: "Item",
-      skeleton: { type: "text", width: "w-28" },
+      headerLabel: "What food",
+      skeleton: { type: "text", width: "w-32" },
     },
     minSize: 160,
     size: 220,
-  },
-  {
-    cell: ({ row, table }) => {
-      const meta = table.options.meta as FoodPurchaseTableMeta
-      const application = row.original
-
-      if (
-        meta.canReviewApplications &&
-        application.cycle.status === "open" &&
-        ["submitted", "under_review"].includes(application.status)
-      ) {
-        return (
-          <OpenFoodPurchaseApplicationReviewSheet
-            applicationId={application.id}
-          />
-        )
-      }
-
-      return <span className="text-xs text-muted-foreground">No action</span>
-    },
-    enableHiding: false,
-    enableResizing: false,
-    enableSorting: false,
-    header: "Actions",
-    id: "actions",
-    maxSize: 140,
-    meta: {
-      className:
-        "text-right sticky right-0 bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-30 justify-center !border-l !border-border",
-      headerLabel: "Actions",
-      skeleton: { type: "icon" },
-      sticky: true,
-    },
-    minSize: 120,
-    size: 120,
   },
 ]

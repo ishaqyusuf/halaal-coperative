@@ -1,14 +1,19 @@
 "use client"
 
 import { Button } from "@halaalvest/ui/components/button"
-import { BanknoteIcon, CheckCircle2Icon, PlusIcon } from "lucide-react"
+import { PlusIcon } from "lucide-react"
 import { useProjectFinancingParams } from "@/hooks/use-project-financing-params"
 
-export function OpenProjectFinancingRequestSheet() {
+export function OpenProjectFinancingRequestSheet({
+  disabled,
+}: {
+  disabled?: boolean
+}) {
   const { setParams } = useProjectFinancingParams()
 
   return (
     <Button
+      disabled={disabled}
       onClick={() =>
         setParams({
           projectFinancingRequestId: null,
@@ -37,56 +42,7 @@ export function OpenMemberProjectFinancingRequestSheet() {
       type="button"
     >
       <PlusIcon data-icon="inline-start" />
-      Request funding
-    </Button>
-  )
-}
-
-export function OpenProjectFinancingReviewSheet({
-  requestId,
-}: {
-  requestId: string
-}) {
-  const { setParams } = useProjectFinancingParams()
-
-  return (
-    <Button
-      onClick={() =>
-        setParams({
-          projectFinancingRequestId: requestId,
-          projectFinancingSheetType: "review",
-        })
-      }
-      size="sm"
-      type="button"
-      variant="outline"
-    >
-      <CheckCircle2Icon data-icon="inline-start" />
-      Review request
-    </Button>
-  )
-}
-
-export function OpenProjectFinancingDisbursementSheet({
-  requestId,
-}: {
-  requestId: string
-}) {
-  const { setParams } = useProjectFinancingParams()
-
-  return (
-    <Button
-      onClick={() =>
-        setParams({
-          projectFinancingRequestId: requestId,
-          projectFinancingSheetType: "disbursement",
-        })
-      }
-      size="sm"
-      type="button"
-    >
-      <BanknoteIcon data-icon="inline-start" />
-      Record disbursement
+      Ask for funding
     </Button>
   )
 }

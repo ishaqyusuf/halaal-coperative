@@ -2,64 +2,67 @@
 
 import { formatCurrency } from "@halaalvest/utils"
 import type { ProcurementSummary } from "@halaalvest/db"
-import { OpenMemberProcurementRequestCreateSheet } from "@/components/open-procurement-request-sheet"
 import { ProcurementHeader } from "@/components/procurement-header"
 import { ProcurementMobileToolbar } from "@/components/procurement-mobile-toolbar"
-import type { ProcurementMemberOption } from "@/components/procurement-request-content"
+import {
+  RequestClosedNotice,
+  RequestSummaryGrid,
+  RequestSummaryWide,
+  memberNeedsVerificationNotice,
+} from "@/components/requests/request-summary"
 import { ProcurementRequestSheet } from "@/components/sheets/procurement-request-sheet"
+import { SummaryCard } from "@/components/summary-card"
 import { ProcurementDataView } from "@/components/tables/procurement/data-view"
-import type { WorkflowChargeOption } from "@/components/workflow-charge-summary"
 import type { TableSettings } from "@/utils/table-settings"
 
 export function ProcurementRequestsView({
-  approvalChargeOptions,
   canCreate,
   canReview,
   initialSettings,
   hasMembers,
-  submissionChargeOptions,
   summary,
 }: {
-  approvalChargeOptions: WorkflowChargeOption[]
   canCreate: boolean
   canReview: boolean
   initialSettings?: Partial<TableSettings>
   hasMembers: boolean
-  submissionChargeOptions: WorkflowChargeOption[]
   summary: ProcurementSummary
 }) {
   return (
     <div className="space-y-6">
-      <ProcurementRequestSheet
-        approvalChargeOptions={approvalChargeOptions}
-        submissionChargeOptions={submissionChargeOptions}
-      />
-      <section className="hidden border-y border-border/70 md:block">
-        <div className="grid grid-cols-3 divide-x divide-border/70 xl:grid-cols-6">
-          <SummaryMetric label="Pending" value={summary.pendingRequests} />
-          <SummaryMetric label="Approved" value={summary.approvedRequests} />
-          <SummaryMetric label="Active" value={summary.activeRequests} />
-          <SummaryMetric label="Due" value={summary.dueScheduleItems} />
-          <SummaryMetric label="Overdue" value={summary.overdueScheduleItems} />
-          <SummaryMetric
-            label="Outstanding"
+      <ProcurementRequestSheet canReview={canReview} />
+      <RequestSummaryGrid>
+        <SummaryCard
+          label="To check"
+          tone={summary.pendingRequests ? "attention" : "default"}
+          value={String(summary.pendingRequests)}
+        />
+        <SummaryCard
+          detail="Not bought yet"
+          label="Approved"
+          value={String(summary.approvedRequests)}
+        />
+        <SummaryCard
+          detail={
+            summary.overdueScheduleItems
+              ? `${summary.overdueScheduleItems} late payments`
+              : undefined
+          }
+          label="Repaying"
+          tone={summary.overdueScheduleItems ? "attention" : "default"}
+          value={String(summary.activeRequests)}
+        />
+        <RequestSummaryWide>
+          <SummaryCard
+            label="Still owed"
             value={formatCurrency(summary.outstandingAmount)}
           />
-        </div>
-      </section>
+        </RequestSummaryWide>
+      </RequestSummaryGrid>
 
-      {!canCreate ? (
-        <section className="border-y border-border bg-muted/20 px-4 py-3">
-          <p className="text-sm font-medium text-foreground">
-            New procurement requests are closed
-          </p>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            Existing procurement requests and repayment schedules remain
-            visible. Admins can change access from Settings &gt; Operation
-            Profile.
-          </p>
-        </section>
-      ) : null}
+      {canCreate ? null : (
+        <RequestClosedNotice>New item requests are closed.</RequestClosedNotice>
+      )}
 
       <section className="min-w-0">
         <ProcurementMobileToolbar
@@ -80,86 +83,59 @@ export function ProcurementRequestsView({
 }
 
 export function MemberProcurementRequestsView({
-  chargeOptions,
   canCreate,
   initialSettings,
-  member,
+  needsVerification = false,
   summary,
 }: {
-  chargeOptions: WorkflowChargeOption[]
   canCreate: boolean
   initialSettings?: Partial<TableSettings>
-  member: {
-    fullName: string
-    memberNumber: string
-  }
+  needsVerification?: boolean
   summary: ProcurementSummary
 }) {
   return (
     <div className="space-y-6">
-      <ProcurementRequestSheet selfServiceChargeOptions={chargeOptions} />
-      <section className="hidden border-y border-border/70 md:block">
-        <div className="grid grid-cols-5 divide-x divide-border/70">
-          <SummaryMetric label="Pending" value={summary.pendingRequests} />
-          <SummaryMetric
-            label="Approved"
-            value={summary.approvedRequests + summary.activeRequests}
+      <ProcurementRequestSheet />
+      <RequestSummaryGrid>
+        <SummaryCard
+          label="Waiting"
+          tone={summary.pendingRequests ? "attention" : "default"}
+          value={String(summary.pendingRequests)}
+        />
+        <SummaryCard
+          label="Approved"
+          value={String(summary.approvedRequests + summary.activeRequests)}
+        />
+        <RequestSummaryWide>
+          <SummaryCard
+            detail={
+              summary.overdueScheduleItems
+                ? `${summary.overdueScheduleItems} late payments`
+                : undefined
+            }
+            label="You owe"
+            tone={summary.overdueScheduleItems ? "attention" : "default"}
+            value={formatCurrency(summary.outstandingAmount)}
           />
-          <SummaryMetric label="Due" value={summary.dueScheduleItems} />
-          <SummaryMetric label="Overdue" value={summary.overdueScheduleItems} />
-          <SummaryMetric label="Total requests" value={summary.totalRequests} />
-        </div>
-      </section>
+        </RequestSummaryWide>
+      </RequestSummaryGrid>
 
-      {canCreate ? (
-        <section className="hidden items-center justify-between gap-3 border-y border-border py-4 md:flex">
-          <div>
-            <p className="text-sm font-medium text-foreground">
-              Request item purchase
-            </p>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              {member.fullName} ({member.memberNumber})
-            </p>
-          </div>
-          <OpenMemberProcurementRequestCreateSheet />
-        </section>
-      ) : (
-        <section className="border-y border-border py-4">
-          <p className="text-sm font-medium text-foreground">
-            Procurement requests are handled by the cooperative office
-          </p>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            Existing procurement requests and repayment schedules remain visible
-            here.
-          </p>
-        </section>
+      {canCreate ? null : (
+        <RequestClosedNotice>
+          {needsVerification
+            ? memberNeedsVerificationNotice
+            : "To ask for an item, contact the cooperative office."}
+        </RequestClosedNotice>
       )}
 
       <section className="min-w-0">
         <ProcurementMobileToolbar canCreate={canCreate} selfService />
-        <ProcurementHeader canCreate={false} hasMemberOptions={false} />
+        <ProcurementHeader canCreate={canCreate} selfService />
         <ProcurementDataView
           canReview={false}
           initialSettings={initialSettings}
         />
       </section>
-    </div>
-  )
-}
-
-function SummaryMetric({
-  label,
-  value,
-}: {
-  label: string
-  value: number | string
-}) {
-  return (
-    <div className="min-w-0 px-4 py-4">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-2 truncate text-xl font-semibold text-foreground">
-        {value}
-      </p>
     </div>
   )
 }

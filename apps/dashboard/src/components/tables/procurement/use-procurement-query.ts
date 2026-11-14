@@ -23,11 +23,17 @@ export function useProcurementQuery() {
       })
     )
 
+  // Flatten once per data change so the table's row model stays stable.
+  const requests = useMemo(
+    () => data.pages.flatMap((page) => page.data),
+    [data.pages]
+  )
+
   return {
     fetchNextPage,
     hasFilters: Boolean(filter.q || filter.status || params.sort),
     hasNextPage,
     isFetchingNextPage,
-    requests: data.pages.flatMap((page) => page.data),
+    requests,
   }
 }

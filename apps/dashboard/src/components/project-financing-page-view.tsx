@@ -1,8 +1,12 @@
-import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
+import { WorkspacePageShell } from "@/components/dashboard"
 import {
   MemberProjectFinancingRequestsView,
   ProjectFinancingRequestsView,
 } from "@/components/project-financing-requests-view"
+import {
+  isRequestPageBlocked,
+  RequestPageState,
+} from "@/components/requests/request-page-state"
 import type { loadProjectFinancingPageData } from "@/lib/project-financing/load-project-financing-page"
 import type { TableSettings } from "@/utils/table-settings"
 
@@ -17,97 +21,40 @@ export function ProjectFinancingPageView({
   data: ProjectFinancingPageData
   projectFinancingInitialSettings?: Partial<TableSettings>
 }) {
-  if (data.state === "restricted") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Project financing"
-        title="Project financing"
-        description="Track member business funding requests before accounting decisions are posted."
-      >
-        <WorkspaceEmptyState
-          body="Project financing is available to cooperative staff and linked members."
-          title="Project financing access is restricted."
-        />
-      </WorkspacePageShell>
-    )
-  }
-
-  if (data.state === "unavailable") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Project financing"
-        title="Project financing"
-        description="Track member business funding requests before accounting decisions are posted."
-      >
-        <WorkspaceEmptyState
-          body="Once the database-backed environment is active, this route will show project financing requests, review status, and approved structure evidence."
-          title="Project financing needs the database runtime."
-        />
-      </WorkspacePageShell>
-    )
-  }
-
-  if (data.state === "member-sign-in-required") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Project financing"
-        title="My project financing"
-        description="Request cooperative business funding and track finance review."
-      >
-        <WorkspaceEmptyState
-          body="Sign in with your member account to request project financing."
-          title="Member sign-in required."
-        />
-      </WorkspacePageShell>
-    )
-  }
-
-  if (data.state === "member-profile-missing") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Project financing"
-        title="My project financing"
-        description="Request cooperative business funding and track finance review."
-      >
-        <WorkspaceEmptyState
-          body="Your user account is not linked to a member profile in this cooperative."
-          title="Member profile not linked."
-        />
-      </WorkspacePageShell>
-    )
+  if (isRequestPageBlocked(data.state)) {
+    return <RequestPageState state={data.state} title="Project financing" />
   }
 
   if (data.state === "member-ready") {
     return (
       <WorkspacePageShell
+        description="Ask the cooperative to fund your business."
         eyebrow="Project financing"
-        title="My project financing"
-        description="Request cooperative business funding and track finance review."
+        title="Project financing"
       >
         <MemberProjectFinancingRequestsView
           canCreate={data.canCreate}
-          chargeOptions={data.chargeOptions}
           initialSettings={projectFinancingInitialSettings}
-          member={data.member}
+          needsVerification={data.needsVerification}
           summary={data.summary}
         />
       </WorkspacePageShell>
     )
   }
 
+  if (data.state !== "staff-ready") return null
+
   return (
     <WorkspacePageShell
+      description="Funding for members' businesses."
       eyebrow="Project financing"
       title="Project financing"
-      description="Stage and review member business funding requests without posting disbursements or profit allocations."
     >
       <ProjectFinancingRequestsView
-        approvalChargeOptions={data.approvalChargeOptions}
         canCreate={data.canCreate}
         canReview={data.canReview}
-        initialSettings={projectFinancingInitialSettings}
         hasMembers={data.hasMembers}
-        submissionChargeOptions={data.submissionChargeOptions}
+        initialSettings={projectFinancingInitialSettings}
         summary={data.summary}
       />
     </WorkspacePageShell>

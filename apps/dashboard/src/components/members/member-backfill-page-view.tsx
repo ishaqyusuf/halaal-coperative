@@ -1191,7 +1191,7 @@ export function MemberBackfillPageView({
     <WorkspacePageShell
       eyebrow={isBroughtForward ? "Opening balance" : "Past records"}
       title={data.member.fullName}
-      description={`${data.member.memberNumber} · Joined ${formatDate(data.member.joinedAt)}`}
+      description={`${isBroughtForward ? "Opening balance" : "Past records"} · ${data.member.memberNumber} · Joined ${formatDate(data.member.joinedAt)}`}
     >
       <div className="flex flex-col gap-6 max-md:[&_a]:min-h-11 max-md:[&_button]:min-h-11 max-md:[&_input]:min-h-11 max-md:[_[role=combobox]]:min-h-11">
         <div className="flex flex-wrap items-center gap-3">

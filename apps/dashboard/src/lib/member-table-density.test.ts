@@ -23,7 +23,7 @@ describe("member table identity density", () => {
       columnsSource.indexOf('id: "member"')
     )
     expect(tableConfigsSource).toContain(
-      'members: [\n    { id: "select", width: 50 },\n    { id: "number", width: 160 },'
+      'members: [\n    { id: "select", width: 50 },\n    { id: "number", width: 140 },'
     )
     expect(tableConfigsSource).toContain(
       'members: new Set(["select", "number", "actions"])'

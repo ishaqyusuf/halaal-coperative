@@ -4,7 +4,7 @@ import type { TableId } from "./table-settings"
 export const STICKY_COLUMNS: Record<TableId, StickyColumnConfig[]> = {
   members: [
     { id: "select", width: 50 },
-    { id: "number", width: 160 },
+    { id: "number", width: 140 },
   ],
   contributions: [{ id: "member", width: 300 }],
   charges: [{ id: "name", width: 300 }],

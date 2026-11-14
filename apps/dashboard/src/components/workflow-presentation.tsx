@@ -30,7 +30,7 @@ const dialogWidthClasses: Record<WorkflowPresentationWidth, string> = {
   compact: "sm:max-w-[455px]",
   form: "sm:max-w-[640px]",
   review: "sm:max-w-[768px]",
-  wide: "sm:max-w-[calc(100vw-4rem)] lg:max-w-[92rem]",
+  wide: "sm:max-w-[calc(100vw-4rem)] lg:max-w-[min(92rem,calc(100vw-4rem))]",
 }
 
 const mobileFullScreenDialogWidthClasses: Record<
@@ -40,7 +40,7 @@ const mobileFullScreenDialogWidthClasses: Record<
   compact: "md:max-w-[455px]",
   form: "md:max-w-[640px]",
   review: "md:max-w-[768px]",
-  wide: "md:max-w-[calc(100vw-4rem)] lg:max-w-[92rem]",
+  wide: "md:max-w-[calc(100vw-4rem)] lg:max-w-[min(92rem,calc(100vw-4rem))]",
 }
 
 // Alert dialogs override the primitive's size-scoped widths, so the classes

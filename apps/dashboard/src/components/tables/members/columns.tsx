@@ -107,13 +107,13 @@ export const columns: ColumnDef<Member>[] = [
     maxSize: 220,
     meta: {
       className:
-        "w-[160px] min-w-[130px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20",
+        "w-[140px] min-w-[120px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20",
       headerLabel: "Member no.",
       skeleton: { type: "text", width: "w-24" },
       sticky: true,
     },
-    minSize: 130,
-    size: 160,
+    minSize: 120,
+    size: 140,
   },
   {
     accessorKey: "fullName",
@@ -135,12 +135,12 @@ export const columns: ColumnDef<Member>[] = [
     id: "member",
     maxSize: 480,
     meta: {
-      className: "w-[280px] min-w-[220px]",
+      className: "w-[200px] min-w-[180px]",
       headerLabel: "Name",
       skeleton: { type: "avatar-text", width: "w-32" },
     },
-    minSize: 220,
-    size: 280,
+    minSize: 180,
+    size: 200,
   },
   {
     cell: ({ row }) => (
@@ -154,12 +154,12 @@ export const columns: ColumnDef<Member>[] = [
     id: "workplace",
     maxSize: 320,
     meta: {
-      className: "w-[200px] min-w-[150px]",
+      className: "w-[170px] min-w-[140px]",
       headerLabel: "Workplace",
       skeleton: { type: "text", width: "w-28" },
     },
-    minSize: 150,
-    size: 200,
+    minSize: 140,
+    size: 170,
   },
   {
     cell: ({ row }) => {
@@ -192,12 +192,12 @@ export const columns: ColumnDef<Member>[] = [
     id: "joined",
     maxSize: 200,
     meta: {
-      className: "w-[140px] min-w-[130px]",
+      className: "w-[130px] min-w-[120px]",
       headerLabel: "Joined",
       skeleton: { type: "text", width: "w-24" },
     },
-    minSize: 130,
-    size: 140,
+    minSize: 120,
+    size: 130,
   },
   {
     accessorKey: "status",
@@ -207,12 +207,12 @@ export const columns: ColumnDef<Member>[] = [
     id: "status",
     maxSize: 240,
     meta: {
-      className: "w-[190px] min-w-[150px]",
+      className: "w-[170px] min-w-[150px]",
       headerLabel: "Status",
       skeleton: { type: "badge" },
     },
     minSize: 150,
-    size: 190,
+    size: 170,
   },
   {
     cell: ({ row, table }) => {

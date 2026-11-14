@@ -59,6 +59,16 @@ describe("intent routing", () => {
     })
   })
 
+  test("member numbers and names in payment requests", () => {
+    expect(
+      routeIntent("Record ₦500 from member OPA-QA-075233 for November", "staff", now).candidates.memberNumber
+    ).toBe("OPA-QA-075233")
+    expect(routeIntent("Record 5000 naira from Halima Sani for October", "staff", now).candidates.memberQuery).toBe(
+      "Halima Sani"
+    )
+    expect(routeIntent("Open OPA-7641", "staff", now).candidates.memberNumber).toBe("OPA-7641")
+  })
+
   test("amount and period extraction", () => {
     expect(extractAmount("I paid N25k")).toBe("25000")
     expect(extractAmount("₦1,250.50 yesterday")).toBe("1250.50")

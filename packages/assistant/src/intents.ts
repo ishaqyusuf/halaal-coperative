@@ -51,7 +51,11 @@ export function extractAmount(text: string): string | null {
 }
 
 export function extractMemberNumber(text: string): string | null {
-  return text.match(/\b([A-Z]{2,5}-\d{2,8})\b/i)?.[1]?.toUpperCase() ?? null
+  // HV-1048, OPA-7641, OPA-QA-075233: letter prefix segments, then digits.
+  return (
+    text.match(/\b([A-Z]{2,5}(?:-[A-Z]{1,5})*-\d{2,8})\b/i)?.[1]?.toUpperCase() ??
+    null
+  )
 }
 
 export function extractPeriod(text: string, now: Date = new Date()): string | null {
@@ -68,9 +72,13 @@ export function extractPeriod(text: string, now: Date = new Date()): string | nu
 }
 
 function extractMemberQuery(text: string): string | null {
-  const match = text.match(
-    /\b(?:find|search(?: for)?|look up|lookup|open|show)\s+(?:member\s+)?(.+?)(?:'s\b|\s+history\b|\s+for\b|[?.!]|$)/i
-  )
+  const match =
+    text.match(
+      /\b(?:find|search(?: for)?|look up|lookup|open|show)\s+(?:member\s+)?(.+?)(?:'s\b|\s+history\b|\s+for\b|[?.!]|$)/i
+    ) ??
+    // "Record ₦25,000 from Aisha Bello for November" / "… for member Aisha"
+    text.match(/\b(?:from|for)\s+member\s+(.+?)(?:\s+for\b|\s+in\b|[?.!,]|$)/i) ??
+    text.match(/\bfrom\s+(?!member\b)([a-z][a-z'.-]*(?:\s+[a-z][a-z'.-]*){0,3}?)(?:\s+for\b|\s+in\b|[?.!,]|$)/i)
   const query = match?.[1]?.trim()
   if (!query || /^(my|me|receipts?|the|all)\b/i.test(query)) return null
   return query.slice(0, 80)

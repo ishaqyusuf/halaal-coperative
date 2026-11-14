@@ -126,10 +126,9 @@ export function StaffShareRequestsView({
 
   return (
     <div className="grid gap-6">
-      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+      <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
         {isUnitBased ? (
           <SummaryCard
-            compact
             detail={pendingCount ? "Requests to decide" : "All done"}
             label="Waiting"
             onClick={() => void setParams({ shareRequests: "waiting" })}
@@ -138,14 +137,11 @@ export function StaffShareRequestsView({
             value={pendingCount.toLocaleString("en-NG")}
           />
         ) : null}
-        <div className={isUnitBased ? undefined : "col-span-2 sm:col-span-1"}>
-          <SummaryCard
-            compact={isUnitBased}
-            detail="Paid in by all members"
-            label="Share capital"
-            value={formatCurrency(shareCapital)}
-          />
-        </div>
+        <SummaryCard
+          detail="Paid in by all members"
+          label="Share capital"
+          value={formatCurrency(shareCapital)}
+        />
       </div>
 
       {isUnitBased ? (

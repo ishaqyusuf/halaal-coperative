@@ -17,7 +17,6 @@ export function ChargeSummaryCards({
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4">
       <SummaryCard
-        compact
         detail={offCount ? `${offCount} turned off` : "All turned on"}
         label="Charges in use"
         onClick={() =>
@@ -30,7 +29,6 @@ export function ChargeSummaryCards({
         value={String(activeCount)}
       />
       <SummaryCard
-        compact
         detail="In the last 30 days"
         label="Charged"
         onClick={() =>

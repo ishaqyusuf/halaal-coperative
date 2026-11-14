@@ -64,3 +64,32 @@ describe("account evidence", () => {
     ).resolves.toEqual(bundle.payload)
   })
 })
+
+test("rejects production sessions without a signing secret and refuses to mint one", async () => {
+  const originalEnvironment = process.env.NODE_ENV
+  const originalSecret = process.env.AUTH_SECRET
+  const input = { scope: "platform" as const, userId: "user-1" }
+
+  try {
+    Object.assign(process.env, {
+      NODE_ENV: "production",
+      AUTH_SECRET: "test-session-signing-secret",
+    })
+    const { token } = await createSignedSessionTokenBundle(input)
+    expect(await verifySignedSessionToken({ token })).toMatchObject(input)
+
+    delete process.env.AUTH_SECRET
+    expect(await verifySignedSessionToken({ token })).toBeNull()
+    await expect(createSignedSessionTokenBundle(input)).rejects.toThrow(
+      "AUTH_SECRET is required in production."
+    )
+  } finally {
+    for (const [key, value] of Object.entries({
+      NODE_ENV: originalEnvironment,
+      AUTH_SECRET: originalSecret,
+    })) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+  }
+})

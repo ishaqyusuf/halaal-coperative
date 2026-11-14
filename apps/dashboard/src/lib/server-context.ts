@@ -130,7 +130,7 @@ export function getQaQuickFillContext(context: {
     authenticatedEmail: qaDomain ? `authorized@${qaDomain}` : null,
     configuredDomains: qaDomain
       ? [...new Set([...getServerQaEmailDomains(), qaDomain])]
-      : getServerQaEmailDomains(),
+      : [],
     isDevelopment: false,
   })
 }
@@ -175,6 +175,10 @@ const getDashboardRequestSession = cache(
     }
   }
 )
+
+export async function hasVerifiedDashboardSession() {
+  return Boolean((await getDashboardRequestSession()).sessionToken)
+}
 
 /**
  * Quick Fill only needs the QA authorization behind the signed session, so

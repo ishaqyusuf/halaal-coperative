@@ -105,6 +105,7 @@ export async function proxy(request: NextRequest) {
   ) {
     const canonicalUrl = new URL(request.url)
     canonicalUrl.hostname = buildTenantSiteHostname(dashboardTenantSlug)
+    canonicalUrl.port = ""
 
     return NextResponse.redirect(canonicalUrl)
   }

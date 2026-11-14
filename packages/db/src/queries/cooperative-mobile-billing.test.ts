@@ -1,6 +1,9 @@
-import { describe, expect, test } from "bun:test"
-import type { PrismaClient } from "../../generated/prisma/client"
-import { recordCooperativeMobileRemittance } from "./cooperative-mobile-billing"
+import { describe, expect, mock, test } from "bun:test"
+import { Prisma, type PrismaClient } from "../../generated/prisma/client"
+import {
+  recordCooperativeMobileRemittance,
+  recordVerifiedCooperativeMobilePaystackPayment,
+} from "./cooperative-mobile-billing"
 
 function summary(overrides: Record<string, unknown> = {}) {
   return {
@@ -82,4 +85,61 @@ describe("recordCooperativeMobileRemittance inline accounting", () => {
     ).rejects.toThrow()
     expect(transactions).toHaveLength(0)
   })
+})
+
+test("redelivered verified Paystack payment claims the invoice and audit once", async () => {
+  const payment = {
+    invoiceId: "invoice-1",
+    reference: "hv-invoice-test",
+    paidAt: "2026-11-01",
+    mode: "test" as const,
+    amount: 125_000,
+    currency: "NGN",
+  }
+  const invoice = {
+    ...summary(),
+    status: "issued",
+    issuedAt: new Date("2026-10-30"),
+    currencyCode: "NGN",
+    totalAmount: new Prisma.Decimal(1250),
+    remittancePostedAt: new Date("2026-11-01"),
+    _count: { items: 1 },
+  }
+  const checkout = {
+    invoiceId: invoice.id,
+    mode: payment.mode,
+    verifiedAt: null as Date | null,
+  }
+  const claimInvoice = mock(async ({ data }: { data: { status: string } }) => {
+    Object.assign(invoice, data)
+    return { count: 1 }
+  })
+  const audit = mock(async () => ({}))
+  const transaction = {
+    cooperativeMobileInvoice: {
+      findFirst: async () => invoice,
+      updateMany: claimInvoice,
+    },
+    cooperativeMobilePaystackCheckout: {
+      findUnique: async () => checkout,
+      update: async ({ data }: { data: { verifiedAt: Date } }) => {
+        checkout.verifiedAt = data.verifiedAt
+      },
+    },
+    ledgerTransaction: { findFirst: async () => null },
+    auditLog: { create: audit },
+  }
+  const db = {
+    $transaction: (run: (tx: typeof transaction) => Promise<unknown>) =>
+      run(transaction),
+  } as unknown as PrismaClient
+
+  expect(
+    (await recordVerifiedCooperativeMobilePaystackPayment(payment, db)).status
+  ).toBe("paid")
+  expect(
+    (await recordVerifiedCooperativeMobilePaystackPayment(payment, db)).status
+  ).toBe("paid")
+  expect(claimInvoice).toHaveBeenCalledTimes(1)
+  expect(audit).toHaveBeenCalledTimes(1)
 })

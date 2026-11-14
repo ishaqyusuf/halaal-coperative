@@ -9,10 +9,19 @@ import {
   getOperationProfileHiddenNavPaths,
   getRequestTenantOperationProfile,
 } from "@/lib/navigation/operation-profile"
-import { getDashboardServerContext } from "@/lib/server-context"
+import {
+  getDashboardServerContext,
+  hasVerifiedDashboardSession,
+} from "@/lib/server-context"
 import { resolveInitialMigrationSetupGate } from "@/lib/setup-gate"
 
 export async function loadTenantHomePageData() {
+  // Anonymous traffic needs only the tenant-aware login redirect. Login
+  // resolves the workspace when it renders its tenant-specific form.
+  if (!(await hasVerifiedDashboardSession())) {
+    return { state: "redirect" as const, href: "/login" }
+  }
+
   const context = await getDashboardServerContext()
 
   if (context.auth.sessionToken && context.auth.membership) {

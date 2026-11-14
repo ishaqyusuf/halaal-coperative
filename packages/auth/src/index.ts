@@ -182,17 +182,12 @@ export function parseCookieHeader(cookieHeader: string | null | undefined) {
 }
 
 function getSessionSecret() {
-  const secret = process.env.AUTH_SECRET
-
-  if (secret?.trim()) {
-    return secret.trim()
-  }
-
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("AUTH_SECRET is required in production.")
-  }
-
-  return "halaalvest-dev-session-secret"
+  return (
+    process.env.AUTH_SECRET?.trim() ||
+    (process.env.NODE_ENV === "production"
+      ? null
+      : "halaalvest-dev-session-secret")
+  )
 }
 
 function encodeBase64Url(value: string) {
@@ -203,9 +198,9 @@ function decodeBase64Url(value: string) {
   return Buffer.from(value, "base64url").toString("utf8")
 }
 
-async function signValue(value: string) {
+async function signValue(value: string, secret: string) {
   const { createHmac, timingSafeEqual } = await import("node:crypto")
-  const signature = createHmac("sha256", getSessionSecret())
+  const signature = createHmac("sha256", secret)
     .update(value)
     .digest("base64url")
 
@@ -236,6 +231,9 @@ type CreateSignedSessionInput = {
 export async function createSignedSessionTokenBundle(
   input: CreateSignedSessionInput
 ) {
+  const secret = getSessionSecret()
+  if (!secret) throw new Error("AUTH_SECRET is required in production.")
+
   const payload = {
     expiresAt: input.expiresAt ?? Date.now() + sessionTtlMs,
     ...(input.membershipId ? { membershipId: input.membershipId } : {}),
@@ -249,7 +247,7 @@ export async function createSignedSessionTokenBundle(
     userId: input.userId,
   } satisfies SignedSessionPayload
   const encodedPayload = encodeBase64Url(JSON.stringify(payload))
-  const { signature } = await signValue(encodedPayload)
+  const { signature } = await signValue(encodedPayload, secret)
 
   return { payload, token: `${encodedPayload}.${signature}` }
 }
@@ -312,7 +310,10 @@ export async function verifySignedSessionToken(input: {
     return null
   }
 
-  const verifier = await signValue(encodedPayload)
+  const secret = getSessionSecret()
+  if (!secret) return null
+
+  const verifier = await signValue(encodedPayload, secret)
 
   if (!verifier.verify(signature)) {
     return null

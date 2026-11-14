@@ -70,12 +70,15 @@ describe("dashboard proxy tenant hosts", () => {
   test("redirects production dashboard aliases to the canonical tenant host", async () => {
     await withNodeEnv("production", async () => {
       const response = await proxy(
-        createTenantDashboardRequest(`dashboard.${tenantSlug}.halaalvest.com`)
+        createTenantDashboardRequest(
+          `dashboard.${tenantSlug}.halaalvest.com:1441`,
+          { pathname: "/login?next=%2Fmembers" }
+        )
       )
 
       expect(response.status).toBe(307)
       expect(response.headers.get("location")).toBe(
-        `https://${tenantSlug}.halaalvest.com/login`
+        `https://${tenantSlug}.halaalvest.com/login?next=%2Fmembers`
       )
     })
   })

@@ -25,6 +25,7 @@ function createCollectionSourceBatchPrismaStub(input?: {
   const ledgerTransactions: any[] = []
   const memberLookups: any[] = []
   const transactions: any[] = []
+  const paidElsewhere = { monthlyRecordMemberIds: [] as string[] }
   const batch = {
     createdAt: new Date("2026-07-01T00:00:00.000Z"),
     deductionSource: {
@@ -86,6 +87,14 @@ function createCollectionSourceBatchPrismaStub(input?: {
     },
   ]
   const prisma: any = {
+    // The monthly payment guard: member row locks and the two "already paid
+    // this month" lookups. Nothing is paid elsewhere unless a test says so.
+    $queryRaw: async () => [],
+    monthlyRecordMember: {
+      findMany: async () => paidElsewhere.monthlyRecordMemberIds.map(
+        (memberId) => ({ memberId }),
+      ),
+    },
     $transaction: async (callback: (tx: any) => Promise<unknown>) => {
       transactions.push(callback)
       return callback(prisma)
@@ -128,6 +137,7 @@ function createCollectionSourceBatchPrismaStub(input?: {
       findFirst: async (args: any) =>
         rowStore.find((row) => row.id === args.where.id) ?? null,
       findMany: async (args: any) => {
+        if (args.where?.contribution) return []
         if (args.where?.id?.in) {
           return rowStore.filter((row) => args.where.id.in.includes(row.id))
         }
@@ -264,6 +274,7 @@ function createCollectionSourceBatchPrismaStub(input?: {
     contributionCreates,
     ledgerTransactions,
     memberLookups,
+    paidElsewhere,
     rowStore,
     transactions,
   }
@@ -413,6 +424,39 @@ describe("collection source contribution batches", () => {
     expect(prisma.auditCreates.at(-1).data.action).toBe(
       "collection_source_batch.posted",
     )
+  })
+
+  test("skips a member already paid this month in monthly records", async () => {
+    const prisma = createCollectionSourceBatchPrismaStub({
+      existingRowCount: 2,
+    })
+    prisma.rowStore[0].status = "collected"
+    prisma.rowStore[0].paidAmount = 35000
+    prisma.paidElsewhere.monthlyRecordMemberIds.push(
+      prisma.rowStore[0].memberId,
+    )
+
+    const result = await postCollectionSourceContributionBatchRows(
+      {
+        actorUserId: "user-1",
+        batchId: "batch-1",
+        rowIds: ["row-1"],
+        tenantId: "tenant-1",
+      },
+      prisma,
+    )
+
+    expect(prisma.contributionCreates).toHaveLength(0)
+    expect(result.skipped).toEqual([
+      expect.objectContaining({
+        reason: "already_paid_this_month",
+        rowId: "row-1",
+      }),
+    ])
+    expect(prisma.rowStore[0]).toMatchObject({
+      exceptionReason: "Already paid for this month in monthly records.",
+      status: "skipped",
+    })
   })
 
   test("rejects a second post of a row another request already claimed", async () => {

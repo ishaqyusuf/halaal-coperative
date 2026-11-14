@@ -1,8 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { createPrismaClient } from "../prisma"
+import { postCollectionSourceContributionBatchRows } from "./collection-source-batches"
 import { createWorkplace, listWorkplaces, renameWorkplace } from "./imports"
 import { ensureTenantLedgerAccounts } from "./ledger"
-import { receiveWorkplaceMonthlyPayments } from "./monthly-records"
+import {
+  applyMonthlyRecordMember,
+  cancelMonthlyRecordMember,
+  receiveWorkplaceMonthlyPayments,
+} from "./monthly-records"
+import { ensureTenantOperationProfileDefaults } from "./operation-profile"
 
 const db = createPrismaClient()
 const run =
@@ -37,7 +43,52 @@ async function addMember(key: string, deductionSourceId: string | null) {
     },
   })
   rowIds[key] = row.id
+  memberIds[key] = member.id
   return member.id
+}
+
+
+const memberIds: Record<string, string> = {}
+
+async function workplaceBatchId() {
+  return (
+    await db!.collectionSourceContributionBatch.findFirstOrThrow({
+      where: { deductionSourceId: workplaceId, tenantId },
+    })
+  ).id
+}
+
+// A collected row on the contributions-page workplace batch, ready to post.
+async function addCollectedBatchRow(key: string) {
+  const row = await db!.collectionSourceContributionBatchRow.create({
+    data: {
+      batchId: await workplaceBatchId(),
+      expectedAmount: 5000,
+      memberId: memberIds[key]!,
+      paidAmount: 5000,
+      status: "collected",
+      tenantId,
+    },
+  })
+  return row.id
+}
+
+function markPaid(key: string) {
+  return applyMonthlyRecordMember(
+    {
+      actorUserId: userId,
+      monthlyRecordMemberId: rowIds[key]!,
+      tenantId,
+      totalPaidAmount: 5000,
+    },
+    db!
+  )
+}
+
+function liveContributions(key: string) {
+  return db!.contribution.count({
+    where: { memberId: memberIds[key]!, status: { not: "reversed" }, tenantId },
+  })
 }
 
 function receive(ids: string[], workplace = workplaceId) {
@@ -97,6 +148,27 @@ run("workplace bulk receiving", () => {
         },
       })
     ).id
+
+    // The contributions-page workplace batch post needs its service on.
+    await ensureTenantOperationProfileDefaults(tenantId, db!)
+    const profile = await db!.tenantOperationProfile.findUniqueOrThrow({
+      where: { tenantId },
+    })
+    await db!.tenantServiceSetting.upsert({
+      create: {
+        accessMode: "office_only",
+        operationProfileId: profile.id,
+        serviceKey: "collection_source_batch_posting",
+        tenantId,
+      },
+      update: { accessMode: "office_only" },
+      where: {
+        tenantId_serviceKey: {
+          serviceKey: "collection_source_batch_posting",
+          tenantId,
+        },
+      },
+    })
 
     await addMember("a", workplaceId)
     await addMember("b", workplaceId)
@@ -245,5 +317,82 @@ run("workplace bulk receiving", () => {
     const list = await listWorkplaces(tenantId, db!)
     expect(list.find((item) => item.id === workplaceId)?.memberCount).toBe(5)
     expect(list.find((item) => item.id === added.id)?.memberCount).toBe(0)
+  })
+
+  describe("monthly record and workplace batch guard each other", () => {
+    it("skips a batch post for a member already marked paid this month", async () => {
+      await addMember("e", workplaceId)
+      await markPaid("e")
+      const batchRowId = await addCollectedBatchRow("e")
+
+      const result = await postCollectionSourceContributionBatchRows(
+        {
+          actorUserId: userId,
+          batchId: await workplaceBatchId(),
+          rowIds: [batchRowId],
+          tenantId,
+        },
+        db!
+      )
+
+      expect(result.skipped).toEqual([
+        expect.objectContaining({ reason: "already_paid_this_month", rowId: batchRowId }),
+      ])
+      expect(await liveContributions("e")).toBe(1)
+      const row = await db!.collectionSourceContributionBatchRow.findUniqueOrThrow({
+        where: { id: batchRowId },
+      })
+      expect(row.status).toBe("skipped")
+      expect(row.contributionId).toBeNull()
+    })
+
+    it("refuses Mark paid and skips bulk receive for a member paid by a batch", async () => {
+      await addMember("f", workplaceId)
+      const batchRowId = await addCollectedBatchRow("f")
+      await postCollectionSourceContributionBatchRows(
+        {
+          actorUserId: userId,
+          batchId: await workplaceBatchId(),
+          rowIds: [batchRowId],
+          tenantId,
+        },
+        db!
+      )
+      expect(await liveContributions("f")).toBe(1)
+
+      await expect(markPaid("f")).rejects.toThrow("through a workplace batch")
+      const bulk = await receive([rowIds.f!])
+      expect(bulk.skipped).toEqual([
+        { reason: "paid_by_workplace_batch", rowId: rowIds.f! },
+      ])
+      expect(await liveContributions("f")).toBe(1)
+    })
+
+    it("pays once when Mark paid and a batch post race for the same member", async () => {
+      await addMember("g", workplaceId)
+      const batchRowId = await addCollectedBatchRow("g")
+      const batchId = await workplaceBatchId()
+
+      await Promise.allSettled([
+        markPaid("g"),
+        postCollectionSourceContributionBatchRows(
+          { actorUserId: userId, batchId, rowIds: [batchRowId], tenantId },
+          db!
+        ),
+      ])
+
+      expect(await liveContributions("g")).toBe(1)
+    })
+
+    it("lets a member be paid again after the payment is undone", async () => {
+      await cancelMonthlyRecordMember(
+        { actorUserId: userId, monthlyRecordMemberId: rowIds.a!, tenantId },
+        db!
+      )
+      expect(await liveContributions("a")).toBe(0)
+
+      await markPaid("a")
+      expect(await liveContributions("a")).toBe(1)
+    })
   })
 })

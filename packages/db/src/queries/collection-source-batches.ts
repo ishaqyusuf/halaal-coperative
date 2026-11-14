@@ -6,6 +6,11 @@ import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
 import { recordMemberPaymentMutation } from "./contributions"
 import { getTenantMigrationWriteAccess } from "./migration"
+import {
+  findMembersPaidByMonthlyRecord,
+  findMembersPaidByWorkplaceBatch,
+  lockMembersForMonthlyPayment,
+} from "./monthly-payment-guard"
 import { getTenantOperationProfile } from "./operation-profile"
 
 type BatchRowStatusInput = Extract<
@@ -35,6 +40,19 @@ export type CollectionSourceBatchRowView = {
   postedAt: Date | null
   status: CollectionSourceContributionBatchRowStatus
 }
+
+export type CollectionSourceBatchSkippedRow = {
+  memberName: string
+  reason: "already_paid_this_month"
+  rowId: string
+}
+
+export type CollectionSourceBatchPostResult = CollectionSourceBatchView & {
+  skipped: CollectionSourceBatchSkippedRow[]
+}
+
+export const alreadyPaidThisMonthReason =
+  "Already paid for this month in monthly records."
 
 export type CollectionSourceBatchView = {
   createdAt: Date
@@ -462,11 +480,25 @@ export async function stageCollectionSourceContributionBatch(
         },
       })
 
+      const memberIds = members.map((member) => member.id)
+      const periodInput = {
+        memberIds,
+        periodMonth: input.month,
+        periodYear: input.year,
+        tenantId: input.tenantId,
+      }
+      const [paidByMonthlyRecord, paidByOtherBatch] = await Promise.all([
+        findMembersPaidByMonthlyRecord(tx as unknown as PrismaClient, periodInput),
+        findMembersPaidByWorkplaceBatch(tx as unknown as PrismaClient, periodInput),
+      ])
+
       for (const member of members) {
         const plan = member.contributionPlans[0]
         const expectedAmount = plan ? Number(plan.amount) : 0
         const blocker =
-          member.status !== "active"
+          paidByMonthlyRecord.has(member.id) || paidByOtherBatch.has(member.id)
+            ? "already_paid_this_month"
+            : member.status !== "active"
             ? "member_not_active"
             : !plan
               ? "missing_active_commitment_plan"
@@ -678,8 +710,9 @@ export async function postCollectionSourceContributionBatchRows(
     tenantId: string
   },
   prismaOverride?: PrismaClient
-): Promise<CollectionSourceBatchView> {
+): Promise<CollectionSourceBatchPostResult> {
   const prisma = getPrisma(prismaOverride)
+  const skipped: CollectionSourceBatchSkippedRow[] = []
 
   if (input.rowIds.length === 0) {
     throw ExpectedQueryError.validation(
@@ -746,8 +779,54 @@ export async function postCollectionSourceContributionBatchRows(
       normalizeOptionalText(batch.deductionSource.externalReference) ??
       batch.deductionSource.name
     const postedContributionIds: string[] = []
+    // Lock the members first (the order every monthly payment path uses),
+    // then skip anyone already paid for this month in monthly records or
+    // through another workplace batch. Checked inside this transaction so a
+    // payment committed a moment ago is seen.
+    const rowMemberIds = rows.map((row: any) => row.memberId as string)
+    await lockMembersForMonthlyPayment(tx as unknown as PrismaClient, {
+      memberIds: rowMemberIds,
+      tenantId: input.tenantId,
+    })
+    const periodInput = {
+      memberIds: rowMemberIds,
+      periodMonth: batch.periodMonth,
+      periodYear: batch.periodYear,
+      tenantId: input.tenantId,
+    }
+    const [paidByMonthlyRecord, paidByOtherBatch] = await Promise.all([
+      findMembersPaidByMonthlyRecord(tx as unknown as PrismaClient, periodInput),
+      findMembersPaidByWorkplaceBatch(tx as unknown as PrismaClient, periodInput),
+    ])
 
     for (const row of rows) {
+      if (
+        row.status === "collected" &&
+        !row.contributionId &&
+        (paidByMonthlyRecord.has(row.memberId) ||
+          paidByOtherBatch.has(row.memberId))
+      ) {
+        await (tx as any).collectionSourceContributionBatchRow.updateMany({
+          data: {
+            exceptionReason: alreadyPaidThisMonthReason,
+            paidAmount: 0,
+            status: "skipped",
+          },
+          where: {
+            contributionId: null,
+            id: row.id,
+            status: "collected",
+            tenantId: input.tenantId,
+          },
+        })
+        skipped.push({
+          memberName: row.member.fullName,
+          reason: "already_paid_this_month",
+          rowId: row.id,
+        })
+        continue
+      }
+
       if (row.status !== "collected") {
         throw ExpectedQueryError.conflict(
           "Only collected Collection Source batch rows can be posted."
@@ -851,12 +930,21 @@ export async function postCollectionSourceContributionBatchRows(
         metadata: {
           deductionSourceId: batch.deductionSourceId,
           periodLabel: batch.periodLabel,
-          postedAmount: rows.reduce(
-            (total: number, row: any) => total + Number(row.paidAmount),
-            0
-          ),
+          postedAmount: rows
+            .filter(
+              (row: any) => !skipped.some((item) => item.rowId === row.id)
+            )
+            .reduce(
+              (total: number, row: any) => total + Number(row.paidAmount),
+              0
+            ),
           postedContributionIds,
-          postedRowIds: rows.map((row: any) => row.id),
+          postedRowIds: rows
+            .filter(
+              (row: any) => !skipped.some((item) => item.rowId === row.id)
+            )
+            .map((row: any) => row.id),
+          skippedRowIds: skipped.map((item) => item.rowId),
           reference: referencePrefix,
         },
         occurredAt: new Date(),
@@ -877,5 +965,5 @@ export async function postCollectionSourceContributionBatchRows(
     throw ExpectedQueryError.notFound("Collection Source batch not found.")
   }
 
-  return detail
+  return { ...detail, skipped }
 }

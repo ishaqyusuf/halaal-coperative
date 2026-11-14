@@ -2109,7 +2109,7 @@ export async function postCollectionSourceContributionBatchRowsAction(
       (value): value is string => typeof value === "string" && value.length > 0
     )
 
-  await postCollectionSourceContributionBatchRows({
+  const result = await postCollectionSourceContributionBatchRows({
     actorUserId: actor.user.id,
     batchId,
     notes: getOptionalTrimmedString(formData, "notes"),
@@ -2121,6 +2121,12 @@ export async function postCollectionSourceContributionBatchRowsAction(
   revalidatePath("/contributions")
   revalidatePath("/members")
   revalidatePath("/notifications")
+
+  // Members already paid this month in monthly records are skipped, not
+  // posted; the sheet tells staff who.
+  return {
+    skippedMemberNames: result.skipped.map((row) => row.memberName),
+  }
 }
 
 type ChargeDefinitionHistoryRow = {

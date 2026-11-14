@@ -1,5 +1,6 @@
 "use client"
 
+import { toast } from "@halaalvest/ui/components/use-toast"
 import { DashboardNativeQuickFill } from "@/components/dashboard-quick-fill"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
@@ -104,6 +105,17 @@ function useCompleteContributionWorkflow() {
     })
     router.refresh()
   }
+}
+
+
+// Members already paid this month in monthly records are skipped by the
+// server; say who, so staff are not left guessing.
+function notifySkippedBatchMembers(names?: string[]) {
+  if (!names?.length) return
+  toast({
+    description: names.join(", "),
+    title: `${names.length === 1 ? "1 member" : `${names.length} members`} skipped: already paid this month`,
+  })
 }
 
 export function ContributionContent({
@@ -314,7 +326,9 @@ export function ContributionContent({
     return (
       <form
         action={async (formData) => {
-          await postCollectionSourceContributionBatchRowsAction(formData)
+          const result =
+            await postCollectionSourceContributionBatchRowsAction(formData)
+          notifySkippedBatchMembers(result?.skippedMemberNames)
           await completeContributionWorkflow()
         }}
         className="grid gap-4"
@@ -447,7 +461,9 @@ export function ContributionContent({
     return (
       <form
         action={async (formData) => {
-          await postCollectionSourceContributionBatchRowsAction(formData)
+          const result =
+            await postCollectionSourceContributionBatchRowsAction(formData)
+          notifySkippedBatchMembers(result?.skippedMemberNames)
           await completeContributionWorkflow()
         }}
         className="grid gap-4"

@@ -42,6 +42,19 @@ const viewLabels: Record<ContributionView, string> = {
   ledger: "Payments",
 }
 
+const blockerNotes: Record<string, string> = {
+  already_paid_this_month: "Already paid for this month in monthly records.",
+  member_not_active: "Member is not active.",
+  missing_active_commitment_plan: "No monthly amount set.",
+  zero_commitment_plan: "Monthly amount is ₦0.",
+}
+
+// Why a row was held, skipped or blocked, in plain words.
+function rowNote(row: { blocker: string | null; exceptionReason: string | null }) {
+  if (row.exceptionReason) return row.exceptionReason
+  return row.blocker ? (blockerNotes[row.blocker] ?? sentence(row.blocker)) : null
+}
+
 function sentence(value: string) {
   const label = value.replace(/_/g, " ")
   return label.charAt(0).toUpperCase() + label.slice(1)
@@ -446,6 +459,9 @@ function CollectionsView({
                         {formatCurrency(row.expectedAmount)} · paid{" "}
                         {formatCurrency(row.paidAmount)}
                       </p>
+                      {rowNote(row) ? (
+                        <p className="text-muted-foreground">{rowNote(row)}</p>
+                      ) : null}
                     </div>
                     <Badge
                       variant={

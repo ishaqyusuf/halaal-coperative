@@ -7,6 +7,10 @@ import {
 } from "./charges"
 import { refreshCollectionSourceBatchStatus } from "./collection-source-batches"
 import { recordMemberPaymentMutation } from "./contributions"
+import {
+  findMembersPaidByWorkplaceBatch,
+  lockMembersForMonthlyPayment,
+} from "./monthly-payment-guard"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
 import { getTenantMigrationWriteAccess } from "./migration"
 
@@ -1176,6 +1180,25 @@ export async function applyMonthlyRecordMember(
           "Closed monthly records cannot be changed."
         )
 
+      // Lock the member before the row claim (the same order every monthly
+      // payment path uses), then refuse a member already paid for this month
+      // through a workplace batch on the contributions page.
+      await lockMembersForMonthlyPayment(tx, {
+        memberIds: [row.memberId],
+        tenantId: input.tenantId,
+      })
+      const batchPaid = await findMembersPaidByWorkplaceBatch(tx, {
+        memberIds: [row.memberId],
+        periodMonth: row.monthlyRecord.periodMonth,
+        periodYear: row.monthlyRecord.periodYear,
+        tenantId: input.tenantId,
+      })
+      if (batchPaid.has(row.memberId)) {
+        throw ExpectedQueryError.conflict(
+          `This member was already paid for ${row.monthlyRecord.periodLabel} through a workplace batch.`
+        )
+      }
+
       // Claim the row first so a concurrent apply of the same row waits on
       // this row lock and then fails instead of posting a second payment.
       const claimed = await tx.monthlyRecordMember.updateMany({
@@ -1407,24 +1430,6 @@ export async function receiveWorkplaceMonthlyPayments(
       },
     },
   })
-  // A member already paid through a workplace batch on the contributions page
-  // for this month must not be posted again from here.
-  const batchPaidMemberIds = new Set(
-    (
-      await prisma.collectionSourceContributionBatchRow.findMany({
-        where: {
-          batch: {
-            periodMonth: record.periodMonth,
-            periodYear: record.periodYear,
-          },
-          contributionId: { not: null },
-          memberId: { in: rows.map((row) => row.memberId) },
-          tenantId: input.tenantId,
-        },
-        select: { memberId: true },
-      })
-    ).map((row) => row.memberId)
-  )
   const rowsById = new Map(rows.map((row) => [row.id, row]))
   const skipped: WorkplaceReceiveResult["skipped"] = []
   const toReceive: typeof rows = []
@@ -1439,11 +1444,9 @@ export async function receiveWorkplaceMonthlyPayments(
           ? "already_paid"
           : row.status === "cancelled"
             ? "cancelled"
-            : batchPaidMemberIds.has(row.memberId)
-              ? "paid_by_workplace_batch"
-              : Number(row.calculatedPayableAmount) <= 0
-                ? "nothing_due"
-                : null
+            : Number(row.calculatedPayableAmount) <= 0
+              ? "nothing_due"
+              : null
 
     if (reason || !row) {
       skipped.push({ reason: reason ?? "not_found", rowId })
@@ -1476,7 +1479,28 @@ export async function receiveWorkplaceMonthlyPayments(
           memberId: string
         }> = []
 
+        // Lock the chunk's members, then skip anyone already paid for this
+        // month through a workplace batch on the contributions page. Checked
+        // here, inside the posting transaction, so a batch post committed a
+        // moment ago is seen.
+        const chunkMemberIds = chunk.map((row) => row.memberId)
+        await lockMembersForMonthlyPayment(tx, {
+          memberIds: chunkMemberIds,
+          tenantId: input.tenantId,
+        })
+        const batchPaid = await findMembersPaidByWorkplaceBatch(tx, {
+          memberIds: chunkMemberIds,
+          periodMonth: record.periodMonth,
+          periodYear: record.periodYear,
+          tenantId: input.tenantId,
+        })
+
         for (const row of chunk) {
+          if (batchPaid.has(row.memberId)) {
+            skipped.push({ reason: "paid_by_workplace_batch", rowId: row.id })
+            continue
+          }
+
           // The same claim as a single apply: a row applied meanwhile (by a
           // concurrent run or by hand) matches nothing and is skipped.
           const claimed = await tx.monthlyRecordMember.updateMany({
@@ -1566,15 +1590,19 @@ export async function receiveWorkplaceMonthlyPayments(
           })
         }
 
-        // A staged row for the same member (from the contributions page) is
-        // closed with this posting so it can never be posted a second time.
+        // A staged row for the same member (from the contributions page), or a
+        // row whose posting was undone, is closed with this posting so it can
+        // never be posted a second time.
         for (const posting of chunkPostings) {
           if (!existingMemberIds.has(posting.memberId)) continue
           await tx.collectionSourceContributionBatchRow.updateMany({
             where: {
               batchId: batch.id,
-              contributionId: null,
               memberId: posting.memberId,
+              OR: [
+                { contributionId: null },
+                { contribution: { status: "reversed" } },
+              ],
             },
             data: {
               blocker: null,

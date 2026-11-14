@@ -1,30 +1,8 @@
 import { z } from "zod"
-import {
-  findSupportCase,
-  getMemberByUserId,
-  listSupportCasePage,
-} from "@halaalvest/db"
+import { findSupportCase, listSupportCaseRowsPage } from "@halaalvest/db"
+import { getScopedMemberId } from "../lib/member-scope"
 import { listSupportCasesSchema } from "../schemas/support"
 import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
-
-async function getScopedMemberId(ctx: {
-  auth: {
-    activeMembership: { role: string }
-    session: { user: { id: string } }
-  }
-  tenant: { current: { id: string } }
-}) {
-  if (ctx.auth.activeMembership.role !== "member") {
-    return undefined
-  }
-
-  const member = await getMemberByUserId({
-    tenantId: ctx.tenant.current.id,
-    userId: ctx.auth.session.user.id,
-  })
-
-  return member?.id ?? "__missing_member_profile__"
-}
 
 export const supportRouter = createTRPCRouter({
   get: tenantProcedure
@@ -42,28 +20,20 @@ export const supportRouter = createTRPCRouter({
   list: tenantProcedure
     .input(listSupportCasesSchema)
     .query(async ({ ctx, input }) => {
-      const pageSize = input?.pageSize ?? 50
       const scopedMemberId = await getScopedMemberId(ctx)
-      const result = await listSupportCasePage({
-        assignedToUserId: scopedMemberId
-          ? undefined
-          : input?.assignedToUserId,
+
+      return listSupportCaseRowsPage({
+        assignedToUserId: scopedMemberId ? undefined : input?.assignedToUserId,
         category: scopedMemberId ? undefined : input?.category,
         cursor: input?.cursor ?? undefined,
         memberId: scopedMemberId ?? input?.memberId,
-        pageSize,
+        pageSize: input?.pageSize ?? 50,
         priority: input?.priority,
         search: input?.q || undefined,
         sort: input?.sort ?? null,
         status: input?.status,
+        statusGroup: input?.statusGroup,
         tenantId: ctx.tenant.current.id,
       })
-      return {
-        data: result.data,
-        meta: {
-          cursor: result.meta.cursor,
-          total: result.meta.total,
-        },
-      }
     }),
 })

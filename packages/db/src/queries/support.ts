@@ -138,6 +138,31 @@ export type SupportCaseSortField =
   | "subject"
   | "updatedAt"
 
+/** "active" = open, in progress or waiting on the member; "finished" = resolved or closed. */
+export type SupportCaseStatusGroup = "active" | "finished"
+
+/** One row of the support list: no message history, only the latest message. */
+export type SupportCaseListRow = {
+  assignedToUser: { fullName: string; id: string } | null
+  category: SupportCaseCategory
+  createdAt: Date
+  financialAdjustmentApprovalStatus: SupportFinancialAdjustmentApprovalStatus
+  id: string
+  latestMessage: {
+    authorType: SupportCaseMessageAuthorType
+    createdAt: Date
+    message: string
+  } | null
+  linkedRecordType: SupportCaseLinkedRecordType | null
+  member: { fullName: string; id: string; memberNumber: string } | null
+  moneyImpactRequested: boolean
+  priority: SupportCasePriority
+  requiresFinancialAdjustment: boolean
+  status: SupportCaseStatus
+  subject: string
+  updatedAt: Date
+}
+
 export type ListSupportCasePageFilters = {
   assignedToUserId?: string
   category?: SupportCaseCategory
@@ -151,6 +176,7 @@ export type ListSupportCasePageFilters = {
   search?: string
   sort?: [SupportCaseSortField, "asc" | "desc"] | null
   status?: SupportCaseStatus
+  statusGroup?: SupportCaseStatusGroup
   toDate?: Date
 }
 
@@ -191,6 +217,7 @@ const supportFinancialAdjustmentApprovalStatuses = new Set([
   "rejected",
 ])
 const openSupportCaseStatuses = ["open", "in_progress", "waiting_on_member"]
+const finishedSupportCaseStatuses = ["resolved", "closed"]
 
 function trimRequired(value: string, label: string) {
   const trimmed = value.trim()
@@ -809,9 +836,23 @@ function getSupportCaseWhere(input: {
   priority?: SupportCasePriority
   search?: string
   status?: SupportCaseStatus
+  statusGroup?: SupportCaseStatusGroup
   tenantId: string
   toDate?: Date
 }) {
+  const statusWhere = input.status
+    ? { status: input.status }
+    : input.statusGroup
+      ? {
+          status: {
+            in:
+              input.statusGroup === "active"
+                ? openSupportCaseStatuses
+                : finishedSupportCaseStatuses,
+          },
+        }
+      : {}
+
   return {
     tenantId: input.tenantId,
     ...(input.fromDate || input.toDate
@@ -828,7 +869,7 @@ function getSupportCaseWhere(input: {
     ...(input.category ? { category: input.category } : {}),
     ...(input.memberId ? { memberId: input.memberId } : {}),
     ...(input.priority ? { priority: input.priority } : {}),
-    ...(input.status ? { status: input.status } : {}),
+    ...statusWhere,
     ...(input.search && {
       OR: [
         {
@@ -942,68 +983,225 @@ export async function listSupportCasePage(
   }
 }
 
+const supportCaseListSelect = {
+  assignedToUser: { select: { fullName: true, id: true } },
+  category: true,
+  createdAt: true,
+  financialAdjustmentApprovalStatus: true,
+  id: true,
+  linkedRecordType: true,
+  member: { select: { fullName: true, id: true, memberNumber: true } },
+  moneyImpactRequested: true,
+  priority: true,
+  requiresFinancialAdjustment: true,
+  status: true,
+  subject: true,
+  updatedAt: true,
+} as const
+
+const supportListMessagePreviewLength = 160
+
+/**
+ * Latest message per case in one statement (DISTINCT ON), trimmed to a short
+ * preview. Clients without `$queryRaw` (unit-test doubles) fall back to
+ * `findMany` and keep the first message seen per case.
+ */
+async function readLatestSupportMessages(
+  prisma: any,
+  tenantId: string,
+  supportCaseIds: string[]
+) {
+  const latest = new Map<string, SupportCaseListRow["latestMessage"]>()
+  if (!supportCaseIds.length) return latest
+
+  const rows: Array<{
+    authorType: SupportCaseMessageAuthorType
+    createdAt: Date
+    message: string
+    supportCaseId: string
+  }> =
+    typeof prisma.$queryRaw === "function"
+      ? await prisma.$queryRaw`
+          SELECT DISTINCT ON ("support_case_id")
+            "support_case_id" AS "supportCaseId",
+            "author_type"::text AS "authorType",
+            "created_at" AS "createdAt",
+            LEFT("message", ${supportListMessagePreviewLength}) AS "message"
+          FROM "support_case_messages"
+          WHERE "tenant_id" = ${tenantId}::uuid
+            AND "support_case_id" = ANY(${supportCaseIds}::uuid[])
+          ORDER BY "support_case_id", "created_at" DESC, "id" DESC
+        `
+      : await prisma.supportCaseMessage.findMany({
+          orderBy: { createdAt: "desc" },
+          select: {
+            authorType: true,
+            createdAt: true,
+            message: true,
+            supportCaseId: true,
+          },
+          where: { supportCaseId: { in: supportCaseIds }, tenantId },
+        })
+
+  for (const row of rows) {
+    if (latest.has(row.supportCaseId)) continue
+    latest.set(row.supportCaseId, {
+      authorType: row.authorType,
+      createdAt: new Date(row.createdAt),
+      message: row.message.slice(0, supportListMessagePreviewLength),
+    })
+  }
+
+  return latest
+}
+
+function normalizeSupportCaseListRow(
+  row: any,
+  latestMessage: SupportCaseListRow["latestMessage"]
+): SupportCaseListRow {
+  return {
+    assignedToUser: row.assignedToUser
+      ? { fullName: row.assignedToUser.fullName, id: row.assignedToUser.id }
+      : null,
+    category: row.category,
+    createdAt: row.createdAt,
+    financialAdjustmentApprovalStatus:
+      row.financialAdjustmentApprovalStatus ??
+      (row.requiresFinancialAdjustment ? "pending" : "not_required"),
+    id: row.id,
+    latestMessage,
+    linkedRecordType: row.linkedRecordType ?? null,
+    member: row.member
+      ? {
+          fullName: row.member.fullName,
+          id: row.member.id,
+          memberNumber: row.member.memberNumber,
+        }
+      : null,
+    moneyImpactRequested: Boolean(row.moneyImpactRequested),
+    priority: row.priority,
+    requiresFinancialAdjustment: Boolean(row.requiresFinancialAdjustment),
+    status: row.status,
+    subject: row.subject,
+    updatedAt: row.updatedAt,
+  }
+}
+
+/**
+ * The dashboard support list: only the columns a row shows plus the latest
+ * message preview. The total is counted on the first page only.
+ */
+export async function listSupportCaseRowsPage(
+  input: {
+    tenantId: string
+  } & ListSupportCasePageFilters,
+  prismaOverride?: PrismaClient
+): Promise<{
+  data: SupportCaseListRow[]
+  meta: { cursor?: string; total?: number }
+}> {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+
+  const pageSize = input.pageSize ?? input.limit ?? 50
+  if (!Number.isInteger(pageSize) || pageSize <= 0) {
+    throw new AppError({
+      code: "VALIDATION_FAILED",
+      publicMessage: "Support case page size must be a positive whole number.",
+    })
+  }
+  const cursor = input.cursor
+    ? decodeSupportCaseCursor(input.cursor, input.sort)
+    : null
+  const baseWhere = getSupportCaseWhere(input)
+  const where = cursor
+    ? { AND: [baseWhere, getSupportCaseCursorWhere(cursor)] }
+    : baseWhere
+  const [supportCases, total] = await Promise.all([
+    prisma.supportCase.findMany({
+      orderBy: getSupportCaseOrderBy(input.sort),
+      select: supportCaseListSelect,
+      take: pageSize + 1,
+      where,
+    }),
+    cursor ? undefined : prisma.supportCase.count({ where: baseWhere }),
+  ])
+  const data = supportCases.slice(0, pageSize)
+  const latestMessages = await readLatestSupportMessages(
+    prisma,
+    input.tenantId,
+    data.map((row: { id: string }) => row.id)
+  )
+
+  return {
+    data: data.map((row: any) =>
+      normalizeSupportCaseListRow(row, latestMessages.get(row.id) ?? null)
+    ),
+    meta: {
+      cursor:
+        supportCases.length > pageSize && data.length > 0
+          ? encodeSupportCaseCursor(data[data.length - 1], input.sort)
+          : undefined,
+      total,
+    },
+  }
+}
+
+const emptySupportCaseSummary: SupportCaseSummary = {
+  closedCases: 0,
+  featureRequestOpenCases: 0,
+  highPriorityOpenCases: 0,
+  openCases: 0,
+  totalCases: 0,
+  urgentOpenCases: 0,
+}
+
+/** Every summary figure from one grouped count. */
+async function summarizeSupportCases(
+  where: Record<string, unknown>,
+  prisma: any
+): Promise<SupportCaseSummary> {
+  const groups: Array<{
+    _count: { _all: number }
+    category: SupportCaseCategory
+    priority: SupportCasePriority
+    status: SupportCaseStatus
+  }> = await prisma.supportCase.groupBy({
+    _count: { _all: true },
+    by: ["status", "priority", "category"],
+    where,
+  })
+  const summary = { ...emptySupportCaseSummary }
+
+  for (const group of groups) {
+    const count = group._count._all
+    const isOpen = openSupportCaseStatuses.includes(group.status)
+
+    summary.totalCases += count
+    if (isOpen) summary.openCases += count
+    if (finishedSupportCaseStatuses.includes(group.status)) {
+      summary.closedCases += count
+    }
+    if (isOpen && (group.priority === "high" || group.priority === "urgent")) {
+      summary.highPriorityOpenCases += count
+    }
+    if (isOpen && group.priority === "urgent") summary.urgentOpenCases += count
+    if (isOpen && group.category === "feature_request") {
+      summary.featureRequestOpenCases += count
+    }
+  }
+
+  return summary
+}
+
 export async function getSupportCaseSummary(
   tenantId: string,
   prismaOverride?: PrismaClient
 ): Promise<SupportCaseSummary> {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
-  if (!prisma) {
-    return {
-      closedCases: 0,
-      featureRequestOpenCases: 0,
-      highPriorityOpenCases: 0,
-      openCases: 0,
-      totalCases: 0,
-      urgentOpenCases: 0,
-    }
-  }
+  if (!prisma) return { ...emptySupportCaseSummary }
 
-  const [
-    totalCases,
-    openCases,
-    closedCases,
-    highPriorityOpenCases,
-    urgentOpenCases,
-    featureRequestOpenCases,
-  ] = await Promise.all([
-    prisma.supportCase.count({ where: { tenantId } }),
-    prisma.supportCase.count({
-      where: { status: { in: openSupportCaseStatuses }, tenantId },
-    }),
-    prisma.supportCase.count({
-      where: { status: { in: ["resolved", "closed"] }, tenantId },
-    }),
-    prisma.supportCase.count({
-      where: {
-        priority: { in: ["high", "urgent"] },
-        status: { in: openSupportCaseStatuses },
-        tenantId,
-      },
-    }),
-    prisma.supportCase.count({
-      where: {
-        priority: "urgent",
-        status: { in: openSupportCaseStatuses },
-        tenantId,
-      },
-    }),
-    prisma.supportCase.count({
-      where: {
-        category: "feature_request",
-        status: { in: openSupportCaseStatuses },
-        tenantId,
-      },
-    }),
-  ])
-
-  return {
-    closedCases,
-    featureRequestOpenCases,
-    highPriorityOpenCases,
-    openCases,
-    totalCases,
-    urgentOpenCases,
-  }
+  return summarizeSupportCases({ tenantId }, prisma)
 }
 
 export async function getMemberSupportCaseSummary(
@@ -1014,67 +1212,12 @@ export async function getMemberSupportCaseSummary(
   prismaOverride?: PrismaClient
 ): Promise<SupportCaseSummary> {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
-  if (!prisma) {
-    return {
-      closedCases: 0,
-      featureRequestOpenCases: 0,
-      highPriorityOpenCases: 0,
-      openCases: 0,
-      totalCases: 0,
-      urgentOpenCases: 0,
-    }
-  }
+  if (!prisma) return { ...emptySupportCaseSummary }
 
-  const where = {
-    memberId: input.memberId,
-    tenantId: input.tenantId,
-  }
-  const [
-    totalCases,
-    openCases,
-    closedCases,
-    highPriorityOpenCases,
-    urgentOpenCases,
-    featureRequestOpenCases,
-  ] = await Promise.all([
-    prisma.supportCase.count({ where }),
-    prisma.supportCase.count({
-      where: { ...where, status: { in: openSupportCaseStatuses } },
-    }),
-    prisma.supportCase.count({
-      where: { ...where, status: { in: ["resolved", "closed"] } },
-    }),
-    prisma.supportCase.count({
-      where: {
-        ...where,
-        priority: { in: ["high", "urgent"] },
-        status: { in: openSupportCaseStatuses },
-      },
-    }),
-    prisma.supportCase.count({
-      where: {
-        ...where,
-        priority: "urgent",
-        status: { in: openSupportCaseStatuses },
-      },
-    }),
-    prisma.supportCase.count({
-      where: {
-        ...where,
-        category: "feature_request",
-        status: { in: openSupportCaseStatuses },
-      },
-    }),
-  ])
-
-  return {
-    closedCases,
-    featureRequestOpenCases,
-    highPriorityOpenCases,
-    openCases,
-    totalCases,
-    urgentOpenCases,
-  }
+  return summarizeSupportCases(
+    { memberId: input.memberId, tenantId: input.tenantId },
+    prisma
+  )
 }
 
 export async function createSupportCase(
@@ -1321,6 +1464,12 @@ export async function addSupportCaseMessage(
           select: { email: true, fullName: true, id: true },
         },
       },
+    })
+    // A reply is activity: lists sort by the latest change or message.
+    await tx.supportCase.update({
+      data: { updatedAt: created.createdAt ?? new Date() },
+      select: { id: true },
+      where: { id: supportCase.id },
     })
     await claimDashboardEvidenceUploadLink(
       {

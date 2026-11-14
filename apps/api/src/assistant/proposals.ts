@@ -666,7 +666,7 @@ async function executeConfirmed(
         outcome: "saved",
         reference: `CASE-${supportCase.id.slice(0, 6).toUpperCase()}`,
         message: "Your request is open as a support case. Finance reviews it before anything is paid.",
-        link: { label: "Open support case", href: `/support?caseId=${supportCase.id}` },
+        link: { label: "Open support case", href: `/support?supportCaseSheetType=case&supportCaseId=${supportCase.id}` },
       }
     }
     case "record-payment": {

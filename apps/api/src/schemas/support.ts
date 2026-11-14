@@ -47,5 +47,6 @@ export const listSupportCasesSchema = z
       .nullable()
       .optional(),
     status: supportCaseStatusSchema.optional(),
+    statusGroup: z.enum(["active", "finished"]).optional(),
   })
   .optional()

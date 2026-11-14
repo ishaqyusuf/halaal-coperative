@@ -8,6 +8,7 @@ import {
   getSupportCase,
   getSupportCaseSummary,
   listSupportCasePage,
+  listSupportCaseRowsPage,
   listSupportCases,
   reviewSupportCaseFinancialAdjustment,
   updateSupportCaseStatus,
@@ -726,38 +727,43 @@ describe("support case queries", () => {
     expect(caseCreates).toHaveLength(0)
   })
 
-  test("summarizes support cases for a tenant feature-request queue", async () => {
-    const countWheres: unknown[] = []
+  const summaryGroups = [
+    { _count: { _all: 2 }, category: "payment_issue", priority: "normal", status: "open" },
+    { _count: { _all: 1 }, category: "feature_request", priority: "high", status: "in_progress" },
+    { _count: { _all: 1 }, category: "technical", priority: "urgent", status: "waiting_on_member" },
+    { _count: { _all: 3 }, category: "other", priority: "urgent", status: "resolved" },
+    { _count: { _all: 1 }, category: "shares", priority: "low", status: "closed" },
+  ]
+
+  test("summarizes support cases for a tenant from one grouped count", async () => {
+    const groupByCalls: Record<string, unknown>[] = []
 
     const summary = await getSupportCaseSummary("tenant-1", {
       supportCase: {
-        count: async (input: Record<string, unknown>) => {
-          countWheres.push(input.where)
-          return countWheres.length
+        groupBy: async (input: Record<string, unknown>) => {
+          groupByCalls.push(input)
+          return summaryGroups
         },
       },
     } as never)
 
     expect(summary).toEqual({
-      closedCases: 3,
-      featureRequestOpenCases: 6,
-      highPriorityOpenCases: 4,
-      openCases: 2,
-      totalCases: 1,
-      urgentOpenCases: 5,
+      closedCases: 4,
+      featureRequestOpenCases: 1,
+      highPriorityOpenCases: 2,
+      openCases: 4,
+      totalCases: 8,
+      urgentOpenCases: 1,
     })
-    expect(countWheres).toHaveLength(6)
-    expect(countWheres[5]).toMatchObject({
-      category: "feature_request",
-      status: {
-        in: ["open", "in_progress", "waiting_on_member"],
-      },
-      tenantId: "tenant-1",
+    expect(groupByCalls).toHaveLength(1)
+    expect(groupByCalls[0]).toMatchObject({
+      by: ["status", "priority", "category"],
+      where: { tenantId: "tenant-1" },
     })
   })
 
   test("summarizes support cases within a member boundary", async () => {
-    const countWheres: unknown[] = []
+    const groupByCalls: Record<string, unknown>[] = []
 
     const summary = await getMemberSupportCaseSummary(
       {
@@ -766,39 +772,90 @@ describe("support case queries", () => {
       },
       {
         supportCase: {
-          count: async (input: Record<string, unknown>) => {
-            countWheres.push(input.where)
-            return countWheres.length
+          groupBy: async (input: Record<string, unknown>) => {
+            groupByCalls.push(input)
+            return summaryGroups.slice(0, 2)
           },
         },
       } as never
     )
 
-    expect(summary).toEqual({
-      closedCases: 3,
-      featureRequestOpenCases: 6,
-      highPriorityOpenCases: 4,
-      openCases: 2,
-      totalCases: 1,
-      urgentOpenCases: 5,
+    expect(summary).toMatchObject({ openCases: 3, totalCases: 3 })
+    expect(groupByCalls).toHaveLength(1)
+    expect(groupByCalls[0]).toMatchObject({
+      where: { memberId: "member-1", tenantId: "tenant-1" },
     })
-    expect(countWheres).toHaveLength(6)
-    for (const where of countWheres) {
-      expect(where).toMatchObject({
-        memberId: "member-1",
-        tenantId: "tenant-1",
-      })
+  })
+
+  test("lists lean support rows with only the latest message", async () => {
+    const findManyCalls: Record<string, unknown>[] = []
+    const messageCalls: Record<string, unknown>[] = []
+    const countCalls: unknown[] = []
+    const db = {
+      supportCase: {
+        count: async (input: unknown) => {
+          countCalls.push(input)
+          return 1
+        },
+        findMany: async (input: Record<string, unknown>) => {
+          findManyCalls.push(input)
+          return [
+            {
+              assignedToUser: null,
+              category: "payment_issue",
+              createdAt: new Date("2026-07-08T10:00:00.000Z"),
+              financialAdjustmentApprovalStatus: "not_required",
+              id: "support-1",
+              linkedRecordType: null,
+              member: { fullName: "Aisha Bello", id: "member-1", memberNumber: "M-1" },
+              moneyImpactRequested: false,
+              priority: "normal",
+              requiresFinancialAdjustment: false,
+              status: "open",
+              subject: "Missing payment",
+              updatedAt: new Date("2026-07-08T11:00:00.000Z"),
+            },
+          ]
+        },
+      },
+      supportCaseMessage: {
+        findMany: async (input: Record<string, unknown>) => {
+          messageCalls.push(input)
+          return [
+            { authorType: "staff", createdAt: new Date("2026-07-08T11:00:00.000Z"), message: "We are checking.", supportCaseId: "support-1" },
+            { authorType: "member", createdAt: new Date("2026-07-08T10:00:00.000Z"), message: "Missing payment.", supportCaseId: "support-1" },
+          ]
+        },
+      },
     }
-    expect(countWheres[5]).toMatchObject({
-      category: "feature_request",
-      status: {
-        in: ["open", "in_progress", "waiting_on_member"],
+
+    const result = await listSupportCaseRowsPage(
+      { statusGroup: "active", tenantId: "tenant-1" },
+      db as never
+    )
+
+    expect(findManyCalls[0]).not.toHaveProperty("include")
+    expect(findManyCalls[0]).toMatchObject({
+      where: {
+        status: { in: ["open", "in_progress", "waiting_on_member"] },
+        tenantId: "tenant-1",
       },
     })
+    expect(messageCalls[0]).toMatchObject({
+      where: { supportCaseId: { in: ["support-1"] }, tenantId: "tenant-1" },
+    })
+    expect(countCalls).toHaveLength(1)
+    expect(result.data[0]).toMatchObject({
+      latestMessage: { authorType: "staff", message: "We are checking." },
+      member: { fullName: "Aisha Bello" },
+      subject: "Missing payment",
+    })
+    expect(result.data[0]).not.toHaveProperty("messages")
   })
 
   test("adds member replies only to the member's own support case", async () => {
     const caseReads: Record<string, unknown>[] = []
+    const caseTouches: Record<string, unknown>[] = []
     const messageCreates: Record<string, unknown>[] = []
 
     const db = {
@@ -807,6 +864,10 @@ describe("support case queries", () => {
         findFirst: async (input: Record<string, unknown>) => {
           caseReads.push(input)
           return supportCaseRow()
+        },
+        update: async (input: Record<string, unknown>) => {
+          caseTouches.push(input)
+          return { id: "support-1" }
         },
       },
       supportCaseMessage: {
@@ -859,6 +920,7 @@ describe("support case queries", () => {
       authorType: "member",
       message: "Please check the receipt again.",
     })
+    expect(caseTouches[0]).toMatchObject({ where: { id: "support-1" } })
   })
 
   test("requires a resolution summary before resolving a support case", async () => {

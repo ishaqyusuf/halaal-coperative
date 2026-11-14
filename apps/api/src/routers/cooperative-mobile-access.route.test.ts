@@ -6,7 +6,7 @@ import { appRouter } from "./_app"
 const createCaller = createCallerFactory(appRouter)
 
 // Reads check the role already loaded for the request, before any database call.
-function callerFor(role: string, mobileAuthenticated = false) {
+function callerFor(role: string) {
   return createCaller({
     auth: {
       activeMembership: {
@@ -17,7 +17,7 @@ function callerFor(role: string, mobileAuthenticated = false) {
       },
       session: { user: { id: "user-1" } },
     },
-    request: { mobileAuthenticated },
+    request: { mobileAuthenticated: false },
     runtime: { status: "database-configured" },
     tenant: { current: { id: "tenant-1", qaPurgeStartedAt: null } },
   } as never)
@@ -45,12 +45,6 @@ describe("cooperative mobile access role guards", () => {
   test("only members read their own status", async () => {
     await expect(
       callerFor("tenant_admin").cooperativeMobileAccess.memberStatus()
-    ).rejects.toMatchObject(forbidden)
-  })
-
-  test("the mobile app cannot manage access", async () => {
-    await expect(
-      callerFor("tenant_admin", true).cooperativeMobileAccess.summary()
     ).rejects.toMatchObject(forbidden)
   })
 

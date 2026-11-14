@@ -182,9 +182,12 @@ function ChargeTypeDetails({
 
         <dl className="divide-y divide-border border-y border-border">
           <Fact label="Status">{charge.isActive ? "On" : "Off"}</Fact>
-          <Fact label="How often">
-            {getChargeFrequencyWord(charge.chargeFrequency)}
-          </Fact>
+          {charge.chargeFrequency === "recurring_monthly" ||
+          charge.chargeFrequency === "per_contribution" ? (
+            <Fact label="How often">
+              {getChargeFrequencyWord(charge.chargeFrequency)}
+            </Fact>
+          ) : null}
           <Fact label="Added to">{appliesTo}</Fact>
           {charge.isMonthlyLevy ? <Fact label="Monthly levy">Yes</Fact> : null}
         </dl>
@@ -396,6 +399,7 @@ function getCorrectionCopy(
   row: ChargeActivityRow | undefined
 ) {
   const who = row?.memberName ?? "the member"
+  const Who = row?.memberName ?? "The member"
   const what = row
     ? `${row.chargeName} (${formatChargeAmount(row.amount, "fixed_amount")})`
     : "this charge"
@@ -419,8 +423,8 @@ function getCorrectionCopy(
     action: "Waive charge",
     description:
       row?.status === "pending"
-        ? `${who} will not have to pay it. Nothing was paid, so no money moves.`
-        : `${who} is let off this charge. ${moneyBack}`,
+        ? `${Who} will not have to pay it. Nothing was paid, so no money moves.`
+        : `${Who} is let off this charge. ${moneyBack}`,
     title: `Waive ${what}?`,
   }
 }

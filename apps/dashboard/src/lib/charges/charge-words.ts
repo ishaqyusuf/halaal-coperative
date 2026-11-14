@@ -59,6 +59,24 @@ export function getChargeAppliesToWords(appliesTo: ChargeAppliesTo[]) {
   return appliesTo.map((value) => appliesToWords[value]).join(", ")
 }
 
+/**
+ * One line for a charge type: how often (only when it repeats) and what adds
+ * it, e.g. "Every month · Monthly payments", "Loan requests", "Added by staff".
+ */
+export function getChargeScheduleWords(
+  frequency: ChargeFrequency,
+  appliesTo: ChargeAppliesTo[]
+) {
+  const repeats =
+    frequency === "recurring_monthly" || frequency === "per_contribution"
+      ? frequencyWords[frequency]
+      : null
+
+  return [repeats, getChargeAppliesToWords(appliesTo)]
+    .filter(Boolean)
+    .join(" · ")
+}
+
 export function getChargeSourceWord(source: ChargeActivitySource) {
   return source === "manual" ? "Added by staff" : appliesToWords[source]
 }

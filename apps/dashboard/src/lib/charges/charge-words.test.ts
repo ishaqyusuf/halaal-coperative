@@ -3,6 +3,7 @@ import {
   formatChargeAmount,
   getChargeAppliesToWords,
   getChargeCorrections,
+  getChargeScheduleWords,
   getChargeStatusWord,
 } from "./charge-words"
 
@@ -18,6 +19,16 @@ describe("charge words", () => {
     expect(
       getChargeAppliesToWords(["monthly_collection", "loan_request"])
     ).toBe("Monthly payments, Loan requests")
+  })
+
+  test("never says 'when staff add it' for a charge a workflow adds", () => {
+    expect(getChargeScheduleWords("manual", ["procurement"])).toBe(
+      "Procurement"
+    )
+    expect(
+      getChargeScheduleWords("recurring_monthly", ["monthly_collection"])
+    ).toBe("Every month · Monthly payments")
+    expect(getChargeScheduleWords("one_time", [])).toBe("Added by staff")
   })
 
   test("gives one status word per member charge", () => {

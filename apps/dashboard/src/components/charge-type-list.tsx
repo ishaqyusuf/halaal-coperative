@@ -6,8 +6,7 @@ import { useChargeOperationParams } from "@/hooks/use-charge-operation-params"
 import { useChargeTypesQuery } from "@/hooks/use-charge-types-query"
 import {
   formatChargeAmount,
-  getChargeAppliesToWords,
-  getChargeFrequencyWord,
+  getChargeScheduleWords,
 } from "@/lib/charges/charge-words"
 import { memberStateToneClassNames } from "@/lib/members/member-status-words"
 
@@ -63,8 +62,10 @@ export function ChargeTypeList({
                 )}
               </span>
               <span className="mt-1 block text-base text-muted-foreground">
-                {getChargeFrequencyWord(charge.chargeFrequency)} ·{" "}
-                {getChargeAppliesToWords(charge.appliesTo ?? [])}
+                {getChargeScheduleWords(
+                  charge.chargeFrequency,
+                  charge.appliesTo ?? []
+                )}
               </span>
             </span>
             <span className="shrink-0 text-right text-lg font-semibold tabular-nums">

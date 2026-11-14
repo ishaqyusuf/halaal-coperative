@@ -35,6 +35,11 @@ export function MemberSharesView({
   const { setParams } = useShareApplicationParams()
   const position = summary.unitPosition
   const remainingShares = position ? getRemainingShares(position) : 0
+  const requestBlockedReason = requestBlocked
+    ? "You can ask for more shares once the office finishes setting up your account."
+    : remainingShares === 0 && position
+      ? `You have reached the limit of ${formatShareCount(position.maximumUnits)}.`
+      : null
 
   return (
     <div className="grid gap-8">
@@ -85,7 +90,7 @@ export function MemberSharesView({
           <div className="grid gap-2">
             <Button
               className="h-11 w-full text-base sm:w-auto sm:justify-self-start"
-              disabled={requestBlocked || remainingShares === 0}
+              disabled={Boolean(requestBlockedReason)}
               onClick={() =>
                 void setParams({
                   shareApplicationId: null,
@@ -98,11 +103,8 @@ export function MemberSharesView({
               Buy more shares
             </Button>
             <p className="text-base text-muted-foreground">
-              {requestBlocked
-                ? "You can ask for more shares once the office finishes setting up your account."
-                : remainingShares === 0
-                  ? `You have reached the limit of ${formatShareCount(position.maximumUnits)}.`
-                  : `${formatCurrency(position.unitAmount)} per share. You can ask for up to ${formatShareCount(remainingShares)}.`}
+              {requestBlockedReason ??
+                `${formatCurrency(position.unitAmount)} per share. You can ask for up to ${formatShareCount(remainingShares)}.`}
             </p>
           </div>
         ) : null}
@@ -182,6 +184,7 @@ export function MemberSharesView({
       <ShareRequestSheet
         canReview={false}
         remainingShares={remainingShares}
+        requestBlockedReason={requestBlockedReason}
         unitAmount={policy.unitAmount}
       />
     </div>

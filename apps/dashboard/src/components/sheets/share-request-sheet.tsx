@@ -29,10 +29,13 @@ const uuidPattern =
 export function ShareRequestSheet({
   canReview,
   remainingShares = 0,
+  requestBlockedReason = null,
   unitAmount,
 }: {
   canReview: boolean
   remainingShares?: number
+  /** Why a member cannot ask now; shown instead of the form. */
+  requestBlockedReason?: string | null
   unitAmount: number
 }) {
   const trpc = useTRPC()
@@ -78,11 +81,15 @@ export function ShareRequestSheet({
               The office reviews every request.
             </DialogDescription>
           </DialogHeader>
-          <MemberShareRequestForm
-            onClose={close}
-            remainingShares={remainingShares}
-            unitAmount={unitAmount}
-          />
+          {requestBlockedReason ? (
+            <p className="text-base">{requestBlockedReason}</p>
+          ) : (
+            <MemberShareRequestForm
+              onClose={close}
+              remainingShares={remainingShares}
+              unitAmount={unitAmount}
+            />
+          )}
         </div>
       ) : null}
       {type === "create" ? (

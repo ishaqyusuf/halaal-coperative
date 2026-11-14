@@ -1,7 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { createPrismaClient } from "../prisma"
 import { ensureTenantLedgerAccounts } from "./ledger"
-import { applyMonthlyRecordMember } from "./monthly-records"
+import {
+  applyMonthlyRecordMember,
+  cancelMonthlyRecordMember,
+} from "./monthly-records"
 
 const db = createPrismaClient()
 const run =
@@ -12,13 +15,13 @@ let userId = ""
 let memberId = ""
 let monthlyRecordId = ""
 
-async function createPendingRow() {
+async function createPendingRow(recordId = monthlyRecordId) {
   const row = await db!.monthlyRecordMember.create({
     data: {
       calculatedPayableAmount: 5000,
       contributionAmount: 5000,
       memberId,
-      monthlyRecordId,
+      monthlyRecordId: recordId,
       tenantId,
     },
   })
@@ -165,5 +168,73 @@ run("monthly record apply under concurrency", () => {
     })
     // 5000 saved, 500 levy deducted from savings, posted exactly once.
     expect(Number(member.totalSavingsSnapshot)).toBe(4500)
+  })
+
+  it("undoes the row's levy on cancel, so re-applying charges it once", async () => {
+    const before = await db!.member.findUniqueOrThrow({
+      where: { id: memberId },
+    })
+    const aprilRecordId = (
+      await db!.monthlyRecord.create({
+        data: {
+          createdByUserId: userId,
+          periodLabel: "April 2026",
+          periodMonth: 4,
+          periodYear: 2026,
+          tenantId,
+        },
+      })
+    ).id
+    const rowId = await createPendingRow(aprilRecordId)
+    await apply(rowId)
+
+    const levy = await db!.chargeApplication.findFirstOrThrow({
+      where: {
+        applicabilitySnapshot: {
+          equals: rowId,
+          path: ["monthlyRecordMemberId"],
+        },
+        tenantId,
+      },
+    })
+    expect(levy.status).toBe("posted")
+
+    await cancelMonthlyRecordMember(
+      { actorUserId: userId, monthlyRecordMemberId: rowId, tenantId },
+      db!
+    )
+    expect(
+      (
+        await db!.chargeApplication.findUniqueOrThrow({
+          where: { id: levy.id },
+        })
+      ).status
+    ).toBe("reversed")
+    const afterCancel = await db!.member.findUniqueOrThrow({
+      where: { id: memberId },
+    })
+    // Payment and levy both undone: savings back where they started.
+    expect(Number(afterCancel.totalSavingsSnapshot)).toBe(
+      Number(before.totalSavingsSnapshot)
+    )
+
+    await apply(rowId)
+    const live = await db!.chargeApplication.count({
+      where: {
+        applicabilitySnapshot: {
+          equals: rowId,
+          path: ["monthlyRecordMemberId"],
+        },
+        status: "posted",
+        tenantId,
+      },
+    })
+    expect(live).toBe(1)
+    const afterReapply = await db!.member.findUniqueOrThrow({
+      where: { id: memberId },
+    })
+    expect(Number(afterReapply.totalSavingsSnapshot)).toBe(
+      Number(before.totalSavingsSnapshot) + 4500
+    )
   })
 })

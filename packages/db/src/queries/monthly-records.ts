@@ -4,6 +4,8 @@ import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
 import {
   applyApplicableWorkflowChargesInTransaction,
   loadChargeQuoter,
+  reverseChargeApplicationInTransaction,
+  waiveChargeApplicationInTransaction,
 } from "./charges"
 import { refreshCollectionSourceBatchStatus } from "./collection-source-batches"
 import { recordMemberPaymentMutation } from "./contributions"
@@ -1128,7 +1130,9 @@ function sortMonthlyRecordRows(
       return (leftValue - rightValue) * factor
     }
 
-    return String(leftValue ?? "").localeCompare(String(rightValue ?? "")) * factor
+    return (
+      String(leftValue ?? "").localeCompare(String(rightValue ?? "")) * factor
+    )
   })
 }
 
@@ -1277,14 +1281,16 @@ async function postClaimedMonthlyRecordRow(
   tx: PrismaClient
 ) {
   const { row } = input
-  const { contributionAmount, extraSavingsAmount, scheduledLoanServicingAmount } =
-    allocateMonthlyRecordPayment({
-      contributionTarget: Number(row.contributionAmount),
-      loanTarget: Number(row.loanRepaymentAmount),
-      paymentAllocationPreference:
-        input.paymentAllocationPreference ?? undefined,
-      totalPaidAmount: input.totalPaidAmount,
-    })
+  const {
+    contributionAmount,
+    extraSavingsAmount,
+    scheduledLoanServicingAmount,
+  } = allocateMonthlyRecordPayment({
+    contributionTarget: Number(row.contributionAmount),
+    loanTarget: Number(row.loanRepaymentAmount),
+    paymentAllocationPreference: input.paymentAllocationPreference ?? undefined,
+    totalPaidAmount: input.totalPaidAmount,
+  })
   const assessedAt = getPeriodRange(
     row.monthlyRecord.periodYear,
     row.monthlyRecord.periodMonth
@@ -1298,7 +1304,9 @@ async function postClaimedMonthlyRecordRow(
       contributionPlanId: row.contributionPlanId ?? undefined,
       extraSavingsAmount,
       loanId:
-        scheduledLoanServicingAmount > 0 ? (row.loanId ?? undefined) : undefined,
+        scheduledLoanServicingAmount > 0
+          ? (row.loanId ?? undefined)
+          : undefined,
       memberId: row.memberId,
       periodLabel: row.monthlyRecord.periodLabel,
       postedAt: assessedAt,
@@ -1315,6 +1323,7 @@ async function postClaimedMonthlyRecordRow(
       assessedAt,
       basisAmount: input.totalPaidAmount,
       memberId: row.memberId,
+      monthlyRecordMemberId: row.id,
       notes: `Posted from monthly record ${row.monthlyRecord.periodLabel}`,
       tenantId: input.tenantId,
       trigger: "monthly_collection",
@@ -1406,7 +1415,9 @@ export async function receiveWorkplaceMonthlyPayments(
 
   if (!record) throw ExpectedQueryError.notFound("Monthly record not found.")
   if (record.status === "closed") {
-    throw ExpectedQueryError.conflict("Closed monthly records cannot be changed.")
+    throw ExpectedQueryError.conflict(
+      "Closed monthly records cannot be changed."
+    )
   }
   if (!workplace) throw ExpectedQueryError.notFound("Workplace not found.")
 
@@ -1465,7 +1476,11 @@ export async function receiveWorkplaceMonthlyPayments(
   }
   const postedAt = getPeriodRange(record.periodYear, record.periodMonth).start
 
-  for (let index = 0; index < toReceive.length; index += workplaceReceiveChunkSize) {
+  for (
+    let index = 0;
+    index < toReceive.length;
+    index += workplaceReceiveChunkSize
+  ) {
     const chunk = toReceive.slice(index, index + workplaceReceiveChunkSize)
 
     await prisma.$transaction(
@@ -1562,7 +1577,9 @@ export async function receiveWorkplaceMonthlyPayments(
           await tx.collectionSourceContributionBatchRow.findMany({
             where: {
               batchId: batch.id,
-              memberId: { in: chunkPostings.map((posting) => posting.memberId) },
+              memberId: {
+                in: chunkPostings.map((posting) => posting.memberId),
+              },
             },
             select: { memberId: true },
           })
@@ -1864,6 +1881,51 @@ async function reverseMonthlyRepayment(input: {
   })
 }
 
+// The levy and other monthly-collection charges this row's payment added
+// (tagged in their applicability snapshot) are undone with it, so cancel then
+// re-apply never charges twice. Posted charges get an opposite entry;
+// charges still waiting for a separate payment are waived. Rows applied
+// before the tag existed carry no tag and are left as they were.
+async function undoMonthlyRecordCharges(input: {
+  actorUserId: string
+  memberId: string
+  monthlyRecordMemberId: string
+  periodLabel: string
+  tenantId: string
+  tx: PrismaClient
+}) {
+  const charges = await input.tx.chargeApplication.findMany({
+    select: { id: true, status: true },
+    where: {
+      applicabilitySnapshot: {
+        equals: input.monthlyRecordMemberId,
+        path: ["monthlyRecordMemberId"],
+      },
+      memberId: input.memberId,
+      status: { in: ["pending", "posted"] },
+      tenantId: input.tenantId,
+    },
+  })
+  const reason = `Monthly record ${input.periodLabel} payment was cancelled.`
+
+  for (const charge of charges) {
+    const correction = {
+      actorUserId: input.actorUserId,
+      chargeApplicationId: charge.id,
+      reason,
+      tenantId: input.tenantId,
+    }
+
+    if (charge.status === "posted") {
+      await reverseChargeApplicationInTransaction(correction, input.tx)
+    } else {
+      await waiveChargeApplicationInTransaction(correction, input.tx)
+    }
+  }
+
+  return charges.length
+}
+
 export async function cancelMonthlyRecordMember(
   input: {
     actorUserId: string
@@ -1916,6 +1978,15 @@ export async function cancelMonthlyRecordMember(
           tx: tx as unknown as PrismaClient,
         })
       }
+
+      await undoMonthlyRecordCharges({
+        actorUserId: input.actorUserId,
+        memberId: row.memberId,
+        monthlyRecordMemberId: row.id,
+        periodLabel: row.monthlyRecord.periodLabel,
+        tenantId: input.tenantId,
+        tx: tx as unknown as PrismaClient,
+      })
     }
 
     const cancelled = await tx.monthlyRecordMember.update({

@@ -93,6 +93,8 @@ export type ChargeApplicabilitySnapshot = {
   }
   collectionMode: ChargeCollectionMode
   isRequired: boolean | null
+  /** The monthly-record row whose payment added this charge, so a cancel can undo it. */
+  monthlyRecordMemberId?: string
   schemaVersion: 1
   source:
     | "manual"
@@ -1619,6 +1621,8 @@ export async function applyApplicableWorkflowChargesInTransaction(
     loanId?: string
     loanRequestId?: string
     memberId: string
+    /** Tags the charges with the monthly-record row that posted them. */
+    monthlyRecordMemberId?: string
     notes?: string
     procurementRequestId?: string
     projectFinancingRequestId?: string
@@ -1710,6 +1714,9 @@ export async function applyApplicableWorkflowChargesInTransaction(
             },
             collectionMode: quote.collectionMode,
             isRequired: quote.isRequired,
+            ...(input.monthlyRecordMemberId
+              ? { monthlyRecordMemberId: input.monthlyRecordMemberId }
+              : {}),
             schemaVersion: 1,
             source: quote.chargeApplicabilityId
               ? "workflow_applicability"
@@ -2072,84 +2079,98 @@ export async function waiveChargeApplication(
     await assertLiveFinancialWritesOpen(input.tenantId, prisma)
   }
 
-  return prisma.$transaction(async (tx) => {
-    const application = await tx.chargeApplication.findFirst({
-      where: { id: input.chargeApplicationId, tenantId: input.tenantId },
-      include: { chargeDefinition: true },
-    })
+  return prisma.$transaction((tx) =>
+    waiveChargeApplicationInTransaction(input, tx as unknown as PrismaClient)
+  )
+}
 
-    if (!application)
-      throw ExpectedQueryError.notFound("Charge application not found")
-    if (!["pending", "posted"].includes(application.status))
-      throw ExpectedQueryError.conflict(
-        "Only pending or posted charge applications can be waived."
-      )
-
-    const reason = input.reason?.trim() || null
-
-    const claimed = await tx.chargeApplication.updateMany({
-      where: {
-        id: application.id,
-        tenantId: input.tenantId,
-        status: application.status,
-      },
-      data: { status: "waived" },
-    })
-    if (claimed.count !== 1) {
-      throw ExpectedQueryError.conflict(
-        "This charge application changed. Refresh before trying again."
-      )
-    }
-
-    const updated = await tx.chargeApplication.update({
-      where: { id: application.id },
-      data: {
-        status: "waived",
-        waivedAt: new Date(),
-      },
-    })
-
-    const correctionTransaction =
-      application.status === "posted"
-        ? await postChargeCorrection({
-            collectionMode: application.collectionMode,
-            isMonthlyLevy: application.chargeDefinition.isMonthlyLevy,
-            isShareCharge:
-              (application.chargeDefinition as any).purpose === "member_share",
-            isMobileAccessCharge:
-              application.chargeDefinition.code === mobileAccessChargeCode,
-            amount: Number(application.amount),
-            applicationId: application.id,
-            applicationName: application.chargeDefinition.name,
-            assessedAt: new Date(),
-            memberId: application.memberId,
-            sourceType: input.sourceType,
-            tenantId: input.tenantId,
-            tx: tx as unknown as PrismaClient,
-          })
-        : null
-
-    await tx.auditLog.create({
-      data: {
-        tenantId: input.tenantId,
-        actorUserId: input.actorUserId,
-        actorType: "user",
-        action: "charge.waived",
-        entityType: "ChargeApplication",
-        entityId: updated.id,
-        metadata: {
-          amount: Number(updated.amount),
-          collectionMode: application.collectionMode,
-          correctiveLedgerTransactionId: correctionTransaction?.id ?? null,
-          priorStatus: application.status,
-          reason,
-        },
-        occurredAt: new Date(),
-      },
-    })
-
-    return updated
+/** waiveChargeApplication inside a caller's transaction (for example a monthly-record cancel). */
+export async function waiveChargeApplicationInTransaction(
+  input: {
+    actorUserId: string
+    chargeApplicationId: string
+    reason?: string
+    sourceType?: "backfill" | "import"
+    tenantId: string
+  },
+  tx: PrismaClient
+) {
+  const application = await tx.chargeApplication.findFirst({
+    where: { id: input.chargeApplicationId, tenantId: input.tenantId },
+    include: { chargeDefinition: true },
   })
+
+  if (!application)
+    throw ExpectedQueryError.notFound("Charge application not found")
+  if (!["pending", "posted"].includes(application.status))
+    throw ExpectedQueryError.conflict(
+      "Only pending or posted charge applications can be waived."
+    )
+
+  const reason = input.reason?.trim() || null
+
+  const claimed = await tx.chargeApplication.updateMany({
+    where: {
+      id: application.id,
+      tenantId: input.tenantId,
+      status: application.status,
+    },
+    data: { status: "waived" },
+  })
+  if (claimed.count !== 1) {
+    throw ExpectedQueryError.conflict(
+      "This charge application changed. Refresh before trying again."
+    )
+  }
+
+  const updated = await tx.chargeApplication.update({
+    where: { id: application.id },
+    data: {
+      status: "waived",
+      waivedAt: new Date(),
+    },
+  })
+
+  const correctionTransaction =
+    application.status === "posted"
+      ? await postChargeCorrection({
+          collectionMode: application.collectionMode,
+          isMonthlyLevy: application.chargeDefinition.isMonthlyLevy,
+          isShareCharge:
+            (application.chargeDefinition as any).purpose === "member_share",
+          isMobileAccessCharge:
+            application.chargeDefinition.code === mobileAccessChargeCode,
+          amount: Number(application.amount),
+          applicationId: application.id,
+          applicationName: application.chargeDefinition.name,
+          assessedAt: new Date(),
+          memberId: application.memberId,
+          sourceType: input.sourceType,
+          tenantId: input.tenantId,
+          tx: tx as unknown as PrismaClient,
+        })
+      : null
+
+  await tx.auditLog.create({
+    data: {
+      tenantId: input.tenantId,
+      actorUserId: input.actorUserId,
+      actorType: "user",
+      action: "charge.waived",
+      entityType: "ChargeApplication",
+      entityId: updated.id,
+      metadata: {
+        amount: Number(updated.amount),
+        collectionMode: application.collectionMode,
+        correctiveLedgerTransactionId: correctionTransaction?.id ?? null,
+        priorStatus: application.status,
+        reason,
+      },
+      occurredAt: new Date(),
+    },
+  })
+
+  return updated
 }
 
 export async function reverseChargeApplication(
@@ -2168,77 +2189,91 @@ export async function reverseChargeApplication(
     await assertLiveFinancialWritesOpen(input.tenantId, prisma)
   }
 
-  return prisma.$transaction(async (tx) => {
-    const application = await tx.chargeApplication.findFirst({
-      where: { id: input.chargeApplicationId, tenantId: input.tenantId },
-      include: { chargeDefinition: true },
-    })
+  return prisma.$transaction((tx) =>
+    reverseChargeApplicationInTransaction(input, tx as unknown as PrismaClient)
+  )
+}
 
-    if (!application)
-      throw ExpectedQueryError.notFound("Charge application not found")
-    if (application.status !== "posted")
-      throw ExpectedQueryError.conflict(
-        "Only posted charge applications can be reversed."
-      )
-
-    const claimed = await tx.chargeApplication.updateMany({
-      where: {
-        id: application.id,
-        tenantId: input.tenantId,
-        status: application.status,
-      },
-      data: { status: "reversed" },
-    })
-    if (claimed.count !== 1) {
-      throw ExpectedQueryError.conflict(
-        "This charge application changed. Refresh before trying again."
-      )
-    }
-
-    const updated = await tx.chargeApplication.update({
-      where: { id: application.id },
-      data: {
-        status: "reversed",
-      },
-    })
-
-    const reason = input.reason?.trim() || null
-    const correctionTransaction = await postChargeCorrection({
-      collectionMode: application.collectionMode,
-      isMonthlyLevy: application.chargeDefinition.isMonthlyLevy,
-      isShareCharge:
-        (application.chargeDefinition as any).purpose === "member_share",
-      isMobileAccessCharge:
-        application.chargeDefinition.code === mobileAccessChargeCode,
-      amount: Number(application.amount),
-      applicationId: application.id,
-      applicationName: application.chargeDefinition.name,
-      assessedAt: new Date(),
-      memberId: application.memberId,
-      sourceType: input.sourceType,
-      tenantId: input.tenantId,
-      tx: tx as unknown as PrismaClient,
-    })
-
-    await tx.auditLog.create({
-      data: {
-        tenantId: input.tenantId,
-        actorUserId: input.actorUserId,
-        actorType: "user",
-        action: "charge.reversed",
-        entityType: "ChargeApplication",
-        entityId: updated.id,
-        metadata: {
-          amount: Number(updated.amount),
-          collectionMode: application.collectionMode,
-          correctiveLedgerTransactionId: correctionTransaction.id,
-          priorStatus: application.status,
-          reason,
-        },
-        occurredAt: new Date(),
-      },
-    })
-
-    return updated
+/** reverseChargeApplication inside a caller's transaction (for example a monthly-record cancel). */
+export async function reverseChargeApplicationInTransaction(
+  input: {
+    actorUserId: string
+    chargeApplicationId: string
+    reason?: string
+    sourceType?: "backfill" | "import"
+    tenantId: string
+  },
+  tx: PrismaClient
+) {
+  const application = await tx.chargeApplication.findFirst({
+    where: { id: input.chargeApplicationId, tenantId: input.tenantId },
+    include: { chargeDefinition: true },
   })
+
+  if (!application)
+    throw ExpectedQueryError.notFound("Charge application not found")
+  if (application.status !== "posted")
+    throw ExpectedQueryError.conflict(
+      "Only posted charge applications can be reversed."
+    )
+
+  const claimed = await tx.chargeApplication.updateMany({
+    where: {
+      id: application.id,
+      tenantId: input.tenantId,
+      status: application.status,
+    },
+    data: { status: "reversed" },
+  })
+  if (claimed.count !== 1) {
+    throw ExpectedQueryError.conflict(
+      "This charge application changed. Refresh before trying again."
+    )
+  }
+
+  const updated = await tx.chargeApplication.update({
+    where: { id: application.id },
+    data: {
+      status: "reversed",
+    },
+  })
+
+  const reason = input.reason?.trim() || null
+  const correctionTransaction = await postChargeCorrection({
+    collectionMode: application.collectionMode,
+    isMonthlyLevy: application.chargeDefinition.isMonthlyLevy,
+    isShareCharge:
+      (application.chargeDefinition as any).purpose === "member_share",
+    isMobileAccessCharge:
+      application.chargeDefinition.code === mobileAccessChargeCode,
+    amount: Number(application.amount),
+    applicationId: application.id,
+    applicationName: application.chargeDefinition.name,
+    assessedAt: new Date(),
+    memberId: application.memberId,
+    sourceType: input.sourceType,
+    tenantId: input.tenantId,
+    tx: tx as unknown as PrismaClient,
+  })
+
+  await tx.auditLog.create({
+    data: {
+      tenantId: input.tenantId,
+      actorUserId: input.actorUserId,
+      actorType: "user",
+      action: "charge.reversed",
+      entityType: "ChargeApplication",
+      entityId: updated.id,
+      metadata: {
+        amount: Number(updated.amount),
+        collectionMode: application.collectionMode,
+        correctiveLedgerTransactionId: correctionTransaction.id,
+        priorStatus: application.status,
+        reason,
+      },
+      occurredAt: new Date(),
+    },
+  })
+
+  return updated
 }

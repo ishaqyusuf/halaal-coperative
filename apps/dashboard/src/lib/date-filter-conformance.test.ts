@@ -40,7 +40,8 @@ describe("GND rich date filter conformance", () => {
     const metadata = read("../../../../packages/db/src/filter-metadata.ts")
     const field = read("../components/search-filter/search-filter-field.tsx")
 
-    expect(metadata.match(/dateRangeFilter\("dateRange"/g)).toHaveLength(6)
+    // Repayments builds its list once (`repaymentFilters`), so 5 call sites.
+    expect(metadata.match(/dateRangeFilter\("dateRange"/g)).toHaveLength(5)
     expect(metadata).not.toContain('dateFilter("from"')
     expect(metadata).not.toContain('dateFilter("to"')
     expect(field).toContain("<DateRangeFilter")

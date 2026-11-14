@@ -91,14 +91,15 @@ describe("workflow presentation ownership", () => {
     const confirms = [
       ["charge-operation-content.tsx", 2], // CO5-7 (waive and undo share one confirm)
       ["contribution-content.tsx", 1], // CT9
-      ["forms/finance-forms.tsx", 3], // L4-L6
-      ["guarantor-approval-content.tsx", 1], // GA1
+      ["forms/loan-forms.tsx", 3], // L4-L6
+      ["sheets/guarantor-approval-sheet.tsx", 1], // GA1
       ["initial-migration-action-content.tsx", 1], // X18
       ["member-status-confirm.tsx", 1], // M2
       ["members/member-backfill-apply-form.tsx", 1], // X14
       ["members/member-backfill-content.tsx", 4], // X7-X9, X11, X12
       ["monthly-record-content.tsx", 3], // MR1, MR4, MR5
-      ["repayment-content.tsx", 1], // RP5
+      // RP5 (refresh) is gone; RP1's post confirm is an AlertDialog in
+      // forms/repayment-forms.tsx with its own Cancel and action.
     ] as const
 
     for (const [fileName, count] of confirms) {

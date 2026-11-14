@@ -123,9 +123,12 @@ export function ProjectFinancingSheet({
                   Try again
                 </Button>
               </div>
-            ) : (projectFinancingSheetType === "details" ||
-                projectFinancingSheetType === "review") &&
-              selectedRequest ? (
+            ) : selectedRequest &&
+              (projectFinancingSheetType === "details" ||
+                projectFinancingSheetType === "review" ||
+                // A payout can only be recorded once; otherwise show the request.
+                (projectFinancingSheetType === "disbursement" &&
+                  !(canReview && selectedRequest.status === "approved"))) ? (
               <ProjectFinancingRequestDetails
                 canReview={canReview}
                 onClose={closeSheet}

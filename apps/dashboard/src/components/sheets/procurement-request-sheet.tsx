@@ -106,9 +106,12 @@ export function ProcurementRequestSheet({
               <ProcurementRequestForm onClose={closeSheet} selfService />
             ) : shouldLoadSelectedRequest && isSelectedRequestLoading ? (
               <p className="text-base text-muted-foreground">Loading...</p>
-            ) : (procurementSheetType === "details" ||
-                procurementSheetType === "review") &&
-              selectedRequest ? (
+            ) : selectedRequest &&
+              (procurementSheetType === "details" ||
+                procurementSheetType === "review" ||
+                // A purchase can only be recorded once; otherwise show the request.
+                (procurementSheetType === "purchase" &&
+                  !(canReview && selectedRequest.status === "approved"))) ? (
               <ProcurementRequestDetails
                 canReview={canReview}
                 onClose={closeSheet}

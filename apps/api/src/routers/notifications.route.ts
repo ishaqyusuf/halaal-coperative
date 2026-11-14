@@ -1,120 +1,117 @@
 import {
-  countAuditLogs,
-  listAuditLogs,
-  listNotificationPreferences,
+  countNotificationDeliveriesByStatus,
+  listNotificationDeliveries,
+  listStaffNotificationSettings,
+  upsertNotificationPreference,
 } from "@halaalvest/db"
-import { createHalaalVestNotificationFromType } from "@halaalvest/notifications"
+import { TRPCError } from "@trpc/server"
 
 import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
-import { listNotificationDeliveriesSchema } from "../schemas/notifications"
+import {
+  staffEmailRoleList,
+  staffEmailRoles,
+  workspaceSettingsRoles,
+} from "../lib/staff-email-settings"
+import {
+  listNotificationDeliveriesSchema,
+  setStaffEmailSettingSchema,
+} from "../schemas/notifications"
 
-function getMetadataString(metadata: unknown, key: string) {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
-    return null
+type NotificationsContext = {
+  auth: {
+    activeMembership: { role: string }
+    session: { user: { email: string } }
   }
-
-  const value = (metadata as Record<string, unknown>)[key]
-
-  return typeof value === "string" ? value : null
 }
 
-function getDeliveryStatus(action: string) {
-  if (action === "notification.email_sent") return "sent"
-  if (action === "notification.email_failed") return "failed"
-  if (action === "notification.email_queued") return "queued"
-
-  return "unknown"
+// Staff see every email the cooperative sent. A member sees only the emails
+// sent to them, because the log holds other people's addresses.
+function getRecipientScope(ctx: NotificationsContext) {
+  return ctx.auth.activeMembership.role === "member"
+    ? ctx.auth.session.user.email
+    : null
 }
 
-function getDeliverySort(
-  sort?:
-    | [
-        "createdAt" | "notificationType" | "recipient" | "status" | "subject",
-        "asc" | "desc",
-      ]
-    | null
-): ["action" | "occurredAt", "asc" | "desc"] {
-  if (!sort) return ["occurredAt", "desc"]
-
-  const [field, direction] = sort
-
-  if (field === "createdAt") return ["occurredAt", direction]
-  if (field === "status") return ["action", direction]
-
-  return ["occurredAt", "desc"]
+function assertCanManageEmailSettings(ctx: NotificationsContext) {
+  if (
+    !workspaceSettingsRoles.includes(
+      ctx.auth.activeMembership.role as (typeof workspaceSettingsRoles)[number]
+    )
+  ) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Only a cooperative admin can change email settings.",
+    })
+  }
 }
 
 export const notificationsRouter = createTRPCRouter({
   deliveryHistory: tenantProcedure
     .input(listNotificationDeliveriesSchema)
     .query(async ({ ctx, input }) => {
-      const pageSize = input?.pageSize ?? 50
-      const action =
-        input?.status === "queued" ||
-        input?.status === "sent" ||
-        input?.status === "failed"
-          ? `notification.email_${input.status}`
-          : "notification.email"
-      const baseFilters = {
-        action,
-        cursor: input?.cursor ?? undefined,
-        limit: pageSize + 1,
-        search: input?.q || undefined,
-        sort: getDeliverySort(input?.sort),
-      }
-      const [logs, total, preferences] = await Promise.all([
-        listAuditLogs(ctx.tenant.current.id, baseFilters),
-        countAuditLogs(ctx.tenant.current.id, {
-          ...baseFilters,
-          cursor: undefined,
-        }),
-        listNotificationPreferences(ctx.tenant.current.id),
-      ])
-      const filteredLogs = input?.type
-        ? logs.filter(
-            (entry) =>
-              getMetadataString(entry.metadata, "notificationType") ===
-              input.type
-          )
-        : logs
-      const data = filteredLogs.slice(0, pageSize).map((entry) => ({
-        action: entry.action,
-        deliveryStatus: getDeliveryStatus(entry.action),
-        id: entry.id,
-        notificationType:
-          getMetadataString(entry.metadata, "notificationType") ??
-          "notification.email",
-        occurredAt: entry.occurredAt,
-        recipient:
-          getMetadataString(entry.metadata, "recipient") ?? "Unknown recipient",
-      }))
+      const page = await listNotificationDeliveries(ctx.tenant.current.id, {
+        cursor: input?.cursor,
+        pageSize: input?.pageSize ?? 25,
+        recipient: getRecipientScope(ctx),
+        search: input?.q,
+        status: input?.status,
+        type: input?.type,
+      })
 
       return {
-        data,
-        meta: {
-          cursor: filteredLogs.length > pageSize ? data.at(-1)?.id : undefined,
-          preferenceCount: preferences.length,
-          total,
-        },
+        data: page.data,
+        meta: { cursor: page.nextCursor ?? undefined },
       }
     }),
 
-  list: tenantProcedure.query(({ ctx }) => {
-    return [
-      createHalaalVestNotificationFromType("member.status_changed", {
-        memberId: "sample-member",
-        memberName: "Amina Yusuf",
-        status: "active",
-        tenantName: ctx.tenant.current.name,
-      }),
-      createHalaalVestNotificationFromType("loan.request_status_changed", {
-        amount: 250000,
-        loanRequestId: "sample-loan-request",
-        memberName: "Amina Yusuf",
-        status: "under_review",
-        tenantName: ctx.tenant.current.name,
-        tenantSlug: ctx.tenant.current.slug,
-      }),
-    ]
+  /** Sent, waiting and failed totals over every page, in one read. */
+  summary: tenantProcedure.query(({ ctx }) => {
+    return countNotificationDeliveriesByStatus(ctx.tenant.current.id, {
+      recipient: getRecipientScope(ctx),
+    })
   }),
+
+  staffEmailSettings: tenantProcedure.query(({ ctx }) => {
+    assertCanManageEmailSettings(ctx)
+
+    return listStaffNotificationSettings(ctx.tenant.current.id, {
+      notificationTypes: Object.keys(staffEmailRoles),
+      roles: staffEmailRoleList,
+    }).then((settings) =>
+      settings.map((setting) => ({
+        notificationType: setting.notificationType,
+        roles: setting.roles.filter((role) =>
+          staffEmailRoles[setting.notificationType]?.includes(
+            role.role as (typeof staffEmailRoleList)[number]
+          )
+        ),
+      }))
+    )
+  }),
+
+  setStaffEmailSetting: tenantProcedure
+    .input(setStaffEmailSettingSchema)
+    .mutation(async ({ ctx, input }) => {
+      assertCanManageEmailSettings(ctx)
+
+      const roles = staffEmailRoles[input.notificationType]
+
+      if (!roles?.includes(input.role as (typeof staffEmailRoleList)[number])) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This email is not sent to that role.",
+        })
+      }
+
+      await upsertNotificationPreference({
+        actorUserId: ctx.auth.session.user.id,
+        channel: "email",
+        enabled: input.enabled,
+        notificationType: input.notificationType,
+        role: input.role,
+        tenantId: ctx.tenant.current.id,
+      })
+
+      return { enabled: input.enabled }
+    }),
 })

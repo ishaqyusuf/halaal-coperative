@@ -131,7 +131,7 @@ export const workflowPresentations = {
     workplaces: dialog("form"),
   },
   notificationPreference: {
-    edit: dialog("compact"),
+    settings: sheet("form"),
   },
   operationProfile: {
     edit: dialog("form"),

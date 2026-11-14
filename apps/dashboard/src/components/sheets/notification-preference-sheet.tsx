@@ -1,18 +1,16 @@
 "use client"
 
 import { Suspense } from "react"
-import { NotificationPreferenceContent } from "@/components/notification-preference-content"
 import { NotificationPreferenceSheetHeader } from "@/components/notification-preference-sheet-header"
+import { EmailSettingsContent } from "@/components/notifications/email-settings-content"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useNotificationPreferenceParams } from "@/hooks/use-notification-preference-params"
 import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
+/** Staff email settings, opened by `?emailSettings=true` from /notifications. */
 export function NotificationPreferenceSheet() {
-  const {
-    notificationPreferenceType,
-    setParams,
-  } = useNotificationPreferenceParams()
-  const isOpen = Boolean(notificationPreferenceType)
+  const { emailSettings, setParams } = useNotificationPreferenceParams()
+  const isOpen = emailSettings === true
 
   const handleOnOpenChange = (open: boolean) => {
     if (open) {
@@ -24,22 +22,22 @@ export function NotificationPreferenceSheet() {
 
   return (
     <WorkflowPresentation
-      config={getWorkflowPresentation("notificationPreference", "edit")}
+      config={getWorkflowPresentation("notificationPreference", "settings")}
       open={isOpen}
       onOpenChange={handleOnOpenChange}
     >
-        {isOpen ? (
+      {isOpen ? (
+        <>
+          <NotificationPreferenceSheetHeader />
           <Suspense
             fallback={
-              <div className="px-6 text-sm text-muted-foreground">
-                Loading notification preference...
-              </div>
+              <p className="px-6 text-base text-muted-foreground">Loading…</p>
             }
           >
-            <NotificationPreferenceSheetHeader />
-            <NotificationPreferenceContent />
+            <EmailSettingsContent />
           </Suspense>
-        ) : null}
+        </>
+      ) : null}
     </WorkflowPresentation>
   )
 }

@@ -1,10 +1,9 @@
 import { useQueryStates } from "nuqs"
-import { createLoader, parseAsString } from "nuqs/server"
+import { createLoader, parseAsBoolean } from "nuqs/server"
 
+/** Opens the staff email settings sheet (`?emailSettings=true`). */
 export const notificationPreferenceParamsSchema = {
-  notificationPreferenceEnabled: parseAsString,
-  notificationPreferenceRole: parseAsString,
-  notificationPreferenceType: parseAsString,
+  emailSettings: parseAsBoolean,
 }
 
 export function useNotificationPreferenceParams() {

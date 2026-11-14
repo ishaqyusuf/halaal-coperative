@@ -72,7 +72,6 @@ describe("dashboard table polling conformance", () => {
   const tables = [
     "audit",
     "charges",
-    "notifications",
     "shares",
   ]
 
@@ -99,5 +98,17 @@ describe("monthly records rows", () => {
       "utf8"
     )
     expect(source).not.toContain("refetchInterval")
+  })
+})
+
+describe("notifications list", () => {
+  test("does not poll: the email log refreshes on focus and on filter change", () => {
+    const source = readFileSync(
+      join(import.meta.dir, "../components/notifications/notification-list.tsx"),
+      "utf8"
+    )
+
+    expect(source).not.toContain("refetchInterval")
+    expect(source).toContain("useSuspenseInfiniteQuery")
   })
 })

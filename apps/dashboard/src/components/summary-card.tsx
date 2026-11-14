@@ -7,6 +7,8 @@ import { ChevronRight } from "lucide-react"
 export type SummaryCardTone = "default" | "good" | "attention"
 
 type SummaryCardProps = {
+  /** Three in a row on phones: smaller number, no detail line below `sm`. */
+  compact?: boolean
   /** Short plain line under the number. */
   detail?: string
   label: string
@@ -25,12 +27,13 @@ const toneBar: Record<SummaryCardTone, string> = {
 }
 
 function SummaryCardBody({
+  compact = false,
   detail,
   interactive,
   label,
   tone = "default",
   value,
-}: Pick<SummaryCardProps, "detail" | "label" | "tone" | "value"> & {
+}: Pick<SummaryCardProps, "compact" | "detail" | "label" | "tone" | "value"> & {
   interactive: boolean
 }) {
   return (
@@ -40,21 +43,38 @@ function SummaryCardBody({
         {interactive ? (
           <ChevronRight
             aria-hidden="true"
-            className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+            className={cn(
+              "size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5",
+              compact && "hidden sm:block"
+            )}
           />
         ) : null}
       </span>
-      <span className="mt-2 block font-[family-name:var(--font-display)] text-3xl font-semibold text-foreground tabular-nums">
+      <span
+        className={cn(
+          "mt-2 block font-[family-name:var(--font-display)] font-semibold text-foreground tabular-nums",
+          compact ? "text-2xl sm:text-3xl" : "text-3xl"
+        )}
+      >
         {value}
       </span>
       {detail ? (
-        <span className="mt-1 block text-base text-muted-foreground">
+        <span
+          className={cn(
+            "mt-1 text-base text-muted-foreground",
+            compact ? "hidden sm:block" : "block"
+          )}
+        >
           {detail}
         </span>
       ) : null}
       <span
         aria-hidden="true"
-        className={cn("mt-4 block h-1 w-10 rounded-full", toneBar[tone])}
+        className={cn(
+          "block h-1 w-10 rounded-full",
+          compact ? "mt-3 sm:mt-4" : "mt-4",
+          toneBar[tone]
+        )}
       />
     </>
   )
@@ -62,6 +82,7 @@ function SummaryCardBody({
 
 const cardClassName =
   "group flex h-full min-h-[132px] w-full flex-col rounded-(--ui-radius-surface) border border-border bg-card p-5 text-left"
+const compactClassName = "min-h-0 p-3 sm:min-h-[132px] sm:p-5"
 const interactiveClassName =
   "transition-colors hover:border-foreground/30 hover:bg-muted focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
 
@@ -72,6 +93,7 @@ const interactiveClassName =
 export function SummaryCard(props: SummaryCardProps) {
   const body = (
     <SummaryCardBody
+      compact={props.compact}
       detail={props.detail}
       interactive={Boolean(props.href || props.onClick)}
       label={props.label}
@@ -83,7 +105,11 @@ export function SummaryCard(props: SummaryCardProps) {
   if (props.href) {
     return (
       <Link
-        className={cn(cardClassName, interactiveClassName)}
+        className={cn(
+          cardClassName,
+          interactiveClassName,
+          props.compact && compactClassName
+        )}
         href={props.href}
       >
         {body}
@@ -98,6 +124,7 @@ export function SummaryCard(props: SummaryCardProps) {
         className={cn(
           cardClassName,
           interactiveClassName,
+          props.compact && compactClassName,
           props.selected && "border-primary ring-1 ring-primary"
         )}
         onClick={props.onClick}
@@ -108,7 +135,11 @@ export function SummaryCard(props: SummaryCardProps) {
     )
   }
 
-  return <div className={cardClassName}>{body}</div>
+  return (
+    <div className={cn(cardClassName, props.compact && compactClassName)}>
+      {body}
+    </div>
+  )
 }
 
 export function SummaryCardSkeleton() {

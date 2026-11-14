@@ -702,14 +702,27 @@ export async function workOutProfitSeasonShares(
   })
 
   for (const entry of entries) {
-    await generateShareProfitAllocations(
-      {
-        actorUserId: input.actorUserId,
-        profitEntryId: entry.id,
-        tenantId: input.tenantId,
-      },
-      prisma
-    )
+    try {
+      await generateShareProfitAllocations(
+        {
+          actorUserId: input.actorUserId,
+          profitEntryId: entry.id,
+          tenantId: input.tenantId,
+        },
+        prisma
+      )
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("No member share balances")
+      ) {
+        throw ExpectedQueryError.precondition(
+          "No member had share capital on the profit date, so there is no one to share it with yet."
+        )
+      }
+
+      throw error
+    }
   }
 
   return { profitCount: entries.length }

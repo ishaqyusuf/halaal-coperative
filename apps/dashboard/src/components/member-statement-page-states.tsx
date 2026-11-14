@@ -8,13 +8,13 @@ import {
 export function MemberStatementUnavailableView() {
   return (
     <WorkspacePageShell
-      description="Member balances and posted ledger evidence are available when the database runtime is active."
+      description="The statement can't load right now."
       eyebrow="Members"
-      title="Member statement"
+      title="Statement"
     >
       <WorkspaceEmptyState
-        body="Once the database-backed environment is active, this route will show the printable statement for the selected member."
-        title="Member statements need the database runtime."
+        body="Try again in a moment."
+        title="The statement is not available."
       />
     </WorkspacePageShell>
   )

@@ -10,35 +10,25 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@halaalvest/ui/components/sheet"
-import { useMemberDetailParams } from "@/hooks/use-member-detail-params"
+import {
+  type MemberDetailSheetType,
+  useMemberDetailParams,
+} from "@/hooks/use-member-detail-params"
 
-const sheetCopy = {
+const sheetCopy: Record<
+  MemberDetailSheetType,
+  { description?: string; title: string }
+> = {
   commitment: {
-    description:
-      "Save a dated monthly commitment update for this member without leaving the detail workspace.",
-    title: "New commitment version",
+    description: "The new amount starts from the date you choose.",
+    title: "Change monthly savings",
   },
-  document: {
-    description:
-      "Attach a supporting KYC or compliance document to this member profile.",
-    title: "Attach supporting document",
-  },
-  "document-review": {
-    description:
-      "Update the review status and notes for this supporting document.",
-    title: "Review supporting document",
-  },
-  kyc: {
-    description:
-      "Update the member's KYC status, identity fields, and review notes.",
-    title: "Update KYC details",
-  },
-  "portal-access": {
-    description:
-      "Send a portal access email so this member can set a password and sign in.",
-    title: "Send portal access",
-  },
-} as const
+  document: { title: "Add a document" },
+  "document-review": { title: "Check document" },
+  edit: { title: "Edit details" },
+  kyc: { title: "Update KYC" },
+  "portal-access": { title: "Send sign-in email" },
+}
 
 export function MemberDetailSheetHeader({
   presentation,
@@ -48,16 +38,15 @@ export function MemberDetailSheetHeader({
   const { memberDetailSheetType } = useMemberDetailParams()
   const copy = memberDetailSheetType
     ? sheetCopy[memberDetailSheetType]
-    : {
-        description: "Choose a member action to continue.",
-        title: "Member action",
-      }
+    : { description: undefined, title: "Member" }
 
   if (presentation === "dialog") {
     return (
       <DialogHeader>
         <DialogTitle>{copy.title}</DialogTitle>
-        <DialogDescription>{copy.description}</DialogDescription>
+        {copy.description ? (
+          <DialogDescription>{copy.description}</DialogDescription>
+        ) : null}
       </DialogHeader>
     )
   }
@@ -65,7 +54,9 @@ export function MemberDetailSheetHeader({
   return (
     <SheetHeader>
       <SheetTitle>{copy.title}</SheetTitle>
-      <SheetDescription>{copy.description}</SheetDescription>
+      {copy.description ? (
+        <SheetDescription>{copy.description}</SheetDescription>
+      ) : null}
     </SheetHeader>
   )
 }

@@ -6,12 +6,15 @@ import {
   FilePlus2Icon,
   IdCardIcon,
   KeyRoundIcon,
+  PencilIcon,
   WalletCardsIcon,
 } from "lucide-react"
 import {
   type MemberDetailSheetType,
   useMemberDetailParams,
 } from "@/hooks/use-member-detail-params"
+import { useMemberParams } from "@/hooks/use-member-params"
+import { getMemberStatusChangeCopy } from "@/lib/members/member-status-words"
 
 function useOpenMemberDetailSheet() {
   const { setParams } = useMemberDetailParams()
@@ -33,7 +36,7 @@ export function OpenMemberDetailPortalAccessSheet() {
       variant="outline"
     >
       <KeyRoundIcon data-icon="inline-start" />
-      Portal access
+      Send sign-in email
     </Button>
   )
 }
@@ -48,18 +51,60 @@ export function OpenMemberDetailCommitmentSheet() {
       variant="outline"
     >
       <WalletCardsIcon data-icon="inline-start" />
-      New commitment
+      Change
     </Button>
   )
 }
 
-export function OpenMemberDetailKycSheet() {
+export function OpenMemberDetailKycSheet({
+  label = "Update KYC",
+}: {
+  label?: string
+}) {
   const openSheet = useOpenMemberDetailSheet()
 
   return (
     <Button onClick={() => openSheet("kyc")} type="button" variant="outline">
       <IdCardIcon data-icon="inline-start" />
-      Update KYC
+      {label}
+    </Button>
+  )
+}
+
+export function OpenMemberDetailEditSheet() {
+  const openSheet = useOpenMemberDetailSheet()
+
+  return (
+    <Button onClick={() => openSheet("edit")} type="button" variant="outline">
+      <PencilIcon data-icon="inline-start" />
+      Edit details
+    </Button>
+  )
+}
+
+/** Opens the status AlertDialog (`memberSheetType=status`). */
+export function OpenMemberStatusDialog({
+  memberId,
+  status,
+}: {
+  memberId: string
+  status: "active" | "inactive" | "suspended"
+}) {
+  const { setParams } = useMemberParams()
+
+  return (
+    <Button
+      onClick={() =>
+        setParams({
+          memberSheetType: "status",
+          selectedMemberId: memberId,
+          selectedMemberStatus: status,
+        })
+      }
+      type="button"
+      variant="outline"
+    >
+      {getMemberStatusChangeCopy(status).action}
     </Button>
   )
 }
@@ -74,7 +119,7 @@ export function OpenMemberDetailDocumentSheet() {
       variant="outline"
     >
       <FilePlus2Icon data-icon="inline-start" />
-      Attach document
+      Add document
     </Button>
   )
 }
@@ -89,12 +134,11 @@ export function OpenMemberDetailDocumentReviewSheet({
   return (
     <Button
       onClick={() => openSheet("document-review", documentId)}
-      size="sm"
       type="button"
       variant="outline"
     >
       <FileCheck2Icon data-icon="inline-start" />
-      Review document
+      Check
     </Button>
   )
 }

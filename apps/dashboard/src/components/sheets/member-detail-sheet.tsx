@@ -2,7 +2,10 @@
 
 import { Suspense } from "react"
 import { useRouter } from "next/navigation"
-import { MemberDetailContent } from "@/components/member-detail-content"
+import {
+  MemberDetailContent,
+  type MemberDetailMember,
+} from "@/components/member-detail-content"
 import { MemberDetailSheetHeader } from "@/components/member-detail-sheet-header"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useMemberDetailParams } from "@/hooks/use-member-detail-params"
@@ -14,27 +17,19 @@ type MemberDetailDocument = {
   reviewStatus: string
 }
 
-type MemberDetailMember = {
-  governmentIdNumber?: string | null
-  id: string
-  joinedAt: Date | string
-  kycDocumentType?: string | null
-  kycDocumentUrl?: string | null
-  kycReviewNotes?: string | null
-  kycStatus: "not_started" | "pending" | "verified" | "rejected"
-}
-
 type ActiveCommitmentPlan = {
   amount: number | string
 } | null
 
 export function MemberDetailSheet({
   activePlan,
+  canChangeWorkplace,
   devMode,
   documents,
   member,
 }: {
   activePlan: ActiveCommitmentPlan
+  canChangeWorkplace: boolean
   devMode: boolean
   documents: MemberDetailDocument[]
   member: MemberDetailMember
@@ -68,9 +63,7 @@ export function MemberDetailSheet({
       {isOpen ? (
         <Suspense
           fallback={
-            <div className="px-6 text-sm text-muted-foreground">
-              Loading member action...
-            </div>
+            <div className="px-6 text-sm text-muted-foreground">Loading...</div>
           }
         >
           <MemberDetailSheetHeader
@@ -80,6 +73,7 @@ export function MemberDetailSheet({
           />
           <MemberDetailContent
             activePlan={activePlan}
+            canChangeWorkplace={canChangeWorkplace}
             devMode={devMode}
             documents={documents}
             member={member}

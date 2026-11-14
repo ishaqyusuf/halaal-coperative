@@ -217,7 +217,7 @@ function renderHeaderContent<TData>(
           <SortButton
             currentSortColumn={sortColumn}
             currentSortValue={sortValue}
-            label="Member"
+            label="Name"
             onSort={createSortQuery}
             sortField="fullName"
           />
@@ -291,12 +291,11 @@ function getHeaderLabel(columnId: string): string {
   const labels: Record<string, string> = {
     actions: "Actions",
     joined: "Joined",
-    kyc: "KYC",
-    member: "Member",
-    migrationSetupStatus: "Migration setup status",
-    number: "# / Joined",
-    status: "Member status",
-    type: "Type",
+    member: "Name",
+    monthly: "Monthly savings",
+    number: "Member no.",
+    status: "Status",
+    workplace: "Workplace",
   }
 
   return labels[columnId] || columnId

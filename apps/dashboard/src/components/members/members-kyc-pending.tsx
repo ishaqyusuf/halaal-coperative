@@ -7,8 +7,7 @@ export function MembersKycPending({
 }) {
   return (
     <MembersSummaryCard
-      detail="Members still needing KYC attention."
-      label="KYC attention"
+      label="Need KYC"
       tone={kycPendingCount ? "warning" : "positive"}
       value={kycPendingCount.toString()}
     />

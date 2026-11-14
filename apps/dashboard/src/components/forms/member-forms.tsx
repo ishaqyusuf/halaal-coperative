@@ -1,9 +1,8 @@
 "use client"
 
 import { type ComponentProps, useTransition } from "react"
+import type { Control, FieldValues, Path } from "react-hook-form"
 import { z } from "zod"
-import { Tick02Icon } from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { useTenantRouter } from "@halaalvest/tenant-url/next"
 import { useQueryClient } from "@tanstack/react-query"
@@ -50,9 +49,11 @@ import {
   createMemberDocumentAction,
   sendMemberPortalAccessEmailAction,
   setMemberContributionPlanAction,
+  updateMemberAction,
   updateMemberDocumentReviewAction,
   updateMemberKycAction,
 } from "@/lib/dashboard-actions"
+import { formatDayMonthYear } from "@/utils/format"
 import { useTRPC } from "@/trpc/client"
 
 function CurrencyFormInput({
@@ -89,9 +90,11 @@ const memberPortalAccessSchema = z.object({
 type MemberPortalAccessValues = z.infer<typeof memberPortalAccessSchema>
 
 export function MemberPortalAccessForm({
+  email,
   memberId,
   onSuccess,
 }: {
+  email?: string | null
   memberId: string
   onSuccess?: () => void
 }) {
@@ -108,8 +111,8 @@ export function MemberPortalAccessForm({
       try {
         await sendMemberPortalAccessEmailAction(objectToFormData(values))
         showSuccess(
-          "Portal access sent",
-          "The member can use the email link to set their password."
+          "Email sent",
+          "The member can use the link to set a password."
         )
         onSuccess?.()
       } catch (error) {
@@ -123,15 +126,34 @@ export function MemberPortalAccessForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)}>
+      <form
+        className="flex flex-col gap-5"
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
         <FormField
           control={form.control}
           name="memberId"
           render={({ field }) => <input type="hidden" {...field} />}
         />
-        <Button disabled={isPending} type="submit" variant="outline">
-          Send portal access
-        </Button>
+        <p className="text-sm leading-6 text-foreground">
+          {email ? (
+            <>
+              We will email <strong className="break-all">{email}</strong> a
+              link to set a password.
+            </>
+          ) : (
+            "This member has no email yet. Add one with Edit details first."
+          )}
+        </p>
+        <div className="flex justify-end">
+          <Button
+            className="w-full sm:w-auto"
+            disabled={isPending || !email}
+            type="submit"
+          >
+            {isPending ? "Sending..." : "Send email"}
+          </Button>
+        </div>
       </form>
     </Form>
   )
@@ -282,11 +304,11 @@ export function MemberCommitmentForm({
     startTransition(async () => {
       try {
         await setMemberContributionPlanAction(objectToFormData(values))
-        showSuccess("Commitment saved", "Monthly commitment history updated.")
+        showSuccess("Monthly savings saved", "The new amount is on record.")
         onSuccess?.()
       } catch (error) {
         showError(
-          "Could not save commitment",
+          "Could not save monthly savings",
           error instanceof Error ? error.message : "Something went wrong."
         )
       }
@@ -306,7 +328,7 @@ export function MemberCommitmentForm({
             })
           }
         />
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px_auto]">
+        <div className="grid gap-4 sm:grid-cols-2">
           <FormField
             control={form.control}
             name="amount"
@@ -314,7 +336,7 @@ export function MemberCommitmentForm({
               <FormItem>
                 <FormLabel>Monthly amount</FormLabel>
                 <FormControl>
-                  <CurrencyFormInput {...field} placeholder="25000" />
+                  <CurrencyFormInput {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -325,32 +347,78 @@ export function MemberCommitmentForm({
             name="startsAt"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Starts</FormLabel>
+                <FormLabel>From</FormLabel>
                 <FormControl>
                   <DatePickerInput
                     {...field}
                     allowClear={false}
-                    placeholder="Select start date"
+                    placeholder="Pick a date"
                   />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-          <div className="flex items-end">
-            <Button
-              aria-label="Save dated commitment update"
-              className="size-10 shrink-0 rounded-full p-0"
-              disabled={isPending}
-              type="submit"
-              variant="outline"
-            >
-              <HugeiconsIcon icon={Tick02Icon} size={16} />
-            </Button>
-          </div>
+        </div>
+        <div className="flex justify-end">
+          <Button
+            className="w-full sm:w-auto"
+            disabled={isPending}
+            type="submit"
+          >
+            {isPending ? "Saving..." : "Save"}
+          </Button>
         </div>
       </form>
     </Form>
+  )
+}
+
+function WorkplaceSelectField<TValues extends FieldValues>({
+  control,
+  options,
+}: {
+  control: Control<TValues>
+  options: SelectFormInputOption[]
+}) {
+  return (
+    <FormField
+      control={control}
+      name={"deductionSourceId" as Path<TValues>}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>Workplace</FormLabel>
+          <FormControl>
+            <SelectFormInput
+              {...field}
+              options={[{ label: "None", value: "none" }, ...options]}
+              placeholder="Choose a workplace"
+            />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  )
+}
+
+/** Optional profile fields, folded away so the create form stays short. */
+function MoreMemberDetails({ children }: { children: React.ReactNode }) {
+  return (
+    <details className="group rounded-lg border border-border/70">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-medium text-foreground">
+        More details (optional)
+        <span
+          aria-hidden
+          className="text-muted-foreground transition-transform group-open:rotate-180"
+        >
+          ▾
+        </span>
+      </summary>
+      <div className="grid gap-4 border-t border-border/70 p-4 sm:grid-cols-2">
+        {children}
+      </div>
+    </details>
   )
 }
 
@@ -359,7 +427,6 @@ export function MemberCreateForm({
   collectionSourceOptions = [],
   cooperativeStartDate,
   devMode,
-  inSheet = false,
   initialValues,
   memberNumberPrefix,
   onSuccess,
@@ -373,19 +440,20 @@ export function MemberCreateForm({
   memberNumberPrefix?: string | null
   onSuccess?: (member: CreatedMemberSummary) => void
 }) {
+  const emptyValues: MemberCreateValues = {
+    address: "",
+    deductionSourceId: "none",
+    email: "",
+    fullName: "",
+    joinedAt: "",
+    monthlyCommitment: "",
+    memberNumber: "",
+    memberType: "individual",
+    occupation: "",
+    phoneNumber: "",
+  }
   const form = useZodForm<MemberCreateValues>(memberCreateSchema, {
-    defaultValues: {
-      address: initialValues?.address ?? "",
-      deductionSourceId: initialValues?.deductionSourceId ?? "none",
-      email: initialValues?.email ?? "",
-      fullName: initialValues?.fullName ?? "",
-      joinedAt: initialValues?.joinedAt ?? "",
-      monthlyCommitment: initialValues?.monthlyCommitment ?? "",
-      memberNumber: initialValues?.memberNumber ?? "",
-      memberType: initialValues?.memberType ?? "individual",
-      occupation: initialValues?.occupation ?? "",
-      phoneNumber: initialValues?.phoneNumber ?? "",
-    },
+    defaultValues: { ...emptyValues, ...initialValues },
   })
   const { showError, showSuccess } = useNotifications()
   const queryClient = useQueryClient()
@@ -396,7 +464,7 @@ export function MemberCreateForm({
   function onSubmit(values: MemberCreateValues) {
     if (isBeforeCooperativeStartDate(values.joinedAt, cooperativeStartDate)) {
       form.setError("joinedAt", {
-        message: `Joined date cannot be before the cooperative start date (${cooperativeStartDate}).`,
+        message: `Joined date can't be before the cooperative started (${formatDayMonthYear(cooperativeStartDate)}).`,
         type: "manual",
       })
       return
@@ -404,28 +472,15 @@ export function MemberCreateForm({
 
     startTransition(async () => {
       try {
-        const formData = objectToFormData(values)
-
         const createdMember = (await createMemberAction(
-          formData
+          objectToFormData(values)
         )) as CreatedMemberSummary
         await queryClient.invalidateQueries(
           trpc.members.list.infiniteQueryFilter()
         )
         router.refresh()
-        showSuccess("Member added", "Member record created.")
-        form.reset({
-          address: "",
-          deductionSourceId: "none",
-          email: "",
-          fullName: "",
-          joinedAt: "",
-          monthlyCommitment: "",
-          memberNumber: "",
-          memberType: "individual",
-          occupation: "",
-          phoneNumber: "",
-        })
+        showSuccess("Member added", `${values.fullName} is now a member.`)
+        form.reset(emptyValues)
         onSuccess?.(createdMember)
       } catch (error) {
         showError(
@@ -439,86 +494,53 @@ export function MemberCreateForm({
   return (
     <Form {...form}>
       <form
-        className={
-          inSheet
-            ? "mt-6 flex flex-col gap-4"
-            : "grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-2 xl:grid-cols-5"
-        }
+        className="flex flex-col gap-5"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        {inSheet ? (
-          devMode ? (
-            <div className="flex justify-end">
-              <DashboardQuickFill
-                form={form}
-                onFill={({ emailDomain }) =>
-                  applyDashboardDevFormFill(form, "member_create", undefined, {
-                    emailDomain,
-                  })
-                }
-              />
-            </div>
-          ) : null
-        ) : (
-          <div className="flex items-start justify-between gap-4 xl:col-span-5">
-            <div>
-              <h3 className="text-lg font-semibold text-foreground">
-                New member
-              </h3>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                Capture the member profile, joined date, and starting
-                commitment.
-              </p>
-            </div>
-            {devMode ? (
-              <DashboardQuickFill
-                form={form}
-                onFill={({ emailDomain }) =>
-                  applyDashboardDevFormFill(form, "member_create", undefined, {
-                    emailDomain,
-                  })
-                }
-              />
-            ) : null}
+        {devMode ? (
+          <div className="flex justify-end">
+            <DashboardQuickFill
+              form={form}
+              onFill={({ emailDomain }) =>
+                applyDashboardDevFormFill(form, "member_create", undefined, {
+                  emailDomain,
+                })
+              }
+            />
           </div>
-        )}
+        ) : null}
 
-        <div
-          className={
-            inSheet
-              ? "grid gap-4 sm:grid-cols-4"
-              : "grid gap-4 md:grid-cols-2 xl:col-span-5 xl:grid-cols-5"
-          }
-        >
-          <FormField
-            control={form.control}
-            name="fullName"
-            render={({ field }) => (
-              <FormItem className={inSheet ? "sm:col-span-3" : "xl:col-span-2"}>
-                <FormLabel>Full name</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="Amina Yusuf" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <FormField
+          control={form.control}
+          name="fullName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Full name</FormLabel>
+              <FormControl>
+                <Input {...field} autoComplete="off" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid gap-4 sm:grid-cols-2">
           <FormField
             control={form.control}
             name="memberNumber"
             render={({ field }) => (
-              <FormItem className={inSheet ? "sm:col-span-1" : undefined}>
-                <FormLabel>Member No.</FormLabel>
+              <FormItem>
+                <FormLabel>Member number</FormLabel>
                 <FormControl>
                   {memberNumberPrefix ? (
                     <InputGroup>
                       <InputGroupAddon align="inline-start">
                         <InputGroupText>{memberNumberPrefix}</InputGroupText>
                       </InputGroupAddon>
-                      <InputGroupInput {...field} placeholder="1024" />
+                      <InputGroupInput {...field} inputMode="numeric" />
                     </InputGroup>
                   ) : (
-                    <Input {...field} placeholder="1024" />
+                    <Input {...field} />
                   )}
                 </FormControl>
                 <FormMessage />
@@ -527,58 +549,16 @@ export function MemberCreateForm({
           />
           <FormField
             control={form.control}
-            name="memberType"
-            render={({ field }) => (
-              <FormItem className={inSheet ? "sm:col-span-2" : undefined}>
-                <FormLabel>Member type</FormLabel>
-                <FormControl>
-                  <SelectFormInput
-                    {...field}
-                    options={memberTypeOptions}
-                    placeholder="Select member type"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          {canManageCollectionSources ? (
-            <FormField
-              control={form.control}
-              name="deductionSourceId"
-              render={({ field }) => (
-                <FormItem className={inSheet ? "sm:col-span-2" : undefined}>
-                  <FormLabel>Workplace</FormLabel>
-                  <FormControl>
-                    <SelectFormInput
-                      {...field}
-                      options={[
-                        { label: "None", value: "none" },
-                        ...collectionSourceOptions.map((source) => ({
-                          label: source.label,
-                          value: source.id,
-                        })),
-                      ]}
-                      placeholder="Choose a workplace"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          ) : null}
-          <FormField
-            control={form.control}
             name="joinedAt"
             render={({ field }) => (
-              <FormItem className={inSheet ? "sm:col-span-2" : undefined}>
-                <FormLabel>Joined date</FormLabel>
+              <FormItem>
+                <FormLabel>Joined on</FormLabel>
                 <FormControl>
                   <DatePickerInput
                     {...field}
                     allowClear={false}
                     min={cooperativeStartDate ?? undefined}
-                    placeholder="Select joined date"
+                    placeholder="Pick a date"
                   />
                 </FormControl>
                 <FormMessage />
@@ -589,23 +569,10 @@ export function MemberCreateForm({
             control={form.control}
             name="monthlyCommitment"
             render={({ field }) => (
-              <FormItem className={inSheet ? "sm:col-span-2" : undefined}>
-                <FormLabel>Starting commitment</FormLabel>
+              <FormItem>
+                <FormLabel>Monthly savings</FormLabel>
                 <FormControl>
-                  <CurrencyFormInput {...field} placeholder="25000" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="occupation"
-            render={({ field }) => (
-              <FormItem className={inSheet ? "sm:col-span-2" : undefined}>
-                <FormLabel>Occupation</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="Trader" />
+                  <CurrencyFormInput {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -615,40 +582,36 @@ export function MemberCreateForm({
             control={form.control}
             name="phoneNumber"
             render={({ field }) => (
-              <FormItem className={inSheet ? "sm:col-span-2" : undefined}>
+              <FormItem>
                 <FormLabel>Phone number</FormLabel>
                 <FormControl>
-                  <Input {...field} placeholder="+234 800 000 0000" />
+                  <Input {...field} inputMode="tel" type="tel" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
+          {canManageCollectionSources ? (
+            <WorkplaceSelectField<MemberCreateValues>
+              control={form.control}
+              options={collectionSourceOptions.map((source) => ({
+                label: source.label,
+                value: source.id,
+              }))}
+            />
+          ) : null}
           <FormField
             control={form.control}
-            name="email"
+            name="memberType"
             render={({ field }) => (
-              <FormItem className={inSheet ? "sm:col-span-2" : undefined}>
-                <FormLabel>Email</FormLabel>
+              <FormItem>
+                <FormLabel>Member type</FormLabel>
                 <FormControl>
-                  <Input
+                  <SelectFormInput
                     {...field}
-                    placeholder="amina@example.com"
-                    type="email"
+                    options={memberTypeOptions}
+                    placeholder="Choose a type"
                   />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="address"
-            render={({ field }) => (
-              <FormItem className={inSheet ? "sm:col-span-4" : "xl:col-span-2"}>
-                <FormLabel>Address</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="No. 12 Cooperative Road" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -656,15 +619,224 @@ export function MemberCreateForm({
           />
         </div>
 
-        <div
-          className={
-            inSheet
-              ? "flex justify-end border-t border-border/70 pt-4"
-              : "xl:col-span-5"
-          }
-        >
-          <Button disabled={isPending} type="submit">
-            Add member
+        <MoreMemberDetails>
+          <MemberContactFields control={form.control} />
+        </MoreMemberDetails>
+
+        <div className="flex justify-end border-t border-border/70 pt-4">
+          <Button
+            className="w-full sm:w-auto"
+            disabled={isPending}
+            type="submit"
+          >
+            {isPending ? "Adding..." : "Add member"}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  )
+}
+
+/** Email, occupation and address: the same fields on create and edit. */
+function MemberContactFields<TValues extends FieldValues>({
+  control,
+}: {
+  control: Control<TValues>
+}) {
+  return (
+    <>
+      <FormField
+        control={control}
+        name={"email" as Path<TValues>}
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Email</FormLabel>
+            <FormControl>
+              <Input {...field} inputMode="email" type="email" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={control}
+        name={"occupation" as Path<TValues>}
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Occupation</FormLabel>
+            <FormControl>
+              <Input {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={control}
+        name={"address" as Path<TValues>}
+        render={({ field }) => (
+          <FormItem className="sm:col-span-2">
+            <FormLabel>Address</FormLabel>
+            <FormControl>
+              <Input {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    </>
+  )
+}
+
+const memberEditSchema = z.object({
+  address: z.string().optional(),
+  deductionSourceId: z.string().optional(),
+  email: z.string().email("Enter a valid email.").optional().or(z.literal("")),
+  fullName: z.string().trim().min(1, "Full name is required."),
+  memberId: z.string().min(1),
+  memberType: z.enum(["individual", "civil_servant", "business"]),
+  occupation: z.string().optional(),
+  phoneNumber: z.string().optional(),
+})
+
+type MemberEditValues = z.infer<typeof memberEditSchema>
+
+export type MemberEditDefaults = {
+  address?: string | null
+  deductionSourceId?: string | null
+  email?: string | null
+  fullName: string
+  id: string
+  memberType: string
+  occupation?: string | null
+  phoneNumber?: string | null
+}
+
+export function MemberEditForm({
+  canChangeWorkplace,
+  member,
+  onSuccess,
+  workplaceOptions,
+}: {
+  canChangeWorkplace: boolean
+  member: MemberEditDefaults
+  onSuccess?: () => void
+  workplaceOptions: SelectFormInputOption[]
+}) {
+  const form = useZodForm<MemberEditValues>(memberEditSchema, {
+    defaultValues: {
+      address: member.address ?? "",
+      deductionSourceId: member.deductionSourceId ?? "none",
+      email: member.email ?? "",
+      fullName: member.fullName,
+      memberId: member.id,
+      memberType: memberTypeOptions.some(
+        (option) => option.value === member.memberType
+      )
+        ? (member.memberType as MemberEditValues["memberType"])
+        : "individual",
+      occupation: member.occupation ?? "",
+      phoneNumber: member.phoneNumber ?? "",
+    },
+  })
+  const { showError, showSuccess } = useNotifications()
+  const queryClient = useQueryClient()
+  const trpc = useTRPC()
+  const [isPending, startTransition] = useTransition()
+
+  function onSubmit(values: MemberEditValues) {
+    const { deductionSourceId, ...profile } = values
+
+    startTransition(async () => {
+      try {
+        await updateMemberAction(
+          objectToFormData(
+            canChangeWorkplace ? { ...profile, deductionSourceId } : profile
+          )
+        )
+        await queryClient.invalidateQueries(
+          trpc.members.list.infiniteQueryFilter()
+        )
+        showSuccess(
+          "Changes saved",
+          `${values.fullName}'s details are updated.`
+        )
+        onSuccess?.()
+      } catch (error) {
+        showError(
+          "Could not save changes",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
+      }
+    })
+  }
+
+  return (
+    <Form {...form}>
+      <form
+        className="flex flex-col gap-5"
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
+        <input type="hidden" {...form.register("memberId")} />
+        <FormField
+          control={form.control}
+          name="fullName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Full name</FormLabel>
+              <FormControl>
+                <Input {...field} autoComplete="off" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="phoneNumber"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Phone number</FormLabel>
+                <FormControl>
+                  <Input {...field} inputMode="tel" type="tel" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          {canChangeWorkplace ? (
+            <WorkplaceSelectField<MemberEditValues>
+              control={form.control}
+              options={workplaceOptions}
+            />
+          ) : null}
+          <FormField
+            control={form.control}
+            name="memberType"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Member type</FormLabel>
+                <FormControl>
+                  <SelectFormInput
+                    {...field}
+                    options={memberTypeOptions}
+                    placeholder="Choose a type"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <MemberContactFields control={form.control} />
+        </div>
+        <div className="flex justify-end border-t border-border/70 pt-4">
+          <Button
+            className="w-full sm:w-auto"
+            disabled={isPending}
+            type="submit"
+          >
+            {isPending ? "Saving..." : "Save changes"}
           </Button>
         </div>
       </form>
@@ -716,31 +888,14 @@ export function MemberKycForm({
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-4"
+        className="grid gap-4 sm:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="flex items-start justify-between gap-4 md:col-span-4">
-          <div>
-            <h3 className="text-lg font-semibold text-foreground">
-              KYC details
-            </h3>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Record the member's identity document and move the review on
-              one step at a time.
-            </p>
-          </div>
-          {devMode ? (
-            <p className="text-xs text-muted-foreground">
-              Quick Fill is unavailable for identity and compliance decisions.
-            </p>
-          ) : null}
-        </div>
-
         <FormField
           control={form.control}
           name="kycStatus"
           render={({ field }) => (
-            <FormItem className="md:col-span-2">
+            <FormItem className="sm:col-span-2">
               <FormLabel>KYC status</FormLabel>
               <FormControl>
                 <SelectFormInput
@@ -789,7 +944,7 @@ export function MemberKycForm({
           name="kycDocumentUrl"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Document URL</FormLabel>
+              <FormLabel>Document link</FormLabel>
               <FormControl>
                 <Input {...field} value={field.value ?? ""} />
               </FormControl>
@@ -801,8 +956,8 @@ export function MemberKycForm({
           control={form.control}
           name="kycReviewNotes"
           render={({ field }) => (
-            <FormItem className="md:col-span-4">
-              <FormLabel>Review notes</FormLabel>
+            <FormItem className="sm:col-span-2">
+              <FormLabel>Notes</FormLabel>
               <FormControl>
                 <Textarea
                   {...field}
@@ -814,8 +969,12 @@ export function MemberKycForm({
             </FormItem>
           )}
         />
-        <div className="md:col-span-4">
-          <Button disabled={isPending} type="submit">
+        <div className="flex justify-end border-t border-border/70 pt-4 sm:col-span-2">
+          <Button
+            className="w-full sm:w-auto"
+            disabled={isPending}
+            type="submit"
+          >
             Save KYC
           </Button>
         </div>
@@ -894,19 +1053,10 @@ export function MemberDocumentForm({
   return (
     <Form {...form}>
       <form
-        className="grid gap-4 rounded-lg border border-border/70 bg-background/92 p-5 shadow-sm md:grid-cols-4"
+        className="grid gap-4 sm:grid-cols-2"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="flex items-start justify-between gap-4 md:col-span-4">
-          <div>
-            <h3 className="text-lg font-semibold text-foreground">
-              Add KYC document
-            </h3>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Keep multiple identity and compliance documents on one member
-              profile.
-            </p>
-          </div>
+        <div className="flex justify-end sm:col-span-2">
           {devMode ? (
             <DashboardQuickFill
               form={form}
@@ -943,7 +1093,7 @@ export function MemberDocumentForm({
           name="reviewStatus"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Initial review status</FormLabel>
+              <FormLabel>Status</FormLabel>
               <FormControl>
                 <SelectFormInput
                   {...field}
@@ -959,8 +1109,8 @@ export function MemberDocumentForm({
           control={form.control}
           name="documentUrl"
           render={({ field }) => (
-            <FormItem className="md:col-span-2">
-              <FormLabel>Document URL</FormLabel>
+            <FormItem className="sm:col-span-2">
+              <FormLabel>Document link</FormLabel>
               <FormControl>
                 <div className="space-y-2">
                   <UploadEvidenceInput
@@ -985,8 +1135,8 @@ export function MemberDocumentForm({
           control={form.control}
           name="reviewNotes"
           render={({ field }) => (
-            <FormItem className="md:col-span-4">
-              <FormLabel>Review notes</FormLabel>
+            <FormItem className="sm:col-span-2">
+              <FormLabel>Notes</FormLabel>
               <FormControl>
                 <Textarea
                   {...field}
@@ -998,8 +1148,12 @@ export function MemberDocumentForm({
             </FormItem>
           )}
         />
-        <div className="md:col-span-4">
-          <Button disabled={isPending} type="submit">
+        <div className="flex justify-end border-t border-border/70 pt-4 sm:col-span-2">
+          <Button
+            className="w-full sm:w-auto"
+            disabled={isPending}
+            type="submit"
+          >
             Add document
           </Button>
         </div>

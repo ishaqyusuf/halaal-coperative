@@ -1489,9 +1489,13 @@ export async function createMemberAction(formData: FormData) {
 export async function updateMemberAction(formData: FormData) {
   const actor = await requireDashboardActor(memberManagementRoles)
   const memberId = getRequiredString(formData, "memberId")
-  const deductionSourceId = normalizeCollectionSourceFormValue(
-    getOptionalTrimmedString(formData, "deductionSourceId")
-  )
+  // A form without the workplace field (staff who can't assign workplaces)
+  // leaves the member's workplace as it is instead of clearing it.
+  const deductionSourceId = formData.has("deductionSourceId")
+    ? normalizeCollectionSourceFormValue(
+        getOptionalTrimmedString(formData, "deductionSourceId")
+      )
+    : undefined
 
   await updateMember(actor.tenant.id, memberId, {
     actorUserId: actor.user.id,

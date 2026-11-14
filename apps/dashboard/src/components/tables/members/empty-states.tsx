@@ -18,15 +18,11 @@ export function MembersEmptyState({
     <div className="flex items-center justify-center">
       <div className="mt-16 flex flex-col items-center md:mt-40">
         <div className="mb-6 space-y-2 text-center">
-          <h2 className="text-lg font-medium">No members</h2>
-          <p className="text-sm text-[#606060]">
-            You haven&apos;t created any members yet. <br />
-            Go ahead and create your first one.
-          </p>
+          <h2 className="text-xl font-semibold">No members yet</h2>
+          <p className="text-muted-foreground">Add your first member.</p>
         </div>
         {canManageMembers ? (
           <Button
-            variant="outline"
             onClick={() =>
               setParams({
                 memberSheetType: "create",
@@ -35,7 +31,7 @@ export function MembersEmptyState({
               })
             }
           >
-            Create member
+            New member
           </Button>
         ) : null}
       </div>
@@ -50,9 +46,9 @@ export function MembersNoResults() {
     <div className="flex items-center justify-center">
       <div className="mt-16 flex flex-col items-center md:mt-40">
         <div className="mb-6 space-y-2 text-center">
-          <h2 className="text-lg font-medium">No results</h2>
-          <p className="text-sm text-[#606060]">
-            Try another search, or adjusting the filters
+          <h2 className="text-xl font-semibold">No members found</h2>
+          <p className="text-muted-foreground">
+            Check the spelling or clear the filters.
           </p>
         </div>
 

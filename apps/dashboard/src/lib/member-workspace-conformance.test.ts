@@ -83,13 +83,9 @@ describe("member workspace Midday conformance", () => {
     expect(mobileItem).toContain('from "@halaalvest/ui/components/item"')
     expect(mobileItem).toContain("border-0 bg-transparent")
     expect(mobileItem).not.toContain("cursor-pointer gap-3 bg-background p-4")
-    expect(mobileItem).toContain("<dl")
-    expect(mobileItem).toContain("Migration setup")
-    expect(mobileItem).toContain("Member status")
-    expect(mobileItem).toContain(">KYC</dt>")
-    expect(mobileItem).toContain("<MigrationSetupStatusBadge")
-    expect(mobileItem).toContain("<MemberStatusBadge")
-    expect(mobileItem).toContain("<KycBadge")
+    // One plain status word per row (see getMemberState) instead of three badges.
+    expect(mobileItem).toContain("<MemberStateBadge member={member} />")
+    expect(mobileItem).toContain("member.deductionSource?.name")
     expect(mobileItem).toContain("<MemberMobileActionsDrawer")
     expect(mobileActions).toContain('from "@halaalvest/ui/components/drawer"')
     expect(mobileFilters).toContain('from "@halaalvest/ui/components/sheet"')
@@ -122,30 +118,31 @@ describe("member workspace Midday conformance", () => {
     expect(columns).toContain(
       'row.original.operationalReadiness?.migration.state === "applied"'
     )
-    expect(columns).toContain('"Brought forward completed"')
-    expect(columns).toContain('"Backfill completed"')
+    expect(columns).toContain("aria-label={`${openingStepLabel} done`}")
     expect(columns).not.toContain(
       "isVerified={row.original.operationalReadiness?.isReady"
     )
   })
 
-  test("separates migration setup status from member and KYC status", () => {
+  test("shows one plain status per member, with workplace and monthly savings", () => {
     const columns = read("../components/tables/members/columns.tsx")
+    const words = read("./members/member-status-words.ts")
     const filters = read("../components/members/members-search-filter.tsx")
     const tableConfig = read("../utils/table-configs.ts")
 
-    expect(columns).toContain('? "Completed"')
-    expect(columns).toContain('? "In progress"')
-    expect(columns).toContain('? "Not required"')
-    expect(columns).toContain(': "Action required"')
+    expect(columns).toContain(
+      "getMemberState(member.status, member.operationalReadiness)"
+    )
+    expect(words).toContain('{ label: "Needs KYC", tone: "warning" }')
+    expect(words).toContain('{ label: "Ready", tone: "good" }')
     expect(columns).not.toContain("isOperationallyReady")
-    expect(columns).toContain('header: "Migration setup status"')
-    expect(columns).toContain('id: "migrationSetupStatus"')
+    expect(columns).toContain('header: "Workplace"')
+    expect(columns).toContain('header: "Monthly savings"')
     expect(columns).toContain('accessorKey: "status"')
-    expect(columns).toContain('header: "Member status"')
+    expect(columns).toContain('header: "Status"')
     expect(filters).toContain('label="Member status"')
     expect(tableConfig).toContain(
-      'number: "joinedAt",\n    status: "status",\n    kyc: "kycStatus"'
+      'joined: "joinedAt",\n    member: "fullName",\n    number: "memberNumber",\n    status: "status",'
     )
     expect(tableConfig).not.toContain("migrationSetupStatus:")
   })
@@ -166,17 +163,19 @@ describe("member workspace Midday conformance", () => {
     const importContent = read("../components/member-import-content.tsx")
 
     expect(detail).toContain("<MemberDetailActions")
-    expect(detail).toContain("<MemberBalanceStatCards summary={detail.summary} />")
+    expect(detail).toContain("<MemberBalanceStatCards summary={summary} />")
     expect(read("../components/member-balance-stat-cards.tsx")).toContain(
       "grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4"
     )
+    expect(detail).not.toContain("Deduction source")
+    expect(detail).toContain('label="Workplace"')
     expect(detailActions).toContain("<MobileActionsDrawer")
-    expect(detailActions).toContain('aria-label="More member detail actions"')
+    expect(detailActions).toContain('aria-label="More actions"')
     expect(detailLoading).toContain("<MemberDetailSkeleton")
     expect(detailStates).toContain('role="status"')
     expect(detailError).toContain("reset")
     expect(detailError).toContain("Back to member registry")
-    expect(statement).toContain("px-3 py-6 sm:px-6 sm:py-10")
+    expect(statement).toContain("mx-auto flex max-w-5xl flex-col gap-6")
     expect(backfill).toContain("MobileStepNavigation")
     expect(backfill).toContain("overflow-x-auto")
     expect(importHeader).toContain("<DialogHeader")

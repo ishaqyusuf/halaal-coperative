@@ -8,7 +8,7 @@ export function MembersSummaryCard({
   tone = "default",
   value,
 }: {
-  detail: string
+  detail?: string
   href?: string
   label: string
   tone?: "default" | "positive" | "warning"
@@ -21,21 +21,25 @@ export function MembersSummaryCard({
         tone === "default" && "border-border",
         tone === "positive" && "border-border",
         tone === "warning" && "border-border",
-        href && "hover:bg-accent/25",
+        href && "hover:bg-accent/25"
       )}
     >
       <div className="flex flex-col gap-1.5">
         <div
           className={cn(
-            "text-2xl font-medium text-foreground",
+            "text-3xl font-semibold text-foreground tabular-nums",
             tone === "positive" && "text-emerald-700 dark:text-emerald-400",
-            tone === "warning" && "text-amber-700 dark:text-amber-400",
+            tone === "warning" && "text-amber-700 dark:text-amber-400"
           )}
         >
           {value}
         </div>
-        <div className="text-sm text-foreground">{label}</div>
-        <div className="text-xs leading-5 text-muted-foreground">{detail}</div>
+        <div className="text-base text-foreground">{label}</div>
+        {detail ? (
+          <div className="text-xs leading-5 text-muted-foreground">
+            {detail}
+          </div>
+        ) : null}
       </div>
     </div>
   )

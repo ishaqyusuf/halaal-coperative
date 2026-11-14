@@ -1,6 +1,5 @@
 "use client"
 
-import { Badge } from "@halaalvest/ui/components/badge"
 import { Button } from "@halaalvest/ui/components/button"
 import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import {
@@ -14,21 +13,14 @@ import {
 import { BadgeCheck, MoreHorizontal } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState, type KeyboardEvent } from "react"
+import { formatCurrency } from "@halaalvest/utils"
+import { getOpeningStepLabel } from "@/lib/members/member-status-words"
 import {
-  KycBadge,
-  MemberStatusBadge,
-  MigrationSetupStatusBadge,
+  getMemberMonthlyAmount,
+  MemberStateBadge,
   type Member,
 } from "./columns"
 import { MemberMobileActionsDrawer } from "./member-row-actions"
-
-function displayEnum(value: string) {
-  return value.replaceAll("_", " ")
-}
-
-function toDateString(value: Date | string) {
-  return new Date(value).toISOString().slice(0, 10)
-}
 
 export function MemberMobileItem({
   canManageMembers,
@@ -48,6 +40,7 @@ export function MemberMobileItem({
   const migrationState =
     member.operationalReadiness?.migration.state ?? "not_started"
   const migrationCompleted = migrationState === "applied"
+  const monthlyAmount = getMemberMonthlyAmount(member)
 
   function viewMember() {
     router.push(`/members/${member.id}`)
@@ -88,21 +81,17 @@ export function MemberMobileItem({
               <span className="truncate">{member.fullName}</span>
               {migrationCompleted ? (
                 <BadgeCheck
-                  aria-label={
-                    migrationMode === "brought_forward"
-                      ? "Brought forward completed"
-                      : "Backfill completed"
-                  }
-                  className="size-4 shrink-0 text-emerald-600"
+                  aria-label={`${getOpeningStepLabel(migrationMode)} done`}
+                  className="size-4 shrink-0 text-emerald-700"
                 />
               ) : null}
             </ItemTitle>
             <ItemDescription className="line-clamp-1">
-              {member.memberNumber} · {toDateString(member.joinedAt)}
+              {member.memberNumber}
+              {member.deductionSource?.name
+                ? ` · ${member.deductionSource.name}`
+                : ""}
             </ItemDescription>
-            <Badge className="mt-1 w-fit capitalize" variant="outline">
-              {displayEnum(member.memberType)}
-            </Badge>
           </ItemContent>
 
           <ItemActions
@@ -122,31 +111,13 @@ export function MemberMobileItem({
           </ItemActions>
         </ItemHeader>
 
-        <ItemContent className="min-w-0 basis-full pl-14">
-          <ItemDescription className="line-clamp-1">
-            {member.user?.email ?? "No linked user"}
-          </ItemDescription>
-          <dl className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2">
-            <dt className="text-xs text-muted-foreground">
-              Migration setup
-            </dt>
-            <dd className="flex justify-end">
-              <MigrationSetupStatusBadge
-                migrationMode={migrationMode}
-                migrationState={migrationState}
-              />
-            </dd>
-
-            <dt className="text-xs text-muted-foreground">Member status</dt>
-            <dd className="flex justify-end">
-              <MemberStatusBadge status={member.status} />
-            </dd>
-
-            <dt className="text-xs text-muted-foreground">KYC</dt>
-            <dd className="flex justify-end">
-              <KycBadge status={member.kycStatus} />
-            </dd>
-          </dl>
+        <ItemContent className="flex min-w-0 basis-full flex-row flex-wrap items-center justify-between gap-x-3 gap-y-1 pl-14">
+          <MemberStateBadge member={member} />
+          {monthlyAmount === null ? null : (
+            <span className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">
+              {formatCurrency(monthlyAmount)} a month
+            </span>
+          )}
         </ItemContent>
       </Item>
 

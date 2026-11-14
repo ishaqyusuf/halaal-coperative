@@ -5,7 +5,14 @@ import { Badge } from "@halaalvest/ui/components/badge"
 import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import type { ColumnDef } from "@tanstack/react-table"
 import { BadgeCheck } from "lucide-react"
+import { formatCurrency } from "@halaalvest/utils"
 import { memo } from "react"
+import {
+  getMemberState,
+  getOpeningStepLabel,
+  memberStateToneClassNames,
+} from "@/lib/members/member-status-words"
+import { formatDayMonthYear } from "@/utils/format"
 import { MemberDesktopActions } from "./member-row-actions"
 
 export type Member = RouterOutputs["members"]["list"]["data"][number]
@@ -14,47 +21,30 @@ type MembersTableMeta = {
   canManageMembers: boolean
 }
 
-function displayEnum(value: string) {
-  return value.replaceAll("_", " ")
-}
-
-function toDateString(value: Date | string) {
-  return new Date(value).toISOString().slice(0, 10)
-}
-
 const MemberCell = memo(
   ({
-    email,
     fullName,
     migrationCompleted,
-    migrationMode,
-    memberType,
+    openingStepLabel,
+    phoneNumber,
   }: {
-    email?: string | null
     fullName: string
     migrationCompleted: boolean
-    migrationMode: "brought_forward" | "historical_backfill"
-    memberType: string
+    openingStepLabel: string
+    phoneNumber?: string | null
   }) => (
-    <div>
+    <div className="min-w-0">
       <div className="flex min-w-0 items-center gap-2">
         <p className="truncate font-medium text-foreground">{fullName}</p>
         {migrationCompleted ? (
           <BadgeCheck
-            aria-label={
-              migrationMode === "brought_forward"
-                ? "Brought forward completed"
-                : "Backfill completed"
-            }
-            className="size-4 shrink-0 text-emerald-600"
+            aria-label={`${openingStepLabel} done`}
+            className="size-4 shrink-0 text-emerald-700"
           />
         ) : null}
-        <Badge className="shrink-0 capitalize" variant="outline">
-          {displayEnum(memberType)}
-        </Badge>
       </div>
-      <p className="mt-1 truncate text-xs text-muted-foreground">
-        {email ?? "No linked user"}
+      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+        {phoneNumber ?? "No phone"}
       </p>
     </div>
   )
@@ -62,97 +52,24 @@ const MemberCell = memo(
 
 MemberCell.displayName = "MemberCell"
 
-const MemberNumberCell = memo(
-  ({
-    joinedAt,
-    memberNumber,
-  }: {
-    joinedAt: Date | string
-    memberNumber: string
-  }) => (
-    <div>
-      <p className="truncate font-medium text-foreground">{memberNumber}</p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {toDateString(joinedAt)}
-      </p>
-    </div>
+/** One plain word for where the member stands (see `getMemberState`). */
+export const MemberStateBadge = memo(({ member }: { member: Member }) => {
+  const state = getMemberState(member.status, member.operationalReadiness)
+
+  return (
+    <Badge className={memberStateToneClassNames[state.tone]} variant="outline">
+      {state.label}
+    </Badge>
   )
-)
+})
 
-MemberNumberCell.displayName = "MemberNumberCell"
+MemberStateBadge.displayName = "MemberStateBadge"
 
-export const MigrationSetupStatusBadge = memo(
-  ({
-    migrationMode,
-    migrationState,
-  }: {
-    migrationMode: "brought_forward" | "historical_backfill"
-    migrationState: "not_required" | "not_started" | "draft" | "applied"
-  }) => {
-    const label =
-      migrationState === "applied"
-        ? "Completed"
-        : migrationState === "draft"
-          ? "In progress"
-          : migrationState === "not_required"
-            ? "Not required"
-            : "Action required"
-    const migrationLabel =
-      migrationMode === "brought_forward" ? "Brought forward" : "Backfill"
+export function getMemberMonthlyAmount(member: Member) {
+  const amount = member.contributionPlans?.[0]?.amount
 
-    return (
-      <Badge
-        aria-label={`${migrationLabel}: ${label}`}
-        className={
-          migrationState === "applied"
-            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-            : migrationState === "not_required"
-              ? "border-border bg-muted text-muted-foreground"
-              : "border-amber-200 bg-amber-50 text-amber-700"
-        }
-        variant="outline"
-      >
-        {label}
-      </Badge>
-    )
-  }
-)
-
-MigrationSetupStatusBadge.displayName = "MigrationSetupStatusBadge"
-
-export const MemberStatusBadge = memo(({ status }: { status: string }) => (
-  <Badge
-    className={
-      status === "active"
-        ? "border-emerald-200 bg-emerald-50 text-emerald-700 capitalize"
-        : status === "suspended"
-          ? "border-red-200 bg-red-50 text-red-700 capitalize"
-          : status === "pending"
-            ? "border-amber-200 bg-amber-50 text-amber-700 capitalize"
-            : "border-border bg-muted text-muted-foreground capitalize"
-    }
-    variant="outline"
-  >
-    {displayEnum(status)}
-  </Badge>
-))
-
-MemberStatusBadge.displayName = "MemberStatusBadge"
-
-export const KycBadge = memo(({ status }: { status: string }) => (
-  <Badge
-    className={
-      status === "verified"
-        ? "border-emerald-200 bg-emerald-50 text-emerald-700 capitalize"
-        : "border-amber-200 bg-amber-50 text-amber-700 capitalize"
-    }
-    variant="outline"
-  >
-    {displayEnum(status)}
-  </Badge>
-))
-
-KycBadge.displayName = "KycBadge"
+  return amount === undefined || amount === null ? null : Number(amount)
+}
 
 export const columns: ColumnDef<Member>[] = [
   {
@@ -180,19 +97,18 @@ export const columns: ColumnDef<Member>[] = [
   {
     accessorKey: "memberNumber",
     cell: ({ row }) => (
-      <MemberNumberCell
-        joinedAt={row.original.joinedAt}
-        memberNumber={row.original.memberNumber}
-      />
+      <span className="truncate font-medium text-foreground">
+        {row.original.memberNumber}
+      </span>
     ),
     enableResizing: true,
-    header: "# / Joined",
+    header: "Member no.",
     id: "number",
     maxSize: 220,
     meta: {
       className:
         "w-[160px] min-w-[130px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20",
-      headerLabel: "# / Joined",
+      headerLabel: "Member no.",
       skeleton: { type: "text", width: "w-24" },
       sticky: true,
     },
@@ -203,84 +119,100 @@ export const columns: ColumnDef<Member>[] = [
     accessorKey: "fullName",
     cell: ({ row }) => (
       <MemberCell
-        email={row.original.user?.email}
         fullName={row.original.fullName}
         migrationCompleted={
           row.original.operationalReadiness?.migration.state === "applied"
         }
-        migrationMode={
+        openingStepLabel={getOpeningStepLabel(
           row.original.operationalReadiness?.migration.mode ??
-          "historical_backfill"
-        }
-        memberType={row.original.memberType}
+            "historical_backfill"
+        )}
+        phoneNumber={row.original.phoneNumber}
       />
     ),
     enableResizing: true,
-    header: "Member",
+    header: "Name",
     id: "member",
     maxSize: 480,
     meta: {
-      className: "w-[320px] min-w-[240px]",
-      headerLabel: "Member",
+      className: "w-[280px] min-w-[220px]",
+      headerLabel: "Name",
       skeleton: { type: "avatar-text", width: "w-32" },
     },
-    minSize: 240,
-    size: 320,
+    minSize: 220,
+    size: 280,
   },
   {
     cell: ({ row }) => (
-      <MigrationSetupStatusBadge
-        migrationMode={
-          row.original.operationalReadiness?.migration.mode ??
-          "historical_backfill"
-        }
-        migrationState={
-          row.original.operationalReadiness?.migration.state ?? "not_started"
-        }
-      />
+      <span className="truncate">
+        {row.original.deductionSource?.name ?? "None"}
+      </span>
     ),
     enableResizing: true,
     enableSorting: false,
-    header: "Migration setup status",
-    id: "migrationSetupStatus",
-    maxSize: 240,
+    header: "Workplace",
+    id: "workplace",
+    maxSize: 320,
     meta: {
-      className: "w-[190px] min-w-[170px]",
-      headerLabel: "Migration setup status",
-      skeleton: { type: "badge" },
+      className: "w-[200px] min-w-[150px]",
+      headerLabel: "Workplace",
+      skeleton: { type: "text", width: "w-28" },
     },
-    minSize: 170,
-    size: 190,
+    minSize: 150,
+    size: 200,
+  },
+  {
+    cell: ({ row }) => {
+      const amount = getMemberMonthlyAmount(row.original)
+
+      return (
+        <span className="tabular-nums">
+          {amount === null ? "Not set" : formatCurrency(amount)}
+        </span>
+      )
+    },
+    enableResizing: true,
+    enableSorting: false,
+    header: "Monthly savings",
+    id: "monthly",
+    maxSize: 220,
+    meta: {
+      className: "w-[160px] min-w-[140px]",
+      headerLabel: "Monthly savings",
+      skeleton: { type: "text", width: "w-20" },
+    },
+    minSize: 140,
+    size: 160,
+  },
+  {
+    accessorKey: "joinedAt",
+    cell: ({ row }) => <span>{formatDayMonthYear(row.original.joinedAt)}</span>,
+    enableResizing: true,
+    header: "Joined",
+    id: "joined",
+    maxSize: 200,
+    meta: {
+      className: "w-[140px] min-w-[130px]",
+      headerLabel: "Joined",
+      skeleton: { type: "text", width: "w-24" },
+    },
+    minSize: 130,
+    size: 140,
   },
   {
     accessorKey: "status",
-    cell: ({ row }) => <MemberStatusBadge status={row.original.status} />,
+    cell: ({ row }) => <MemberStateBadge member={row.original} />,
     enableResizing: true,
-    header: "Member status",
+    header: "Status",
     id: "status",
-    maxSize: 180,
+    maxSize: 240,
     meta: {
-      className: "w-[140px] min-w-[120px]",
-      headerLabel: "Member status",
+      className: "w-[190px] min-w-[150px]",
+      headerLabel: "Status",
       skeleton: { type: "badge" },
     },
-    minSize: 120,
-    size: 140,
-  },
-  {
-    accessorKey: "kycStatus",
-    cell: ({ row }) => <KycBadge status={row.original.kycStatus} />,
-    enableResizing: true,
-    header: "KYC",
-    id: "kyc",
-    maxSize: 180,
-    meta: {
-      className: "w-[140px] min-w-[120px]",
-      headerLabel: "KYC",
-      skeleton: { type: "badge" },
-    },
-    minSize: 120,
-    size: 140,
+    minSize: 150,
+    size: 190,
   },
   {
     cell: ({ row, table }) => {

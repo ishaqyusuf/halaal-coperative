@@ -27,7 +27,8 @@ describe("member statement Midday conformance", () => {
     expect(states).toContain('aria-label="Loading member statement"')
     expect(error).toContain("dashboard.member_statement_error_boundary")
     expect(error).toContain("reset")
-    expect(loader).toContain("getMemberStatementDetail")
+    // Lean statement read: no full detail fan-out or unused charge includes.
+    expect(loader).toContain("getMemberStatementView")
     expect(loader).toContain("allStaffRoles")
     expect(loader).not.toContain("getMemberOperationalReadiness")
   })
@@ -38,20 +39,20 @@ describe("member statement Midday conformance", () => {
     const balances = read("../components/member-balance-stat-cards.tsx")
 
     expect(view).toContain("statement-export")
-    expect(view.match(/h-11 w-full md:h-9 md:w-auto/g)?.length).toBe(2)
+    expect(view).toContain("<PrintPageButton />")
+    expect(view).toContain("buildMemberStatementLines")
     // Shared with the staff member detail so both show opening balances.
-    expect(view).toContain("<MemberBalanceStatCards summary={detail.summary} />")
-    expect(balances).toContain(
-      "grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4"
+    expect(view).toContain(
+      "<MemberBalanceStatCards summary={detail.summary} />"
     )
-    for (const label of [
-      "Special savings",
-      "Share capital",
-      "Procurement and food",
-    ]) {
+    expect(balances).toContain("grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4")
+    for (const label of ["Special savings", "Shares", "Procurement and food"]) {
       expect(balances).toContain(`label="${label}"`)
     }
     expect(view.match(/headingLevel=\{2\}/g)?.length).toBe(3)
-    expect(section).toContain('const Heading = headingLevel === 2 ? "h2" : "h3"')
+    expect(view).toContain('title="Money in and out"')
+    expect(section).toContain(
+      'const Heading = headingLevel === 2 ? "h2" : "h3"'
+    )
   })
 })

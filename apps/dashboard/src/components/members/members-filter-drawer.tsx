@@ -87,8 +87,10 @@ export function MembersFilterDrawer({
     status: params.status,
   })
   const migrationLabel =
-    migrationSetupMode === "brought_forward" ? "Brought forward" : "Backfill"
-  const migrationStatusFilters = getMigrationStatusFilters(migrationLabel)
+    migrationSetupMode === "brought_forward"
+      ? "Opening balance"
+      : "Past records"
+  const migrationStatusFilters = getMigrationStatusFilters()
   const sortValue = draft.sort?.join(",") ?? "joinedAt,desc"
 
   async function applyFilters() {

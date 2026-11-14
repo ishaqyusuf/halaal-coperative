@@ -1,9 +1,9 @@
-import { createDbRuntime, getMemberStatementDetail } from "@halaalvest/db"
+import { createDbRuntime, getMemberStatementView } from "@halaalvest/db"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { allStaffRoles, hasAnyRole } from "@/lib/workspace-access"
 
 type MemberStatementDetail = NonNullable<
-  Awaited<ReturnType<typeof getMemberStatementDetail>>
+  Awaited<ReturnType<typeof getMemberStatementView>>
 >
 
 export type MemberStatementPageData =
@@ -11,6 +11,7 @@ export type MemberStatementPageData =
   | { state: "not-found" }
   | { state: "unavailable" }
   | {
+      cooperativeName: string
       detail: MemberStatementDetail
       state: "ready"
     }
@@ -29,13 +30,14 @@ export async function loadMemberStatementPageData(
     return { state: "forbidden" }
   }
 
-  const detail = await getMemberStatementDetail(context.tenant.id, memberId)
+  const detail = await getMemberStatementView(context.tenant.id, memberId)
 
   if (!detail) {
     return { state: "not-found" }
   }
 
   return {
+    cooperativeName: context.tenant.name,
     detail,
     state: "ready",
   }

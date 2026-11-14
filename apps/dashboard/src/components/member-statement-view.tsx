@@ -1,249 +1,219 @@
 import { formatCurrency } from "@halaalvest/utils"
+import { cn } from "@halaalvest/ui/lib/utils"
+import { DownloadIcon } from "lucide-react"
 import {
   DashboardActionLink,
   DashboardSectionCard,
   DashboardSectionHeader,
-  DashboardSurfaceCard,
-  TrendPill,
 } from "@/components/dashboard"
 import { MemberBalanceStatCards } from "@/components/member-balance-stat-cards"
+import { PrintPageButton } from "@/components/print-page-button"
 import type { MemberStatementPageData } from "@/lib/members"
+import {
+  buildMemberStatementLines,
+  isMoneyIn,
+  statementMoveLabels,
+  type StatementLine,
+} from "@/lib/members/member-statement-lines"
+import { getMemberStatusLabel } from "@/lib/members/member-status-words"
+import { formatDayMonthYear } from "@/utils/format"
 
 type ReadyMemberStatementPageData = Extract<
   MemberStatementPageData,
   { state: "ready" }
 >
 
-type MemberStatementCharge = {
-  amount: number | string | { toString(): string }
-  chargeApplicability?: { workflow?: string | null } | null
-  chargeDefinition: { name: string }
-  collectionMode: string
-  foodPurchaseApplication?: unknown
-  id: string
-  loanRequest?: unknown
-  procurementRequest?: { itemName: string } | null
-  projectFinancingRequest?: { businessName: string } | null
-  status: string
-}
-
-function formatIsoDate(value: Date | null | undefined) {
-  return value ? value.toISOString().slice(0, 10) : null
-}
-
-function formatChargeSource(charge: MemberStatementCharge) {
-  if (charge.procurementRequest) {
-    return `Procurement: ${charge.procurementRequest.itemName}`
-  }
-
-  if (charge.foodPurchaseApplication) {
-    return "Foodstuff Purchase"
-  }
-
-  if (charge.projectFinancingRequest) {
-    return `Project financing: ${charge.projectFinancingRequest.businessName}`
-  }
-
-  if (charge.loanRequest) {
-    return "Financing request"
-  }
-
+function InfoItem({ label, value }: { label: string; value: string }) {
   return (
-    charge.chargeApplicability?.workflow?.replace(/_/g, " ") ?? "Manual charge"
-  )
-}
-
-function EmptyStatementRows({ label }: { label: string }) {
-  return (
-    <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
-      {label}
+    <div>
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd className="font-medium text-foreground">{value}</dd>
     </div>
   )
 }
 
-export function MemberStatementView({ detail }: ReadyMemberStatementPageData) {
+function MoveAmounts({ line }: { line: StatementLine }) {
   return (
-    <section className="mx-auto max-w-6xl space-y-6 px-3 py-6 sm:px-6 sm:py-10 print:px-0">
-      <div className="rounded-lg border border-border/70 bg-card px-4 py-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] sm:px-6 sm:py-6">
+    <div className="flex flex-col gap-1 sm:items-end">
+      {line.moves.map((move) => (
+        <p
+          className="flex items-baseline justify-between gap-3"
+          key={move.kind}
+        >
+          <span className="text-sm text-muted-foreground">
+            {statementMoveLabels[move.kind]}
+          </span>
+          <span
+            className={cn(
+              "font-semibold tabular-nums",
+              isMoneyIn(move.kind)
+                ? "text-emerald-800 dark:text-emerald-300"
+                : "text-foreground"
+            )}
+          >
+            {formatCurrency(move.amount)}
+          </span>
+        </p>
+      ))}
+    </div>
+  )
+}
+
+function EmptyStatementRows({ label }: { label: string }) {
+  return <p className="py-4 text-muted-foreground">{label}</p>
+}
+
+/**
+ * Printable member statement, written for the member to read: balances,
+ * then every posting in plain words, newest first.
+ */
+export function MemberStatementView({
+  cooperativeName,
+  detail,
+}: ReadyMemberStatementPageData) {
+  const lines = buildMemberStatementLines(detail.ledgerTransactions)
+  const { member } = detail
+
+  return (
+    <article className="mx-auto flex max-w-5xl flex-col gap-6 print:max-w-none print:gap-4">
+      <header className="flex flex-col gap-5 rounded-lg border border-border/70 bg-background p-4 sm:p-6 print:border-0 print:p-0">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
-            <p className="text-xs font-medium text-muted-foreground">
-              Member statement
+            <p className="text-sm text-muted-foreground">
+              {cooperativeName} · Statement
             </p>
-            <h1 className="mt-3 text-2xl font-semibold text-foreground sm:text-[32px]">
-              {detail.member.fullName}
+            <h1 className="mt-2 text-3xl font-semibold text-foreground">
+              {member.fullName}
             </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {detail.member.memberNumber} ·{" "}
-              {detail.member.memberType.replace(/_/g, " ")} ·{" "}
-              {detail.member.status}
-            </p>
           </div>
-          <div className="flex flex-col gap-2 print:hidden md:items-end">
-            <div className="grid gap-2 sm:grid-cols-2">
-              <DashboardActionLink
-                className="h-11 w-full md:h-9 md:w-auto"
-                href={`/members/${detail.member.id}`}
-              >
-                Back to member view
-              </DashboardActionLink>
-              <DashboardActionLink
-                className="h-11 w-full md:h-9 md:w-auto"
-                href={`/members/${detail.member.id}/statement-export`}
-                variant="secondary"
-              >
-                Download statement
-              </DashboardActionLink>
-            </div>
-            <span className="text-sm text-muted-foreground">
-              Use your browser print action for a hard copy or PDF.
-            </span>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap print:hidden">
+            <DashboardActionLink href={`/members/${member.id}`}>
+              Back
+            </DashboardActionLink>
+            <PrintPageButton />
+            <DashboardActionLink
+              className="col-span-2"
+              href={`/members/${member.id}/statement-export`}
+            >
+              <DownloadIcon data-icon="inline-start" />
+              Download
+            </DashboardActionLink>
           </div>
         </div>
-      </div>
+        <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <InfoItem label="Member no." value={member.memberNumber} />
+          <InfoItem
+            label="Workplace"
+            value={member.deductionSource?.name ?? "None"}
+          />
+          <InfoItem
+            label="Joined"
+            value={formatDayMonthYear(member.joinedAt) ?? ""}
+          />
+          <InfoItem
+            label="Status"
+            value={getMemberStatusLabel(member.status)}
+          />
+          <InfoItem
+            label="Monthly savings"
+            value={formatCurrency(detail.summary?.activeCommitmentAmount ?? 0)}
+          />
+          <InfoItem
+            label="Statement date"
+            value={formatDayMonthYear(new Date()) ?? ""}
+          />
+        </dl>
+      </header>
 
       <MemberBalanceStatCards summary={detail.summary} />
 
-      <DashboardSectionCard>
-        <DashboardSectionHeader
-          actions={
-            <TrendPill>
-              {detail.dividendAllocations.length} allocations
-            </TrendPill>
-          }
-          eyebrow="Dividends"
-          headingLevel={2}
-          title="Published dividend allocations"
-        />
-        <div className="mt-5 space-y-3">
-          {detail.dividendAllocations.length ? (
-            detail.dividendAllocations.slice(0, 20).map((allocation) => (
-              <DashboardSurfaceCard
-                as="article"
-                className="rounded-lg"
+      <DashboardSectionCard className="print:border-0 print:p-0">
+        <DashboardSectionHeader headingLevel={2} title="Money in and out" />
+        {lines.length ? (
+          <>
+            <div
+              aria-hidden
+              className="hidden grid-cols-[9rem_minmax(0,1fr)_minmax(16rem,auto)] gap-4 border-b border-border/70 py-3 text-sm font-medium text-muted-foreground md:grid"
+            >
+              <span>Date</span>
+              <span>Details</span>
+              <span className="text-right">Amount</span>
+            </div>
+            <ol>
+              {lines.map((line) => (
+                <li
+                  className="grid break-inside-avoid gap-1 border-b border-border/70 py-3 last:border-b-0 md:grid-cols-[9rem_minmax(0,1fr)_minmax(16rem,auto)] md:items-start md:gap-4"
+                  key={line.id}
+                >
+                  <span className="text-sm text-muted-foreground md:text-base md:text-foreground">
+                    {formatDayMonthYear(line.date)}
+                  </span>
+                  <span className="font-medium text-foreground">
+                    {line.description}
+                  </span>
+                  <MoveAmounts line={line} />
+                </li>
+              ))}
+            </ol>
+          </>
+        ) : (
+          <EmptyStatementRows label="Nothing has been posted yet." />
+        )}
+      </DashboardSectionCard>
+
+      {detail.pendingCharges.length ? (
+        <DashboardSectionCard className="print:border-0 print:p-0">
+          <DashboardSectionHeader headingLevel={2} title="Fees still to pay" />
+          <ul>
+            {detail.pendingCharges.map((charge) => (
+              <li
+                className="flex items-start justify-between gap-4 border-b border-border/70 py-3 last:border-b-0"
+                key={charge.id}
+              >
+                <div>
+                  <p className="font-medium text-foreground">
+                    {charge.chargeDefinition.name}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatDayMonthYear(charge.assessedAt)}
+                  </p>
+                </div>
+                <p className="font-semibold tabular-nums">
+                  {formatCurrency(Number(charge.amount))}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </DashboardSectionCard>
+      ) : null}
+
+      {detail.dividendAllocations.length ? (
+        <DashboardSectionCard className="print:border-0 print:p-0">
+          <DashboardSectionHeader headingLevel={2} title="Profit shared" />
+          <ul>
+            {detail.dividendAllocations.map((allocation) => (
+              <li
+                className="flex items-start justify-between gap-4 border-b border-border/70 py-3 last:border-b-0"
                 key={allocation.id}
               >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="font-medium text-foreground">
-                      {allocation.dividendPeriod.name}
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Published{" "}
-                      {formatIsoDate(allocation.dividendPeriod.publishedAt) ??
-                        "not dated"}
-                    </p>
-                  </div>
-                  <div className="text-sm sm:text-right">
-                    <p className="text-muted-foreground">
-                      Basis{" "}
-                      {formatCurrency(Number(allocation.savingsBasisAmount))}
-                    </p>
-                    <p className="mt-1 font-medium text-foreground">
-                      {formatCurrency(Number(allocation.allocationAmount))}
-                    </p>
-                  </div>
+                <div>
+                  <p className="font-medium text-foreground">
+                    {allocation.dividendPeriod.name}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatDayMonthYear(
+                      allocation.dividendPeriod.publishedAt
+                    ) ?? "Not dated"}
+                  </p>
                 </div>
-              </DashboardSurfaceCard>
-            ))
-          ) : (
-            <EmptyStatementRows label="No dividend allocations published yet." />
-          )}
-        </div>
-      </DashboardSectionCard>
-
-      <DashboardSectionCard>
-        <DashboardSectionHeader
-          actions={
-            <TrendPill>{detail.chargeApplications.length} charges</TrendPill>
-          }
-          eyebrow="Charges"
-          headingLevel={2}
-          title="Workflow and manual charges"
-        />
-        <div className="mt-5 space-y-3">
-          {detail.chargeApplications.length ? (
-            detail.chargeApplications
-              .slice(0, 20)
-              .map((charge: MemberStatementCharge) => (
-                <DashboardSurfaceCard
-                  as="article"
-                  className="rounded-lg"
-                  key={charge.id}
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <p className="font-medium text-foreground">
-                        {charge.chargeDefinition.name}
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {formatChargeSource(charge)}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground capitalize">
-                        {charge.status} ·{" "}
-                        {charge.collectionMode.replace(/_/g, " ")}
-                      </p>
-                    </div>
-                    <p className="font-medium text-foreground">
-                      {formatCurrency(Number(charge.amount))}
-                    </p>
-                  </div>
-                </DashboardSurfaceCard>
-              ))
-          ) : (
-            <EmptyStatementRows label="No workflow or manual charges recorded yet." />
-          )}
-        </div>
-      </DashboardSectionCard>
-
-      <DashboardSectionCard>
-        <DashboardSectionHeader
-          actions={
-            <TrendPill>
-              {detail.ledgerTransactions.length} transactions
-            </TrendPill>
-          }
-          eyebrow="Ledger"
-          headingLevel={2}
-          title="Ledger timeline"
-        />
-        <div className="mt-5 space-y-3">
-          {detail.ledgerTransactions.length ? (
-            detail.ledgerTransactions.slice(0, 20).map((transaction) => (
-              <DashboardSurfaceCard
-                as="article"
-                className="rounded-lg"
-                key={transaction.id}
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="font-medium text-foreground">
-                      {transaction.narration ?? transaction.transactionType}
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground capitalize">
-                      {transaction.transactionType} ·{" "}
-                      {formatIsoDate(transaction.postedAt) ?? "not dated"}
-                    </p>
-                  </div>
-                  <div className="space-y-1 sm:text-right">
-                    {transaction.entries.map((entry) => (
-                      <p
-                        className="text-xs text-muted-foreground"
-                        key={entry.id}
-                      >
-                        {entry.ledgerAccount.name} · {entry.direction} ·{" "}
-                        {formatCurrency(Number(entry.amount))}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              </DashboardSurfaceCard>
-            ))
-          ) : (
-            <EmptyStatementRows label="No ledger transactions recorded yet." />
-          )}
-        </div>
-      </DashboardSectionCard>
-    </section>
+                <p className="font-semibold text-emerald-800 tabular-nums dark:text-emerald-300">
+                  {formatCurrency(Number(allocation.allocationAmount))}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </DashboardSectionCard>
+      ) : null}
+    </article>
   )
 }

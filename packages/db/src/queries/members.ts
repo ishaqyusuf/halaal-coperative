@@ -118,7 +118,9 @@ const memberListInclude = {
     take: 1,
     where: { isActive: true },
   },
-  deductionSource: true,
+  deductionSource: {
+    select: { externalReference: true, id: true, name: true, type: true },
+  },
   user: { select: { id: true, email: true, fullName: true } },
 } satisfies Prisma.MemberInclude
 

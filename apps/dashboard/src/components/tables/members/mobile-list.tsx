@@ -27,7 +27,7 @@ export function MembersMobileList({
   } = useMembersDirectoryQuery()
   const rowVirtualizer = useVirtualizer({
     count: members.length,
-    estimateSize: () => 232,
+    estimateSize: () => 132,
     getScrollElement: () => parentRef.current,
     overscan: 6,
   })

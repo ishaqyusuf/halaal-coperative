@@ -104,8 +104,10 @@ export function MembersSearchFilter({
   const { filters, setFilters } = useMembersFilterParams()
   const hasFilters = hasActiveMemberFilters(filters)
   const migrationLabel =
-    migrationSetupMode === "brought_forward" ? "Brought forward" : "Backfill"
-  const migrationStatusFilters = getMigrationStatusFilters(migrationLabel)
+    migrationSetupMode === "brought_forward"
+      ? "Opening balance"
+      : "Past records"
+  const migrationStatusFilters = getMigrationStatusFilters()
 
   useHotkeys("esc", () => setFilters({ q: null }, { shallow: false }), {
     enableOnFormTags: true,
@@ -158,7 +160,7 @@ export function MembersSearchFilter({
             onChange={(event) =>
               setFilters({ q: event.target.value || null }, { shallow: false })
             }
-            placeholder="Search members..."
+            placeholder="Search name or number"
             spellCheck="false"
             type="search"
             value={filters.q ?? ""}

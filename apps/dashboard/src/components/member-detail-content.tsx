@@ -7,6 +7,7 @@ import {
   MemberKycForm,
   MemberPortalAccessForm,
 } from "@/components/forms/member-forms"
+import { MemberEditContent } from "@/components/member-edit-content"
 import { useMemberDetailParams } from "@/hooks/use-member-detail-params"
 
 type MemberDetailDocument = {
@@ -15,9 +16,17 @@ type MemberDetailDocument = {
   reviewStatus: string
 }
 
-type MemberDetailMember = {
+export type MemberDetailMember = {
+  address?: string | null
+  deductionSourceId?: string | null
+  email?: string | null
+  fullName: string
   governmentIdNumber?: string | null
   id: string
+  memberType: string
+  occupation?: string | null
+  phoneNumber?: string | null
+  user?: { email: string | null } | null
   joinedAt: Date | string
   kycDocumentType?: string | null
   kycDocumentUrl?: string | null
@@ -38,12 +47,14 @@ function formatIsoDate(value: Date | string | null | undefined) {
 
 export function MemberDetailContent({
   activePlan,
+  canChangeWorkplace,
   devMode,
   documents,
   member,
   onSuccess,
 }: {
   activePlan: ActiveCommitmentPlan
+  canChangeWorkplace: boolean
   devMode: boolean
   documents: MemberDetailDocument[]
   member: MemberDetailMember
@@ -55,17 +66,31 @@ export function MemberDetailContent({
     (document) => document.id === memberDetailDocumentId
   )
 
+  if (memberDetailSheetType === "edit") {
+    return (
+      <div className="px-4 pb-6 sm:px-6">
+        <MemberEditContent
+          canChangeWorkplace={canChangeWorkplace}
+          member={member}
+          onSuccess={onSuccess}
+        />
+      </div>
+    )
+  }
+
   if (memberDetailSheetType === "portal-access") {
     return (
-      <div className="px-6">
-        <MemberPortalAccessForm memberId={member.id} onSuccess={onSuccess} />
-      </div>
+      <MemberPortalAccessForm
+        email={member.user?.email ?? member.email}
+        memberId={member.id}
+        onSuccess={onSuccess}
+      />
     )
   }
 
   if (memberDetailSheetType === "commitment") {
     return (
-      <div className="px-6">
+      <div>
         <MemberCommitmentForm
           defaultAmount={
             activePlan ? String(Number(activePlan.amount)) : undefined
@@ -78,17 +103,13 @@ export function MemberDetailContent({
           memberId={member.id}
           onSuccess={onSuccess}
         />
-        <p className="mt-3 text-xs leading-5 text-muted-foreground">
-          Saving closes the existing active commitment from the selected
-          effective date.
-        </p>
       </div>
     )
   }
 
   if (memberDetailSheetType === "kyc") {
     return (
-      <div className="px-6">
+      <div className="px-4 pb-6 sm:px-6">
         <MemberKycForm
           defaultValues={{
             governmentIdNumber: member.governmentIdNumber ?? "",
@@ -107,7 +128,7 @@ export function MemberDetailContent({
 
   if (memberDetailSheetType === "document") {
     return (
-      <div className="px-6">
+      <div className="px-4 pb-6 sm:px-6">
         <MemberDocumentForm
           defaultMemberId={member.id}
           devMode={devMode}
@@ -120,14 +141,14 @@ export function MemberDetailContent({
   if (memberDetailSheetType === "document-review") {
     if (!selectedDocument) {
       return (
-        <div className="px-6 text-sm text-muted-foreground">
-          Select a document to review.
+        <div className="text-sm text-muted-foreground">
+          This document is no longer here.
         </div>
       )
     }
 
     return (
-      <div className="px-6">
+      <div>
         <MemberDocumentReviewForm
           defaultValues={{
             documentId: selectedDocument.id,
@@ -145,8 +166,8 @@ export function MemberDetailContent({
   }
 
   return (
-    <div className="px-6 text-sm text-muted-foreground">
-      Select a member action to continue.
+    <div className="px-4 text-sm text-muted-foreground sm:px-6">
+      Nothing to show.
     </div>
   )
 }

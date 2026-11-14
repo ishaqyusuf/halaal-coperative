@@ -1,8 +1,9 @@
 import {
   createDbRuntime,
+  getMemberDetailOverview,
   getMemberOperationalReadiness,
-  getMemberStatementDetail,
 } from "@halaalvest/db"
+import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
 import {
   canShowQuickFill,
   getDashboardServerContext,
@@ -13,8 +14,8 @@ import {
   memberManagementRoles,
 } from "@/lib/workspace-access"
 
-type MemberStatementDetail = NonNullable<
-  Awaited<ReturnType<typeof getMemberStatementDetail>>
+type MemberDetailOverview = NonNullable<
+  Awaited<ReturnType<typeof getMemberDetailOverview>>
 >
 
 export type MemberDetailPageData =
@@ -25,9 +26,10 @@ export type MemberDetailPageData =
       state: "not-found"
     }
   | {
+      canChangeWorkplace: boolean
       canManageCommitments: boolean
       canManageMembers: boolean
-      detail: MemberStatementDetail
+      detail: MemberDetailOverview
       operationalReadiness: NonNullable<
         Awaited<ReturnType<typeof getMemberOperationalReadiness>>
       >
@@ -91,12 +93,26 @@ export async function loadMemberDetailPageData(
     }
   }
 
-  const [detail, operationalReadiness] = await Promise.all([
-    getMemberStatementDetail(context.tenant.id, memberId),
+  // Member-role users read their own records elsewhere; never another member's.
+  if (!hasAnyRole(context.auth.membership?.role, allStaffRoles)) {
+    return {
+      state: "not-found" as const,
+    }
+  }
+
+  const canManageMembers = hasAnyRole(
+    context.auth.membership?.role,
+    memberManagementRoles
+  )
+  const [detail, operationalReadiness, operationProfile] = await Promise.all([
+    getMemberDetailOverview(context.tenant.id, memberId),
     getMemberOperationalReadiness({
       memberId,
       tenantId: context.tenant.id,
     }),
+    canManageMembers
+      ? getRequestTenantOperationProfile(context.tenant.id)
+      : Promise.resolve(null),
   ])
 
   if (!detail || !operationalReadiness) {
@@ -107,14 +123,14 @@ export async function loadMemberDetailPageData(
 
   return {
     state: "ready" as const,
+    canChangeWorkplace: Boolean(
+      operationProfile?.services.collection_sources.canStaffCreate
+    ),
     canManageCommitments: hasAnyRole(
       context.auth.membership?.role,
       allStaffRoles
     ),
-    canManageMembers: hasAnyRole(
-      context.auth.membership?.role,
-      memberManagementRoles
-    ),
+    canManageMembers,
     detail: toClientValue(detail),
     operationalReadiness,
     quickFillEnabled: canShowQuickFill(context),

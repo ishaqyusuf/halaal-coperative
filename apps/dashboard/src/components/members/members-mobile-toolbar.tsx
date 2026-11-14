@@ -56,73 +56,71 @@ export function MembersMobileToolbar({
   return (
     <>
       <div className="space-y-3 md:hidden" data-members-mobile-header>
-        <form
-          className="w-full"
-          data-quick-fill-exempt="true"
-          onSubmit={(event) => event.preventDefault()}
-        >
-          <InputGroup className="h-11">
-            <InputGroupAddon align="inline-start">
-              <Search aria-hidden="true" className="size-4" />
-            </InputGroupAddon>
-            <InputGroupInput
-              aria-label="Search members"
-              autoCapitalize="none"
-              autoComplete="off"
-              autoCorrect="off"
-              onChange={(event) => setParams({ q: event.target.value || null })}
-              placeholder="Search members..."
-              spellCheck="false"
-              type="search"
-              value={params.q ?? ""}
-            />
-            <InputGroupAddon align="inline-end">
-              <InputGroupButton
-                aria-label="Filter members"
-                className={
-                  hasActiveControls
-                    ? "size-9 text-foreground"
-                    : "size-9 text-muted-foreground"
+        <div className="flex items-center gap-2">
+          <form
+            className="min-w-0 flex-1"
+            data-quick-fill-exempt="true"
+            onSubmit={(event) => event.preventDefault()}
+          >
+            <InputGroup className="h-11">
+              <InputGroupAddon align="inline-start">
+                <Search aria-hidden="true" className="size-4" />
+              </InputGroupAddon>
+              <InputGroupInput
+                aria-label="Search members"
+                autoCapitalize="none"
+                autoComplete="off"
+                autoCorrect="off"
+                onChange={(event) =>
+                  setParams({ q: event.target.value || null })
                 }
-                onClick={() => setFilterOpen(true)}
-                size="icon-sm"
-              >
-                <MiddayFilterIcon />
-              </InputGroupButton>
-            </InputGroupAddon>
-          </InputGroup>
-        </form>
+                placeholder="Search name or number"
+                spellCheck="false"
+                type="search"
+                value={params.q ?? ""}
+              />
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton
+                  aria-label="Filter members"
+                  className={
+                    hasActiveControls
+                      ? "size-9 text-foreground"
+                      : "size-9 text-muted-foreground"
+                  }
+                  onClick={() => setFilterOpen(true)}
+                  size="icon-sm"
+                >
+                  <MiddayFilterIcon />
+                </InputGroupButton>
+              </InputGroupAddon>
+            </InputGroup>
+          </form>
 
-        <div className="flex min-h-11 items-center justify-between gap-2">
-          <div>
-            {hasActiveControls ? (
-              <Button
-                className="h-11"
-                onClick={() => setParams(clearedMembersControlsParams)}
-                type="button"
-                variant="outline"
-              >
-                Clear filters
-              </Button>
-            ) : null}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {hasSecondaryActions ? (
-              <Button
-                aria-label="More member actions"
-                className="size-11"
-                onClick={() => setActionsOpen(true)}
-                size="icon-lg"
-                type="button"
-                variant="outline"
-              >
-                <MoreHorizontal />
-              </Button>
-            ) : null}
-            {canCreateMember ? <OpenMemberSheet iconOnly /> : null}
-          </div>
+          {hasSecondaryActions ? (
+            <Button
+              aria-label="More member actions"
+              className="size-11 shrink-0"
+              onClick={() => setActionsOpen(true)}
+              size="icon-lg"
+              type="button"
+              variant="outline"
+            >
+              <MoreHorizontal />
+            </Button>
+          ) : null}
+          {canCreateMember ? <OpenMemberSheet iconOnly /> : null}
         </div>
+
+        {hasActiveControls ? (
+          <Button
+            className="h-11"
+            onClick={() => setParams(clearedMembersControlsParams)}
+            type="button"
+            variant="outline"
+          >
+            Clear filters
+          </Button>
+        ) : null}
       </div>
 
       {filterOpen ? (
@@ -158,7 +156,7 @@ export function MembersMobileToolbar({
               type="button"
               variant="ghost"
             >
-              Open link generator
+              Sign-up link
             </Button>
           ) : null}
         </div>

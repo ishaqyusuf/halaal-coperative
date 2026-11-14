@@ -5,6 +5,7 @@ export const memberDetailSheetTypes = [
   "commitment",
   "document",
   "document-review",
+  "edit",
   "kyc",
   "portal-access",
 ] as const

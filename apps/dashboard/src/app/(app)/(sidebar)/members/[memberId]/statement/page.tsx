@@ -5,8 +5,7 @@ import { MemberStatementUnavailableView } from "@/components/member-statement-pa
 import { loadMemberStatementPageData } from "@/lib/members"
 
 export const metadata: Metadata = {
-  description:
-    "Printable cooperative member balances, charges, dividends, and ledger evidence.",
+  description: "A member's balances and every payment in and out.",
   title: "Member statement | Halaalvest",
 }
 

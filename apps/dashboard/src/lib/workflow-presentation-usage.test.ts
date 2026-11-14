@@ -95,7 +95,7 @@ describe("workflow presentation ownership", () => {
       ["forms/finance-forms.tsx", 3], // L4-L6
       ["guarantor-approval-content.tsx", 1], // GA1
       ["initial-migration-action-content.tsx", 1], // X18
-      ["member-content.tsx", 1], // M2
+      ["member-status-confirm.tsx", 1], // M2
       ["members/member-backfill-apply-form.tsx", 1], // X14
       ["members/member-backfill-content.tsx", 4], // X7-X9, X11, X12
       ["monthly-record-content.tsx", 3], // MR1, MR4, MR5

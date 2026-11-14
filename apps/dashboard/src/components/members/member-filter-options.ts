@@ -25,7 +25,7 @@ export const memberStatusFilters: FilterItem<MemberStatusFilter>[] = [
   { id: "active", name: "Active" },
   { id: "inactive", name: "Inactive" },
   { id: "suspended", name: "Suspended" },
-  { id: "exited", name: "Exited" },
+  { id: "exited", name: "Left" },
 ]
 
 export const memberTypeFilters: FilterItem<MemberTypeFilter>[] = [
@@ -36,15 +36,15 @@ export const memberTypeFilters: FilterItem<MemberTypeFilter>[] = [
 
 export const kycStatusFilters: FilterItem<KycStatusFilter>[] = [
   { id: "not_started", name: "Not started" },
-  { id: "pending", name: "Pending" },
+  { id: "pending", name: "Pending review" },
   { id: "verified", name: "Verified" },
   { id: "rejected", name: "Rejected" },
 ]
 
-export function getMigrationStatusFilters(label: string) {
+export function getMigrationStatusFilters() {
   return [
-    { id: "pending", name: `${label} pending` },
-    { id: "finalized", name: `${label} finalized` },
+    { id: "pending", name: "Not added yet" },
+    { id: "finalized", name: "Added" },
   ] satisfies FilterItem<MigrationStatusFilter>[]
 }
 

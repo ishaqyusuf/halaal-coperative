@@ -16,7 +16,7 @@ import { MembersAll } from "./members-all"
 import { MembersHeader as MembersPageHeader } from "./members-header"
 import { MembersKycPending } from "./members-kyc-pending"
 import { MemberImportPanel, MemberSheet } from "./members-lazy-sheets"
-import { MembersLinkedUsers } from "./members-linked-users"
+import { MembersOpeningPending } from "./members-opening-pending"
 
 type MemberImportColumnSettings = Awaited<
   ReturnType<typeof getInitialMemberImportColumnSettings>
@@ -25,7 +25,7 @@ type MemberImportColumnSettings = Awaited<
 function SignupLinkAction() {
   return (
     <DashboardActionLink href="/member-signup-links">
-      Open link generator
+      Sign-up link
     </DashboardActionLink>
   )
 }
@@ -58,13 +58,11 @@ export function MembersPageView({
           <DashboardEmptyState
             body={
               data.accessDenied
-                ? "The full member directory is restricted to cooperative staff. Members can use their own dashboard and statement routes for personal records."
-                : "The member registry could not load from the cooperative database right now. If you still open the create form, submissions will fail until the database connection is restored."
+                ? "Only cooperative staff can see the member list."
+                : "Try again in a moment."
             }
             title={
-              data.accessDenied
-                ? "Staff member access is required."
-                : "Database-backed member records are not available yet."
+              data.accessDenied ? "Staff only" : "Members can't load right now."
             }
           />
           {data.accessDenied ? null : (
@@ -90,10 +88,6 @@ export function MembersPageView({
             <section className="grid grid-cols-2 gap-6 pt-6 lg:grid-cols-4">
               <MembersAll
                 filters={data.filters}
-                migrationFinalizedCount={data.summary.migrationFinalizedCount}
-                migrationSetupMode={
-                  data.tenant?.migrationSetupMode ?? "historical_backfill"
-                }
                 totalCount={data.summary.totalCount}
               />
               <MembersActive
@@ -103,8 +97,13 @@ export function MembersPageView({
               <MembersKycPending
                 kycPendingCount={data.summary.kycPendingCount}
               />
-              <MembersLinkedUsers
-                linkedUsersCount={data.summary.linkedUsersCount}
+              <MembersOpeningPending
+                filters={data.filters}
+                migrationFinalizedCount={data.summary.migrationFinalizedCount}
+                migrationSetupMode={
+                  data.tenant?.migrationSetupMode ?? "historical_backfill"
+                }
+                totalCount={data.summary.totalCount}
               />
             </section>
           </CollapsibleSummary>

@@ -15,12 +15,10 @@ const tableConfigsSource = readFileSync(
 )
 
 describe("member table identity density", () => {
-  test("combines member number and joined date in one column", () => {
-    expect(columnsSource).toContain('header: "# / Joined"')
-    expect(columnsSource).toContain("joinedAt={row.original.joinedAt}")
-    expect(columnsSource).not.toContain('header: "Joined"')
-    expect(tableHeaderSource).toContain('number: "# / Joined"')
-    expect(tableHeaderSource).not.toContain('number: "Number"')
+  test("keeps member number as the sticky first column, with joined on its own", () => {
+    expect(columnsSource).toContain('header: "Member no."')
+    expect(columnsSource).toContain('header: "Joined"')
+    expect(tableHeaderSource).toContain('number: "Member no."')
     expect(columnsSource.indexOf('id: "number"')).toBeLessThan(
       columnsSource.indexOf('id: "member"')
     )
@@ -30,12 +28,11 @@ describe("member table identity density", () => {
     expect(tableConfigsSource).toContain(
       'members: new Set(["select", "number", "actions"])'
     )
-    expect(tableConfigsSource).toContain('number: "joinedAt"')
+    expect(tableConfigsSource).toContain('joined: "joinedAt"')
   })
 
-  test("shows member type in the member cell instead of a separate column", () => {
-    expect(columnsSource).toContain("memberType={row.original.memberType}")
-    expect(columnsSource).toContain("{displayEnum(memberType)}")
+  test("leaves member type off the registry row", () => {
+    expect(columnsSource).not.toContain("memberType")
     expect(columnsSource).not.toContain('header: "Type"')
   })
 })

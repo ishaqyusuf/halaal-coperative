@@ -30,6 +30,8 @@ export const suites = {
     "apps/dashboard/src/lib/universal-form-quick-fill.test.ts",
     "apps/dashboard/src/lib/navigation/lib.test.ts",
     "apps/dashboard/src/lib/members/member-list-input.test.ts",
+    "apps/dashboard/src/lib/members/member-statement-lines.test.ts",
+    "apps/dashboard/src/lib/members/member-status-words.test.ts",
     "apps/dashboard/src/lib/charges/charge-library-list-input.test.ts",
     "apps/dashboard/src/lib/charges/charges-page-conformance.test.ts",
     "apps/dashboard/src/lib/contributions/contribution-list-input.test.ts",

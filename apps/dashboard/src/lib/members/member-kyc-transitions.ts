@@ -4,15 +4,21 @@
  * same map in `@halaalvest/db` (`getAllowedMemberKycTransitions`); a test keeps
  * the two in step, so the status picker only offers changes that will save.
  */
-export type MemberKycStatus = "not_started" | "pending" | "verified" | "rejected"
+export type MemberKycStatus =
+  | "not_started"
+  | "pending"
+  | "verified"
+  | "rejected"
 
-const memberKycTransitions: Record<MemberKycStatus, readonly MemberKycStatus[]> =
-  {
-    not_started: ["pending"],
-    pending: ["verified", "rejected"],
-    rejected: ["pending"],
-    verified: ["pending"],
-  }
+const memberKycTransitions: Record<
+  MemberKycStatus,
+  readonly MemberKycStatus[]
+> = {
+  not_started: ["pending"],
+  pending: ["verified", "rejected"],
+  rejected: ["pending"],
+  verified: ["pending"],
+}
 
 const memberKycStatusLabels: Record<MemberKycStatus, string> = {
   not_started: "Not started",
@@ -48,4 +54,8 @@ export function getMemberKycStatusHint(status: MemberKycStatus) {
     case "pending":
       return "Verify or reject once the documents are checked."
   }
+}
+
+export function getMemberKycStatusLabel(status: MemberKycStatus) {
+  return memberKycStatusLabels[status]
 }

@@ -4,13 +4,15 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@halaalvest/ui/components/alert"
-import { CircleAlert } from "lucide-react"
+import { Badge } from "@halaalvest/ui/components/badge"
+import { TenantLink as Link } from "@halaalvest/tenant-url/next"
+import { ArrowLeftIcon, CircleAlert } from "lucide-react"
 import {
   DashboardActionLink,
+  DashboardPageHeader,
+  DashboardPageShell,
   DashboardSectionCard,
   DashboardSectionHeader,
-  DashboardSurfaceCard,
-  TrendPill,
   WorkspaceEmptyState,
   WorkspacePageShell,
 } from "@/components/dashboard"
@@ -20,14 +22,25 @@ import {
   OpenMemberDetailCommitmentSheet,
   OpenMemberDetailDocumentReviewSheet,
   OpenMemberDetailDocumentSheet,
+  OpenMemberDetailEditSheet,
   OpenMemberDetailKycSheet,
+  OpenMemberStatusDialog,
 } from "@/components/open-member-detail-sheet"
 import { MemberDetailSheet } from "@/components/sheets/member-detail-sheet"
-import { loadMemberDetailPageData } from "@/lib/members"
+import { MemberStatusDialog } from "@/components/sheets/member-status-dialog"
+import type { MemberDetailPageData } from "@/lib/members/load-member-detail-page"
+import { getMemberKycStatusLabel } from "@/lib/members/member-kyc-transitions"
 import { getMemberMigrationStartHref } from "@/lib/members/member-migration-routing"
+import {
+  getMemberState,
+  getMemberTypeLabel,
+  getOpeningStepLabel,
+  memberStateToneClassNames,
+} from "@/lib/members/member-status-words"
+import { formatDayMonthYear } from "@/utils/format"
 
-type MemberDetailPageData = Extract<
-  Awaited<ReturnType<typeof loadMemberDetailPageData>>,
+type ReadyMemberDetailPageData = Extract<
+  MemberDetailPageData,
   { state: "ready" }
 >
 
@@ -35,98 +48,164 @@ export function MemberDetailUnavailableView() {
   return (
     <WorkspacePageShell
       eyebrow="Members"
-      title="Member statement"
-      description="Member finance and identity details are available when the database runtime is active."
+      title="Member"
+      description="Member details can't load right now."
     >
       <WorkspaceEmptyState
-        title="Member detail needs the database runtime."
-        body="Once the database-backed environment is active, this route will show commitment, savings, loan, and repayment history for one member."
+        title="Member details are not available."
+        body="Try again in a moment."
       />
     </WorkspacePageShell>
   )
 }
 
-function formatIsoDate(value: Date | null | undefined) {
-  return value ? value.toISOString().slice(0, 10) : null
+function DetailRow({
+  action,
+  label,
+  value,
+}: {
+  action?: React.ReactNode
+  label: string
+  value: React.ReactNode
+}) {
+  return (
+    <div className="flex flex-col gap-1 border-b border-border/70 py-3 last:border-b-0 sm:flex-row sm:items-center sm:gap-4">
+      <dt className="text-sm text-muted-foreground sm:w-40 sm:shrink-0">
+        {label}
+      </dt>
+      <dd className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2 font-medium break-words text-foreground">
+        <span className="min-w-0">{value}</span>
+        {action}
+      </dd>
+    </div>
+  )
+}
+
+function ListRow({
+  amount,
+  sub,
+  title,
+}: {
+  amount: string
+  sub?: string | null
+  title: string
+}) {
+  return (
+    <li className="flex items-start justify-between gap-4 border-b border-border/70 py-3 last:border-b-0">
+      <div className="min-w-0">
+        <p className="font-medium text-foreground">{title}</p>
+        {sub ? <p className="text-sm text-muted-foreground">{sub}</p> : null}
+      </div>
+      <p className="shrink-0 font-semibold text-foreground tabular-nums">
+        {amount}
+      </p>
+    </li>
+  )
+}
+
+function EmptyLine({ children }: { children: React.ReactNode }) {
+  return <p className="py-3 text-sm text-muted-foreground">{children}</p>
+}
+
+const kycTone: Record<string, string> = {
+  not_started: memberStateToneClassNames.warning,
+  pending: memberStateToneClassNames.warning,
+  rejected: memberStateToneClassNames.danger,
+  verified: memberStateToneClassNames.good,
+}
+
+const documentStatusLabels: Record<string, string> = {
+  pending: "Waiting to be checked",
+  rejected: "Rejected",
+  verified: "Checked",
 }
 
 export function MemberDetailView({
+  canChangeWorkplace,
   canManageCommitments,
   canManageMembers,
   detail,
   operationalReadiness,
   quickFillEnabled,
-}: MemberDetailPageData) {
-  const rawActivePlan =
-    detail.member.contributionPlans.find((plan) => plan.isActive) ?? null
-  const activePlan = rawActivePlan
-    ? {
-        ...rawActivePlan,
-        amount: Number(rawActivePlan.amount),
-      }
+}: ReadyMemberDetailPageData) {
+  const { member, summary } = detail
+  const currentPlan =
+    member.contributionPlans.find((plan) => plan.isActive) ?? null
+  const activePlan = currentPlan
+    ? { ...currentPlan, amount: Number(currentPlan.amount) }
     : null
+  const state = getMemberState(member.status, operationalReadiness)
+  const migrationMode = operationalReadiness.migration.mode
+  const openingStep = getOpeningStepLabel(migrationMode)
+  const issues = operationalReadiness.issues
+  const email = member.email ?? member.user?.email ?? null
   const today = new Date()
 
   return (
-    <WorkspacePageShell
-      actions={
-        <MemberDetailActions
-          canManageMembers={canManageMembers}
-          memberId={detail.member.id}
+    <DashboardPageShell>
+      <div className="flex flex-col gap-3">
+        <Link
+          className="inline-flex min-h-11 w-fit items-center gap-2 text-sm font-medium text-foreground underline-offset-4 hover:underline"
+          href="/members"
+        >
+          <ArrowLeftIcon aria-hidden className="size-4" />
+          All members
+        </Link>
+        <DashboardPageHeader
+          actions={
+            <MemberDetailActions
+              canManageMembers={canManageMembers}
+              memberId={member.id}
+              status={member.status}
+            />
+          }
+          description={`${member.memberNumber} · Joined ${formatDayMonthYear(member.joinedAt)}`}
+          title={member.fullName}
         />
-      }
-      eyebrow="Members"
-      title={detail.member.fullName}
-      description="Identity and KYC, savings, financing, repayments and ledger activity for this member."
-    >
+      </div>
+
       {!operationalReadiness.isReady ? (
         <Alert className="items-start border-amber-300 bg-amber-50 px-4 py-4 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
           <CircleAlert className="mt-0.5 size-5" />
-          <AlertTitle className="text-sm">
-            Member verification required
+          <AlertTitle className="text-base">
+            Not ready to save or borrow yet
           </AlertTitle>
-          <AlertDescription className="mt-1 text-sm text-amber-900/80 dark:text-amber-100/80">
-            <p>
-              This member remains read-only until every required verification
-              step is complete.
-            </p>
-            <ul className="mt-2 list-disc space-y-1 pl-4">
-              {operationalReadiness.issues.includes("member_inactive") ? (
-                <li>Set the registry status to active.</li>
+          <AlertDescription className="mt-1 text-sm text-amber-950 dark:text-amber-100">
+            <ul className="list-disc space-y-1 pl-5">
+              {issues.includes("member_inactive") ? (
+                <li>Make the member active.</li>
               ) : null}
-              {operationalReadiness.issues.includes("kyc_unverified") ? (
-                <li>Review and verify the member’s KYC information.</li>
+              {issues.includes("kyc_unverified") ? (
+                <li>Check and verify their KYC.</li>
               ) : null}
-              {operationalReadiness.issues.includes("migration_incomplete") ? (
+              {issues.includes("migration_incomplete") ? (
                 <li>
-                  {operationalReadiness.migration.mode === "brought_forward"
-                    ? "Apply the member’s brought-forward opening position."
-                    : "Complete and apply the member’s historical backfill."}
+                  {migrationMode === "brought_forward"
+                    ? "Add their opening balance."
+                    : "Add their past records."}
                 </li>
               ) : null}
             </ul>
             {canManageMembers ? (
               <div className="mt-4 flex flex-wrap gap-2">
-                {operationalReadiness.issues.includes(
-                  "migration_incomplete"
-                ) ? (
+                {issues.includes("member_inactive") ? (
+                  <OpenMemberStatusDialog
+                    memberId={member.id}
+                    status="active"
+                  />
+                ) : null}
+                {issues.includes("kyc_unverified") ? (
+                  <OpenMemberDetailKycSheet label="Verify KYC" />
+                ) : null}
+                {issues.includes("migration_incomplete") ? (
                   <DashboardActionLink
-                    href={getMemberMigrationStartHref(
-                      detail.member.id,
-                      operationalReadiness.migration.mode
-                    )}
-                    size="sm"
+                    href={getMemberMigrationStartHref(member.id, migrationMode)}
                     variant="secondary"
                   >
-                    {operationalReadiness.migration.mode === "brought_forward"
-                      ? "Complete brought forward"
-                      : operationalReadiness.migration.state === "draft"
-                        ? "Continue backfill"
-                        : "Start backfill"}
+                    {operationalReadiness.migration.state === "draft"
+                      ? `Continue ${openingStep.toLowerCase()}`
+                      : `Add ${openingStep.toLowerCase()}`}
                   </DashboardActionLink>
-                ) : null}
-                {operationalReadiness.issues.includes("kyc_unverified") ? (
-                  <OpenMemberDetailKycSheet />
                 ) : null}
               </div>
             ) : null}
@@ -134,514 +213,244 @@ export function MemberDetailView({
         </Alert>
       ) : null}
 
-      <MemberBalanceStatCards summary={detail.summary} />
+      <MemberBalanceStatCards summary={summary} />
 
-      <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+      <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        <DashboardSectionCard>
+          <DashboardSectionHeader
+            actions={canManageMembers ? <OpenMemberDetailEditSheet /> : null}
+            headingLevel={2}
+            title="Details"
+          />
+          <dl className="mt-2">
+            <DetailRow
+              label="Status"
+              value={
+                <Badge
+                  className={memberStateToneClassNames[state.tone]}
+                  variant="outline"
+                >
+                  {state.label}
+                </Badge>
+              }
+            />
+            <DetailRow
+              label="Phone"
+              value={member.phoneNumber ?? "Not added"}
+            />
+            <DetailRow label="Email" value={email ?? "Not added"} />
+            <DetailRow
+              label="Workplace"
+              value={member.deductionSource?.name ?? "None"}
+            />
+            <DetailRow
+              label="Member type"
+              value={getMemberTypeLabel(member.memberType)}
+            />
+            <DetailRow
+              label="Occupation"
+              value={member.occupation ?? "Not added"}
+            />
+            <DetailRow label="Address" value={member.address ?? "Not added"} />
+          </dl>
+        </DashboardSectionCard>
+
         <DashboardSectionCard>
           <DashboardSectionHeader
             actions={
-              <TrendPill
-                tone={
-                  detail.member.kycStatus === "verified"
-                    ? "positive"
-                    : "warning"
-                }
-              >
-                {detail.member.kycStatus.replace(/_/g, " ")}
-              </TrendPill>
+              canManageCommitments ? <OpenMemberDetailCommitmentSheet /> : null
             }
-            eyebrow="Profile"
-            title="Member profile and KYC posture"
+            headingLevel={2}
+            title="Monthly savings"
           />
-          <dl className="mt-5 grid gap-4 text-sm md:grid-cols-2">
-            <div>
-              <dt className="text-muted-foreground">Member number</dt>
-              <dd className="mt-1 font-medium text-foreground">
-                {detail.member.memberNumber}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Status</dt>
-              <dd className="mt-1 font-medium text-foreground capitalize">
-                {detail.member.status === "active" &&
-                !operationalReadiness.isReady
-                  ? "Action required"
-                  : detail.member.status}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Type</dt>
-              <dd className="mt-1 font-medium text-foreground capitalize">
-                {detail.member.memberType.replace(/_/g, " ")}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Joined</dt>
-              <dd className="mt-1 font-medium text-foreground">
-                {formatIsoDate(detail.member.joinedAt)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Primary email</dt>
-              <dd className="mt-1 font-medium text-foreground">
-                {detail.member.email ??
-                  detail.member.user?.email ??
-                  "Not provided"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Phone number</dt>
-              <dd className="mt-1 font-medium text-foreground">
-                {detail.member.phoneNumber ?? "Not provided"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Occupation</dt>
-              <dd className="mt-1 font-medium text-foreground">
-                {detail.member.occupation ?? "Not provided"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Deduction source</dt>
-              <dd className="mt-1 font-medium text-foreground">
-                {detail.member.deductionSource?.name ?? "Not set"}
-              </dd>
-            </div>
-            <div className="md:col-span-2">
-              <dt className="text-muted-foreground">Address</dt>
-              <dd className="mt-1 font-medium text-foreground">
-                {detail.member.address ?? "Not provided"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Document type</dt>
-              <dd className="mt-1 font-medium text-foreground">
-                {detail.member.kycDocumentType ?? "Not provided"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Document uploaded</dt>
-              <dd className="mt-1 font-medium text-foreground">
-                {formatIsoDate(detail.member.kycDocumentUploadedAt) ??
-                  "Not uploaded"}
-              </dd>
-            </div>
-            <div className="md:col-span-2">
-              <dt className="text-muted-foreground">KYC review notes</dt>
-              <dd className="mt-1 font-medium text-foreground">
-                {detail.member.kycReviewNotes ?? "No review notes yet"}
-              </dd>
-            </div>
-          </dl>
-          {canManageMembers ? (
-            <p className="mt-4 text-sm leading-6 text-muted-foreground">
-              Registry actions still happen from the main members page, while
-              this view focuses on statement context and KYC review detail.
-            </p>
+          <p className="mt-4 text-3xl font-semibold text-foreground tabular-nums">
+            {formatCurrency(summary?.activeCommitmentAmount ?? 0)}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {activePlan
+              ? `Since ${formatDayMonthYear(activePlan.startsAt)}`
+              : "No amount set yet"}
+          </p>
+          {member.contributionPlans.length > 1 ? (
+            <details className="mt-4 rounded-lg border border-border/70">
+              <summary className="flex min-h-11 cursor-pointer items-center px-3 text-sm font-medium text-foreground">
+                Earlier amounts
+              </summary>
+              <ul className="border-t border-border/70 px-3">
+                {member.contributionPlans.map((plan) => (
+                  <ListRow
+                    amount={formatCurrency(Number(plan.amount))}
+                    key={plan.id}
+                    sub={
+                      plan.isActive
+                        ? plan.startsAt > today
+                          ? "Starts later"
+                          : "Current"
+                        : null
+                    }
+                    title={`${formatDayMonthYear(plan.startsAt)}${
+                      plan.endsAt
+                        ? ` to ${formatDayMonthYear(plan.endsAt)}`
+                        : ""
+                    }`}
+                  />
+                ))}
+              </ul>
+            </details>
           ) : null}
         </DashboardSectionCard>
-
-        <DashboardSectionCard>
-          <DashboardSectionHeader
-            actions={
-              <TrendPill>
-                {detail.member.contributionPlans.length} plans
-              </TrendPill>
-            }
-            eyebrow="Commitment"
-            title="Monthly commitment history"
-          />
-          <DashboardSurfaceCard as="article" className="mt-5">
-            <details open>
-              <summary className="flex cursor-pointer list-none flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-                <div>
-                  <p className="font-medium text-foreground">
-                    Current monthly commitment{" "}
-                    {formatCurrency(
-                      detail.summary?.activeCommitmentAmount ?? 0
-                    )}
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {activePlan
-                      ? `Effective from ${formatIsoDate(activePlan.startsAt)}`
-                      : "No active monthly commitment has been recorded"}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <TrendPill>
-                    {detail.member.contributionPlans.length} dated updates
-                  </TrendPill>
-                  <TrendPill tone="neutral">View history</TrendPill>
-                  {canManageCommitments ? (
-                    <OpenMemberDetailCommitmentSheet />
-                  ) : null}
-                </div>
-              </summary>
-
-              <div className="mt-5">
-                <p className="text-sm font-medium text-foreground">
-                  Commitment update history
-                </p>
-                <div className="mt-4 space-y-3">
-                  {detail.member.contributionPlans.length ? (
-                    detail.member.contributionPlans.map((plan) => {
-                      const startsAt = formatIsoDate(plan.startsAt)
-                      const endsAt = formatIsoDate(plan.endsAt)
-                      const isScheduled = plan.startsAt > today
-                      const statusLabel = plan.isActive
-                        ? isScheduled
-                          ? "Scheduled commitment"
-                          : "Current commitment"
-                        : "Historical commitment"
-
-                      return (
-                        <div
-                          key={plan.id}
-                          className="flex flex-col items-start justify-between gap-3 rounded-lg border border-border/70 bg-background/80 px-4 py-3 sm:flex-row sm:items-center"
-                        >
-                          <div>
-                            <p className="text-sm font-medium text-foreground">
-                              {startsAt}
-                              {endsAt ? ` to ${endsAt}` : ""}
-                            </p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {plan.name}
-                            </p>
-                          </div>
-                          <div className="sm:text-right">
-                            <p className="font-medium text-foreground">
-                              {formatCurrency(Number(plan.amount))}
-                            </p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {statusLabel}
-                            </p>
-                          </div>
-                        </div>
-                      )
-                    })
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No commitment has been recorded for this member yet.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </details>
-          </DashboardSurfaceCard>
-        </DashboardSectionCard>
-      </section>
-
-      {canManageMembers ? (
-        <section className="grid gap-4 xl:grid-cols-2">
-          <DashboardSectionCard>
-            <DashboardSectionHeader
-              actions={<OpenMemberDetailKycSheet />}
-              eyebrow="Review"
-              title="Update KYC details"
-            />
-            <p className="mt-5 text-sm leading-6 text-muted-foreground">
-              Review and update identity fields from a focused sheet while the
-              profile summary remains visible.
-            </p>
-          </DashboardSectionCard>
-          <DashboardSectionCard>
-            <DashboardSectionHeader
-              actions={<OpenMemberDetailDocumentSheet />}
-              eyebrow="Documents"
-              title="Attach supporting document"
-            />
-            <p className="mt-5 text-sm leading-6 text-muted-foreground">
-              Add identity, compliance, or supporting files from a sheet so the
-              page remains a review workspace.
-            </p>
-          </DashboardSectionCard>
-        </section>
-      ) : null}
-
-      <DashboardSectionCard>
-        <DashboardSectionHeader
-          actions={
-            <TrendPill>{detail.member.documents.length} documents</TrendPill>
-          }
-          eyebrow="Documents"
-          title="KYC documents"
-        />
-        <div className="mt-5 space-y-3">
-          {detail.member.documents.length ? (
-            detail.member.documents.map((document) => (
-              <DashboardSurfaceCard key={document.id}>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="font-medium text-foreground">
-                      {document.documentType}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {document.reviewStatus} · uploaded{" "}
-                      {formatIsoDate(document.uploadedAt)}
-                    </p>
-                    <a
-                      className="mt-1 inline-block text-sm font-medium text-foreground underline-offset-4 hover:underline"
-                      href={document.documentUrl}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      Open document
-                    </a>
-                  </div>
-                  <TrendPill
-                    tone={
-                      document.reviewStatus === "verified"
-                        ? "positive"
-                        : document.reviewStatus === "rejected"
-                          ? "warning"
-                          : "neutral"
-                    }
-                  >
-                    {document.reviewedAt
-                      ? `Reviewed ${formatIsoDate(document.reviewedAt)}`
-                      : "Awaiting review"}
-                  </TrendPill>
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {document.reviewNotes ?? "No document review notes yet."}
-                </p>
-                {canManageMembers ? (
-                  <div className="mt-4">
-                    <OpenMemberDetailDocumentReviewSheet
-                      documentId={document.id}
-                    />
-                  </div>
-                ) : null}
-              </DashboardSurfaceCard>
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No supporting documents have been attached yet.
-            </p>
-          )}
-        </div>
-      </DashboardSectionCard>
-
-      <section className="grid gap-4 xl:grid-cols-2">
-        <DashboardSectionCard>
-          <DashboardSectionHeader
-            actions={
-              <TrendPill>{detail.contributions.length} entries</TrendPill>
-            }
-            eyebrow="Savings"
-            title="Recent contributions"
-          />
-          <div className="mt-5 space-y-3">
-            {detail.contributions.length ? (
-              detail.contributions.map((contribution) => (
-                <DashboardSurfaceCard key={contribution.id}>
-                  <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:gap-4">
-                    <div>
-                      <p className="font-medium text-foreground">
-                        {formatCurrency(Number(contribution.amount))}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {contribution.periodLabel ?? "Unlabeled period"} ·{" "}
-                        {contribution.channel}
-                      </p>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {formatIsoDate(contribution.postedAt)}
-                    </p>
-                  </div>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Commitment{" "}
-                    {formatCurrency(Number(contribution.committedAmount ?? 0))}{" "}
-                    · Extra savings{" "}
-                    {formatCurrency(
-                      Number(contribution.extraSavingsAmount ?? 0)
-                    )}
-                  </p>
-                </DashboardSurfaceCard>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No contributions recorded yet.
-              </p>
-            )}
-          </div>
-        </DashboardSectionCard>
-
-        <DashboardSectionCard>
-          <DashboardSectionHeader
-            actions={<TrendPill>{detail.repayments.length} postings</TrendPill>}
-            eyebrow="Repayments"
-            title="Recent repayments"
-          />
-          <div className="mt-5 space-y-3">
-            {detail.repayments.length ? (
-              detail.repayments.map((repayment) => (
-                <DashboardSurfaceCard key={repayment.id}>
-                  <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:gap-4">
-                    <div>
-                      <p className="font-medium text-foreground">
-                        {formatCurrency(Number(repayment.amount))}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {repayment.loan.loanProduct.name} · {repayment.status}
-                      </p>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {formatIsoDate(repayment.paidAt)}
-                    </p>
-                  </div>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Outstanding after posting{" "}
-                    {formatCurrency(
-                      Number(repayment.loan.outstandingPrincipal)
-                    )}
-                  </p>
-                </DashboardSurfaceCard>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No repayments recorded yet.
-              </p>
-            )}
-          </div>
-        </DashboardSectionCard>
       </section>
 
       <DashboardSectionCard>
         <DashboardSectionHeader
           actions={
-            <TrendPill>
-              {detail.ledgerTransactions.length} transactions
-            </TrendPill>
+            canManageMembers ? (
+              <>
+                <OpenMemberDetailKycSheet />
+                <OpenMemberDetailDocumentSheet />
+              </>
+            ) : null
           }
-          eyebrow="Ledger"
-          title="Ledger timeline"
+          headingLevel={2}
+          title="KYC"
         />
-        <div className="mt-5 space-y-3">
-          {detail.ledgerTransactions.length ? (
-            detail.ledgerTransactions.slice(0, 20).map((transaction) => (
-              <DashboardSurfaceCard
-                as="article"
-                className="rounded-lg"
-                key={transaction.id}
+        <dl className="mt-2">
+          <DetailRow
+            label="KYC"
+            value={
+              <Badge className={kycTone[member.kycStatus]} variant="outline">
+                {getMemberKycStatusLabel(member.kycStatus)}
+              </Badge>
+            }
+          />
+          <DetailRow
+            label="ID"
+            value={
+              member.kycDocumentType
+                ? `${member.kycDocumentType}${member.governmentIdNumber ? ` · ${member.governmentIdNumber}` : ""}`
+                : "Not added"
+            }
+          />
+          {member.kycReviewNotes ? (
+            <DetailRow label="Notes" value={member.kycReviewNotes} />
+          ) : null}
+        </dl>
+        <h3 className="mt-5 text-base font-semibold text-foreground">
+          Documents
+        </h3>
+        {member.documents.length ? (
+          <ul className="mt-1">
+            {member.documents.map((document) => (
+              <li
+                className="flex flex-col gap-2 border-b border-border/70 py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between"
+                key={document.id}
               >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="font-medium text-foreground">
-                      {transaction.narration ?? transaction.transactionType}
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground capitalize">
-                      {transaction.transactionType} ·{" "}
-                      {formatIsoDate(transaction.postedAt) ?? "not dated"}
-                    </p>
-                  </div>
-                  <div className="space-y-1 sm:text-right">
-                    {transaction.entries.map((entry) => (
-                      <p
-                        className="text-xs text-muted-foreground"
-                        key={entry.id}
-                      >
-                        {entry.ledgerAccount.name} · {entry.direction} ·{" "}
-                        {formatCurrency(Number(entry.amount))}
-                      </p>
-                    ))}
-                  </div>
+                <div className="min-w-0">
+                  <a
+                    className="font-medium text-foreground underline underline-offset-4"
+                    href={document.documentUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    {document.documentType}
+                  </a>
+                  <p className="text-sm text-muted-foreground">
+                    {documentStatusLabels[document.reviewStatus] ??
+                      document.reviewStatus}{" "}
+                    · Added {formatDayMonthYear(document.uploadedAt)}
+                  </p>
                 </div>
-              </DashboardSurfaceCard>
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No ledger transactions recorded yet.
-            </p>
-          )}
-        </div>
+                {canManageMembers ? (
+                  <OpenMemberDetailDocumentReviewSheet
+                    documentId={document.id}
+                  />
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyLine>No documents yet.</EmptyLine>
+        )}
       </DashboardSectionCard>
 
-      <DashboardSectionCard>
-        <DashboardSectionHeader
-          actions={<TrendPill>{detail.loans.length} loans</TrendPill>}
-          eyebrow="Loans"
-          title="Loans and schedules"
-        />
-        <div className="mt-5 space-y-4">
-          {detail.loans.length ? (
-            detail.loans.map((loan) => (
-              <DashboardSurfaceCard key={loan.id}>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="font-medium text-foreground">
-                      {loan.loanProduct.name}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Principal {formatCurrency(Number(loan.principalAmount))} ·
-                      Outstanding{" "}
-                      {formatCurrency(Number(loan.outstandingPrincipal))}
-                    </p>
-                  </div>
-                  <TrendPill
-                    tone={
-                      loan.status === "active" || loan.status === "disbursed"
-                        ? "positive"
-                        : "neutral"
-                    }
-                  >
-                    {loan.status}
-                  </TrendPill>
-                </div>
-                <p className="mt-3 text-sm text-muted-foreground">
-                  {loan.termMonths} months · servicing{" "}
-                  {formatCurrency(Number(loan.estimatedMonthlyServicing))} ·
-                  extra savings{" "}
-                  {formatCurrency(Number(loan.extraMonthlySavingsAmount))}
-                </p>
-                <div className="mt-4 grid gap-2 md:grid-cols-3">
-                  {loan.repaymentScheduleItems.map((item) => (
-                    <DashboardSurfaceCard
-                      key={item.id}
-                      className="bg-card p-3 text-sm"
-                    >
-                      <p className="font-medium text-foreground">
-                        Installment {item.installmentNumber}
-                      </p>
-                      <p className="mt-1 text-muted-foreground">
-                        Due {formatIsoDate(item.dueAt)}
-                      </p>
-                      <p className="mt-1 text-muted-foreground">
-                        {formatCurrency(Number(item.amountPaid))} /{" "}
-                        {formatCurrency(Number(item.totalDue))}
-                      </p>
-                      <p className="mt-1">
-                        <TrendPill
-                          tone={
-                            item.status === "paid"
-                              ? "positive"
-                              : item.status === "overdue"
-                                ? "warning"
-                                : "neutral"
-                          }
-                        >
-                          {item.status}
-                        </TrendPill>
-                      </p>
-                    </DashboardSurfaceCard>
-                  ))}
-                </div>
-              </DashboardSurfaceCard>
-            ))
+      <section className="grid gap-4 xl:grid-cols-3">
+        <DashboardSectionCard>
+          <DashboardSectionHeader headingLevel={2} title="Recent savings" />
+          {detail.contributions.length ? (
+            <ul className="mt-1">
+              {detail.contributions.map((contribution) => (
+                <ListRow
+                  amount={formatCurrency(Number(contribution.amount))}
+                  key={contribution.id}
+                  sub={formatDayMonthYear(contribution.postedAt)}
+                  title={contribution.periodLabel ?? "Savings"}
+                />
+              ))}
+            </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              No loan records yet.
-            </p>
+            <EmptyLine>No savings paid yet.</EmptyLine>
           )}
-        </div>
-      </DashboardSectionCard>
+        </DashboardSectionCard>
+
+        <DashboardSectionCard>
+          <DashboardSectionHeader headingLevel={2} title="Loans" />
+          {detail.loans.length ? (
+            <ul className="mt-1">
+              {detail.loans.map((loan) => {
+                const next = loan.repaymentScheduleItems[0]
+
+                return (
+                  <ListRow
+                    amount={formatCurrency(Number(loan.outstandingPrincipal))}
+                    key={loan.id}
+                    sub={
+                      next
+                        ? `Next ${formatCurrency(Number(next.totalDue) - Number(next.amountPaid))} due ${formatDayMonthYear(next.dueAt)}`
+                        : `${formatCurrency(Number(loan.principalAmount))} borrowed`
+                    }
+                    title={loan.loanProduct.name}
+                  />
+                )
+              })}
+            </ul>
+          ) : (
+            <EmptyLine>No loans.</EmptyLine>
+          )}
+        </DashboardSectionCard>
+
+        <DashboardSectionCard>
+          <DashboardSectionHeader headingLevel={2} title="Loan repayments" />
+          {detail.repayments.length ? (
+            <ul className="mt-1">
+              {detail.repayments.map((repayment) => (
+                <ListRow
+                  amount={formatCurrency(Number(repayment.amount))}
+                  key={repayment.id}
+                  sub={formatDayMonthYear(repayment.paidAt)}
+                  title={repayment.loan.loanProduct.name}
+                />
+              ))}
+            </ul>
+          ) : (
+            <EmptyLine>No repayments yet.</EmptyLine>
+          )}
+        </DashboardSectionCard>
+      </section>
+
+      <div>
+        <DashboardActionLink href={`/members/${member.id}/statement`}>
+          See full statement
+        </DashboardActionLink>
+      </div>
 
       <MemberDetailSheet
         activePlan={activePlan}
+        canChangeWorkplace={canChangeWorkplace}
         devMode={quickFillEnabled}
-        documents={detail.member.documents}
-        member={detail.member}
+        documents={member.documents}
+        member={member}
       />
-    </WorkspacePageShell>
+      {canManageMembers ? <MemberStatusDialog /> : null}
+    </DashboardPageShell>
   )
 }

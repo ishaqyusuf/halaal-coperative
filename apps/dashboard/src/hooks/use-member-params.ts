@@ -2,13 +2,7 @@ import { useQueryStates } from "nuqs"
 import { createLoader, parseAsString, parseAsStringEnum } from "nuqs/server"
 
 const memberParamsSchema = {
-  memberSheetType: parseAsStringEnum([
-    "create",
-    "details",
-    "edit",
-    "import",
-    "status",
-  ]),
+  memberSheetType: parseAsStringEnum(["create", "import", "status"]),
   selectedMemberId: parseAsString,
   selectedMemberStatus: parseAsString,
 }

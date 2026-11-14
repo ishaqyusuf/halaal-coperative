@@ -57,13 +57,13 @@ type MemberBackfillData = Extract<
 export function MemberBackfillUnavailableView() {
   return (
     <WorkspacePageShell
-      eyebrow="Member backfill"
-      title="Member backfill"
-      description="Member historical setup is available when the database runtime is active."
+      eyebrow="Members"
+      title="Opening balance"
+      description="This page can't load right now."
     >
       <WorkspaceEmptyState
-        title="Member backfill needs the database runtime."
-        body="Once the database-backed environment is active, this page will guide one member through historical setup and ledger backfill."
+        title="Not available right now."
+        body="Try again in a moment."
       />
     </WorkspacePageShell>
   )
@@ -854,16 +854,11 @@ function BroughtForwardStep({ data }: { data: MemberBackfillData }) {
   return (
     <DashboardSectionCard>
       <DashboardSectionHeader
-        eyebrow="Brought-forward"
-        title={
-          applied
-            ? "Member opening position completed"
-            : "Capture current member position"
-        }
+        title={applied ? "Opening balance added" : "Add opening balance"}
         description={
           applied
-            ? "The brought-forward position has been applied. Review the posted opening details below or reverse them if a correction is required."
-            : "Enter the member's current savings, special savings, share position, and any active obligations that should be carried forward."
+            ? "These balances are on the member's account. Reverse them only to fix a mistake."
+            : "Enter what the member already had and owed before using Halaalvest."
         }
         actions={
           <div className="justify-self-start">
@@ -1194,27 +1189,20 @@ export function MemberBackfillPageView({
 
   return (
     <WorkspacePageShell
-      eyebrow={isBroughtForward ? "Brought-forward member" : "Member backfill"}
+      eyebrow={isBroughtForward ? "Opening balance" : "Past records"}
       title={data.member.fullName}
-      description={
-        isBroughtForward
-          ? `${data.member.memberNumber} joined ${formatDate(data.member.joinedAt)}. Capture the current book position for this member before continuing live operations.`
-          : `${data.member.memberNumber} joined ${formatDate(data.member.joinedAt)}. Complete historical setup for this member before applying generated ledger rows.`
-      }
+      description={`${data.member.memberNumber} · Joined ${formatDate(data.member.joinedAt)}`}
     >
       <div className="flex flex-col gap-6 max-md:[&_a]:min-h-11 max-md:[&_button]:min-h-11 max-md:[&_input]:min-h-11 max-md:[_[role=combobox]]:min-h-11">
-        <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
-          <DashboardActionLink href="/members">
-            Back to members
-          </DashboardActionLink>
+        <div className="flex flex-wrap items-center gap-3">
           <DashboardActionLink href={`/members/${data.member.id}`}>
-            Open member detail
+            Back to member
           </DashboardActionLink>
-          <div className="justify-self-start">
+          {isBroughtForward ? null : (
             <TrendPill tone={migrationStatus.tone}>
               {migrationStatus.label}
             </TrendPill>
-          </div>
+          )}
         </div>
 
         {isBroughtForward ? null : (

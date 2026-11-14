@@ -33,10 +33,10 @@ export const STICKY_COLUMNS: Record<TableId, StickyColumnConfig[]> = {
 
 export const SORT_FIELD_MAPS: Record<TableId, Record<string, string>> = {
   members: {
+    joined: "joinedAt",
     member: "fullName",
-    number: "joinedAt",
+    number: "memberNumber",
     status: "status",
-    kyc: "kycStatus",
   },
   contributions: {
     member: "memberName",

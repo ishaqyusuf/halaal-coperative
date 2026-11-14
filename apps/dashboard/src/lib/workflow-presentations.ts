@@ -94,9 +94,10 @@ export const workflowPresentations = {
     start: dialog("compact"),
   },
   memberDetail: {
-    commitment: sheet(),
+    commitment: dialog("compact"),
     document: sheet(),
     "document-review": dialog("review"),
+    edit: sheet(),
     kyc: sheet(),
     "portal-access": dialog("compact"),
   },

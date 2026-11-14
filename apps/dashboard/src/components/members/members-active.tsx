@@ -1,4 +1,7 @@
-import { buildMembersPath, type MemberFilterValues } from "@/lib/members/member-filters"
+import {
+  buildMembersPath,
+  type MemberFilterValues,
+} from "@/lib/members/member-filters"
 import { MembersSummaryCard } from "./members-summary-card"
 
 export function MembersActive({
@@ -10,7 +13,6 @@ export function MembersActive({
 }) {
   return (
     <MembersSummaryCard
-      detail="Members currently active in the cooperative."
       href={buildMembersPath({ ...filters, status: "active" })}
       label="Active"
       tone="positive"

@@ -1,7 +1,7 @@
 import { getAnalyticsSummary } from "@halaalvest/db"
 import { z } from "zod"
 
-import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
+import { createTRPCRouter, staffProcedure } from "../lib.trpc"
 
 const analyticsPeriodSchema = z.enum([
   "current_month",
@@ -11,7 +11,8 @@ const analyticsPeriodSchema = z.enum([
 ])
 
 export const analyticsRouter = createTRPCRouter({
-  summary: tenantProcedure
+  // Cooperative-wide numbers; the proxy already keeps members off /analytics.
+  summary: staffProcedure
     .input(
       z
         .object({

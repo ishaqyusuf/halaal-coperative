@@ -1,5 +1,6 @@
 import {
   getCooperativeMobileAccessSnapshot,
+  getCooperativeMobileAccessSummary,
   getCooperativeMobileMemberStatus,
   grantCooperativeMobileAccess,
   listCooperativeMobileAccessMembers,
@@ -22,6 +23,31 @@ const webProcedure = tenantProcedure.use(({ ctx, next }) => {
   return next({ ctx })
 })
 
+// Reads trust the role already loaded for this request instead of reading the
+// membership again. Writes still re-check it inside their transaction.
+const accessAdminProcedure = webProcedure.use(({ ctx, next }) => {
+  const role = ctx.auth.activeMembership.role
+  if (role !== "tenant_admin" && role !== "super_admin") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Cooperative administrator access is required.",
+    })
+  }
+  return next({ ctx })
+})
+
+const memberProcedure = webProcedure.use(({ ctx, next }) => {
+  if (ctx.auth.activeMembership.role !== "member") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Member access is required.",
+    })
+  }
+  return next({ ctx })
+})
+
+const listCursor = z.string().min(38).max(260).optional()
+
 function actor(ctx: {
   auth: { activeMembership: { id: string }; session: { user: { id: string } } }
   tenant: { current: { id: string } }
@@ -40,8 +66,11 @@ export const cooperativeMobileAccessRouter = createTRPCRouter({
   snapshot: tenantProcedure.query(({ ctx }) =>
     getCooperativeMobileAccessSnapshot(actor(ctx))
   ),
-  memberStatus: webProcedure.query(({ ctx }) =>
-    getCooperativeMobileMemberStatus(actor(ctx))
+  memberStatus: memberProcedure.query(({ ctx }) =>
+    getCooperativeMobileMemberStatus({
+      tenantId: ctx.tenant.current.id,
+      userId: ctx.auth.session.user.id,
+    })
   ),
   request: webProcedure
     .input(z.object({ termsVersion, accepted: z.literal(true) }).strict())
@@ -51,33 +80,38 @@ export const cooperativeMobileAccessRouter = createTRPCRouter({
         termsVersion: input.termsVersion,
       })
     ),
-  queue: webProcedure
+  summary: accessAdminProcedure.query(({ ctx }) =>
+    getCooperativeMobileAccessSummary({ tenantId: ctx.tenant.current.id })
+  ),
+  queue: accessAdminProcedure
     .input(
-      z
-        .object({
-          status: z
-            .enum(["pending", "approved", "rejected", "revoked"])
-            .optional(),
-          cursor: z.uuid().optional(),
-          limit: z.number().int().min(1).max(100).default(30),
-        })
-        // Not strict: tRPC infinite queries also send `direction`.
+      z.object({
+        status: z.enum(["pending", "active", "off", "declined", "ended"]),
+        cursor: listCursor,
+        limit: z.number().int().min(1).max(100).default(30),
+      })
+      // Not strict: tRPC infinite queries also send `direction`.
     )
     .query(({ ctx, input }) =>
-      listCooperativeMobileAccessTerms({ ...actor(ctx), ...input })
+      listCooperativeMobileAccessTerms({
+        tenantId: ctx.tenant.current.id,
+        ...input,
+      })
     ),
-  members: webProcedure
+  members: accessAdminProcedure
     .input(
-      z
-        .object({
-          search: z.string().trim().max(100).optional(),
-          cursor: z.uuid().optional(),
-          limit: z.number().int().min(1).max(100).default(30),
-        })
-        // Not strict: tRPC infinite queries also send `direction`.
+      z.object({
+        search: z.string().trim().max(100).optional(),
+        cursor: listCursor,
+        limit: z.number().int().min(1).max(100).default(30),
+      })
+      // Not strict: tRPC infinite queries also send `direction`.
     )
     .query(({ ctx, input }) =>
-      listCooperativeMobileAccessMembers({ ...actor(ctx), ...input })
+      listCooperativeMobileAccessMembers({
+        tenantId: ctx.tenant.current.id,
+        ...input,
+      })
     ),
   grant: webProcedure
     .input(
@@ -126,7 +160,9 @@ export const cooperativeMobileAccessRouter = createTRPCRouter({
       })
     ),
   reinstate: webProcedure
-    .input(z.object({ termId: z.uuid(), note: requiredNote }).strict())
+    .input(
+      z.object({ termId: z.uuid(), note: requiredNote.optional() }).strict()
+    )
     .mutation(({ ctx, input }) =>
       reviewCooperativeMobileAccess({
         ...actor(ctx),

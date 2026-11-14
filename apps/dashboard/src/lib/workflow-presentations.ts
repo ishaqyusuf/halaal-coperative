@@ -116,6 +116,11 @@ export const workflowPresentations = {
     create: dialog("form"),
     edit: dialog("form"),
   },
+  mobileAccess: {
+    give: sheet("form"),
+    invoice: sheet("form"),
+    remittance: dialog("compact"),
+  },
   monthlyRecord: {
     apply: dialog("compact"),
     cancel: alertDialog(),

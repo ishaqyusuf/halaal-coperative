@@ -6,7 +6,7 @@ import { getDashboardServerContext } from "@/lib/server-context"
 import { HydrateClient, prefetch, trpc } from "@/trpc/server"
 
 export const metadata: Metadata = {
-  title: "Cooperative mobile access invoices | Halaalvest",
+  title: "Mobile app bills | Halaalvest",
 }
 
 export default async function PlatformMobileAccessInvoicesPage() {
@@ -18,10 +18,7 @@ export default async function PlatformMobileAccessInvoicesPage() {
   return (
     <HydrateClient>
       <DashboardPageShell>
-        <DashboardPageTitle
-          description="Record confirmed bank transfers against cooperative invoices."
-          title="Cooperative mobile access invoices"
-        />
+        <DashboardPageTitle title="Mobile app bills" />
         <PlatformReceivablesView />
       </DashboardPageShell>
     </HydrateClient>

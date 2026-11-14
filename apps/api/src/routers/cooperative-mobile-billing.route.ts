@@ -105,7 +105,8 @@ export const cooperativeMobileBillingRouter = createTRPCRouter({
               : null,
         })
       )
-      callback.searchParams.set("paystackInvoice", input.invoiceId)
+      callback.searchParams.set("mobileInvoiceId", input.invoiceId)
+      callback.searchParams.set("paystackReturn", "true")
       return startCooperativePaystackCheckout({
         invoiceId: input.invoiceId,
         tenantId: tenant.id,
@@ -128,8 +129,8 @@ export const cooperativeMobileBillingRouter = createTRPCRouter({
       })
       return { status }
     }),
-  listReceivables: billingOperator.query(({ ctx }) =>
-    listCooperativeMobileReceivables(ctx.auth.session.user.id)
+  listReceivables: billingOperator.query(() =>
+    listCooperativeMobileReceivables()
   ),
   recordRemittance: billingOperator
     .input(

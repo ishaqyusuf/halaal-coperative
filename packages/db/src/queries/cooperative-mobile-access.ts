@@ -1,9 +1,8 @@
 import { cooperativeMobileAccessTerms as terms } from "@halaalvest/domain/cooperative-mobile-access"
 import { previewCooperativeAccessCode } from "@halaalvest/utils"
-import type {
-  CooperativeMobileAccessTerm,
-  CooperativeMobileAccessTermStatus,
+import {
   Prisma,
+  type CooperativeMobileAccessTerm,
 } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import {
@@ -214,20 +213,28 @@ export async function getCooperativeMobileAccessSnapshot(input: Actor) {
   }
 }
 
-export async function getCooperativeMobileMemberStatus(input: Actor) {
+/**
+ * The signed-in member's own mobile access. The router has already checked the
+ * member role from the request context, so this reads only the tenant flag.
+ */
+export async function getCooperativeMobileMemberStatus(
+  input: Pick<Actor, "tenantId" | "userId">
+) {
   const db = database()
-  const membership = await findMembership(db, input)
-  if (membership?.role !== "member") {
-    throw ExpectedQueryError.permission("Member access is required.")
-  }
-  const member = await db.member.findFirst({
-    where: activeMemberForUser(input.tenantId, input.userId),
-    select: {
-      id: true,
-      fullName: true,
-      user: { select: { cooperativeAccessCode: true } },
-    },
-  })
+  const [tenant, member] = await Promise.all([
+    db.tenant.findUnique({
+      where: { id: input.tenantId },
+      select: { cooperativeMobileAccessEnabled: true },
+    }),
+    db.member.findFirst({
+      where: activeMemberForUser(input.tenantId, input.userId),
+      select: {
+        id: true,
+        fullName: true,
+        user: { select: { cooperativeAccessCode: true } },
+      },
+    }),
+  ])
   const term = member ? await latestTerm(db, input.tenantId, member.id) : null
   const item = term?.approvedAt
     ? await db.cooperativeMobileInvoiceItem.findUnique({
@@ -246,7 +253,7 @@ export async function getCooperativeMobileMemberStatus(input: Actor) {
     : null
   const charge = item?.chargeApplication
   const now = new Date()
-  const enabled = membership.tenant.cooperativeMobileAccessEnabled
+  const enabled = tenant?.cooperativeMobileAccessEnabled === true
   return {
     ...terms,
     enabled,
@@ -337,55 +344,166 @@ export async function requestCooperativeMobileAccess(
   })
 }
 
-export async function listCooperativeMobileAccessTerms(
-  input: Actor & {
-    status?: CooperativeMobileAccessTermStatus
-    cursor?: string
-    limit: number
+export type CooperativeMobileAccessListStatus =
+  | "pending"
+  | "active"
+  | "off"
+  | "declined"
+  | "ended"
+
+function listStatusWhere(
+  status: CooperativeMobileAccessListStatus,
+  now: Date
+): Prisma.CooperativeMobileAccessTermWhereInput {
+  switch (status) {
+    case "pending":
+      return { status: "pending" }
+    case "active":
+      return { status: "approved", endsAt: { gt: now } }
+    case "off":
+      return { status: "revoked", endsAt: { gt: now } }
+    case "declined":
+      return { status: "rejected" }
+    case "ended":
+      return { status: { in: ["approved", "revoked"] }, endsAt: { lte: now } }
   }
-) {
-  const db = database()
-  const tenant = await requireAdmin(db, input)
-  const where = { tenantId: input.tenantId, status: input.status }
-  const cursor = input.cursor
-    ? await db.cooperativeMobileAccessTerm.findFirst({
-        where: { ...where, id: input.cursor },
-        select: { id: true, requestedAt: true },
-      })
-    : null
-  if (input.cursor && !cursor)
+}
+
+// Keyset cursors carry the sort values, so a next page needs no lookup.
+function encodeCursor(value: string, id: string) {
+  return `${value}|${id}`
+}
+
+function decodeCursor(cursor: string | undefined) {
+  if (!cursor) return null
+  const split = cursor.lastIndexOf("|")
+  const value = cursor.slice(0, split)
+  const id = cursor.slice(split + 1)
+  if (split < 1 || !/^[0-9a-f-]{36}$/i.test(id)) {
     throw ExpectedQueryError.validation(
-      "The request list changed. Refresh it and try again."
+      "The list changed. Refresh it and try again."
     )
+  }
+  return { value, id }
+}
+
+/**
+ * One statement for the page header: whether mobile access is on and how many
+ * terms sit in each list. The router checks the administrator role.
+ */
+export async function getCooperativeMobileAccessSummary(input: {
+  tenantId: string
+}) {
+  const [row] = await database().$queryRaw<
+    {
+      enabled: boolean
+      pending: number
+      active: number
+      off: number
+      declined: number
+      ended: number
+    }[]
+  >(Prisma.sql`
+    select
+      t.cooperative_mobile_access_enabled as enabled,
+      (count(s.id) filter (where s.status = 'pending'))::int as pending,
+      (count(s.id) filter (where s.status = 'approved' and s.ends_at > now()))::int as active,
+      (count(s.id) filter (where s.status = 'revoked' and s.ends_at > now()))::int as off,
+      (count(s.id) filter (where s.status = 'rejected'))::int as declined,
+      (count(s.id) filter (where s.status in ('approved', 'revoked') and s.ends_at <= now()))::int as ended
+    from tenants t
+    left join cooperative_mobile_access_terms s on s.tenant_id = t.id
+    where t.id = ${input.tenantId}::uuid
+    group by t.id
+  `)
+  return {
+    ...terms,
+    enabled: row?.enabled === true,
+    counts: {
+      pending: row?.pending ?? 0,
+      active: row?.active ?? 0,
+      off: row?.off ?? 0,
+      declined: row?.declined ?? 0,
+      ended: row?.ended ?? 0,
+    },
+  }
+}
+
+/**
+ * One page of a mobile access list. The router checks the administrator role
+ * from the request context, so this reads only the terms and member names.
+ */
+export async function listCooperativeMobileAccessTerms(input: {
+  tenantId: string
+  status: CooperativeMobileAccessListStatus
+  cursor?: string
+  limit: number
+}) {
+  const db = database()
+  const now = new Date()
+  const cursor = decodeCursor(input.cursor)
+  const cursorDate = cursor ? new Date(cursor.value) : null
+  if (cursorDate && Number.isNaN(cursorDate.getTime())) {
+    throw ExpectedQueryError.validation(
+      "The list changed. Refresh it and try again."
+    )
+  }
   const rows = await db.cooperativeMobileAccessTerm.findMany({
     where: {
-      ...where,
-      ...(cursor && {
-        OR: [
-          { requestedAt: { lt: cursor.requestedAt } },
-          { requestedAt: cursor.requestedAt, id: { lt: cursor.id } },
-        ],
-      }),
+      tenantId: input.tenantId,
+      ...listStatusWhere(input.status, now),
+      ...(cursor &&
+        cursorDate && {
+          OR: [
+            { requestedAt: { lt: cursorDate } },
+            { requestedAt: cursorDate, id: { lt: cursor.id } },
+          ],
+        }),
     },
     orderBy: [{ requestedAt: "desc" }, { id: "desc" }],
     take: input.limit + 1,
-    include: { member: { select: { fullName: true, memberNumber: true } } },
+    select: {
+      id: true,
+      status: true,
+      requestedAt: true,
+      approvedAt: true,
+      startsAt: true,
+      endsAt: true,
+      chargeDueAt: true,
+      reviewNote: true,
+      revokedAt: true,
+      memberId: true,
+      member: { select: { fullName: true, memberNumber: true } },
+    },
   })
-  const now = new Date()
   const page = rows.slice(0, input.limit)
+  const last = page.at(-1)
   return {
-    ...terms,
-    enabled: tenant.cooperativeMobileAccessEnabled,
-    items: page.map((term) => ({
-      ...presentTerm(term, now),
-      memberId: term.memberId,
-      memberName: term.member.fullName,
-      memberNumber: term.member.memberNumber,
-      amount: term.amount.toNumber(),
-      currencyCode: term.currencyCode,
-      canReinstate: term.status === "revoked" && isWithinTerm(term, now),
-    })),
-    nextCursor: rows.length > page.length ? (page.at(-1)?.id ?? null) : null,
+    items: page.map((term) => {
+      const within = Boolean(
+        term.startsAt &&
+        term.startsAt <= now &&
+        term.endsAt &&
+        now < term.endsAt
+      )
+      return {
+        id: term.id,
+        status: term.status,
+        requestedAt: term.requestedAt,
+        endsAt: term.endsAt,
+        chargeDueAt: term.chargeDueAt,
+        reviewNote: term.reviewNote,
+        memberId: term.memberId,
+        memberName: term.member.fullName,
+        memberNumber: term.member.memberNumber,
+        canTurnOff: term.status === "approved" && within,
+        canTurnOn: term.status === "revoked" && within,
+      }
+    }),
+    nextCursor:
+      rows.length > page.length && last
+        ? encodeCursor(last.requestedAt.toISOString(), last.id)
+        : null,
   }
 }
 
@@ -408,7 +526,7 @@ export async function setCooperativeMobileAccessEnabled(
     }
     if (input.enabled && !tenant.cooperativeCodePrefix) {
       throw ExpectedQueryError.precondition(
-        "Set your cooperative number prefix before enabling mobile access."
+        "Set your cooperative number prefix in settings before turning on the mobile app."
       )
     }
     if (tenant.cooperativeMobileAccessEnabled === input.enabled)
@@ -426,36 +544,35 @@ export async function setCooperativeMobileAccessEnabled(
   })
 }
 
-async function ensureMobileCredential(
-  db: Prisma.TransactionClient,
-  input: {
-    tenantId: string
-    memberId: string
-    cooperativeCodePrefix: string | null
-  }
-) {
-  const member = await db.member.findFirst({
-    where: {
-      id: input.memberId,
-      tenantId: input.tenantId,
-      status: "active",
-      user: { deletedAt: null },
-    },
+const credentialMemberSelect = {
+  memberNumber: true,
+  user: {
     select: {
-      memberNumber: true,
-      user: {
-        select: { id: true, cooperativeAccessCode: true, passwordHash: true },
-      },
+      id: true,
+      cooperativeAccessCode: true,
+      deletedAt: true,
+      passwordHash: true,
     },
-  })
-  if (!member?.user?.passwordHash) {
+  },
+} satisfies Prisma.MemberSelect
+
+type CredentialMember = Prisma.MemberGetPayload<{
+  select: typeof credentialMemberSelect
+}>
+
+async function assignMobileCredential(
+  db: Prisma.TransactionClient,
+  member: CredentialMember,
+  cooperativeCodePrefix: string | null
+) {
+  if (!member.user?.passwordHash || member.user.deletedAt) {
     throw ExpectedQueryError.precondition(
-      "The member needs an active portal login before mobile access can be approved."
+      "This member needs a login before they can use the app."
     )
   }
   if (member.user.cooperativeAccessCode) return
   const { code } = previewCooperativeAccessCode(
-    input.cooperativeCodePrefix,
+    cooperativeCodePrefix,
     member.memberNumber
   )
   if (!code || code.length > 96) {
@@ -474,6 +591,26 @@ async function ensureMobileCredential(
       "That cooperative number is already assigned to another account."
     )
   }
+}
+
+async function ensureMobileCredential(
+  db: Prisma.TransactionClient,
+  input: {
+    tenantId: string
+    memberId: string
+    cooperativeCodePrefix: string | null
+  }
+) {
+  const member = await db.member.findFirst({
+    where: { id: input.memberId, tenantId: input.tenantId, status: "active" },
+    select: credentialMemberSelect,
+  })
+  if (!member) {
+    throw ExpectedQueryError.precondition(
+      "This member needs a login before they can use the app."
+    )
+  }
+  await assignMobileCredential(db, member, input.cooperativeCodePrefix)
 }
 
 export async function reviewCooperativeMobileAccess(
@@ -509,7 +646,7 @@ export async function reviewCooperativeMobileAccess(
           term.status === (input.decision === "revoke" ? "approved" : "revoked")
     if (!mayDecide) {
       throw ExpectedQueryError.conflict(
-        "This mobile access term has changed. Refresh and try again."
+        "This changed while you were looking. Refresh and try again."
       )
     }
     if (input.decision === "approve" || input.decision === "reinstate") {
@@ -518,7 +655,7 @@ export async function reviewCooperativeMobileAccess(
         !tenant.cooperativeMobileAccessEnabled
       ) {
         throw ExpectedQueryError.precondition(
-          "Enable cooperative mobile access before approving a new term."
+          "Turn on the mobile app for your cooperative first."
         )
       }
       await ensureMobileCredential(db, {
@@ -552,50 +689,45 @@ export async function reviewCooperativeMobileAccess(
   })
 }
 
-function memberAccessState(term: CooperativeMobileAccessTerm | null, now: Date) {
-  if (!term) return "not_requested" as const
-  const status = statusAt(term, now)
-  return status === "revoked" && !isWithinTerm(term, now) ? "expired" : status
-}
-
 /**
- * Lists the cooperative's active members with their current mobile access so
- * an administrator can enable access directly from the dashboard.
+ * Active members an administrator can give mobile access to right now: they
+ * have a portal login and no current term. A pending request is flagged, as
+ * giving access approves it. The router checks the administrator role.
  */
-export async function listCooperativeMobileAccessMembers(
-  input: Actor & { search?: string; cursor?: string; limit: number }
-) {
+export async function listCooperativeMobileAccessMembers(input: {
+  tenantId: string
+  search?: string
+  cursor?: string
+  limit: number
+}) {
   const db = database()
-  const tenant = await requireAdmin(db, input)
+  const now = new Date()
   const search = input.search?.trim()
-  const where: Prisma.MemberWhereInput = {
-    tenantId: input.tenantId,
-    status: "active",
-    ...(search && {
-      OR: [
-        { fullName: { contains: search, mode: "insensitive" } },
-        { memberNumber: { contains: search, mode: "insensitive" } },
-      ],
-    }),
-  }
-  const cursor = input.cursor
-    ? await db.member.findFirst({
-        where: { ...where, id: input.cursor },
-        select: { id: true, fullName: true },
-      })
-    : null
-  if (input.cursor && !cursor)
-    throw ExpectedQueryError.validation(
-      "The member list changed. Refresh it and try again."
-    )
+  const cursor = decodeCursor(input.cursor)
   const rows = await db.member.findMany({
     where: {
-      ...where,
+      tenantId: input.tenantId,
+      status: "active",
+      user: { deletedAt: null, passwordHash: { not: null } },
+      cooperativeMobileAccessTerms: {
+        none: {
+          tenantId: input.tenantId,
+          status: { in: ["approved", "revoked"] },
+          startsAt: { lte: now },
+          endsAt: { gt: now },
+        },
+      },
+      ...(search && {
+        OR: [
+          { fullName: { contains: search, mode: "insensitive" } },
+          { memberNumber: { contains: search, mode: "insensitive" } },
+        ],
+      }),
       ...(cursor && {
         AND: {
           OR: [
-            { fullName: { gt: cursor.fullName } },
-            { fullName: cursor.fullName, id: { gt: cursor.id } },
+            { fullName: { gt: cursor.value } },
+            { fullName: cursor.value, id: { gt: cursor.id } },
           ],
         },
       }),
@@ -606,37 +738,26 @@ export async function listCooperativeMobileAccessMembers(
       id: true,
       fullName: true,
       memberNumber: true,
-      user: { select: { deletedAt: true, passwordHash: true } },
       cooperativeMobileAccessTerms: {
-        orderBy: [{ requestedAt: "desc" }, { id: "desc" }],
+        where: { tenantId: input.tenantId, status: "pending" },
+        select: { id: true },
         take: 1,
       },
     },
   })
-  const now = new Date()
   const page = rows.slice(0, input.limit)
+  const last = page.at(-1)
   return {
-    ...terms,
-    enabled: tenant.cooperativeMobileAccessEnabled,
-    items: page.map((member) => {
-      const term = member.cooperativeMobileAccessTerms[0] ?? null
-      const accessStatus = memberAccessState(term, now)
-      const hasLogin = Boolean(
-        member.user?.passwordHash && !member.user.deletedAt
-      )
-      return {
-        memberId: member.id,
-        memberName: member.fullName,
-        memberNumber: member.memberNumber,
-        accessStatus,
-        accessEndsAt: accessStatus === "active" ? (term?.endsAt ?? null) : null,
-        hasLogin,
-        canEnable:
-          hasLogin &&
-          (accessStatus === "pending" || !term || !blocksNewTerm(term, now)),
-      }
-    }),
-    nextCursor: rows.length > page.length ? (page.at(-1)?.id ?? null) : null,
+    items: page.map((member) => ({
+      memberId: member.id,
+      memberName: member.fullName,
+      memberNumber: member.memberNumber,
+      requested: member.cooperativeMobileAccessTerms.length > 0,
+    })),
+    nextCursor:
+      rows.length > page.length && last
+        ? encodeCursor(last.fullName, last.id)
+        : null,
   }
 }
 
@@ -656,20 +777,30 @@ async function grantMemberAccess(
     const tenant = await requireAdmin(db, input)
     if (!tenant.cooperativeMobileAccessEnabled) {
       throw ExpectedQueryError.precondition(
-        "Enable cooperative mobile access before enabling members."
+        "Turn on the mobile app for your cooperative first."
       )
     }
+    // One read for the member, their login and their latest term.
     const member = await db.member.findFirst({
       where: {
         id: input.memberId,
         tenantId: input.tenantId,
         status: "active",
       },
-      select: { id: true, fullName: true },
+      select: {
+        ...credentialMemberSelect,
+        id: true,
+        fullName: true,
+        cooperativeMobileAccessTerms: {
+          where: { tenantId: input.tenantId },
+          orderBy: [{ requestedAt: "desc" }, { id: "desc" }],
+          take: 1,
+        },
+      },
     })
     if (!member) throw ExpectedQueryError.notFound("Active member not found.")
     const now = new Date()
-    const previous = await latestTerm(db, input.tenantId, member.id)
+    const previous = member.cooperativeMobileAccessTerms[0] ?? null
     if (previous && isWithinTerm(previous, now)) {
       if (previous.status === "approved") {
         return {
@@ -680,14 +811,10 @@ async function grantMemberAccess(
         }
       }
       throw ExpectedQueryError.conflict(
-        "Access was revoked during the current term. Restore it from the approved list instead."
+        "Access was turned off this term. Turn it back on from the Turned off list."
       )
     }
-    await ensureMobileCredential(db, {
-      tenantId: input.tenantId,
-      memberId: member.id,
-      cooperativeCodePrefix: tenant.cooperativeCodePrefix,
-    })
+    await assignMobileCredential(db, member, tenant.cooperativeCodePrefix)
     const reviewNote = input.note ?? "Enabled by a cooperative administrator."
     const term =
       previous?.status === "pending"
@@ -756,7 +883,11 @@ export async function grantCooperativeMobileAccess(
   for (const memberId of new Set(input.memberIds)) {
     try {
       results.push(
-        await grantMemberAccess({ ...input, memberId, note: input.note ?? null })
+        await grantMemberAccess({
+          ...input,
+          memberId,
+          note: input.note ?? null,
+        })
       )
     } catch (error) {
       if (!(error instanceof ExpectedQueryError)) throw error

@@ -534,12 +534,11 @@ async function requireBillingOperator(
     throw ExpectedQueryError.permission("Platform billing access is required.")
 }
 
+/** Every cooperative's invoices. The router allows platform owners only. */
 export async function listCooperativeMobileReceivables(
-  actorUserId: string,
   override?: PrismaClient
 ) {
   const db = requireDb(override)
-  await requireBillingOperator(db, actorUserId)
   const invoices = await db.cooperativeMobileInvoice.findMany({
     where: { tenant: billableTenant },
     select: {

@@ -1,26 +1,26 @@
-const accessDate = new Intl.DateTimeFormat("en-NG", {
-  dateStyle: "medium",
+import { formatDayMonthYear } from "@/utils/format"
+
+const lagosDate = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
   timeZone: "Africa/Lagos",
 })
 
-const month = new Intl.DateTimeFormat("en-NG", {
+const month = new Intl.DateTimeFormat("en-GB", {
   month: "long",
   year: "numeric",
   timeZone: "UTC",
 })
 
-export const defaultAccessQueue = { status: "pending", limit: 25 } as const
-
-export const accessStatusLabel = {
-  pending: "Awaiting approval",
-  active: "Active",
-  expired: "Expired",
-  rejected: "Declined",
-  revoked: "Revoked",
-} as const
-
+/** "13 Nov 2026" in Lagos time, for moments such as approval or expiry. */
 export function formatAccessDate(date: Date | string) {
-  return accessDate.format(new Date(date))
+  return lagosDate.format(new Date(date))
+}
+
+/** Calendar dates stored without a time (due dates). */
+export function formatAccessDay(date: Date | string) {
+  return formatDayMonthYear(date) ?? ""
 }
 
 export function formatBillingMonth(period: string) {
@@ -35,3 +35,16 @@ export function formatAccessAmount(amount: number, currencyCode: string) {
     maximumFractionDigits: 2,
   }).format(amount)
 }
+
+export function plural(count: number, one: string, many = `${one}s`) {
+  return `${count} ${count === 1 ? one : many}`
+}
+
+/** The member's own status words. */
+export const memberAccessStatusLabel = {
+  pending: "Waiting",
+  active: "You have the app",
+  expired: "Ended",
+  rejected: "Declined",
+  revoked: "Turned off",
+} as const

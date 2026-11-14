@@ -5,8 +5,8 @@ export function MobileAccessLoading({ label }: { label: string }) {
   return (
     <div role="status" className="space-y-3 py-4">
       <span className="sr-only">{label}</span>
-      <Skeleton className="h-5 w-44" />
-      <Skeleton className="h-4 w-64 max-w-full" />
+      <Skeleton className="h-6 w-48" />
+      <Skeleton className="h-5 w-72 max-w-full" />
     </div>
   )
 }
@@ -19,10 +19,10 @@ export function MobileAccessLoadError({
   retry: () => void
 }) {
   return (
-    <div className="space-y-3 border-y border-border py-4" role="alert">
-      <p className="text-sm">{message}</p>
-      <Button type="button" variant="outline" onClick={retry}>
-        Retry
+    <div className="space-y-3 py-4" role="alert">
+      <p className="text-base">{message}</p>
+      <Button className="h-11" type="button" variant="outline" onClick={retry}>
+        Try again
       </Button>
     </div>
   )

@@ -1,20 +1,20 @@
 "use client"
 
-import { Badge } from "@halaalvest/ui/components/badge"
 import { Button } from "@halaalvest/ui/components/button"
 import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import { Label } from "@halaalvest/ui/components/label"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState, type FormEvent } from "react"
-import { WorkspaceEmptyState } from "@/components/dashboard"
 import { useTRPC } from "@/trpc/client"
 import { MobileAccessLoadError, MobileAccessLoading } from "./access-page-state"
 import {
-  accessStatusLabel,
   formatAccessAmount,
   formatAccessDate,
+  formatAccessDay,
+  memberAccessStatusLabel,
 } from "./format"
 
+/** A member's own mobile app access: what they have, or how to ask for it. */
 export function MemberAccessView() {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
@@ -51,16 +51,15 @@ export function MemberAccessView() {
     canRequest,
     cooperativeNumber,
     enabled,
-    memberName,
     amount,
     currencyCode,
     termMonths,
     termsVersion,
   } = status.data
-  const approvedAmount = formatAccessAmount(amount, currencyCode)
+  const price = formatAccessAmount(amount, currencyCode)
   const hasAccepted = acceptedVersion === termsVersion
-  const requestLabel =
-    term?.status === "expired" ? "Request renewal" : "Request mobile access"
+  const askLabel = term ? "Ask again" : "Ask for the app"
+  const paidAt = term?.payment?.status === "posted" ? term.payment.paidAt : null
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -72,193 +71,146 @@ export function MemberAccessView() {
   return (
     <div className="max-w-2xl space-y-6">
       {term ? (
-        <section className="space-y-4 border-y border-border py-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold">
-              {term.approvedAt
-                ? "Mobile access confirmation"
-                : "Your mobile access request"}
-            </h2>
-            <Badge variant={term.status === "active" ? "secondary" : "outline"}>
-              {accessStatusLabel[term.status]}
-            </Badge>
-          </div>
-          <dl className="grid gap-3 text-sm sm:grid-cols-2">
-            {memberName ? (
-              <div>
-                <dt className="text-muted-foreground">Member</dt>
-                <dd>{memberName}</dd>
-              </div>
-            ) : null}
-            <div>
-              <dt className="text-muted-foreground">Requested</dt>
-              <dd>{formatAccessDate(term.requestedAt)}</dd>
-            </div>
-            {term.startsAt ? (
-              <div>
-                <dt className="text-muted-foreground">Access starts</dt>
-                <dd>{formatAccessDate(term.startsAt)}</dd>
-              </div>
-            ) : null}
-            {term.endsAt ? (
-              <div>
-                <dt className="text-muted-foreground">Access ends</dt>
-                <dd>{formatAccessDate(term.endsAt)}</dd>
-              </div>
-            ) : null}
-            {term.chargeDueAt ? (
-              <div>
-                <dt className="text-muted-foreground">
-                  Cooperative charge due
-                </dt>
-                <dd>
-                  {formatAccessAmount(term.amount, term.currencyCode)} on{" "}
-                  {formatAccessDate(term.chargeDueAt)}
-                </dd>
-              </div>
-            ) : null}
-            {term.approvedAt ? (
-              <div className="min-w-0 sm:col-span-2">
-                <dt className="text-muted-foreground">Activation reference</dt>
-                <dd className="break-all">{term.id}</dd>
-              </div>
-            ) : null}
-          </dl>
+        <section
+          aria-labelledby="mobile-access-status"
+          className="space-y-3 rounded-(--ui-radius-surface) border border-border bg-card p-4 sm:p-5"
+        >
+          <h2
+            className="font-heading text-xl font-semibold"
+            id="mobile-access-status"
+          >
+            {memberAccessStatusLabel[term.status]}
+          </h2>
+
           {term.status === "active" ? (
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
+            <>
+              <p className="text-base">
                 Sign in to the Halaalvest app with your cooperative number and
-                your existing password.
+                your usual password.
               </p>
               {cooperativeNumber ? (
-                <p className="text-sm">
+                <p className="text-base">
                   <span className="text-muted-foreground">
-                    Cooperative number{" "}
+                    Cooperative number
                   </span>
-                  <span className="font-medium">{cooperativeNumber}</span>
+                  <br />
+                  <span className="font-heading text-2xl font-semibold tracking-wide">
+                    {cooperativeNumber}
+                  </span>
                 </p>
               ) : null}
-            </div>
+              {term.endsAt ? (
+                <p className="text-base text-muted-foreground">
+                  Works until {formatAccessDate(term.endsAt)}.
+                </p>
+              ) : null}
+            </>
           ) : null}
+
           {term.status === "pending" ? (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Your cooperative will review your request. You can sign in to
-                the app after approval.
+            <>
+              <p className="text-base">
+                You asked on {formatAccessDate(term.requestedAt)}. Your
+                cooperative will reply.
               </p>
               <Button
+                className="h-11 text-base"
                 disabled={status.isFetching}
                 onClick={() => void status.refetch()}
                 type="button"
                 variant="outline"
               >
-                Refresh status
+                {status.isFetching ? "Checking…" : "Check again"}
               </Button>
-            </div>
+            </>
           ) : null}
+
+          {term.status === "expired" && term.endsAt ? (
+            <p className="text-base">
+              Your access ended on {formatAccessDate(term.endsAt)}.
+            </p>
+          ) : null}
+
           {term.reviewNote &&
           (term.status === "rejected" || term.status === "revoked") ? (
-            <p className="text-sm break-words text-muted-foreground">
-              {term.reviewNote}
+            <p className="text-base break-words">Reason: {term.reviewNote}</p>
+          ) : null}
+
+          {term.chargeDueAt ? (
+            <p className="text-base text-muted-foreground">
+              {paidAt
+                ? `You paid ${formatAccessAmount(term.amount, term.currencyCode)} on ${formatAccessDate(paidAt)}.`
+                : `${formatAccessAmount(term.amount, term.currencyCode)} is due on ${formatAccessDay(term.chargeDueAt)}.`}
             </p>
           ) : null}
         </section>
       ) : null}
 
-      {term?.payment?.status === "posted" && term.payment.paidAt ? (
-        <section className="space-y-3 border-b border-border pb-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold">
-              Cooperative charge receipt
-            </h2>
-            <Badge variant="secondary">Paid</Badge>
-          </div>
-          <dl className="grid gap-3 text-sm sm:grid-cols-2">
-            {memberName ? (
-              <div>
-                <dt className="text-muted-foreground">Member</dt>
-                <dd>{memberName}</dd>
-              </div>
-            ) : null}
-            <div>
-              <dt className="text-muted-foreground">Amount paid</dt>
-              <dd>{formatAccessAmount(term.amount, term.currencyCode)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Payment date</dt>
-              <dd>{formatAccessDate(term.payment.paidAt)}</dd>
-            </div>
-            {term.payment.reference ? (
-              <div className="min-w-0">
-                <dt className="text-muted-foreground">Payment reference</dt>
-                <dd className="break-all">{term.payment.reference}</dd>
-              </div>
-            ) : null}
-          </dl>
-        </section>
-      ) : null}
-
-      {!enabled && !term ? (
-        <WorkspaceEmptyState
-          title="Mobile requests are unavailable"
-          body="Contact your cooperative about mobile access."
-        />
+      {!enabled && term?.status !== "active" ? (
+        <p className="text-base">
+          Your cooperative is not giving out the app right now. Ask them about
+          it.
+        </p>
       ) : null}
 
       {enabled && !term && !canRequest && !status.isError ? (
-        <WorkspaceEmptyState
-          title="You can’t request mobile access yet"
-          body="Ask your cooperative to check your membership."
-        />
-      ) : null}
-
-      {!enabled && term?.status !== "active" && term ? (
-        <p className="text-sm text-muted-foreground">
-          Your cooperative has paused new mobile access requests.
+        <p className="text-base">
+          You can&apos;t ask for the app yet. Ask your cooperative to check your
+          membership.
         </p>
       ) : null}
 
       {status.isError ? (
         <MobileAccessLoadError
-          message="We couldn’t refresh your mobile access. Refresh it before submitting a request."
+          message="We couldn't check your access. Try again before asking."
           retry={() => void status.refetch()}
         />
       ) : null}
 
       {canRequest && !status.isError ? (
-        <form className="space-y-4" onSubmit={submit}>
-          <div>
-            <h2 className="text-sm font-semibold">{requestLabel}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {approvedAmount} for {termMonths} months, starting when your
-              cooperative approves the request. Your cooperative charge is due
-              at the end of the approval month. Renewal requires a new request.
+        <form
+          aria-labelledby="mobile-access-ask"
+          className="space-y-4"
+          onSubmit={submit}
+        >
+          <div className="space-y-1">
+            <h2
+              className="font-heading text-xl font-semibold"
+              id="mobile-access-ask"
+            >
+              Get the mobile app
+            </h2>
+            <p className="text-base text-muted-foreground">
+              {price} for {termMonths} months. It is added to your account after
+              your cooperative says yes.
             </p>
           </div>
-          <div className="flex items-start gap-2">
+          <Label
+            className="flex min-h-11 cursor-pointer items-center gap-3 text-base font-normal"
+            htmlFor="accept-mobile-access-charge"
+          >
             <Checkbox
               checked={hasAccepted}
+              className="size-6"
               disabled={request.isPending}
               id="accept-mobile-access-charge"
               onCheckedChange={(checked) =>
                 setAcceptedVersion(checked ? termsVersion : undefined)
               }
             />
-            <Label
-              className="leading-normal"
-              htmlFor="accept-mobile-access-charge"
-            >
-              I agree to the {approvedAmount} cooperative charge if this request
-              is approved.
-            </Label>
-          </div>
-          <Button disabled={!hasAccepted || request.isPending} type="submit">
-            {request.isPending ? "Submitting…" : requestLabel}
+            I agree to pay {price}.
+          </Label>
+          <Button
+            className="h-11 px-5 text-base"
+            disabled={!hasAccepted || request.isPending}
+            type="submit"
+          >
+            {request.isPending ? "Sending…" : askLabel}
           </Button>
         </form>
       ) : null}
       {request.isError ? (
-        <p className="text-sm text-destructive" role="alert">
+        <p className="text-base text-destructive" role="alert">
           {request.error.message}
         </p>
       ) : null}

@@ -3,12 +3,15 @@ import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
-import { z } from "zod"
+import type { SearchParams } from "nuqs/server"
 import { DashboardPageShell, DashboardPageTitle } from "@/components/dashboard"
-import { AdminAccessView } from "@/components/mobile-access/admin-access-view"
+import {
+  AdminAccessView,
+  accessListPageSize,
+} from "@/components/mobile-access/admin-access-view"
 import { CooperativeInvoicesView } from "@/components/mobile-access/cooperative-invoices-view"
-import { defaultAccessQueue } from "@/components/mobile-access/format"
 import { MemberAccessView } from "@/components/mobile-access/member-access-view"
+import { loadMobileAccessFilterParams } from "@/hooks/use-mobile-access-filter-params"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { HydrateClient, prefetch, trpc } from "@/trpc/server"
 
@@ -19,7 +22,7 @@ export const metadata: Metadata = {
 export default async function MobileAccessPage({
   searchParams,
 }: {
-  searchParams: Promise<{ paystackInvoice?: string | string[] }>
+  searchParams: Promise<SearchParams>
 }) {
   const context = await getDashboardServerContext()
   const role = normalizeRole(context.auth.membership?.role ?? null)
@@ -35,9 +38,11 @@ export default async function MobileAccessPage({
     prefetch(trpc.cooperativeMobileAccess.memberStatus.queryOptions())
   }
   if (canReview) {
+    const { accessList } = await loadMobileAccessFilterParams(searchParams)
+    prefetch(trpc.cooperativeMobileAccess.summary.queryOptions())
     prefetch(
       trpc.cooperativeMobileAccess.queue.infiniteQueryOptions(
-        defaultAccessQueue,
+        { status: accessList, limit: accessListPageSize },
         { getNextPageParam: ({ nextCursor }) => nextCursor ?? undefined }
       )
     )
@@ -45,9 +50,6 @@ export default async function MobileAccessPage({
   if (canViewInvoices) {
     prefetch(trpc.cooperativeMobileBilling.listInvoices.queryOptions())
   }
-  const paystackInvoiceId = canViewInvoices
-    ? z.uuid().safeParse((await searchParams).paystackInvoice).data
-    : undefined
 
   return (
     <HydrateClient>
@@ -56,27 +58,23 @@ export default async function MobileAccessPage({
           action={
             context.auth.user?.isPlatformOwner ? (
               <Link
-                className={buttonVariants({ variant: "outline" })}
+                className={buttonVariants({
+                  className: "h-11 text-base",
+                  variant: "outline",
+                })}
                 href="/platform/mobile-access-invoices"
               >
-                Platform invoices
+                All cooperative bills
               </Link>
             ) : null
           }
-          description={
-            isMember
-              ? "Request access to the Halaalvest app through your cooperative."
-              : canReview
-                ? "Manage member access and view your cooperative’s mobile access invoices."
-                : "View your cooperative’s mobile access invoices."
-          }
-          title="Mobile access"
+          title={isMember ? "Mobile app" : "Mobile access"}
         />
-        {isMember ? <MemberAccessView /> : null}
-        {canReview ? <AdminAccessView /> : null}
-        {canViewInvoices ? (
-          <CooperativeInvoicesView returnedInvoiceId={paystackInvoiceId} />
-        ) : null}
+        <div className="space-y-10">
+          {isMember ? <MemberAccessView /> : null}
+          {canReview ? <AdminAccessView /> : null}
+          {canViewInvoices ? <CooperativeInvoicesView /> : null}
+        </div>
       </DashboardPageShell>
     </HydrateClient>
   )

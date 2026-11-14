@@ -259,6 +259,13 @@ export function useGeneralAssistant({
           confirmationKey,
         })
         setResults((current) => ({ ...current, [proposal.id]: result }))
+        // Nothing was saved: say why, and let a later confirm use a fresh
+        // key (the same key would only replay this answer). "checking"
+        // keeps its key so a retry returns the same, settled result.
+        if (result.outcome === "not_saved") {
+          confirmationKeys.current.delete(slot)
+          setNotice(result.message)
+        }
         await queryClient.invalidateQueries({
           queryKey: [...assistantKeys.conversation(conversationId), scope],
         })

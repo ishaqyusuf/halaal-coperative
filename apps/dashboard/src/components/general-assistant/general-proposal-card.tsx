@@ -60,7 +60,14 @@ export function GeneralProposalCard({
   const lines = proposalLines(proposal.fields)
   const busy = disabled || working
 
-  if (status === "confirmed" && result) return <ActionResultCard result={result} />
+  // Saved, or still settling for this exact revision: show the outcome, not
+  // another Confirm.
+  if (
+    result &&
+    (status === "confirmed" ||
+      (result.outcome === "checking" && result.revision === proposal.revision))
+  )
+    return <ActionResultCard result={result} />
 
   return (
     <section

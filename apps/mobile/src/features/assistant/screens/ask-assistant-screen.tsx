@@ -177,7 +177,13 @@ function AskAssistantLive({
     const proposal = proposals.get(proposalId)
     if (!proposal) return null
     const result = shownResults.has(proposalId) ? null : vm.results[proposalId]
-    if (proposal.status === "confirmed" && result)
+    // Saved, or still settling for this exact revision: show the outcome,
+    // not another Confirm.
+    if (
+      result &&
+      (proposal.status === "confirmed" ||
+        (result.outcome === "checking" && result.revision === proposal.revision))
+    )
       return <ResultCard key={proposalId} result={result} actions={actions} />
     return (
       <ProposalCard

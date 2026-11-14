@@ -1,0 +1,56 @@
+enum AssistantChannel {
+  web
+  native
+  whatsapp
+  telegram
+}
+
+enum AssistantMessageRole {
+  user
+  assistant
+}
+
+enum AssistantTurnStatus {
+  running
+  completed
+  failed
+}
+
+enum AssistantProposalStatus {
+  collecting
+  review
+  confirmed
+  cancelled
+  expired
+  refused
+}
+
+enum AssistantChannelLinkStatus {
+  pending
+  active
+  revoked
+}
+
+enum AssistantChannelChallengeStatus {
+  issued
+  claimed
+  confirmed
+  expired
+  cancelled
+}
+
+enum AssistantChannelInboxState {
+  received
+  processing
+  done
+  failed
+  ignored
+}
+
+enum AssistantChannelOutboxState {
+  pending
+  sending
+  sent
+  failed
+  unknown
+}

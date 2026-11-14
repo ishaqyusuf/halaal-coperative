@@ -235,6 +235,20 @@
         "typescript": "^5.9.3",
       },
     },
+    "packages/assistant": {
+      "name": "@halaalvest/assistant",
+      "version": "0.0.0",
+      "dependencies": {
+        "zod": "^4.6.7",
+      },
+      "devDependencies": {
+        "@halaalvest/eslint-config": "workspace:*",
+        "@halaalvest/tsconfig": "workspace:*",
+        "@types/node": "^25.1.0",
+        "eslint": "^9.39.2",
+        "typescript": "^5.9.3",
+      },
+    },
     "packages/auth": {
       "name": "@halaalvest/auth",
       "version": "0.0.0",
@@ -968,6 +982,8 @@
     "@gorhom/portal": ["@gorhom/portal@1.0.14", "", { "dependencies": { "nanoid": "^3.3.1" }, "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-MXyL4xvCjmgaORr/rtryDNFy3kU4qUbKlwtQqqsygd0xX3mhKjOLn6mQK8wfu0RkoE0pBE0nAasRoHua+/QZ7A=="],
 
     "@halaalvest/api": ["@halaalvest/api@workspace:apps/api"],
+
+    "@halaalvest/assistant": ["@halaalvest/assistant@workspace:packages/assistant"],
 
     "@halaalvest/auth": ["@halaalvest/auth@workspace:packages/auth"],
 

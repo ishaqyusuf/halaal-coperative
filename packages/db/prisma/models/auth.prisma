@@ -33,6 +33,7 @@ model User {
   collectionFollowUps                        CollectionFollowUp[]                @relation("CollectionFollowUpActor")
   assignedCollectionFollowUps                CollectionFollowUp[]                @relation("CollectionFollowUpAssignedUser")
   openedSupportCases                         SupportCase[]                       @relation("SupportCaseOpenedBy")
+  assistantConversations                     AssistantConversation[]             @relation("AssistantConversationOwner")
   assignedSupportCases                       SupportCase[]                       @relation("SupportCaseAssignedTo")
   approvedSupportCaseFinancialAdjustments    SupportCase[]                       @relation("SupportCaseFinancialAdjustmentApprovedBy")
   supportCaseMessages                        SupportCaseMessage[]                @relation("SupportCaseMessageAuthor")

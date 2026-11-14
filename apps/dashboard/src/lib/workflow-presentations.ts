@@ -16,12 +16,14 @@ const alertDialog = (width: WorkflowPresentationWidth = "compact") =>
 
 export const workflowPresentations = {
   business: {
-    create: sheet("review"),
+    create: sheet(),
     details: sheet("review"),
     edit: sheet(),
     editProfit: sheet(),
     profit: sheet(),
     reviewNone: dialog("compact"),
+    // A profit-sharing season: totals, profit entries, who gets what.
+    season: sheet("review"),
   },
   charge: {
     create: sheet(),

@@ -397,6 +397,18 @@ export async function publishShareProfitAllocationsAction(formData: FormData) {
   )
 }
 
+export async function closeProfitSeasonAction(formData: FormData) {
+  return callDashboardFormAction("closeProfitSeasonAction", formData)
+}
+
+export async function workOutProfitSeasonSharesAction(formData: FormData) {
+  return callDashboardFormAction("workOutProfitSeasonSharesAction", formData)
+}
+
+export async function shareProfitSeasonAction(formData: FormData) {
+  return callDashboardFormAction("shareProfitSeasonAction", formData)
+}
+
 export async function saveBusinessProfitMigrationWorksheetAction(
   formData: FormData
 ) {

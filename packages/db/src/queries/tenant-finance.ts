@@ -946,6 +946,29 @@ export async function getCurrentBusinessProfitSeason(
   })
   const label =
     existingPeriod?.name ?? getBusinessProfitSeasonLabel(policy, period)
+  // Recording would fail on an overlapping season, so say so up front.
+  const overlappingPeriod = existingPeriod
+    ? null
+    : await prisma.dividendPeriod.findFirst({
+        select: { name: true },
+        where: {
+          periodEnd: { gte: period.periodStart },
+          periodStart: { lte: period.periodEnd },
+          tenantId,
+        },
+      })
+
+  if (overlappingPeriod) {
+    return serializeCurrentBusinessProfitSeason({
+      canRecordProfit: false,
+      label,
+      periodEnd: period.periodEnd,
+      periodStart: period.periodStart,
+      reason: `${overlappingPeriod.name} overlaps ${label}. Ask an admin to check the profit settings before recording profit.`,
+      status: "draft",
+    })
+  }
+
   const status = existingPeriod?.status ?? "draft"
   const canRecordProfit = status === "draft"
 
@@ -2124,7 +2147,17 @@ function toMemberUnitSharePosition(
 
 export type MemberShareSummary = {
   /** Published profit allocations only (the separate profit book). */
-  profitPaid: { count: number; total: number }
+  profitPaid: {
+    count: number
+    /** Newest 12 shared seasons: what the member got from each. */
+    seasons: Array<{
+      amount: number
+      id: string
+      name: string
+      sharedOn: string | null
+    }>
+    total: number
+  }
   /** Share capital posted to the member's share ledger up to today. */
   shareCapital: number
   unitPosition: MemberUnitSharePosition | null
@@ -2147,7 +2180,7 @@ export async function getMemberShareSummary(
   if (!prisma) throw new Error("Database not configured")
 
   const memberScope = { memberId: input.memberId, tenantId: input.tenantId }
-  const [ledger, profit, totals] = await Promise.all([
+  const [ledger, profit, seasons, totals] = await Promise.all([
     prisma.memberShareLedgerEntry.aggregate({
       _sum: { amount: true },
       where: { ...memberScope, effectiveDate: { lte: new Date() } },
@@ -2155,6 +2188,15 @@ export async function getMemberShareSummary(
     prisma.dividendAllocation.aggregate({
       _count: { _all: true },
       _sum: { allocationAmount: true },
+      where: { ...memberScope, dividendPeriod: { status: "published" } },
+    }),
+    prisma.dividendAllocation.findMany({
+      orderBy: { dividendPeriod: { periodEnd: "desc" } },
+      select: {
+        allocationAmount: true,
+        dividendPeriod: { select: { id: true, name: true, publishedAt: true } },
+      },
+      take: 12,
       where: { ...memberScope, dividendPeriod: { status: "published" } },
     }),
     input.policy.configurationMode === "unit_based"
@@ -2165,6 +2207,18 @@ export async function getMemberShareSummary(
   return {
     profitPaid: {
       count: profit._count._all,
+      seasons: seasons.map(
+        (row: {
+          allocationAmount: unknown
+          dividendPeriod: { id: string; name: string; publishedAt: Date | null }
+        }) => ({
+          amount: roundCurrency(Number(row.allocationAmount ?? 0)),
+          id: row.dividendPeriod.id,
+          name: row.dividendPeriod.name,
+          sharedOn:
+            row.dividendPeriod.publishedAt?.toISOString().slice(0, 10) ?? null,
+        })
+      ),
       total: roundCurrency(Number(profit._sum.allocationAmount ?? 0)),
     },
     shareCapital: roundCurrency(Number(ledger._sum.amount ?? 0)),
@@ -3774,52 +3828,66 @@ export async function getMemberShareBalancesAtDate(
   tenantId: string,
   asOfDate: Date,
   prismaOverride?: PrismaClient
-) {
+): Promise<
+  Array<{
+    memberId: string
+    memberName: string
+    memberNumber: string
+    shareBalance: number
+  }>
+> {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) return []
 
-  const entries = await prisma.memberShareLedgerEntry.findMany({
+  // Sum in SQL: one row per member instead of every share-ledger line.
+  const sums = await prisma.memberShareLedgerEntry.groupBy({
+    _sum: { amount: true },
+    by: ["memberId"],
     where: {
+      effectiveDate: { lte: asOfDate },
       tenantId,
-      effectiveDate: {
-        lte: asOfDate,
-      },
-    },
-    include: {
-      member: {
-        select: {
-          fullName: true,
-          memberNumber: true,
-          status: true,
-        },
-      },
     },
   })
-  const balances = new Map<
+  const positive = sums
+    .map((row: { _sum: { amount: unknown }; memberId: string }) => ({
+      memberId: row.memberId,
+      shareBalance: Number(row._sum.amount ?? 0),
+    }))
+    .filter((row: { shareBalance: number }) => row.shareBalance > 0)
+
+  if (positive.length === 0) return []
+
+  const members = await prisma.member.findMany({
+    select: { fullName: true, id: true, memberNumber: true },
+    where: {
+      id: { in: positive.map((row: { memberId: string }) => row.memberId) },
+      tenantId,
+    },
+  })
+  const membersById = new Map<
     string,
-    {
-      memberId: string
-      memberName: string
-      memberNumber: string
-      shareBalance: number
-    }
-  >()
+    { fullName: string; memberNumber: string }
+  >(
+    members.map(
+      (member: { fullName: string; id: string; memberNumber: string }) => [
+        member.id,
+        member,
+      ]
+    )
+  )
 
-  for (const entry of entries) {
-    const current = balances.get(entry.memberId) ?? {
-      memberId: entry.memberId,
-      memberName: entry.member.fullName,
-      memberNumber: entry.member.memberNumber,
-      shareBalance: 0,
-    }
-    current.shareBalance += Number(entry.amount)
-    balances.set(entry.memberId, current)
-  }
-
-  return Array.from(balances.values())
-    .filter((balance) => balance.shareBalance > 0)
+  return positive
+    .map((row: { memberId: string; shareBalance: number }) => ({
+      memberId: row.memberId,
+      memberName: membersById.get(row.memberId)?.fullName ?? "",
+      memberNumber: membersById.get(row.memberId)?.memberNumber ?? "",
+      shareBalance: row.shareBalance,
+    }))
     .sort(
-      (a, b) =>
+      (
+        a: { memberName: string; shareBalance: number },
+        b: { memberName: string; shareBalance: number }
+      ) =>
         b.shareBalance - a.shareBalance ||
         a.memberName.localeCompare(b.memberName)
     )
@@ -4409,7 +4477,7 @@ export async function generateHistoricalBackfillShareProfitAllocations(
   return generatedAllocations
 }
 
-async function rebuildDividendPeriodAllocationsFromPublishedProfit(
+export async function rebuildDividendPeriodAllocationsFromPublishedProfit(
   input: {
     dividendPeriodId: string
     tenantId: string

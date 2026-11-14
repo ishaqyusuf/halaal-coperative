@@ -1,83 +1,45 @@
 import {
+  getBusinessDetail,
+  getBusinessPageSummary,
   getCurrentBusinessProfitSeason,
-  getShareBusinessById,
-  getTenantFinanceSetup,
+  getProfitSeasonDetail,
   getTenantInitialMigrationState,
-  listShareBusinessesForTableSummary,
-  listShareBusinessesTable,
+  getTenantMigrationWriteAccess,
+  listBusinessRows,
+  listProfitSeasons,
+  listProfitSeasonShares,
 } from "@halaalvest/db"
 import { AppError } from "@halaalvest/errors"
-import { z } from "zod"
-import { listBusinessesSchema } from "../schemas/business"
-import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
+import {
+  businessIdSchema,
+  listBusinessesSchema,
+  listProfitSeasonSharesSchema,
+  profitSeasonIdSchema,
+} from "../schemas/business"
+import { createTRPCRouter, permissionProcedure } from "../lib.trpc"
 
-function toDividendPeriodOptions(
-  periods: Array<{
-    id: string
-    name: string
-    periodEnd: Date
-    periodStart: Date
-    status: string
-  }>
-) {
-  return periods.map((period) => ({
-    id: period.id,
-    label: `${period.name} - ${period.status}`,
-    name: period.name,
-    periodEnd: period.periodEnd.toISOString().slice(0, 10),
-    periodStart: period.periodStart.toISOString().slice(0, 10),
-    status: period.status,
-  }))
-}
+/** Staff only: members never read other members' business or profit records. */
+const businessProcedure = permissionProcedure("view_share_profit_governance")
 
-function getBusinessSummary(
-  rows: Awaited<ReturnType<typeof listShareBusinessesTable>>["data"],
-  periods: Array<{ label: string }>
-) {
-  const profitEntries = rows.flatMap((row) => row.profitEntries ?? [])
-  const activeCapital = rows
-    .filter((row) => row.status === "active")
-    .reduce((total, row) => total + row.capitalAmount, 0)
-  const reviewedProfit = profitEntries
-    .filter(
-      (entry) => entry.status === "reviewed" || entry.status === "approved"
-    )
-    .reduce((total, entry) => total + entry.allocatableProfitAmount, 0)
-  const allocatableProfit = profitEntries.reduce(
-    (total, entry) =>
-      total +
-      Math.max(entry.allocatableProfitAmount - entry.allocatedProfitAmount, 0),
-    0
-  )
-  const pendingAllocationCount = profitEntries.filter(
-    (entry) =>
-      (entry.status === "reviewed" || entry.status === "approved") &&
-      (entry.allocations?.length ?? 0) === 0
-  ).length
-  const blockedCount =
-    rows.filter((row) => (row.profitEntries ?? []).length === 0).length +
-    profitEntries.filter((entry) => entry.status === "draft").length
-
-  return {
-    activeCapital,
-    allocatableProfit,
-    blockedCount,
-    pendingAllocationCount,
-    publishedDistributionCount: periods.filter((period) =>
-      period.label.toLowerCase().includes("published")
-    ).length,
-    reviewedProfit,
-  }
-}
-
+/**
+ * What the page needs to decide which buttons to show. Live cooperatives
+ * read one tenant row; only cooperatives still setting up read the full
+ * migration state (for the "no businesses to bring in" step).
+ */
 async function getBusinessSetup(tenantId: string) {
-  const [data, migrationState, firstPage, currentProfitSeason] =
-    await Promise.all([
-      getTenantFinanceSetup(tenantId),
-      getTenantInitialMigrationState(tenantId),
-      listShareBusinessesTable(tenantId, { pageSize: 1 }),
-      getCurrentBusinessProfitSeason(tenantId),
-    ])
+  const [access, currentProfitSeason] = await Promise.all([
+    getTenantMigrationWriteAccess(tenantId),
+    getCurrentBusinessProfitSeason(tenantId),
+  ])
+
+  if (access.canUseLiveFinancialWrites) {
+    return { canReviewNoProfit: false, currentProfitSeason, isLocked: false }
+  }
+
+  const [migrationState, firstBusiness] = await Promise.all([
+    getTenantInitialMigrationState(tenantId),
+    listBusinessRows(tenantId, { pageSize: 1 }),
+  ])
   const hasAppliedMemberBackfill =
     migrationState.counts.appliedBackfillBatches > 0 ||
     migrationState.counts.appliedBackfillMembers > 0 ||
@@ -88,66 +50,78 @@ async function getBusinessSetup(tenantId: string) {
     )?.complete ?? false
   const isHistoricalSetupLocked =
     !migrationState.snapshot.canUseMigrationTools || hasAppliedMemberBackfill
-  const isLocked = !(
-    migrationState.snapshot.canUseLiveFinancialWrites ||
-    migrationState.snapshot.status === "finalized" ||
-    (migrationState.snapshot.canUseMigrationTools && !hasAppliedMemberBackfill)
-  )
-  const dividendPeriods = toDividendPeriodOptions(data.dividendPeriods)
 
   return {
     canReviewNoProfit:
       !businessProfitPoolsReviewed &&
-      firstPage.data.length === 0 &&
+      firstBusiness.data.length === 0 &&
       !isHistoricalSetupLocked,
     currentProfitSeason,
-    dividendPeriods,
-    financeStartDate:
-      data.tenant?.startDate?.toISOString().slice(0, 10) ?? null,
-    isLocked,
-    migrationSetupMode: data.migrationSetup.mode,
+    isLocked: !(
+      migrationState.snapshot.status === "finalized" ||
+      (migrationState.snapshot.canUseMigrationTools && !hasAppliedMemberBackfill)
+    ),
   }
 }
 
 export const businessRouter = createTRPCRouter({
-  get: tenantProcedure
-    .input(z.object({ businessId: z.string().uuid() }))
-    .query(async ({ ctx, input }) => {
-      const business = await getShareBusinessById(
-        ctx.tenant.current.id,
-        input.businessId
-      )
+  get: businessProcedure.input(businessIdSchema).query(async ({ ctx, input }) => {
+    const business = await getBusinessDetail({
+      businessId: input.businessId,
+      tenantId: ctx.tenant.current.id,
+    })
 
-      if (!business) {
+    if (!business) {
+      throw new AppError({
+        code: "NOT_FOUND",
+        operation: "business.get",
+        publicMessage: "Business not found.",
+      })
+    }
+
+    return business
+  }),
+
+  list: businessProcedure
+    .input(listBusinessesSchema)
+    .query(({ ctx, input }) =>
+      listBusinessRows(ctx.tenant.current.id, input ?? {})
+    ),
+
+  season: businessProcedure
+    .input(profitSeasonIdSchema)
+    .query(async ({ ctx, input }) => {
+      const season = await getProfitSeasonDetail({
+        seasonId: input.seasonId,
+        tenantId: ctx.tenant.current.id,
+      })
+
+      if (!season) {
         throw new AppError({
           code: "NOT_FOUND",
-          operation: "business.getById",
-          publicMessage: "Business not found.",
+          operation: "business.season",
+          publicMessage: "Season not found.",
         })
       }
 
-      return business
+      return season
     }),
 
-  list: tenantProcedure
-    .input(listBusinessesSchema)
-    .query(async ({ ctx, input }) => {
-      return listShareBusinessesTable(ctx.tenant.current.id, input ?? {})
-    }),
+  seasonShares: businessProcedure
+    .input(listProfitSeasonSharesSchema)
+    .query(({ ctx, input }) =>
+      listProfitSeasonShares({ ...input, tenantId: ctx.tenant.current.id })
+    ),
 
-  setup: tenantProcedure.query(({ ctx }) => {
-    return getBusinessSetup(ctx.tenant.current.id)
-  }),
+  seasons: businessProcedure.query(({ ctx }) =>
+    listProfitSeasons(ctx.tenant.current.id)
+  ),
 
-  summary: tenantProcedure.query(async ({ ctx }) => {
-    const [financeSetup, businesses] = await Promise.all([
-      getTenantFinanceSetup(ctx.tenant.current.id),
-      listShareBusinessesForTableSummary(ctx.tenant.current.id),
-    ])
-    const dividendPeriods = toDividendPeriodOptions(
-      financeSetup.dividendPeriods
-    )
+  setup: businessProcedure.query(({ ctx }) =>
+    getBusinessSetup(ctx.tenant.current.id)
+  ),
 
-    return getBusinessSummary(businesses, dividendPeriods)
-  }),
+  summary: businessProcedure.query(({ ctx }) =>
+    getBusinessPageSummary(ctx.tenant.current.id)
+  ),
 })

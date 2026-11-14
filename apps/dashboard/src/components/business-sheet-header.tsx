@@ -1,35 +1,35 @@
 "use client"
 
-import {
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@halaalvest/ui/components/sheet"
-import { useBusinessParams } from "@/hooks/use-business-params"
+import { SheetHeader, SheetTitle } from "@halaalvest/ui/components/sheet"
 import { useBusinessFormContext } from "@/components/business/form-context"
+import { useBusinessParams } from "@/hooks/use-business-params"
 
 const sheetTitles = {
-  create: "Record business",
-  details: "Business details",
+  create: "Add a business",
+  details: "Business",
   edit: "Edit business",
-  editProfit: "Edit profit entry",
-  profit: "Add profit entry",
-  reviewNone: "Review no business profits",
+  editProfit: "Change profit",
+  profit: "Record profit",
+  reviewNone: "No businesses to bring in",
 } as const
 
+/** The business name on its own sheet; a plain action name on forms. */
 export function BusinessSheetHeader() {
   const { businessType } = useBusinessParams()
   const { business } = useBusinessFormContext()
-  const title = businessType ? sheetTitles[businessType] : "Business"
+  const title =
+    businessType === "details" && business
+      ? business.name
+      : businessType
+        ? sheetTitles[businessType]
+        : "Business"
 
   return (
-    <SheetHeader>
-      <SheetTitle>{title}</SheetTitle>
-      <SheetDescription>
-        {business?.name
-          ? `${business.name} profit records are reviewed before member share profit allocation.`
-          : "Business profit entries are reviewed before member share profit allocation."}
-      </SheetDescription>
+    <SheetHeader className="px-0">
+      <SheetTitle className="text-2xl font-semibold">{title}</SheetTitle>
+      {business && businessType !== "details" && businessType !== "create" ? (
+        <p className="text-base text-muted-foreground">{business.name}</p>
+      ) : null}
     </SheetHeader>
   )
 }

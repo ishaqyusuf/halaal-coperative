@@ -1,6 +1,5 @@
 "use client"
 
-import { useQueryClient } from "@tanstack/react-query"
 import { Suspense } from "react"
 import { BusinessContent } from "@/components/business-content"
 import { BusinessFormProvider } from "@/components/business/form-context"
@@ -8,60 +7,42 @@ import { BusinessSheetHeader } from "@/components/business-sheet-header"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useBusinessParams } from "@/hooks/use-business-params"
 import { getWorkflowPresentation } from "@/lib/workflow-presentations"
-import { useTRPC } from "@/trpc/client"
 
-function isBusinessSheetOpen(type: string | null) {
-  return Boolean(
-    type === "create" ||
-      type === "details" ||
-      type === "profit" ||
-      type === "edit" ||
-      type === "editProfit" ||
-      type === "reviewNone"
-  )
-}
-
+/**
+ * Every business overlay, URL-addressed by `businessType`: the business,
+ * add/edit business and record/change profit are sheets (full screen on
+ * phones); "no businesses to bring in" is a short dialog.
+ */
 export function BusinessSheet() {
-  const queryClient = useQueryClient()
-  const trpc = useTRPC()
   const { businessType, setParams } = useBusinessParams()
-  const isOpen = isBusinessSheetOpen(businessType)
+  const isOpen = Boolean(businessType)
   const presentation = getWorkflowPresentation("business", businessType)
-
-  const handleOnOpenChange = (open: boolean) => {
-    if (open) {
-      return
-    }
-
-    setParams(null)
-    queryClient.invalidateQueries({
-      queryKey: trpc.business.list.infiniteQueryKey(),
-    })
-    queryClient.invalidateQueries({
-      queryKey: trpc.business.summary.queryKey(),
-    })
-  }
 
   return (
     <WorkflowPresentation
       config={presentation}
+      mobileFullScreen={presentation.presentation === "sheet"}
       open={isOpen}
-      onOpenChange={handleOnOpenChange}
+      onOpenChange={(open) => {
+        if (!open) void setParams(null)
+      }}
     >
-        {isOpen ? (
-          <Suspense
-            fallback={
-              <div className="px-6 text-sm text-muted-foreground">
-                Loading business form...
-              </div>
-            }
-          >
-            <BusinessFormProvider>
+      {isOpen ? (
+        <Suspense
+          fallback={
+            <p className="px-4 py-6 text-base text-muted-foreground md:px-6">
+              Loading…
+            </p>
+          }
+        >
+          <BusinessFormProvider>
+            <div className="grid gap-6 px-4 pb-8 md:px-6">
               <BusinessSheetHeader />
               <BusinessContent />
-            </BusinessFormProvider>
-          </Suspense>
-        ) : null}
+            </div>
+          </BusinessFormProvider>
+        </Suspense>
+      ) : null}
     </WorkflowPresentation>
   )
 }

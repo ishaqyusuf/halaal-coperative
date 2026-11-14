@@ -44,7 +44,11 @@ import {
   createShareBusiness,
   createShareBusinessProfitEntry,
   finalizeTenantInitialMigration,
+  closeProfitSeason,
+  findRecentDuplicateProfitEntry,
   generateShareProfitAllocations,
+  shareProfitSeason,
+  workOutProfitSeasonShares,
   disburseLoan,
   openMonthlyFinancingCycle,
   getImportBatchKind,
@@ -3263,6 +3267,20 @@ export async function createShareBusinessProfitEntryAction(formData: FormData) {
     requireDateOnOrAfterTenantStartDate(actor, profitDate, "Profit date")
   }
 
+  const duplicate = await findRecentDuplicateProfitEntry({
+    expenseAmount: getOptionalNumber(formData, "expenseAmount") ?? 0,
+    profitAmount: Number(getRequiredString(formData, "profitAmount")),
+    profitDate: new Date(`${profitDate}T00:00:00.000Z`),
+    shareBusinessId: getRequiredString(formData, "shareBusinessId"),
+    tenantId: actor.tenant.id,
+  })
+
+  if (duplicate) {
+    throw new DashboardActionExpectedError(
+      "This profit was already recorded a moment ago."
+    )
+  }
+
   await createShareBusinessProfitEntry({
     allocatableProfitAmount: Number(
       getRequiredString(formData, "allocatableProfitAmount")
@@ -3350,6 +3368,53 @@ export async function generateShareProfitAllocationsAction(formData: FormData) {
   revalidatePath("/settings/finance")
   revalidatePath("/settings/finance/business")
   revalidatePath("/business")
+}
+
+function revalidateBusinessPages() {
+  revalidatePath("/business")
+  revalidatePath("/shares")
+  revalidatePath("/")
+}
+
+/** Close an open profit season so its member shares can be worked out. */
+export async function closeProfitSeasonAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  await closeProfitSeason({
+    actorUserId: actor.user.id,
+    commandId: getRequiredString(formData, "commandId"),
+    seasonId: getRequiredString(formData, "seasonId"),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidateBusinessPages()
+}
+
+/** Work out each member's share for a closed season (drafts only). */
+export async function workOutProfitSeasonSharesAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  await workOutProfitSeasonShares({
+    actorUserId: actor.user.id,
+    seasonId: getRequiredString(formData, "seasonId"),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/business")
+}
+
+/** Share a closed season's profit with members (approve and publish, once). */
+export async function shareProfitSeasonAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  await shareProfitSeason({
+    actorUserId: actor.user.id,
+    commandId: getRequiredString(formData, "commandId"),
+    seasonId: getRequiredString(formData, "seasonId"),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidateBusinessPages()
 }
 
 export async function generateHistoricalBackfillShareProfitAllocationsAction() {
@@ -7145,6 +7210,9 @@ const dashboardActionHandlers = {
   generateShareProfitAllocationsAction,
   generateHistoricalBackfillShareProfitAllocationsAction,
   publishShareProfitAllocationsAction,
+  closeProfitSeasonAction,
+  workOutProfitSeasonSharesAction,
+  shareProfitSeasonAction,
   saveBusinessProfitMigrationWorksheetAction,
   saveBusinessProfitSeasonReviewAction,
   updateChargeDefinitionAction,
@@ -7392,6 +7460,15 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   publishShareProfitAllocationsAction: formAction(
     dashboardActionHandlers.publishShareProfitAllocationsAction
+  ),
+  closeProfitSeasonAction: formAction(
+    dashboardActionHandlers.closeProfitSeasonAction
+  ),
+  workOutProfitSeasonSharesAction: formAction(
+    dashboardActionHandlers.workOutProfitSeasonSharesAction
+  ),
+  shareProfitSeasonAction: formAction(
+    dashboardActionHandlers.shareProfitSeasonAction
   ),
   saveBusinessProfitMigrationWorksheetAction: formAction(
     dashboardActionHandlers.saveBusinessProfitMigrationWorksheetAction

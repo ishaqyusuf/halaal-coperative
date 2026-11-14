@@ -7,7 +7,6 @@ function read(relativePath: string) {
 
 const filterHooks = [
   "../hooks/use-audit-filter-params.ts",
-  "../hooks/use-business-filter-params.ts",
   "../hooks/use-contributions-filter-params.ts",
   "../hooks/use-members-filter-params.ts",
   "../hooks/use-repayments-filter-params.ts",

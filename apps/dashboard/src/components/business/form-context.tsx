@@ -6,11 +6,13 @@ import { createContext, useContext, type ReactNode } from "react"
 import { useBusinessParams } from "@/hooks/use-business-params"
 import { useTRPC } from "@/trpc/client"
 
-type BusinessSetup = RouterOutputs["business"]["setup"]
-type Business = RouterOutputs["business"]["list"]["data"][number]
+export type BusinessSetup = RouterOutputs["business"]["setup"]
+export type BusinessDetail = RouterOutputs["business"]["get"]
+export type BusinessProfitEntry = BusinessDetail["profitEntries"][number]
 
 type BusinessFormContextValue = {
-  business?: Business
+  business?: BusinessDetail
+  isBusinessError: boolean
   isBusinessLoading: boolean
   setup: BusinessSetup
 }
@@ -22,7 +24,11 @@ export function BusinessFormProvider({ children }: { children: ReactNode }) {
   const trpc = useTRPC()
   const { businessId } = useBusinessParams()
   const { data: setup } = useSuspenseQuery(trpc.business.setup.queryOptions())
-  const { data: business, isLoading: isBusinessLoading } = useQuery(
+  const {
+    data: business,
+    isError: isBusinessError,
+    isLoading: isBusinessLoading,
+  } = useQuery(
     trpc.business.get.queryOptions(
       { businessId: businessId ?? disabledBusinessId },
       { enabled: Boolean(businessId) }
@@ -31,11 +37,7 @@ export function BusinessFormProvider({ children }: { children: ReactNode }) {
 
   return (
     <BusinessFormContext.Provider
-      value={{
-        business: business as Business | undefined,
-        isBusinessLoading,
-        setup,
-      }}
+      value={{ business, isBusinessError, isBusinessLoading, setup }}
     >
       {children}
     </BusinessFormContext.Provider>

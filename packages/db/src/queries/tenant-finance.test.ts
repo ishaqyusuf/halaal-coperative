@@ -1962,6 +1962,11 @@ describe("tenant finance queries", () => {
   })
 
   test("generates historical backfill dividends from unit share ledger records", async () => {
+    const migrationMember = (
+      withMigrationState({}) as {
+        member?: { findMany?: (args: unknown) => Promise<unknown[]> }
+      }
+    ).member
     const allocationCreates: Record<string, unknown>[] = []
     const allocationDeletes: Record<string, unknown>[] = []
     const tx = {
@@ -1969,24 +1974,23 @@ describe("tenant finance queries", () => {
       memberAmountLog: {
         findMany: async () => [],
       },
+      member: {
+        ...migrationMember,
+        // The share-balance read asks only for names; the migration state
+        // keeps its own member rows.
+        findMany: async (args: { select?: { fullName?: boolean } }) =>
+          args?.select?.fullName
+            ? [
+                { fullName: "Aisha Bello", id: "member-1", memberNumber: "M-001" },
+                { fullName: "Bola Musa", id: "member-2", memberNumber: "M-002" },
+              ]
+            : (migrationMember?.findMany?.(args) ?? []),
+      },
       memberShareLedgerEntry: {
-        findMany: async () => [
-          {
-            amount: 20000,
-            member: {
-              fullName: "Aisha Bello",
-              memberNumber: "M-001",
-            },
-            memberId: "member-1",
-          },
-          {
-            amount: 10000,
-            member: {
-              fullName: "Bola Musa",
-              memberNumber: "M-002",
-            },
-            memberId: "member-2",
-          },
+        // Share balances are summed in SQL, one row per member.
+        groupBy: async () => [
+          { _sum: { amount: 20000 }, memberId: "member-1" },
+          { _sum: { amount: 10000 }, memberId: "member-2" },
         ],
       },
       shareBusinessProfitEntry: {

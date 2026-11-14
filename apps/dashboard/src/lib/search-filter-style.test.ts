@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
 const dropdownSearchFilters = [
-  "../components/business-search-filter.tsx",
   "../components/charge-search-filter.tsx",
   "../components/food-purchase-search-filter.tsx",
   "../components/import-search-filter.tsx",

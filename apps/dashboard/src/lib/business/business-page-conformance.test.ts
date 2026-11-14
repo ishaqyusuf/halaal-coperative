@@ -1,129 +1,78 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
+import { getBusinessesListInput } from "./business-list-input"
+import {
+  getBusinessStatusWord,
+  getProfitEntryWord,
+  getSeasonWord,
+} from "./business-words"
 
 function read(relativePath: string) {
   return readFileSync(new URL(relativePath, import.meta.url), "utf8")
 }
 
-describe("business workspace Midday conformance", () => {
-  test("uses one typed suspense list contract without polling or manual seeding", () => {
+describe("business page", () => {
+  test("prefetches only the open tab and sheet, with one shared list input", () => {
     const page = read("../../app/(app)/(sidebar)/business/page.tsx")
-    const input = read("./business-list-input.ts")
-    const query = read("../../components/tables/business/use-business-query.ts")
-    const table = read("../../components/tables/business/data-table.tsx")
+    const query = read("../../hooks/use-business-list-query.ts")
 
     expect(page).toContain("batchPrefetch([")
-    expect(page).toContain("getBusinessesListInput(filters, sort)")
+    expect(page).toContain("getBusinessesListInput({ q, status })")
+    expect(page).toContain('view === "seasons"')
     expect(page).not.toContain("setQueryData")
-    expect(input).toContain("export function getBusinessesListInput")
     expect(query).toContain("useSuspenseInfiniteQuery")
     expect(query).toContain("getBusinessesListInput")
-    expect(table).toContain("useBusinessQuery")
-    expect(table).not.toContain("refetchInterval")
-    expect(table).not.toContain("useInfiniteQuery")
+    expect(query).not.toContain("refetchInterval")
   })
 
-  test("provides responsive mobile controls, items, and skeletons", () => {
-    const pageView = read("../../components/business-page-view.tsx")
-    const header = read("../../components/business-header.tsx")
-    const toolbar = read("../../components/business-mobile-toolbar.tsx")
-    const dataView = read("../../components/tables/business/data-view.tsx")
-    const mobileItem = read("../../components/tables/business/mobile-item.tsx")
-    const skeleton = read("../../components/tables/business/skeleton.tsx")
-
-    expect(pageView).toContain('className="hidden md:block"')
-    expect(header).toContain("BusinessMobileToolbar")
-    expect(toolbar).toContain('aria-label="Search businesses"')
-    expect(toolbar).toContain('aria-label="Filter businesses"')
-    expect(toolbar).toContain("<OpenBusinessSheet iconOnly")
-    expect(dataView).toContain("ResponsiveDataView")
-    expect(dataView).toContain("BusinessMobileList")
-    expect(mobileItem).toContain("BusinessMobileActionsDrawer")
-    expect(mobileItem).toContain("Allocatable profit")
-    expect(skeleton).toContain("BusinessMobileSkeleton")
-    expect(skeleton).toContain('className="hidden md:block"')
+  test("drops empty filters from the list input", () => {
+    expect(getBusinessesListInput({ q: "  ", status: null })).toEqual({
+      pageSize: 25,
+    })
+    expect(getBusinessesListInput({ q: " farm ", status: "active" })).toEqual({
+      pageSize: 25,
+      q: "farm",
+      status: "active",
+    })
   })
 
-  test("owns page metadata and route-specific recovery boundaries", () => {
-    const page = read("../../app/(app)/(sidebar)/business/page.tsx")
-    const loading = read("../../app/(app)/(sidebar)/business/loading.tsx")
+  test("has no second page heading and keeps its own boundaries", () => {
+    const view = read("../../components/business-page-view.tsx")
+    const states = read("../../components/business-page-states.tsx")
     const error = read("../../app/(app)/(sidebar)/business/error.tsx")
 
-    expect(page).toContain('title: "Business | Halaalvest"')
-    expect(page).toContain("allStaffRoles")
-    expect(page).toContain("<BusinessUnavailableView")
-    expect(loading).toContain("<BusinessPageSkeleton")
+    for (const source of [view, states, error]) {
+      expect(source).not.toContain("<h1")
+      expect(source).toContain("WorkspacePageShell")
+    }
     expect(error).toContain("dashboard.business_error_boundary")
-    expect(error).toContain("reset")
   })
 
-  test("treats the create sheet as a live business form with optional profit", () => {
-    const content = read("../../components/business-content.tsx")
-    const datePicker = read("../../components/date-picker-input.tsx")
-    const form = read("../../components/forms/tenant-finance-forms.tsx")
-    const singleForm = form.slice(
-      form.indexOf("function ShareBusinessSingleForm"),
-      form.indexOf("const shareBusinessProfitEntrySchema")
-    )
-    const presentation = read("../../components/workflow-presentation.tsx")
-    const quickFill = read("../../components/quick-fill.tsx")
-    const sheetHeader = read("../../components/business-sheet-header.tsx")
-    const emptyState = read("../../components/tables/business/empty-states.tsx")
+  test("asks before money steps with a real AlertDialog naming the amount", () => {
+    const forms = read("../../components/business/business-forms.tsx")
+    const season = read("../../components/business/profit-season-details.tsx")
 
-    expect(content).toContain('sourceType="manual"')
-    expect(content).toContain("profitHistoryMode")
-    expect(content).toContain("currentProfitSeason={setup.currentProfitSeason}")
-    expect(singleForm).toContain("Profit entries (optional)")
-    expect(singleForm).toContain("Current profit season")
-    expect(singleForm).toContain("data-current-profit-season")
-    expect(singleForm).toContain("isLiveProfitCaptureBlocked")
-    expect(singleForm).toContain("max={profitDateMax}")
-    expect(singleForm).toContain("min={profitDateMin}")
-    expect(singleForm).toContain(
-      "Register the business now, then add only realized profit supported by evidence."
-    )
-    expect(singleForm).toContain('aria-label="Quick fill business form"')
-    expect(singleForm).toContain("quickFillBusinessDraft")
-    expect(singleForm).toContain("createRandomBusinessHistoryRows")
-    expect(singleForm.indexOf("Quick fill")).toBeLessThan(
-      singleForm.indexOf("Profit entries (optional)")
-    )
-    expect(singleForm).not.toContain("<QuickFill")
-    expect(datePicker).toContain('className="flex min-w-0 gap-2"')
-    expect(datePicker).toContain('"min-w-0 flex-1 justify-start')
-    expect(singleForm).toContain("Profit entry {index + 1}")
-    expect(singleForm).toContain("removeProfitHistoryRow")
-    expect(singleForm).toContain("Shareable balance")
-    expect(singleForm).toContain(
-      'className="border-t border-border/70 pt-4 md:col-span-2"'
-    )
-    expect(singleForm).not.toContain(
-      'className="border-y border-border/70 py-4 md:col-span-2 md:border md:p-4"'
-    )
-    expect(singleForm).toContain(
-      'className="flex border-t border-border/70 pt-4 md:col-span-2 md:justify-end"'
-    )
-    expect(singleForm).toContain('className="h-11 w-full md:h-9 md:w-auto"')
-    expect(presentation).toContain('"max-h-dvh w-full! overflow-y-auto"')
-    expect(presentation).toContain('review: "sm:max-w-3xl!"')
-    expect(quickFill).toContain('"w-full! sm:max-w-xl!"')
-    expect(sheetHeader).toContain('create: "Record business"')
-    expect(emptyState).toContain("No businesses have been recorded yet.")
-    expect(emptyState).not.toContain("historical businesses")
+    expect(forms).toContain("<RequestConfirmDialog")
+    expect(forms).toContain("title={`Record ${formatCurrency(")
+    expect(season).toContain("title={`Close ${season.name}?`}")
+    expect(season).toContain("title={`Share ${formatCurrency(season.sharesTotal)}")
+    expect(season).toContain("crypto.randomUUID()")
   })
 
-  test("uses a flat divided business details sheet", () => {
-    const content = read("../../components/business-content.tsx")
-    const details = content.slice(
-      content.indexOf('businessType === "details"'),
-      content.indexOf('businessType === "profit"')
+  test("uses plain words", () => {
+    expect(getBusinessStatusWord("active").label).toBe("Running")
+    expect(getBusinessStatusWord("planned").label).toBe("Not started")
+    expect(getSeasonWord("draft").label).toBe("Open")
+    expect(getSeasonWord("approved").label).toBe("Ready to share")
+    expect(getSeasonWord("published").label).toBe("Shared")
+    expect(getProfitEntryWord({ isShared: false, status: "draft" }).label).toBe(
+      "Recorded"
     )
-
-    expect(details).toContain("data-business-details-flat")
-    expect(details).toContain("divide-y divide-border/70")
-    expect(details).toContain("border-b border-border/70 py-5")
-    expect(details).toContain("md:flex md:justify-end")
-    expect(details).not.toContain("rounded-lg border p-4")
-    expect(details).not.toContain("grid grid-cols-2 gap-3")
+    expect(
+      getProfitEntryWord({ isShared: false, status: "reviewed" }).label
+    ).toBe("Waiting to share")
+    expect(getProfitEntryWord({ isShared: true, status: "reviewed" }).label).toBe(
+      "Shared"
+    )
   })
 })

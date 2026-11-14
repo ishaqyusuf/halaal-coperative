@@ -4,47 +4,37 @@ import { Button } from "@halaalvest/ui/components/button"
 import { PlusIcon } from "lucide-react"
 import { useBusinessParams } from "@/hooks/use-business-params"
 
-export function OpenBusinessSheet({
-  disabled,
-  iconOnly = false,
-}: {
-  disabled?: boolean
-  iconOnly?: boolean
-}) {
+export function OpenBusinessSheet({ disabled }: { disabled?: boolean }) {
   const { setParams } = useBusinessParams()
 
   return (
     <Button
-      aria-label={iconOnly ? "Record business" : undefined}
-      className={iconOnly ? "size-11" : undefined}
+      className="h-11 w-full text-base sm:w-auto"
       disabled={disabled}
       onClick={() =>
-        setParams({
+        void setParams({
           businessId: null,
           businessType: "create",
           profitEntryId: null,
         })
       }
-      size={iconOnly ? "icon-lg" : "default"}
       type="button"
     >
-      <PlusIcon data-icon={iconOnly ? undefined : "inline-start"} />
-      {iconOnly ? (
-        <span className="sr-only">Record business</span>
-      ) : (
-        "Record business"
-      )}
+      <PlusIcon data-icon="inline-start" />
+      Add a business
     </Button>
   )
 }
 
+/** Setup only: the cooperative has no past business profit to bring in. */
 export function OpenReviewNoBusinessProfitSheet() {
   const { setParams } = useBusinessParams()
 
   return (
     <Button
+      className="h-11 w-full text-base sm:w-auto"
       onClick={() =>
-        setParams({
+        void setParams({
           businessId: null,
           businessType: "reviewNone",
           profitEntryId: null,
@@ -53,7 +43,7 @@ export function OpenReviewNoBusinessProfitSheet() {
       type="button"
       variant="outline"
     >
-      Review none
+      No businesses to bring in
     </Button>
   )
 }

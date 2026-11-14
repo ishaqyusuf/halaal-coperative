@@ -174,10 +174,29 @@ export function MemberSharesView({
             Profit
           </h2>
           <SummaryCard
-            detail={`From ${summary.profitPaid.count} shared ${summary.profitPaid.count === 1 ? "result" : "results"}. Past profit does not promise future profit.`}
+            detail="Past profit does not promise future profit."
             label="Profit shared with you"
             value={formatCurrency(summary.profitPaid.total)}
           />
+          <ul className="divide-y divide-border border-y border-border">
+            {summary.profitPaid.seasons.map((season) => (
+              <li className="flex items-center gap-3 py-4" key={season.id}>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-base font-semibold text-foreground">
+                    {season.name}
+                  </span>
+                  {season.sharedOn ? (
+                    <span className="block text-base text-muted-foreground">
+                      Shared on {formatDayMonthYear(season.sharedOn)}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="shrink-0 text-lg font-semibold tabular-nums">
+                  {formatCurrency(season.amount)}
+                </span>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 

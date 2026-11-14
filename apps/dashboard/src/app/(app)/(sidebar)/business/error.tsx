@@ -1,12 +1,7 @@
 "use client"
 
-import { TenantLink as Link } from "@halaalvest/tenant-url/next"
-import { Button, buttonVariants } from "@halaalvest/ui/components/button"
-import {
-  DashboardSectionCard,
-  DashboardSectionHeader,
-  WorkspacePageShell,
-} from "@/components/dashboard"
+import { Button } from "@halaalvest/ui/components/button"
+import { WorkspacePageShell } from "@/components/dashboard"
 import { useDashboardErrorReceipt } from "@/lib/use-error-receipt"
 
 export default function BusinessError({
@@ -22,35 +17,16 @@ export default function BusinessError({
   )
 
   return (
-    <WorkspacePageShell
-      description="Business capital and profit evidence could not be loaded. No cooperative records were changed."
-      eyebrow="Finance"
-      title="Business workspace unavailable"
-    >
-      <DashboardSectionCard>
-        <DashboardSectionHeader
-          description="Retry the business lookup or return to the dashboard."
-          eyebrow="Business"
-          title="Something went wrong"
-        />
-        <p className="mt-3 text-xs text-muted-foreground">
-          Support reference: {publicError.referenceId}
+    <WorkspacePageShell description="" eyebrow="Business" title="Business">
+      <div className="grid gap-3 border-y border-border py-10 text-center">
+        <p className="text-lg font-semibold">This page could not be loaded.</p>
+        <p className="text-base text-muted-foreground">
+          Nothing was changed. Reference: {publicError.referenceId}
         </p>
-        <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-          <Button className="h-11 md:h-9" onClick={reset} type="button">
-            Try again
-          </Button>
-          <Link
-            className={buttonVariants({
-              className: "h-11 md:h-9",
-              variant: "outline",
-            })}
-            href="/"
-          >
-            Back to dashboard
-          </Link>
-        </div>
-      </DashboardSectionCard>
+        <Button className="mx-auto h-11 text-base" onClick={reset} type="button">
+          Try again
+        </Button>
+      </div>
     </WorkspacePageShell>
   )
 }

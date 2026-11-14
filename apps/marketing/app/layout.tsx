@@ -1,9 +1,9 @@
+import { getQaAcceleratorCapability } from "@halaalvest/api/qa-accelerator-config"
 import { EventsProvider } from "@halaalvest/events/client"
 import "@halaalvest/ui/globals.css"
 import { NotificationsProvider } from "@halaalvest/notifications-react"
 import type { Metadata } from "next"
 import { Hedvig_Letters_Sans, Hedvig_Letters_Serif } from "next/font/google"
-import { QaPreviewFlashConsumer } from "@/components/qa-preview-flash-consumer"
 import { QaFormAccess } from "@/components/qa-form-access"
 import { getMarketingConfig } from "@/lib/marketing-config"
 import {
@@ -76,6 +76,11 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const qaAvailable = getQaAcceleratorCapability({
+    clientKind: "web",
+    contractVersion: 1,
+  }).available
+
   return (
     <html lang="en" className="antialiased">
       <body
@@ -83,8 +88,7 @@ export default function RootLayout({
       >
         <NotificationsProvider>
           <EventsProvider surface="marketing">{children}</EventsProvider>
-          <QaFormAccess />
-          <QaPreviewFlashConsumer />
+          {qaAvailable ? <QaFormAccess /> : null}
         </NotificationsProvider>
       </body>
     </html>

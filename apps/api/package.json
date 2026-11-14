@@ -21,6 +21,7 @@
     "./trpc/routers/_app": "./src/routers/_app.ts",
     "./trpc/routers/dashboard-actions": "./src/routers/dashboard-actions.route.ts",
     "./app-update": "./src/app-update/handler.ts",
+    "./qa-accelerator-config": "./src/qa-accelerator-config.ts",
     "./cooperative-paystack-webhook": "./src/billing/cooperative-paystack-webhook.ts"
   },
   "dependencies": {

@@ -23,3 +23,15 @@ After code changes:
 - If no Brain update is needed, state that explicitly in the final response with the reason.
 
 Final responses must include the Brain files updated, or `No Brain documentation updates required` with a short rationale.
+
+## Vercel runtime and cost
+
+- Prerender eligible public pages. For added request-time rendering, proxy work, API calls, polling or jobs, record the trigger, expected frequency and reason. Verify changed public routes in the production build output.
+- Mount app-owned HTTP endpoints in Next.js route handlers and reuse existing typed contracts. For server rendering in the same deployment, call the authorized service directly to avoid an HTTP self-fetch. Record callers and runtime requirements before introducing another API deployment.
+- Match proxy work to the hosts and paths that need it. Exclude unrelated requests and assets where compatible with tenant routing. Measure additional network calls and set explicit timeouts.
+- Keep sessions, roles, workspace data, payments, private files and previews private. For a shared public cache, document its data classification, keys, TTL and invalidation. Verify tenant isolation, unpublication and domain reassignment where applicable.
+- Bound page size, polling, retries, concurrency and payloads. Skip retries for unrecoverable authorization and validation failures. When limiting expensive public routes, preserve valid mobile, webhook, health and job traffic.
+- Reuse the existing runner for deferred work. Document schedule ownership, auth, timeouts, retry bounds and idempotency for added or changed jobs. Keep liveness checks cheap and dependency readiness separate.
+- Scope and protect previews. Verify dependency-aware build skipping when changing the monorepo graph, review new large dependencies and image variants, and preserve known rollback deployments when tuning retention.
+- Record the affected project, routes, deployment environment and verification in the PR or release notes for runtime changes. Use comparable windows and traffic mixes for invocations, Active CPU per 1,000 requests, latency and errors where available. Use normalized route identifiers and omit secrets and customer payloads.
+- Before routing traffic to a new destination or retiring an endpoint, inventory web and mobile clients (including older installs), provider callbacks, jobs and monitors. Verify equivalent behavior in isolated Preview and record a rollback path under the existing release and authorization rules.

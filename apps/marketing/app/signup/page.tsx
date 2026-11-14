@@ -5,6 +5,7 @@ import {
 } from "@halaalvest/ui/components/alert"
 import { redirect } from "next/navigation"
 import { EarlyAccessForm } from "@/components/marketing/early-access-form"
+import { QaPreviewFlashConsumer } from "@/components/qa-preview-flash-consumer"
 import { SignupForm } from "@/components/signup/signup-form"
 import { SignupShell } from "@/components/signup/signup-shell"
 import { verifySignedSignupApprovalToken } from "@/lib/early-access"
@@ -95,6 +96,7 @@ export default async function SignupPage({
 
   return (
     <SignupShell stage="sign-up">
+      {approval ? <QaPreviewFlashConsumer /> : null}
       <SignupForm
         approvalToken={
           approvalResult.status === "valid" ? approvalResult.token : null

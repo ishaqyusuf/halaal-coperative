@@ -4,9 +4,6 @@ import { getMarketingConfig } from "@/lib/marketing-config"
 import { resolveActiveMarketingExperienceId } from "@/lib/marketing-experience-policy"
 import { loadMarketingPageData } from "@/lib/load-marketing-page"
 
-export const dynamic = "force-dynamic"
-export const revalidate = 0
-
 export default async function Page() {
   const marketing = getMarketingConfig()
 

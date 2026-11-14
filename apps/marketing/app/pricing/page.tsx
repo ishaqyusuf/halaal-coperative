@@ -8,13 +8,14 @@ import { getMarketingConfig } from "@/lib/marketing-config"
 import { resolveActiveMarketingExperienceId } from "@/lib/marketing-experience-policy"
 import { getSignupHref } from "@/lib/runtime-url"
 
-export const dynamic = "force-dynamic"
-export const revalidate = 0
-
 export default async function PricingPage() {
   const marketing = getMarketingConfig()
   const earlyAccess = marketing.earlyAccessModeEnabled
-  const signupHref = earlyAccess ? "/#early-access" : await getSignupHref()
+  const signupHref = earlyAccess
+    ? "/#early-access"
+    : process.env.NODE_ENV === "production"
+      ? "/signup"
+      : await getSignupHref()
   const ctaLabel = earlyAccess ? "Request access" : "Sign up"
   const activeExperienceId = resolveActiveMarketingExperienceId({
     isProduction: process.env.NODE_ENV === "production",

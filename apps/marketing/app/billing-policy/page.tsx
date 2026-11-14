@@ -1,15 +1,18 @@
-import { isPublicPolicyEffective } from "@/lib/public-policies"
+import {
+  isPublicPolicyEffective,
+  keepScheduledPolicyRequestTime,
+} from "@/lib/public-policies"
 import { PublicPolicyPage } from "@/components/public-policy-page"
 
-export const dynamic = "force-dynamic"
-
-export function generateMetadata() {
+export async function generateMetadata() {
+  await keepScheduledPolicyRequestTime("billing-policy")
   return {
     title: "Billing policy | HalaalVest",
     robots: { index: isPublicPolicyEffective("billing-policy"), follow: true },
   }
 }
 
-export default function Page() {
+export default async function Page() {
+  await keepScheduledPolicyRequestTime("billing-policy")
   return <PublicPolicyPage policy="billing-policy" />
 }

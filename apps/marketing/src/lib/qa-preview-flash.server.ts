@@ -19,7 +19,7 @@ function getSecret() {
 }
 
 export async function setQaPreviewFlash(
-  previews: readonly QaNotificationPreview[],
+  previews: readonly QaNotificationPreview[]
 ) {
   if (previews.length === 0) return
 
@@ -33,18 +33,14 @@ export async function setQaPreviewFlash(
       path: "/",
       sameSite: "strict",
       secure: process.env.NODE_ENV === "production",
-    },
+    }
   )
 }
 
 export async function consumeQaPreviewFlash() {
   const cookieStore = await cookies()
-  const previews = parseQaPreviewFlashValue(
-    cookieStore.get(qaPreviewFlashCookieName)?.value,
-    { secret: getSecret() },
-  )
-
+  const flash = cookieStore.get(qaPreviewFlashCookieName)?.value
+  if (!flash) return []
   cookieStore.delete(qaPreviewFlashCookieName)
-
-  return previews
+  return parseQaPreviewFlashValue(flash, { secret: getSecret() })
 }

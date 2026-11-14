@@ -1,5 +1,7 @@
+import { getQaAcceleratorCapability } from "@halaalvest/api/qa-accelerator-config"
 import { listTenants } from "@halaalvest/db"
 import type { MarketingConfig } from "@halaalvest/domain"
+import { resolveQaQuickFillContext } from "@halaalvest/utils"
 import type { MarketingExperienceProps } from "@/components/marketing/marketing-experience-contract"
 import { getMarketingQaQuickFillContext } from "./qa-form-access.server"
 import { getSignupHref } from "./runtime-url"
@@ -21,8 +23,19 @@ export async function loadMarketingPageData(
   const tenants = showDevTenantFab ? await listTenants() : []
   const signupHref = marketing.earlyAccessModeEnabled
     ? "#early-access"
-    : await getSignupHref()
-  const quickFill = await getMarketingQaQuickFillContext()
+    : showDevTenantFab
+      ? await getSignupHref()
+      : "/signup"
+  const quickFill = getQaAcceleratorCapability({
+    clientKind: "web",
+    contractVersion: 1,
+  }).available
+    ? await getMarketingQaQuickFillContext()
+    : resolveQaQuickFillContext({
+        authenticatedEmail: null,
+        configuredDomains: [],
+        isDevelopment: false,
+      })
 
   return {
     experienceProps: {

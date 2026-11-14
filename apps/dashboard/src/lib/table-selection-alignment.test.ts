@@ -11,7 +11,6 @@ const individualActionTables: [string][] = [
   ["payment-receipts"],
   ["procurement"],
   ["project-financing"],
-  ["share-applications"],
   ["support"],
 ]
 

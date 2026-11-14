@@ -15,7 +15,6 @@ const migratedShells = [
   "member-create-sheet.tsx",
   "member-detail-sheet.tsx",
   "member-import-sheet.tsx",
-  "member-share-application-sheet.tsx",
   "member-sheet.tsx",
   "member-signup-link-sheet.tsx",
   "migration-action-sheet.tsx",
@@ -28,7 +27,7 @@ const migratedShells = [
   "project-financing-sheet.tsx",
   "repayment-sheet.tsx",
   "role-settings-sheet.tsx",
-  "share-application-sheet.tsx",
+  "share-request-sheet.tsx",
   "support-case-sheet.tsx",
   "trust-settings-sheet.tsx",
 ] as const
@@ -90,7 +89,7 @@ describe("workflow presentation ownership", () => {
 
   test("gives every consequential confirm a Cancel and an action", () => {
     const confirms = [
-      ["charge-operation-content.tsx", 3], // CO5-7
+      ["charge-operation-content.tsx", 2], // CO5-7 (waive and undo share one confirm)
       ["contribution-content.tsx", 1], // CT9
       ["forms/finance-forms.tsx", 3], // L4-L6
       ["guarantor-approval-content.tsx", 1], // GA1

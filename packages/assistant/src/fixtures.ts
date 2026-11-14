@@ -36,7 +36,7 @@ export const fixtureAnswers = {
         nextDue: { date: "2026-11-30", amount: money(12500) },
       },
     ],
-    link: { label: "Open financing", href: "/member/financing" },
+    link: { label: "Open financing", href: "/loans" },
   },
   investments: {
     kind: "investments",
@@ -47,7 +47,7 @@ export const fixtureAnswers = {
     shareUnits: 50,
     publishedProfit: money(7350),
     basis: "From your statement. Pending receipts are not included.",
-    link: { label: "Open statement", href: "/member/statement" },
+    link: { label: "Open statement", href: "/contributions" },
   },
   receipts: {
     kind: "receipts",
@@ -60,7 +60,7 @@ export const fixtureAnswers = {
         submittedAt: "2026-11-12T10:00:00.000Z",
         status: "submitted",
         reason: null,
-        link: { label: "Open receipt", href: "/member/receipts/rc_1" },
+        link: { label: "Open receipt", href: "/payment-receipts?receiptId=rc_1" },
       },
       {
         id: "rc_2",
@@ -69,11 +69,11 @@ export const fixtureAnswers = {
         submittedAt: "2026-10-30T10:00:00.000Z",
         status: "approved",
         reason: null,
-        link: { label: "Open receipt", href: "/member/receipts/rc_2" },
+        link: { label: "Open receipt", href: "/payment-receipts?receiptId=rc_2" },
       },
     ],
     nextCursor: null,
-    link: { label: "All receipts", href: "/member/receipts" },
+    link: { label: "All receipts", href: "/payment-receipts" },
   },
   memberMatches: {
     kind: "member-matches",
@@ -84,14 +84,14 @@ export const fixtureAnswers = {
         memberNumber: "HV-1048",
         name: "Aisha Bello",
         hint: "Ministry of Works",
-        link: { label: "Open member", href: "/members?memberId=m_1" },
+        link: { label: "Open member", href: "/members/m_1" },
       },
       {
         memberId: "m_2",
         memberNumber: "HV-1203",
         name: "Aisha Bello-Umar",
         hint: "Federal Medical Centre",
-        link: { label: "Open member", href: "/members?memberId=m_2" },
+        link: { label: "Open member", href: "/members/m_2" },
       },
     ],
     truncated: false,
@@ -126,7 +126,7 @@ export const fixtureAnswers = {
     kind: "notice",
     tone: "unavailable",
     message: "Your statement could not be read right now. Try again shortly.",
-    link: { label: "Open statement", href: "/member/statement" },
+    link: { label: "Open statement", href: "/contributions" },
   },
 } satisfies Record<string, AssistantAnswer>
 
@@ -158,7 +158,7 @@ export const fixtureResult: AssistantActionResult = {
   outcome: "saved",
   reference: "RCPT-110",
   message: "Receipt RCPT-110 is saved for review.",
-  link: { label: "Open receipt", href: "/member/receipts" },
+  link: { label: "Open receipt", href: "/payment-receipts" },
 }
 
 export const fixtureConversation: AssistantMessage[] = [

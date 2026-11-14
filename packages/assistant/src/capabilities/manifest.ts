@@ -57,7 +57,7 @@ export const assistantCapabilities = [
     roles: memberRoles,
     permission: "view_own_member_profile",
     source: "getMemberFinancingSnapshot (mobile-member-financing.route.ts)",
-    destination: "/member/financing",
+    destination: "/loans",
     channels: channels("read", "link", "bot"),
   },
   {
@@ -74,7 +74,7 @@ export const assistantCapabilities = [
     roles: memberRoles,
     permission: "view_own_member_profile",
     source: "getMemberStatementSummary (members.ts)",
-    destination: "/member/statement",
+    destination: "/contributions",
     channels: channels("read", "link", "bot"),
   },
   {
@@ -90,7 +90,7 @@ export const assistantCapabilities = [
     roles: memberRoles,
     permission: "submit_receipts",
     source: "listMemberPaymentReceipts (payment-receipts.ts)",
-    destination: "/member/receipts",
+    destination: "/payment-receipts",
     channels: channels("read", "bot", "bot"),
   },
   {
@@ -106,7 +106,7 @@ export const assistantCapabilities = [
     roles: memberRoles,
     permission: "submit_receipts",
     source: "createMemberPaymentReceipt (payment-receipts.ts)",
-    destination: "/member/receipts",
+    destination: "/payment-receipts",
     channels: channels("review", "link", "link"),
   },
   {
@@ -122,7 +122,7 @@ export const assistantCapabilities = [
     roles: memberRoles,
     permission: null,
     source: "createMemberSupportCase (support.ts, payment_issue)",
-    destination: "/member/support",
+    destination: "/support",
     channels: channels("review", "off", "bot"),
   },
   {
@@ -174,7 +174,7 @@ export const assistantCapabilities = [
     roles: staffAssistantRoles,
     permission: "manage_member_contributions",
     source: "recordMemberPayment (contributions.ts)",
-    destination: "/members",
+    destination: "/contributions",
     channels: channels("review", "link", "link"),
   },
   {
@@ -200,7 +200,7 @@ export const assistantCapabilities = [
     roles: [...staffAssistantRoles, ...memberRoles],
     permission: null,
     source: "support workflow",
-    destination: "/member/support",
+    destination: "/support",
     channels: channels("open", "bot", "bot"),
   },
 ] as const satisfies readonly AssistantCapability[]

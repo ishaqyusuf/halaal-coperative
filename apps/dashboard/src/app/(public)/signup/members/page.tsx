@@ -8,7 +8,10 @@ import {
 } from "@/components/public-auth-notice"
 import { PublicAuthShell } from "@/components/public-auth-shell"
 import { resolveMemberSignupGate } from "@/lib/member-signup-access"
-import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
+import {
+  canShowQuickFill,
+  getDashboardServerContext,
+} from "@/lib/server-context"
 import { getRequestMigrationGateState } from "@/lib/setup-gate"
 import { tenantRedirect } from "@/utils/tenant-redirect"
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
@@ -48,7 +51,10 @@ export default async function MemberSignupPage({
     : false
   const gate =
     tenant && memberSignupOpen
-      ? await resolveMemberSignupGate({ tenantId: tenant.id, token: signupToken })
+      ? await resolveMemberSignupGate({
+          tenantId: tenant.id,
+          token: signupToken,
+        })
       : null
   const loginHref = buildTenantHref(tenantUrlContext, "/login", tenantUrlConfig)
   const canJoin = Boolean(tenant && gate?.access === "granted")
@@ -57,7 +63,9 @@ export default async function MemberSignupPage({
     <PublicAuthShell
       cooperativeName={tenant?.name}
       description={
-        canJoin ? "Fill in your details. The office will check them." : undefined
+        canJoin
+          ? "Fill in your details. The office will check them."
+          : undefined
       }
       footer={
         <p>

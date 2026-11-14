@@ -29,7 +29,9 @@ export function PublicAuthNotice({
       role={tone === "error" ? "alert" : "status"}
     >
       {title ? <p className="font-semibold">{title}</p> : null}
-      {children ? <div className={title ? "mt-1" : undefined}>{children}</div> : null}
+      {children ? (
+        <div className={title ? "mt-1" : undefined}>{children}</div>
+      ) : null}
     </div>
   )
 }

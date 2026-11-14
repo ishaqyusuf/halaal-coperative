@@ -84,11 +84,15 @@ describe("membership approvals Midday conformance", () => {
     )
     const sheet = read("../../components/sheets/membership-approval-sheet.tsx")
     const globalSheets = read("../../components/sheets/global-sheets.tsx")
-    const form = read("../../components/onboarding/membership-approval-form.tsx")
+    const form = read(
+      "../../components/onboarding/membership-approval-form.tsx"
+    )
 
     expect(detailRoute).toContain("tenantRedirect")
     expect(detailRoute).toContain("membershipRequestId=")
-    expect(sheet).toContain('getWorkflowPresentation("membershipApproval", "review")')
+    expect(sheet).toContain(
+      'getWorkflowPresentation("membershipApproval", "review")'
+    )
     expect(globalSheets).toContain("<MembershipApprovalSheet />")
     // Declining is consequential: a real AlertDialog with an optional reason.
     expect(form).toContain("<AlertDialogContent>")

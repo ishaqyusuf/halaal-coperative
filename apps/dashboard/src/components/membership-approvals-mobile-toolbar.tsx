@@ -62,8 +62,8 @@ export function MembershipApprovalsMobileToolbar({
                 aria-label="Filter membership requests"
                 className={
                   hasActiveControls
-                    ? "size-9 text-foreground"
-                    : "size-9 text-muted-foreground"
+                    ? "size-11 text-foreground"
+                    : "size-11 text-muted-foreground"
                 }
                 onClick={() => setFilterOpen(true)}
                 size="icon-sm"
@@ -90,10 +90,7 @@ export function MembershipApprovalsMobileToolbar({
 
           {showLinkGenerator ? (
             <TenantLink
-              className={cn(
-                buttonVariants({ variant: "outline" }),
-                "h-11"
-              )}
+              className={cn(buttonVariants({ variant: "outline" }), "h-11")}
               href="/member-signup-links"
             >
               Joining links
@@ -108,7 +105,6 @@ export function MembershipApprovalsMobileToolbar({
           open={filterOpen}
         />
       ) : null}
-
     </>
   )
 }

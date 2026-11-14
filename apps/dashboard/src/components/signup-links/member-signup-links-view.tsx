@@ -1,7 +1,4 @@
-import {
-  WorkspaceEmptyState,
-  WorkspacePageShell,
-} from "@/components/dashboard"
+import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import { MemberSignupLinkManager } from "@/components/signup-links/member-signup-link-manager"
 import { MemberSignupLinksHeaderActions } from "@/components/signup-links/member-signup-links-header-actions"
 import {

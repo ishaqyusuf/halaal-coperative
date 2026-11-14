@@ -395,7 +395,9 @@ export function MembershipApprovalForm({
                           {...field}
                           onChange={(value) => {
                             field.onChange(value)
-                            updateCalculatedMonthlyService({ loanAmount: value })
+                            updateCalculatedMonthlyService({
+                              loanAmount: value,
+                            })
                           }}
                         />
                       </FormControl>
@@ -439,7 +441,9 @@ export function MembershipApprovalForm({
                           {...field}
                           onChange={(value) => {
                             field.onChange(value)
-                            updateCalculatedMonthlyService({ loanServed: value })
+                            updateCalculatedMonthlyService({
+                              loanServed: value,
+                            })
                           }}
                           placeholder="0.00"
                         />

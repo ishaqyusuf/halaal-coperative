@@ -73,9 +73,11 @@ export function MembershipApprovalContent({
   requestId: string
 }) {
   const trpc = useTRPC()
-  const { data: request, error, isPending } = useQuery(
-    trpc.onboarding.membershipApproval.queryOptions({ requestId })
-  )
+  const {
+    data: request,
+    error,
+    isPending,
+  } = useQuery(trpc.onboarding.membershipApproval.queryOptions({ requestId }))
 
   if (isPending) {
     return (

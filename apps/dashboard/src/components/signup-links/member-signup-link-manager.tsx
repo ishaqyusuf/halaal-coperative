@@ -199,8 +199,8 @@ function MemberSignupLinkRow({
           <AlertDialogHeader>
             <AlertDialogTitle>Replace {link.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              The old link stops working now. Share the new link with anyone
-              who still needs to join.
+              The old link stops working now. Share the new link with anyone who
+              still needs to join.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

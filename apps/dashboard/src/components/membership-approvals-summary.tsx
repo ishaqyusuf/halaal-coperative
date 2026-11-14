@@ -30,7 +30,9 @@ export function MembershipApprovalsSummary() {
         <Button
           className="h-11 md:h-10"
           onClick={() =>
-            void setFilter({ status: showingWaiting ? null : "pending_approval" })
+            void setFilter({
+              status: showingWaiting ? null : "pending_approval",
+            })
           }
           variant="outline"
         >

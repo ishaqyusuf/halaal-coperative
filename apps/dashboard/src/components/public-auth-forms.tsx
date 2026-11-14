@@ -27,7 +27,10 @@ export function PublicAuthField({
   return (
     <div className="grid gap-2">
       <div className="flex items-end justify-between gap-3">
-        <label className="text-lg font-semibold text-foreground" htmlFor={htmlFor}>
+        <label
+          className="text-lg font-semibold text-foreground"
+          htmlFor={htmlFor}
+        >
           {label}
         </label>
         {action}

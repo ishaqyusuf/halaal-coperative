@@ -19,7 +19,10 @@ const headerCopy = {
     description: "Share it by message. New members still need your approval.",
     title: "New joining link",
   },
-  edit: { description: "Change the name, last day or limit.", title: "Edit link" },
+  edit: {
+    description: "Change the name, last day or limit.",
+    title: "Edit link",
+  },
 } as const
 
 // Access, create and edit are short forms for a secondary record, so all

@@ -10,7 +10,10 @@ import {
 import { ChevronRight } from "lucide-react"
 import { useMembershipApprovalParams } from "@/hooks/use-membership-approval-params"
 import { formatDayMonthYear } from "@/utils/format"
-import { MembershipApprovalStatusBadge, type MembershipApprovalRow } from "./columns"
+import {
+  MembershipApprovalStatusBadge,
+  type MembershipApprovalRow,
+} from "./columns"
 
 // One tap on the row opens the review sheet; there is no second menu.
 export function MembershipApprovalMobileItem({
@@ -40,7 +43,10 @@ export function MembershipApprovalMobileItem({
             {request.memberNumber} · {formatDayMonthYear(request.createdAt)}
           </ItemDescription>
         </ItemContent>
-        <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />
+        <ChevronRight
+          aria-hidden="true"
+          className="size-5 shrink-0 text-muted-foreground"
+        />
       </ItemHeader>
       <dl className="flex basis-full items-center justify-between gap-3">
         <dt className="sr-only">Status</dt>

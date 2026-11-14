@@ -15,7 +15,10 @@ type PasswordInputProps = Omit<ComponentProps<"input">, "type"> & {
 // A password field with a visible Show/Hide button. Every input prop (id,
 // aria-*, name, value) reaches the real <input>, so it works inside
 // FormControl and in plain posted forms alike.
-export function PasswordInput({ groupClassName, ...props }: PasswordInputProps) {
+export function PasswordInput({
+  groupClassName,
+  ...props
+}: PasswordInputProps) {
   const [visible, setVisible] = useState(false)
 
   return (

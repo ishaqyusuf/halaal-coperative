@@ -4,9 +4,7 @@ import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { PublicAuthShell } from "@/components/public-auth-shell"
-import {
-  PublicAuthNotice,
-} from "@/components/public-auth-notice"
+import { PublicAuthNotice } from "@/components/public-auth-notice"
 import { PasswordResetConfirmForm } from "@/components/public-auth-forms"
 import {
   getPasswordSetupCopy,

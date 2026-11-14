@@ -96,8 +96,8 @@ export default async function LoginPage({
 
         {error === "invalid-account" ? (
           <PublicAuthNotice tone="error">
-            That email, member code or password is not right. Check them and
-            try again.
+            That email, member code or password is not right. Check them and try
+            again.
           </PublicAuthNotice>
         ) : null}
 

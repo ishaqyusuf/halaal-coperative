@@ -61,7 +61,9 @@ export default async function MemberSignupVerificationPage({
   return (
     <PublicAuthShell
       cooperativeName={tenant?.name}
-      title={outcome === "verified" ? "Email confirmed" : "This link did not work"}
+      title={
+        outcome === "verified" ? "Email confirmed" : "This link did not work"
+      }
     >
       <div className="grid gap-6">
         {outcome === "verified" ? (
@@ -79,8 +81,8 @@ export default async function MemberSignupVerificationPage({
           </PublicAuthNotice>
         ) : (
           <PublicAuthNotice tone="error">
-            The link may be old or already used. Sign in and we will send you
-            a new one.
+            The link may be old or already used. Sign in and we will send you a
+            new one.
           </PublicAuthNotice>
         )}
 

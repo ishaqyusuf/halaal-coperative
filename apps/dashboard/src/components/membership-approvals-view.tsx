@@ -52,7 +52,9 @@ export function MembershipApprovalsView({
 
         <Suspense
           fallback={
-            <MembershipApprovalsSkeleton initialSettings={initialTableSettings} />
+            <MembershipApprovalsSkeleton
+              initialSettings={initialTableSettings}
+            />
           }
         >
           <MembershipApprovalsDataView initialSettings={initialTableSettings} />

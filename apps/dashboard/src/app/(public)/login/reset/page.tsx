@@ -58,8 +58,8 @@ export default async function PasswordResetRequestPage({
     >
       {sent ? (
         <PublicAuthNotice tone="success">
-          If this email has an account here, we have sent a link to choose a
-          new password.
+          If this email has an account here, we have sent a link to choose a new
+          password.
         </PublicAuthNotice>
       ) : (
         <PasswordResetRequestForm

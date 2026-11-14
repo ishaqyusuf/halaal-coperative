@@ -1,4 +1,7 @@
-import { getMemberSignupLinkAccess, getTenantMemberSignupSettings } from "@halaalvest/db"
+import {
+  getMemberSignupLinkAccess,
+  getTenantMemberSignupSettings,
+} from "@halaalvest/db"
 import { verifyMemberSignupLinkToken } from "./member-signup-link-token"
 
 type MemberSignupGate =
@@ -59,18 +62,25 @@ export async function resolveMemberSignupGate(input: {
       })
 
       if (!link) {
-        throw new Error("This link has been replaced or removed. Ask the office for a new one.")
+        throw new Error(
+          "This link has been replaced or removed. Ask the office for a new one."
+        )
       }
 
       if (!link.isEnabled) {
-        throw new Error("This link is turned off. Ask the office for a new one.")
+        throw new Error(
+          "This link is turned off. Ask the office for a new one."
+        )
       }
 
       if (link.expiresAt && link.expiresAt.getTime() <= Date.now()) {
         throw new Error("This link has expired. Ask the office for a new one.")
       }
 
-      if (link.maxSignups !== null && link.currentSignupCount >= link.maxSignups) {
+      if (
+        link.maxSignups !== null &&
+        link.currentSignupCount >= link.maxSignups
+      ) {
         throw new Error("This link is full. Ask the office for a new one.")
       }
 
@@ -84,7 +94,10 @@ export async function resolveMemberSignupGate(input: {
       return {
         access: "denied",
         link: null,
-        message: error instanceof Error ? error.message : "This link does not work. Ask the office for a new one.",
+        message:
+          error instanceof Error
+            ? error.message
+            : "This link does not work. Ask the office for a new one.",
         token: null,
         type: "invalid_token",
       }
@@ -104,8 +117,7 @@ export async function resolveMemberSignupGate(input: {
     return {
       access: "denied",
       link: null,
-      message:
-        "Ask the cooperative office for a joining link.",
+      message: "Ask the cooperative office for a joining link.",
       token: null,
       type: "hidden",
     }
@@ -114,8 +126,7 @@ export async function resolveMemberSignupGate(input: {
   return {
     access: "denied",
     link: null,
-    message:
-      "Ask the cooperative office for a joining link.",
+    message: "Ask the cooperative office for a joining link.",
     token: null,
     type: "in_office_only",
   }

@@ -14,7 +14,10 @@ import {
   FormMessage,
 } from "@halaalvest/ui/components/form"
 import { Input } from "@halaalvest/ui/components/input"
-import { RadioGroup, RadioGroupItem } from "@halaalvest/ui/components/radio-group"
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@halaalvest/ui/components/radio-group"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { CopyIcon } from "lucide-react"
@@ -277,7 +280,10 @@ export function useCopySignupLink() {
   return async (link: Pick<MemberSignupLinkView, "name" | "signupUrl">) => {
     try {
       await navigator.clipboard.writeText(link.signupUrl)
-      showSuccess("Link copied", `Paste it into a message to share ${link.name}.`)
+      showSuccess(
+        "Link copied",
+        `Paste it into a message to share ${link.name}.`
+      )
     } catch {
       showError("Could not copy", "Open Edit to see the link and copy it.")
     }
@@ -390,7 +396,5 @@ export function MemberSignupLinkContent({
     return <EditLinkForm link={selectedLink} onSuccess={handleSuccess} />
   }
 
-  return (
-    <p className="text-muted-foreground">This link no longer exists.</p>
-  )
+  return <p className="text-muted-foreground">This link no longer exists.</p>
 }

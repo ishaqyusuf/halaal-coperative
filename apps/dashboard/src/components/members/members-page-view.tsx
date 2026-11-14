@@ -1,6 +1,5 @@
 import { Suspense } from "react"
 import type { MembersPageData } from "@/lib/members/load-members-page"
-import type { getInitialMemberImportColumnSettings } from "@/lib/member-import-column-settings.server"
 import {
   CollapsibleSummary,
   DashboardActionLink,
@@ -18,10 +17,6 @@ import { MembersKycPending } from "./members-kyc-pending"
 import { MemberImportPanel, MemberSheet } from "./members-lazy-sheets"
 import { MembersOpeningPending } from "./members-opening-pending"
 
-type MemberImportColumnSettings = Awaited<
-  ReturnType<typeof getInitialMemberImportColumnSettings>
->
-
 function SignupLinkAction() {
   return (
     <DashboardActionLink href="/member-signup-links">
@@ -32,12 +27,10 @@ function SignupLinkAction() {
 
 export function MembersPageView({
   data,
-  initialImportColumnSettings,
   initialSettings,
   startWithImportPanelOpen,
 }: {
   data: MembersPageData
-  initialImportColumnSettings: MemberImportColumnSettings
   initialSettings: Partial<TableSettings>
   startWithImportPanelOpen: boolean
 }) {
@@ -113,10 +106,7 @@ export function MembersPageView({
           createAction={data.canManageMembers ? <OpenMemberSheet /> : undefined}
           importPanel={
             data.canManageImports ? (
-              <MemberImportPanel
-                devMode={data.quickFillEnabled}
-                initialColumnSettings={initialImportColumnSettings}
-              />
+              <MemberImportPanel devMode={data.quickFillEnabled} />
             ) : undefined
           }
           secondaryActions={

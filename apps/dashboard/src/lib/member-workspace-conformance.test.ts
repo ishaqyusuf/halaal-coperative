@@ -159,8 +159,8 @@ describe("member workspace Midday conformance", () => {
     const detailStates = read("../components/member-detail-page-states.tsx")
     const statement = read("../components/member-statement-view.tsx")
     const backfill = read("../components/members/member-backfill-page-view.tsx")
-    const importHeader = read("../components/member-import-sheet-header.tsx")
-    const importContent = read("../components/member-import-content.tsx")
+    const importSheet = read("../components/sheets/member-import-sheet.tsx")
+    const importContent = read("../components/imports/import-file-content.tsx")
 
     expect(detail).toContain("<MemberDetailActions")
     expect(detail).toContain("<MemberBalanceStatCards summary={summary} />")
@@ -178,10 +178,9 @@ describe("member workspace Midday conformance", () => {
     expect(statement).toContain("mx-auto flex max-w-5xl flex-col gap-6")
     expect(backfill).toContain("MobileStepNavigation")
     expect(backfill).toContain("overflow-x-auto")
-    expect(importHeader).toContain("<DialogHeader")
-    expect(importHeader).toContain(
-      "grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto"
-    )
+    // One import modal for members, shared with Settings, Imports.
+    expect(importSheet).toContain("<ImportFileContent")
+    expect(importSheet).toContain("mobileFullScreen")
     expect(importContent).toContain("trpc.members.list.infiniteQueryFilter()")
     // Covers the batches table, the sheet's latest batch and reference data.
     expect(importContent).toContain("trpc.imports.pathFilter()")

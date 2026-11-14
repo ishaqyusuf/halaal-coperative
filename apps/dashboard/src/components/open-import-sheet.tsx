@@ -19,7 +19,10 @@ export function OpenImportSheet({
 
   return (
     <Button
-      className={cn("h-12 w-full text-base sm:w-auto sm:self-start", className)}
+      className={cn(
+        "h-auto min-h-12 w-full py-3 text-base whitespace-normal sm:w-auto sm:self-start",
+        className
+      )}
       onClick={() =>
         setParams({
           importBatchId: null,

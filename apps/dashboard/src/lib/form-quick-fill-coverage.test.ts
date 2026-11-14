@@ -59,7 +59,6 @@ describe("dashboard Quick fill coverage", () => {
       "components/getting-started/profit-policy-fields.tsx",
       "components/initial-migration-quick-fills.tsx",
       "components/member-document-self-service-form.tsx",
-      "components/member-import-sheet-header.tsx",
       "components/members/member-backfill-activity-windows-form.tsx",
       "components/members/member-backfill-baseline-edit-content.tsx",
       "components/members/member-profit-season-adjustment-table.tsx",

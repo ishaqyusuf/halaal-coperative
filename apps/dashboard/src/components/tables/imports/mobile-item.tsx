@@ -24,14 +24,16 @@ export function ImportMobileItem({
       type="button"
     >
       <div className="min-w-0 flex-1 space-y-1">
-        <p className="truncate text-base font-medium text-foreground">
-          {title}
-        </p>
-        <p className="truncate text-sm text-muted-foreground">
+        <div className="flex items-center justify-between gap-2">
+          <p className="truncate text-base font-medium text-foreground">
+            {title}
+          </p>
+          <ImportStatusBadge status={batch.status} />
+        </div>
+        <p className="text-sm text-muted-foreground">
           {count} · {formatDayMonthYear(batch.appliedAt ?? batch.createdAt)}
         </p>
       </div>
-      <ImportStatusBadge status={batch.status} />
       <ChevronRight
         aria-hidden
         className="size-5 shrink-0 text-muted-foreground"

@@ -420,17 +420,19 @@ function ImportCheck({
   return (
     <div className="space-y-4">
       <ul className="divide-y divide-border/70 border-y border-border/70 text-base">
-        <li className="flex items-center gap-3 py-3">
-          <CheckCircle2
-            aria-hidden
-            className="size-5 shrink-0 text-emerald-700"
-          />
-          <span>
-            {problemRows
-              ? `${importCount(importKind, Math.max(0, review.totalRows - problemRows))} look right`
-              : `${importCount(importKind, review.readyCount)} ready to add`}
-          </span>
-        </li>
+        {review.totalRows > problemRows ? (
+          <li className="flex items-center gap-3 py-3">
+            <CheckCircle2
+              aria-hidden
+              className="size-5 shrink-0 text-emerald-700"
+            />
+            <span>
+              {problemRows
+                ? `${importCount(importKind, Math.max(0, review.totalRows - problemRows))} look right`
+                : `${importCount(importKind, review.readyCount)} ready`}
+            </span>
+          </li>
+        ) : null}
         {review.updateCount > 0 ? (
           <li className="py-3 pl-8">
             {newCount > 0 ? `${newCount.toLocaleString("en-NG")} new, ` : ""}

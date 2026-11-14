@@ -5,7 +5,6 @@ import {
   type MembersFilterParams,
 } from "@/hooks/use-members-filter-params"
 import { loadSortParams } from "@/hooks/use-sort-params"
-import { getInitialMemberImportColumnSettings } from "@/lib/member-import-column-settings.server"
 import { loadMembersPageData } from "@/lib/members"
 import { getMembersListInput } from "@/lib/members/member-list-input"
 import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server"
@@ -26,18 +25,15 @@ export default async function MembersPage({
   const filters = loadMembersFilterParams(params)
   const { sort } = loadSortParams(params)
   const startWithImportPanelOpen = params.import === "1"
-  const [initialSettings, initialImportColumnSettings, data] =
-    await Promise.all([
-      getInitialTableSettings("members"),
-      getInitialMemberImportColumnSettings(),
-      loadMembersPageData(filters),
-    ])
+  const [initialSettings, data] = await Promise.all([
+    getInitialTableSettings("members"),
+    loadMembersPageData(filters),
+  ])
 
   if (data.state !== "ready") {
     return (
       <MembersPageView
         data={data}
-        initialImportColumnSettings={initialImportColumnSettings}
         initialSettings={initialSettings}
         startWithImportPanelOpen={startWithImportPanelOpen}
       />
@@ -57,7 +53,6 @@ export default async function MembersPage({
     <HydrateClient>
       <MembersPageView
         data={data}
-        initialImportColumnSettings={initialImportColumnSettings}
         initialSettings={initialSettings}
         startWithImportPanelOpen={startWithImportPanelOpen}
       />

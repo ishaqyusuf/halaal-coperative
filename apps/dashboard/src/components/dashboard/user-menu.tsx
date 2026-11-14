@@ -72,7 +72,12 @@ export function DashboardUserMenu({
         </span>
         <ChevronDown aria-hidden="true" className="hidden size-4 lg:block" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64" sideOffset={8}>
+      <DropdownMenuContent
+        align="end"
+        // Opaque: the shared menu is see-through, which is hard to read here.
+        className="w-64 bg-popover before:hidden"
+        sideOffset={8}
+      >
         <DropdownMenuGroup>
           <DropdownMenuLabel className="px-3 py-2">
             <span className="block truncate text-base font-medium text-foreground">

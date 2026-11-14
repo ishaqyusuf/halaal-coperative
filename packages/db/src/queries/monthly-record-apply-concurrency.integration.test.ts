@@ -28,6 +28,37 @@ async function createPendingRow(recordId = monthlyRecordId) {
   return row.id
 }
 
+async function createMonthlyRecord(periodMonth: number, periodLabel: string) {
+  return (
+    await db!.monthlyRecord.create({
+      data: {
+        createdByUserId: userId,
+        periodLabel,
+        periodMonth,
+        periodYear: 2026,
+        tenantId,
+      },
+    })
+  ).id
+}
+
+function cancel(monthlyRecordMemberId: string) {
+  return cancelMonthlyRecordMember(
+    { actorUserId: userId, monthlyRecordMemberId, tenantId },
+    db!
+  )
+}
+
+function taggedCharges(rowId: string) {
+  return db!.chargeApplication.findMany({
+    orderBy: { createdAt: "asc" },
+    where: {
+      applicabilitySnapshot: { equals: rowId, path: ["monthlyRecordMemberId"] },
+      tenantId,
+    },
+  })
+}
+
 function apply(monthlyRecordMemberId: string) {
   return applyMonthlyRecordMember(
     {
@@ -236,5 +267,134 @@ run("monthly record apply under concurrency", () => {
     expect(Number(afterReapply.totalSavingsSnapshot)).toBe(
       Number(before.totalSavingsSnapshot) + 4500
     )
+  })
+
+  it("waives a tagged charge still waiting for a separate payment", async () => {
+    const definition = await db!.chargeDefinition.create({
+      data: {
+        amount: 200,
+        code: "MONTHLY_DUES",
+        kind: "fixed",
+        name: "Monthly dues",
+        tenantId,
+      },
+    })
+    await db!.chargeDefinitionVersion.create({
+      data: {
+        amount: 200,
+        chargeDefinitionId: definition.id,
+        effectiveFrom: new Date("2026-01-01T00:00:00.000Z"),
+        kind: "fixed",
+        tenantId,
+      },
+    })
+    const applicability = await db!.chargeApplicability.create({
+      data: {
+        chargeDefinitionId: definition.id,
+        collectionMode: "pay_separately",
+        tenantId,
+        trigger: "monthly_collection",
+        workflow: "commitment_collection",
+      },
+    })
+
+    try {
+      const rowId = await createPendingRow(
+        await createMonthlyRecord(5, "May 2026")
+      )
+      await apply(rowId)
+      const applied = await taggedCharges(rowId)
+      expect(applied.map((charge) => charge.status).sort()).toEqual([
+        "pending",
+        "posted",
+      ])
+
+      await cancel(rowId)
+
+      const after = await taggedCharges(rowId)
+      const dues = after.find(
+        (charge) => charge.chargeDefinitionId === definition.id
+      )
+      const levy = after.find(
+        (charge) => charge.chargeDefinitionId !== definition.id
+      )
+      expect(dues?.status).toBe("waived")
+      expect(levy?.status).toBe("reversed")
+      // A pending waiver moves no money: only the posted levy gets a correction.
+      expect(
+        await db!.ledgerTransaction.count({
+          where: { reference: `charge-correction:${dues!.id}`, tenantId },
+        })
+      ).toBe(0)
+      expect(
+        await db!.ledgerTransaction.count({
+          where: { reference: `charge-correction:${levy!.id}`, tenantId },
+        })
+      ).toBe(1)
+      const audit = await db!.auditLog.findFirstOrThrow({
+        where: { action: "charge.waived", entityId: dues!.id, tenantId },
+      })
+      expect(JSON.stringify(audit.metadata)).toContain("May 2026")
+    } finally {
+      // Later tests expect only the levy on monthly collection.
+      await db!.chargeApplicability.update({
+        data: { isActive: false },
+        where: { id: applicability.id },
+      })
+    }
+  })
+
+  it("leaves untagged charges from before the fix alone", async () => {
+    const rowId = await createPendingRow(
+      await createMonthlyRecord(6, "June 2026")
+    )
+    await apply(rowId)
+    const [tagged] = await taggedCharges(rowId)
+    // Simulate a row applied before the tag existed: drop the tag.
+    const { monthlyRecordMemberId: _tag, ...legacySnapshot } = tagged!
+      .applicabilitySnapshot as Record<string, unknown>
+    await db!.chargeApplication.update({
+      data: { applicabilitySnapshot: legacySnapshot as never },
+      where: { id: tagged!.id },
+    })
+
+    await cancel(rowId)
+
+    const legacy = await db!.chargeApplication.findUniqueOrThrow({
+      where: { id: tagged!.id },
+    })
+    expect(legacy.status).toBe("posted")
+    expect(
+      await db!.ledgerTransaction.count({
+        where: { reference: `charge-correction:${legacy.id}`, tenantId },
+      })
+    ).toBe(0)
+  })
+
+  it("never reverses twice when a row is cancelled twice", async () => {
+    const rowId = await createPendingRow(
+      await createMonthlyRecord(7, "July 2026")
+    )
+    await apply(rowId)
+    const [levy] = await taggedCharges(rowId)
+
+    const results = await Promise.allSettled([cancel(rowId), cancel(rowId)])
+    expect(
+      results.filter((result) => result.status === "fulfilled")
+    ).toHaveLength(1)
+    await expect(cancel(rowId)).rejects.toThrow("already cancelled")
+
+    expect(
+      (
+        await db!.chargeApplication.findUniqueOrThrow({
+          where: { id: levy!.id },
+        })
+      ).status
+    ).toBe("reversed")
+    expect(
+      await db!.ledgerTransaction.count({
+        where: { reference: `charge-correction:${levy!.id}`, tenantId },
+      })
+    ).toBe(1)
   })
 })

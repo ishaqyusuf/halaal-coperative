@@ -1960,6 +1960,19 @@ export async function cancelMonthlyRecordMember(
       )
     }
 
+    // Claim the row first: a second, concurrent cancel waits on this row
+    // lock, then finds it no longer in the status it read and stops here,
+    // so the payment, repayment and charges are never undone twice.
+    const claimed = await tx.monthlyRecordMember.updateMany({
+      where: { id: row.id, status: row.status, tenantId: input.tenantId },
+      data: { cancelledAt: new Date(), status: "cancelled" },
+    })
+    if (claimed.count !== 1) {
+      throw ExpectedQueryError.conflict(
+        "This monthly record row is already cancelled."
+      )
+    }
+
     if (row.status === "applied") {
       if (row.contributionId) {
         await reverseMonthlyContribution({
@@ -1989,12 +2002,8 @@ export async function cancelMonthlyRecordMember(
       })
     }
 
-    const cancelled = await tx.monthlyRecordMember.update({
+    const cancelled = await tx.monthlyRecordMember.findUniqueOrThrow({
       where: { id: row.id },
-      data: {
-        cancelledAt: new Date(),
-        status: "cancelled",
-      },
     })
 
     await tx.auditLog.create({

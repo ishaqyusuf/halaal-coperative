@@ -82,9 +82,9 @@ export function MemberStatementView({
             <p className="text-sm text-muted-foreground">
               {cooperativeName} · Statement
             </p>
-            <h1 className="mt-2 text-3xl font-semibold text-foreground">
+            <h2 className="mt-2 text-3xl font-semibold text-foreground">
               {member.fullName}
-            </h1>
+            </h2>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap print:hidden">
             <DashboardActionLink href={`/members/${member.id}`}>

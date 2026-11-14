@@ -355,6 +355,16 @@ export function ProfitEntryForm({
     })
   }
 
+  if (seasonClosed && !entry) {
+    // Nothing can be recorded: say why, without an empty form.
+    return (
+      <p className="rounded-(--ui-radius-surface) border border-border bg-card px-4 py-3 text-base text-foreground">
+        {season.reason ??
+          "No season is open for new profit. Ask an admin to check the profit settings."}
+      </p>
+    )
+  }
+
   return (
     <div className="grid gap-5">
       <DashboardStateQuickFill

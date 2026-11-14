@@ -980,7 +980,7 @@ export async function getCurrentBusinessProfitSeason(
     periodStart: period.periodStart,
     reason: canRecordProfit
       ? null
-      : `${label} is ${status} and no longer accepts new profit entries.`,
+      : `${label} has been ${status === "published" ? "shared" : "closed"}, so no more profit can be added to it. Profit after ${new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC", year: "numeric" }).format(period.periodEnd)} goes into the next season.`,
     status,
   })
 }

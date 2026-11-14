@@ -71,7 +71,8 @@ export function BusinessDetails({
 
       <RequestFormActions>
         <Button
-          disabled={isLocked || !canRecordProfit}
+          // Open even when the season is closed: the form says why.
+          disabled={isLocked}
           onClick={() =>
             void setParams({
               businessId: business.id,

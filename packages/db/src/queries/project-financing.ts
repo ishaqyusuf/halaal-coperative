@@ -892,7 +892,10 @@ export async function getProjectFinancingSummary(
   memberId?: string
 ): Promise<ProjectFinancingSummary> {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
-  if (!prisma || typeof prisma.projectFinancingRequest?.count !== "function") {
+  if (
+    !prisma ||
+    typeof prisma.projectFinancingRequest?.groupBy !== "function"
+  ) {
     return {
       activeRequests: 0,
       approvedRequests: 0,
@@ -905,99 +908,54 @@ export async function getProjectFinancingSummary(
     }
   }
 
-  const [
-    activeRequests,
-    pendingRequests,
-    approvedRequests,
-    rejectedRequests,
-    totalRequests,
-    requestedTotals,
-    approvedTotals,
-    repayableApprovedTotals,
-    paymentTotals,
-  ] = await Promise.all([
-    prisma.projectFinancingRequest.count({
-      where: {
-        status: "active",
-        tenantId,
-        ...(memberId ? { memberId } : {}),
-      },
-    }),
-    prisma.projectFinancingRequest.count({
-      where: {
-        status: { in: [...pendingProjectFinancingStatuses] },
-        tenantId,
-        ...(memberId ? { memberId } : {}),
-      },
-    }),
-    prisma.projectFinancingRequest.count({
-      where: {
-        status: { in: [...approvedProjectFinancingStatuses] },
-        tenantId,
-        ...(memberId ? { memberId } : {}),
-      },
-    }),
-    prisma.projectFinancingRequest.count({
-      where: {
-        status: "rejected",
-        tenantId,
-        ...(memberId ? { memberId } : {}),
-      },
-    }),
-    prisma.projectFinancingRequest.count({
-      where: { tenantId, ...(memberId ? { memberId } : {}) },
-    }),
-    prisma.projectFinancingRequest.aggregate({
-      _sum: { requestedAmount: true },
-      where: { tenantId, ...(memberId ? { memberId } : {}) },
-    }),
-    prisma.projectFinancingRequest.aggregate({
-      _sum: { approvedAmount: true },
-      where: {
-        status: { in: [...approvedProjectFinancingStatuses] },
-        tenantId,
-        ...(memberId ? { memberId } : {}),
-      },
-    }),
-    prisma.projectFinancingRequest.aggregate({
-      _sum: { approvedAmount: true },
-      where: {
-        approvedStructure: "repayable_facility",
-        status: { in: [...approvedProjectFinancingStatuses] },
-        tenantId,
-        ...(memberId ? { memberId } : {}),
-      },
-    }),
-    prisma.projectFinancingRequest.aggregate({
-      _sum: { paidAmount: true },
-      where: {
-        approvedStructure: "repayable_facility",
-        status: { in: [...approvedProjectFinancingStatuses] },
-        tenantId,
-        ...(memberId ? { memberId } : {}),
-      },
-    }),
-  ])
-
-  const totalApprovedAmount = Number(approvedTotals._sum.approvedAmount ?? 0)
-  const repayableApprovedAmount = Number(
-    repayableApprovedTotals._sum.approvedAmount ?? 0
+  // One grouped read for every count and total (was nine).
+  const groups = (await prisma.projectFinancingRequest.groupBy({
+    _count: { _all: true },
+    _sum: { approvedAmount: true, paidAmount: true, requestedAmount: true },
+    by: ["status", "approvedStructure"],
+    where: { tenantId, ...(memberId ? { memberId } : {}) },
+  })) as Array<{
+    _count: { _all: number }
+    _sum: {
+      approvedAmount: unknown
+      paidAmount: unknown
+      requestedAmount: unknown
+    }
+    approvedStructure: ProjectFinancingStructure | null
+    status: ProjectFinancingRequestStatus
+  }>
+  const inStatuses = (statuses: readonly string[]) =>
+    groups.filter((group) => statuses.includes(group.status))
+  const countOf = (statuses: readonly string[]) =>
+    inStatuses(statuses).reduce((total, group) => total + group._count._all, 0)
+  const sumOf = (
+    rows: typeof groups,
+    field: "approvedAmount" | "paidAmount" | "requestedAmount"
+  ) => rows.reduce((total, group) => total + Number(group._sum[field] ?? 0), 0)
+  const approvedGroups = inStatuses(approvedProjectFinancingStatuses)
+  const repayableGroups = approvedGroups.filter(
+    (group) => group.approvedStructure === "repayable_facility"
   )
+  const totalApprovedAmount = sumOf(approvedGroups, "approvedAmount")
+  const repayableApprovedAmount = sumOf(repayableGroups, "approvedAmount")
 
   return {
-    activeRequests,
-    approvedRequests,
+    activeRequests: countOf(["active"]),
+    approvedRequests: countOf(approvedProjectFinancingStatuses),
     outstandingAmount: roundMoney(
       Math.max(
-        repayableApprovedAmount - Number(paymentTotals._sum.paidAmount ?? 0),
+        repayableApprovedAmount - sumOf(repayableGroups, "paidAmount"),
         0
       )
     ),
-    pendingRequests,
-    rejectedRequests,
-    totalRequests,
+    pendingRequests: countOf(pendingProjectFinancingStatuses),
+    rejectedRequests: countOf(["rejected"]),
+    totalRequests: groups.reduce(
+      (total, group) => total + group._count._all,
+      0
+    ),
     totalApprovedAmount,
-    totalRequestedAmount: Number(requestedTotals._sum.requestedAmount ?? 0),
+    totalRequestedAmount: sumOf(groups, "requestedAmount"),
   }
 }
 

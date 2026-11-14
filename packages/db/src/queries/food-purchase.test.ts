@@ -383,15 +383,17 @@ function createFoodPurchasePrismaStub(input?: {
 
 describe("food purchase workflow", () => {
   test("returns total, approved, and pending application summary counts", async () => {
-    const countArgs: any[] = []
+    const groupByArgs: any[] = []
     const prisma = {
       foodPurchaseApplication: {
-        count: async (args: any) => {
-          countArgs.push(args)
-
-          if (args.where.status === "approved") return 2
-          if (args.where.status) return 3
-          return 7
+        groupBy: async (args: any) => {
+          groupByArgs.push(args)
+          return [
+            { _count: { _all: 2 }, status: "approved" },
+            { _count: { _all: 1 }, status: "submitted" },
+            { _count: { _all: 2 }, status: "under_review" },
+            { _count: { _all: 2 }, status: "rejected" },
+          ]
         },
       },
     }
@@ -406,7 +408,9 @@ describe("food purchase workflow", () => {
       pendingApplications: 3,
       totalApplications: 7,
     })
-    expect(countArgs[0]).toEqual({
+    expect(groupByArgs).toHaveLength(1)
+    expect(groupByArgs[0]).toMatchObject({
+      by: ["status"],
       where: { memberId: "member-1", tenantId: "tenant-1" },
     })
   })

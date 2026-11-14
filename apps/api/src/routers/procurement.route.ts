@@ -1,32 +1,22 @@
 import { z } from "zod"
 import {
-  getMemberByUserId,
   getProcurementRequest,
   listProcurementRequestPage,
 } from "@halaalvest/db"
 import { listProcurementRequestsSchema } from "../schemas/procurement"
 import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
-
-async function getScopedMemberId(ctx: {
-  auth: {
-    activeMembership: { role: string }
-    session: { user: { id: string } }
-  }
-  tenant: { current: { id: string } }
-}) {
-  if (ctx.auth.activeMembership.role !== "member") {
-    return undefined
-  }
-
-  const member = await getMemberByUserId({
-    tenantId: ctx.tenant.current.id,
-    userId: ctx.auth.session.user.id,
-  })
-
-  return member?.id ?? "__missing_member_profile__"
-}
+import { getRequestChargeOptions, getScopedMemberId } from "../lib/member-scope"
 
 export const procurementRouter = createTRPCRouter({
+  chargeOptions: tenantProcedure
+    .input(z.object({ trigger: z.enum(["approval", "submission"]) }))
+    .query(({ ctx, input }) =>
+      getRequestChargeOptions(ctx, {
+        trigger: input.trigger,
+        workflow: "procurement_request",
+      })
+    ),
+
   get: tenantProcedure
     .input(z.object({ procurementRequestId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {

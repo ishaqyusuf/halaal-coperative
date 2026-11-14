@@ -1258,16 +1258,22 @@ export async function getFoodPurchaseApplicationSummary(
     tenantId: input.tenantId,
     ...(input.memberId ? { memberId: input.memberId } : {}),
   }
-  const [totalApplications, approvedApplications, pendingApplications] =
-    await Promise.all([
-      prisma.foodPurchaseApplication.count({ where }),
-      prisma.foodPurchaseApplication.count({
-        where: { ...where, status: "approved" },
-      }),
-      prisma.foodPurchaseApplication.count({
-        where: { ...where, status: { in: ["submitted", "under_review"] } },
-      }),
-    ])
+  // One grouped read (was three counts).
+  const groups = (await prisma.foodPurchaseApplication.groupBy({
+    _count: { _all: true },
+    by: ["status"],
+    where,
+  })) as Array<{ _count: { _all: number }; status: string }>
+  const countOf = (statuses: readonly string[]) =>
+    groups
+      .filter((group) => statuses.includes(group.status))
+      .reduce((total, group) => total + group._count._all, 0)
+  const totalApplications = groups.reduce(
+    (total, group) => total + group._count._all,
+    0
+  )
+  const approvedApplications = countOf(["approved"])
+  const pendingApplications = countOf(["submitted", "under_review"])
 
   return { approvedApplications, pendingApplications, totalApplications }
 }

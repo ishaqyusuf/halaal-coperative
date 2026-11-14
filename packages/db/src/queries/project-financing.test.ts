@@ -400,33 +400,51 @@ describe("project financing request workflow", () => {
     expect(request.approvedMonthlyPayback).toBe(40000)
   })
 
-  test("scopes project financing summary counts and totals to the member", async () => {
-    const countCalls: unknown[] = []
-    const aggregateCalls: unknown[] = []
+  test("scopes project financing summary counts and totals to the member in one grouped read", async () => {
+    const groupByCalls: unknown[] = []
+    const group = (
+      status: string,
+      approvedStructure: string | null,
+      count: number,
+      sums: {
+        approvedAmount?: number
+        paidAmount?: number
+        requestedAmount: number
+      }
+    ) => ({
+      _count: { _all: count },
+      _sum: {
+        approvedAmount: sums.approvedAmount ?? null,
+        paidAmount: sums.paidAmount ?? null,
+        requestedAmount: sums.requestedAmount,
+      },
+      approvedStructure,
+      status,
+    })
     const prisma = {
       projectFinancingRequest: {
-        aggregate: async (args: unknown) => {
-          aggregateCalls.push(args)
-
-          if (aggregateCalls.length === 1) {
-            return { _sum: { requestedAmount: 2200000 } }
-          }
-          if (aggregateCalls.length === 2) {
-            return { _sum: { approvedAmount: 1800000 } }
-          }
-          if (aggregateCalls.length === 3) {
-            return { _sum: { approvedAmount: 1400000 } }
-          }
-          return { _sum: { paidAmount: 300000 } }
-        },
-        count: async (args: unknown) => {
-          countCalls.push(args)
-
-          if (countCalls.length === 1) return 1
-          if (countCalls.length === 2) return 2
-          if (countCalls.length === 3) return 3
-          if (countCalls.length === 4) return 1
-          return 6
+        groupBy: async (args: unknown) => {
+          groupByCalls.push(args)
+          return [
+            group("submitted", null, 1, { requestedAmount: 200000 }),
+            group("under_review", null, 1, { requestedAmount: 200000 }),
+            group("rejected", null, 1, { requestedAmount: 100000 }),
+            group("approved", "repayable_facility", 1, {
+              approvedAmount: 600000,
+              paidAmount: 0,
+              requestedAmount: 700000,
+            }),
+            group("active", "repayable_facility", 1, {
+              approvedAmount: 800000,
+              paidAmount: 300000,
+              requestedAmount: 600000,
+            }),
+            group("completed", "profit_sharing", 1, {
+              approvedAmount: 400000,
+              paidAmount: 0,
+              requestedAmount: 400000,
+            }),
+          ]
         },
       },
     }
@@ -447,38 +465,10 @@ describe("project financing request workflow", () => {
       totalApprovedAmount: 1800000,
       totalRequestedAmount: 2200000,
     })
-    expect(countCalls[2]).toMatchObject({
-      where: {
-        memberId: "member-1",
-        status: { in: ["approved", "active", "completed"] },
-        tenantId: "tenant-1",
-      },
-    })
-    expect(countCalls[4]).toMatchObject({
+    expect(groupByCalls).toHaveLength(1)
+    expect(groupByCalls[0]).toMatchObject({
+      by: ["status", "approvedStructure"],
       where: { memberId: "member-1", tenantId: "tenant-1" },
-    })
-    expect(aggregateCalls[1]).toMatchObject({
-      where: {
-        memberId: "member-1",
-        status: { in: ["approved", "active", "completed"] },
-        tenantId: "tenant-1",
-      },
-    })
-    expect(aggregateCalls[2]).toMatchObject({
-      where: {
-        approvedStructure: "repayable_facility",
-        memberId: "member-1",
-        status: { in: ["approved", "active", "completed"] },
-        tenantId: "tenant-1",
-      },
-    })
-    expect(aggregateCalls[3]).toMatchObject({
-      where: {
-        approvedStructure: "repayable_facility",
-        memberId: "member-1",
-        status: { in: ["approved", "active", "completed"] },
-        tenantId: "tenant-1",
-      },
     })
   })
 

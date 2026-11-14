@@ -108,6 +108,29 @@ describe("mobile admin project financing workspace", () => {
           return rows.length
         },
         findMany: async () => rows,
+        // getProjectFinancingSummary reads one grouped result.
+        groupBy: async () => [
+          {
+            _count: { _all: 1 },
+            _sum: {
+              approvedAmount: 3_000_000,
+              paidAmount: 1_200_000,
+              requestedAmount: 2_000_000,
+            },
+            approvedStructure: "repayable_facility",
+            status: "active",
+          },
+          {
+            _count: { _all: 1 },
+            _sum: {
+              approvedAmount: 1_000_000,
+              paidAmount: 0,
+              requestedAmount: 2_000_000,
+            },
+            approvedStructure: "investment_partnership",
+            status: "approved",
+          },
+        ],
       },
       tenant: {
         findUnique: async () => ({ currencyCode: "NGN" }),

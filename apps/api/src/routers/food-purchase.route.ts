@@ -2,30 +2,11 @@ import { z } from "zod"
 import type { FoodPurchaseApplicationRow } from "@halaalvest/db"
 import {
   findFoodPurchaseApplication,
-  getMemberByUserId,
   listFoodPurchaseApplicationPage,
 } from "@halaalvest/db"
 import { listFoodPurchaseApplicationsSchema } from "../schemas/food-purchase"
 import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
-
-async function getScopedMemberId(ctx: {
-  auth: {
-    activeMembership: { role: string }
-    session: { user: { id: string } }
-  }
-  tenant: { current: { id: string } }
-}) {
-  if (ctx.auth.activeMembership.role !== "member") {
-    return undefined
-  }
-
-  const member = await getMemberByUserId({
-    tenantId: ctx.tenant.current.id,
-    userId: ctx.auth.session.user.id,
-  })
-
-  return member?.id ?? "__missing_member_profile__"
-}
+import { getRequestChargeOptions, getScopedMemberId } from "../lib/member-scope"
 
 function toFoodPurchaseApplicationDto(
   application: FoodPurchaseApplicationRow,
@@ -66,6 +47,15 @@ function toFoodPurchaseApplicationDto(
 }
 
 export const foodPurchaseRouter = createTRPCRouter({
+  chargeOptions: tenantProcedure
+    .input(z.object({ trigger: z.enum(["approval", "submission"]) }))
+    .query(({ ctx, input }) =>
+      getRequestChargeOptions(ctx, {
+        trigger: input.trigger,
+        workflow: "food_purchase_application",
+      })
+    ),
+
   get: tenantProcedure
     .input(z.object({ foodPurchaseApplicationId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {

@@ -774,18 +774,28 @@ describe("procurement request workflow", () => {
 
     const summary = await getProcurementSummary("tenant-1", {
       procurementRequest: {
-        aggregate: async (input: any) => ({
-          _sum: input.where.status
-            ? { approvedCost: 250000 }
-            : { requestedCost: 300000 },
-        }),
-        count: async (input: any) => {
-          if (input.where.status === "approved") return 1
-          if (input.where.status === "rejected") return 2
-          if (input.where.status?.in?.includes("submitted")) return 3
-          if (input.where.status?.in?.includes("active")) return 4
-          return 0
-        },
+        groupBy: async () => [
+          {
+            _count: { _all: 1 },
+            _sum: { approvedCost: 250000, requestedCost: 60000 },
+            status: "approved",
+          },
+          {
+            _count: { _all: 2 },
+            _sum: { approvedCost: null, requestedCost: 60000 },
+            status: "rejected",
+          },
+          {
+            _count: { _all: 3 },
+            _sum: { approvedCost: null, requestedCost: 60000 },
+            status: "submitted",
+          },
+          {
+            _count: { _all: 4 },
+            _sum: { approvedCost: null, requestedCost: 120000 },
+            status: "active",
+          },
+        ],
       },
       procurementRepaymentScheduleItem: {
         aggregate: async () => ({

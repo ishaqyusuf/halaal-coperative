@@ -846,36 +846,18 @@ export async function getProcurementSummary(
   const tomorrow = addDaysUtc(today, 1)
   const requestScope = { tenantId, ...(memberId ? { memberId } : {}) }
   const scheduleScope = { tenantId, ...(memberId ? { memberId } : {}) }
+  // One grouped read for every request count and total (was seven).
   const [
-    totalRequests,
-    pendingRequests,
-    approvedRequests,
-    rejectedRequests,
-    activeRequests,
+    requestGroups,
     dueScheduleItems,
     overdueScheduleItems,
     outstandingScheduleTotals,
-    requestedTotals,
-    approvedTotals,
   ] = await Promise.all([
-    prisma.procurementRequest.count({ where: requestScope }),
-    prisma.procurementRequest.count({
-      where: {
-        ...requestScope,
-        status: { in: [...pendingProcurementStatuses] },
-      },
-    }),
-    prisma.procurementRequest.count({
-      where: { ...requestScope, status: "approved" },
-    }),
-    prisma.procurementRequest.count({
-      where: { ...requestScope, status: "rejected" },
-    }),
-    prisma.procurementRequest.count({
-      where: {
-        ...requestScope,
-        status: { in: ["purchased", "active"] },
-      },
+    prisma.procurementRequest.groupBy({
+      _count: { _all: true },
+      _sum: { approvedCost: true, requestedCost: true },
+      by: ["status"],
+      where: requestScope,
     }),
     prisma.procurementRepaymentScheduleItem.count({
       where: {
@@ -901,33 +883,48 @@ export async function getProcurementSummary(
         ...scheduleScope,
       },
     }),
-    prisma.procurementRequest.aggregate({
-      _sum: { requestedCost: true },
-      where: requestScope,
-    }),
-    prisma.procurementRequest.aggregate({
-      _sum: { approvedCost: true },
-      where: {
-        ...requestScope,
-        status: { in: ["approved", "purchased", "active"] },
-      },
-    }),
   ])
+  const groups = requestGroups as Array<{
+    _count: { _all: number }
+    _sum: { approvedCost: unknown; requestedCost: unknown }
+    status: ProcurementRequestStatus
+  }>
+  const countOf = (statuses: readonly string[]) =>
+    groups
+      .filter((group) => statuses.includes(group.status))
+      .reduce((total, group) => total + group._count._all, 0)
 
   return {
-    activeRequests,
-    approvedRequests,
+    activeRequests: countOf(["purchased", "active"]),
+    approvedRequests: countOf(["approved"]),
     dueScheduleItems,
     outstandingAmount: roundMoney(
       Number(outstandingScheduleTotals._sum.amount ?? 0) -
         Number(outstandingScheduleTotals._sum.paidAmount ?? 0)
     ),
     overdueScheduleItems,
-    pendingRequests,
-    rejectedRequests,
-    totalRequests,
-    totalApprovedCost: Number(approvedTotals._sum.approvedCost ?? 0),
-    totalRequestedCost: Number(requestedTotals._sum.requestedCost ?? 0),
+    pendingRequests: countOf(pendingProcurementStatuses),
+    rejectedRequests: countOf(["rejected"]),
+    totalRequests: groups.reduce(
+      (total, group) => total + group._count._all,
+      0
+    ),
+    totalApprovedCost: roundMoney(
+      groups
+        .filter((group) =>
+          ["approved", "purchased", "active"].includes(group.status)
+        )
+        .reduce(
+          (total, group) => total + Number(group._sum.approvedCost ?? 0),
+          0
+        )
+    ),
+    totalRequestedCost: roundMoney(
+      groups.reduce(
+        (total, group) => total + Number(group._sum.requestedCost ?? 0),
+        0
+      )
+    ),
   }
 }
 

@@ -77,6 +77,7 @@ import {
   rotateMemberSignupLinkToken,
   refreshCollectionsStatuses,
   recordFoodPurchaseAccounting,
+  transitionFoodPurchaseCycle,
   recordMemberPayment,
   recordProjectFinancingDisbursement,
   recordProcurementPurchase,
@@ -6220,6 +6221,30 @@ export async function recordFoodPurchaseAccountingAction(formData: FormData) {
   revalidatePath("/food-purchase")
 }
 
+/** Stop or restart taking foodstuff requests for a month (finance roles). */
+export async function setFoodPurchaseIntakeAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  await requireLiveFinancialWritesOpen(actor)
+  const transition = getRequiredString(formData, "transition")
+
+  if (transition !== "close_intake" && transition !== "reopen_intake") {
+    throw new DashboardActionExpectedError(
+      "Choose whether to stop or restart foodstuff requests."
+    )
+  }
+
+  await transitionFoodPurchaseCycle({
+    actorUserId: actor.user.id,
+    cycleId: getRequiredString(formData, "cycleId"),
+    expectedStatus: transition === "close_intake" ? "open" : "intake_closed",
+    tenantId: actor.tenant.id,
+    transition,
+  })
+
+  revalidatePath("/")
+  revalidatePath("/food-purchase")
+}
+
 export async function reviewFoodPurchaseAccountingAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireLiveFinancialWritesOpen(actor)
@@ -7180,6 +7205,7 @@ const dashboardActionHandlers = {
   submitOwnFoodPurchaseApplicationAction,
   reviewFoodPurchaseApplicationAction,
   recordFoodPurchaseAccountingAction,
+  setFoodPurchaseIntakeAction,
   reviewFoodPurchaseAccountingAction,
   createProcurementRequestAction,
   createOwnProcurementRequestAction,
@@ -7540,6 +7566,9 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   recordFoodPurchaseAccountingAction: formAction(
     dashboardActionHandlers.recordFoodPurchaseAccountingAction
+  ),
+  setFoodPurchaseIntakeAction: formAction(
+    dashboardActionHandlers.setFoodPurchaseIntakeAction
   ),
   reviewFoodPurchaseAccountingAction: formAction(
     dashboardActionHandlers.reviewFoodPurchaseAccountingAction

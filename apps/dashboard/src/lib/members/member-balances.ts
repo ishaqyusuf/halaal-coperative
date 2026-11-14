@@ -47,22 +47,22 @@ export function describeShareCapital(summary: Summary) {
     : "No share capital posted"
 }
 
-/** Summary lines for the plain-text statement download. */
+/** Balance lines for the plain-text statement download. */
 export function buildMemberBalanceTextLines(summary: Summary) {
+  const otherObligations = getOtherObligationsOutstanding(summary)
+
   return [
-    `Active Commitment: ${summary?.activeCommitmentAmount ?? 0}`,
-    `Savings Snapshot: ${summary?.totalSavingsSnapshot ?? 0}`,
-    `Special Savings Balance: ${summary?.specialSavingsBalance ?? 0} (opening=${
-      summary?.openingSpecialSavingsBalance ?? 0
-    } extraSavings=${summary?.totalExtraSavingsContributions ?? 0} refunded=${
-      summary?.specialSavingsWithdrawals ?? 0
-    })`,
-    `Share Capital: ${summary?.shareCapitalBalance ?? 0}`,
-    `Outstanding Principal: ${summary?.totalOutstandingPrincipal ?? 0}`,
-    `Procurement Outstanding: ${summary?.procurementOutstanding ?? 0}`,
-    `Food Purchase Outstanding: ${summary?.foodPurchaseOutstanding ?? 0}`,
-    `Total Obligations Outstanding: ${summary?.totalObligationsOutstanding ?? 0}`,
-    `Repayments Posted: ${summary?.totalRepaymentsPosted ?? 0}`,
-    `Published Dividends: ${summary?.totalDividendAllocations ?? 0}`,
+    `Monthly savings: ${formatCurrency(summary?.activeCommitmentAmount ?? 0)}`,
+    ``,
+    `What you have`,
+    `Savings: ${formatCurrency(summary?.totalSavingsSnapshot ?? 0)}`,
+    `Special savings: ${formatCurrency(summary?.specialSavingsBalance ?? 0)} (${describeSpecialSavings(summary)})`,
+    `Shares: ${formatCurrency(summary?.shareCapitalBalance ?? 0)}`,
+    `Profit shared: ${formatCurrency(summary?.totalDividendAllocations ?? 0)}`,
+    ``,
+    `What you owe`,
+    `Loans: ${formatCurrency(summary?.totalOutstandingPrincipal ?? 0)}`,
+    `Procurement and food: ${formatCurrency(otherObligations)} (${describeOtherObligations(summary)})`,
+    `Total owed: ${formatCurrency(summary?.totalObligationsOutstanding ?? 0)}`,
   ]
 }

@@ -1,4 +1,4 @@
-import { getMemberByUserId, getMemberStatementDetail } from "@halaalvest/db"
+import { getMemberByUserId, getMemberStatementView } from "@halaalvest/db"
 import { createMemberStatementTextResponse } from "@/lib/members/statement-export"
 import { getDashboardServerContext } from "@/lib/server-context"
 
@@ -22,7 +22,7 @@ export async function GET() {
     return new Response("Member profile not found", { status: 404 })
   }
 
-  const detail = await getMemberStatementDetail(
+  const detail = await getMemberStatementView(
     serverContext.tenant.id,
     member.id
   )
@@ -31,5 +31,5 @@ export async function GET() {
     return new Response("Statement not found", { status: 404 })
   }
 
-  return createMemberStatementTextResponse(detail)
+  return createMemberStatementTextResponse(detail, serverContext.tenant.name)
 }

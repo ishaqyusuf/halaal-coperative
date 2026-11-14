@@ -1,110 +1,84 @@
-import type { getMemberStatementDetail } from "@halaalvest/db"
+import type { getMemberStatementView } from "@halaalvest/db"
+import { formatCurrency } from "@halaalvest/utils"
+import { formatDayMonthYear } from "@/utils/format"
 import { buildMemberBalanceTextLines } from "./member-balances"
+import {
+  buildMemberStatementLines,
+  statementMoveLabels,
+} from "./member-statement-lines"
+import { getMemberStatusLabel } from "./member-status-words"
 
-type MemberStatementDetail = NonNullable<
-  Awaited<ReturnType<typeof getMemberStatementDetail>>
+export type MemberStatementView = NonNullable<
+  Awaited<ReturnType<typeof getMemberStatementView>>
 >
 
-function formatIsoDate(value: Date) {
-  return value.toISOString().slice(0, 10)
-}
-
-function formatChargeSource(
-  charge: MemberStatementDetail["chargeApplications"][number]
+/**
+ * Plain-text statement download: the same balances and "money in and out"
+ * lines as the statement page, newest first.
+ */
+export function buildMemberStatementText(
+  detail: MemberStatementView,
+  cooperativeName: string,
+  today = new Date()
 ) {
-  if (charge.procurementRequest) {
-    return `Procurement: ${charge.procurementRequest.itemName}`
-  }
+  const { member } = detail
+  const postings = buildMemberStatementLines(detail.ledgerTransactions)
 
-  if (charge.foodPurchaseApplication) {
-    return "Foodstuff Purchase"
-  }
-
-  if (charge.projectFinancingRequest) {
-    return `Project financing: ${charge.projectFinancingRequest.businessName}`
-  }
-
-  if (charge.loanRequest) {
-    return "Financing request"
-  }
-
-  return (
-    charge.chargeApplicability?.workflow?.replace(/_/g, " ") ?? "Manual charge"
-  )
-}
-
-export function buildMemberStatementText(detail: MemberStatementDetail) {
-  const lines = [
-    `Member Statement`,
+  return [
+    `${cooperativeName}`,
+    `Statement for ${member.fullName}`,
     ``,
-    `Name: ${detail.member.fullName}`,
-    `Member Number: ${detail.member.memberNumber}`,
-    `Type: ${detail.member.memberType}`,
-    `Status: ${detail.member.status}`,
-    `Joined: ${formatIsoDate(detail.member.joinedAt)}`,
-    `Email: ${detail.member.email ?? detail.member.user?.email ?? "n/a"}`,
+    `Member no.: ${member.memberNumber}`,
+    `Workplace: ${member.deductionSource?.name ?? "None"}`,
+    `Joined: ${formatDayMonthYear(member.joinedAt)}`,
+    `Status: ${getMemberStatusLabel(member.status)}`,
+    `Statement date: ${formatDayMonthYear(today)}`,
     ``,
-    `Summary`,
     ...buildMemberBalanceTextLines(detail.summary),
     ``,
-    `Recent Contributions`,
-    ...detail.contributions
-      .slice(0, 10)
-      .map(
-        (contribution) =>
-          `${formatIsoDate(contribution.postedAt)} | ${
-            contribution.periodLabel ?? "unlabeled"
-          } | amount=${Number(contribution.amount)} committed=${Number(
-            contribution.committedAmount ?? 0
-          )} extraSavings=${Number(contribution.extraSavingsAmount ?? 0)}`
-      ),
-    ``,
-    `Recent Repayments`,
-    ...detail.repayments
-      .slice(0, 10)
-      .map(
-        (repayment) =>
-          `${formatIsoDate(repayment.paidAt)} | ${
-            repayment.loan.loanProduct.name
-          } | amount=${Number(repayment.amount)} status=${repayment.status}`
-      ),
-    ``,
-    `Recent Charges`,
-    ...detail.chargeApplications
-      .slice(0, 10)
-      .map(
-        (charge: any) =>
-          `${formatIsoDate(charge.assessedAt)} | ${
-            charge.chargeDefinition.name
-          } | amount=${Number(charge.amount)} status=${
-            charge.status
-          } collection=${charge.collectionMode} source=${formatChargeSource(
-            charge
-          )}`
-      ),
-    ``,
-    `Published Dividends`,
-    ...detail.dividendAllocations
-      .slice(0, 10)
-      .map(
-        (allocation) =>
-          `${formatIsoDate(allocation.dividendPeriod.periodEnd)} | ${
-            allocation.dividendPeriod.name
-          } | allocation=${Number(allocation.allocationAmount)} basis=${Number(
-            allocation.savingsBasisAmount
-          )} distributable=${Number(
-            allocation.dividendPeriod.distributableAmount
-          )}`
-      ),
-  ]
-
-  return lines.join("\n")
+    `Money in and out (newest first)`,
+    ...(postings.length
+      ? postings.flatMap((line) =>
+          line.moves.map(
+            (move) =>
+              `${formatDayMonthYear(line.date)} | ${line.description} | ${
+                statementMoveLabels[move.kind]
+              } ${formatCurrency(move.amount)}`
+          )
+        )
+      : ["Nothing has been posted yet."]),
+    ...(detail.pendingCharges.length
+      ? [
+          ``,
+          `Fees still to pay`,
+          ...detail.pendingCharges.map(
+            (charge) =>
+              `${formatDayMonthYear(charge.assessedAt)} | ${
+                charge.chargeDefinition.name
+              } | ${formatCurrency(Number(charge.amount))}`
+          ),
+        ]
+      : []),
+    ...(detail.dividendAllocations.length
+      ? [
+          ``,
+          `Profit shared`,
+          ...detail.dividendAllocations.map(
+            (allocation) =>
+              `${formatDayMonthYear(allocation.dividendPeriod.publishedAt) ?? "Not dated"} | ${
+                allocation.dividendPeriod.name
+              } | ${formatCurrency(Number(allocation.allocationAmount))}`
+          ),
+        ]
+      : []),
+  ].join("\n")
 }
 
 export function createMemberStatementTextResponse(
-  detail: MemberStatementDetail
+  detail: MemberStatementView,
+  cooperativeName: string
 ) {
-  return new Response(buildMemberStatementText(detail), {
+  return new Response(buildMemberStatementText(detail, cooperativeName), {
     headers: {
       "Cache-Control": "no-store",
       "Content-Disposition": `attachment; filename="${detail.member.memberNumber}-statement.txt"`,

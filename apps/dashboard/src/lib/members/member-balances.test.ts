@@ -41,11 +41,12 @@ describe("member balances", () => {
     const lines = buildMemberBalanceTextLines(summary)
 
     expect(lines).toContain(
-      "Special Savings Balance: 205000 (opening=200000 extraSavings=5000 refunded=0)"
+      "Special savings: ₦205,000 (₦200,000 opening · ₦5,000 extra savings)"
     )
-    expect(lines).toContain("Share Capital: 10000")
-    expect(lines).toContain("Procurement Outstanding: 500000")
-    expect(lines).toContain("Food Purchase Outstanding: 25000")
-    expect(lines).toContain("Total Obligations Outstanding: 1771667")
+    expect(lines).toContain("Shares: ₦10,000")
+    expect(lines).toContain(
+      "Procurement and food: ₦525,000 (Procurement ₦500,000 · Food ₦25,000)"
+    )
+    expect(lines).toContain("Total owed: ₦1,771,667")
   })
 })

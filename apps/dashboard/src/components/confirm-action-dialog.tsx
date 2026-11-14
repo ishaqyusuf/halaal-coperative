@@ -20,6 +20,7 @@ import type { ReactNode } from "react"
 export function ConfirmActionDialog({
   actionLabel,
   children,
+  confirmDisabled = false,
   description,
   destructive = false,
   onCancel,
@@ -31,6 +32,8 @@ export function ConfirmActionDialog({
   actionLabel: string
   /** Short facts shown between the description and the buttons. */
   children?: ReactNode
+  /** For example while a required reason is empty. */
+  confirmDisabled?: boolean
   description: string
   destructive?: boolean
   onCancel: () => void
@@ -60,7 +63,7 @@ export function ConfirmActionDialog({
           </AlertDialogCancel>
           <AlertDialogAction
             className="h-11 text-base"
-            disabled={pending}
+            disabled={pending || confirmDisabled}
             onClick={onConfirm}
             variant={destructive ? "destructive" : "default"}
           >

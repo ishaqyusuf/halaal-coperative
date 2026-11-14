@@ -1,48 +1,39 @@
 import type { Metadata } from "next"
 import type { SearchParams } from "nuqs"
-import { MemberSharesPageView } from "@/components/member-shares-page-view"
-import { loadShareApplicationFilterParams } from "@/hooks/use-share-application-filter-params"
-import { loadSortParams } from "@/hooks/use-sort-params"
-import { loadMemberSharesPageData } from "@/lib/shares/load-member-shares-page"
-import { getShareApplicationListInput } from "@/lib/shares/share-application-list-input"
+import { SharesPageView } from "@/components/shares-page-view"
+import { loadShareRequestsParams } from "@/hooks/use-share-requests-params"
+import { loadSharesPageData } from "@/lib/shares/load-shares-page"
+import { getShareRequestListInput } from "@/lib/shares/share-request-list-input"
 import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server"
-import { getInitialTableSettings } from "@/utils/columns"
 
 export const metadata: Metadata = {
-  title: "My shares | HalaalVest",
+  title: "Shares | Halaalvest",
 }
 
-export default async function MemberSharesPage({
+export default async function SharesPage({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  const resolvedSearchParams = await searchParams
-  const filter = loadShareApplicationFilterParams(resolvedSearchParams)
-  const { sort } = loadSortParams(resolvedSearchParams)
-  const [data, shareApplicationInitialSettings] = await Promise.all([
-    loadMemberSharesPageData(),
-    getInitialTableSettings("shareApplications"),
-  ])
+  const { shareRequests } = loadShareRequestsParams(await searchParams)
+  const data = await loadSharesPageData()
 
-  const queryInput = getShareApplicationListInput({ filter, sort })
-  const listOptions = trpc.shareApplications.list.infiniteQueryOptions(
-    queryInput,
-    {
-      getNextPageParam: ({ meta }) => meta?.cursor,
-    }
-  )
-
-  if (data.state === "ready") {
-    batchPrefetch([listOptions])
+  // Staff review the request list on the client; members get theirs inline.
+  if (
+    data.state === "staff" &&
+    data.policy.configurationMode === "unit_based"
+  ) {
+    batchPrefetch([
+      trpc.shareApplications.list.infiniteQueryOptions(
+        getShareRequestListInput(shareRequests),
+        { getNextPageParam: ({ meta }) => meta?.cursor }
+      ),
+    ])
   }
 
   return (
     <HydrateClient>
-      <MemberSharesPageView
-        data={data}
-        shareApplicationInitialSettings={shareApplicationInitialSettings}
-      />
+      <SharesPageView data={data} />
     </HydrateClient>
   )
 }

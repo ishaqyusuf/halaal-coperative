@@ -2097,6 +2097,14 @@ export async function getMemberUnitSharePosition(
   )
   await assertMemberInTenant(input, prisma)
   const totals = await getMemberShareApplicationUnitTotals(input, prisma)
+
+  return toMemberUnitSharePosition(policy, totals)
+}
+
+function toMemberUnitSharePosition(
+  policy: TenantSharePolicySettings,
+  totals: { approvedOptionalUnits: number; pendingOptionalUnits: number }
+): MemberUnitSharePosition {
   const totalApprovedUnits =
     policy.compulsoryShareUnits + totals.approvedOptionalUnits
   const totalPendingUnits = totalApprovedUnits + totals.pendingOptionalUnits
@@ -2111,6 +2119,82 @@ export async function getMemberUnitSharePosition(
     totalPendingUnits,
     totalPendingValue: roundCurrency(totalPendingUnits * policy.unitAmount),
     unitAmount: policy.unitAmount,
+  }
+}
+
+export type MemberShareSummary = {
+  /** Published profit allocations only (the separate profit book). */
+  profitPaid: { count: number; total: number }
+  /** Share capital posted to the member's share ledger up to today. */
+  shareCapital: number
+  unitPosition: MemberUnitSharePosition | null
+}
+
+/**
+ * One member's share page figures. The caller passes a member it already
+ * resolved inside this tenant and the tenant's share policy, so neither is
+ * read again. Share capital and profit stay separate figures (ADR-032).
+ */
+export async function getMemberShareSummary(
+  input: {
+    memberId: string
+    policy: TenantSharePolicySettings
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<MemberShareSummary> {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+
+  const memberScope = { memberId: input.memberId, tenantId: input.tenantId }
+  const [ledger, profit, totals] = await Promise.all([
+    prisma.memberShareLedgerEntry.aggregate({
+      _sum: { amount: true },
+      where: { ...memberScope, effectiveDate: { lte: new Date() } },
+    }),
+    prisma.dividendAllocation.aggregate({
+      _count: { _all: true },
+      _sum: { allocationAmount: true },
+      where: { ...memberScope, dividendPeriod: { status: "published" } },
+    }),
+    input.policy.configurationMode === "unit_based"
+      ? getMemberShareApplicationUnitTotals(memberScope, prisma)
+      : Promise.resolve(null),
+  ])
+
+  return {
+    profitPaid: {
+      count: profit._count._all,
+      total: roundCurrency(Number(profit._sum.allocationAmount ?? 0)),
+    },
+    shareCapital: roundCurrency(Number(ledger._sum.amount ?? 0)),
+    unitPosition: totals
+      ? toMemberUnitSharePosition(input.policy, totals)
+      : null,
+  }
+}
+
+/** Staff share page figures: requests waiting for review and share capital. */
+export async function getTenantShareSummary(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+
+  const [pendingCount, ledger] = await Promise.all([
+    prisma.memberShareApplication.count({
+      where: { status: "pending", tenantId },
+    }),
+    prisma.memberShareLedgerEntry.aggregate({
+      _sum: { amount: true },
+      where: { effectiveDate: { lte: new Date() }, tenantId },
+    }),
+  ])
+
+  return {
+    pendingCount: pendingCount as number,
+    shareCapital: roundCurrency(Number(ledger._sum.amount ?? 0)),
   }
 }
 

@@ -2848,15 +2848,22 @@ export async function createOwnMemberShareApplicationAction(
 
 export async function reviewMemberShareApplicationAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
+  const decision = getRequiredString(formData, "decision") as
+    | "approved"
+    | "rejected"
+  const reviewNotes = getOptionalTrimmedString(formData, "reviewNotes")
+
+  // The member is told why a request was not approved.
+  if (decision === "rejected" && !reviewNotes) {
+    throw new DashboardActionExpectedError("Say why so the member knows.")
+  }
 
   const application = await reviewMemberShareApplication({
     actorUserId: actor.user.id,
     applicationId: getRequiredString(formData, "applicationId"),
     approvedUnits: getOptionalNumber(formData, "approvedUnits"),
-    decision: getRequiredString(formData, "decision") as
-      | "approved"
-      | "rejected",
-    reviewNotes: getOptionalTrimmedString(formData, "reviewNotes"),
+    decision,
+    reviewNotes,
     tenantId: actor.tenant.id,
   })
 
@@ -3657,6 +3664,17 @@ export async function applyChargeAction(formData: FormData) {
   revalidatePath("/contributions")
 }
 
+// Waivers and reversals are explicit, reasoned corrections (ADR-028).
+function getRequiredChargeCorrectionReason(formData: FormData) {
+  const reason = getOptionalTrimmedString(formData, "reason")
+
+  if (!reason) {
+    throw new DashboardActionExpectedError("Say why in a few words.")
+  }
+
+  return reason.slice(0, 500)
+}
+
 export async function waiveChargeApplicationAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireLiveFinancialWritesOpen(actor)
@@ -3664,6 +3682,7 @@ export async function waiveChargeApplicationAction(formData: FormData) {
   const charge = await waiveChargeApplication({
     actorUserId: actor.user.id,
     chargeApplicationId: getRequiredString(formData, "chargeApplicationId"),
+    reason: getRequiredChargeCorrectionReason(formData),
     tenantId: actor.tenant.id,
   })
 
@@ -3678,17 +3697,6 @@ export async function waiveChargeApplicationAction(formData: FormData) {
     },
     notificationType: "charge.waived",
     roles: ["tenant_admin", "finance_officer"],
-// Waivers and reversals are explicit, reasoned corrections (ADR-028).
-function getRequiredChargeCorrectionReason(formData: FormData) {
-  const reason = getOptionalTrimmedString(formData, "reason")
-
-  if (!reason) {
-    throw new DashboardActionExpectedError("Say why in a few words.")
-  }
-
-  return reason.slice(0, 500)
-}
-
     source: "dashboard.charge",
     subject: `${actor.tenant.name}: charge waived`,
     tenantId: actor.tenant.id,
@@ -3696,7 +3704,6 @@ function getRequiredChargeCorrectionReason(formData: FormData) {
     tenantSlug: actor.tenant.slug,
   })
 
-    reason: getRequiredChargeCorrectionReason(formData),
   revalidatePath("/charges")
   revalidatePath("/contributions")
 }
@@ -3746,6 +3753,7 @@ export async function reverseChargeApplicationAction(formData: FormData) {
   const charge = await reverseChargeApplication({
     actorUserId: actor.user.id,
     chargeApplicationId: getRequiredString(formData, "chargeApplicationId"),
+    reason: getRequiredChargeCorrectionReason(formData),
     tenantId: actor.tenant.id,
   })
 
@@ -3767,7 +3775,6 @@ export async function reverseChargeApplicationAction(formData: FormData) {
     tenantSlug: actor.tenant.slug,
   })
 
-    reason: getRequiredChargeCorrectionReason(formData),
   revalidatePath("/charges")
   revalidatePath("/contributions")
 }

@@ -35,7 +35,7 @@ class Boundary extends Component<
   }
 }
 
-export function ChargeListErrorBoundary({ children }: { children: ReactNode }) {
+export function ListLoadErrorBoundary({ children }: { children: ReactNode }) {
   return (
     <QueryErrorResetBoundary>
       {({ reset }) => <Boundary resetQueries={reset}>{children}</Boundary>}

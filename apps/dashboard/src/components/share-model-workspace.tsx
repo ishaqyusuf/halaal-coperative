@@ -1,14 +1,11 @@
 "use client"
 
-import type {
-  MemberShareApplicationRow,
-  TenantSharePolicySettings,
-} from "@halaalvest/db"
+import type { TenantSharePolicySettings } from "@halaalvest/db"
+import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import { formatCurrency } from "@halaalvest/utils"
 import { DashboardSurfaceCard } from "@/components/dashboard/section"
 import { TrendPill } from "@/components/dashboard/trend-badge"
 import { OpenSharePolicySheet } from "@/components/open-share-sheet"
-import { ShareApplicationsPanel } from "@/components/share-applications-panel"
 import { ShareHeader } from "@/components/share-header"
 import { ShareSheet } from "@/components/sheets/share-sheet"
 import { DataTable as ShareHistoryDataTable } from "@/components/tables/shares/data-table"
@@ -16,11 +13,6 @@ import type { Share } from "@/components/tables/shares/columns"
 import type { TableSettings } from "@/utils/table-settings"
 
 type ShareConfigurationMode = TenantSharePolicySettings["configurationMode"]
-type MemberOption = {
-  id: string
-  label: string
-}
-
 function shareModeLabel(mode: ShareConfigurationMode) {
   return mode === "monthly_history"
     ? "monthly share history"
@@ -54,22 +46,16 @@ function HistoricalSetupLockedNotice({
 }
 
 export function ShareSettingsModelWorkspace({
-  applications,
   financeStartDate,
   initialShareTableSettings,
-  initialShareApplicationTableSettings,
   isLocked,
-  memberOptions,
   remoteRows = true,
   rows,
   sharePolicy,
 }: {
-  applications: MemberShareApplicationRow[]
   financeStartDate?: string | null
   initialShareTableSettings?: Partial<TableSettings>
-  initialShareApplicationTableSettings?: Partial<TableSettings>
   isLocked: boolean
-  memberOptions: MemberOption[]
   remoteRows?: boolean
   rows: Share[]
   sharePolicy: TenantSharePolicySettings
@@ -115,13 +101,21 @@ export function ShareSettingsModelWorkspace({
           />
         </>
       ) : (
-        <ShareApplicationsPanel
-          applications={applications}
-          initialSettings={initialShareApplicationTableSettings}
-          memberOptions={memberOptions}
-          policy={sharePolicy}
-          remoteRows={remoteRows}
-        />
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-base font-medium text-foreground">
+            Share requests
+          </p>
+          <p className="mt-1 text-base text-muted-foreground">
+            Members ask for more shares on the Shares page, and you approve them
+            there.
+          </p>
+          <Link
+            className="mt-3 inline-flex min-h-11 items-center text-base font-medium text-foreground underline underline-offset-4"
+            href="/shares"
+          >
+            Open share requests
+          </Link>
+        </div>
       )}
       <ShareSheet
         financeStartDate={financeStartDate}

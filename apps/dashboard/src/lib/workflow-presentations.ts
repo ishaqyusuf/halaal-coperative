@@ -105,10 +105,6 @@ export const workflowPresentations = {
   memberImport: {
     import: dialog("wide"),
   },
-  memberShareApplication: {
-    create: sheet("form"),
-    details: sheet("review"),
-  },
   membershipApproval: {
     review: sheet("form"),
   },
@@ -178,9 +174,9 @@ export const workflowPresentations = {
     policy: sheet(),
   },
   shareApplication: {
-    create: dialog("form"),
-    details: sheet("review"),
-    review: dialog("review"),
+    create: dialog("compact"),
+    details: sheet("form"),
+    "member-create": dialog("compact"),
   },
   support: {
     "adjustment-review": dialog("review"),

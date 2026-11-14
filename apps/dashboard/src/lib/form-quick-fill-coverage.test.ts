@@ -73,7 +73,7 @@ describe("dashboard Quick fill coverage", () => {
       "components/payment-receipt-content.tsx",
       "components/procurement-request-content.tsx",
       "components/project-financing-content.tsx",
-      "components/share-application-content.tsx",
+      "components/share-request-content.tsx",
       "components/share-content.tsx",
       "components/signup-links/member-signup-link-content.tsx",
       "components/support-case-content.tsx",

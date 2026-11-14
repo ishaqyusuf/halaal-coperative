@@ -5,14 +5,12 @@ import {
   ChargeActivitySearch,
 } from "@/components/charge-activity-list"
 import { ChargeSummaryCards } from "@/components/charge-summary-cards"
-import {
-  ChargeListSkeleton,
-  ChargeTypeList,
-} from "@/components/charge-type-list"
+import { ChargeTypeList } from "@/components/charge-type-list"
+import { PlainListSkeleton } from "@/components/plain-list-skeleton"
 import { ChargeViewTabs } from "@/components/charge-view-tabs"
 import { OpenChargeOperationButton } from "@/components/open-charge-operation-sheet"
 import { ChargeOperationSheet } from "@/components/sheets/charge-operation-sheet"
-import { ChargeListErrorBoundary } from "@/components/charge-list-error-boundary"
+import { ListLoadErrorBoundary } from "@/components/list-load-error-boundary"
 import type { ChargesPageView as ChargesView } from "@/hooks/use-charges-page-params"
 
 export function ChargesUnavailableView() {
@@ -44,11 +42,11 @@ export function ChargesPageView({
       title="Charges"
     >
       <div className="grid gap-6">
-        <ChargeListErrorBoundary>
+        <ListLoadErrorBoundary>
           <Suspense fallback={null}>
             <ChargeSummaryCards recentPostedCount={recentPostedCount} />
           </Suspense>
-        </ChargeListErrorBoundary>
+        </ListLoadErrorBoundary>
 
         <div className="grid gap-4">
           <ChargeViewTabs activeView={activeView} />
@@ -63,11 +61,11 @@ export function ChargesPageView({
                 {canManageCharges ? (
                   <OpenChargeOperationButton type="definition" />
                 ) : null}
-                <ChargeListErrorBoundary>
-                  <Suspense fallback={<ChargeListSkeleton />}>
+                <ListLoadErrorBoundary>
+                  <Suspense fallback={<PlainListSkeleton />}>
                     <ChargeTypeList canManageCharges={canManageCharges} />
                   </Suspense>
-                </ChargeListErrorBoundary>
+                </ListLoadErrorBoundary>
               </>
             ) : (
               <>
@@ -77,11 +75,11 @@ export function ChargesPageView({
                     <OpenChargeOperationButton type="application" />
                   ) : null}
                 </div>
-                <ChargeListErrorBoundary>
-                  <Suspense fallback={<ChargeListSkeleton />}>
+                <ListLoadErrorBoundary>
+                  <Suspense fallback={<PlainListSkeleton />}>
                     <ChargeActivityList canManageCharges={canManageCharges} />
                   </Suspense>
-                </ChargeListErrorBoundary>
+                </ListLoadErrorBoundary>
               </>
             )}
           </div>

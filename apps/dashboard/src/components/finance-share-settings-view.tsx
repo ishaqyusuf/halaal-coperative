@@ -1,7 +1,4 @@
-import type {
-  MemberShareApplicationRow,
-  TenantSharePolicySettings,
-} from "@halaalvest/db"
+import type { TenantSharePolicySettings } from "@halaalvest/db"
 import { ScrollableContent } from "@/components/dashboard"
 import { financeMenuItems } from "@/components/finance-menu"
 import { SecondaryMenu } from "@/components/secondary-menu"
@@ -9,31 +6,20 @@ import { ShareSettingsModelWorkspace } from "@/components/share-model-workspace"
 import type { Share } from "@/components/tables/shares/columns"
 import type { TableSettings } from "@/utils/table-settings"
 
-type MemberOption = {
-  id: string
-  label: string
-}
-
 export function FinanceShareSettingsView({
   financeStartDate,
-  initialShareApplicationTableSettings,
   initialShareTableSettings,
   isLocked,
-  memberOptions,
   remoteRows,
   rows,
-  shareApplications,
   sharePolicy,
   tenantName,
 }: {
   financeStartDate: string | null
-  initialShareApplicationTableSettings: Partial<TableSettings>
   initialShareTableSettings: Partial<TableSettings>
   isLocked: boolean
-  memberOptions: MemberOption[]
   remoteRows: boolean
   rows: Share[]
-  shareApplications: MemberShareApplicationRow[]
   sharePolicy: TenantSharePolicySettings
   tenantName: string
 }) {
@@ -56,14 +42,9 @@ export function FinanceShareSettingsView({
         </div>
 
         <ShareSettingsModelWorkspace
-          applications={shareApplications}
           financeStartDate={financeStartDate}
-          initialShareApplicationTableSettings={
-            initialShareApplicationTableSettings
-          }
           initialShareTableSettings={initialShareTableSettings}
           isLocked={isLocked}
-          memberOptions={memberOptions}
           remoteRows={remoteRows}
           rows={rows}
           sharePolicy={sharePolicy}

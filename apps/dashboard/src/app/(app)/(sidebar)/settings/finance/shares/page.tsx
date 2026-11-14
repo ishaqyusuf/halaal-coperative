@@ -5,14 +5,10 @@ import {
   getTenantFinanceSetup,
   getTenantInitialMigrationState,
   listInitialMigrationMemberReview,
-  listMemberShareApplications,
-  listMembers,
-  type MemberShareApplicationRow,
   type TenantSharePolicySettings,
 } from "@halaalvest/db"
 import { FinanceShareSettingsView } from "@/components/finance-share-settings-view"
 import type { Share } from "@/components/tables/shares/columns"
-import { loadShareApplicationFilterParams } from "@/hooks/use-share-application-filter-params"
 import { loadShareFilterParams } from "@/hooks/use-share-filter-params"
 import { loadShareParams } from "@/hooks/use-share-params"
 import { loadSortParams } from "@/hooks/use-sort-params"
@@ -57,31 +53,12 @@ const demoSharePolicy = {
   unitAmount: 10000,
 }
 
-const demoMemberOptions = [
-  { id: "member-1", label: "Aisha Bello (M-001)" },
-  { id: "member-2", label: "Musa Ibrahim (M-002)" },
-]
-
 type ShareSortField =
   | "amount"
   | "effectiveFrom"
   | "isCurrent"
   | "notes"
   | "valueType"
-
-type ShareApplicationSortField =
-  | "createdAt"
-  | "memberName"
-  | "requestedUnits"
-  | "reviewedAt"
-  | "shareValueSnapshot"
-  | "status"
-
-type ShareApplicationStatus =
-  | "approved"
-  | "cancelled"
-  | "pending"
-  | "rejected"
 
 function getShareSort(
   sort?: string[] | null
@@ -104,50 +81,6 @@ function getShareSort(
   if (direction !== "asc" && direction !== "desc") return null
 
   return [field as ShareSortField, direction]
-}
-
-function getShareApplicationSort(
-  sort?: string[] | null
-): [ShareApplicationSortField, "asc" | "desc"] | null {
-  if (!sort || sort.length !== 2) return null
-
-  const field = sort[0]
-  const direction = sort[1]
-  if (!field || !direction) return null
-
-  const fieldMap: Record<string, ShareApplicationSortField> = {
-    application: "memberName",
-    createdAt: "createdAt",
-    memberName: "memberName",
-    requestedAt: "createdAt",
-    requestedUnits: "requestedUnits",
-    reviewedAt: "reviewedAt",
-    shareValueSnapshot: "shareValueSnapshot",
-    status: "status",
-    units: "requestedUnits",
-    value: "shareValueSnapshot",
-  }
-  const sortField = fieldMap[field]
-
-  if (!sortField) return null
-  if (direction !== "asc" && direction !== "desc") return null
-
-  return [sortField, direction]
-}
-
-function getShareApplicationStatus(
-  value: string | null
-): ShareApplicationStatus | undefined {
-  const validStatuses = new Set<ShareApplicationStatus>([
-    "approved",
-    "cancelled",
-    "pending",
-    "rejected",
-  ])
-
-  return validStatuses.has(value as ShareApplicationStatus)
-    ? (value as ShareApplicationStatus)
-    : undefined
 }
 
 function toShareRows(
@@ -190,45 +123,27 @@ async function ShareSettingsPageContent({
 }) {
   const resolvedSearchParams = await searchParams
   const filter = loadShareFilterParams(resolvedSearchParams)
-  const shareApplicationFilter = loadShareApplicationFilterParams(
-    resolvedSearchParams
-  )
   loadShareParams(resolvedSearchParams)
   const { sort } = loadSortParams(resolvedSearchParams)
-  const [
-    context,
-    initialShareTableSettings,
-    initialShareApplicationTableSettings,
-  ] = await Promise.all([
+  const [context, initialShareTableSettings] = await Promise.all([
     getDashboardServerContext(),
     getInitialTableSettings("shares"),
-    getInitialTableSettings("shareApplications"),
   ])
   const runtime = createDbRuntime()
 
   let isLocked = false
   let rows = toShareRows(demoShareVersions)
   let financeStartDate = context.tenant?.startDate ?? "2024-01-01"
-  let memberOptions = demoMemberOptions
-  let shareApplications: MemberShareApplicationRow[] = []
   let sharePolicy: TenantSharePolicySettings = demoSharePolicy
   let tenantName = context.tenant?.name ?? "Demo cooperative"
   const remoteRows =
     Boolean(context.tenant) && runtime.status === "database-configured"
 
   if (remoteRows && context.tenant) {
-    const [
-      data,
-      migrationState,
-      migrationMemberReview,
-      memberData,
-      applications,
-    ] = await Promise.all([
+    const [data, migrationState, migrationMemberReview] = await Promise.all([
       getTenantFinanceSetup(context.tenant.id),
       getTenantInitialMigrationState(context.tenant.id),
       listInitialMigrationMemberReview(context.tenant.id),
-      listMembers(context.tenant.id, { page: 1, pageSize: 200 }),
-      listMemberShareApplications({ tenantId: context.tenant.id }),
     ])
     const hasAppliedMemberBackfill = migrationMemberReview.some(
       (member) =>
@@ -242,11 +157,6 @@ async function ShareSettingsPageContent({
     financeStartDate =
       data.tenant?.startDate?.toISOString().slice(0, 10) ?? null
     tenantName = data.tenant?.name ?? context.tenant.name
-    memberOptions = memberData.items.map((member) => ({
-      id: member.id,
-      label: `${member.fullName} (${member.memberNumber})`,
-    }))
-    shareApplications = applications
     sharePolicy = data.sharePolicy
     rows = toShareRows(
       data.shareStructureVersions.map((version: RawShareVersion) => ({
@@ -269,39 +179,18 @@ async function ShareSettingsPageContent({
       status: filter.status ?? undefined,
       valueType: filter.valueType ?? undefined,
     }
-    const shareApplicationInput = {
-      q: shareApplicationFilter.shareApplicationQ ?? undefined,
-      sort: getShareApplicationSort(sort),
-      status: getShareApplicationStatus(
-        shareApplicationFilter.shareApplicationStatus
-      ),
-    }
     const shareOptions = trpc.charges.financeShares.infiniteQueryOptions(
       shareInput,
       {
         getNextPageParam: ({ meta }) => meta?.cursor,
       }
     )
-    const shareApplicationOptions =
-      trpc.shareApplications.list.infiniteQueryOptions(
-        shareApplicationInput,
-        {
-          getNextPageParam: ({ meta }) => meta?.cursor,
-        }
-      )
     const caller = await getServerCaller()
-    const [initialSharePage, initialShareApplicationPage] = await Promise.all([
-      caller.charges.financeShares(shareInput),
-      caller.shareApplications.list(shareApplicationInput),
-    ])
+    const initialSharePage = await caller.charges.financeShares(shareInput)
 
     getQueryClient().setQueryData(shareOptions.queryKey, {
       pageParams: [shareOptions.initialPageParam],
       pages: [initialSharePage],
-    })
-    getQueryClient().setQueryData(shareApplicationOptions.queryKey, {
-      pageParams: [shareApplicationOptions.initialPageParam],
-      pages: [initialShareApplicationPage],
     })
   }
 
@@ -310,14 +199,9 @@ async function ShareSettingsPageContent({
       <FinanceShareSettingsView
         financeStartDate={financeStartDate}
         initialShareTableSettings={initialShareTableSettings}
-        initialShareApplicationTableSettings={
-          initialShareApplicationTableSettings
-        }
         isLocked={isLocked}
-        memberOptions={memberOptions}
         remoteRows={remoteRows}
         rows={rows}
-        shareApplications={shareApplications}
         sharePolicy={sharePolicy}
         tenantName={tenantName}
       />

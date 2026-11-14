@@ -168,8 +168,8 @@ export const dashboardNavRegistry: NavModule[] = [
         SharesIcon,
         "/shares",
         [],
-        [role.in("member")]
-      ).title("My shares").data,
+        [role.in(...financeRoles, "member")]
+      ).title("Shares").data,
       createNavLink(
         "Charges",
         ChargesIcon,

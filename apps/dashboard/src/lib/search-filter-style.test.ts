@@ -9,7 +9,6 @@ const dropdownSearchFilters = [
   "../components/payment-receipt-search-filter.tsx",
   "../components/procurement-search-filter.tsx",
   "../components/project-financing-search-filter.tsx",
-  "../components/share-application-search-filter.tsx",
   "../components/share-search-filter.tsx",
   "../components/support-search-filter.tsx",
 ] as const

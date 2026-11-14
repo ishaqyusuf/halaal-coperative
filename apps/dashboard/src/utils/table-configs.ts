@@ -19,7 +19,7 @@ export const STICKY_COLUMNS: Record<TableId, StickyColumnConfig[]> = {
   projectFinancing: [{ id: "request", width: 320 }],
   repaymentSchedule: [{ id: "installment", width: 320 }],
   repaymentHistory: [{ id: "repayment", width: 320 }],
-  support: [{ id: "case", width: 340 }],
+  support: [{ id: "case", width: 320 }],
   paymentReceipts: [{ id: "receipt", width: 320 }],
   chargeLibrary: [{ id: "charge", width: 300 }],
   imports: [{ id: "import", width: 300 }],

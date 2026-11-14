@@ -1,4 +1,5 @@
 import type {
+  SupportCaseStatusGroup,
   SupportCaseCategory,
   SupportCasePriority,
   SupportCaseSortField,
@@ -88,6 +89,8 @@ function getSupportSort(
   return [field, direction]
 }
 
+const statusGroups = new Set<SupportCaseStatusGroup>(["active", "finished"])
+
 export function getSupportListInput(
   filters: SupportFilterParams,
   sort?: string[] | null,
@@ -104,5 +107,6 @@ export function getSupportListInput(
     q: search || undefined,
     sort: getSupportSort(sort),
     status: optionalChoice(filters.status, statuses),
+    statusGroup: optionalChoice(filters.status, statusGroups),
   }
 }

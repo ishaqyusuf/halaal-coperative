@@ -26,25 +26,23 @@ import {
   SUMMARY_GRID_HEIGHTS,
 } from "@/utils/table-configs"
 import { getColumnIds, type TableSettings } from "@/utils/table-settings"
-import { columns } from "./columns"
+import { columns, memberColumns } from "./columns"
 import { SupportEmptyState, SupportNoResults } from "./empty-states"
 import { SupportTableHeader } from "./table-header"
 import { useSupportQuery } from "./use-support-query"
 
-const NON_CLICKABLE_COLUMNS = new Set(["actions"])
-const COLUMN_IDS = getColumnIds(columns)
+const NON_CLICKABLE_COLUMNS = new Set<string>()
+const STAFF_COLUMN_IDS = getColumnIds(columns)
+const MEMBER_COLUMN_IDS = getColumnIds(memberColumns)
 
 type Props = {
-  canReviewFinancialAdjustments: boolean
   initialSettings?: Partial<TableSettings>
   mode?: "member" | "staff"
 }
 
-export function SupportDataTable({
-  canReviewFinancialAdjustments,
-  initialSettings,
-  mode = "staff",
-}: Props) {
+/** The desktop case list. Clicking a row opens the case sheet. */
+export function SupportDataTable({ initialSettings, mode = "staff" }: Props) {
+  const tableColumns = mode === "member" ? memberColumns : columns
   const parentRef = useRef<HTMLDivElement>(null)
   const { setParams } = useSupportCaseParams()
   const { setColumns } = useSupportStore()
@@ -66,17 +64,14 @@ export function SupportDataTable({
     setColumnSizing,
     setColumnVisibility,
   } = useTableSettings({
-    columnIds: COLUMN_IDS,
+    columnIds: mode === "member" ? MEMBER_COLUMN_IDS : STAFF_COLUMN_IDS,
     initialSettings,
     tableId: "support",
   })
-  const tableMeta = useMemo(
-    () => ({ canReviewFinancialAdjustments, mode }),
-    [canReviewFinancialAdjustments, mode]
-  )
+  const tableMeta = useMemo(() => ({ mode }), [mode])
   const table = useDataTable({
     columnResizeMode: "onChange",
-    columns,
+    columns: tableColumns,
     data: supportCases,
     enableColumnResizing: true,
     getCoreRowModel: getCoreRowModel(),
@@ -114,12 +109,9 @@ export function SupportDataTable({
     (id?: string) => {
       if (!id) return
 
-      void setParams({
-        supportCaseId: id,
-        supportCaseSheetType: mode === "member" ? "member-reply" : "update",
-      })
+      void setParams({ supportCaseId: id, supportCaseSheetType: "case" })
     },
-    [mode, setParams]
+    [setParams]
   )
 
   useInfiniteScroll<HTMLDivElement>({
@@ -196,7 +188,7 @@ export function SupportDataTable({
                 <TableRow>
                   <TableCell
                     className="h-24 text-center"
-                    colSpan={columns.length}
+                    colSpan={tableColumns.length}
                   >
                     No results.
                   </TableCell>

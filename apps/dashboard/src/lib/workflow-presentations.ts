@@ -192,13 +192,12 @@ export const workflowPresentations = {
     details: sheet("form"),
     "member-create": dialog("compact"),
   },
+  // /support: one case sheet (conversation, reply, staff actions); older
+  // update/reply/adjustment-review URLs open it too.
   support: {
-    "adjustment-review": dialog("review"),
-    create: sheet("review"),
-    "member-create": sheet("review"),
-    "member-reply": dialog("form"),
-    reply: dialog("form"),
-    update: sheet("review"),
+    case: sheet("review"),
+    create: sheet("form"),
+    "member-create": sheet("form"),
   },
   tenantFinance: {
     businessProfitPolicy: sheet("form"),

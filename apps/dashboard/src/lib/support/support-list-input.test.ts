@@ -20,6 +20,7 @@ describe("support list input", () => {
       q: "receipt",
       sort: ["assignedToUser", "asc"],
       status: "open",
+      statusGroup: undefined,
     })
   })
 
@@ -42,6 +43,16 @@ describe("support list input", () => {
       q: "member issue",
       sort: null,
       status: "open",
+      statusGroup: undefined,
     })
+  })
+
+  test("reads the Open and Solved-or-closed choices as status groups", () => {
+    expect(
+      getSupportListInput({ ...filters, status: "active" }, null, undefined, false)
+    ).toMatchObject({ status: undefined, statusGroup: "active" })
+    expect(
+      getSupportListInput({ ...filters, status: "finished" }, null)
+    ).toMatchObject({ status: undefined, statusGroup: "finished" })
   })
 })

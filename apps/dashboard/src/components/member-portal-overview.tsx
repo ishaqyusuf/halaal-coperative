@@ -19,7 +19,10 @@ const sectionClassName =
   "min-w-0 rounded-(--ui-radius-surface) border border-border bg-card p-5"
 
 function memberSupportPrefillHref(values: Record<string, string>) {
-  return `/support?${new URLSearchParams(values).toString()}`
+  return `/support?${new URLSearchParams({
+    ...values,
+    supportCaseSheetType: "member-create",
+  }).toString()}`
 }
 
 const detailsUpdateHref = memberSupportPrefillHref({

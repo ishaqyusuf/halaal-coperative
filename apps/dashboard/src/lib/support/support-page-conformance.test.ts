@@ -6,43 +6,48 @@ const dashboardRoot = resolve(import.meta.dir, "../..")
 const read = (path: string) =>
   readFileSync(resolve(dashboardRoot, path), "utf8")
 
-describe("support workspace Midday conformance", () => {
-  test("keeps one flat registry with search first and compact actions", () => {
-    const view = read("components/support-cases-view.tsx")
-    const header = read("components/support-header.tsx")
+describe("support page (thread 10)", () => {
+  test("rows open the one case sheet; no row action menus", () => {
     const columns = read("components/tables/support/columns.tsx")
-    const empty = read("components/tables/support/empty-states.tsx")
+    const table = read("components/tables/support/data-table.tsx")
+    const item = read("components/tables/support/mobile-item.tsx")
 
-    expect(view).toContain("divide-x divide-border border-y border-border")
-    expect(view).not.toContain("md:rounded-md md:border")
-    expect(view).not.toContain("rounded-lg border border-border bg-card")
-    expect(header.indexOf("<SupportSearchFilter")).toBeLessThan(
-      header.indexOf("<SupportColumnVisibility")
-    )
-    expect(columns).toContain("<SupportActionsMenu")
-    expect(columns).toContain("size: 72")
-    expect(empty).not.toContain("supportCaseSheetType")
+    expect(columns).not.toContain("ActionsMenu")
+    expect(columns).not.toContain('id: "actions"')
+    expect(table).toContain('supportCaseSheetType: "case"')
+    expect(item).toContain('supportCaseSheetType: "case"')
+    expect(item).not.toContain("MobileActionsDrawer")
   })
 
-  test("keeps mobile filters and workflows flat and responsive", () => {
-    const drawer = read("components/support-filter-drawer.tsx")
-    const sheet = read("components/sheets/support-case-sheet.tsx")
-    const skeleton = read("components/tables/support/skeleton.tsx")
+  test("finishing a case and money steps go through real AlertDialogs", () => {
+    const view = read("components/support/support-case-view.tsx")
+    const confirms = view.match(/<RequestConfirmDialog/g) ?? []
 
-    expect(drawer).toContain("divide-y divide-border border-y border-border")
-    expect(drawer).not.toContain("border border-border px-3")
+    // Mark solved, Close case, Approve, Turn down, Record refund.
+    expect(confirms).toHaveLength(5)
+    expect(view).toContain('title="Close this case?"')
+    expect(view).toContain('title="Record this refund?"')
+  })
+
+  test("the sheet is URL-addressed, full height on phones, old links still open it", () => {
+    const sheet = read("components/sheets/support-case-sheet.tsx")
+
     expect(sheet).toContain("mobileFullScreen")
-    expect(skeleton).toContain("SupportMobileSkeleton")
+    expect(sheet).toContain('getWorkflowPresentation("support"')
+    for (const legacy of ["update", "reply", "member-reply", "adjustment-review"]) {
+      expect(sheet).toContain(`"${legacy}"`)
+    }
+    expect(sheet).toContain("await setParams({ supportCaseId: null")
   })
 
-  test("awaits URL sheet closure before refreshing every mutation", () => {
-    const content = read("components/support-case-content.tsx")
-    const sheet = read("components/sheets/support-case-sheet.tsx")
-    const closes = content.match(/await onClose\(\)/g) ?? []
+  test("the list reads lean rows and refreshes on change, never by polling", () => {
+    const query = read("components/tables/support/use-support-query.ts")
+    const refresh = read("components/support/use-support-refresh.ts")
 
-    expect(closes).toHaveLength(7)
-    expect(content).not.toMatch(/\n\s+onClose\(\)/)
-    expect(sheet).toContain("async function closeSheet()")
-    expect(sheet).toContain("await setParams({ supportCaseId: null")
+    expect(query).not.toContain("refetchInterval")
+    expect(refresh).toContain("trpc.support.list.infiniteQueryFilter()")
+    expect(read("lib/support/load-support-page.ts")).not.toContain(
+      "getMemberSupportCaseSummary"
+    )
   })
 })

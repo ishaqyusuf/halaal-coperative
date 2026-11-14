@@ -9,13 +9,7 @@ import { SupportEmptyState, SupportNoResults } from "./empty-states"
 import { SupportMobileItem } from "./mobile-item"
 import { useSupportQuery } from "./use-support-query"
 
-export function SupportMobileList({
-  canReviewFinancialAdjustments,
-  mode,
-}: {
-  canReviewFinancialAdjustments: boolean
-  mode: "member" | "staff"
-}) {
+export function SupportMobileList({ mode }: { mode: "member" | "staff" }) {
   const parentRef = useRef<HTMLDivElement>(null)
   const {
     fetchNextPage,
@@ -26,7 +20,7 @@ export function SupportMobileList({
   } = useSupportQuery(mode)
   const rowVirtualizer = useVirtualizer({
     count: supportCases.length,
-    estimateSize: () => 220,
+    estimateSize: () => 150,
     getScrollElement: () => parentRef.current,
     overscan: 6,
   })
@@ -84,7 +78,6 @@ export function SupportMobileList({
               style={{ transform: `translateY(${virtualRow.start}px)` }}
             >
               <SupportMobileItem
-                canReviewFinancialAdjustments={canReviewFinancialAdjustments}
                 mode={mode}
                 supportCase={supportCase}
               />

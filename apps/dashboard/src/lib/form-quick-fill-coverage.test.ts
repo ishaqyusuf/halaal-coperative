@@ -75,7 +75,8 @@ describe("dashboard Quick fill coverage", () => {
       "components/share-request-content.tsx",
       "components/share-content.tsx",
       "components/signup-links/member-signup-link-content.tsx",
-      "components/support-case-content.tsx",
+      "components/support/support-case-view.tsx",
+      "components/support/support-create-form.tsx",
     ]
 
     for (const file of coveredForms) {

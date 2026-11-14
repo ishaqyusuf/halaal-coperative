@@ -13,10 +13,10 @@ export function SupportEmptyState({ mode }: { mode: "member" | "staff" }) {
     <SupportState
       description={
         mode === "member"
-          ? "Open a case when you need help with a payment, account update, or cooperative service."
-          : "Open a case to track a member issue, assignment, conversation, and resolution evidence."
+          ? "Tap Ask for help when you have a question."
+          : "Questions from members will show here."
       }
-      title="No support cases yet."
+      title={mode === "member" ? "You haven't asked anything yet." : "No cases yet."}
     />
   )
 }
@@ -29,7 +29,7 @@ export function SupportNoResults() {
     <SupportState
       action={
         <Button
-          className="h-11"
+          className="h-12 text-base"
           onClick={() => {
             void Promise.all([
               setFilter(clearedSupportFilters),
@@ -42,8 +42,8 @@ export function SupportNoResults() {
           Clear filters
         </Button>
       }
-      description="Clear the current support filters or try a different search."
-      title="No support cases match."
+      description="Try another word, or clear the filters."
+      title="No cases found."
     />
   )
 }
@@ -61,8 +61,8 @@ function SupportState({
     <div className="flex min-h-[280px] items-center justify-center border-y border-border px-4 py-12 text-center md:border-x-0 md:border-t-0">
       <div className="max-w-md space-y-4">
         <div className="space-y-2">
-          <h2 className="text-base font-medium text-foreground">{title}</h2>
-          <p className="text-sm leading-6 text-muted-foreground">
+          <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+          <p className="text-base leading-7 text-muted-foreground">
             {description}
           </p>
         </div>

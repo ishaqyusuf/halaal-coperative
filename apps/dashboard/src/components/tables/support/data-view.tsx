@@ -7,11 +7,9 @@ import { SupportMobileList } from "./mobile-list"
 import { SupportSkeleton } from "./skeleton"
 
 export function SupportDataView({
-  canReviewFinancialAdjustments,
   initialSettings,
   mode,
 }: {
-  canReviewFinancialAdjustments: boolean
   initialSettings?: Partial<TableSettings>
   mode: "member" | "staff"
 }) {
@@ -19,17 +17,13 @@ export function SupportDataView({
     <ResponsiveDataView
       desktop={
         <SupportDataTable
-          canReviewFinancialAdjustments={canReviewFinancialAdjustments}
           initialSettings={initialSettings}
           mode={mode}
         />
       }
       fallback={<SupportSkeleton initialSettings={initialSettings} />}
       mobile={
-        <SupportMobileList
-          canReviewFinancialAdjustments={canReviewFinancialAdjustments}
-          mode={mode}
-        />
+<SupportMobileList mode={mode} />
       }
     />
   )

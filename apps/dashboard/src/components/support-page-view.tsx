@@ -1,4 +1,8 @@
-import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
+import { WorkspacePageShell } from "@/components/dashboard"
+import {
+  isRequestPageBlocked,
+  RequestPageState,
+} from "@/components/requests/request-page-state"
 import {
   MemberSupportCasesView,
   SupportCasesView,
@@ -15,105 +19,33 @@ export function SupportPageView({
   data: SupportPageData
   supportInitialSettings?: Partial<TableSettings>
 }) {
-  if (data.state === "restricted") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Support"
-        title="Member support"
-        description={
-          "Track member service issues, feature requests, and resolution " +
-          "history."
-        }
-      >
-        <WorkspaceEmptyState
-          body="Support case management is available to cooperative staff."
-          title="Support access is restricted."
-        />
-      </WorkspacePageShell>
-    )
-  }
-
-  if (data.state === "unavailable") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Support"
-        title="Member support"
-        description={
-          "Track member service issues, feature requests, and resolution " +
-          "history."
-        }
-      >
-        <WorkspaceEmptyState
-          body="Once the database-backed environment is active, this route will show support cases, replies, assignments, and resolution notes."
-          title="Support cases need the database runtime."
-        />
-      </WorkspacePageShell>
-    )
-  }
-
-  if (data.state === "member-sign-in-required") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Support"
-        title="Member support"
-        description={
-          "Open support or feature requests and track replies from " +
-          "cooperative staff."
-        }
-      >
-        <WorkspaceEmptyState
-          body="Sign in with your member account to open and track support cases."
-          title="Member sign-in required."
-        />
-      </WorkspacePageShell>
-    )
-  }
-
-  if (data.state === "member-profile-missing") {
-    return (
-      <WorkspacePageShell
-        eyebrow="Support"
-        title="Member support"
-        description={
-          "Open support or feature requests and track replies from staff."
-        }
-      >
-        <WorkspaceEmptyState
-          body="Your user account is not linked to a member profile in this cooperative."
-          title="Member profile not linked."
-        />
-      </WorkspacePageShell>
-    )
+  if (isRequestPageBlocked(data.state)) {
+    return <RequestPageState state={data.state} title="Support" />
   }
 
   if (data.state === "member-ready") {
     return (
       <WorkspacePageShell
+        description="Ask the cooperative office a question. Answers appear here."
         eyebrow="Support"
-        title="My support cases"
-        description={
-          "Open support or feature requests and track replies from cooperative " +
-          "staff."
-        }
+        title="Support"
       >
         <MemberSupportCasesView
           canCreateSupportCases={data.canCreateSupportCases}
           initialCase={data.initialCase}
           initialSettings={supportInitialSettings}
-          summary={data.summary}
         />
       </WorkspacePageShell>
     )
   }
 
+  if (data.state !== "staff-ready") return null
+
   return (
     <WorkspacePageShell
+      description="Questions and problems from members."
       eyebrow="Support"
-      title="Member support"
-      description={
-        "Document member issues, feature requests, replies, assignments, and " +
-        "resolution evidence without changing posted financial records."
-      }
+      title="Support"
     >
       <SupportCasesView
         assignees={data.assignees}

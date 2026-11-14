@@ -15,32 +15,30 @@ import {
 import { FinanceFilterList } from "@/components/finance-filter-list"
 import { SearchFilterDropdownInput } from "@/components/search-filter-dropdown-input"
 import { useSupportFilterParams } from "@/hooks/use-support-filter-params"
+import {
+  supportMemberShowFilterOptions,
+  supportPriorityOptions,
+  supportShowFilterOptions,
+  supportTopicOptions,
+} from "@/lib/support/support-words"
 
-export const supportStatusFilters = [
-  { id: "open", name: "Open" },
-  { id: "in_progress", name: "In progress" },
-  { id: "waiting_on_member", name: "Waiting on member" },
-  { id: "resolved", name: "Resolved" },
-  { id: "closed", name: "Closed" },
-]
+export const supportStatusFilters = [...supportShowFilterOptions]
 
-export const supportPriorityFilters = [
-  { id: "low", name: "Low" },
-  { id: "normal", name: "Normal" },
-  { id: "high", name: "High" },
-  { id: "urgent", name: "Urgent" },
-]
+export const supportPriorityFilters = supportPriorityOptions.map((option) => ({
+  id: option.value,
+  name: option.label,
+}))
 
-export const supportCategoryFilters = [
-  { id: "payment_issue", name: "Payment issue" },
-  { id: "account_update", name: "Account update" },
-  { id: "shares", name: "Shares" },
-  { id: "financing", name: "Financing" },
-  { id: "procurement", name: "Procurement" },
-  { id: "feature_request", name: "Feature request" },
-  { id: "technical", name: "Technical" },
-  { id: "other", name: "Other" },
-]
+export const supportCategoryFilters = supportTopicOptions.map((option) => ({
+  id: option.value,
+  name: option.label,
+}))
+
+export function getSupportStatusFilters(mode: "member" | "staff") {
+  return mode === "staff"
+    ? supportStatusFilters
+    : [...supportMemberShowFilterOptions]
+}
 
 export function SupportSearchFilter({
   assignees,
@@ -78,7 +76,6 @@ export function SupportSearchFilter({
           status: filter.status,
         }
       : {
-          priority: filter.priority,
           status: filter.status,
         }
   const hasValidFilters = Object.values(validFilters).some(
@@ -96,7 +93,7 @@ export function SupportSearchFilter({
             filterActive={hasValidFilters}
             filterOpen={isOpen}
             onChange={handleSearch}
-            placeholder="Search support..."
+            placeholder="Search cases"
             spellCheck="false"
             value={input}
           />
@@ -112,7 +109,7 @@ export function SupportSearchFilter({
             })),
             category: supportCategoryFilters,
             priority: supportPriorityFilters,
-            status: supportStatusFilters,
+            status: getSupportStatusFilters(mode),
           }}
         />
       </div>
@@ -127,7 +124,7 @@ export function SupportSearchFilter({
         <DropdownMenuGroup>
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
-              <span>Status</span>
+              <span>Show</span>
             </DropdownMenuSubTrigger>
             <DropdownMenuPortal>
               <DropdownMenuSubContent
@@ -135,7 +132,7 @@ export function SupportSearchFilter({
                 className="p-0"
                 sideOffset={14}
               >
-                {supportStatusFilters.map((item) => (
+                {getSupportStatusFilters(mode).map((item) => (
                   <DropdownMenuCheckboxItem
                     checked={filter.status === item.id}
                     key={item.id}
@@ -151,37 +148,36 @@ export function SupportSearchFilter({
             </DropdownMenuPortal>
           </DropdownMenuSub>
 
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <span>Priority</span>
-            </DropdownMenuSubTrigger>
-            <DropdownMenuPortal>
-              <DropdownMenuSubContent
-                alignOffset={-4}
-                className="p-0"
-                sideOffset={14}
-              >
-                {supportPriorityFilters.map((item) => (
-                  <DropdownMenuCheckboxItem
-                    checked={filter.priority === item.id}
-                    key={item.id}
-                    onCheckedChange={(checked) => {
-                      setFilter({ priority: checked ? item.id : null })
-                      setIsOpen(false)
-                    }}
-                  >
-                    {item.name}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuPortal>
-          </DropdownMenuSub>
-
           {mode === "staff" ? (
             <>
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
-                  <span>Category</span>
+                  <span>Priority</span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent
+                    alignOffset={-4}
+                    className="p-0"
+                    sideOffset={14}
+                  >
+                    {supportPriorityFilters.map((item) => (
+                      <DropdownMenuCheckboxItem
+                        checked={filter.priority === item.id}
+                        key={item.id}
+                        onCheckedChange={(checked) => {
+                          setFilter({ priority: checked ? item.id : null })
+                          setIsOpen(false)
+                        }}
+                      >
+                        {item.name}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <span>About</span>
                 </DropdownMenuSubTrigger>
                 <DropdownMenuPortal>
                   <DropdownMenuSubContent
@@ -208,7 +204,7 @@ export function SupportSearchFilter({
               {assignees.length ? (
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
-                    <span>Assignee</span>
+                    <span>Handled by</span>
                   </DropdownMenuSubTrigger>
                   <DropdownMenuPortal>
                     <DropdownMenuSubContent

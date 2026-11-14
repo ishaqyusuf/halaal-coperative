@@ -1,12 +1,11 @@
 import {
   createDbRuntime,
   getMemberByUserId,
-  getMemberSupportCaseSummary,
   getSupportCaseSummary,
-  getTenantOperationProfile,
   listTenantUsersWithRoles,
   type SupportCaseCategory,
 } from "@halaalvest/db"
+import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
 import { getDashboardServerContext } from "@/lib/server-context"
 import {
   allStaffRoles,
@@ -88,35 +87,30 @@ export async function loadSupportPageData(
       return { state: "member-profile-missing" as const }
     }
 
-    const [summary, operationProfile] = await Promise.all([
-      getMemberSupportCaseSummary({
-        memberId: member.id,
-        tenantId: context.tenant.id,
-      }),
-      getTenantOperationProfile(context.tenant.id),
-    ])
+    // Members see their own list only; no summary counts are loaded.
+    const operationProfile = await getRequestTenantOperationProfile(
+      context.tenant.id
+    )
 
     return {
       state: "member-ready" as const,
       canCreateSupportCases:
         operationProfile.services.support_cases.canMemberCreate,
       initialCase: loadMemberSupportCaseInitialValues(searchParams),
-      member,
-      summary,
     }
   }
 
   const [summary, users, operationProfile] = await Promise.all([
     getSupportCaseSummary(context.tenant.id),
     listTenantUsersWithRoles(context.tenant.id, allStaffRoles),
-    getTenantOperationProfile(context.tenant.id),
+    getRequestTenantOperationProfile(context.tenant.id),
   ])
 
   return {
     state: "staff-ready" as const,
     assignees: users.map((user) => ({
       id: user.id,
-      label: `${user.fullName} (${user.email})`,
+      label: user.fullName,
     })),
     canReviewFinancialAdjustments,
     canCreateSupportCases:

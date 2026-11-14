@@ -167,7 +167,7 @@ function renderHeaderContent<TData>(
   if (columnId === "case") {
     return (
       <div className="flex w-full items-center justify-between overflow-hidden">
-        <span className="truncate">Case</span>
+        <span className="truncate">Question</span>
         {tableScroll?.isScrollable ? (
           <HorizontalPagination
             canScrollLeft={tableScroll.canScrollLeft}

@@ -9,10 +9,6 @@ import {
 } from "@halaalvest/ui/components/input-group"
 import { Search } from "lucide-react"
 import { useState } from "react"
-import {
-  OpenMemberSupportCaseCreateSheet,
-  OpenSupportCaseCreateSheet,
-} from "@/components/open-support-case-sheet"
 import { MiddayFilterIcon } from "@/components/search-filter-dropdown-input"
 import { SupportFilterDrawer } from "@/components/support-filter-drawer"
 import {
@@ -21,13 +17,12 @@ import {
 } from "@/hooks/use-support-filter-params"
 import { useSortParams } from "@/hooks/use-sort-params"
 
+/** Phones: one search box with a filter button; "Clear" when anything is set. */
 export function SupportMobileToolbar({
   assignees,
-  canCreateSupportCases,
   mode,
 }: {
   assignees: Array<{ id: string; label: string }>
-  canCreateSupportCases: boolean
   mode: "member" | "staff"
 }) {
   const { filter, setFilter } = useSupportFilterParams()
@@ -35,42 +30,32 @@ export function SupportMobileToolbar({
   const [filterOpen, setFilterOpen] = useState(false)
   const hasActiveControls = Boolean(
     filter.q ||
-      filter.priority ||
       filter.status ||
       (mode === "staff" &&
-        (filter.category || filter.assignedToUserId)) ||
+        (filter.priority || filter.category || filter.assignedToUserId)) ||
       params.sort
   )
 
-  function clearFilters() {
-    void Promise.all([
-      setFilter(clearedSupportFilters),
-      setParams({ sort: null }),
-    ])
-  }
-
   return (
     <>
-      <div className="space-y-3" data-support-mobile-header>
-        <form className="w-full" onSubmit={(event) => event.preventDefault()}>
-          <InputGroup className="h-11">
+      <div className="grid gap-2 pb-2 md:hidden" data-support-mobile-header>
+        <form onSubmit={(event) => event.preventDefault()}>
+          <InputGroup className="h-12">
             <InputGroupAddon align="inline-start">
-              <Search aria-hidden="true" className="size-4" />
+              <Search aria-hidden="true" className="size-5" />
             </InputGroupAddon>
             <InputGroupInput
-              aria-label="Search support cases"
-              autoCapitalize="none"
+              aria-label="Search cases"
               autoComplete="off"
-              autoCorrect="off"
+              className="text-base"
               onChange={(event) => setFilter({ q: event.target.value || null })}
-              placeholder="Search support cases..."
-              spellCheck="false"
+              placeholder="Search"
               type="search"
               value={filter.q ?? ""}
             />
             <InputGroupAddon align="inline-end">
               <InputGroupButton
-                aria-label="Filter support cases"
+                aria-label="Filter cases"
                 className={
                   hasActiveControls
                     ? "size-11 text-foreground"
@@ -84,28 +69,21 @@ export function SupportMobileToolbar({
             </InputGroupAddon>
           </InputGroup>
         </form>
-
-        <div className="flex min-h-11 items-center justify-between gap-2">
-          <div>
-            {hasActiveControls ? (
-              <Button
-                className="h-11"
-                onClick={clearFilters}
-                type="button"
-                variant="outline"
-              >
-                Clear filters
-              </Button>
-            ) : null}
-          </div>
-          {canCreateSupportCases ? (
-            mode === "member" ? (
-              <OpenMemberSupportCaseCreateSheet iconOnly />
-            ) : (
-              <OpenSupportCaseCreateSheet iconOnly />
-            )
-          ) : null}
-        </div>
+        {hasActiveControls ? (
+          <Button
+            className="h-11 justify-self-start px-0 text-base"
+            onClick={() =>
+              void Promise.all([
+                setFilter(clearedSupportFilters),
+                setParams({ sort: null }),
+              ])
+            }
+            type="button"
+            variant="link"
+          >
+            Clear search and filters
+          </Button>
+        ) : null}
       </div>
 
       {filterOpen ? (

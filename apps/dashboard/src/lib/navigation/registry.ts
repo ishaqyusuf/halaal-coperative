@@ -150,7 +150,7 @@ export const dashboardNavRegistry: NavModule[] = [
         "/support",
         [],
         [role.in(...allStaffRoles, "member")]
-      ).title("Member support").data,
+      ).title("Support").data,
     ]),
   ]),
   createNavModule("Finance", FinanceIcon, "Contributions and controls", [

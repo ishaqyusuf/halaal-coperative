@@ -27,6 +27,7 @@ import {
   SettingsIcon as LucideSettingsIcon,
   ShieldCheckIcon,
   SmartphoneIcon,
+  SparklesIcon,
   UserCheckIcon,
   UserCogIcon,
   UsersIcon,
@@ -38,6 +39,7 @@ export const HomeIcon = LucideHomeIcon
 export const DashboardIcon = LucideHomeIcon
 export const AnalyticsIcon = BarChart3Icon
 export const NotificationIcon = BellIcon
+export const AssistantIcon = SparklesIcon
 export const ReportsIcon = FileBarChartIcon
 export const AuditIcon = HistoryIcon
 

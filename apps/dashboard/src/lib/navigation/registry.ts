@@ -9,6 +9,7 @@ import {
 } from "@halaalvest/site-nav"
 import {
   AnalyticsIcon,
+  AssistantIcon,
   BusinessIcon,
   ChargesIcon,
   ContributionsIcon,
@@ -89,6 +90,15 @@ export const dashboardNavRegistry: NavModule[] = [
           ),
         ]
       ).title("Notifications").data,
+      createNavLink(
+        "Assistant",
+        AssistantIcon,
+        "/assistant",
+        [],
+        [role.in(...allStaffRoles, "member")]
+      )
+        .childPaths("/assistant")
+        .title("Assistant").data,
       createNavLink(
         "Reports",
         ReportsIcon,

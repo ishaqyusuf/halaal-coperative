@@ -5,9 +5,10 @@ import type { AssistantChannel, AssistantRole } from "./capabilities/types"
 export function assistantSuggestions(
   role: AssistantRole,
   channel: AssistantChannel,
-  limit = 4
+  limit = 4,
+  options: { messagingChannelEnabled?: boolean } = {}
 ) {
-  return capabilitiesFor(role, channel)
+  return capabilitiesFor(role, channel, options)
     .filter((capability) => capability.id !== "X01" && capability.id !== "X02")
     .slice(0, limit)
     .map((capability) => ({
@@ -16,8 +17,12 @@ export function assistantSuggestions(
     }))
 }
 
-export function assistantHelpItems(role: AssistantRole, channel: AssistantChannel) {
-  return capabilitiesFor(role, channel).map((capability) => ({
+export function assistantHelpItems(
+  role: AssistantRole,
+  channel: AssistantChannel,
+  options: { messagingChannelEnabled?: boolean } = {}
+) {
+  return capabilitiesFor(role, channel, options).map((capability) => ({
     capabilityId: capability.id,
     title: capability.title,
     suggestion: capability.suggestion,

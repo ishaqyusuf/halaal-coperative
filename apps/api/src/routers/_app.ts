@@ -34,10 +34,12 @@ import { cooperativeMobileBillingRouter } from "./cooperative-mobile-billing.rou
 import { storeRefundReviewsRouter } from "./store-refund-reviews.route"
 import { qaAcceleratorRouter } from "./qa-accelerator.route"
 import { workplacesRouter } from "./workplaces.route"
+import { assistantRouter } from "./assistant.route"
 
 export const appRouter = createTRPCRouter({
   legal: legalRouter,
   accountPrivacy: accountPrivacyRouter,
+  assistant: assistantRouter,
   analytics: analyticsRouter,
   business: businessRouter,
   foodPurchase: foodPurchaseRouter,

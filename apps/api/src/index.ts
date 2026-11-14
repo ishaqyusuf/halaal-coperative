@@ -13,6 +13,8 @@ import { captureApiError } from "./observability/sentry"
 import { getSafeObservabilityRequestId } from "./observability/sentry-policy"
 import { getRestErrorResponse } from "./rest/error-response"
 import { assertQaAcceleratorStartupSafety } from "./qa-accelerator-config"
+import { registerAssistantChannelWebhooks } from "./assistant/channels/routes"
+import { runAssistantTurn } from "./assistant/turn"
 
 assertQaAcceleratorStartupSafety()
 const app = new Hono()
@@ -76,6 +78,9 @@ app.all("/api/internal/mobile/builds*", (c) =>
 app.get("/api/mobile/builds/check", (c) => handleAppUpdateRequest(c.req.raw))
 
 app.route("/", handleCooperativePaystackWebhook)
+
+// WhatsApp and Telegram assistant webhooks; each answers 404 while its flag is off.
+registerAssistantChannelWebhooks(app, { runTurn: runAssistantTurn })
 
 app.get("/", (c) => {
   return c.json({

@@ -45,7 +45,7 @@ export function PaymentReceiptMobileToolbar({
             onChange={(event) =>
               void setFilter({ q: event.target.value || null })
             }
-            placeholder="Search receipts..."
+            placeholder="Search name or number"
             type="search"
             value={filter.q ?? ""}
           />

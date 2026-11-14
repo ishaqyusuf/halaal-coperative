@@ -22,6 +22,10 @@ export function useContributionsQuery() {
         getNextPageParam: ({ meta }) => meta?.cursor,
       })
     )
+  const rows = useMemo(
+    () => data.pages.flatMap((page) => page.data),
+    [data.pages]
+  )
 
   return {
     fetchNextPage,
@@ -33,6 +37,6 @@ export function useContributionsQuery() {
     ),
     hasNextPage,
     isFetchingNextPage,
-    rows: data.pages.flatMap((page) => page.data),
+    rows,
   }
 }

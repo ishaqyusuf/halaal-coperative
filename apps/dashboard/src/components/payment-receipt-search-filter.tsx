@@ -62,7 +62,7 @@ export function PaymentReceiptSearchFilter() {
             filterActive={hasValidFilters}
             filterOpen={isOpen}
             onChange={handleSearch}
-            placeholder="Search receipts..."
+            placeholder="Search name or number"
             spellCheck="false"
             value={input}
           />

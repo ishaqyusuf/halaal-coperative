@@ -278,7 +278,7 @@ export function ContributionContent({
           </label>
         </div>
         <label className="grid gap-2 text-sm font-medium text-foreground">
-          Source
+          Workplace
           <LabeledSelectInput
             name="deductionSourceId"
             options={collectionSourceBatchOptions.map((source) => ({
@@ -287,7 +287,7 @@ export function ContributionContent({
               }`,
               value: source.id,
             }))}
-            placeholder="Select source"
+            placeholder="Choose a workplace"
             required
           />
         </label>
@@ -304,7 +304,7 @@ export function ContributionContent({
           disabled={collectionSourceBatchOptions.length === 0}
           type="submit"
         >
-          Stage batch
+          Start batch
         </Button>
       </form>
     )
@@ -329,11 +329,11 @@ export function ContributionContent({
         ))}
         <div className="border-y border-border py-4">
           <p className="font-medium text-foreground">
-            {selectedBatch?.deductionSource.name ?? "Collection source batch"}
+            {selectedBatch?.deductionSource.name ?? "Workplace batch"}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {selectedBatch?.periodLabel ?? "Select a batch"} ·{" "}
-            {collectedRows.length} collected rows ready
+            {collectedRows.length} paid, ready to post
           </p>
         </div>
         <label className="grid gap-2 text-sm font-medium text-foreground">
@@ -424,7 +424,7 @@ export function ContributionContent({
             {selectedBatchRow?.memberName ?? "Batch row"}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Mark this deduction row as an exception so it is held for review.
+            Kept out of posting until reviewed.
           </p>
         </div>
         <label className="grid gap-2 text-sm font-medium text-foreground">

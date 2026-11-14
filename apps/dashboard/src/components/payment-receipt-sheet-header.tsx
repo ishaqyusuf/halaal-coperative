@@ -20,11 +20,10 @@ function getHeaderCopy({
 }) {
   if (type === "review") {
     return {
-      description:
-        "Adjust allocation lines if needed, then choose the receipt decision.",
+      description: "Check the split, then approve or send back.",
       title: receipt
         ? `Review ${receipt.member.fullName}'s receipt`
-        : "Review payment receipt",
+        : "Review receipt",
     }
   }
 
@@ -32,24 +31,22 @@ function getHeaderCopy({
     return {
       description:
         type === "support"
-          ? "Open a support case when the receipt needs a correction trail or member follow-up."
-          : "Ask the cooperative team to review a payment mistake or receipt issue.",
-      title: "Open receipt support case",
+          ? "Start a support case about this receipt."
+          : "Tell the cooperative what is wrong with this payment.",
+      title: type === "support" ? "Receipt support" : "Get help",
     }
   }
 
   if (type === "member-create") {
     return {
-      description:
-        "Upload payment proof and split the receipt into the right cooperative categories.",
-      title: "Submit payment receipt",
+      description: "Add your payment proof and say what it is for.",
+      title: "Send a receipt",
     }
   }
 
   return {
-    description:
-      "Save receipt proof, select the member, and split the payment into allocation lines.",
-    title: "Stage payment receipt",
+    description: "Choose the member, add the proof and split the amount.",
+    title: "Add receipt",
   }
 }
 

@@ -37,21 +37,26 @@ type ContributionsPageData = Extract<
 type ContributionView = "collections" | "commitments" | "ledger"
 
 const viewLabels: Record<ContributionView, string> = {
-  collections: "Collections",
-  commitments: "Commitments",
-  ledger: "Ledger",
+  collections: "Workplace batches",
+  commitments: "Monthly amounts",
+  ledger: "Payments",
+}
+
+function sentence(value: string) {
+  const label = value.replace(/_/g, " ")
+  return label.charAt(0).toUpperCase() + label.slice(1)
 }
 
 export function ContributionsUnavailableView() {
   return (
     <WorkspacePageShell
       eyebrow="Contributions"
-      title="Contribution ledger"
-      description="Contribution collection and posting activity for the active cooperative."
+      title="Contributions"
+      description="Members' savings payments."
     >
       <WorkspaceEmptyState
-        title="Contribution history is waiting for the database runtime."
-        body="Once the database-backed environment is active, this route will show posted contributions, member attribution, commitment plans, and collection channels."
+        title="Not available"
+        body="Contributions are not available right now. Try again later."
       />
     </WorkspacePageShell>
   )
@@ -130,7 +135,7 @@ export function ContributionsPageView({
       }
       eyebrow="Contributions"
       title="Contributions"
-      description="Record payment evidence, maintain member commitments, and review collection-source batches."
+      description="Members' savings payments and monthly amounts."
     >
       {activeView === "ledger" ? null : <ContributionPageScrollHeader />}
       <section className="overflow-hidden border-b border-border md:border-y">
@@ -235,10 +240,9 @@ function CommitmentsView({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 md:px-5">
         <div>
-          <h2 className="font-medium text-foreground">Member commitments</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Each plan is a dated member commitment; update or close it without
-            losing its history.
+          <h2 className="font-medium text-foreground">Monthly amounts</h2>
+          <p className="text-muted-foreground">
+            What each member pays every month.
           </p>
         </div>
         {canRecordContributions ? <OpenContributionPlanSheet /> : null}
@@ -250,7 +254,7 @@ function CommitmentsView({
             className="text-sm font-medium text-foreground"
             id="active-plans-heading"
           >
-            Active plans
+            Active
           </h3>
           <span className="text-sm text-muted-foreground tabular-nums">
             {activeCommitmentPlans.length}
@@ -268,8 +272,12 @@ function CommitmentsView({
                     {plan.member.fullName}
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {formatCurrency(Number(plan.amount))} monthly · effective{" "}
-                    {plan.startsAt.toISOString().slice(0, 10)}
+                    {formatCurrency(Number(plan.amount))} a month · from{" "}
+                    {plan.startsAt.toLocaleDateString("en-NG", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
                   </p>
                 </div>
                 <OpenContributionPlanEditSheet planId={plan.id} />
@@ -278,7 +286,7 @@ function CommitmentsView({
           </div>
         ) : (
           <p className="border-b border-border py-8 text-sm text-muted-foreground">
-            No active commitment plans yet.
+            No monthly amounts set yet.
           </p>
         )}
       </section>
@@ -292,10 +300,10 @@ function CommitmentsView({
             className="text-sm font-medium text-foreground"
             id="payment-presets-heading"
           >
-            Payment allocation presets
+            Payment order
           </h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            The preset determines how an unsplit payment remainder is applied.
+          <p className="text-muted-foreground">
+            What an extra payment goes to first.
           </p>
         </div>
         <div>
@@ -308,7 +316,7 @@ function CommitmentsView({
                 <p className="font-medium text-foreground">{member.fullName}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {member.memberNumber} ·{" "}
-                  {member.paymentAllocationPreference.replace(/_/g, " ")}
+                  {sentence(member.paymentAllocationPreference)}
                 </p>
               </div>
               {canRecordContributions ? (
@@ -342,10 +350,9 @@ function CollectionsView({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 md:px-5">
         <div>
-          <h2 className="font-medium text-foreground">Collection batches</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Stage source deductions, resolve exceptions, then post each
-            collected row into the ledger.
+          <h2 className="font-medium text-foreground">Workplace batches</h2>
+          <p className="text-muted-foreground">
+            One workplace's payments for a month.
           </p>
         </div>
         <OpenContributionBatchStageSheet
@@ -373,7 +380,7 @@ function CollectionsView({
             ))
           ) : (
             <p className="text-sm text-muted-foreground">
-              No staged batches yet.
+              No batches yet.
             </p>
           )}
         </div>
@@ -387,12 +394,12 @@ function CollectionsView({
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {selectedCollectionSourceBatch.periodLabel} ·{" "}
-                  {selectedCollectionSourceBatch.status.replace(/_/g, " ")}
+                  {sentence(selectedCollectionSourceBatch.status)}
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant="secondary">
-                  {selectedCollectionSourceBatch.totals.collectedRows} collected
+                  {selectedCollectionSourceBatch.totals.collectedRows} paid
                 </Badge>
                 <OpenContributionBatchPostSheet
                   batchId={selectedCollectionSourceBatch.id}
@@ -408,7 +415,7 @@ function CollectionsView({
                 )}
               />
               <Metric
-                label="Rows"
+                label="Members"
                 value={selectedCollectionSourceBatch.totals.rowCount.toString()}
               />
               <Metric
@@ -435,7 +442,7 @@ function CollectionsView({
                         {row.memberName}
                       </p>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        {row.memberNumber} · expected{" "}
+                        {row.memberNumber} · due{" "}
                         {formatCurrency(row.expectedAmount)} · paid{" "}
                         {formatCurrency(row.paidAmount)}
                       </p>
@@ -447,7 +454,7 @@ function CollectionsView({
                           : "secondary"
                       }
                     >
-                      {row.status.replace(/_/g, " ")}
+                      {sentence(row.status)}
                     </Badge>
                   </div>
                   {row.status !== "posted" && row.status !== "blocked" ? (
@@ -474,7 +481,7 @@ function CollectionsView({
           </div>
         ) : (
           <p className="py-8 text-sm text-muted-foreground">
-            Choose a staged batch to review its member rows.
+            Choose a batch above.
           </p>
         )}
       </div>
@@ -485,8 +492,8 @@ function CollectionsView({
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 px-3 py-3">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="mt-1 truncate text-sm font-medium text-foreground tabular-nums">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="mt-1 truncate font-medium text-foreground tabular-nums">
         {value}
       </dd>
     </div>

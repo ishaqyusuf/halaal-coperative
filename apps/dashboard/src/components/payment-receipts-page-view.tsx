@@ -20,13 +20,13 @@ export function PaymentReceiptsPageView({
   if (data.state === "restricted") {
     return (
       <WorkspacePageShell
-        description="Receipt review is available to cooperative staff."
+        description="Payment proofs from members."
         eyebrow="Payments"
         title="Payment receipts"
       >
         <WorkspaceEmptyState
-          body="Your current role does not include access to receipt review."
-          title="Receipt workspace unavailable"
+          body="Ask a cooperative admin or finance officer for access."
+          title="You don't have access to receipts"
         />
       </WorkspacePageShell>
     )
@@ -35,13 +35,13 @@ export function PaymentReceiptsPageView({
   if (data.state === "unavailable") {
     return (
       <WorkspacePageShell
-        description="Stage transfer proofs and review allocation before posting."
+        description="Payment proofs from members."
         eyebrow="Payments"
         title="Payment receipts"
       >
         <WorkspaceEmptyState
-          body="Once the database-backed environment is active, receipt submissions and review status will appear here."
-          title="Receipt review is waiting for the database runtime."
+          body="Receipts are not available right now. Try again later."
+          title="Not available"
         />
       </WorkspacePageShell>
     )
@@ -50,13 +50,13 @@ export function PaymentReceiptsPageView({
   if (data.state === "member-sign-in-required") {
     return (
       <WorkspacePageShell
-        description="Submit transfer proofs and track finance review status."
+        description="Send payment proof and see when it is approved."
         eyebrow="Payments"
         title="My payment receipts"
       >
         <WorkspaceEmptyState
-          body="Sign in with your member account to submit and track payment receipts."
-          title="Member sign-in required."
+          body="Sign in with your member account to send receipts."
+          title="Please sign in"
         />
       </WorkspacePageShell>
     )
@@ -65,13 +65,13 @@ export function PaymentReceiptsPageView({
   if (data.state === "member-profile-missing") {
     return (
       <WorkspacePageShell
-        description="Submit transfer proofs and track finance review status."
+        description="Send payment proof and see when it is approved."
         eyebrow="Payments"
         title="My payment receipts"
       >
         <WorkspaceEmptyState
-          body="Your user account is not linked to a member profile in this cooperative."
-          title="Member profile not linked."
+          body="Your account is not linked to a member here. Contact your cooperative."
+          title="No member profile"
         />
       </WorkspacePageShell>
     )
@@ -80,7 +80,7 @@ export function PaymentReceiptsPageView({
   if (data.state === "member-ready") {
     return (
       <WorkspacePageShell
-        description="Submit transfer proofs and track finance review status."
+        description="Send payment proof and see when it is approved."
         eyebrow="Payments"
         title="My payment receipts"
       >
@@ -102,7 +102,7 @@ export function PaymentReceiptsPageView({
 
   return (
     <WorkspacePageShell
-      description="Review staged transfer proofs, allocate payments by category and period, then post supported savings and loan-servicing rows through the existing ledgers."
+      description="Check members' payment proofs and approve them."
       eyebrow="Payments"
       title="Payment receipts"
     >

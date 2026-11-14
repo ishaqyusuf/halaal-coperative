@@ -22,12 +22,16 @@ export function usePaymentReceiptsQuery() {
         getNextPageParam: ({ meta }) => meta?.cursor,
       })
     )
+  const receipts = useMemo(
+    () => data.pages.flatMap((page) => page.data),
+    [data.pages]
+  )
 
   return {
     fetchNextPage,
     hasActiveControls: Boolean(filter.q || filter.status || params.sort),
     hasNextPage,
     isFetchingNextPage,
-    receipts: data.pages.flatMap((page) => page.data),
+    receipts,
   }
 }

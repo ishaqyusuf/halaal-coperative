@@ -2,8 +2,6 @@
 
 import { Button } from "@halaalvest/ui/components/button"
 import {
-  CheckCircle2Icon,
-  LifeBuoyIcon,
   PlusIcon,
   ReceiptTextIcon,
 } from "lucide-react"
@@ -34,7 +32,7 @@ export function OpenPaymentReceiptCreateSheet({
 
   return (
     <Button
-      aria-label={iconOnly ? "Stage payment receipt" : undefined}
+      aria-label={iconOnly ? "Add receipt" : undefined}
       className={iconOnly ? "size-11" : undefined}
       onClick={() => openSheet("create")}
       size={iconOnly ? "icon-lg" : "default"}
@@ -42,9 +40,9 @@ export function OpenPaymentReceiptCreateSheet({
     >
       {iconOnly ? <PlusIcon /> : <ReceiptTextIcon data-icon="inline-start" />}
       {iconOnly ? (
-        <span className="sr-only">Stage receipt</span>
+        <span className="sr-only">Add receipt</span>
       ) : (
-        "Stage receipt"
+        "Add receipt"
       )}
     </Button>
   )
@@ -85,12 +83,9 @@ export function OpenPaymentReceiptReviewSheet({
   return (
     <Button
       onClick={() => openSheet("review", receiptId)}
-      size="sm"
       type="button"
-      variant="outline"
     >
-      <CheckCircle2Icon data-icon="inline-start" />
-      Review receipt
+      Review
     </Button>
   )
 }
@@ -105,12 +100,10 @@ export function OpenPaymentReceiptSupportSheet({
   return (
     <Button
       onClick={() => openSheet("support", receiptId)}
-      size="sm"
       type="button"
       variant="outline"
     >
-      <LifeBuoyIcon data-icon="inline-start" />
-      Open support case
+      Support
     </Button>
   )
 }
@@ -125,12 +118,10 @@ export function OpenMemberPaymentReceiptSupportSheet({
   return (
     <Button
       onClick={() => openSheet("member-support", receiptId)}
-      size="sm"
       type="button"
       variant="outline"
     >
-      <LifeBuoyIcon data-icon="inline-start" />
-      Open support case
+      Get help
     </Button>
   )
 }

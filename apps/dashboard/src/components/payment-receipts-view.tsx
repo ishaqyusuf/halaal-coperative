@@ -46,10 +46,10 @@ export function PaymentReceiptsView({
         projectFinancingRequests={projectFinancingRequests}
       />
       <section className="hidden divide-x divide-border border-y border-border md:grid md:grid-cols-4">
-        <SummaryTile label="Pending" value={summary.pendingReviewReceipts} />
-        <SummaryTile label="Submitted" value={summary.submittedReceipts} />
+        <SummaryTile label="To review" value={summary.pendingReviewReceipts} />
+        <SummaryTile label="New" value={summary.submittedReceipts} />
         <SummaryTile
-          label="Corrections"
+          label="Needs correction"
           value={summary.correctionRequestedReceipts}
         />
         <SummaryTile label="Approved" value={summary.approvedReceipts} />
@@ -110,9 +110,9 @@ export function MemberPaymentReceiptsView({
         projectFinancingRequests={projectFinancingRequests}
       />
       <section className="hidden divide-x divide-border border-y border-border md:grid md:grid-cols-4">
-        <SummaryTile label="Pending" value={summary.pendingReviewReceipts} />
+        <SummaryTile label="Waiting" value={summary.pendingReviewReceipts} />
         <SummaryTile
-          label="Corrections"
+          label="Needs correction"
           value={summary.correctionRequestedReceipts}
         />
         <SummaryTile label="Approved" value={summary.approvedReceipts} />
@@ -144,10 +144,10 @@ export function MemberPaymentReceiptsView({
 function SummaryTile({ label, value }: { label: string; value: number }) {
   return (
     <div className="px-4 py-4">
-      <p className="text-xs font-medium tracking-normal text-muted-foreground">
-        {label}
+      <p className="text-muted-foreground">{label}</p>
+      <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
+        {value}
       </p>
-      <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
     </div>
   )
 }

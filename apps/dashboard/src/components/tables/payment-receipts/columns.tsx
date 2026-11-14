@@ -28,7 +28,16 @@ export function formatPaymentReceiptDate(value: Date | string) {
 }
 
 export function paymentReceiptLabelFromValue(value: string) {
-  return value.replace(/_/g, " ")
+  const label = value.replace(/_/g, " ")
+  return label.charAt(0).toUpperCase() + label.slice(1)
+}
+
+const receiptStatusLabels: Record<PaymentReceipt["status"], string> = {
+  approved: "Approved",
+  correction_requested: "Needs correction",
+  rejected: "Rejected",
+  submitted: "To review",
+  under_review: "In review",
 }
 
 function statusClassName(status: PaymentReceipt["status"]) {
@@ -52,8 +61,8 @@ const ReceiptCell = memo(({ receipt }: { receipt: PaymentReceipt }) => (
     <p className="truncate font-medium text-foreground">
       {receipt.member.fullName}
     </p>
-    <p className="mt-1 truncate text-xs text-muted-foreground">
-      {receipt.member.memberNumber} · {formatCurrency(receipt.totalAmount)}
+    <p className="truncate text-muted-foreground">
+      {receipt.member.memberNumber}
     </p>
   </div>
 ))
@@ -63,7 +72,7 @@ ReceiptCell.displayName = "ReceiptCell"
 export const PaymentReceiptStatusBadge = memo(
   ({ status }: { status: PaymentReceipt["status"] }) => (
     <Badge className={statusClassName(status)} variant="outline">
-      {paymentReceiptLabelFromValue(status)}
+      {receiptStatusLabels[status] ?? paymentReceiptLabelFromValue(status)}
     </Badge>
   )
 )
@@ -196,7 +205,7 @@ export const columns: ColumnDef<PaymentReceipt>[] = [
       }
 
       return (
-        <div className="flex flex-wrap justify-end gap-1">
+        <div className="flex flex-nowrap justify-end gap-2">
           {receipt.status === "approved" ||
           receipt.status === "rejected" ? null : (
             <OpenPaymentReceiptReviewSheet receiptId={receipt.id} />
@@ -210,7 +219,7 @@ export const columns: ColumnDef<PaymentReceipt>[] = [
     enableSorting: false,
     header: "Actions",
     id: "actions",
-    maxSize: 240,
+    maxSize: 280,
     meta: {
       className:
         "text-right sticky right-0 bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-30 justify-center !border-l !border-border",
@@ -218,7 +227,7 @@ export const columns: ColumnDef<PaymentReceipt>[] = [
       skeleton: { type: "icon" },
       sticky: true,
     },
-    minSize: 200,
-    size: 200,
+    minSize: 240,
+    size: 240,
   },
 ]

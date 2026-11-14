@@ -146,7 +146,7 @@ export function OpenContributionBatchStageSheet({
       type="button"
     >
       <UploadIcon data-icon="inline-start" />
-      Stage batch
+      New batch
     </Button>
   )
 }

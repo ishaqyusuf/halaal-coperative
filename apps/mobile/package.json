@@ -33,10 +33,12 @@
     "@gorhom/bottom-sheet": "^5.0.5",
     "@gorhom/portal": "1.0.14",
     "@halaalvest/api": "workspace:*",
+    "@halaalvest/assistant": "workspace:*",
     "@halaalvest/domain": "workspace:*",
     "@halaalvest/errors": "workspace:*",
     "@halaalvest/events": "workspace:*",
     "@halaalvest/observability": "workspace:*",
+    "@halaalvest/utils": "workspace:*",
     "@hookform/resolvers": "^5.2.2",
     "@legendapp/list": "^2.0.15",
     "@react-native-async-storage/async-storage": "^2.2.0",
@@ -99,8 +101,7 @@
     "tailwind-merge": "^3.6.0",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^4.6.7",
-    "zustand": "^5.0.12",
-    "@halaalvest/utils": "workspace:*"
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@halaalvest/eslint-config": "workspace:^",

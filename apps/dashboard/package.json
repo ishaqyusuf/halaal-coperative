@@ -18,6 +18,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@halaalvest/api": "workspace:*",
+    "@halaalvest/assistant": "workspace:*",
     "@halaalvest/auth": "workspace:*",
     "@halaalvest/backfill": "workspace:*",
     "@halaalvest/db": "workspace:*",

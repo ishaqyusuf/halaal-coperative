@@ -2,25 +2,14 @@
 
 import { type ReactNode, useState } from "react"
 import { AssistantApiProvider } from "./assistant-api"
-import { createFixtureAssistantApi } from "./assistant-fixture-api"
+import { createTrpcAssistantApi } from "./assistant-trpc-api"
 
 /**
- * Supplies the assistant API to the page. Until the coordinator's `assistant`
- * tRPC router is registered, this is the fixture rehearsal adapter; `role`
- * and `cooperativeName` come from the signed server session so suggestions
- * are role-shaped. The real router's `bootstrap` replaces both.
+ * Supplies the `assistant` router client to the page. Role, cooperative and
+ * suggestions come from `assistant.bootstrap`, which reads the signed
+ * session; nothing here decides authority.
  */
-export function AssistantProvider({
-  role,
-  cooperativeName,
-  children,
-}: {
-  role: "member" | "staff"
-  cooperativeName: string
-  children: ReactNode
-}) {
-  const [api] = useState(() =>
-    createFixtureAssistantApi({ role, cooperativeName })
-  )
+export function AssistantProvider({ children }: { children: ReactNode }) {
+  const [api] = useState(createTrpcAssistantApi)
   return <AssistantApiProvider value={api}>{children}</AssistantApiProvider>
 }

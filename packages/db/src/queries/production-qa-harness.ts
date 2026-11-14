@@ -751,6 +751,31 @@ async function provisionScenario(input: {
     })
   }
 
+  if (seed.setupChargeSchedule) {
+    // "No past business profits": the last setup step that gates member
+    // imports, recorded the way Finance setup records it.
+    const reviewed = await input.transaction.auditLog.findFirst({
+      select: { id: true },
+      where: {
+        action: "migration.business_profit_pools.reviewed",
+        tenantId: tenant.id,
+      },
+    })
+    if (!reviewed) {
+      await input.transaction.auditLog.create({
+        data: {
+          action: "migration.business_profit_pools.reviewed",
+          actorType: "system",
+          entityId: tenant.id,
+          entityType: "Tenant",
+          metadata: { initializedBy: "production_contract_qa_harness" },
+          occurredAt: input.now,
+          tenantId: tenant.id,
+        },
+      })
+    }
+  }
+
   const plan = await input.transaction.subscriptionPlan.findUnique({
     select: { id: true },
     where: { code: input.scenario.planCode },

@@ -1,61 +1,51 @@
 "use client"
 
-import { Button } from "@halaalvest/ui/components/button"
-import { Badge } from "@halaalvest/ui/components/badge"
 import type { ColumnDef } from "@tanstack/react-table"
+import { ImportStatusBadge } from "@/components/imports/import-status-badge"
+import {
+  dashboardImportConfigs,
+  type DashboardImportKind,
+} from "@/lib/import-csv"
+import { importCount, importKindWords } from "@/lib/imports/import-words"
+import { formatDayMonthYear } from "@/utils/format"
 import type { ImportBatchRow } from "./data-table"
 
-type ImportTableMeta = {
-  onOpenApply: (batch: ImportBatchRow) => void
-  onOpenDetails: (batch: ImportBatchRow) => void
-}
+export function importBatchTitle(batch: ImportBatchRow) {
+  const kind =
+    batch.importType in dashboardImportConfigs
+      ? (batch.importType as DashboardImportKind)
+      : null
 
-function formatImportKind(kind: string) {
-  return kind.replace(/_/g, " ")
-}
-
-function displayStatus(status: string) {
-  return status.replace(/_/g, " ")
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const applied = status === "applied"
-
-  return (
-    <Badge
-      className={
-        applied
-          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-          : "border-amber-200 bg-amber-50 text-amber-700"
+  return kind
+    ? {
+        count: importCount(kind, batch.totalRows),
+        title: importKindWords[kind].title,
       }
-      variant="outline"
-    >
-      {displayStatus(status)}
-    </Badge>
-  )
+    : { count: `${batch.totalRows} rows`, title: batch.importType }
 }
 
 export const columns: ColumnDef<ImportBatchRow>[] = [
   {
     accessorKey: "importType",
-    cell: ({ row }) => (
-      <div>
-        <p className="truncate font-medium capitalize text-foreground">
-          {formatImportKind(row.original.importType)}
-        </p>
-        <p className="mt-1 truncate text-xs text-muted-foreground">
-          {row.original.createdAt.toISOString().slice(0, 10)}
-        </p>
-      </div>
-    ),
+    cell: ({ row }) => {
+      const { count, title } = importBatchTitle(row.original)
+      return (
+        <div className="min-w-0">
+          <p className="truncate text-base font-medium text-foreground">
+            {title}
+          </p>
+          <p className="truncate text-sm text-muted-foreground">{count}</p>
+        </div>
+      )
+    },
     enableResizing: true,
-    header: "Import",
+    header: "What",
     id: "import",
     maxSize: 520,
     meta: {
       className:
         "w-[300px] min-w-[240px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20",
-      headerLabel: "Import",
+      headerLabel: "What",
       sticky: true,
     },
     minSize: 240,
@@ -63,136 +53,52 @@ export const columns: ColumnDef<ImportBatchRow>[] = [
   },
   {
     accessorKey: "status",
-    cell: ({ row }) => <StatusBadge status={row.original.status} />,
+    cell: ({ row }) => <ImportStatusBadge status={row.original.status} />,
     enableResizing: true,
     header: "Status",
     id: "status",
-    maxSize: 180,
+    maxSize: 200,
     meta: {
-      className: "w-[140px] min-w-[120px]",
+      className: "w-[160px] min-w-[140px]",
       headerLabel: "Status",
     },
-    minSize: 120,
-    size: 140,
-  },
-  {
-    cell: ({ row }) => (
-      <span>
-        {row.original.validRows}/
-        {row.original.totalRows ?? row.original._count.rows}
-      </span>
-    ),
-    enableResizing: true,
-    header: "Rows",
-    id: "rows",
-    maxSize: 180,
-    meta: {
-      className: "w-[140px] min-w-[120px]",
-      headerLabel: "Rows",
-    },
-    minSize: 120,
-    size: 140,
-  },
-  {
-    cell: ({ row }) => (
-      <span className="text-xs text-muted-foreground">
-        {row.original.existingMatchCount} matches ·{" "}
-        {row.original.duplicateRowCount} duplicates
-      </span>
-    ),
-    enableResizing: true,
-    header: "Review",
-    id: "review",
-    maxSize: 260,
-    meta: {
-      className: "w-[220px] min-w-[180px]",
-      headerLabel: "Review",
-    },
-    minSize: 180,
-    size: 220,
+    minSize: 140,
+    size: 160,
   },
   {
     accessorFn: (row) => row.createdByUser.fullName,
     cell: ({ row }) => (
-      <div>
-        <p className="truncate text-foreground">
-          {row.original.createdByUser.fullName}
-        </p>
-        <p className="mt-1 truncate text-xs text-muted-foreground">
-          {row.original.createdByUser.email}
-        </p>
-      </div>
+      <span className="truncate text-base text-foreground">
+        {row.original.createdByUser.fullName}
+      </span>
     ),
     enableResizing: true,
-    header: "Created by",
+    header: "By",
     id: "createdBy",
-    maxSize: 260,
+    maxSize: 320,
     meta: {
-      className: "w-[220px] min-w-[180px]",
-      headerLabel: "Created by",
+      className: "w-[240px] min-w-[180px]",
+      headerLabel: "By",
     },
     minSize: 180,
-    size: 220,
+    size: 240,
   },
   {
     accessorFn: (row) => row.createdAt.toISOString(),
-    cell: ({ row }) => row.original.createdAt.toISOString().slice(0, 10),
+    cell: ({ row }) => (
+      <span className="text-base">
+        {formatDayMonthYear(row.original.appliedAt ?? row.original.createdAt)}
+      </span>
+    ),
     enableResizing: true,
-    header: "Created",
+    header: "Date",
     id: "createdAt",
-    maxSize: 180,
+    maxSize: 200,
     meta: {
-      className: "w-[140px] min-w-[120px]",
-      headerLabel: "Created",
+      className: "w-[160px] min-w-[140px]",
+      headerLabel: "Date",
     },
-    minSize: 120,
-    size: 140,
-  },
-  {
-    cell: ({ row, table }) => {
-      const meta = table.options.meta as ImportTableMeta
-      const isApplied = row.original.status === "applied"
-
-      return (
-        <div className="flex w-full justify-end gap-2">
-          <Button
-            onClick={(event) => {
-              event.stopPropagation()
-              meta.onOpenDetails(row.original)
-            }}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            Review
-          </Button>
-          <Button
-            disabled={isApplied}
-            onClick={(event) => {
-              event.stopPropagation()
-              meta.onOpenApply(row.original)
-            }}
-            size="sm"
-            type="button"
-          >
-            Apply
-          </Button>
-        </div>
-      )
-    },
-    enableHiding: false,
-    enableResizing: false,
-    enableSorting: false,
-    header: "Actions",
-    id: "actions",
-    maxSize: 180,
-    meta: {
-      className:
-        "text-right sticky right-0 bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-30 justify-center !border-l !border-border",
-      headerLabel: "Actions",
-      sticky: true,
-    },
-    minSize: 180,
-    size: 180,
+    minSize: 140,
+    size: 160,
   },
 ]

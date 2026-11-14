@@ -3,24 +3,21 @@ import {
   getImportReferenceData,
   listImportBatches,
 } from "@halaalvest/db"
-import {
-  createTRPCRouter,
-  minRoleProcedure,
-  tenantProcedure,
-} from "../lib.trpc"
+import { createTRPCRouter, minRoleProcedure, staffProcedure } from "../lib.trpc"
 import {
   getImportBatchSchema,
   listImportBatchesSchema,
 } from "../schemas/imports"
 
 export const importsRouter = createTRPCRouter({
-  batch: tenantProcedure.input(getImportBatchSchema).query(({ ctx, input }) =>
+  // Batches hold members' rows and amounts: staff only.
+  batch: staffProcedure.input(getImportBatchSchema).query(({ ctx, input }) =>
     getImportBatch({
       batchId: input.batchId,
       tenantId: ctx.tenant.current.id,
     })
   ),
-  batches: tenantProcedure
+  batches: staffProcedure
     .input(listImportBatchesSchema)
     .query(async ({ ctx, input }) => {
       const pageSize = input?.pageSize ?? 50

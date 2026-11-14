@@ -39,6 +39,8 @@ import {
   type DashboardImportReferenceData,
 } from "@/lib/import-csv"
 import { MemberImportSheetHeader } from "@/components/member-import-sheet-header"
+import { importStatusWord } from "@/lib/imports/import-words"
+import { formatDayMonthYear } from "@/utils/format"
 import { useTRPC } from "@/trpc/client"
 import {
   memberImportColumns,
@@ -171,10 +173,9 @@ function MemberImportEditableTable({
 }
 
 export type MemberImportLatestBatch = {
-  _count: { rows: number }
   createdAt: Date
   status: string
-  validRows: number
+  totalRows: number
 }
 
 export function MemberImportContent({
@@ -428,8 +429,8 @@ export function MemberImportContent({
             objectToFormData({ csvText: values.csvText, importKind: "members" })
           )
           showSuccess(
-            "Members import staged",
-            "Batch saved for review and later apply in the import workspace."
+            "File saved",
+            "Add it later from Settings, Imports, Members."
           )
         } else {
           await importMembersCsvAction(
@@ -438,10 +439,7 @@ export function MemberImportContent({
               csvText: values.csvText,
             })
           )
-          showSuccess(
-            "Members imported",
-            `${preview.rows.length} member row(s) applied to the registry.`
-          )
+          showSuccess("Members added", `${preview.rows.length} members added.`)
         }
         await Promise.all([
           // Batches and import reference data (member numbers) both change.
@@ -491,7 +489,7 @@ export function MemberImportContent({
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4 sm:px-6 sm:py-5">
             <details className="rounded-xl border border-border/60 bg-muted/20 p-4">
               <summary className="cursor-pointer list-none text-sm font-medium text-foreground underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
-                CSV source
+                Paste rows instead
               </summary>
               <div className="mt-4">
                 <FormField
@@ -499,7 +497,7 @@ export function MemberImportContent({
                   name="csvText"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>CSV content</FormLabel>
+                      <FormLabel>Rows copied from a spreadsheet</FormLabel>
                       <FormControl>
                         <Textarea
                           {...field}
@@ -524,24 +522,23 @@ export function MemberImportContent({
                     Member rows
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {populatedGridRowCount} entered rows ·{" "}
-                    {activeColumns.length} columns
+                    {populatedGridRowCount} rows
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                   <span>
                     {preview.ok
-                      ? `${preview.rows.length} valid rows`
-                      : `${preview.errors.length} validation issues`}
+                      ? `${preview.rows.length} ready`
+                      : `${preview.errors.length} rows need fixing`}
                   </span>
-                  {preview.ok ? (
+                  {preview.ok && reconciliation.existingMatchCount ? (
                     <span>
-                      {reconciliation.existingMatchCount} existing matches
+                      {reconciliation.existingMatchCount} already in Halaalvest
                     </span>
                   ) : null}
-                  {preview.ok ? (
+                  {preview.ok && reconciliation.duplicateCount ? (
                     <span>
-                      {reconciliation.duplicateCount} in-file duplicates
+                      {reconciliation.duplicateCount} in the file twice
                     </span>
                   ) : null}
                 </div>
@@ -568,15 +565,13 @@ export function MemberImportContent({
             {preview.ok ? (
               <div className="grid gap-3 text-xs text-muted-foreground md:grid-cols-2">
                 <p className="rounded-xl border border-border/60 bg-background/80 p-3">
-                  Existing member matches: {reconciliation.existingMatchCount}.
-                  Matching rows will update or link where the import supports
-                  idempotent upserts.
+                  {reconciliation.existingMatchCount} already in Halaalvest will
+                  be updated.
                 </p>
                 <p className="rounded-xl border border-border/60 bg-background/80 p-3">
-                  In-file duplicates: {reconciliation.duplicateCount}
-                  {reconciliation.duplicates.length
-                    ? ` (${reconciliation.duplicates.join(", ")})`
-                    : "."}
+                  {reconciliation.duplicateCount
+                    ? `In the file twice: ${reconciliation.duplicates.join(", ")}.`
+                    : "No member is in the file twice."}
                 </p>
               </div>
             ) : null}
@@ -584,7 +579,7 @@ export function MemberImportContent({
             {shouldConfirmExistingMatches || shouldConfirmInFileDuplicates ? (
               <div className="space-y-3 rounded-xl border border-border/60 bg-background/80 p-4">
                 <p className="text-sm font-medium text-foreground">
-                  Import review gate
+                  Before adding
                 </p>
                 {shouldConfirmExistingMatches ? (
                   <FormField
@@ -602,7 +597,7 @@ export function MemberImportContent({
                         </FormControl>
                         <div className="space-y-1">
                           <FormLabel>
-                            I reviewed the rows that match existing members.
+                            I checked the members who are already in Halaalvest.
                           </FormLabel>
                           <FormMessage />
                         </div>
@@ -626,7 +621,7 @@ export function MemberImportContent({
                         </FormControl>
                         <div className="space-y-1">
                           <FormLabel>
-                            I reviewed the duplicate rows inside this file.
+                            I checked the members who are in the file twice.
                           </FormLabel>
                           <FormMessage />
                         </div>
@@ -652,11 +647,10 @@ export function MemberImportContent({
                       />
                     </FormControl>
                     <div className="space-y-1">
-                      <FormLabel>Stage for later review</FormLabel>
+                      <FormLabel>Save to add later</FormLabel>
                       <p className="text-xs leading-5 text-muted-foreground">
-                        Save this file as a staged import batch instead of
-                        applying the member rows now. Staged batches are
-                        reviewed and applied from `/settings/imports`.
+                        Keep this file under Settings, Imports, Members and add
+                        it from there.
                       </p>
                       <FormMessage />
                     </div>
@@ -667,9 +661,9 @@ export function MemberImportContent({
 
             {latestBatch ? (
               <p className="rounded-xl border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
-                Latest staged batch: {latestBatch.status} ·{" "}
-                {latestBatch.validRows}/{latestBatch._count.rows} rows ·{" "}
-                {latestBatch.createdAt.toISOString().slice(0, 10)}
+                Last file: {importStatusWord(latestBatch.status).label} ·{" "}
+                {latestBatch.totalRows} members ·{" "}
+                {formatDayMonthYear(latestBatch.createdAt)}
               </p>
             ) : null}
           </div>
@@ -677,8 +671,8 @@ export function MemberImportContent({
           <div className="flex flex-col items-stretch justify-between gap-3 border-t border-border/70 px-3 py-4 sm:flex-row sm:items-center sm:px-6">
             <p className="text-sm text-muted-foreground">
               {shouldStageImport
-                ? "This will save a review batch for `/settings/imports`."
-                : "This will apply valid member rows to the registry now."}
+                ? "The file is saved. Add it later from Imports."
+                : "The members are added now."}
             </p>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-3">
               <Button type="button" variant="ghost" onClick={onClose}>
@@ -697,11 +691,11 @@ export function MemberImportContent({
               >
                 {isPending
                   ? shouldStageImport
-                    ? "Staging..."
-                    : "Importing..."
+                    ? "Saving…"
+                    : "Adding…"
                   : shouldStageImport
-                    ? "Stage members import"
-                    : "Import members"}
+                    ? "Save for later"
+                    : "Add members"}
               </Button>
             </div>
           </div>

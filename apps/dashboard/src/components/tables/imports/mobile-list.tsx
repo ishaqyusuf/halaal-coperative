@@ -13,20 +13,18 @@ export function ImportMobileList({
   fetchNextPage,
   hasNextPage,
   isFetchingNextPage,
-  onOpenApply,
   onOpenDetails,
 }: {
   batches: ImportBatchRow[]
   fetchNextPage: () => Promise<unknown>
   hasNextPage: boolean
   isFetchingNextPage: boolean
-  onOpenApply: (batch: ImportBatchRow) => void
   onOpenDetails: (batch: ImportBatchRow) => void
 }) {
   const parentRef = useRef<HTMLDivElement>(null)
   const rowVirtualizer = useVirtualizer({
     count: batches.length,
-    estimateSize: () => 214,
+    estimateSize: () => 81,
     getScrollElement: () => parentRef.current,
     overscan: 6,
   })
@@ -76,11 +74,7 @@ export function ImportMobileList({
               ref={rowVirtualizer.measureElement}
               style={{ transform: `translateY(${virtualRow.start}px)` }}
             >
-              <ImportMobileItem
-                batch={batch}
-                onOpenApply={onOpenApply}
-                onOpenDetails={onOpenDetails}
-              />
+              <ImportMobileItem batch={batch} onOpenDetails={onOpenDetails} />
             </div>
           )
         })}

@@ -10,12 +10,34 @@ import type {
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
-import { applyCharge } from "./charges"
-import { recordContribution } from "./contributions"
+import {
+  postImportedCharges,
+  postImportedContributions,
+  postImportedLoanMigrations,
+  postImportedMembers,
+  resolveImportedRepaymentLoans,
+} from "./import-posting"
 import { postRepayment } from "./loans"
 
 type ImportResult = {
   processed: number
+}
+
+/**
+ * Runs `fn` in a transaction, or straight on the client when it already is
+ * one (an interactive transaction client has no `$transaction`).
+ */
+function runAtomic<T>(
+  prisma: PrismaClient,
+  fn: (db: PrismaClient) => Promise<T>
+): Promise<T> {
+  return typeof (prisma as { $transaction?: unknown }).$transaction ===
+    "function"
+    ? prisma.$transaction((tx) => fn(tx as unknown as PrismaClient), {
+        maxWait: 10_000,
+        timeout: 120_000,
+      })
+    : fn(prisma)
 }
 
 export type ImportKind =
@@ -120,6 +142,7 @@ async function assertMemberRecordImportsOpen(
 async function applyImportRows(
   input: {
     actorUserId: string
+    batchId?: string
     kind: ImportKind
     rows: Prisma.JsonValue[]
     tenantId: string
@@ -164,6 +187,7 @@ async function applyImportRows(
       return importContributions(
         {
           actorUserId: input.actorUserId,
+          batchId: input.batchId,
           rows: castImportRows("contributions", input.rows) as Parameters<
             typeof importContributions
           >[0]["rows"],
@@ -175,6 +199,7 @@ async function applyImportRows(
       return importCharges(
         {
           actorUserId: input.actorUserId,
+          batchId: input.batchId,
           rows: castImportRows("charges", input.rows) as Parameters<
             typeof importCharges
           >[0]["rows"],
@@ -208,6 +233,9 @@ async function applyImportRows(
   }
 }
 
+/** Statuses that block adding the same file again. */
+const settledImportStatuses = ["applied", "applying", "partial"]
+
 export async function createImportBatch(
   input: {
     actorUserId: string
@@ -221,6 +249,10 @@ export async function createImportBatch(
       primaryValue?: string | null
       rowIndex: number
     }>
+    /**
+     * The file as the server read it back (canonical CSV), so the same file
+     * uploaded again, as CSV or as a workbook, matches an earlier batch.
+     */
     sourceCsv: string
     tenantId: string
     validRows: number
@@ -231,59 +263,145 @@ export async function createImportBatch(
   if (!prisma) throw new Error("Database not configured")
   await assertMemberRecordImportsOpen(input.tenantId, prisma)
 
-  return prisma.$transaction(async (tx) => {
-    const batch = await tx.importBatch.create({
-      data: {
-        createdByUserId: input.actorUserId,
-        duplicateRowCount: input.duplicateRowCount,
-        existingMatchCount: input.existingMatchCount,
-        importType: input.importType,
-        sourceCsv: input.sourceCsv,
-        status: "draft",
-        tenantId: input.tenantId,
-        totalRows: input.rows.length,
-        validRows: input.validRows,
-        rows: {
-          create: input.rows.map((row) => ({
+  return prisma.$transaction(
+    async (tx) => {
+      // One import of a kind at a time per cooperative, so two uploads of the
+      // same file cannot both pass the check below.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`import:${input.tenantId}:${input.importType}`}))`
+
+      const sameFile = await tx.importBatch.findFirst({
+        orderBy: { createdAt: "desc" },
+        select: { appliedAt: true, id: true, status: true },
+        where: {
+          importType: input.importType,
+          sourceCsv: input.sourceCsv,
+          status: { in: [...settledImportStatuses, "draft"] },
+          tenantId: input.tenantId,
+        },
+      })
+
+      if (sameFile && settledImportStatuses.includes(sameFile.status)) {
+        throw ExpectedQueryError.conflict(
+          sameFile.status === "applying"
+            ? "This file is being added right now. Wait a moment, then check the list."
+            : "This file has already been added. Nothing was added again."
+        )
+      }
+
+      if (sameFile) {
+        return { id: sameFile.id, reused: true }
+      }
+
+      const batch = await tx.importBatch.create({
+        data: {
+          createdByUserId: input.actorUserId,
+          duplicateRowCount: input.duplicateRowCount,
+          existingMatchCount: input.existingMatchCount,
+          importType: input.importType,
+          sourceCsv: input.sourceCsv,
+          status: "draft",
+          tenantId: input.tenantId,
+          totalRows: input.rows.length,
+          validRows: input.validRows,
+        },
+        select: { id: true },
+      })
+
+      for (let start = 0; start < input.rows.length; start += 1000) {
+        await tx.importBatchRow.createMany({
+          data: input.rows.slice(start, start + 1000).map((row) => ({
             duplicateInFile: row.duplicateInFile,
             existingMatch: row.existingMatch,
+            importBatchId: batch.id,
             payload: row.payload as Prisma.InputJsonValue,
             primaryValue: row.primaryValue ?? null,
             rowIndex: row.rowIndex,
             tenantId: input.tenantId,
           })),
-        },
-      },
-      include: {
-        createdByUser: { select: { id: true, fullName: true, email: true } },
-        rows: {
-          orderBy: { rowIndex: "asc" },
-          take: 5,
-        },
-      },
-    })
+        })
+      }
 
-    await createAuditLogEntry(
-      {
-        action: "import_batch.created",
-        actorType: "user",
-        actorUserId: input.actorUserId,
-        entityId: batch.id,
-        entityType: "ImportBatch",
-        metadata: {
-          duplicateRowCount: input.duplicateRowCount,
-          existingMatchCount: input.existingMatchCount,
-          importType: input.importType,
-          totalRows: input.rows.length,
-          validRows: input.validRows,
+      await createAuditLogEntry(
+        {
+          action: "import_batch.created",
+          actorType: "user",
+          actorUserId: input.actorUserId,
+          entityId: batch.id,
+          entityType: "ImportBatch",
+          metadata: {
+            duplicateRowCount: input.duplicateRowCount,
+            existingMatchCount: input.existingMatchCount,
+            importType: input.importType,
+            totalRows: input.rows.length,
+            validRows: input.validRows,
+          },
+          tenantId: input.tenantId,
         },
-        tenantId: input.tenantId,
-      },
-      tx as unknown as PrismaClient
-    )
+        tx as unknown as PrismaClient
+      )
 
-    return batch
+      return { id: batch.id, reused: false }
+    },
+    { maxWait: 10_000, timeout: 60_000 }
+  )
+}
+
+const importBatchListSelect = {
+  appliedAt: true,
+  createdAt: true,
+  createdByUser: { select: { email: true, fullName: true, id: true } },
+  duplicateRowCount: true,
+  errorMessage: true,
+  existingMatchCount: true,
+  id: true,
+  importType: true,
+  status: true,
+  totalRows: true,
+  validRows: true,
+} satisfies Prisma.ImportBatchSelect
+
+export type ImportKindSummary = {
+  addedRows: number
+  importType: string
+  lastAddedAt: Date | null
+  /** Saved or stopped batches still to be added. */
+  waitingBatches: number
+}
+
+/** What has been imported, per kind, for the imports overview: one grouped query. */
+export async function getImportKindSummaries(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+): Promise<ImportKindSummary[]> {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const groups = await prisma.importBatch.groupBy({
+    _count: { _all: true },
+    _max: { appliedAt: true },
+    _sum: { totalRows: true },
+    by: ["importType", "status"],
+    where: { tenantId },
   })
+  const byKind = new Map<string, ImportKindSummary>()
+
+  for (const group of groups) {
+    const summary = byKind.get(group.importType) ?? {
+      addedRows: 0,
+      importType: group.importType,
+      lastAddedAt: null,
+      waitingBatches: 0,
+    }
+    if (group.status === "applied") {
+      summary.addedRows += group._sum.totalRows ?? 0
+      summary.lastAddedAt = group._max.appliedAt
+    } else if (group.status === "draft" || group.status === "failed") {
+      summary.waitingBatches += group._count._all
+    }
+    byKind.set(group.importType, summary)
+  }
+
+  return [...byKind.values()]
 }
 
 export async function listImportBatches(
@@ -341,6 +459,8 @@ export async function listImportBatches(
     return [{ createdAt: "desc" }]
   })()
 
+  // List rows carry only what the list shows: never the stored file or row
+  // payloads, which can be megabytes for a large import.
   return prisma.importBatch.findMany({
     ...(filters.cursor ? { cursor: { id: filters.cursor }, skip: 1 } : {}),
     where: {
@@ -366,21 +486,20 @@ export async function listImportBatches(
           }
         : {}),
     },
-    include: {
-      createdByUser: { select: { id: true, fullName: true, email: true } },
-      rows: {
-        orderBy: { rowIndex: "asc" },
-        take: 5,
-      },
-      _count: {
-        select: {
-          rows: true,
-        },
-      },
-    },
     orderBy,
+    select: importBatchListSelect,
     take: pageSize,
   })
+}
+
+/** Rows shown in a batch's details: enough to recognise the file. */
+const IMPORT_BATCH_PREVIEW_ROWS = 20
+
+const amountFieldByKind: Partial<Record<ImportKind, string>> = {
+  charges: "amount",
+  contributions: "amount",
+  loan_migrations: "outstandingPrincipal",
+  repayment_migrations: "amount",
 }
 
 export async function getImportBatch(
@@ -394,16 +513,19 @@ export async function getImportBatch(
   if (!prisma) throw new Error("Database not configured")
 
   const batch = await prisma.importBatch.findFirst({
-    include: {
-      createdByUser: { select: { id: true, fullName: true, email: true } },
+    select: {
+      ...importBatchListSelect,
       rows: {
         orderBy: { rowIndex: "asc" },
-        take: 5,
-      },
-      _count: {
         select: {
-          rows: true,
+          duplicateInFile: true,
+          existingMatch: true,
+          id: true,
+          payload: true,
+          primaryValue: true,
+          rowIndex: true,
         },
+        take: IMPORT_BATCH_PREVIEW_ROWS,
       },
     },
     where: {
@@ -416,7 +538,19 @@ export async function getImportBatch(
     throw ExpectedQueryError.notFound("Import batch not found")
   }
 
-  return batch
+  // Money files show their total, summed in the database.
+  const amountField = amountFieldByKind[batch.importType as ImportKind]
+  let totalAmount: number | null = null
+  if (amountField) {
+    const [row] = await prisma.$queryRaw<Array<{ total: string | null }>>`
+      SELECT sum((payload ->> ${amountField})::numeric)::text AS total
+      FROM import_batch_rows
+      WHERE import_batch_id = ${batch.id}::uuid AND tenant_id = ${input.tenantId}::uuid
+    `
+    totalAmount = row?.total == null ? 0 : Number(row.total)
+  }
+
+  return { ...batch, totalAmount }
 }
 
 export async function getImportBatchKind(
@@ -446,6 +580,42 @@ export async function getImportBatchKind(
   return batch.importType as ImportKind
 }
 
+const importDateFields = [
+  "assessedAt",
+  "disbursedAt",
+  "firstRepaymentDueAt",
+  "joinedAt",
+  "postedAt",
+  "requestedAt",
+]
+
+/** Saved rows are JSON, so their dates come back as text: make them dates again. */
+export function reviveImportDates(payload: Prisma.JsonValue): Prisma.JsonValue {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return payload
+  }
+  const row: Record<string, unknown> = { ...payload }
+  for (const field of importDateFields) {
+    const value = row[field]
+    if (typeof value === "string" && value) {
+      const date = new Date(value)
+      if (!Number.isNaN(date.getTime())) row[field] = date
+    }
+  }
+  return row as Prisma.JsonValue
+}
+
+/** Kinds whose writers run inside one transaction (all or nothing). */
+function isAtomicImportKind(kind: ImportKind) {
+  return kind !== "repayment_migrations"
+}
+
+function importFailureMessage(error: unknown) {
+  return error instanceof ExpectedQueryError
+    ? error.message
+    : "Something went wrong while adding this file. Nothing was added."
+}
+
 export async function applyImportBatch(
   input: {
     actorUserId: string
@@ -458,14 +628,10 @@ export async function applyImportBatch(
   if (!prisma) throw new Error("Database not configured")
 
   const batch = await prisma.importBatch.findFirst({
+    select: { id: true, importType: true, status: true, updatedAt: true },
     where: {
       id: input.batchId,
       tenantId: input.tenantId,
-    },
-    include: {
-      rows: {
-        orderBy: { rowIndex: "asc" },
-      },
     },
   })
 
@@ -478,124 +644,171 @@ export async function applyImportBatch(
       "This import batch has already been applied."
     )
   }
+  if (batch.status === "partial") {
+    throw ExpectedQueryError.precondition(
+      "Part of this file was added before it stopped. Check the records before adding anything again."
+    )
+  }
 
+  const kind = batch.importType as ImportKind
   await assertMemberRecordImportsOpen(input.tenantId, prisma)
 
-  try {
-    if (batch.importType === "loan_products") {
-      return await prisma.$transaction(
-        async (tx) => {
-          const claim = await tx.importBatch.updateMany({
-            data: { errorMessage: null },
-            where: {
-              id: batch.id,
-              status: { in: ["draft", "failed"] },
-              tenantId: input.tenantId,
-            },
-          })
+  // Claim the batch so two clicks (or two people) cannot both add it. An
+  // all-or-nothing batch left "applying" by a crash wrote nothing, so it can be
+  // claimed again after ten minutes.
+  const staleBefore = new Date(Date.now() - 10 * 60 * 1000)
+  const claim = await prisma.importBatch.updateMany({
+    data: { errorMessage: null, status: "applying" },
+    where: {
+      id: batch.id,
+      tenantId: input.tenantId,
+      OR: [
+        { status: { in: ["draft", "failed"] } },
+        ...(isAtomicImportKind(kind)
+          ? [{ status: "applying", updatedAt: { lt: staleBefore } }]
+          : []),
+      ],
+    },
+  })
 
-          if (claim.count !== 1) {
-            throw ExpectedQueryError.conflict(
-              "This import batch has already been applied or is being applied."
-            )
-          }
-
-          const result = await applyLoanProductRows(
-            {
-              actorUserId: input.actorUserId,
-              rows: castImportRows("loan_products", batch.rows.map((row) => row.payload)) as Parameters<
-                typeof importLoanProducts
-              >[0]["rows"],
-              tenantId: input.tenantId,
-            },
-            tx
-          )
-
-          await tx.importBatch.update({
-            where: { id: batch.id },
-            data: {
-              appliedAt: new Date(),
-              errorMessage: null,
-              status: "applied",
-            },
-          })
-
-          await createAuditLogEntry(
-            {
-              action: "import_batch.applied",
-              actorType: "user",
-              actorUserId: input.actorUserId,
-              entityId: batch.id,
-              entityType: "ImportBatch",
-              metadata: {
-                importType: batch.importType,
-                processed: result.processed,
-              },
-              tenantId: input.tenantId,
-            },
-            tx as unknown as PrismaClient
-          )
-
-          return result
-        },
-        { timeout: 15_000 }
-      )
-    }
-
-    const result = await applyImportRows(
-      {
-        actorUserId: input.actorUserId,
-        kind: batch.importType as ImportKind,
-        rows: batch.rows.map((row) => row.payload),
-        tenantId: input.tenantId,
-      },
-      prisma
+  if (claim.count !== 1) {
+    throw ExpectedQueryError.conflict(
+      "This import batch has already been applied or is being applied."
     )
+  }
 
-    await prisma.importBatch.update({
-      where: { id: batch.id },
-      data: {
-        appliedAt: new Date(),
-        errorMessage: null,
-        status: "applied",
-      },
+  const rows = (
+    await prisma.importBatchRow.findMany({
+      orderBy: { rowIndex: "asc" },
+      select: { payload: true },
+      where: { importBatchId: batch.id, tenantId: input.tenantId },
     })
+  ).map((row) => reviveImportDates(row.payload))
 
-    await createAuditLogEntry(
-      {
-        action: "import_batch.applied",
-        actorType: "user",
-        actorUserId: input.actorUserId,
-        entityId: batch.id,
-        entityType: "ImportBatch",
-        metadata: {
-          importType: batch.importType,
-          processed: result.processed,
-        },
-        tenantId: input.tenantId,
+  if (!isAtomicImportKind(kind)) {
+    return applyRepaymentImportBatch({
+      actorUserId: input.actorUserId,
+      batchId: batch.id,
+      prisma,
+      rows,
+      tenantId: input.tenantId,
+    })
+  }
+
+  try {
+    return await prisma.$transaction(
+      async (tx) => {
+        const client = tx as unknown as PrismaClient
+        const result = await applyImportRows(
+          {
+            actorUserId: input.actorUserId,
+            batchId: batch.id,
+            kind,
+            rows,
+            tenantId: input.tenantId,
+          },
+          client
+        )
+
+        await tx.importBatch.update({
+          data: {
+            appliedAt: new Date(),
+            errorMessage: null,
+            status: "applied",
+          },
+          where: { id: batch.id },
+        })
+        await createAuditLogEntry(
+          {
+            action: "import_batch.applied",
+            actorType: "user",
+            actorUserId: input.actorUserId,
+            entityId: batch.id,
+            entityType: "ImportBatch",
+            metadata: { importType: kind, processed: result.processed },
+            tenantId: input.tenantId,
+          },
+          client
+        )
+
+        return result
       },
-      prisma
+      { maxWait: 10_000, timeout: 120_000 }
     )
-
-    return result
   } catch (error) {
     await prisma.importBatch.updateMany({
-      data: {
-        errorMessage:
-          error instanceof Error
-            ? error.message
-            : "Import batch application failed.",
-        status: "failed",
-      },
-      where: {
-        id: batch.id,
-        status: { not: "applied" },
-        tenantId: input.tenantId,
-      },
+      data: { errorMessage: importFailureMessage(error), status: "failed" },
+      where: { id: batch.id, status: "applying", tenantId: input.tenantId },
     })
 
     throw error
   }
+}
+
+/**
+ * Repayments post through the live repayment path (allocation to schedule
+ * items in its own serialisable transaction), so they are added one by one.
+ * The whole file is checked first; if a row still fails after some were
+ * added, the batch is marked "partial" and is never applied again.
+ */
+async function applyRepaymentImportBatch(input: {
+  actorUserId: string
+  batchId: string
+  prisma: PrismaClient
+  rows: Prisma.JsonValue[]
+  tenantId: string
+}) {
+  const rows = castImportRows("repayment_migrations", input.rows) as Parameters<
+    typeof importRepaymentMigrations
+  >[0]["rows"]
+  let processed = 0
+
+  try {
+    processed = (
+      await importRepaymentMigrations(
+        {
+          actorUserId: input.actorUserId,
+          onRowPosted: () => {
+            processed += 1
+          },
+          rows,
+          tenantId: input.tenantId,
+        },
+        input.prisma
+      )
+    ).processed
+  } catch (error) {
+    await input.prisma.importBatch.updateMany({
+      data: {
+        errorMessage:
+          processed > 0
+            ? `${processed} of ${rows.length} repayments were added before this stopped: ${importFailureMessage(error)}`
+            : importFailureMessage(error),
+        status: processed > 0 ? "partial" : "failed",
+      },
+      where: { id: input.batchId, tenantId: input.tenantId },
+    })
+    throw error
+  }
+
+  await input.prisma.importBatch.update({
+    data: { appliedAt: new Date(), errorMessage: null, status: "applied" },
+    where: { id: input.batchId },
+  })
+  await createAuditLogEntry(
+    {
+      action: "import_batch.applied",
+      actorType: "user",
+      actorUserId: input.actorUserId,
+      entityId: input.batchId,
+      entityType: "ImportBatch",
+      metadata: { importType: "repayment_migrations", processed },
+      tenantId: input.tenantId,
+    },
+    input.prisma
+  )
+
+  return { processed }
 }
 
 export async function getImportReferenceData(
@@ -607,33 +820,23 @@ export async function getImportReferenceData(
 
   const [members, deductionSources, loanProducts, chargeDefinitions] =
     await Promise.all([
+      // Every member number (not a capped page), so a large cooperative's
+      // file is checked against all of its members.
       prisma.member.findMany({
         where: { tenantId },
-        select: { id: true, fullName: true, memberNumber: true },
-        orderBy: { createdAt: "desc" },
-        take: 500,
+        select: { memberNumber: true },
       }),
       prisma.deductionSource.findMany({
         where: { tenantId },
-        select: { id: true, name: true },
-        orderBy: { createdAt: "desc" },
+        select: { name: true },
       }),
       prisma.loanProduct.findMany({
         where: { tenantId },
-        select: {
-          code: true,
-          id: true,
-          loanType: true,
-          name: true,
-          termMonths: true,
-        },
-        orderBy: { createdAt: "desc" },
+        select: { code: true, name: true },
       }),
       prisma.chargeDefinition.findMany({
         where: { tenantId },
-        select: { id: true, code: true, name: true },
-        orderBy: { createdAt: "desc" },
-        take: 200,
+        select: { code: true },
       }),
     ])
 
@@ -735,7 +938,9 @@ async function assertWorkplaceNameFree(input: {
     },
   })
   if (existing) {
-    throw ExpectedQueryError.conflict("A workplace with this name already exists.")
+    throw ExpectedQueryError.conflict(
+      "A workplace with this name already exists."
+    )
   }
 }
 
@@ -811,33 +1016,6 @@ export async function renameWorkplace(
   })
 }
 
-function buildRepaymentSchedule(input: {
-  monthlyRepaymentAmount?: number
-  principalAmount: number
-  startDate: Date
-  termMonths: number
-}) {
-  const monthlyAmount =
-    input.monthlyRepaymentAmount && input.monthlyRepaymentAmount > 0
-      ? Number(input.monthlyRepaymentAmount.toFixed(2))
-      : Number((input.principalAmount / input.termMonths).toFixed(2))
-
-  return Array.from({ length: input.termMonths }, (_, index) => {
-    const dueAt = new Date(input.startDate)
-    dueAt.setUTCMonth(dueAt.getUTCMonth() + index)
-
-    return {
-      amountPaid: 0,
-      chargeDue: 0,
-      dueAt,
-      installmentNumber: index + 1,
-      principalDue: monthlyAmount,
-      status: "pending" as const,
-      totalDue: monthlyAmount,
-    }
-  })
-}
-
 export async function importDeductionSources(
   input: {
     actorUserId: string
@@ -864,86 +1042,83 @@ export async function importDeductionSources(
     )
   }
 
-  return prisma.$transaction(
-    async (tx) => {
-      const existingSources = await tx.deductionSource.findMany({
-        include: {
-          _count: {
-            select: { collectionSourceContributionBatches: true },
-          },
+  return runAtomic(prisma, async (tx) => {
+    const existingSources = await tx.deductionSource.findMany({
+      include: {
+        _count: {
+          select: { collectionSourceContributionBatches: true },
         },
-        where: {
-          name: { in: input.rows.map((row) => row.name) },
-          tenantId: input.tenantId,
-        },
-      })
-      const existingByName = new Map(
-        existingSources.map((source) => [source.name, source])
-      )
-      const createdIds: string[] = []
-      const updatedIds: string[] = []
+      },
+      where: {
+        name: { in: input.rows.map((row) => row.name) },
+        tenantId: input.tenantId,
+      },
+    })
+    const existingByName = new Map(
+      existingSources.map((source) => [source.name, source])
+    )
+    const createdIds: string[] = []
+    const updatedIds: string[] = []
 
-      for (const row of input.rows) {
-        const existing = existingByName.get(row.name)
-        const externalReference = row.externalReference?.trim() || null
+    for (const row of input.rows) {
+      const existing = existingByName.get(row.name)
+      const externalReference = row.externalReference?.trim() || null
 
-        if (existing) {
-          const changesHistoricalMeaning =
-            existing.type !== row.type ||
-            existing.externalReference !== externalReference
+      if (existing) {
+        const changesHistoricalMeaning =
+          existing.type !== row.type ||
+          existing.externalReference !== externalReference
 
-          if (
-            changesHistoricalMeaning &&
-            existing._count.collectionSourceContributionBatches > 0
-          ) {
-            throw ExpectedQueryError.precondition(
-              `${row.name} already has collection batches. Use the live correction workflow instead of changing its imported type or external reference.`
-            )
-          }
-
-          const updated = await tx.deductionSource.update({
-            data: {
-              externalReference,
-              type: row.type,
-            },
-            where: { id: existing.id },
-          })
-          updatedIds.push(updated.id)
-          continue
+        if (
+          changesHistoricalMeaning &&
+          existing._count.collectionSourceContributionBatches > 0
+        ) {
+          throw ExpectedQueryError.precondition(
+            `${row.name} already has collection batches. Use the live correction workflow instead of changing its imported type or external reference.`
+          )
         }
 
-        const created = await tx.deductionSource.create({
+        const updated = await tx.deductionSource.update({
           data: {
             externalReference,
-            isActive: true,
-            name: row.name,
-            tenantId: input.tenantId,
             type: row.type,
           },
+          where: { id: existing.id },
         })
-        createdIds.push(created.id)
+        updatedIds.push(updated.id)
+        continue
       }
 
-      await createAuditLogEntry(
-        {
-          action: "import.deduction_sources",
-          actorType: "user",
-          actorUserId: input.actorUserId,
-          entityType: "DeductionSource",
-          metadata: {
-            createdIds,
-            processed: input.rows.length,
-            updatedIds,
-          },
+      const created = await tx.deductionSource.create({
+        data: {
+          externalReference,
+          isActive: true,
+          name: row.name,
           tenantId: input.tenantId,
+          type: row.type,
         },
-        tx as unknown as PrismaClient
-      )
+      })
+      createdIds.push(created.id)
+    }
 
-      return { processed: input.rows.length }
-    },
-    { timeout: 15_000 }
-  )
+    await createAuditLogEntry(
+      {
+        action: "import.deduction_sources",
+        actorType: "user",
+        actorUserId: input.actorUserId,
+        entityType: "DeductionSource",
+        metadata: {
+          createdIds,
+          processed: input.rows.length,
+          updatedIds,
+        },
+        tenantId: input.tenantId,
+      },
+      tx as unknown as PrismaClient
+    )
+
+    return { processed: input.rows.length }
+  })
 }
 
 type LoanProductImportInput = {
@@ -984,8 +1159,7 @@ function normalizeLoanProductRows(rows: LoanProductImportInput["rows"]) {
   if (
     normalizedRows.some(
       (row) =>
-        !Number.isFinite(row.maxSavingsMultiple) ||
-        row.maxSavingsMultiple <= 0
+        !Number.isFinite(row.maxSavingsMultiple) || row.maxSavingsMultiple <= 0
     )
   ) {
     throw ExpectedQueryError.precondition(
@@ -1147,33 +1321,13 @@ export async function importLoanProducts(
   await assertMemberRecordImportsOpen(input.tenantId, prisma)
   normalizeLoanProductRows(input.rows)
 
-  return prisma.$transaction(
-    (tx) => applyLoanProductRows(input, tx),
-    { timeout: 15_000 }
-  )
+  return runAtomic(prisma, (tx) => applyLoanProductRows(input, tx))
 }
 
 export async function importMembers(
   input: {
     actorUserId: string
-    rows: Array<{
-      deductionSourceName?: string
-      address?: string
-      email?: string
-      fullName: string
-      governmentIdNumber?: string
-      joinedAt: Date
-      kycDocumentType?: string
-      kycReviewNotes?: string
-      kycStatus?: KycStatus
-      memberNumber: string
-      memberType: MemberType
-      monthlyCommitment?: number
-      occupation?: string
-      openingSavingsBalance?: number
-      phoneNumber?: string
-      status?: MemberStatus
-    }>
+    rows: Parameters<typeof postImportedMembers>[1]["rows"]
     tenantId: string
   },
   prismaOverride?: PrismaClient
@@ -1183,172 +1337,25 @@ export async function importMembers(
 
   await assertMemberRecordImportsOpen(input.tenantId, prisma)
 
-  let processed = 0
-
-  for (const row of input.rows) {
-    const deductionSource = row.deductionSourceName
-      ? await prisma.deductionSource.findFirst({
-          where: {
-            name: row.deductionSourceName,
-            tenantId: input.tenantId,
-          },
-        })
-      : null
-
-    const member = await prisma.member.upsert({
-      where: {
-        tenantId_memberNumber: {
-          memberNumber: row.memberNumber,
-          tenantId: input.tenantId,
-        },
-      },
-      update: {
-        deductionSourceId: deductionSource?.id ?? null,
-        fullName: row.fullName,
-        joinedAt: row.joinedAt,
-        memberType: row.memberType,
-        status: row.status ?? "active",
-        ...(row.address !== undefined && {
-          address: row.address.trim() || null,
-        }),
-        ...(row.email !== undefined && {
-          email: row.email.trim() || null,
-        }),
-        ...(row.governmentIdNumber !== undefined && {
-          governmentIdNumber: row.governmentIdNumber.trim() || null,
-        }),
-        ...(row.kycDocumentType !== undefined && {
-          kycDocumentType: row.kycDocumentType.trim() || null,
-        }),
-        ...(row.kycReviewNotes !== undefined && {
-          kycReviewNotes: row.kycReviewNotes.trim() || null,
-        }),
-        ...(row.kycStatus !== undefined && { kycStatus: row.kycStatus }),
-        ...(row.occupation !== undefined && {
-          occupation: row.occupation.trim() || null,
-        }),
-        ...(row.openingSavingsBalance !== undefined && {
-          totalSavingsSnapshot: row.openingSavingsBalance,
-        }),
-        ...(row.phoneNumber !== undefined && {
-          phoneNumber: row.phoneNumber.trim() || null,
-        }),
-      },
-      create: {
-        address: row.address?.trim() || null,
-        deductionSourceId: deductionSource?.id ?? null,
-        email: row.email?.trim() || null,
-        fullName: row.fullName,
-        governmentIdNumber: row.governmentIdNumber?.trim() || null,
-        joinedAt: row.joinedAt,
-        kycDocumentType: row.kycDocumentType?.trim() || null,
-        kycReviewNotes: row.kycReviewNotes?.trim() || null,
-        kycStatus: row.kycStatus ?? "not_started",
-        memberNumber: row.memberNumber,
-        memberType: row.memberType,
-        occupation: row.occupation?.trim() || null,
-        phoneNumber: row.phoneNumber?.trim() || null,
-        status: row.status ?? "active",
+  return runAtomic(prisma, async (db) => {
+    const result = await postImportedMembers(db, input)
+    await createAuditLogEntry(
+      {
+        action: "import.members",
+        actorType: "user",
+        actorUserId: input.actorUserId,
+        entityType: "Member",
+        metadata: { processed: result.processed },
         tenantId: input.tenantId,
-        totalSavingsSnapshot: row.openingSavingsBalance ?? 0,
       },
-    })
-
-    if (row.monthlyCommitment && row.monthlyCommitment > 0) {
-      const existingPlan = await prisma.contributionPlan.findFirst({
-        orderBy: { startsAt: "desc" },
-        where: {
-          isActive: true,
-          memberId: member.id,
-          tenantId: input.tenantId,
-        },
-      })
-
-      if (existingPlan) {
-        await prisma.contributionPlan.update({
-          data: {
-            amount: row.monthlyCommitment,
-            name: "Monthly commitment",
-            startsAt: row.joinedAt,
-          },
-          where: { id: existingPlan.id },
-        })
-      } else {
-        await prisma.contributionPlan.create({
-          data: {
-            amount: row.monthlyCommitment,
-            interval: "monthly",
-            isActive: true,
-            memberId: member.id,
-            name: "Monthly commitment",
-            startsAt: row.joinedAt,
-            tenantId: input.tenantId,
-          },
-        })
-      }
-
-      const existingAmountLog = await prisma.memberAmountLog.findFirst({
-        where: {
-          effectiveFrom: row.joinedAt,
-          memberId: member.id,
-          tenantId: input.tenantId,
-        },
-      })
-
-      if (existingAmountLog) {
-        await prisma.memberAmountLog.update({
-          data: {
-            amount: row.monthlyCommitment,
-            notes: "Imported initial monthly commitment.",
-          },
-          where: { id: existingAmountLog.id },
-        })
-      } else {
-        await prisma.memberAmountLog.create({
-          data: {
-            amount: row.monthlyCommitment,
-            createdByUserId: input.actorUserId,
-            effectiveFrom: row.joinedAt,
-            memberId: member.id,
-            notes: "Imported initial monthly commitment.",
-            tenantId: input.tenantId,
-          },
-        })
-      }
-    }
-    processed += 1
-  }
-
-  await createAuditLogEntry(
-    {
-      action: "import.members",
-      actorType: "user",
-      actorUserId: input.actorUserId,
-      entityType: "Member",
-      metadata: { processed },
-      tenantId: input.tenantId,
-    },
-    prisma
-  )
-
-  return { processed }
+      db
+    )
+    return result
+  })
 }
 
 export async function importContributions(
-  input: {
-    actorUserId: string
-    rows: Array<{
-      amount: number
-      channel: "cash" | "manual" | "payroll" | "transfer"
-      committedAmount?: number
-      extraSavingsAmount?: number
-      memberNumber: string
-      periodLabel?: string
-      postedAt: Date
-      reference?: string
-    }>
-    tenantId: string
-  },
+  input: Parameters<typeof postImportedContributions>[1],
   prismaOverride?: PrismaClient
 ): Promise<ImportResult> {
   const prisma = prismaOverride ?? createPrismaClient()
@@ -1356,71 +1363,25 @@ export async function importContributions(
 
   await assertMemberRecordImportsOpen(input.tenantId, prisma)
 
-  let processed = 0
-
-  for (const row of input.rows) {
-    const member = await prisma.member.findFirst({
-      where: {
-        memberNumber: row.memberNumber,
-        tenantId: input.tenantId,
-      },
-    })
-
-    if (!member) {
-      throw ExpectedQueryError.notFound(
-        `Member not found for contribution import: ${row.memberNumber}`
-      )
-    }
-
-    await recordContribution(
+  return runAtomic(prisma, async (db) => {
+    const result = await postImportedContributions(db, input)
+    await createAuditLogEntry(
       {
+        action: "import.contributions",
+        actorType: "user",
         actorUserId: input.actorUserId,
-        amount: row.amount,
-        channel: row.channel,
-        committedAmount: row.committedAmount,
-        extraSavingsAmount: row.extraSavingsAmount,
-        memberId: member.id,
-        periodLabel: row.periodLabel,
-        postedAt: row.postedAt,
-        reference: row.reference,
-        sourceType: "import",
+        entityType: "Contribution",
+        metadata: { processed: result.processed },
         tenantId: input.tenantId,
       },
-      prisma
+      db
     )
-
-    processed += 1
-  }
-
-  await createAuditLogEntry(
-    {
-      action: "import.contributions",
-      actorType: "user",
-      actorUserId: input.actorUserId,
-      entityType: "Contribution",
-      metadata: { processed },
-      tenantId: input.tenantId,
-    },
-    prisma
-  )
-
-  return { processed }
+    return result
+  })
 }
 
 export async function importCharges(
-  input: {
-    actorUserId: string
-    rows: Array<{
-      amount: number
-      assessedAt: Date
-      code: string
-      kind: "fixed" | "percentage"
-      memberNumber: string
-      name: string
-      notes?: string
-    }>
-    tenantId: string
-  },
+  input: Parameters<typeof postImportedCharges>[1],
   prismaOverride?: PrismaClient
 ): Promise<ImportResult> {
   const prisma = prismaOverride ?? createPrismaClient()
@@ -1428,97 +1389,25 @@ export async function importCharges(
 
   await assertMemberRecordImportsOpen(input.tenantId, prisma)
 
-  let processed = 0
-
-  for (const row of input.rows) {
-    const member = await prisma.member.findFirst({
-      where: {
-        memberNumber: row.memberNumber,
-        tenantId: input.tenantId,
-      },
-    })
-
-    if (!member) {
-      throw ExpectedQueryError.notFound(
-        `Member not found for charge import: ${row.memberNumber}`
-      )
-    }
-
-    const chargeDefinition = await prisma.chargeDefinition.upsert({
-      where: {
-        tenantId_code: {
-          code: row.code,
-          tenantId: input.tenantId,
-        },
-      },
-      update: {
-        amount: row.amount,
-        isActive: true,
-        kind: row.kind,
-        name: row.name,
-      },
-      create: {
-        amount: row.amount,
-        appliesToMembers: true,
-        code: row.code,
-        isActive: true,
-        kind: row.kind,
-        name: row.name,
-        tenantId: input.tenantId,
-      },
-    })
-
-    await applyCharge(
+  return runAtomic(prisma, async (db) => {
+    const result = await postImportedCharges(db, input)
+    await createAuditLogEntry(
       {
+        action: "import.charges",
+        actorType: "user",
         actorUserId: input.actorUserId,
-        amount: row.amount,
-        assessedAt: row.assessedAt,
-        chargeDefinitionId: chargeDefinition.id,
-        memberId: member.id,
-        notes: row.notes,
-        sourceType: "import",
+        entityType: "ChargeApplication",
+        metadata: { processed: result.processed },
         tenantId: input.tenantId,
       },
-      prisma
+      db
     )
-
-    processed += 1
-  }
-
-  await createAuditLogEntry(
-    {
-      action: "import.charges",
-      actorType: "user",
-      actorUserId: input.actorUserId,
-      entityType: "ChargeApplication",
-      metadata: { processed },
-      tenantId: input.tenantId,
-    },
-    prisma
-  )
-
-  return { processed }
+    return result
+  })
 }
 
 export async function importLoanMigrations(
-  input: {
-    actorUserId: string
-    rows: Array<{
-      disbursedAt?: Date
-      extraMonthlySavingsAmount?: number
-      firstRepaymentDueAt?: Date
-      loanProductName: string
-      loanType: "normal" | "quick"
-      memberNumber: string
-      monthlyRepaymentAmount?: number
-      outstandingPrincipal: number
-      principalAmount: number
-      requestedAt: Date
-      status: LoanStatus
-      termMonths: number
-    }>
-    tenantId: string
-  },
+  input: Parameters<typeof postImportedLoanMigrations>[1],
   prismaOverride?: PrismaClient
 ): Promise<ImportResult> {
   const prisma = prismaOverride ?? createPrismaClient()
@@ -1526,157 +1415,28 @@ export async function importLoanMigrations(
 
   await assertMemberRecordImportsOpen(input.tenantId, prisma)
 
-  let processed = 0
-
-  for (const row of input.rows) {
-    const member = await prisma.member.findFirst({
-      where: {
-        memberNumber: row.memberNumber,
+  return runAtomic(prisma, async (db) => {
+    const result = await postImportedLoanMigrations(db, input)
+    await createAuditLogEntry(
+      {
+        action: "import.loans",
+        actorType: "user",
+        actorUserId: input.actorUserId,
+        entityType: "Loan",
+        metadata: { processed: result.processed },
         tenantId: input.tenantId,
       },
-    })
-
-    if (!member) {
-      throw ExpectedQueryError.notFound(
-        `Member not found for loan import: ${row.memberNumber}`
-      )
-    }
-
-    const loanProduct = await prisma.loanProduct.upsert({
-      where: {
-        tenantId_name: {
-          name: row.loanProductName,
-          tenantId: input.tenantId,
-        },
-      },
-      update: {
-        isActive: true,
-        loanType: row.loanType,
-        maxSavingsMultiple: 2,
-        termMonths: row.termMonths,
-      },
-      create: {
-        isActive: true,
-        loanType: row.loanType,
-        maxSavingsMultiple: 2,
-        name: row.loanProductName,
-        tenantId: input.tenantId,
-        termMonths: row.termMonths,
-      },
-    })
-
-    const estimatedMonthlyServicing =
-      row.monthlyRepaymentAmount && row.monthlyRepaymentAmount > 0
-        ? Number(row.monthlyRepaymentAmount.toFixed(2))
-        : Number((row.principalAmount / row.termMonths).toFixed(2))
-
-    await prisma.$transaction(async (tx) => {
-      const request = await tx.loanRequest.create({
-        data: {
-          availablePoolSnapshot: 0,
-          createdByUserId: input.actorUserId,
-          eligibleAmountSnapshot: Number(member.totalSavingsSnapshot),
-          estimatedMonthlyServicing,
-          extraMonthlySavingsAmount: row.extraMonthlySavingsAmount ?? 0,
-          loanProductId: loanProduct.id,
-          memberId: member.id,
-          requestedAmount: row.principalAmount,
-          requestedAt: row.requestedAt,
-          requestedTermMonths: row.termMonths,
-          reviewNotes: "Imported from migration workflow.",
-          status: "approved",
-          tenantId: input.tenantId,
-        },
-      })
-
-      await tx.loanApproval.create({
-        data: {
-          action: "approved",
-          actedAt: row.requestedAt,
-          actorUserId: input.actorUserId,
-          loanRequestId: request.id,
-          notes: "Approved during historical import.",
-          tenantId: input.tenantId,
-        },
-      })
-
-      const loan = await tx.loan.create({
-        data: {
-          disbursedAt: row.disbursedAt ?? null,
-          estimatedMonthlyServicing,
-          extraMonthlySavingsAmount: row.extraMonthlySavingsAmount ?? 0,
-          firstRepaymentDueAt: row.firstRepaymentDueAt ?? null,
-          loanProductId: loanProduct.id,
-          loanRequestId: request.id,
-          memberId: member.id,
-          outstandingPrincipal: row.outstandingPrincipal,
-          principalAmount: row.principalAmount,
-          status: row.status,
-          tenantId: input.tenantId,
-          termMonths: row.termMonths,
-        },
-      })
-
-      if (row.firstRepaymentDueAt) {
-        const repaymentSchedule = buildRepaymentSchedule({
-          monthlyRepaymentAmount: row.monthlyRepaymentAmount,
-          principalAmount: row.principalAmount,
-          startDate: row.firstRepaymentDueAt,
-          termMonths: row.termMonths,
-        })
-        const repaidAmount = Math.max(
-          0,
-          row.principalAmount - row.outstandingPrincipal
-        )
-        let remainingPaid = repaidAmount
-
-        await tx.repaymentScheduleItem.createMany({
-          data: repaymentSchedule.map((item) => {
-            const applied = Math.min(remainingPaid, item.totalDue)
-            remainingPaid -= applied
-
-            return {
-              amountPaid: applied,
-              chargeDue: item.chargeDue,
-              dueAt: item.dueAt,
-              installmentNumber: item.installmentNumber,
-              loanId: loan.id,
-              principalDue: item.principalDue,
-              status:
-                applied >= item.totalDue
-                  ? "paid"
-                  : applied > 0
-                    ? "partially_paid"
-                    : item.status,
-              tenantId: input.tenantId,
-              totalDue: item.totalDue,
-            }
-          }),
-        })
-      }
-    })
-
-    processed += 1
-  }
-
-  await createAuditLogEntry(
-    {
-      action: "import.loans",
-      actorType: "user",
-      actorUserId: input.actorUserId,
-      entityType: "Loan",
-      metadata: { processed },
-      tenantId: input.tenantId,
-    },
-    prisma
-  )
-
-  return { processed }
+      db
+    )
+    return result
+  })
 }
 
 export async function importRepaymentMigrations(
   input: {
     actorUserId: string
+    /** Called after each repayment is written, so a caller can count progress. */
+    onRowPosted?: () => void
     rows: Array<{
       amount: number
       loanProductName: string
@@ -1692,33 +1452,15 @@ export async function importRepaymentMigrations(
 
   await assertMemberRecordImportsOpen(input.tenantId, prisma)
 
+  const loanIds = await resolveImportedRepaymentLoans(prisma, input)
   let processed = 0
 
-  for (const row of input.rows) {
-    const loan = await prisma.loan.findFirst({
-      where: {
-        tenantId: input.tenantId,
-        member: { memberNumber: row.memberNumber },
-        loanProduct: { name: row.loanProductName },
-      },
-      include: {
-        loanProduct: true,
-        member: true,
-      },
-      orderBy: { createdAt: "desc" },
-    })
-
-    if (!loan) {
-      throw ExpectedQueryError.notFound(
-        `Loan not found for repayment import: ${row.memberNumber} / ${row.loanProductName}`
-      )
-    }
-
+  for (const [index, row] of input.rows.entries()) {
     await postRepayment(
       {
         actorUserId: input.actorUserId,
         amount: row.amount,
-        loanId: loan.id,
+        loanId: loanIds[index]!,
         reference: row.reference,
         sourceType: "import",
         tenantId: input.tenantId,
@@ -1727,6 +1469,7 @@ export async function importRepaymentMigrations(
     )
 
     processed += 1
+    input.onRowPosted?.()
   }
 
   await createAuditLogEntry(

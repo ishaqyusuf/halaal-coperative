@@ -238,12 +238,11 @@ export function MemberImportSheetHeader({
   return (
     <DialogHeader className="border-b border-border/70 px-4 py-4 text-left sm:flex-row sm:items-center sm:justify-between sm:px-6">
       <div>
-        <p className="text-xs font-medium text-muted-foreground">
-          Import
-        </p>
-        <DialogTitle>Import members</DialogTitle>
-        <DialogDescription>
-          Review member rows, then import now or stage for later review.
+        <DialogTitle className="text-xl font-semibold">
+          Add members from a spreadsheet
+        </DialogTitle>
+        <DialogDescription className="text-base">
+          Choose your file, check the rows, then add them.
         </DialogDescription>
       </div>
       <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
@@ -259,7 +258,7 @@ export function MemberImportSheetHeader({
           onSettingsChange={onColumnSettingsChange}
         />
         <Button type="button" variant="outline" onClick={onDownloadTemplate}>
-          Download Excel template
+          Download template
         </Button>
         <Button
           disabled={isReadingFile}
@@ -267,7 +266,7 @@ export function MemberImportSheetHeader({
           variant="outline"
           onClick={() => fileInputRef.current?.click()}
         >
-          {isReadingFile ? "Reading file..." : "Upload Excel/CSV"}
+          {isReadingFile ? "Reading file…" : "Choose file"}
         </Button>
         {devMode ? <DashboardQuickFill onFill={onQuickFill} /> : null}
         <Button type="button" variant="ghost" onClick={onClose}>

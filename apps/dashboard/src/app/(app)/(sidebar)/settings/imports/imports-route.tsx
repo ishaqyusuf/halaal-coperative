@@ -1,26 +1,25 @@
 import {
   createDbRuntime,
-  getImportReferenceData,
+  getImportKindSummaries,
   getTenantInitialMigrationState,
-  listImportBatches,
 } from "@halaalvest/db"
 import {
   ImportsRuntimeUnavailable,
   ImportsSettingsView,
+  type ImportKindProgress,
   type ImportSettingsSection,
 } from "@/components/imports-settings-view"
-import type { ImportBatchRow } from "@/components/tables/imports/data-table"
-import type { ImportAvailability } from "@/components/forms/import-forms"
+import type { ImportAvailability } from "@/components/imports/import-types"
 import { loadImportFilterParams } from "@/hooks/use-import-filter-params"
 import { loadImportParams } from "@/hooks/use-import-params"
 import { loadSortParams } from "@/hooks/use-sort-params"
+import type { DashboardImportKind } from "@/lib/import-csv"
 import { getImportListInput } from "@/lib/imports/import-list-input"
-import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
 import {
-  batchPrefetch,
-  HydrateClient,
-  trpc,
-} from "@/trpc/server"
+  canShowQuickFill,
+  getDashboardServerContext,
+} from "@/lib/server-context"
+import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server"
 import { getInitialTableSettings } from "@/utils/columns"
 import {
   allStaffRoles,
@@ -29,100 +28,49 @@ import {
   workspaceConfigurationRoles,
 } from "@/lib/workspace-access"
 
-type RawImportBatch = Awaited<ReturnType<typeof listImportBatches>>[number]
-
-function getMissingLabels(
-  missingStepKeys: string[],
-  stepLabels: Map<string, string>,
-  stepKeys: string[]
-) {
-  return missingStepKeys
-    .filter((stepKey) => stepKeys.includes(stepKey))
-    .map((stepKey) => stepLabels.get(stepKey) ?? stepKey.replaceAll("_", " "))
+/** Setup steps in plain words, for "finish this first" messages. */
+const setupStepWords: Record<string, string> = {
+  business_profit_pools: "your past business profits (or say there were none)",
+  charge_schedules: "your charges and levies",
+  finance_start_date: "the date your records start",
 }
 
 function buildImportAvailability({
-  backfillLockedReason,
   canConfigureWorkspace,
   canManageFinance,
+  closedReason,
   historicalSetupBlockedReason,
   memberProfilesBlockedReason,
-  migrationToolsLockedReason,
 }: {
-  backfillLockedReason?: string | null
   canConfigureWorkspace: boolean
   canManageFinance: boolean
+  closedReason?: string | null
   historicalSetupBlockedReason?: string | null
   memberProfilesBlockedReason?: string | null
-  migrationToolsLockedReason?: string | null
 }): ImportAvailability {
   const available = (blockedReason?: string | null) =>
     blockedReason
-      ? {
-          blockedReason,
-          isAvailable: false,
-        }
-      : {
-          isAvailable: true,
-        }
+      ? { blockedReason, isAvailable: false }
+      : { isAvailable: true }
   const configurationRoleReason = canConfigureWorkspace
     ? null
-    : "Only workspace configuration staff can import members, collection sources, or loan products."
+    : "Only cooperative admins can add members, workplaces and loan types."
   const financeRoleReason = canManageFinance
     ? null
-    : "Only cooperative finance staff can import charges, loan migrations, or repayment migrations."
+    : "Only finance staff can add charges, loans and repayments."
+  const memberRecords =
+    closedReason ?? historicalSetupBlockedReason ?? memberProfilesBlockedReason
 
   return {
-    charges: available(
-      financeRoleReason ??
-        migrationToolsLockedReason ??
-        backfillLockedReason ??
-        historicalSetupBlockedReason ??
-        memberProfilesBlockedReason
-    ),
-    contributions: available(
-      migrationToolsLockedReason ??
-        backfillLockedReason ??
-        historicalSetupBlockedReason ??
-        memberProfilesBlockedReason
-    ),
-    deduction_sources: available(
-      configurationRoleReason ??
-        migrationToolsLockedReason ??
-        backfillLockedReason
-    ),
-    loan_migrations: available(
-      financeRoleReason ??
-        migrationToolsLockedReason ??
-        backfillLockedReason ??
-        historicalSetupBlockedReason ??
-        memberProfilesBlockedReason
-    ),
-    loan_products: available(
-      configurationRoleReason ??
-        migrationToolsLockedReason ??
-        backfillLockedReason
-    ),
+    charges: available(financeRoleReason ?? memberRecords),
+    contributions: available(memberRecords),
+    deduction_sources: available(configurationRoleReason ?? closedReason),
+    loan_migrations: available(financeRoleReason ?? memberRecords),
+    loan_products: available(configurationRoleReason ?? closedReason),
     members: available(
-      configurationRoleReason ??
-        migrationToolsLockedReason ??
-        backfillLockedReason ??
-        historicalSetupBlockedReason
+      configurationRoleReason ?? closedReason ?? historicalSetupBlockedReason
     ),
-    repayment_migrations: available(
-      financeRoleReason ??
-        migrationToolsLockedReason ??
-        backfillLockedReason ??
-        historicalSetupBlockedReason ??
-        memberProfilesBlockedReason
-    ),
-  }
-}
-
-function mapBatch(batch: RawImportBatch): ImportBatchRow {
-  return {
-    ...batch,
-    _count: batch._count ?? { rows: batch.totalRows ?? batch.rows?.length ?? 0 },
+    repayment_migrations: available(financeRoleReason ?? memberRecords),
   }
 }
 
@@ -158,66 +106,57 @@ export async function ImportsSettingsRoute({
     return <ImportsRuntimeUnavailable />
   }
 
-  const [initialSettings, referenceData, rawBatches, migrationState] =
-    await Promise.all([
-      getInitialTableSettings("imports"),
-      getImportReferenceData(context.tenant.id),
-      section === "overview"
-        ? listImportBatches(context.tenant.id)
-        : Promise.resolve([]),
-      getTenantInitialMigrationState(context.tenant.id),
-    ])
-  const batches = rawBatches.map(mapBatch)
-  const historicalSetupStepKeys = [
+  const isOverview = section === "overview"
+  const importKind =
+    section !== "overview" && section !== "batches" ? section : undefined
+  const [initialSettings, migrationState, summaries] = await Promise.all([
+    getInitialTableSettings("imports"),
+    getTenantInitialMigrationState(context.tenant.id),
+    isOverview && canManageImports
+      ? getImportKindSummaries(context.tenant.id)
+      : Promise.resolve([]),
+  ])
+  const missing = new Set(migrationState.snapshot.missingStepKeys)
+  const setupSteps = [
     "finance_start_date",
     "charge_schedules",
-  ]
-  const stepLabels = new Map(
-    migrationState.snapshot.steps.map((step) => [step.key, step.label])
+    "business_profit_pools",
+  ].filter((key) =>
+    missing.has(key as (typeof migrationState.snapshot.missingStepKeys)[number])
   )
-  const historicalSetupBlockingLabels = getMissingLabels(
-    migrationState.snapshot.missingStepKeys,
-    stepLabels,
-    historicalSetupStepKeys
-  )
-  const memberProfilesBlockingLabels = getMissingLabels(
-    migrationState.snapshot.missingStepKeys,
-    stepLabels,
-    ["member_profiles"]
-  )
-  const historicalSetupReady = historicalSetupBlockingLabels.length === 0
-  const legacyLoanReviewReady =
-    !migrationState.snapshot.missingStepKeys.includes("legacy_loans")
-  const memberProfilesReady =
-    !migrationState.snapshot.missingStepKeys.includes("member_profiles")
   const hasAppliedMemberBackfill =
     migrationState.counts.appliedBackfillBatches > 0 ||
     migrationState.counts.appliedBackfillMembers > 0 ||
     migrationState.counts.appliedBackfillMonths > 0
-  const migrationToolsLockedReason = migrationState.snapshot
-    .canUseMigrationTools
-    ? null
-    : "Initial migration tools are locked for this cooperative. Use normal live workflows instead."
-  const backfillLockedReason = hasAppliedMemberBackfill
-    ? "Member ledger backfill has started, so historical imports are locked."
+  const closedReason = !migrationState.snapshot.canUseMigrationTools
+    ? "Imports are closed because your cooperative is live. Add new records on their own pages."
+    : hasAppliedMemberBackfill
+      ? "Imports are closed because members' past monthly records have already been added."
+      : null
+  const historicalSetupBlockedReason = setupSteps.length
+    ? `First set ${setupSteps.map((key) => setupStepWords[key]).join(" and ")} in Finance setup.`
     : null
-  const historicalSetupBlockedReason = historicalSetupBlockingLabels.length
-    ? `Complete historical finance setup first: ${historicalSetupBlockingLabels.join(", ")}.`
-    : null
-  const memberProfilesBlockedReason = memberProfilesBlockingLabels.length
-    ? `Import member profiles first: ${memberProfilesBlockingLabels.join(", ")}.`
+  const memberProfilesBlockedReason = missing.has("member_profiles")
+    ? "Add your members first."
     : null
   const importAvailability = buildImportAvailability({
-    backfillLockedReason,
     canConfigureWorkspace,
     canManageFinance,
+    closedReason,
     historicalSetupBlockedReason,
     memberProfilesBlockedReason,
-    migrationToolsLockedReason,
   })
-  const isOverview = section === "overview"
-  const importKind =
-    section !== "overview" && section !== "batches" ? section : undefined
+  const progress: Partial<Record<DashboardImportKind, ImportKindProgress>> =
+    Object.fromEntries(
+      summaries.map((summary) => [
+        summary.importType,
+        {
+          addedRows: summary.addedRows,
+          lastAddedAt: summary.lastAddedAt,
+          waitingBatches: summary.waitingBatches,
+        },
+      ])
+    )
   const shouldHydrateTable = canManageImports && !isOverview
 
   if (shouldHydrateTable) {
@@ -239,19 +178,12 @@ export async function ImportsSettingsRoute({
   return (
     <HydrateClient>
       <ImportsSettingsView
-        backfillLockedReason={backfillLockedReason}
-        batches={batches}
         canManageImports={canManageImports}
-        historicalSetupBlockingLabels={historicalSetupBlockingLabels}
-        historicalSetupReady={historicalSetupReady}
         importAvailability={importAvailability}
         initialSettings={initialSettings}
-        legacyLoanReviewReady={legacyLoanReviewReady}
-        memberProfilesBlockingLabels={memberProfilesBlockingLabels}
-        memberProfilesReady={memberProfilesReady}
-        migrationToolsLockedReason={migrationToolsLockedReason}
+        lockedReason={closedReason}
+        progress={progress}
         quickFillEnabled={quickFillEnabled}
-        referenceData={referenceData}
         section={section}
       />
     </HydrateClient>

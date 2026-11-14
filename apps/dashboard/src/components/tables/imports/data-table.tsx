@@ -20,9 +20,8 @@ import {
 import type {
   ImportAvailability,
   ImportBatchSummary,
-} from "@/components/forms/import-forms"
+} from "@/components/imports/import-types"
 import { ImportSheet } from "@/components/sheets/import-sheet"
-import { OpenImportSheet } from "@/components/open-import-sheet"
 import { ResponsiveDataView } from "@/components/tables/core/responsive-data-view"
 import { VirtualRow } from "@/components/tables/core"
 import { useDataTable } from "@/hooks/use-data-table"
@@ -34,11 +33,8 @@ import { useStickyColumns } from "@/hooks/use-sticky-columns"
 import { useTableDnd } from "@/hooks/use-table-dnd"
 import { useTableScroll } from "@/hooks/use-table-scroll"
 import { useTableSettings } from "@/hooks/use-table-settings"
-import {
-  type DashboardImportKind,
-  type DashboardImportReferenceData,
-  getDashboardImportBatchLabel,
-} from "@/lib/import-csv"
+import type { DashboardImportKind } from "@/lib/import-csv"
+import { importKindWords } from "@/lib/imports/import-words"
 import { getImportListInput } from "@/lib/imports/import-list-input"
 import { useImportStore } from "@/store/imports"
 import { useTRPC } from "@/trpc/client"
@@ -50,25 +46,13 @@ import { ImportMobileList } from "./mobile-list"
 import { Loading } from "./skeleton"
 import { ImportTableHeader } from "./table-header"
 
-export type ImportBatchRow = ImportBatchSummary & {
-  errorMessage?: string | null
-  rows?: Array<{
-    duplicateInFile: boolean
-    existingMatch: boolean
-    id: string
-    payload?: unknown
-    primaryValue: string | null
-    rowIndex: number
-  }>
-  totalRows?: number
-}
+export type ImportBatchRow = ImportBatchSummary
 
 type Props = {
   devMode: boolean
   importAvailability: ImportAvailability
   importKind?: DashboardImportKind
   initialSettings?: Partial<TableSettings>
-  referenceData: DashboardImportReferenceData
 }
 
 type DesktopTableProps = {
@@ -77,11 +61,10 @@ type DesktopTableProps = {
   hasNextPage: boolean
   initialSettings?: Partial<TableSettings>
   isFetchingNextPage: boolean
-  onOpenApply: (batch: ImportBatchRow) => void
   onOpenDetails: (batch: ImportBatchRow) => void
 }
 
-const NON_CLICKABLE_COLUMNS = new Set(["actions"])
+const NON_CLICKABLE_COLUMNS = new Set<string>()
 const COLUMN_IDS = getColumnIds(columns)
 
 function ImportDesktopTable({
@@ -90,7 +73,6 @@ function ImportDesktopTable({
   hasNextPage,
   initialSettings,
   isFetchingNextPage,
-  onOpenApply,
   onOpenDetails,
 }: DesktopTableProps) {
   const parentRef = useRef<HTMLDivElement>(null)
@@ -115,10 +97,6 @@ function ImportDesktopTable({
     enableColumnResizing: true,
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.id,
-    meta: {
-      onOpenApply,
-      onOpenDetails,
-    },
     onColumnOrderChange: setColumnOrder,
     onColumnSizingChange: setColumnSizing,
     onColumnVisibilityChange: setColumnVisibility,
@@ -243,7 +221,6 @@ export function DataTable({
   importAvailability,
   importKind,
   initialSettings,
-  referenceData,
 }: Props) {
   const trpc = useTRPC()
   const { filter } = useImportFilterParams()
@@ -274,18 +251,14 @@ export function DataTable({
   )
   const hasDirectoryControls = Boolean(filter.q || filter.status)
   const openBatch = useCallback(
-    (batch: ImportBatchRow, sheetType: "apply" | "details" = "details") => {
+    (batch: ImportBatchRow) => {
       setParams({
         importBatchId: batch.id,
-        importSheetType: sheetType,
+        importSheetType: "details",
         importType: batch.importType,
       })
     },
     [setParams]
-  )
-  const openApply = useCallback(
-    (batch: ImportBatchRow) => openBatch(batch, "apply"),
-    [openBatch]
   )
 
   let dataView
@@ -294,25 +267,10 @@ export function DataTable({
   } else if (!batches.length) {
     dataView = (
       <ImportEmptyState
-        description={
-          importKind && !importAvailability[importKind].isAvailable
-            ? importAvailability[importKind].blockedReason
-            : undefined
-        }
-        action={
-          importKind && importAvailability[importKind].isAvailable ? (
-            <OpenImportSheet
-              className="h-11 w-full md:h-9 md:w-auto"
-              disabled={false}
-              display="label"
-              importKind={importKind}
-            />
-          ) : null
-        }
         title={
           importKind
-            ? `No ${getDashboardImportBatchLabel(importKind)} import batches yet.`
-            : "No import batches yet."
+            ? `No ${importKindWords[importKind].many} added from a spreadsheet yet.`
+            : "Nothing added from a spreadsheet yet."
         }
       />
     )
@@ -326,7 +284,6 @@ export function DataTable({
             hasNextPage={hasNextPage}
             initialSettings={initialSettings}
             isFetchingNextPage={isFetchingNextPage}
-            onOpenApply={openApply}
             onOpenDetails={openBatch}
           />
         }
@@ -337,7 +294,6 @@ export function DataTable({
             fetchNextPage={fetchNextPage}
             hasNextPage={hasNextPage}
             isFetchingNextPage={isFetchingNextPage}
-            onOpenApply={openApply}
             onOpenDetails={openBatch}
           />
         }
@@ -349,11 +305,9 @@ export function DataTable({
     <div className="w-full">
       {dataView}
       <ImportSheet
-        batches={batches}
         devMode={devMode}
         importAvailability={importAvailability}
         importKind={importKind}
-        referenceData={referenceData}
       />
     </div>
   )

@@ -850,6 +850,10 @@ export async function stageImportBatchAction(formData: FormData) {
   return callDashboardFormAction("stageImportBatchAction", formData)
 }
 
+export async function importFileAction(formData: FormData) {
+  return callDashboardFormAction("importFileAction", formData)
+}
+
 export async function applyImportBatchAction(formData: FormData) {
   return callDashboardFormAction("applyImportBatchAction", formData)
 }

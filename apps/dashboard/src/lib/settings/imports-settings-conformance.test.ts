@@ -7,9 +7,7 @@ function read(relativePath: string) {
 
 describe("imports settings Midday conformance", () => {
   test("owns shared metadata and route recovery boundaries", () => {
-    const layout = read(
-      "../../app/(app)/(sidebar)/settings/imports/layout.tsx"
-    )
+    const layout = read("../../app/(app)/(sidebar)/settings/imports/layout.tsx")
     const loading = read(
       "../../app/(app)/(sidebar)/settings/imports/loading.tsx"
     )
@@ -23,16 +21,17 @@ describe("imports settings Midday conformance", () => {
     expect(navigation).toContain('.childPaths("/settings/imports")')
   })
 
-  test("keeps overview analytics desktop-only and readiness sections flat", () => {
+  test("leads the overview with one ordered list and one next step, no own page title", () => {
     const view = read("../../components/imports-settings-view.tsx")
+    const error = read("../../app/(app)/(sidebar)/settings/imports/error.tsx")
 
-    expect(view).toContain('className="hidden gap-4 md:grid md:grid-cols-3"')
-    expect(view).toContain('aria-labelledby="import-sequence-title"')
-    expect(view).toContain('aria-labelledby="import-blockers-title"')
+    expect(view).toContain("importKindOrder.map")
     expect(view).toContain("divide-y divide-border/70 border-y")
-    expect(view).toContain('className="h-11 w-full md:h-9 md:w-auto"')
+    expect(view).toContain("min-h-[72px]")
+    expect(view).not.toContain("<h1")
+    expect(error).not.toContain("<h1")
     expect(view).not.toContain("DashboardSectionCard")
-    expect(view).not.toContain("DashboardSurfaceCard")
+    expect(view).not.toContain("DashboardStatCard")
   })
 
   test("preserves shared route hydration and URL-owned import workflows", () => {
@@ -59,18 +58,16 @@ describe("imports settings Midday conformance", () => {
   test("keeps import type isolation declarative and mobile workflows full screen", () => {
     const sheet = read("../../components/sheets/import-sheet.tsx")
     const presentation = read("../../components/workflow-presentation.tsx")
-    const form = read("../../components/forms/import-forms.tsx")
-    const content = read("../../components/import-content.tsx")
 
     expect(sheet).toContain("routeTypeMismatch")
     expect(sheet).toContain("isBatchRoute && !routeTypeMismatch")
     expect(sheet).toContain("mobileFullScreen")
     expect(sheet).not.toContain("useEffect")
+    expect(sheet).toContain("ImportFileContent")
+    expect(sheet).toContain("ImportBatchContent")
     expect(presentation).toContain("mobileFullScreenDialogWidthClasses")
     expect(presentation).toContain("md:top-1/2")
     expect(presentation).not.toContain("sm:top-1/2")
-    expect(form).toContain('surface === "card"')
-    expect(content).toContain('surface="sheet"')
   })
 
   test("uses a shadcn bottom sheet for mobile settings navigation", () => {
@@ -99,28 +96,32 @@ describe("imports settings Midday conformance", () => {
     expect(view).toContain("<Suspense fallback={<ImportTableLoading />}")
   })
 
-  test("shows loan-product policy consequences before apply", () => {
-    const form = read("../../components/forms/import-forms.tsx")
-    const content = read("../../components/import-content.tsx")
-    const view = read("../../components/imports-settings-view.tsx")
+  test("checks the file in plain words and confirms money before adding", () => {
+    const content = read("../../components/imports/import-file-content.tsx")
+    const batch = read("../../components/imports/import-batch-content.tsx")
+    const rows = read("../imports/import-rows.ts")
 
-    expect(form).toContain("Matching loan-product names or codes")
-    expect(form).toContain("does not create balances or disburse loans")
-    expect(form).toContain("positive whole months")
-    expect(content).toContain("getLoanProductPayload")
-    expect(content).toContain("Existing policy update")
-    expect(content).toContain("maxSavingsMultiple")
-    expect(view).toContain("interest-free financing product definitions")
+    // Reference data loads with the dialog, not with the page.
+    expect(content).toContain("trpc.imports.referenceData.queryOptions")
+    expect(content).toContain("readDashboardImportFileAsCsv")
+    expect(content).toContain("downloadDashboardImportTemplate")
+    expect(content).toContain("ConfirmActionDialog")
+    expect(content).toContain("needsUpdateConfirm")
+    expect(content).not.toContain("IMPORT NOW")
+    expect(batch).toContain("ConfirmActionDialog")
+    expect(batch).not.toContain("APPLY IMPORT")
+    expect(rows).toContain("times savings")
   })
 
-  test("explains locked imports instead of showing a dead empty-state action", () => {
-    const table = read("../../components/tables/imports/data-table.tsx")
-    const emptyState = read(
-      "../../components/tables/imports/empty-states.tsx"
+  test("explains locked imports instead of showing a dead action", () => {
+    const view = read("../../components/imports-settings-view.tsx")
+    const route = read(
+      "../../app/(app)/(sidebar)/settings/imports/imports-route.tsx"
     )
 
-    expect(table).toContain("blockedReason")
-    expect(table).toContain("importAvailability[importKind].isAvailable ?")
-    expect(emptyState).toContain("description")
+    expect(view).toContain("availability.isAvailable ?")
+    expect(view).toContain("{availability.blockedReason}")
+    expect(route).not.toContain("getImportReferenceData")
+    expect(route).not.toContain("listImportBatches")
   })
 })

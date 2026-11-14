@@ -59,13 +59,6 @@ import {
   getTenantMigrationWriteAccess,
   getMemberByUserId,
   getSupportCase,
-  importCharges,
-  importContributions,
-  importDeductionSources,
-  importLoanMigrations,
-  importLoanProducts,
-  importMembers,
-  importRepaymentMigrations,
   getInitialMigrationMemberReview,
   getTenantOperationProfile,
   listChargeDefinitions,
@@ -189,6 +182,7 @@ import {
   type DashboardImportKind,
   getDashboardImportExistingMatches,
   getDashboardImportIdentityKeys,
+  canonicalizeDashboardImportCsv,
   getDashboardImportPrimaryValue,
   parseDashboardImportCsv,
 } from "../lib/import-csv"
@@ -6719,240 +6713,65 @@ function revalidateImportSettingsPaths() {
   revalidatePath("/getting-started")
 }
 
-export async function importMembersCsvAction(formData: FormData) {
-  const actor = await requireDashboardActor(workspaceConfigurationRoles)
-  await requireMemberDataImportPrerequisitesComplete(actor, "members")
-  requireDirectImportConfirmation(formData)
-  const parsed = parseDashboardImportCsv<
-    Parameters<typeof importMembers>[0]["rows"][number]
-  >("members", getRequiredString(formData, "csvText"))
+const dashboardImportKinds = new Set<DashboardImportKind>([
+  "members",
+  "deduction_sources",
+  "loan_products",
+  "contributions",
+  "charges",
+  "loan_migrations",
+  "repayment_migrations",
+])
 
-  if (!parsed.ok) {
-    throw new DashboardActionExpectedError(
-      parsed.errors[0] ?? "CSV import validation failed."
-    )
+function requireImportKind(formData: FormData): DashboardImportKind {
+  const importKind = getRequiredString(formData, "importKind")
+
+  if (!dashboardImportKinds.has(importKind as DashboardImportKind)) {
+    throw new DashboardActionExpectedError("Choose what to import.")
   }
-  requireImportRowsOnOrAfterTenantStartDate(
-    actor,
-    "members",
-    parsed.rows as unknown as Record<string, unknown>[]
-  )
 
-  await importMembers({
-    actorUserId: actor.user.id,
-    rows: parsed.rows,
-    tenantId: actor.tenant.id,
-  })
+  return importKind as DashboardImportKind
+}
 
+function revalidateAfterImport(importKind: DashboardImportKind) {
   revalidateImportSettingsPaths()
   revalidatePath("/members")
-}
-
-export async function importDeductionSourcesCsvAction(formData: FormData) {
-  const actor = await requireDashboardActor(workspaceConfigurationRoles)
-  await requireImportWindowOpen(actor)
-  requireDirectImportConfirmation(formData)
-  const parsed = parseDashboardImportCsv<
-    Parameters<typeof importDeductionSources>[0]["rows"][number]
-  >("deduction_sources", getRequiredString(formData, "csvText"))
-
-  if (!parsed.ok) {
-    throw new DashboardActionExpectedError(
-      parsed.errors[0] ?? "CSV import validation failed."
-    )
+  if (importKind === "deduction_sources" || importKind === "contributions") {
+    revalidatePath("/contributions")
   }
-
-  const referenceData = await getImportReferenceData(actor.tenant.id)
-  requireExistingMatchConfirmation(
-    formData,
-    "deduction_sources",
-    parsed.rows.filter((row) =>
-      getDashboardImportExistingMatches("deduction_sources", referenceData, row)
-    ).length
-  )
-
-  await importDeductionSources({
-    actorUserId: actor.user.id,
-    rows: parsed.rows,
-    tenantId: actor.tenant.id,
-  })
-
-  revalidateImportSettingsPaths()
-  revalidatePath("/members")
-  revalidatePath("/contributions")
-}
-
-export async function importLoanProductsCsvAction(formData: FormData) {
-  const actor = await requireDashboardActor(workspaceConfigurationRoles)
-  await requireImportWindowOpen(actor)
-  requireDirectImportConfirmation(formData)
-  const parsed = parseDashboardImportCsv<
-    Parameters<typeof importLoanProducts>[0]["rows"][number]
-  >("loan_products", getRequiredString(formData, "csvText"))
-
-  if (!parsed.ok) {
-    throw new DashboardActionExpectedError(
-      parsed.errors[0] ?? "CSV import validation failed."
-    )
+  if (importKind === "loan_products") {
+    revalidatePath("/settings/finance")
+    revalidatePath("/settings/finance/loan")
   }
-
-  const referenceData = await getImportReferenceData(actor.tenant.id)
-  requireExistingMatchConfirmation(
-    formData,
-    "loan_products",
-    parsed.rows.filter((row) =>
-      getDashboardImportExistingMatches("loan_products", referenceData, row)
-    ).length
-  )
-
-  await importLoanProducts({
-    actorUserId: actor.user.id,
-    rows: parsed.rows,
-    tenantId: actor.tenant.id,
-  })
-
-  revalidateImportSettingsPaths()
-  revalidatePath("/loans")
-  revalidatePath("/settings/finance")
-  revalidatePath("/settings/finance/loan")
-}
-
-export async function importContributionsCsvAction(formData: FormData) {
-  const actor = await requireDashboardActor(allStaffRoles)
-  await requireMemberDataImportPrerequisitesComplete(actor, "contributions")
-  requireDirectImportConfirmation(formData)
-  const parsed = parseDashboardImportCsv<
-    Parameters<typeof importContributions>[0]["rows"][number]
-  >("contributions", getRequiredString(formData, "csvText"))
-
-  if (!parsed.ok) {
-    throw new DashboardActionExpectedError(
-      parsed.errors[0] ?? "CSV import validation failed."
-    )
+  if (importKind === "charges") revalidatePath("/charges")
+  if (
+    importKind === "loan_migrations" ||
+    importKind === "repayment_migrations"
+  ) {
+    revalidatePath("/loans")
+    revalidatePath("/repayments")
   }
-  requireImportRowsOnOrAfterTenantStartDate(
-    actor,
-    "contributions",
-    parsed.rows as unknown as Record<string, unknown>[]
-  )
-
-  await importContributions({
-    actorUserId: actor.user.id,
-    rows: parsed.rows,
-    tenantId: actor.tenant.id,
-  })
-
-  revalidateImportSettingsPaths()
-  revalidatePath("/contributions")
-  revalidatePath("/members")
 }
 
-export async function importChargesCsvAction(formData: FormData) {
-  const actor = await requireDashboardActor(financeManagementRoles)
-  await requireMemberDataImportPrerequisitesComplete(actor, "charges")
-  requireDirectImportConfirmation(formData)
-  const parsed = parseDashboardImportCsv<
-    Parameters<typeof importCharges>[0]["rows"][number]
-  >("charges", getRequiredString(formData, "csvText"))
-
-  if (!parsed.ok) {
-    throw new DashboardActionExpectedError(
-      parsed.errors[0] ?? "CSV import validation failed."
-    )
-  }
-  requireImportRowsOnOrAfterTenantStartDate(
-    actor,
-    "charges",
-    parsed.rows as unknown as Record<string, unknown>[]
-  )
-
-  await importCharges({
-    actorUserId: actor.user.id,
-    rows: parsed.rows,
-    tenantId: actor.tenant.id,
-  })
-
-  revalidateImportSettingsPaths()
-  revalidatePath("/charges")
-  revalidatePath("/members")
-}
-
-export async function importLoanMigrationsCsvAction(formData: FormData) {
-  const actor = await requireDashboardActor(financeManagementRoles)
-  await requireMemberDataImportPrerequisitesComplete(actor, "loan_migrations")
-  requireDirectImportConfirmation(formData)
-  const parsed = parseDashboardImportCsv<
-    Parameters<typeof importLoanMigrations>[0]["rows"][number]
-  >("loan_migrations", getRequiredString(formData, "csvText"))
-
-  if (!parsed.ok) {
-    throw new DashboardActionExpectedError(
-      parsed.errors[0] ?? "CSV import validation failed."
-    )
-  }
-  requireImportRowsOnOrAfterTenantStartDate(
-    actor,
-    "loan_migrations",
-    parsed.rows as unknown as Record<string, unknown>[]
-  )
-
-  await importLoanMigrations({
-    actorUserId: actor.user.id,
-    rows: parsed.rows,
-    tenantId: actor.tenant.id,
-  })
-
-  revalidateImportSettingsPaths()
-  revalidatePath("/loans")
-  revalidatePath("/repayments")
-  revalidatePath("/members")
-}
-
-export async function importRepaymentMigrationsCsvAction(formData: FormData) {
-  const actor = await requireDashboardActor(financeManagementRoles)
-  await requireMemberDataImportPrerequisitesComplete(
-    actor,
-    "repayment_migrations"
-  )
-  requireDirectImportConfirmation(formData)
-  const parsed = parseDashboardImportCsv<
-    Parameters<typeof importRepaymentMigrations>[0]["rows"][number]
-  >("repayment_migrations", getRequiredString(formData, "csvText"))
-
-  if (!parsed.ok) {
-    throw new DashboardActionExpectedError(
-      parsed.errors[0] ?? "CSV import validation failed."
-    )
-  }
-
-  await importRepaymentMigrations({
-    actorUserId: actor.user.id,
-    rows: parsed.rows,
-    tenantId: actor.tenant.id,
-  })
-
-  revalidateImportSettingsPaths()
-  revalidatePath("/repayments")
-  revalidatePath("/loans")
-  revalidatePath("/members")
-}
-
-export async function stageImportBatchAction(formData: FormData) {
-  const importKind = getRequiredString(formData, "importKind") as
-    | "members"
-    | "deduction_sources"
-    | "loan_products"
-    | "contributions"
-    | "charges"
-    | "loan_migrations"
-    | "repayment_migrations"
+/**
+ * Checks a file and saves it as a batch: role, migration window and setup
+ * gates, row validation, duplicate and existing-record checks. The stored
+ * text is the canonical file, so the same file sent again is recognised
+ * (an added file is refused; a waiting one is reused).
+ */
+async function stageImportFile(
+  formData: FormData,
+  importKind: DashboardImportKind
+) {
   const actor = await requireDashboardActor(
     getImportManagementRoles(importKind)
   )
-  await requireImportWindowOpen(actor)
 
   if (isMemberDataImportKind(importKind)) {
+    // Includes the migration window check.
     await requireMemberDataImportPrerequisitesComplete(actor, importKind)
+  } else {
+    await requireImportWindowOpen(actor)
   }
 
   const csvText = getRequiredString(formData, "csvText")
@@ -7007,48 +6826,94 @@ export async function stageImportBatchAction(formData: FormData) {
     )
   }
 
-  await createImportBatch({
+  const batch = await createImportBatch({
     actorUserId: actor.user.id,
     duplicateRowCount: duplicateRows.filter(Boolean).length,
     existingMatchCount: existingMatches.filter(Boolean).length,
     importType: importKind,
-    rows: parsed.rows.map((row, index) => {
-      const primaryValue = getDashboardImportPrimaryValue(importKind, row)
-      return {
-        duplicateInFile: duplicateRows[index] ?? false,
-        existingMatch: existingMatches[index] ?? false,
-        payload: row,
-        primaryValue,
-        rowIndex: index + 1,
-      }
-    }),
-    sourceCsv: csvText,
+    rows: parsed.rows.map((row, index) => ({
+      duplicateInFile: duplicateRows[index] ?? false,
+      existingMatch: existingMatches[index] ?? false,
+      payload: row,
+      primaryValue: getDashboardImportPrimaryValue(importKind, row),
+      rowIndex: index + 1,
+    })),
+    sourceCsv: canonicalizeDashboardImportCsv(importKind, csvText),
     tenantId: actor.tenant.id,
     validRows: parsed.rows.length,
   })
 
-  revalidateImportSettingsPaths()
-  revalidatePath("/members")
-  if (importKind === "deduction_sources") {
-    revalidatePath("/contributions")
-  }
-  if (importKind === "loan_products") {
-    revalidatePath("/settings/finance")
-    revalidatePath("/settings/finance/loan")
+  return { actor, batchId: batch.id, reused: batch.reused }
+}
+
+/** Checks, saves and adds a file in one step; the dialog's "Add" button. */
+export async function importFileAction(formData: FormData) {
+  const importKind = requireImportKind(formData)
+  const { actor, batchId } = await stageImportFile(formData, importKind)
+
+  try {
+    const result = await applyImportBatch({
+      actorUserId: actor.user.id,
+      batchId,
+      tenantId: actor.tenant.id,
+    })
+
+    return { batchId, processed: result.processed }
+  } finally {
+    revalidateAfterImport(importKind)
   }
 }
 
+/** The older direct-import buttons: same path, with a typed confirmation. */
+async function importFileDirectly(
+  formData: FormData,
+  importKind: DashboardImportKind
+) {
+  requireDirectImportConfirmation(formData)
+  formData.set("importKind", importKind)
+  return importFileAction(formData)
+}
+
+export async function importMembersCsvAction(formData: FormData) {
+  return importFileDirectly(formData, "members")
+}
+
+export async function importDeductionSourcesCsvAction(formData: FormData) {
+  return importFileDirectly(formData, "deduction_sources")
+}
+
+export async function importLoanProductsCsvAction(formData: FormData) {
+  return importFileDirectly(formData, "loan_products")
+}
+
+export async function importContributionsCsvAction(formData: FormData) {
+  return importFileDirectly(formData, "contributions")
+}
+
+export async function importChargesCsvAction(formData: FormData) {
+  return importFileDirectly(formData, "charges")
+}
+
+export async function importLoanMigrationsCsvAction(formData: FormData) {
+  return importFileDirectly(formData, "loan_migrations")
+}
+
+export async function importRepaymentMigrationsCsvAction(formData: FormData) {
+  return importFileDirectly(formData, "repayment_migrations")
+}
+
+export async function stageImportBatchAction(formData: FormData) {
+  const importKind = requireImportKind(formData)
+  const { batchId, reused } = await stageImportFile(formData, importKind)
+
+  revalidateAfterImport(importKind)
+  return { batchId, reused }
+}
+
+/** Adds a batch that was saved earlier. The dialog confirms first. */
 export async function applyImportBatchAction(formData: FormData) {
   const actor = await requireDashboardActor(allStaffRoles)
   const batchId = getRequiredString(formData, "batchId")
-  const confirmation = getRequiredString(formData, "confirmation")
-
-  if (confirmation !== "APPLY IMPORT") {
-    throw new DashboardActionExpectedError(
-      "Type APPLY IMPORT to apply the staged import batch."
-    )
-  }
-
   const importKind = await getImportBatchKind({
     batchId,
     tenantId: actor.tenant.id,
@@ -7066,20 +6931,17 @@ export async function applyImportBatchAction(formData: FormData) {
     await requireImportWindowOpen(authorizedActor)
   }
 
-  await applyImportBatch({
-    actorUserId: authorizedActor.user.id,
-    batchId,
-    tenantId: authorizedActor.tenant.id,
-  })
+  try {
+    const result = await applyImportBatch({
+      actorUserId: authorizedActor.user.id,
+      batchId,
+      tenantId: authorizedActor.tenant.id,
+    })
 
-  revalidateImportSettingsPaths()
-  revalidatePath("/members")
-  revalidatePath("/contributions")
-  revalidatePath("/charges")
-  revalidatePath("/loans")
-  revalidatePath("/repayments")
-  revalidatePath("/settings/finance")
-  revalidatePath("/settings/finance/loan")
+    return { batchId, processed: result.processed }
+  } finally {
+    revalidateAfterImport(importKind)
+  }
 }
 
 export async function queueBackfillDraftAction(formData: FormData) {
@@ -7336,6 +7198,7 @@ const dashboardActionHandlers = {
   importLoanMigrationsCsvAction,
   importRepaymentMigrationsCsvAction,
   stageImportBatchAction,
+  importFileAction,
   applyImportBatchAction,
   queueBackfillDraftAction,
   getBackfillPreviewAction,
@@ -7749,6 +7612,7 @@ export const dashboardActionsRouter = createTRPCRouter({
   stageImportBatchAction: formAction(
     dashboardActionHandlers.stageImportBatchAction
   ),
+  importFileAction: formAction(dashboardActionHandlers.importFileAction),
   applyImportBatchAction: formAction(
     dashboardActionHandlers.applyImportBatchAction
   ),

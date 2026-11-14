@@ -1,17 +1,20 @@
 "use client"
 
-import type { ImportAvailability } from "@/components/forms/import-forms"
-import { Skeleton } from "@halaalvest/ui/components/skeleton"
 import { useQuery } from "@tanstack/react-query"
-import { ImportContent } from "@/components/import-content"
-import { ImportSheetHeader } from "@/components/import-sheet-header"
-import type { ImportBatchRow } from "@/components/import-sheet-types"
+import {
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@halaalvest/ui/components/dialog"
+import { Skeleton } from "@halaalvest/ui/components/skeleton"
+import { ImportBatchContent } from "@/components/imports/import-batch-content"
+import { ImportFileContent } from "@/components/imports/import-file-content"
+import type { ImportAvailability } from "@/components/imports/import-types"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useImportParams } from "@/hooks/use-import-params"
 import {
   dashboardImportConfigs,
   type DashboardImportKind,
-  type DashboardImportReferenceData,
 } from "@/lib/import-csv"
 import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 import { useTRPC } from "@/trpc/client"
@@ -24,18 +27,18 @@ function isDashboardImportKind(
   return Boolean(value && value in dashboardImportConfigs)
 }
 
+/**
+ * The imports modal (Midday: import is a modal). URL-owned: `create` adds a
+ * file, `details` (or the older `apply`) opens one batch.
+ */
 export function ImportSheet({
-  batches,
   devMode,
   importAvailability,
   importKind,
-  referenceData,
 }: {
-  batches: ImportBatchRow[]
   devMode: boolean
   importAvailability: ImportAvailability
   importKind?: DashboardImportKind
-  referenceData: DashboardImportReferenceData
 }) {
   const trpc = useTRPC()
   const { importBatchId, importSheetType, importType, setParams } =
@@ -43,38 +46,28 @@ export function ImportSheet({
   const isBatchRoute =
     Boolean(importBatchId) &&
     (importSheetType === "details" || importSheetType === "apply")
-  const { data: queriedBatch, isLoading: isBatchLoading } = useQuery(
+  const batchQuery = useQuery(
     trpc.imports.batch.queryOptions(
       { batchId: importBatchId ?? disabledImportBatchId },
       { enabled: isBatchRoute }
     )
   )
   const urlImportKind = isDashboardImportKind(importType) ? importType : null
-  const selectedImportKind = importKind ?? urlImportKind
-  const selectedBatch =
-    queriedBatch ?? batches.find((batch) => batch.id === importBatchId) ?? null
+  const createKind = importKind ?? urlImportKind
+  const batch = isBatchRoute ? (batchQuery.data ?? null) : null
   const isCreateOpen =
     importSheetType === "create" &&
-    Boolean(selectedImportKind) &&
+    Boolean(createKind) &&
     (!importKind || !urlImportKind || urlImportKind === importKind)
+  // A batch of another kind never opens on a kind's own page.
   const routeTypeMismatch = Boolean(
     importKind &&
-      ((urlImportKind && urlImportKind !== importKind) ||
-        (selectedBatch && selectedBatch.importType !== importKind))
+    ((urlImportKind && urlImportKind !== importKind) ||
+      (batch && batch.importType !== importKind))
   )
   const isBatchOpen = isBatchRoute && !routeTypeMismatch
-  const isOpen = isCreateOpen || isBatchOpen
-  const presentation = getWorkflowPresentation("import", importSheetType)
-  const selectedBatchKind = selectedBatch?.importType ?? null
-  const batchKind = isDashboardImportKind(selectedBatchKind)
-    ? selectedBatchKind
-    : null
-  const activeKind = selectedImportKind ?? batchKind
-  const batchAvailability = batchKind ? importAvailability[batchKind] : null
-  const isBatchLocked =
-    Boolean(selectedBatch) &&
-    selectedBatch?.status !== "applied" &&
-    !batchAvailability?.isAvailable
+  const batchKind =
+    batch && isDashboardImportKind(batch.importType) ? batch.importType : null
 
   const close = () => {
     setParams({
@@ -86,36 +79,54 @@ export function ImportSheet({
 
   return (
     <WorkflowPresentation
-      config={presentation}
-      contentClassName="min-w-0"
+      className="flex flex-col gap-0 overflow-hidden p-0"
+      config={getWorkflowPresentation("import", importSheetType)}
+      contentClassName="flex min-h-0 min-w-0 flex-1 flex-col"
       mobileFullScreen
-      open={isOpen}
+      open={isCreateOpen || isBatchOpen}
       onOpenChange={(open) => !open && close()}
     >
-      <ImportSheetHeader
-        activeKind={activeKind}
-        isCreateOpen={isCreateOpen}
-        selectedBatch={selectedBatch}
-      />
-      {isBatchOpen && isBatchLoading && !selectedBatch ? (
-        <div className="space-y-4 px-6 pb-6" aria-label="Loading import batch">
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-11 w-full" />
-          <Skeleton className="h-11 w-full" />
-        </div>
-      ) : (
-        <ImportContent
-          activeKind={activeKind}
-          batches={batches}
-          batchAvailability={batchAvailability}
+      {isCreateOpen && createKind ? (
+        <ImportFileContent
+          availability={importAvailability[createKind]}
           devMode={devMode}
-          importAvailability={importAvailability}
-          isBatchLocked={isBatchLocked}
-          isCreateOpen={isCreateOpen}
-          referenceData={referenceData}
-          selectedBatch={selectedBatch}
-          onSuccess={close}
+          importKind={createKind}
+          onAdded={(batchId) =>
+            setParams({
+              importBatchId: batchId,
+              importSheetType: "details",
+              importType: createKind,
+            })
+          }
+          onClose={close}
         />
+      ) : batch ? (
+        <ImportBatchContent
+          availability={batchKind ? importAvailability[batchKind] : null}
+          batch={batch}
+          onClose={close}
+        />
+      ) : (
+        <>
+          <DialogHeader className="border-b border-border/70 px-4 py-4 text-left sm:px-6">
+            <DialogTitle className="text-xl font-semibold">Import</DialogTitle>
+            <DialogDescription className="text-base">
+              {batchQuery.isError
+                ? "This import could not be found."
+                : "Loading…"}
+            </DialogDescription>
+          </DialogHeader>
+          {batchQuery.isError ? null : (
+            <div
+              aria-label="Loading import"
+              className="space-y-4 px-4 py-5 sm:px-6"
+            >
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-11 w-full" />
+              <Skeleton className="h-11 w-full" />
+            </div>
+          )}
+        </>
       )}
     </WorkflowPresentation>
   )

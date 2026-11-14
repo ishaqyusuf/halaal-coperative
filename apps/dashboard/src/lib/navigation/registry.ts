@@ -280,10 +280,14 @@ export const dashboardNavRegistry: NavModule[] = [
           createNavSubLink("Loans", "/settings/finance/loan").data,
           createNavSubLink("Charges", "/settings/finance/charges").data,
           createNavSubLink("Shares", "/settings/finance/shares").data,
-          createNavSubLink("Business profit", "/settings/finance/business")
-            .childPaths("/settings/finance/business").data,
-          createNavSubLink("Opening balances", "/settings/finance/migration")
-            .childPaths("/settings/finance/migration").data,
+          createNavSubLink(
+            "Business profit",
+            "/settings/finance/business"
+          ).childPaths("/settings/finance/business").data,
+          createNavSubLink(
+            "Opening balances",
+            "/settings/finance/migration"
+          ).childPaths("/settings/finance/migration").data,
         ],
         [role.in("super_admin", "tenant_admin", "finance_officer")]
       )
@@ -316,25 +320,19 @@ export const dashboardNavRegistry: NavModule[] = [
         "/settings/imports",
         [
           createNavSubLink("Overview", "/settings/imports").data,
-          createNavSubLink("Batches", "/settings/imports/batches").data,
           createNavSubLink("Members", "/settings/imports/members").data,
-          createNavSubLink("Contributions", "/settings/imports/contributions")
+          createNavSubLink("Workplaces", "/settings/imports/deduction-sources")
             .data,
+          createNavSubLink("Loan types", "/settings/imports/loan-products")
+            .data,
+          createNavSubLink("Savings", "/settings/imports/contributions").data,
           createNavSubLink("Charges", "/settings/imports/charges").data,
+          createNavSubLink("Loans", "/settings/imports/loan-migrations").data,
           createNavSubLink(
-            "Deduction sources",
-            "/settings/imports/deduction-sources"
-          ).data,
-          createNavSubLink("Loan products", "/settings/imports/loan-products")
-            .data,
-          createNavSubLink(
-            "Loan migrations",
-            "/settings/imports/loan-migrations"
-          ).data,
-          createNavSubLink(
-            "Repayment migrations",
+            "Repayments",
             "/settings/imports/repayment-migrations"
           ).data,
+          createNavSubLink("All imports", "/settings/imports/batches").data,
         ],
         [
           role.in(

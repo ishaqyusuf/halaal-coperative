@@ -1,111 +1,50 @@
+import { ChevronRight } from "lucide-react"
+import Link from "next/link"
 import { Suspense, type ComponentProps } from "react"
-import {
-  DashboardActionLink,
-  DashboardStatCard,
-  ScrollableContent,
-  TrendPill,
-  WorkspaceEmptyState,
-} from "@/components/dashboard"
-import type { ImportAvailability } from "@/components/forms/import-forms"
-import { ImportHeader } from "@/components/import-header"
+import { buttonVariants } from "@halaalvest/ui/components/button"
+import { cn } from "@halaalvest/ui/lib/utils"
+import { ScrollableContent, WorkspaceEmptyState } from "@/components/dashboard"
+import type { ImportAvailability } from "@/components/imports/import-types"
+import { OpenImportSheet } from "@/components/open-import-sheet"
 import { SecondaryMenu } from "@/components/secondary-menu"
 import { DataTable as ImportDataTable } from "@/components/tables/imports/data-table"
-import type { ImportBatchRow } from "@/components/tables/imports/data-table"
 import { Loading as ImportTableLoading } from "@/components/tables/imports/skeleton"
 import type { DashboardImportKind } from "@/lib/import-csv"
+import {
+  importCount,
+  importKindOrder,
+  importKindWords,
+} from "@/lib/imports/import-words"
+import { formatDayMonthYear } from "@/utils/format"
 
-export type ImportSettingsSection =
-  | "overview"
-  | DashboardImportKind
-  | "batches"
+export type ImportSettingsSection = "overview" | DashboardImportKind | "batches"
 
 type ImportDataTableProps = ComponentProps<typeof ImportDataTable>
 
+export type ImportKindProgress = {
+  addedRows: number
+  lastAddedAt: Date | null
+  waitingBatches: number
+}
+
+export const importKindPaths: Record<DashboardImportKind, string> = {
+  charges: "/settings/imports/charges",
+  contributions: "/settings/imports/contributions",
+  deduction_sources: "/settings/imports/deduction-sources",
+  loan_migrations: "/settings/imports/loan-migrations",
+  loan_products: "/settings/imports/loan-products",
+  members: "/settings/imports/members",
+  repayment_migrations: "/settings/imports/repayment-migrations",
+}
+
 export const importMenuItems = [
   { path: "/settings/imports", label: "Overview" },
-  { path: "/settings/imports/members", label: "Members" },
-  { path: "/settings/imports/deduction-sources", label: "Collection sources" },
-  { path: "/settings/imports/loan-products", label: "Loan products" },
-  { path: "/settings/imports/contributions", label: "Contributions" },
-  { path: "/settings/imports/charges", label: "Charges" },
-  { path: "/settings/imports/loan-migrations", label: "Loan migrations" },
-  {
-    path: "/settings/imports/repayment-migrations",
-    label: "Repayments",
-  },
-  { path: "/settings/imports/batches", label: "Batches" },
+  ...importKindOrder.map((kind) => ({
+    label: importKindWords[kind].menu,
+    path: importKindPaths[kind],
+  })),
+  { path: "/settings/imports/batches", label: "All imports" },
 ]
-
-const importPageCopy: Record<
-  DashboardImportKind,
-  { description: string; title: string }
-> = {
-  charges: {
-    description:
-      "Stage and review historical charge activity after member profiles and charge schedules are ready.",
-    title: "Charges",
-  },
-  contributions: {
-    description:
-      "Stage and review historical savings records after the base member registry is ready.",
-    title: "Contributions",
-  },
-  deduction_sources: {
-    description:
-      "Stage sources used to link members to payroll, employer, transfer, cash, or manual collection batches. This does not post deductions.",
-    title: "Collection sources",
-  },
-  loan_migrations: {
-    description:
-      "Stage and review legacy loan positions before member ledger backfill.",
-    title: "Loan migrations",
-  },
-  loan_products: {
-    description:
-      "Stage interest-free financing product definitions used for eligibility, terms, and legacy matching. This does not create balances or disburse loans.",
-    title: "Loan products",
-  },
-  members: {
-    description:
-      "Stage and review member profiles before importing historical savings, charges, and loans.",
-    title: "Members",
-  },
-  repayment_migrations: {
-    description:
-      "Stage and review repayment history for migrated legacy loans.",
-    title: "Repayments",
-  },
-}
-
-function getImportKind(section: ImportSettingsSection) {
-  return section !== "overview" && section !== "batches" ? section : undefined
-}
-
-function ImportReadinessRow({
-  detail,
-  status,
-  title,
-  tone,
-}: {
-  detail: string
-  status: string
-  title: string
-  tone: "neutral" | "positive" | "warning"
-}) {
-  return (
-    <div className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-6">
-      <div className="min-w-0">
-        <h3 className="font-medium text-foreground">{title}</h3>
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">
-          {detail}
-        </p>
-      </div>
-      <div className="sm:justify-self-end">
-        <TrendPill tone={tone}>{status}</TrendPill>
-      </div>
-    </div>
-  )
-}
 
 export function ImportsRuntimeUnavailable() {
   return (
@@ -113,250 +52,213 @@ export function ImportsRuntimeUnavailable() {
       <div className="flex max-w-[980px] flex-col gap-6">
         <SecondaryMenu items={importMenuItems} />
         <WorkspaceEmptyState
-          body="Once the database-backed environment is active, this route will let staff preview CSV content and import members, historical records, and migration batches."
-          title="Imports need the database runtime."
+          body="Imports need the database. Try again in a few minutes."
+          title="Imports are not available right now."
         />
       </div>
     </ScrollableContent>
   )
 }
 
+function ProgressLine({
+  availability,
+  kind,
+  progress,
+}: {
+  availability: ImportAvailability[DashboardImportKind]
+  kind: DashboardImportKind
+  progress?: ImportKindProgress
+}) {
+  if (progress?.addedRows) {
+    return (
+      <span className="text-emerald-800">
+        {importCount(kind, progress.addedRows)} added
+        {progress.lastAddedAt
+          ? ` · ${formatDayMonthYear(progress.lastAddedAt)}`
+          : ""}
+      </span>
+    )
+  }
+  if (progress?.waitingBatches) {
+    return (
+      <span className="text-amber-900">
+        {progress.waitingBatches === 1
+          ? "1 file saved, not added yet"
+          : `${progress.waitingBatches} files saved, not added yet`}
+      </span>
+    )
+  }
+  if (!availability.isAvailable) {
+    return <span>{availability.blockedReason}</span>
+  }
+  return <span>Nothing added yet</span>
+}
+
+/** The imports overview: what to bring in, in order, and how far along it is. */
+function ImportsOverview({
+  importAvailability,
+  lockedReason,
+  progress,
+}: {
+  importAvailability: ImportAvailability
+  lockedReason?: string | null
+  progress: Partial<Record<DashboardImportKind, ImportKindProgress>>
+}) {
+  const nextKind = lockedReason
+    ? undefined
+    : importKindOrder.find(
+        (kind) =>
+          importAvailability[kind].isAvailable && !progress[kind]?.addedRows
+      )
+
+  return (
+    <>
+      <p className="max-w-2xl text-lg text-foreground/80">
+        Bring your records in from spreadsheets. Start at the top and work down.
+      </p>
+
+      {lockedReason ? (
+        <p
+          className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-base text-amber-950"
+          role="status"
+        >
+          {lockedReason}
+        </p>
+      ) : nextKind ? (
+        <Link
+          className={cn(
+            buttonVariants(),
+            "h-12 w-full text-base sm:w-auto sm:self-start"
+          )}
+          href={`${importKindPaths[nextKind]}?importSheetType=create&importType=${nextKind}`}
+        >
+          Add {importKindWords[nextKind].many}
+        </Link>
+      ) : null}
+
+      <ol className="divide-y divide-border/70 border-y border-border/70">
+        {importKindOrder.map((kind, index) => (
+          <li key={kind}>
+            <Link
+              className="flex min-h-[72px] items-center gap-4 py-3 hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              href={importKindPaths[kind]}
+            >
+              <span
+                aria-hidden
+                className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-base font-semibold"
+              >
+                {index + 1}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-lg font-medium text-foreground">
+                  {importKindWords[kind].title}
+                </span>
+                <span className="block text-base text-muted-foreground">
+                  <ProgressLine
+                    availability={importAvailability[kind]}
+                    kind={kind}
+                    progress={progress[kind]}
+                  />
+                </span>
+              </span>
+              <ChevronRight
+                aria-hidden
+                className="size-5 shrink-0 text-muted-foreground"
+              />
+            </Link>
+          </li>
+        ))}
+      </ol>
+
+      <Link
+        className="inline-flex min-h-11 items-center text-base font-medium text-foreground underline underline-offset-4"
+        href="/settings/imports/batches"
+      >
+        See every file added
+      </Link>
+    </>
+  )
+}
+
 export function ImportsSettingsView({
-  backfillLockedReason,
-  batches,
   canManageImports,
-  historicalSetupBlockingLabels,
-  historicalSetupReady,
   importAvailability,
   initialSettings,
-  legacyLoanReviewReady,
-  memberProfilesBlockingLabels,
-  memberProfilesReady,
-  migrationToolsLockedReason,
+  lockedReason,
+  progress,
   quickFillEnabled,
-  referenceData,
   section,
 }: {
-  backfillLockedReason?: string | null
-  batches: ImportBatchRow[]
   canManageImports: boolean
-  historicalSetupBlockingLabels: string[]
-  historicalSetupReady: boolean
   importAvailability: ImportAvailability
   initialSettings: ImportDataTableProps["initialSettings"]
-  legacyLoanReviewReady: boolean
-  memberProfilesBlockingLabels: string[]
-  memberProfilesReady: boolean
-  migrationToolsLockedReason?: string | null
+  /** Set when every import is closed (live cooperative, backfill started). */
+  lockedReason?: string | null
+  progress: Partial<Record<DashboardImportKind, ImportKindProgress>>
   quickFillEnabled: boolean
-  referenceData: ImportDataTableProps["referenceData"]
   section: ImportSettingsSection
 }) {
-  const isOverview = section === "overview"
-  const isBatches = section === "batches"
-  const importKind = getImportKind(section)
-  const sectionCopy = importKind ? importPageCopy[importKind] : null
-  const hasActiveBlockers = Boolean(
-    migrationToolsLockedReason ||
-      backfillLockedReason ||
-      historicalSetupBlockingLabels.length ||
-      memberProfilesBlockingLabels.length
-  )
+  const importKind =
+    section !== "overview" && section !== "batches" ? section : undefined
+  const availability = importKind ? importAvailability[importKind] : null
 
   return (
     <ScrollableContent>
       <div className="flex max-w-[980px] flex-col gap-6">
         <SecondaryMenu items={importMenuItems} />
 
-        <div>
-          <p className="text-xs font-medium text-muted-foreground">
-            Import settings
-          </p>
-          <h1 className="mt-2 text-2xl font-semibold text-foreground">
-            {isOverview
-              ? "Imports and migrations"
-              : isBatches
-                ? "Batches"
-                : (sectionCopy?.title ?? "Imports")}
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            {isOverview
-              ? "Use one structured import surface for member setup, historical records, and legacy migration batches."
-              : isBatches
-                ? "Review staged and applied import batches across every import type."
-                : (sectionCopy?.description ??
-                  "Stage and review import batches for this workspace.")}
-          </p>
-        </div>
-
-        {isOverview ? (
-          <>
-            <section className="hidden gap-4 md:grid md:grid-cols-3">
-              <DashboardStatCard
-                detail="Import batches currently staged for review or apply."
-                label="Staged batches"
-                value={batches.length.toString()}
-              />
-              <DashboardStatCard
-                detail="Batches already applied into cooperative data."
-                label="Applied batches"
-                tone="positive"
-                value={batches
-                  .filter((batch) => batch.status === "applied")
-                  .length.toString()}
-              />
-              <DashboardStatCard
-                detail="Batches still waiting for operator action."
-                label="Pending review"
-                tone={
-                  batches.some((batch) => batch.status !== "applied")
-                    ? "warning"
-                    : "default"
-                }
-                value={batches
-                  .filter((batch) => batch.status !== "applied")
-                  .length.toString()}
-              />
-            </section>
-
-            <section aria-labelledby="import-sequence-title">
-              <div className="pb-4">
-                <p className="text-xs font-medium text-muted-foreground">
-                  Migration import order
-                </p>
-                <h2
-                  className="mt-1 text-base font-semibold text-foreground"
-                  id="import-sequence-title"
-                >
-                  One-time import sequence
-                </h2>
-                <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-                  Follow this sequence before member ledger backfill. Server-side
-                  gates enforce the same order when batches are staged or
-                  applied.
-                </p>
-              </div>
-              <div className="divide-y divide-border/70 border-y border-border/70">
-                <ImportReadinessRow
-                  detail="Finance start date, dated charge schedules, business profit pools, and share capital plan."
-                  status={historicalSetupReady ? "Ready" : "Required first"}
-                  title="1. Historical finance setup"
-                  tone={historicalSetupReady ? "positive" : "warning"}
-                />
-                <ImportReadinessRow
-                  detail="Member profiles, deduction sources, and loan products used by later records."
-                  status={memberProfilesReady ? "Members loaded" : "Load members"}
-                  title="2. Members and registries"
-                  tone={memberProfilesReady ? "positive" : "neutral"}
-                />
-                <ImportReadinessRow
-                  detail="Savings, charges, legacy loan positions, and repayment migrations."
-                  status={
-                    historicalSetupReady
-                      ? "Open after setup"
-                      : "Blocked by setup"
-                  }
-                  title="3. Historical records"
-                  tone={historicalSetupReady ? "neutral" : "warning"}
-                />
-                <ImportReadinessRow
-                  detail="Confirm legacy loan balances or mark no legacy loans before posting member ledger history."
-                  status={
-                    legacyLoanReviewReady ? "Reviewed" : "Review required"
-                  }
-                  title="4. Loan review then backfill"
-                  tone={legacyLoanReviewReady ? "positive" : "warning"}
-                />
-              </div>
-            </section>
-
-            {hasActiveBlockers ? (
-              <section aria-labelledby="import-blockers-title">
-                <div className="flex flex-col gap-4 pb-4 md:flex-row md:items-end md:justify-between">
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">
-                      Setup blockers
-                    </p>
-                    <h2
-                      className="mt-1 text-base font-semibold text-foreground"
-                      id="import-blockers-title"
-                    >
-                      Imports currently need attention
-                    </h2>
-                    <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-                      These active blockers decide which import workflows are
-                      available.
-                    </p>
-                  </div>
-                  <DashboardActionLink
-                    className="h-11 w-full md:h-9 md:w-auto"
-                    href="/settings/finance"
-                    variant="secondary"
-                  >
-                    Open finance setup
-                  </DashboardActionLink>
-                </div>
-                <div className="divide-y divide-border/70 border-y border-border/70">
-                  {migrationToolsLockedReason ? (
-                    <ImportReadinessRow
-                      detail={migrationToolsLockedReason}
-                      status="Blocked"
-                      title="Migration tools locked"
-                      tone="warning"
-                    />
-                  ) : null}
-                  {backfillLockedReason ? (
-                    <ImportReadinessRow
-                      detail={backfillLockedReason}
-                      status="Blocked"
-                      title="Historical imports locked"
-                      tone="warning"
-                    />
-                  ) : null}
-                  {historicalSetupBlockingLabels.length ? (
-                    <ImportReadinessRow
-                      detail={`Complete ${historicalSetupBlockingLabels.join(", ")} before member profiles, savings, loan, and repayment history are imported.`}
-                      status="Required first"
-                      title="Historical finance setup"
-                      tone="warning"
-                    />
-                  ) : null}
-                  {memberProfilesBlockingLabels.length ? (
-                    <ImportReadinessRow
-                      detail="Import members before savings, loan, and repayment records so every historical row has a canonical member record."
-                      status="Required first"
-                      title="Member profiles"
-                      tone="warning"
-                    />
-                  ) : null}
-                </div>
-              </section>
-            ) : null}
-          </>
-        ) : canManageImports ? (
-          <>
-            <ImportHeader
-              canManageImports={canManageImports}
-              importKind={importKind}
-              isLocked={
-                importKind ? !importAvailability[importKind].isAvailable : false
-              }
-            />
-            <Suspense fallback={<ImportTableLoading />}>
-              <ImportDataTable
-                devMode={quickFillEnabled}
-                importAvailability={importAvailability}
-                importKind={importKind}
-                initialSettings={initialSettings}
-                referenceData={referenceData}
-              />
-            </Suspense>
-          </>
-        ) : (
+        {!canManageImports ? (
           <WorkspaceEmptyState
-            body="Cooperative admins, finance officers, and operations officers can run imports and migration batches from this route."
-            title="Import access is limited to staff roles."
+            body="Cooperative staff add records from spreadsheets here."
+            title="Only staff can use imports."
           />
+        ) : section === "overview" ? (
+          <ImportsOverview
+            importAvailability={importAvailability}
+            lockedReason={lockedReason}
+            progress={progress}
+          />
+        ) : (
+          <>
+            <p className="max-w-2xl text-lg text-foreground/80">
+              {importKind
+                ? importKindWords[importKind].line
+                : "Every file added from a spreadsheet, newest first."}
+            </p>
+
+            {importKind && availability ? (
+              availability.isAvailable ? (
+                <OpenImportSheet importKind={importKind} />
+              ) : (
+                <p
+                  className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-base text-amber-950"
+                  role="status"
+                >
+                  {availability.blockedReason}
+                </p>
+              )
+            ) : null}
+
+            <section
+              aria-labelledby="import-history-title"
+              className="space-y-3"
+            >
+              <h2
+                className="text-lg font-semibold text-foreground"
+                id="import-history-title"
+              >
+                {importKind ? "Added before" : "All imports"}
+              </h2>
+              <Suspense fallback={<ImportTableLoading />}>
+                <ImportDataTable
+                  devMode={quickFillEnabled}
+                  importAvailability={importAvailability}
+                  importKind={importKind}
+                  initialSettings={initialSettings}
+                />
+              </Suspense>
+            </section>
+          </>
         )}
       </div>
     </ScrollableContent>

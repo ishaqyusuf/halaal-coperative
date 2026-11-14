@@ -238,7 +238,7 @@ export const ROW_HEIGHTS: Record<TableId, number> = {
   support: 72,
   paymentReceipts: 64,
   chargeLibrary: 56,
-  imports: 56,
+  imports: 68,
   loanPortfolio: 72,
   loanRequests: 76,
   membershipApprovals: 64,

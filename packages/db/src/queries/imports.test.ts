@@ -559,26 +559,22 @@ describe("import batch queries", () => {
           ],
           tenantId: "tenant-1",
         },
-        prisma as never,
-      ),
+        prisma as never
+      )
     ).rejects.toThrow("ambiguous after case normalization")
   })
 
-  test("applies loan-product rows and batch status in one transaction", async () => {
+  test("claims a batch, then adds its rows and status in one transaction", async () => {
+    const claims: unknown[] = []
     const transactionBatchUpdates: unknown[] = []
-    const transactionBatchClaims: unknown[] = []
     const productCreates: unknown[] = []
-    const outsideBatchUpdates: unknown[] = []
+    const transactionOptions: unknown[] = []
     const tx = {
       auditLog: { create: async (input: unknown) => input },
       importBatch: {
         update: async (input: unknown) => {
           transactionBatchUpdates.push(input)
           return input
-        },
-        updateMany: async (input: unknown) => {
-          transactionBatchClaims.push(input)
-          return { count: 1 }
         },
       },
       loanProduct: {
@@ -590,105 +586,124 @@ describe("import batch queries", () => {
       },
     }
     const prisma = {
-      $transaction: async (callback: (value: typeof tx) => Promise<unknown>) =>
-        callback(tx),
+      $transaction: async (
+        callback: (value: typeof tx) => Promise<unknown>,
+        options: unknown
+      ) => {
+        transactionOptions.push(options)
+        return callback(tx)
+      },
       appliedBackfillMonth: { findMany: async () => [] },
       backfillBatch: { findMany: async () => [] },
       importBatch: {
         findFirst: async () => ({
           id: "batch-1",
           importType: "loan_products",
-          rows: [
-            {
-              payload: {
-                code: "NOR",
-                loanType: "normal",
-                maxSavingsMultiple: 2,
-                name: "Standard",
-                termMonths: 12,
-              },
-            },
-          ],
           status: "draft",
+          updatedAt: new Date(),
         }),
         updateMany: async (input: unknown) => {
-          outsideBatchUpdates.push(input)
-          return { count: 0 }
+          claims.push(input)
+          return { count: 1 }
         },
+      },
+      importBatchRow: {
+        findMany: async () => [
+          {
+            payload: {
+              code: "NOR",
+              loanType: "normal",
+              maxSavingsMultiple: 2,
+              name: "Standard",
+              termMonths: 12,
+            },
+          },
+        ],
       },
     }
 
     await expect(
       applyImportBatch(
-        {
-          actorUserId: "user-1",
-          batchId: "batch-1",
-          tenantId: "tenant-1",
-        },
+        { actorUserId: "user-1", batchId: "batch-1", tenantId: "tenant-1" },
         prisma as never
       )
     ).resolves.toEqual({ processed: 1 })
 
+    expect(claims).toHaveLength(1)
+    expect(claims[0]).toMatchObject({
+      data: { status: "applying" },
+      where: {
+        id: "batch-1",
+        OR: [{ status: { in: ["draft", "failed"] } }, { status: "applying" }],
+      },
+    })
     expect(productCreates).toHaveLength(1)
-    expect(transactionBatchClaims).toHaveLength(1)
-    expect(transactionBatchClaims[0]).toMatchObject({
-      where: { id: "batch-1", status: { in: ["draft", "failed"] } },
-    })
-    expect(transactionBatchUpdates).toHaveLength(1)
-    expect(transactionBatchUpdates[0]).toMatchObject({
-      data: { status: "applied" },
-    })
-    expect(outsideBatchUpdates).toHaveLength(0)
+    expect(transactionOptions).toHaveLength(1)
+    expect(transactionBatchUpdates).toEqual([
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "applied" }),
+      }),
+    ])
   })
 
-  test("does not reapply a loan-product batch that another request claimed", async () => {
-    let productLookups = 0
-    const failureUpdates: unknown[] = []
-    const tx = {
-      importBatch: {
-        updateMany: async () => ({ count: 0 }),
-      },
-      loanProduct: {
-        findMany: async () => {
-          productLookups += 1
-          return []
-        },
-      },
-    }
+  test("does not add a batch that another request already claimed", async () => {
+    let rowReads = 0
     const prisma = {
-      $transaction: async (callback: (value: typeof tx) => Promise<unknown>) =>
-        callback(tx),
+      $transaction: async () => {
+        throw new Error("must not open a transaction")
+      },
       appliedBackfillMonth: { findMany: async () => [] },
       backfillBatch: { findMany: async () => [] },
       importBatch: {
         findFirst: async () => ({
           id: "batch-1",
-          importType: "loan_products",
-          rows: [],
+          importType: "contributions",
           status: "draft",
+          updatedAt: new Date(),
         }),
-        updateMany: async (input: unknown) => {
-          failureUpdates.push(input)
-          return { count: 0 }
+        updateMany: async () => ({ count: 0 }),
+      },
+      importBatchRow: {
+        findMany: async () => {
+          rowReads += 1
+          return []
         },
       },
     }
 
     await expect(
       applyImportBatch(
-        {
-          actorUserId: "user-1",
-          batchId: "batch-1",
-          tenantId: "tenant-1",
-        },
-        prisma as never,
-      ),
+        { actorUserId: "user-1", batchId: "batch-1", tenantId: "tenant-1" },
+        prisma as never
+      )
     ).rejects.toThrow("already been applied or is being applied")
+    expect(rowReads).toBe(0)
+  })
 
-    expect(productLookups).toBe(0)
-    expect(failureUpdates[0]).toMatchObject({
-      where: { id: "batch-1", status: { not: "applied" } },
-    })
+  test("never re-adds a repayment batch that stopped part way", async () => {
+    let claims = 0
+    const prisma = {
+      importBatch: {
+        findFirst: async () => ({
+          id: "batch-1",
+          importType: "repayment_migrations",
+          status: "partial",
+          updatedAt: new Date(),
+        }),
+        updateMany: async () => {
+          claims += 1
+          return { count: 1 }
+        },
+      },
+    }
+
+    await expect(
+      applyImportBatch(
+        { actorUserId: "user-1", batchId: "batch-1", tenantId: "tenant-1" },
+        prisma as never
+      )
+    ).rejects.toThrow("Part of this file was added")
+    expect(claims).toBe(0)
   })
 
   test("blocks member imports after backfill has started", async () => {
@@ -727,10 +742,29 @@ describe("import batch queries", () => {
     expect(memberUpserts).toHaveLength(0)
   })
 
-  test("imports member opening savings and KYC references", async () => {
-    const memberUpserts: unknown[] = []
+  test("imports member opening savings and KYC references in one batched write", async () => {
+    const memberCreates: any[] = []
+    const memberUpdates: unknown[] = []
+    const client = {
+      appliedBackfillMonth: { findMany: async () => [] },
+      auditLog: { create: async (input: unknown) => input },
+      backfillBatch: { findMany: async () => [] },
+      member: {
+        createMany: async (input: any) => {
+          memberCreates.push(input)
+          return { count: input.data.length }
+        },
+        findMany: async () => [
+          { id: "member-existing", memberNumber: "MBR-002" },
+        ],
+        update: async (input: unknown) => {
+          memberUpdates.push(input)
+          return input
+        },
+      },
+    }
 
-    await importMembers(
+    const result = await importMembers(
       {
         actorUserId: "user-1",
         rows: [
@@ -749,52 +783,43 @@ describe("import batch queries", () => {
             openingSavingsBalance: 25000,
             phoneNumber: "+2348010001001",
           },
+          {
+            fullName: "Musa Ali",
+            joinedAt: new Date("2025-02-01T00:00:00.000Z"),
+            memberNumber: "MBR-002",
+            memberType: "individual",
+            openingSavingsBalance: 1000,
+          },
         ],
         tenantId: "tenant-1",
       },
-      {
-        appliedBackfillMonth: {
-          findMany: async () => [],
-        },
-        auditLog: {
-          create: async (input: unknown) => input,
-        },
-        backfillBatch: {
-          findMany: async () => [],
-        },
-        member: {
-          upsert: async (input: unknown) => {
-            memberUpserts.push(input)
-            return input
-          },
-        },
-      } as never
+      client as never
     )
 
-    expect(memberUpserts[0]).toMatchObject({
-      create: {
-        address: "Kaduna",
-        email: "aisha@example.com",
-        governmentIdNumber: "NIN-001",
-        kycDocumentType: "national_id",
-        kycReviewNotes: "Imported file",
-        kycStatus: "verified",
-        occupation: "Trader",
-        phoneNumber: "+2348010001001",
-        totalSavingsSnapshot: 25000,
-      },
-      update: {
-        address: "Kaduna",
-        email: "aisha@example.com",
-        governmentIdNumber: "NIN-001",
-        kycDocumentType: "national_id",
-        kycReviewNotes: "Imported file",
-        kycStatus: "verified",
-        occupation: "Trader",
-        phoneNumber: "+2348010001001",
-        totalSavingsSnapshot: 25000,
-      },
+    expect(result).toEqual({ processed: 2 })
+    expect(memberCreates).toHaveLength(1)
+    expect(memberCreates[0].data).toHaveLength(1)
+    expect(memberCreates[0].data[0]).toMatchObject({
+      address: "Kaduna",
+      email: "aisha@example.com",
+      governmentIdNumber: "NIN-001",
+      kycDocumentType: "national_id",
+      kycReviewNotes: "Imported file",
+      kycStatus: "verified",
+      memberNumber: "MBR-001",
+      occupation: "Trader",
+      phoneNumber: "+2348010001001",
+      totalSavingsSnapshot: 25000,
     })
+    expect(memberUpdates).toEqual([
+      expect.objectContaining({
+        data: expect.objectContaining({
+          fullName: "Musa Ali",
+          totalSavingsSnapshot: 1000,
+        }),
+        where: { id: "member-existing" },
+      }),
+    ])
   })
 
   test("blocks contribution imports after backfill has started", async () => {
@@ -936,48 +961,38 @@ describe("import batch queries", () => {
         tenantId: "tenant-1",
       },
       {
-        $transaction: async (callback: (tx: any) => Promise<unknown>) =>
-          callback({
-            loan: {
-              create: async (input: any) => {
-                loans.push(input)
-                return { id: "loan-1" }
-              },
-            },
-            loanApproval: {
-              create: async () => ({ id: "approval-1" }),
-            },
-            loanRequest: {
-              create: async (input: any) => {
-                loanRequests.push(input)
-                return { id: "request-1" }
-              },
-            },
-            repaymentScheduleItem: {
-              createMany: async (input: any) => {
-                repaymentScheduleCreates.push(input)
-                return { count: input.data.length }
-              },
-            },
-          }),
-        appliedBackfillMonth: {
+        appliedBackfillMonth: { findMany: async () => [] },
+        auditLog: { create: async () => ({ id: "audit-1" }) },
+        backfillBatch: { findMany: async () => [] },
+        loan: {
+          createMany: async (input: any) => {
+            loans.push(input)
+            return { count: input.data.length }
+          },
+        },
+        loanApproval: { createMany: async () => ({ count: 1 }) },
+        loanProduct: { upsert: async () => ({ id: "product-1" }) },
+        loanRequest: {
+          createMany: async (input: any) => {
+            loanRequests.push(input)
+            return { count: input.data.length }
+          },
           findMany: async () => [],
-        },
-        auditLog: {
-          create: async () => ({ id: "audit-1" }),
-        },
-        backfillBatch: {
-          findMany: async () => [],
-        },
-        loanProduct: {
-          upsert: async () => ({ id: "product-1" }),
         },
         member: {
-          findFirst: async () => ({
-            id: "member-1",
-            memberNumber: "MBR-001",
-            totalSavingsSnapshot: 200000,
-          }),
+          findMany: async () => [
+            {
+              id: "member-1",
+              memberNumber: "MBR-001",
+              totalSavingsSnapshot: 200000,
+            },
+          ],
+        },
+        repaymentScheduleItem: {
+          createMany: async (input: any) => {
+            repaymentScheduleCreates.push(input)
+            return { count: input.data.length }
+          },
         },
         tenant: {
           findUnique: async () => ({
@@ -989,8 +1004,9 @@ describe("import batch queries", () => {
     )
 
     expect(result.processed).toBe(1)
-    expect(loanRequests[0]?.data.estimatedMonthlyServicing).toBe(15000)
-    expect(loans[0]?.data.estimatedMonthlyServicing).toBe(15000)
+    expect(loanRequests[0]?.data[0].estimatedMonthlyServicing).toBe(15000)
+    expect(loans[0]?.data[0].estimatedMonthlyServicing).toBe(15000)
+    expect(loans[0]?.data[0].loanRequestId).toBe(loanRequests[0]?.data[0].id)
     expect(repaymentScheduleCreates[0]?.data[0]).toMatchObject({
       amountPaid: 15000,
       principalDue: 15000,

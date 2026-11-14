@@ -51,7 +51,7 @@ describe("dashboard Quick fill coverage", () => {
       "components/contribution-content.tsx",
       "components/food-purchase-content.tsx",
       "components/forms/finance-forms.tsx",
-      "components/forms/import-forms.tsx",
+      "components/imports/import-file-content.tsx",
       "components/forms/member-forms.tsx",
       "components/forms/misc-forms.tsx",
       "components/forms/settings-forms.tsx",

@@ -1,33 +1,25 @@
 "use client"
 
-import { Add01Icon } from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
+import { FileUp } from "lucide-react"
 import { Button } from "@halaalvest/ui/components/button"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { useImportParams } from "@/hooks/use-import-params"
-import {
-  dashboardImportConfigs,
-  type DashboardImportKind,
-} from "@/lib/import-csv"
+import type { DashboardImportKind } from "@/lib/import-csv"
+import { importKindWords } from "@/lib/imports/import-words"
 
+/** The page's one primary action: open the "add from a spreadsheet" modal. */
 export function OpenImportSheet({
   className,
-  disabled,
-  display = "icon",
   importKind,
 }: {
   className?: string
-  disabled: boolean
-  display?: "icon" | "label"
   importKind: DashboardImportKind
 }) {
   const { setParams } = useImportParams()
 
   return (
     <Button
-      aria-label={`Import ${dashboardImportConfigs[importKind].title}`}
-      className={cn(className)}
-      disabled={disabled}
+      className={cn("h-12 w-full text-base sm:w-auto sm:self-start", className)}
       onClick={() =>
         setParams({
           importBatchId: null,
@@ -35,14 +27,10 @@ export function OpenImportSheet({
           importType: importKind,
         })
       }
-      size={display === "icon" ? "icon" : "default"}
       type="button"
-      variant="outline"
     >
-      <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
-      {display === "label" ? (
-        <span>Import {dashboardImportConfigs[importKind].title.toLowerCase()}</span>
-      ) : null}
+      <FileUp aria-hidden />
+      Add {importKindWords[importKind].many} from a spreadsheet
     </Button>
   )
 }

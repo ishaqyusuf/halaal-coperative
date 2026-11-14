@@ -78,6 +78,7 @@ const canonicalHeaderNames: Record<string, string> = {
   openingsavingsbalance: "openingSavingsBalance",
   outstandingprincipal: "outstandingPrincipal",
   periodlabel: "periodLabel",
+  postedat: "postedAt",
   principalamount: "principalAmount",
   profitdate: "profitDate",
   requestedat: "requestedAt",
@@ -548,12 +549,35 @@ export const dashboardImportConfigs: Record<
   },
 }
 
+/** A blank cell means "not given": optional columns may be left empty. */
+export function withoutBlankCells(record: Record<string, string>) {
+  return Object.fromEntries(
+    Object.entries(record).filter(([, value]) => value.trim() !== "")
+  )
+}
+
+/** Largest file one import takes: keeps request bodies and writes bounded. */
+export const MAX_IMPORT_ROWS = 5000
+export const MAX_IMPORT_TEXT_LENGTH = 3_000_000
+
 export function parseDashboardImportCsv<T = unknown>(
   kind: DashboardImportKind,
   csvText: string
 ): ImportParseResult<T> {
   const config = dashboardImportConfigs[kind]
   const trimmedText = csvText.trim()
+
+  if (trimmedText.length > MAX_IMPORT_TEXT_LENGTH) {
+    return {
+      errors: [
+        "This file is too large to add in one go. Split it into smaller files.",
+      ],
+      headers: [],
+      ok: false,
+      previewRows: [],
+      rows: [],
+    }
+  }
 
   if (!trimmedText) {
     return {
@@ -566,6 +590,18 @@ export function parseDashboardImportCsv<T = unknown>(
   }
 
   const { headers, records } = csvToRecords(trimmedText)
+
+  if (records.length > MAX_IMPORT_ROWS) {
+    return {
+      errors: [
+        `This file has ${records.length.toLocaleString("en-NG")} rows. Add at most ${MAX_IMPORT_ROWS.toLocaleString("en-NG")} at a time: split it into smaller files.`,
+      ],
+      headers,
+      ok: false,
+      previewRows: [],
+      rows: [],
+    }
+  }
 
   if (headers.length === 0) {
     return {
@@ -581,7 +617,7 @@ export function parseDashboardImportCsv<T = unknown>(
   const parsedRows: T[] = []
 
   records.forEach((record, index) => {
-    const result = config.schema.safeParse(record)
+    const result = config.schema.safeParse(withoutBlankCells(record))
 
     if (!result.success) {
       const issueSummary = result.error.issues
@@ -650,7 +686,38 @@ export function getDashboardImportIdentityKeys(
     ]
   }
 
-  return primaryValue ? [`primary:${primaryValue}`] : []
+  if (kind === "members") {
+    return primaryValue ? [`primary:${primaryValue}`] : []
+  }
+
+  // Money and loan rows repeat a member number (one row per month), so a
+  // duplicate is the same member, date, amount and reference twice.
+  const recordFields: Record<string, string[]> = {
+    charges: ["memberNumber", "code", "assessedAt", "amount"],
+    contributions: ["memberNumber", "postedAt", "amount", "reference"],
+    loan_migrations: ["memberNumber", "loanProductName", "requestedAt"],
+    repayment_migrations: [
+      "memberNumber",
+      "loanProductName",
+      "amount",
+      "reference",
+    ],
+  }
+  const fields = recordFields[kind]
+  if (!fields || !primaryValue) return []
+
+  return [
+    `record:${fields
+      .map((field) => {
+        const value = row[field]
+        return value instanceof Date
+          ? value.toISOString().slice(0, 10)
+          : String(value ?? "")
+              .trim()
+              .toLowerCase()
+      })
+      .join("|")}`,
+  ]
 }
 
 export function getDashboardImportExistingMatches(
@@ -695,4 +762,34 @@ export function getDashboardImportExistingMatches(
     default:
       return false
   }
+}
+
+/**
+ * The file as the server stores it: known columns in template order, then any
+ * others alphabetically, every cell trimmed, blank rows dropped. The same
+ * spreadsheet saved as CSV or as a workbook gives the same text, which is how
+ * an already-added file is recognised.
+ */
+export function canonicalizeDashboardImportCsv(
+  kind: DashboardImportKind,
+  csvText: string
+) {
+  const { headers, records } = csvToRecords(csvText.trim())
+  const [templateRow] = parseCsvRows(dashboardImportConfigs[kind].sampleCsv)
+  const templateHeaders = (templateRow ?? []).map(normalizeHeader)
+  const ordered = [
+    ...templateHeaders.filter((header) => headers.includes(header)),
+    ...headers.filter((header) => !templateHeaders.includes(header)).sort(),
+  ]
+  const escape = (value: string) =>
+    /[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value
+
+  return [
+    ordered,
+    ...records
+      .filter((record) => ordered.some((header) => record[header]))
+      .map((record) => ordered.map((header) => record[header] ?? "")),
+  ]
+    .map((row) => row.map(escape).join(","))
+    .join("\n")
 }

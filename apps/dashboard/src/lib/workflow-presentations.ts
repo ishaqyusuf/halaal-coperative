@@ -15,6 +15,10 @@ const alertDialog = (width: WorkflowPresentationWidth = "compact") =>
   ({ presentation: "alert-dialog", width }) as const
 
 export const workflowPresentations = {
+  // /reports/audit: one activity entry, URL-addressed (`activityId`).
+  activityEntry: {
+    details: sheet("form"),
+  },
   business: {
     create: sheet(),
     details: sheet("review"),
@@ -163,6 +167,10 @@ export const workflowPresentations = {
     // Staff decide inside the request's own sheet (ADR-20261105 rule 3).
     review: sheet("review"),
     "self-service": sheet("review"),
+  },
+  // /reports: pick a period and download one CSV (export = modal).
+  reportExport: {
+    download: dialog("compact"),
   },
   repayment: {
     followUp: sheet("form"),

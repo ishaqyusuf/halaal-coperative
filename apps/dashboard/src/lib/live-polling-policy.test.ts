@@ -69,8 +69,8 @@ describe("resolveLiveTablePollInterval", () => {
 })
 
 describe("dashboard table polling conformance", () => {
+  // The activity log (/reports/audit) is a plain paged list with no polling.
   const tables = [
-    "audit",
     "charges",
     "shares",
   ]

@@ -1,12 +1,13 @@
 import {
   countAuditLogs,
+  getActivityReportEvent,
   getReportsSummary,
   listActivityReportEvents,
 } from "@halaalvest/db"
 import { z } from "zod"
 
 import { createTRPCRouter, minRoleProcedure } from "../lib.trpc"
-import { listAuditEventsSchema } from "../schemas/reports"
+import { getAuditEventSchema, listAuditEventsSchema } from "../schemas/reports"
 
 function parseDateInput(value: string | undefined, endOfDay = false) {
   const normalized = value?.trim()
@@ -26,9 +27,10 @@ export const reportsRouter = createTRPCRouter({
   auditEvents: minRoleProcedure("tenant_admin")
     .input(listAuditEventsSchema)
     .query(async ({ ctx, input }) => {
-      const pageSize = input?.pageSize ?? 50
+      const pageSize = input?.pageSize ?? 30
       const filters = {
         action: input?.action || undefined,
+        area: input?.area ?? undefined,
         cursor: input?.cursor ?? undefined,
         fromDate: input?.from,
         limit: pageSize + 1,
@@ -36,14 +38,12 @@ export const reportsRouter = createTRPCRouter({
         sort: input?.sort ?? null,
         toDate: input?.to,
       }
-      const [events, total, userCount] = await Promise.all([
+      // The total is counted once, for the first page only.
+      const [events, total] = await Promise.all([
         listActivityReportEvents(ctx.tenant.current.id, filters),
-        countAuditLogs(ctx.tenant.current.id, filters),
-        countAuditLogs(ctx.tenant.current.id, {
-          ...filters,
-          actorType: "user",
-          cursor: undefined,
-        }),
+        filters.cursor
+          ? Promise.resolve(null)
+          : countAuditLogs(ctx.tenant.current.id, filters),
       ])
       const data = events.slice(0, pageSize)
 
@@ -51,12 +51,16 @@ export const reportsRouter = createTRPCRouter({
         data,
         meta: {
           cursor: events.length > pageSize ? data.at(-1)?.id : undefined,
-          systemCount: total - userCount,
           total,
-          userCount,
         },
       }
     }),
+
+  auditEvent: minRoleProcedure("tenant_admin")
+    .input(getAuditEventSchema)
+    .query(({ ctx, input }) =>
+      getActivityReportEvent(ctx.tenant.current.id, input.id)
+    ),
 
   summary: minRoleProcedure("tenant_admin")
     .input(
@@ -65,7 +69,7 @@ export const reportsRouter = createTRPCRouter({
           from: z.string().optional(),
           to: z.string().optional(),
         })
-        .optional(),
+        .optional()
     )
     .query(({ ctx, input }) => {
       return getReportsSummary({

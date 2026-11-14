@@ -2,7 +2,10 @@
 
 import type { PageFilterData } from "@halaalvest/utils"
 import { SearchFilter } from "@/components/search-filter"
-import { auditFilterParamsSchema, useAuditFilterParams } from "@/hooks/use-audit-filter-params"
+import {
+  auditFilterParamsSchema,
+  useAuditFilterParams,
+} from "@/hooks/use-audit-filter-params"
 
 export function AuditSearchFilter({
   initialFilterList,
@@ -16,7 +19,7 @@ export function AuditSearchFilter({
       filterSchema={auditFilterParamsSchema}
       filters={filters}
       initialFilterList={initialFilterList}
-      placeholder="Search audit activity..."
+      placeholder="Search by name or action"
       setFilters={setFilters}
     />
   )

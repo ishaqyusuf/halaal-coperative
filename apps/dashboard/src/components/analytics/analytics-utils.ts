@@ -12,24 +12,20 @@ export const analyticsPeriodOptions: Array<{
   value: AnalyticsPeriod
 }> = [
   { label: "This month", value: "current_month" },
-  { label: "3M", value: "last_3_months" },
-  { label: "6M", value: "last_6_months" },
-  { label: "12M", value: "last_12_months" },
+  { label: "3 months", value: "last_3_months" },
+  { label: "6 months", value: "last_6_months" },
+  { label: "12 months", value: "last_12_months" },
 ]
 
-export function getCoverageTone(value: number) {
-  if (value >= 0.9) return "positive"
-  if (value >= 0.75) return "neutral"
-
-  return "warning"
+/** Share of what was expected, 0 when nothing was expected. */
+export function getPaidShare(received: number, expected: number) {
+  if (expected <= 0) return null
+  return Math.round((received / expected) * 100)
 }
 
-export function getRiskTone(value: number) {
-  return value > 0 ? "warning" : "positive"
-}
-
-export function getBarWidth(value: number, max: number) {
-  if (max <= 0) return "0%"
-
-  return `${Math.min(100, Math.round((Math.max(0, value) / max) * 100))}%`
+export function sumMonths<K extends string>(
+  months: Array<Record<K, number>>,
+  key: K
+) {
+  return months.reduce((total, month) => total + month[key], 0)
 }

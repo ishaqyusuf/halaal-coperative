@@ -8,11 +8,10 @@ import {
 import { loadReportsFilterParams } from "@/hooks/use-reports-filter-params"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
-import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server"
+import { HydrateClient, prefetch, trpc } from "@/trpc/server"
 
 export const metadata: Metadata = {
-  description:
-    "Cooperative finance, audit, collections, notification, and compliance reporting.",
+  description: "Key figures, downloads and recent activity.",
   title: "Reports | Halaalvest",
 }
 
@@ -29,8 +28,8 @@ export default async function ReportsPage({
   if (!context.tenant || runtime.status !== "database-configured") {
     return (
       <ReportsUnavailableView
-        body="Once the database-backed environment is active, this route will surface audit activity, notification delivery stats, and finance snapshots."
-        title="Reporting needs the database runtime."
+        body="Reports are not available right now. Try again later."
+        title="Reports are unavailable"
       />
     )
   }
@@ -38,19 +37,18 @@ export default async function ReportsPage({
   if (!hasAnyRole(context.auth.membership?.role, workspaceAdminRoles)) {
     return (
       <ReportsUnavailableView
-        body="Cooperative admins and super admins can access audit and reporting surfaces."
-        title="Report access is limited."
+        body="Only cooperative admins can see reports."
+        title="You cannot see reports"
       />
     )
   }
 
-  batchPrefetch([
+  prefetch(
     trpc.reports.summary.queryOptions({
       from: resolvedDateRange?.from,
       to: resolvedDateRange?.to,
-    }),
-    trpc.filters.reports.queryOptions(),
-  ])
+    })
+  )
 
   return (
     <HydrateClient>

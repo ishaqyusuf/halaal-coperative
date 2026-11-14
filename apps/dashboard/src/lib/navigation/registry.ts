@@ -93,11 +93,7 @@ export const dashboardNavRegistry: NavModule[] = [
         "Reports",
         ReportsIcon,
         "/reports",
-        [
-          createNavSubLink("Activity report", "/reports/audit").title(
-            "Activity report"
-          ).data,
-        ],
+        [createNavSubLink("Activity", "/reports/audit").title("Activity").data],
         [role.in(...adminRoles)]
       )
         .childPaths("/reports/audit")

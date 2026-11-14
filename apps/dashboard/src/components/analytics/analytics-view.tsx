@@ -1,315 +1,116 @@
 "use client"
 
+import { TenantLink as Link } from "@halaalvest/tenant-url/next"
+import { formatCurrency } from "@halaalvest/utils"
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { Skeleton } from "@halaalvest/ui/components/skeleton"
-import { formatCurrency, formatPercent } from "@halaalvest/utils"
+import { ChevronRight } from "lucide-react"
 import { Suspense, useDeferredValue } from "react"
+import { PeriodButtons } from "@/components/period-buttons"
+import { SummaryCard, SummaryCardSkeleton } from "@/components/summary-card"
 import { useAnalyticsParams } from "@/hooks/use-analytics-params"
 import { overdueRepaymentScheduleHref } from "@/lib/repayments/repayments-drilldown"
 import { useTRPC } from "@/trpc/client"
 import {
-  OverviewActionLink,
-  OverviewPill,
-  OverviewSection,
-  OverviewTile,
-} from "../widgets/overview-ui"
-import {
   analyticsPeriodOptions,
-  getBarWidth,
-  getCoverageTone,
-  getRiskTone,
+  getPaidShare,
+  sumMonths,
   type AnalyticsPeriod,
   type AnalyticsSummary,
 } from "./analytics-utils"
+import { MonthColumnsChart } from "./month-columns-chart"
 
-function MetricLink({
-  detail,
-  href,
-  label,
-  tone = "neutral",
-  value,
+// Validated with the dataviz palette checker (light on #ffffff, dark on #0e1c2a).
+const receivedBar = "bg-[#1f7a3d] dark:bg-[#34a85c]"
+const expectedBar = "bg-[#7b8590] dark:bg-[#6b7887]"
+const paidOutBar = "bg-[#1c46c2] dark:bg-[#4a86e8]"
+
+function Section({
+  children,
+  id,
+  line,
+  title,
 }: {
-  detail: string
-  href: string
-  label: string
-  tone?: "neutral" | "positive" | "warning"
-  value: string
+  children: React.ReactNode
+  id: string
+  line?: string
+  title: string
 }) {
   return (
-    <OverviewActionLink
-      href={href}
-      variant="ghost"
-      className="group flex !h-auto min-h-[160px] flex-col items-start rounded-none border border-border bg-background p-4 text-left hover:border-foreground/20 hover:bg-muted"
-    >
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="mt-4 text-2xl font-medium text-foreground">{value}</span>
-      <span className="mt-2 min-h-10 text-xs leading-5 text-muted-foreground">
-        {detail}
-      </span>
-      <span
-        className={
-          tone === "warning"
-            ? "mt-3 block h-0.5 w-8 bg-amber-300"
-            : tone === "positive"
-              ? "mt-3 block h-0.5 w-8 bg-emerald-300"
-              : "mt-3 block h-0.5 w-8 bg-border"
-        }
-      />
-    </OverviewActionLink>
-  )
-}
-
-function MoneyRow({
-  label,
-  max,
-  value,
-}: {
-  label: string
-  max: number
-  value: number
-}) {
-  return (
-    <div className="grid gap-2 sm:grid-cols-[92px_1fr_132px] sm:items-center">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <div className="h-2 bg-muted">
-        <div
-          className="h-2 bg-foreground"
-          style={{ width: getBarWidth(value, max) }}
-        />
+    <section aria-labelledby={id} className="grid min-w-0 content-start gap-4">
+      <div className="grid gap-1">
+        <h2 className="text-xl font-semibold text-foreground" id={id}>
+          {title}
+        </h2>
+        {line ? (
+          <p className="text-base text-muted-foreground">{line}</p>
+        ) : null}
       </div>
-      <p className="text-sm font-medium text-foreground sm:text-right">
-        {formatCurrency(value)}
-      </p>
-    </div>
+      {children}
+    </section>
   )
 }
 
-function SmallStat({
-  label,
-  value,
+function CountRows({
+  rows,
 }: {
-  label: string
-  value: string | number
+  rows: Array<{ href: string; label: string; value: string }>
 }) {
   return (
-    <OverviewTile>
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-lg font-medium text-foreground">{value}</dd>
-    </OverviewTile>
-  )
-}
-
-function ContributionAnalytics({
-  data,
-}: {
-  data: AnalyticsSummary["contributionAnalytics"]
-}) {
-  const maxContributionValue = Math.max(
-    ...data.trend.flatMap((item) => [item.expected, item.received]),
-    1
-  )
-
-  return (
-    <OverviewSection
-      eyebrow="Contributions"
-      title="Collection pacing"
-      actions={
-        <OverviewPill tone={data.collectionGap > 0 ? "warning" : "positive"}>
-          {data.collectionGap > 0
-            ? `${formatCurrency(data.collectionGap)} gap`
-            : "Covered"}
-        </OverviewPill>
-      }
-    >
-      <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <SmallStat
-          label="Expected this month"
-          value={formatCurrency(data.expectedThisMonth)}
-        />
-        <SmallStat
-          label="Received this month"
-          value={formatCurrency(data.receivedThisMonth)}
-        />
-        <SmallStat label="Paid members" value={data.paidMemberCount} />
-        <SmallStat label="Unpaid members" value={data.unpaidMemberCount} />
-        <SmallStat label="Staged rows" value={data.stagedMemberRowCount} />
-      </dl>
-      <div className="mt-5 space-y-4">
-        {data.trend.map((item) => (
-          <div
-            key={item.periodKey}
-            className="space-y-2 border-t border-border pt-4"
+    <ul className="divide-y divide-border border-y border-border">
+      {rows.map((row) => (
+        <li key={row.label}>
+          <Link
+            className="flex min-h-14 items-center gap-3 px-1 py-3 text-base hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none sm:px-3"
+            href={row.href}
           >
-            <p className="text-xs font-medium text-foreground">
-              {item.periodLabel}
-            </p>
-            <MoneyRow
-              label="Expected"
-              max={maxContributionValue}
-              value={item.expected}
+            <span className="min-w-0 flex-1 text-foreground">{row.label}</span>
+            <span className="text-lg font-semibold tabular-nums">
+              {row.value}
+            </span>
+            <ChevronRight
+              aria-hidden="true"
+              className="size-5 shrink-0 text-muted-foreground"
             />
-            <MoneyRow
-              label="Received"
-              max={maxContributionValue}
-              value={item.received}
-            />
-          </div>
-        ))}
-      </div>
-    </OverviewSection>
+          </Link>
+        </li>
+      ))}
+    </ul>
   )
 }
 
-function FinancingAnalytics({
-  data,
-}: {
-  data: AnalyticsSummary["financingAnalytics"]
-}) {
-  const maxMovementValue = Math.max(
-    ...data.movementTrend.flatMap((item) => [
-      item.disbursedPrincipal,
-      item.repaymentsPosted,
-      item.overdueScheduledAmount,
-    ]),
-    1
-  )
+function LateBreakdown({ late }: { late: AnalyticsSummary["late"] }) {
+  const rows = [
+    { label: "Under 30 days late", value: late.under30Days },
+    { label: "30 to 59 days late", value: late.from30To59Days },
+    { label: "60 to 89 days late", value: late.from60To89Days },
+    { label: "90 days or more", value: late.over90Days },
+  ]
 
   return (
-    <OverviewSection
-      eyebrow="Risk"
-      title="Financing movement and exposure"
-      actions={
-        <OverviewPill tone={getRiskTone(data.overdueAmount)}>
-          {data.openCollectionCases} open cases
-        </OverviewPill>
-      }
-    >
-      <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <SmallStat
-          label="Outstanding principal"
-          value={formatCurrency(data.outstandingPrincipal)}
-        />
-        <SmallStat
-          label="Due this month"
-          value={formatCurrency(data.dueThisMonthAmount)}
-        />
-        <SmallStat
-          label="Pending disbursement"
-          value={formatCurrency(data.pendingDisbursementAmount)}
-        />
-        <SmallStat label="Next actions due" value={data.nextActionDueCount} />
-      </dl>
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <OverviewTile>
-          <p className="text-xs text-muted-foreground">PAR 30</p>
-          <p className="mt-1 text-lg font-medium">
-            {formatCurrency(data.par30Amount)}
-          </p>
-        </OverviewTile>
-        <OverviewTile>
-          <p className="text-xs text-muted-foreground">PAR 60</p>
-          <p className="mt-1 text-lg font-medium">
-            {formatCurrency(data.par60Amount)}
-          </p>
-        </OverviewTile>
-        <OverviewTile>
-          <p className="text-xs text-muted-foreground">PAR 90</p>
-          <p className="mt-1 text-lg font-medium">
-            {formatCurrency(data.par90Amount)}
-          </p>
-        </OverviewTile>
-      </div>
-      <div className="mt-5 space-y-4">
-        {data.movementTrend.map((item) => (
-          <div
-            key={item.periodKey}
-            className="space-y-2 border-t border-border pt-4"
-          >
-            <p className="text-xs font-medium text-foreground">
-              {item.periodLabel}
-            </p>
-            <MoneyRow
-              label="Disbursed"
-              max={maxMovementValue}
-              value={item.disbursedPrincipal}
+    <ul className="divide-y divide-border border-y border-border">
+      {rows.map((row) => (
+        <li
+          className="grid gap-2 px-1 py-3 sm:grid-cols-[12rem_1fr_9rem] sm:items-center sm:gap-4 sm:px-3"
+          key={row.label}
+        >
+          <span className="flex items-baseline justify-between gap-3 text-base sm:contents">
+            <span className="text-foreground">{row.label}</span>
+            <span className="text-lg font-semibold tabular-nums sm:order-last sm:text-right">
+              {formatCurrency(row.value)}
+            </span>
+          </span>
+          <span aria-hidden="true" className="block h-2 rounded-full bg-muted">
+            <span
+              className="block h-2 rounded-full bg-amber-600 dark:bg-amber-400"
+              style={{
+                width: `${late.amount > 0 ? Math.round((row.value / late.amount) * 100) : 0}%`,
+              }}
             />
-            <MoneyRow
-              label="Repaid"
-              max={maxMovementValue}
-              value={item.repaymentsPosted}
-            />
-            <MoneyRow
-              label="Overdue"
-              max={maxMovementValue}
-              value={item.overdueScheduledAmount}
-            />
-          </div>
-        ))}
-      </div>
-    </OverviewSection>
+          </span>
+        </li>
+      ))}
+    </ul>
   )
-}
-
-function MemberTrustAnalytics({
-  data,
-}: {
-  data: AnalyticsSummary["memberTrustAnalytics"]
-}) {
-  return (
-    <OverviewSection eyebrow="Trust" title="Member and compliance watch">
-      <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-        <SmallStat label="Active members" value={data.activeMemberCount} />
-        <SmallStat
-          label="Pending approvals"
-          value={data.pendingMemberApprovals}
-        />
-        <SmallStat label="KYC pending" value={data.kycPendingCount} />
-        <SmallStat
-          label="Documents pending"
-          value={data.pendingDocumentReviewCount}
-        />
-        <SmallStat label="Failed imports" value={data.failedImportCount} />
-      </dl>
-    </OverviewSection>
-  )
-}
-
-function ShareProfitAnalytics({
-  data,
-}: {
-  data: AnalyticsSummary["shareProfitAnalytics"]
-}) {
-  return (
-    <OverviewSection eyebrow="Shares" title="Share and profit position">
-      <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-        <SmallStat
-          label="Share capital"
-          value={formatCurrency(data.shareCapitalBalance)}
-        />
-        <SmallStat
-          label="Active investment pools"
-          value={data.activeInvestmentPoolCount}
-        />
-        <SmallStat
-          label="Profit pending allocation"
-          value={formatCurrency(data.profitPendingAllocation)}
-        />
-        <SmallStat
-          label="Draft dividend periods"
-          value={data.draftDividendPeriodCount}
-        />
-      </dl>
-    </OverviewSection>
-  )
-}
-
-function AnalyticsTitle({ period }: { period: AnalyticsPeriod }) {
-  const trpc = useTRPC()
-  const { data } = useSuspenseQuery(
-    trpc.analytics.summary.queryOptions({ period })
-  )
-
-  return <>{data.workspace.tenantName} analytics</>
 }
 
 function AnalyticsContent({ period }: { period: AnalyticsPeriod }) {
@@ -317,97 +118,186 @@ function AnalyticsContent({ period }: { period: AnalyticsPeriod }) {
   const { data } = useSuspenseQuery(
     trpc.analytics.summary.queryOptions({ period })
   )
+  const { keyNumbers, late, members, months, shares } = data
+  const paidShare = getPaidShare(
+    keyNumbers.receivedThisMonth,
+    keyNumbers.expectedThisMonth
+  )
+  const received = sumMonths(months, "received")
+  const paidOut = sumMonths(months, "loansPaidOut")
+  const repaid = sumMonths(months, "loanRepayments")
 
   return (
     <>
-      <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <MetricLink
-          detail="After reserves, active exposure, and approved commitments."
-          href="/loans"
-          label="Deployable funds"
-          tone={
-            data.primaryMetrics.deployableFunds > 0 ? "positive" : "warning"
-          }
-          value={formatCurrency(data.primaryMetrics.deployableFunds)}
-        />
-        <MetricLink
-          detail={`${data.workspace.periodLabel} view with current-month emphasis.`}
-          href="/monthly-records"
-          label="Collection coverage"
-          tone={getCoverageTone(data.primaryMetrics.collectionCoverage)}
-          value={formatPercent(data.primaryMetrics.collectionCoverage)}
-        />
-        <MetricLink
-          detail="Overdue exposure divided by active outstanding principal."
-          href={overdueRepaymentScheduleHref}
-          label="Portfolio at risk"
-          tone={getRiskTone(data.primaryMetrics.portfolioAtRiskRate)}
-          value={formatPercent(data.primaryMetrics.portfolioAtRiskRate)}
-        />
-        <MetricLink
-          detail="Approvals, KYC, financing, collections, imports, and setup."
-          href="/membership-approvals"
-          label="Action burden"
-          tone={getRiskTone(data.primaryMetrics.actionQueueTotal)}
-          value={data.primaryMetrics.actionQueueTotal.toString()}
-        />
-        <MetricLink
-          detail="Approved facilities waiting for release."
-          href="/loans"
-          label="Disbursement holds"
-          tone={getRiskTone(data.primaryMetrics.pendingDisbursementAmount)}
-          value={formatCurrency(data.primaryMetrics.pendingDisbursementAmount)}
-        />
+      <section aria-labelledby="analytics-key-numbers" className="grid gap-3">
+        <h2 className="sr-only" id="analytics-key-numbers">
+          Key numbers today
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <SummaryCard
+            detail={
+              keyNumbers.approvedNotPaidOut > 0
+                ? `${formatCurrency(keyNumbers.approvedNotPaidOut)} approved, not yet paid out`
+                : "Free for new loans"
+            }
+            href="/loans"
+            label="Money ready to lend"
+            tone={keyNumbers.moneyToLend > 0 ? "good" : "attention"}
+            value={formatCurrency(keyNumbers.moneyToLend)}
+          />
+          <SummaryCard
+            detail={
+              paidShare === null
+                ? "Nothing expected yet"
+                : `${paidShare}% of ${formatCurrency(keyNumbers.expectedThisMonth)}`
+            }
+            href="/monthly-records"
+            label="Paid this month"
+            tone={
+              paidShare === null || paidShare >= 90 ? "default" : "attention"
+            }
+            value={formatCurrency(keyNumbers.receivedThisMonth)}
+          />
+          <SummaryCard
+            detail="Still to be repaid"
+            href="/loans?view=portfolio"
+            label="Owed on loans"
+            value={formatCurrency(keyNumbers.owedOnLoans)}
+          />
+          <SummaryCard
+            detail={
+              keyNumbers.lateLoanCount
+                ? `On ${keyNumbers.lateLoanCount} ${keyNumbers.lateLoanCount === 1 ? "loan" : "loans"}`
+                : "Nothing late"
+            }
+            href={overdueRepaymentScheduleHref}
+            label="Late loan payments"
+            tone={keyNumbers.latePayments > 0 ? "attention" : "good"}
+            value={formatCurrency(keyNumbers.latePayments)}
+          />
+        </div>
+      </section>
+
+      <div className="grid gap-10 xl:grid-cols-2 xl:gap-12">
+        <Section
+          id="analytics-savings"
+          line={`${formatCurrency(received)} paid, ${data.periodLabel}.`}
+          title="Monthly savings"
+        >
+          <MonthColumnsChart
+            months={months}
+            series={[
+              { barClassName: receivedBar, key: "received", label: "Paid" },
+              {
+                barClassName: expectedBar,
+                key: "expected",
+                label: "Expected",
+              },
+            ]}
+            title="Monthly savings: paid and expected"
+          />
+        </Section>
+
+        <Section
+          id="analytics-loans"
+          line={`${formatCurrency(paidOut)} paid out and ${formatCurrency(repaid)} repaid, ${data.periodLabel}.`}
+          title="Loans"
+        >
+          <MonthColumnsChart
+            months={months}
+            series={[
+              {
+                barClassName: paidOutBar,
+                key: "loansPaidOut",
+                label: "Paid out",
+              },
+              {
+                barClassName: receivedBar,
+                key: "loanRepayments",
+                label: "Repaid",
+              },
+            ]}
+            title="Loans: paid out and repaid each month"
+          />
+        </Section>
       </div>
 
-      <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-        <ContributionAnalytics data={data.contributionAnalytics} />
-        <FinancingAnalytics data={data.financingAnalytics} />
-      </section>
+      {late.amount > 0 ? (
+        <Section
+          id="analytics-late"
+          line={`${formatCurrency(late.amount)} late today, on ${late.loanCount} ${late.loanCount === 1 ? "loan" : "loans"}.`}
+          title="Late loan payments"
+        >
+          <LateBreakdown late={late} />
+        </Section>
+      ) : null}
 
-      <section className="grid gap-4 xl:grid-cols-2">
-        <MemberTrustAnalytics data={data.memberTrustAnalytics} />
-        <ShareProfitAnalytics data={data.shareProfitAnalytics} />
-      </section>
+      <div className="grid gap-10 lg:grid-cols-2 lg:gap-12">
+        <Section id="analytics-members" title="Members">
+          <CountRows
+            rows={[
+              {
+                href: "/members",
+                label: "Active members",
+                value: members.active.toLocaleString("en-NG"),
+              },
+              {
+                href: "/membership-approvals",
+                label: "Waiting to join",
+                value: members.waitingToJoin.toLocaleString("en-NG"),
+              },
+              {
+                href: "/members?kycStatus=pending",
+                label: "ID checks to review",
+                value: members.idChecksToReview.toLocaleString("en-NG"),
+              },
+              {
+                href: "/members",
+                label: "Documents to review",
+                value: members.documentsToReview.toLocaleString("en-NG"),
+              },
+            ]}
+          />
+        </Section>
+        <Section id="analytics-shares" title="Shares and profit">
+          <CountRows
+            rows={[
+              {
+                href: "/shares",
+                label: "Share money paid in",
+                value: formatCurrency(shares.shareCapital),
+              },
+              {
+                href: "/business",
+                label: "Profit not yet shared",
+                value: formatCurrency(shares.profitNotShared),
+              },
+              {
+                href: "/business",
+                label: "Businesses running",
+                value: shares.activeBusinesses.toLocaleString("en-NG"),
+              },
+            ]}
+          />
+        </Section>
+      </div>
     </>
   )
 }
 
 function AnalyticsContentSkeleton() {
   return (
-    <div
-      aria-label="Loading analytics"
-      className="flex flex-col gap-5"
-      role="status"
-    >
-      <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        {Array.from({ length: 5 }, (_, index) => (
-          <div
-            className="min-h-[112px] border border-border bg-background p-4"
-            key={index}
-          >
-            <Skeleton className="h-3 w-24" />
-            <Skeleton className="mt-5 h-7 w-20" />
-            <Skeleton className="mt-3 h-3 w-full" />
-          </div>
+    <div aria-label="Loading analytics" className="grid gap-10" role="status">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => (
+          <SummaryCardSkeleton key={index} />
         ))}
       </div>
-      {Array.from({ length: 2 }, (_, row) => (
-        <div className="grid gap-4 xl:grid-cols-2" key={row}>
-          {Array.from({ length: 2 }, (_, index) => (
-            <div
-              className="min-h-64 border border-border bg-background p-4 sm:p-5"
-              key={index}
-            >
-              <Skeleton className="h-3 w-20" />
-              <Skeleton className="mt-3 h-5 w-44 max-w-full" />
-              <Skeleton className="mt-6 h-4 w-full" />
-              <Skeleton className="mt-3 h-4 w-4/5" />
-              <Skeleton className="mt-3 h-4 w-3/5" />
-            </div>
-          ))}
-        </div>
-      ))}
+      <div className="grid gap-10 xl:grid-cols-2">
+        {Array.from({ length: 2 }, (_, index) => (
+          <div className="h-72 animate-pulse rounded bg-muted" key={index} />
+        ))}
+      </div>
     </div>
   )
 }
@@ -420,53 +310,19 @@ export function AnalyticsView() {
   const isStale = shownPeriod !== period
 
   return (
-    <div className="flex flex-col gap-5">
-      <section className="border-b border-border pb-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-muted-foreground">
-              Analytics
-            </p>
-            <h1 className="mt-3 text-2xl font-medium text-foreground sm:text-3xl">
-              <Suspense
-                fallback={
-                  <Skeleton className="inline-block h-8 w-64 max-w-full align-middle" />
-                }
-              >
-                <AnalyticsTitle period={shownPeriod} />
-              </Suspense>
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-              Decision trends for collection pacing, financing exposure, member
-              trust, and share-profit governance.
-            </p>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            {analyticsPeriodOptions.map((option) => (
-              <button
-                aria-pressed={option.value === period}
-                className={
-                  option.value === period
-                    ? "inline-flex h-7 items-center border border-foreground bg-foreground px-2.5 text-xs font-medium text-background"
-                    : "inline-flex h-7 items-center border border-border bg-background px-2.5 text-xs font-medium text-foreground hover:bg-muted"
-                }
-                key={option.value}
-                onClick={() => void setParams({ period: option.value })}
-                type="button"
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
-
+    <div className="grid min-w-0 gap-8">
+      <PeriodButtons
+        label="Period"
+        onChange={(value) => void setParams({ period: value })}
+        options={analyticsPeriodOptions}
+        value={period}
+      />
       <div
         aria-busy={isStale}
         className={
           isStale
-            ? "flex flex-col gap-5 opacity-60 transition-opacity"
-            : "flex flex-col gap-5 transition-opacity"
+            ? "grid gap-10 opacity-60 transition-opacity"
+            : "grid gap-10 transition-opacity"
         }
       >
         <Suspense fallback={<AnalyticsContentSkeleton />}>

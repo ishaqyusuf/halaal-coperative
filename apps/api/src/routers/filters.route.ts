@@ -14,9 +14,8 @@ import {
 } from "../lib.trpc"
 
 export const filtersRouter = createTRPCRouter({
-  audit: tenantProcedure.query(({ ctx }) => {
-    return getAuditFilterMetadata(ctx.tenant.current.id)
-  }),
+  // Static plain areas; no tenant data, so no role check is needed.
+  audit: tenantProcedure.query(() => getAuditFilterMetadata()),
   contributions: tenantProcedure.query(({ ctx }) => {
     return getContributionFilterMetadata(ctx.tenant.current.id)
   }),

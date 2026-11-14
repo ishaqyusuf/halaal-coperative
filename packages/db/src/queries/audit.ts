@@ -1,5 +1,19 @@
 import type { Prisma, PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import {
+  type ActivityArea,
+  getActivityActionLabel,
+  getActivityActorFallback,
+  getActivityArea,
+  getActivityAreaActionPrefixes,
+  getActivityEntityLabel,
+} from "./activity-words"
+
+export {
+  type ActivityArea,
+  activityAreaLabels,
+  activityAreas,
+} from "./activity-words"
 
 export type CreateAuditLogEntryInput = {
   action: string
@@ -12,15 +26,13 @@ export type CreateAuditLogEntryInput = {
   actorUserId?: string | null
 }
 
-export type AuditLogSortField =
-  | "action"
-  | "actor"
-  | "entityType"
-  | "occurredAt"
+export type AuditLogSortField = "action" | "actor" | "entityType" | "occurredAt"
 
 export type ListAuditLogsInput = {
   action?: string
   actorType?: "integration" | "system" | "user"
+  /** Plain area of the cooperative ("money", "loans", ...). */
+  area?: ActivityArea
   cursor?: string | null
   entityType?: string
   fromDate?: Date
@@ -32,7 +44,7 @@ export type ListAuditLogsInput = {
 
 export async function createAuditLogEntry(
   input: CreateAuditLogEntryInput,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
 
@@ -57,6 +69,17 @@ export async function createAuditLogEntry(
 function getAuditLogWhere(tenantId: string, input?: ListAuditLogsInput) {
   return {
     tenantId,
+    ...(input?.area
+      ? {
+          AND: [
+            {
+              OR: getActivityAreaActionPrefixes(input.area).map((prefix) => ({
+                action: { startsWith: prefix },
+              })),
+            },
+          ],
+        }
+      : {}),
     ...(input?.action
       ? {
           action: {
@@ -74,7 +97,7 @@ function getAuditLogWhere(tenantId: string, input?: ListAuditLogsInput) {
           },
         }
       : {}),
-    ...((input?.fromDate || input?.toDate)
+    ...(input?.fromDate || input?.toDate
       ? {
           occurredAt: {
             ...(input?.fromDate ? { gte: input.fromDate } : {}),
@@ -85,7 +108,9 @@ function getAuditLogWhere(tenantId: string, input?: ListAuditLogsInput) {
     ...(input?.search
       ? {
           OR: [
-            { action: { contains: input.search, mode: "insensitive" as const } },
+            {
+              action: { contains: input.search, mode: "insensitive" as const },
+            },
             {
               entityType: {
                 contains: input.search,
@@ -157,7 +182,7 @@ function getAuditLogOrderBy(input?: ListAuditLogsInput) {
 export async function listAuditLogs(
   tenantId: string,
   input?: ListAuditLogsInput,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
 
@@ -185,7 +210,7 @@ export async function listAuditLogs(
 export async function countAuditLogs(
   tenantId: string,
   input?: ListAuditLogsInput,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
 
@@ -218,7 +243,9 @@ type AuditLogWithActor = Prisma.AuditLogGetPayload<{
 
 export type ActivityReportEvent = {
   action: string
+  /** Plain words, e.g. "Charge added". */
   actionLabel: string
+  area: ActivityArea
   actorEmail: string | null
   actorLabel: string
   actorName: string | null
@@ -230,6 +257,8 @@ export type ActivityReportEvent = {
   authorizerName: string | null
   authorizerUserId: string | null
   entityId: string | null
+  /** Plain words, e.g. "Charge". */
+  entityLabel: string
   entityType: string
   id: string
   metadataSummary: string[]
@@ -271,25 +300,31 @@ function getMetadataRecord(metadata: unknown): Record<string, unknown> | null {
 
 function getMetadataStringValue(
   metadata: Record<string, unknown> | null,
-  key: string,
+  key: string
 ) {
   const value = metadata?.[key]
   return typeof value === "string" && value.trim() ? value : null
 }
 
-function getActionLabel(action: string) {
-  return action
+/** "adjustmentReason" -> "Adjustment reason". */
+function getFieldLabel(key: string) {
+  const words = key
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .replace(/[._-]+/g, " ")
-    .split(" ")
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ")
+    .trim()
+    .toLowerCase()
+
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+/** "partially_paid" -> "partially paid". */
+function getStatusWords(value: string) {
+  return value.replace(/[._-]+/g, " ")
 }
 
 function getUserLabel(
   user: AuditUserPreview | null | undefined,
-  fallback: string,
+  fallback: string
 ) {
   if (!user) {
     return fallback
@@ -311,7 +346,7 @@ function resolveAuthorizerUserId(log: AuditLogWithActor) {
   if (
     log.actorUserId &&
     authorizationActionFragments.some((fragment) =>
-      log.action.includes(fragment),
+      log.action.includes(fragment)
     )
   ) {
     return log.actorUserId
@@ -392,7 +427,7 @@ function safeMetadataValue(key: string, value: unknown) {
   return typeof value === "string" ? redactFreeText(formatted) : formatted
 }
 
-function getMetadataSummary(metadata: unknown) {
+function getMetadataSummary(metadata: unknown, maxItems = 3) {
   const record = getMetadataRecord(metadata)
   if (!record) return []
 
@@ -403,7 +438,9 @@ function getMetadataSummary(metadata: unknown) {
     getMetadataStringValue(record, "status")
 
   if (previousStatus && nextStatus && previousStatus !== nextStatus) {
-    summary.push(`Status: ${previousStatus} -> ${nextStatus}`)
+    summary.push(
+      `Status: ${getStatusWords(previousStatus)} → ${getStatusWords(nextStatus)}`
+    )
   }
 
   const previous = getMetadataRecord(record.previous)
@@ -419,10 +456,10 @@ function getMetadataSummary(metadata: unknown) {
       const after = next[key]
       if (JSON.stringify(before) !== JSON.stringify(after)) {
         summary.push(
-          `${getActionLabel(key)}: ${safeMetadataValue(key, before)} -> ${safeMetadataValue(key, after)}`,
+          `${getFieldLabel(key)}: ${safeMetadataValue(key, before)} → ${safeMetadataValue(key, after)}`
         )
       }
-      if (summary.length >= 3) break
+      if (summary.length >= maxItems) break
     }
   }
 
@@ -434,52 +471,100 @@ function getMetadataSummary(metadata: unknown) {
   ]) {
     const value = getMetadataStringValue(record, key)
     if (value && !summary.some((item) => item.includes(value))) {
-      summary.push(`${getActionLabel(key)}: ${safeMetadataValue(key, value)}`)
+      summary.push(`${getFieldLabel(key)}: ${safeMetadataValue(key, value)}`)
     }
-    if (summary.length >= 3) break
+    if (summary.length >= maxItems) break
   }
 
-  return summary.slice(0, 3)
+  return summary.slice(0, maxItems)
 }
 
 function normalizeActivityReportEvent(
   log: AuditLogWithActor,
   usersById: Map<string, AuditUserPreview>,
+  maxSummaryItems = 3
 ): ActivityReportEvent {
   const actorUser = log.actorUser ?? null
   const authorizerUserId = resolveAuthorizerUserId(log)
   const authorizerUser = authorizerUserId
-    ? usersById.get(authorizerUserId) ??
-      (authorizerUserId === log.actorUserId ? actorUser : null)
+    ? (usersById.get(authorizerUserId) ??
+      (authorizerUserId === log.actorUserId ? actorUser : null))
     : null
 
   return {
     action: log.action,
-    actionLabel: getActionLabel(log.action),
+    actionLabel: getActivityActionLabel(log.action),
     actorEmail: actorUser?.email ?? null,
-    actorLabel: getUserLabel(actorUser, log.actorType),
+    actorLabel: getUserLabel(
+      actorUser,
+      getActivityActorFallback(log.actorType)
+    ),
     actorName: actorUser?.fullName ?? null,
     actorType: log.actorType,
     actorUserId: log.actorUserId ?? null,
     authorizationRole: getAuthorizationRole(log),
     authorizerEmail: authorizerUser?.email ?? null,
     authorizerLabel: authorizerUserId
-      ? getUserLabel(authorizerUser, authorizerUserId)
+      ? getUserLabel(authorizerUser, "Someone else")
       : "Not recorded",
     authorizerName: authorizerUser?.fullName ?? null,
+    area: getActivityArea(log.action),
     authorizerUserId,
     entityId: log.entityId ?? null,
+    entityLabel: getActivityEntityLabel(log.entityType),
     entityType: log.entityType,
     id: log.id,
-    metadataSummary: getMetadataSummary(log.metadata),
+    metadataSummary: getMetadataSummary(log.metadata, maxSummaryItems),
     occurredAt: log.occurredAt,
   }
+}
+
+/** Authorizers who are not already loaded as the row's actor: one read. */
+async function loadAuthorizerUsers(
+  tenantId: string,
+  logs: AuditLogWithActor[],
+  prisma: PrismaClient
+) {
+  const knownUsers = new Map<string, AuditUserPreview>()
+  for (const log of logs) {
+    if (log.actorUser) knownUsers.set(log.actorUser.id, log.actorUser)
+  }
+  const missingIds = Array.from(
+    new Set(
+      logs
+        .map(resolveAuthorizerUserId)
+        .filter(
+          (value): value is string =>
+            typeof value === "string" && !knownUsers.has(value)
+        )
+    )
+  )
+  const users =
+    missingIds.length > 0
+      ? await prisma.user.findMany({
+          select: {
+            email: true,
+            fullName: true,
+            id: true,
+          },
+          where: {
+            id: {
+              in: missingIds,
+            },
+            tenantId,
+          },
+        })
+      : []
+
+  for (const user of users) knownUsers.set(user.id, user)
+
+  return knownUsers
 }
 
 export async function listActivityReportEvents(
   tenantId: string,
   input?: Parameters<typeof listAuditLogs>[1],
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ): Promise<ActivityReportEvent[]> {
   const prisma = prismaOverride ?? createPrismaClient()
 
@@ -490,37 +575,51 @@ export async function listActivityReportEvents(
   const logs = (await listAuditLogs(
     tenantId,
     input,
-    prisma,
+    prisma
   )) as AuditLogWithActor[]
-  const authorizerUserIds = Array.from(
-    new Set(
-      logs
-        .map(resolveAuthorizerUserId)
-        .filter((value): value is string => Boolean(value)),
-    ),
-  )
-  const users =
-    authorizerUserIds.length > 0
-      ? await prisma.user.findMany({
-          select: {
-            email: true,
-            fullName: true,
-            id: true,
-          },
-          where: {
-            id: {
-              in: authorizerUserIds,
-            },
-            tenantId,
-          },
-        })
-      : []
-  const usersById = new Map(users.map((user) => [user.id, user]))
+  const usersById = await loadAuthorizerUsers(tenantId, logs, prisma)
 
   return logs.map((log) => normalizeActivityReportEvent(log, usersById))
 }
 
-export async function getAuditSummary(tenantId: string, prismaOverride?: PrismaClient) {
+/** One activity entry for its detail sheet, with every safe change line. */
+export async function getActivityReportEvent(
+  tenantId: string,
+  auditLogId: string,
+  prismaOverride?: PrismaClient
+): Promise<ActivityReportEvent | null> {
+  const prisma = prismaOverride ?? createPrismaClient()
+
+  if (!prisma) {
+    return null
+  }
+
+  const log = (await prisma.auditLog.findFirst({
+    include: {
+      actorUser: {
+        select: {
+          email: true,
+          fullName: true,
+          id: true,
+        },
+      },
+    },
+    where: { id: auditLogId, tenantId },
+  })) as AuditLogWithActor | null
+
+  if (!log) {
+    return null
+  }
+
+  const usersById = await loadAuthorizerUsers(tenantId, [log], prisma)
+
+  return normalizeActivityReportEvent(log, usersById, 8)
+}
+
+export async function getAuditSummary(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+) {
   const prisma = prismaOverride ?? createPrismaClient()
 
   if (!prisma) {
@@ -534,34 +633,35 @@ export async function getAuditSummary(tenantId: string, prismaOverride?: PrismaC
   const since = new Date()
   since.setUTCDate(since.getUTCDate() - 30)
 
-  const [recentActionsCount, systemEventsCount, userEventsCount] = await Promise.all([
-    prisma.auditLog.count({
-      where: {
-        tenantId,
-        occurredAt: {
-          gte: since,
+  const [recentActionsCount, systemEventsCount, userEventsCount] =
+    await Promise.all([
+      prisma.auditLog.count({
+        where: {
+          tenantId,
+          occurredAt: {
+            gte: since,
+          },
         },
-      },
-    }),
-    prisma.auditLog.count({
-      where: {
-        tenantId,
-        actorType: "system",
-        occurredAt: {
-          gte: since,
+      }),
+      prisma.auditLog.count({
+        where: {
+          tenantId,
+          actorType: "system",
+          occurredAt: {
+            gte: since,
+          },
         },
-      },
-    }),
-    prisma.auditLog.count({
-      where: {
-        tenantId,
-        actorType: "user",
-        occurredAt: {
-          gte: since,
+      }),
+      prisma.auditLog.count({
+        where: {
+          tenantId,
+          actorType: "user",
+          occurredAt: {
+            gte: since,
+          },
         },
-      },
-    }),
-  ])
+      }),
+    ])
 
   return {
     recentActionsCount,
@@ -585,7 +685,7 @@ export type NotificationDeliveryAuditInput = {
 
 export async function recordNotificationDeliveryAudit(
   input: NotificationDeliveryAuditInput,
-  prismaOverride?: PrismaClient,
+  prismaOverride?: PrismaClient
 ) {
   return createAuditLogEntry(
     {
@@ -610,6 +710,6 @@ export async function recordNotificationDeliveryAudit(
       },
       tenantId: input.tenantId,
     },
-    prismaOverride,
+    prismaOverride
   )
 }

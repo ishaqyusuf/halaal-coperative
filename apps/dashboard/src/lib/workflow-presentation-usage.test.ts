@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 
 const migratedShells = [
+  "activity-entry-sheet.tsx",
   "business-sheet.tsx",
   "charge-operation-sheet.tsx",
   "contribution-sheet.tsx",
@@ -25,6 +26,7 @@ const migratedShells = [
   "procurement-request-sheet.tsx",
   "profile-settings-sheet.tsx",
   "project-financing-sheet.tsx",
+  "report-export-dialog.tsx",
   "repayment-sheet.tsx",
   "role-settings-sheet.tsx",
   "share-request-sheet.tsx",

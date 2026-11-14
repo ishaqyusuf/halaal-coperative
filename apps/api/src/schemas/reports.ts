@@ -1,3 +1,4 @@
+import { activityAreas } from "@halaalvest/db"
 import { z } from "zod"
 
 const auditSortFieldSchema = z.enum([
@@ -24,6 +25,7 @@ const dateToFilterSchema = z
 export const listAuditEventsSchema = z
   .object({
     action: z.string().nullable().optional(),
+    area: z.enum(activityAreas).nullable().optional(),
     cursor: z.string().nullable().optional(),
     from: dateFromFilterSchema,
     pageSize: z.coerce.number().int().min(1).max(100).optional(),
@@ -35,3 +37,7 @@ export const listAuditEventsSchema = z
     to: dateToFilterSchema,
   })
   .optional()
+
+export const getAuditEventSchema = z.object({
+  id: z.string().uuid(),
+})

@@ -7,6 +7,7 @@ import {
 } from "@halaalvest/utils"
 import { createDbRuntime } from "./runtime"
 import { listTenantUsersWithRoles } from "./queries/auth"
+import { activityAreaLabels, activityAreas } from "./queries/activity-words"
 import { listAuditLogs } from "./queries/audit"
 import { listMembers } from "./queries/members"
 import { listLoanBorrowerOptions } from "./queries/loan-views"
@@ -136,23 +137,19 @@ export async function getNotificationFilterMetadata(
   ]
 }
 
-export async function getAuditFilterMetadata(
-  tenantId: string
-): Promise<PageFilterData[]> {
-  const runtime = createDbRuntime()
-  const logs =
-    runtime.status === "database-configured"
-      ? await listAuditLogs(tenantId, { limit: 200 })
-      : []
-
-  const actions = Array.from(
-    new Set(logs.map((log) => log.action).filter(Boolean))
-  ).sort()
-
+/** Activity log filters: plain areas, no database read. */
+export async function getAuditFilterMetadata(): Promise<PageFilterData[]> {
   return [
     inputFilter("search", "Search"),
-    optionFilter("action", "Action", actions),
-    dateRangeFilter("dateRange", "Activity date"),
+    optionFilter(
+      "area",
+      "What happened",
+      activityAreas.map((area) => ({
+        label: activityAreaLabels[area],
+        value: area,
+      }))
+    ),
+    dateRangeFilter("dateRange", "Date"),
   ]
 }
 
@@ -202,7 +199,11 @@ function repaymentFilters(
     optionFilter("assignedToUserId", "Who follows up", assignees),
     optionFilter("scheduleStatus", "Status", repaymentScheduleStatusOptions),
     optionFilter("stage", "Follow-up", collectionStageOptions),
-    optionFilter("resolutionStatus", "Open or sorted", collectionResolutionOptions),
+    optionFilter(
+      "resolutionStatus",
+      "Open or sorted",
+      collectionResolutionOptions
+    ),
     dateRangeFilter("dateRange", "Due date"),
   ]
 }

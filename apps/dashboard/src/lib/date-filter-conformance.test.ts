@@ -47,7 +47,7 @@ describe("GND rich date filter conformance", () => {
   })
 
   test("preserves the canonical tuple through report and export links", () => {
-    const clientLinks = read("../components/reports/reports-utils.ts")
+    const clientLinks = read("../lib/reports/report-catalog.ts")
     const exportLinks = read("../app/(app)/(sidebar)/reports/export-utils.ts")
 
     for (const source of [clientLinks, exportLinks]) {

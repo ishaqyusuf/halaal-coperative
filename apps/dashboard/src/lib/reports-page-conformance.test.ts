@@ -16,7 +16,6 @@ describe("reports Midday conformance", () => {
     expect(route).toContain('title: "Reports | Halaalvest"')
     expect(route).toContain("loadReportsFilterParams")
     expect(route).toContain("trpc.reports.summary.queryOptions")
-    expect(route).toContain("trpc.filters.reports.queryOptions")
     expect(route).toContain("<HydrateClient>")
     expect(params).toContain("useQueryStates(reportsFilterParamsSchema")
     expect(loading).toContain("<ReportsPageSkeleton")
@@ -26,41 +25,55 @@ describe("reports Midday conformance", () => {
     expect(error).toContain("reset")
   })
 
-  test("keeps the governance overview compact and phone responsive", () => {
+  test("downloads open a modal; the page itself owns no form or table", () => {
     const view = read("../components/reports/reports-view.tsx")
-    const filters = read("../components/reports-search-filter.tsx")
-    const reportsQuery = read("../../../../packages/db/src/queries/reports.ts")
+    const dialog = read("../components/sheets/report-export-dialog.tsx")
+    const registry = read("./workflow-presentations.ts")
 
-    expect(view).toContain("md:grid-cols-2")
-    expect(view).toContain("md:hidden")
-    expect(view).toContain("divide-y divide-border")
-    expect(view).toContain("item.actionLabel")
-    expect(view).toContain("break-words")
-    expect(view).toContain("max-md:[&_a]:min-h-11")
-    expect(view).toContain("max-md:[&_button]:min-h-11")
-    expect(filters).toContain("max-md:[&_button]:min-h-11")
-    expect(reportsQuery).toContain("listActivityReportEvents")
-    expect(reportsQuery).toContain(
-      "{ fromDate: input.fromDate, limit: 5, toDate: input.toDate }"
-    )
-    expect(view.indexOf("<FinanceSnapshot")).toBeLessThan(
-      view.indexOf("<AuditTrail")
-    )
-    expect(view.indexOf("<AuditTrail")).toBeLessThan(
-      view.indexOf("<ExportCatalog")
-    )
-    expect(view).toContain("lg:grid-cols-5")
-    expect(view).toContain("items-start gap-4 xl:grid-cols-2")
-    expect(view.match(/!block !h-auto min-h-11/g)?.length).toBe(2)
-    expect(view.match(/className="!h-auto"/g)?.length).toBe(2)
-  })
-
-  test("keeps this overview free of table, form, and mutation ownership", () => {
-    const view = read("../components/reports/reports-view.tsx")
-
+    expect(view).toContain("<ReportExportDialog")
+    expect(view).toContain("data-report-export")
     expect(view).not.toContain("<DataTable")
     expect(view).not.toContain("<form")
     expect(view).not.toContain("useMutation")
-    expect(view).not.toContain("Sheet")
+    expect(view).not.toContain("<h1")
+    expect(dialog).toContain('getWorkflowPresentation(\n        "reportExport"')
+    expect(registry).toContain('download: dialog("compact")')
+  })
+
+  test("the summary reads sums in SQL, never the home overview", () => {
+    const query = read("../../../../packages/db/src/queries/reports.ts")
+
+    expect(query).not.toContain("getOverviewSummary")
+    expect(query).toContain("getMoneyMovement")
+    expect(query).toContain(
+      "{ fromDate: input.fromDate, limit: 5, toDate: input.toDate }"
+    )
+  })
+})
+
+describe("activity log conformance", () => {
+  test("a plain paged list with a URL sheet per entry, no polling", () => {
+    const route = read("../app/(app)/(sidebar)/reports/audit/page.tsx")
+    const list = read("../components/activity/activity-list.tsx")
+    const sheet = read("../components/sheets/activity-entry-sheet.tsx")
+    const registry = read("./workflow-presentations.ts")
+
+    expect(route).toContain("getActivityListInput(filters)")
+    expect(list).toContain("getActivityListInput(filters)")
+    expect(list).toContain("Show more")
+    expect(list).not.toContain("refetchInterval")
+    expect(list).not.toContain("useLiveTablePollInterval")
+    expect(sheet).toContain("useActivityEntryParams()")
+    expect(sheet).toContain('getWorkflowPresentation("activityEntry"')
+    expect(registry).toContain('activityEntry: {\n    details: sheet("form")')
+  })
+
+  test("counts the total once and filters by plain area", () => {
+    const router = read("../../../api/src/routers/reports.route.ts")
+    const filters = read("../../../../packages/db/src/filter-metadata.ts")
+
+    expect(router).toContain("filters.cursor")
+    expect(router).not.toContain('actorType: "user"')
+    expect(filters).toContain('optionFilter(\n      "area"')
   })
 })

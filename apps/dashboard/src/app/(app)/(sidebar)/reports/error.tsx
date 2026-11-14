@@ -2,11 +2,6 @@
 
 import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import { Button, buttonVariants } from "@halaalvest/ui/components/button"
-import {
-  DashboardSectionCard,
-  DashboardSectionHeader,
-  WorkspacePageShell,
-} from "@/components/dashboard"
 import { useDashboardErrorReceipt } from "@/lib/use-error-receipt"
 
 export default function ReportsError({
@@ -22,35 +17,28 @@ export default function ReportsError({
   )
 
   return (
-    <WorkspacePageShell
-      description="The reporting workspace could not be loaded. No cooperative records were changed."
-      eyebrow="Reports"
-      title="Reporting unavailable"
-    >
-      <DashboardSectionCard>
-        <DashboardSectionHeader
-          description="Retry the report lookup or return to the dashboard. Existing audit evidence and exports are unchanged."
-          eyebrow="Reports"
-          title="Something went wrong"
-        />
-        <p className="mt-3 text-xs text-muted-foreground">
-          Support reference: {publicError.referenceId}
-        </p>
-        <div className="mt-5 flex flex-col gap-2 md:flex-row">
-          <Button className="h-11 md:h-9" onClick={reset} type="button">
-            Try again
-          </Button>
-          <Link
-            className={buttonVariants({
-              className: "h-11 md:h-9",
-              variant: "outline",
-            })}
-            href="/"
-          >
-            Back to dashboard
-          </Link>
-        </div>
-      </DashboardSectionCard>
-    </WorkspacePageShell>
+    <div className="grid max-w-xl gap-4 border-y border-border py-8">
+      <h2 className="text-xl font-semibold">This page could not load</h2>
+      <p className="text-base text-muted-foreground">
+        Nothing was changed. Please try again.
+      </p>
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <Button className="h-11 text-base" onClick={reset} type="button">
+          Try again
+        </Button>
+        <Link
+          className={buttonVariants({
+            className: "h-11 text-base",
+            variant: "outline",
+          })}
+          href="/"
+        >
+          Go to Home
+        </Link>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Reference for support: {publicError.referenceId}
+      </p>
+    </div>
   )
 }

@@ -1,15 +1,21 @@
+import { activityAreas } from "@halaalvest/db/activity-words"
 import { useQueryStates } from "nuqs"
-import { createLoader, parseAsArrayOf, parseAsString } from "nuqs/server"
+import {
+  createLoader,
+  parseAsArrayOf,
+  parseAsString,
+  parseAsStringEnum,
+} from "nuqs/server"
 import { hasActiveFilters } from "@/lib/filters/utils"
 
 export type AuditFilterParams = {
-  action: string | null
+  area: (typeof activityAreas)[number] | null
   dateRange: string[] | null
   search: string | null
 }
 
 export const auditFilterParamsSchema = {
-  action: parseAsString,
+  area: parseAsStringEnum([...activityAreas]),
   dateRange: parseAsArrayOf(parseAsString),
   search: parseAsString,
 }

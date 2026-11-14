@@ -222,7 +222,12 @@ function renderHeaderContent<TData>(
         <SortButton
           currentSortColumn={sortColumn}
           currentSortValue={sortValue}
-          label={getHeaderLabel(columnId)}
+          label={
+            (header.column.columnDef.meta as { headerLabel?: string } | undefined)
+              ?.headerLabel ??
+            (header.column.columnDef.header as string) ??
+            columnId
+          }
           onSort={createSortQuery}
           sortField={sortField}
         />
@@ -268,16 +273,3 @@ function SortButton({
   )
 }
 
-function getHeaderLabel(columnId: string): string {
-  const labels: Record<string, string> = {
-    actions: "Actions",
-    loan: "Loan",
-    member: "Member",
-    request: "Request",
-    review: "Review",
-    servicing: "Servicing",
-    status: "Status",
-  }
-
-  return labels[columnId] || columnId
-}

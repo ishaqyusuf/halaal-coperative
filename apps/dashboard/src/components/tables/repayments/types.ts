@@ -5,12 +5,15 @@ export type RepaymentScheduleRow = {
   dueAt: Date | string
   id: string
   installmentNumber: number
+  /** Unpaid and due before today (decided by the server). */
+  isLate: boolean
   latestCollectionFollowUp: {
     assignedToUser: { fullName: string } | null
     caseStage: "active" | "escalated" | "promise_tracking" | "resolved"
     createdAt: Date | string
     nextActionAt: Date | string | null
     priority: "low" | "normal" | "high"
+    promiseToPayAt?: Date | string | null
     resolutionStatus: "open" | "resolved"
     status: string
   } | null

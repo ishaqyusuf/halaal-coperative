@@ -1,25 +1,43 @@
 "use client"
 
-import { useState } from "react"
 import { Button } from "@halaalvest/ui/components/button"
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemHeader,
-  ItemTitle,
-} from "@halaalvest/ui/components/item"
 import { formatCurrency } from "@halaalvest/utils"
-import { Banknote, Eye, MessageSquarePlus, MoreHorizontal } from "lucide-react"
-import { MobileActionsDrawer } from "@/components/tables/core/mobile-actions-drawer"
+import { ChevronRight } from "lucide-react"
+import type { ReactNode } from "react"
 import { useRepaymentParams } from "@/hooks/use-repayment-params"
 import {
+  describeFollowUp,
   formatRepaymentDate,
   getOutstandingAmount,
-  RepaymentStatusBadge,
+  InstallmentStatusWord,
+  RepaymentStatusWord,
 } from "./formatters"
 import type { RepaymentHistoryRow, RepaymentScheduleRow } from "./types"
+
+function CardButton({
+  children,
+  label,
+  onClick,
+}: {
+  children: ReactNode
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      aria-label={label}
+      className="flex w-full items-start gap-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      onClick={onClick}
+      type="button"
+    >
+      <span className="grid min-w-0 flex-1 gap-2">{children}</span>
+      <ChevronRight
+        aria-hidden
+        className="mt-1 size-5 shrink-0 text-muted-foreground"
+      />
+    </button>
+  )
+}
 
 export function RepaymentScheduleMobileItem({
   canPostRepayment,
@@ -28,168 +46,84 @@ export function RepaymentScheduleMobileItem({
   canPostRepayment: boolean
   item: RepaymentScheduleRow
 }) {
-  const { setParams } = useRepaymentParams()
-  const [actionsOpen, setActionsOpen] = useState(false)
-  const followUp = item.latestCollectionFollowUp
-  const canPost = canPostRepayment && item.outstandingAmount > 0
-
-  function open(type: "followUp" | "post" | "scheduleDetails") {
-    setActionsOpen(false)
-    void setParams({
-      loanId: type === "post" ? item.loan.id : null,
-      repaymentId: null,
-      repaymentScheduleItemId: type === "post" ? null : item.id,
-      repaymentSheetType: type,
-    })
-  }
+  const { open } = useRepaymentParams()
+  const owed = getOutstandingAmount(item)
+  const followUp = describeFollowUp(item)
 
   return (
-    <>
-      <Item className="gap-3 border-0 bg-transparent px-0 py-4">
-        <ItemHeader>
-          <ItemContent className="min-w-0">
-            <ItemTitle className="truncate text-sm">
-              {item.loan.member.fullName}
-            </ItemTitle>
-            <ItemDescription className="line-clamp-1">
-              {item.loan.member.memberNumber} · {item.loan.loanProduct.name} · #
-              {item.installmentNumber}
-            </ItemDescription>
-          </ItemContent>
-          <ItemActions>
-            <Button
-              aria-label={`Open actions for installment ${item.installmentNumber}`}
-              className="size-11"
-              onClick={() => setActionsOpen(true)}
-              size="icon-lg"
-              type="button"
-              variant="ghost"
-            >
-              <MoreHorizontal />
-            </Button>
-          </ItemActions>
-        </ItemHeader>
-        <ItemContent className="min-w-0 basis-full">
-          <RepaymentStatusBadge status={item.status} />
-          <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-xs">
-            <dt className="text-muted-foreground">Due</dt>
-            <dd className="text-right">{formatRepaymentDate(item.dueAt)}</dd>
-            <dt className="text-muted-foreground">Repayment</dt>
-            <dd className="text-right">
-              {formatCurrency(Number(item.totalDue))} · {formatCurrency(getOutstandingAmount(item))} outstanding
-            </dd>
-            <dt className="text-muted-foreground">Follow-up</dt>
-            <dd className="text-right capitalize">
-              {followUp?.caseStage?.replaceAll("_", " ") ?? "Not started"}
-            </dd>
-          </dl>
-        </ItemContent>
-      </Item>
-      <MobileActionsDrawer
-        description={`Choose the next step for installment ${item.installmentNumber}.`}
-        onOpenChange={setActionsOpen}
-        open={actionsOpen}
-        title="Repayment actions"
+    <div className="grid gap-3 py-4">
+      <CardButton
+        label={`Open ${item.loan.member.fullName}'s payment due ${formatRepaymentDate(item.dueAt)}`}
+        onClick={() =>
+          void open({
+            repaymentScheduleItemId: item.id,
+            repaymentSheetType: "scheduleDetails",
+          })
+        }
       >
+        <span className="flex flex-wrap items-center justify-between gap-2">
+          <span className="min-w-0 text-lg font-semibold text-foreground">
+            {item.loan.member.fullName}
+          </span>
+          <InstallmentStatusWord item={item} />
+        </span>
+        <span className="text-base text-foreground tabular-nums">
+          {formatCurrency(owed)} due {formatRepaymentDate(item.dueAt)}
+        </span>
+        {followUp ? (
+          <span className="text-base text-muted-foreground">{followUp}</span>
+        ) : null}
+      </CardButton>
+      {canPostRepayment && owed > 0 ? (
         <Button
-          className="h-11 w-full justify-start"
-          onClick={() => open("scheduleDetails")}
+          className="h-11 w-full text-base"
+          onClick={() =>
+            void open({ loanId: item.loan.id, repaymentSheetType: "post" })
+          }
           type="button"
-          variant="ghost"
+          variant="outline"
         >
-          <Eye data-icon="inline-start" />
-          View installment
+          Record payment
         </Button>
-        {canPost ? (
-          <Button
-            className="h-11 w-full justify-start"
-            onClick={() => open("post")}
-            type="button"
-            variant="ghost"
-          >
-            <Banknote data-icon="inline-start" />
-            Post repayment
-          </Button>
-        ) : null}
-        {canPostRepayment && item.status === "overdue" ? (
-          <Button
-            className="h-11 w-full justify-start"
-            onClick={() => open("followUp")}
-            type="button"
-            variant="ghost"
-          >
-            <MessageSquarePlus data-icon="inline-start" />
-            Record follow-up
-          </Button>
-        ) : null}
-      </MobileActionsDrawer>
-    </>
+      ) : null}
+    </div>
   )
 }
 
-export function RepaymentHistoryMobileItem({ item }: { item: RepaymentHistoryRow }) {
-  const { setParams } = useRepaymentParams()
-  const [actionsOpen, setActionsOpen] = useState(false)
+export function RepaymentHistoryMobileItem({
+  item,
+}: {
+  item: RepaymentHistoryRow
+}) {
+  const { open } = useRepaymentParams()
 
   return (
-    <>
-      <Item className="gap-3 border-0 bg-transparent px-0 py-4">
-        <ItemHeader>
-          <ItemContent className="min-w-0">
-            <ItemTitle className="truncate text-sm">{item.member.fullName}</ItemTitle>
-            <ItemDescription className="line-clamp-1">
-              {item.member.memberNumber} · {item.loan.loanProduct.name}
-            </ItemDescription>
-          </ItemContent>
-          <ItemActions>
-            <Button
-              aria-label={`Open repayment evidence for ${item.member.fullName}`}
-              className="size-11"
-              onClick={() => setActionsOpen(true)}
-              size="icon-lg"
-              type="button"
-              variant="ghost"
-            >
-              <MoreHorizontal />
-            </Button>
-          </ItemActions>
-        </ItemHeader>
-        <ItemContent className="min-w-0 basis-full">
-          <RepaymentStatusBadge status={item.status} />
-          <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-xs">
-            <dt className="text-muted-foreground">Received</dt>
-            <dd className="text-right">{formatCurrency(Number(item.amount))}</dd>
-            <dt className="text-muted-foreground">Paid on</dt>
-            <dd className="text-right">{formatRepaymentDate(item.paidAt)}</dd>
-            <dt className="text-muted-foreground">Reference</dt>
-            <dd className="truncate text-right">{item.reference || "Not supplied"}</dd>
-          </dl>
-        </ItemContent>
-      </Item>
-      <MobileActionsDrawer
-        description={`Review the posting evidence for ${item.member.fullName}.`}
-        onOpenChange={setActionsOpen}
-        open={actionsOpen}
-        title="Repayment evidence"
+    <div className="py-4">
+      <CardButton
+        label={`Open ${item.member.fullName}'s payment of ${formatCurrency(Number(item.amount))}`}
+        onClick={() =>
+          void open({
+            repaymentId: item.id,
+            repaymentSheetType: "repaymentDetails",
+          })
+        }
       >
-        <Button
-          className="h-11 w-full justify-start"
-          onClick={() => {
-            setActionsOpen(false)
-            void setParams({
-              loanId: null,
-              repaymentId: item.id,
-              repaymentScheduleItemId: null,
-              repaymentSheetType: "repaymentDetails",
-            })
-          }}
-          type="button"
-          variant="ghost"
-        >
-          <Eye data-icon="inline-start" />
-          View repayment evidence
-        </Button>
-      </MobileActionsDrawer>
-    </>
+        <span className="flex flex-wrap items-center justify-between gap-2">
+          <span className="min-w-0 text-lg font-semibold text-foreground">
+            {item.member.fullName}
+          </span>
+          <RepaymentStatusWord item={item} />
+        </span>
+        <span className="text-base text-foreground tabular-nums">
+          {formatCurrency(Number(item.amount))} on{" "}
+          {formatRepaymentDate(item.paidAt)}
+        </span>
+        {item.reference ? (
+          <span className="truncate text-base text-muted-foreground">
+            Ref {item.reference}
+          </span>
+        ) : null}
+      </CardButton>
+    </div>
   )
 }

@@ -8,20 +8,14 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@halaalvest/ui/components/input-group"
-import { Plus, Search } from "lucide-react"
+import { Search } from "lucide-react"
 import { RepaymentsFilterDrawer } from "@/components/repayments-filter-drawer"
 import { MiddayFilterIcon } from "@/components/search-filter-dropdown-input"
-import { useRepaymentParams } from "@/hooks/use-repayment-params"
 import { useRepaymentsFilterParams } from "@/hooks/use-repayments-filter-params"
 import { useSortParams } from "@/hooks/use-sort-params"
 
-export function RepaymentsMobileToolbar({
-  canPostRepayment,
-}: {
-  canPostRepayment: boolean
-}) {
+export function RepaymentsMobileToolbar() {
   const { filters, setFilters } = useRepaymentsFilterParams()
-  const { setParams: setRepaymentParams } = useRepaymentParams()
   const { params, setParams: setSortParams } = useSortParams()
   const [filterOpen, setFilterOpen] = useState(false)
   const hasActiveControls = Boolean(
@@ -45,17 +39,17 @@ export function RepaymentsMobileToolbar({
               <Search aria-hidden className="size-4" />
             </InputGroupAddon>
             <InputGroupInput
-              aria-label="Search repayments"
+              aria-label="Search by name"
               onChange={(event) =>
                 void setFilters({ q: event.target.value || null })
               }
-              placeholder="Search repayments..."
+              placeholder="Search by name"
               type="search"
               value={filters.q ?? ""}
             />
             <InputGroupAddon align="inline-end">
               <InputGroupButton
-                aria-label="Filter repayments"
+                aria-label="Filter payments"
                 className="size-11"
                 onClick={() => setFilterOpen(true)}
                 size="icon-sm"
@@ -64,24 +58,6 @@ export function RepaymentsMobileToolbar({
               </InputGroupButton>
             </InputGroupAddon>
           </InputGroup>
-          {canPostRepayment ? (
-            <Button
-              aria-label="Post repayment"
-              className="size-11"
-              onClick={() =>
-                void setRepaymentParams({
-                  loanId: null,
-                  repaymentId: null,
-                  repaymentScheduleItemId: null,
-                  repaymentSheetType: "post",
-                })
-              }
-              size="icon-lg"
-              type="button"
-            >
-              <Plus />
-            </Button>
-          ) : null}
         </div>
         {hasActiveControls ? (
           <Button

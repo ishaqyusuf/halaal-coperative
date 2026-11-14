@@ -42,12 +42,11 @@ describe("repayments workspace Midday conformance", () => {
     const mobile = read("components/tables/repayments/mobile-list.tsx")
 
     for (const source of [desktop, mobile]) {
-      expect(source).toContain('"No collection cases yet"')
-      expect(source).toContain('"No matching collection cases"')
-      expect(source).toContain('"No repayment schedule yet"')
-      expect(source).toContain('"No matching schedule items"')
-      expect(source).toContain('"No repayments posted yet"')
-      expect(source).toContain('"No matching repayment history"')
+      expect(source).toContain('"No late payments"')
+      expect(source).toContain('"No late payments match"')
+      expect(source).toContain('"No payments due yet"')
+      expect(source).toContain('"No payments match"')
+      expect(source).toContain('"Nothing received yet"')
     }
   })
 

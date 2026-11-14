@@ -122,7 +122,7 @@ describe("workflow presentation registry", () => {
       ["monthlyRecord", "cancel"], // MR5
       ["monthlyRecord", "create"], // MR1
       ["monthlyRecord", "generate"], // MR4
-      ["repayment", "refresh"], // RP5
+      // RP5 (refresh) removed: late payments are read from the due date.
     ] as const
 
     for (const [workflow, mode] of consequentialConfirms) {

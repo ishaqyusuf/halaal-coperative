@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@halaalvest/ui/components/dropdown-menu"
-import { Banknote, Eye, MessageSquarePlus, MoreHorizontal } from "lucide-react"
+import { MoreHorizontal } from "lucide-react"
 import { useRepaymentParams } from "@/hooks/use-repayment-params"
 import type { RepaymentHistoryRow, RepaymentScheduleRow } from "./types"
 
@@ -18,71 +18,65 @@ export function RepaymentScheduleActionsMenu({
   canPostRepayment: boolean
   item: RepaymentScheduleRow
 }) {
-  const { setParams } = useRepaymentParams()
-  const canFollowUp = item.status === "overdue"
+  const { open } = useRepaymentParams()
   const canPost = canPostRepayment && item.outstandingAmount > 0
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label={`Open actions for installment ${item.installmentNumber}`}
-            className="size-8"
-            size="icon"
-            type="button"
-            variant="ghost"
-          />
-        }
-      >
-        <MoreHorizontal />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
-        <DropdownMenuItem
+    <div className="flex items-center gap-1">
+      {canPost ? (
+        <Button
+          className="h-10 px-3 text-base"
           onClick={() =>
-            void setParams({
-              loanId: null,
-              repaymentId: null,
-              repaymentScheduleItemId: item.id,
-              repaymentSheetType: "scheduleDetails",
-            })
+            void open({ loanId: item.loan.id, repaymentSheetType: "post" })
+          }
+          type="button"
+          variant="outline"
+        >
+          Record payment
+        </Button>
+      ) : null}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              aria-label={`More for ${item.loan.member.fullName}`}
+              className="size-10"
+              size="icon"
+              type="button"
+              variant="ghost"
+            />
           }
         >
-          <Eye />
-          View installment
-        </DropdownMenuItem>
-        {canPost ? (
+          <MoreHorizontal className="size-5" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-52">
           <DropdownMenuItem
+            className="min-h-11 text-base"
             onClick={() =>
-            void setParams({
-              loanId: item.loan.id,
-              repaymentId: null,
-                repaymentScheduleItemId: null,
-                repaymentSheetType: "post",
+              void open({
+                repaymentScheduleItemId: item.id,
+                repaymentSheetType: "scheduleDetails",
               })
             }
           >
-            <Banknote />
-            Post repayment
+            Open
           </DropdownMenuItem>
-        ) : null}
-        {canPostRepayment && canFollowUp ? (
-          <DropdownMenuItem
-            onClick={() =>
-            void setParams({
-              loanId: null,
-              repaymentId: null,
-              repaymentScheduleItemId: item.id,
-                repaymentSheetType: "followUp",
-              })
-            }
-          >
-            <MessageSquarePlus />
-            Record follow-up
-          </DropdownMenuItem>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
+          {canPostRepayment && item.isLate ? (
+            <DropdownMenuItem
+              className="min-h-11 text-base"
+              onClick={() =>
+                void open({
+                  repaymentScheduleItemId: item.id,
+                  repaymentSheetType: "followUp",
+                })
+              }
+            >
+              Add a follow-up note
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   )
 }
 
@@ -91,38 +85,18 @@ export function RepaymentHistoryActionsMenu({
 }: {
   item: RepaymentHistoryRow
 }) {
-  const { setParams } = useRepaymentParams()
+  const { open } = useRepaymentParams()
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label={`Open repayment evidence for ${item.member.fullName}`}
-            className="size-8"
-            size="icon"
-            type="button"
-            variant="ghost"
-          />
-        }
-      >
-        <MoreHorizontal />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
-        <DropdownMenuItem
-          onClick={() =>
-            void setParams({
-              loanId: null,
-              repaymentId: item.id,
-              repaymentScheduleItemId: null,
-              repaymentSheetType: "repaymentDetails",
-            })
-          }
-        >
-          <Eye />
-          View repayment evidence
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Button
+      className="h-10 px-3 text-base"
+      onClick={() =>
+        void open({ repaymentId: item.id, repaymentSheetType: "repaymentDetails" })
+      }
+      type="button"
+      variant="outline"
+    >
+      Open
+    </Button>
   )
 }

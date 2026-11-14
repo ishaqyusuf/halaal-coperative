@@ -1,56 +1,41 @@
-import { Badge } from "@halaalvest/ui/components/badge"
-import { formatCurrency } from "@halaalvest/utils"
+import { LoanStatusWord } from "@/components/loans/loan-status-word"
+import { getInstallmentWord, getRepaymentWord } from "@/lib/loans/loan-words"
+import { formatDayMonthYear } from "@/utils/format"
 import type { RepaymentHistoryRow, RepaymentScheduleRow } from "./types"
 
 export function formatRepaymentDate(value: Date | string | null | undefined) {
-  if (!value) return "Not set"
-
-  return new Intl.DateTimeFormat("en-NG", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value))
+  return formatDayMonthYear(value) ?? "Not set"
 }
 
 export function getOutstandingAmount(item: RepaymentScheduleRow) {
   return Math.max(Number(item.outstandingAmount), 0)
 }
 
-function statusClassName(status: string) {
-  if (status === "paid" || status === "posted" || status === "resolved") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700"
-  }
-
-  if (status === "overdue" || status === "reversed") {
-    return "border-rose-200 bg-rose-50 text-rose-700"
-  }
-
-  if (status === "partially_paid" || status === "due") {
-    return "border-amber-200 bg-amber-50 text-amber-700"
-  }
-
-  return "border-slate-200 bg-slate-50 text-slate-700"
+export function InstallmentStatusWord({ item }: { item: RepaymentScheduleRow }) {
+  return <LoanStatusWord word={getInstallmentWord(item.status, item.isLate)} />
 }
 
-export function RepaymentStatusBadge({ status }: { status: string }) {
-  return (
-    <Badge className={`${statusClassName(status)} capitalize`} variant="outline">
-      {status.replaceAll("_", " ")}
-    </Badge>
-  )
+export function RepaymentStatusWord({ item }: { item: RepaymentHistoryRow }) {
+  return <LoanStatusWord word={getRepaymentWord(item.status)} />
 }
 
-export function ScheduleAmount({ item }: { item: RepaymentScheduleRow }) {
-  return (
-    <div>
-      <p className="font-medium">{formatCurrency(Number(item.totalDue))}</p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {formatCurrency(getOutstandingAmount(item))} outstanding
-      </p>
-    </div>
-  )
+const followUpWords: Record<string, string> = {
+  promise_to_pay: "Promised to pay",
+  reminded: "Reminded",
+  settled: "Settled",
+  unreachable: "Could not reach",
 }
 
-export function HistoryAmount({ item }: { item: RepaymentHistoryRow }) {
-  return <span className="font-medium">{formatCurrency(Number(item.amount))}</span>
+/** The latest follow-up in a few words, or null when nobody has called. */
+export function describeFollowUp(item: RepaymentScheduleRow) {
+  const followUp = item.latestCollectionFollowUp
+  if (!followUp) return null
+  const outcome = followUpWords[followUp.status] ?? "Followed up"
+  const promised = followUp.promiseToPayAt
+    ? formatDayMonthYear(followUp.promiseToPayAt)
+    : null
+
+  return promised && followUp.status === "promise_to_pay"
+    ? `${outcome} by ${promised}`
+    : outcome
 }

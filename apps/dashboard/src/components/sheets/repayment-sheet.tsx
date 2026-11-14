@@ -15,24 +15,6 @@ import type {
 import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 import { useTRPC } from "@/trpc/client"
 
-type RepaymentSheetType =
-  | "followUp"
-  | "post"
-  | "refresh"
-  | "repaymentDetails"
-  | "scheduleDetails"
-
-function isRepaymentSheetType(
-  value: string | null
-): value is RepaymentSheetType {
-  return (
-    value === "followUp" ||
-    value === "post" ||
-    value === "refresh" ||
-    value === "repaymentDetails" ||
-    value === "scheduleDetails"
-  )
-}
 
 const disabledId = "00000000-0000-4000-8000-000000000000"
 const uuidPattern =
@@ -40,10 +22,12 @@ const uuidPattern =
 
 export function RepaymentSheet({
   assignees,
+  canPostRepayment,
   devMode,
   loans,
 }: {
   assignees: RepaymentAssigneeOption[]
+  canPostRepayment: boolean
   devMode: boolean
   loans: RepaymentLoanOption[]
 }) {
@@ -57,7 +41,7 @@ export function RepaymentSheet({
     repaymentSheetType,
     setParams,
   } = useRepaymentParams()
-  const isOpen = isRepaymentSheetType(repaymentSheetType)
+  const isOpen = Boolean(repaymentSheetType)
   const presentation = getWorkflowPresentation("repayment", repaymentSheetType)
   const shouldLoadSchedule =
     isOpen &&
@@ -129,24 +113,22 @@ export function RepaymentSheet({
       {isOpen ? (
         <Suspense
           fallback={
-            <div className="px-4 text-sm text-muted-foreground md:px-6">
-              Loading repayment workflow...
+            <div className="px-4 text-base text-muted-foreground md:px-6">
+              Loading…
             </div>
           }
         >
           <RepaymentSheetHeader />
           <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-6 md:pb-6">
             {selectedLoading ? (
-              <p className="text-sm text-muted-foreground">
-                Loading repayment details...
-              </p>
+              <p className="text-base text-muted-foreground">Loading…</p>
             ) : selectedError ? (
               <div className="space-y-3 border-y border-border py-4">
-                <p className="text-sm text-muted-foreground">
-                  Repayment details could not be loaded.
+                <p className="text-base text-muted-foreground">
+                  This could not be loaded.
                 </p>
                 <Button
-                  className="h-11 md:h-9"
+                  className="h-11 text-base"
                   onClick={() =>
                     void (shouldLoadSchedule
                       ? scheduleQuery.refetch()
@@ -161,6 +143,7 @@ export function RepaymentSheet({
             ) : (
               <RepaymentContent
                 assignees={assignees}
+                canPostRepayment={canPostRepayment}
                 defaultLoanId={loanId ?? scheduleQuery.data?.loan.id}
                 devMode={devMode}
                 loans={loans}

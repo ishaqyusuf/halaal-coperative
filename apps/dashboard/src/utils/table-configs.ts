@@ -159,7 +159,7 @@ export const SORT_FIELD_MAPS: Record<TableId, Record<string, string>> = {
   },
   loanRequests: {
     member: "memberName",
-    request: "requestedAt",
+    requestedAt: "requestedAt",
     status: "status",
   },
   membershipApprovals: {
@@ -240,7 +240,7 @@ export const ROW_HEIGHTS: Record<TableId, number> = {
   chargeLibrary: 56,
   imports: 56,
   loanPortfolio: 72,
-  loanRequests: 112,
+  loanRequests: 76,
   membershipApprovals: 64,
   monthlyRecords: 64,
   notifications: 56,

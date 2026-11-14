@@ -8,10 +8,14 @@ import {
 import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
 import { financeManagementRoles, hasAnyRole } from "@/lib/workspace-access"
 
+/** A loan staff can record a payment against, with the balance shown. */
 export type RepaymentLoanOption = {
   id: string
-  label: string
+  memberName: string
   outstandingPrincipal: number
+  productName: string
+  /** Sent back with the post so a changed loan is refused, not double-paid. */
+  status: string
 }
 
 export type RepaymentAssigneeOption = {
@@ -58,14 +62,18 @@ export async function loadRepaymentsPageData(): Promise<RepaymentsPageData> {
   return {
     assignees: tenantUsers.map((user) => ({
       id: user.id,
-      label: `${user.fullName} (${user.email})`,
+      label: user.fullName,
     })),
     canPostRepayment,
-    loans: loans.map((loan) => ({
-      id: loan.id,
-      label: `${loan.member.fullName} · ${loan.loanProduct.name}`,
-      outstandingPrincipal: loan.outstandingPrincipal,
-    })),
+    loans: loans
+      .map((loan) => ({
+        id: loan.id,
+        memberName: loan.member.fullName,
+        outstandingPrincipal: loan.outstandingPrincipal,
+        productName: loan.loanProduct.name,
+        status: loan.status,
+      }))
+      .sort((left, right) => left.memberName.localeCompare(right.memberName)),
     quickFillEnabled: canShowQuickFill(context),
     state: "ready",
     summary,

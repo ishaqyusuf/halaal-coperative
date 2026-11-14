@@ -40,7 +40,7 @@ export function RepaymentsSearchFilter() {
       filterSchema={searchFilterSchema}
       filters={searchFilters}
       initialFilterList={filterList}
-      placeholder="Filter repayment servicing..."
+      placeholder="Search by name"
       setFilters={setFilters}
     />
   )

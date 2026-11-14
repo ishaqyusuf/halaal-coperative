@@ -5,26 +5,10 @@ import { useRepaymentsFilterParams } from "@/hooks/use-repayments-filter-params"
 import { useSortParams } from "@/hooks/use-sort-params"
 import type { RepaymentView } from "./types"
 
-const views: Array<{
-  description: string
-  label: string
-  value: RepaymentView
-}> = [
-  {
-    description: "Overdue accounts needing follow-up",
-    label: "Collections",
-    value: "collections",
-  },
-  {
-    description: "Every due and completed installment",
-    label: "Schedule",
-    value: "schedule",
-  },
-  {
-    description: "Posted and reversed payment records",
-    label: "History",
-    value: "history",
-  },
+const views: Array<{ label: string; value: RepaymentView }> = [
+  { label: "Late", value: "collections" },
+  { label: "All payments due", value: "schedule" },
+  { label: "Received", value: "history" },
 ]
 
 export function RepaymentViewTabs({
@@ -77,13 +61,12 @@ export function RepaymentViewTabs({
           <Button
             aria-controls="repayments-active-view"
             aria-selected={selected}
-            className="h-11 shrink-0 rounded-none border-x-0 border-t-0 border-b-2 border-transparent px-4 text-sm data-[active=true]:border-primary data-[active=true]:bg-transparent"
+            className="h-12 shrink-0 rounded-none border-x-0 border-t-0 border-b-2 border-transparent px-4 text-base data-[active=true]:border-primary data-[active=true]:bg-transparent data-[active=true]:font-semibold"
             data-active={selected}
             id={`repayments-${view.value}-tab`}
             key={view.value}
             onClick={() => void selectView(view.value)}
             role="tab"
-            title={view.description}
             type="button"
             variant="ghost"
           >

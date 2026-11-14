@@ -2,7 +2,7 @@ import {
   getLoanDetail,
   getLoanRequestDetail,
   getMemberByUserId,
-  listLoanRequestsPage,
+  listLoanRequestRowsPage,
   listLoansPage,
 } from "@halaalvest/db"
 import {
@@ -82,7 +82,7 @@ export const loansRouter = createTRPCRouter({
     .input(listLoanRequestsSchema)
     .query(async ({ ctx, input }) => {
       const scopedMemberId = await getScopedMemberId(ctx)
-      const result = await listLoanRequestsPage(ctx.tenant.current.id, {
+      const result = await listLoanRequestRowsPage(ctx.tenant.current.id, {
         cursor: input?.cursor,
         memberId: scopedMemberId ?? input?.memberId,
         pageSize: input?.pageSize,

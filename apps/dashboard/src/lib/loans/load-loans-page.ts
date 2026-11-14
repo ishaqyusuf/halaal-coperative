@@ -1,12 +1,14 @@
 import {
+  countPendingGuarantorRequests,
   createDbRuntime,
-  getMonthlyFinancingCycleHealth,
+  getFinancingIntakeStatus,
   getMemberByUserId,
   getMemberOperationalReadiness,
+  getMonthlyFinancingCycleHealth,
   listChargeDefinitions,
   listLoanProducts,
-  listMembersTable,
 } from "@halaalvest/db"
+import { formatCurrency } from "@halaalvest/utils"
 import {
   getLoanIntakeFix,
   type LoanIntakeFix,
@@ -21,19 +23,14 @@ import {
   hasAnyRole,
 } from "@/lib/workspace-access"
 
-type LoanProductOptionRow = {
+type IntakeStatus = "closed" | "missing" | "open" | "paused"
+
+type LoanProductRow = {
   code?: string | null
   id: string
   loanType: "normal" | "quick"
   name: string
   termMonths: number
-}
-
-type LoanMemberOptionRow = {
-  fullName: string
-  id: string
-  memberNumber: string
-  operationalReadiness?: { isReady: boolean } | null
 }
 
 type LoanRequestChargeOptionRow = {
@@ -45,63 +42,55 @@ type LoanRequestChargeOptionRow = {
   name: string
 }
 
+/** Staff only: how much the cooperative can lend now. */
+export type LoanLendingCapacity = {
+  approvedHoldAmount: number
+  canLendNow: number
+  normalLeft: number
+  quickLeft: number
+  warnings: string[]
+}
+
 export type LoansPageData =
+  | { state: "unavailable" }
   | {
-      state: "unavailable"
-    }
-  | {
+      availablePool: number
       canReview: boolean
       canSubmit: boolean
-      financingCycle: Awaited<ReturnType<typeof getMonthlyFinancingCycleHealth>>
+      capacity: LoanLendingCapacity | null
+      fixedMember?: { id: string; label: string }
       /** Link to Finance settings when intake is blocked; finance managers only. */
       intakeFix: LoanIntakeFix | null
-      loanProducts: LoanProductOptionRow[]
-      loanRequestCharges: LoanRequestChargeOptionRow[]
-      members: {
-        items: LoanMemberOptionRow[]
-      }
+      intakeStatus: IntakeStatus
       isMemberView: boolean
+      loanProducts: Array<{ id: string; label: string; termMonths: number }>
+      loanRequestCharges: LoanRequestChargeOptionRow[]
+      /** Member only: guarantor requests waiting for their answer. */
+      pendingGuarantorCount: number
       quickFillEnabled: boolean
-      submissionBlockedReason: string | null
+      /** Why this person cannot ask for a loan now, in plain words. */
+      requestBlockedReason: string | null
       state: "ready"
     }
 
-export async function loadLoansPageData(): Promise<LoansPageData> {
-  const context = await getDashboardServerContext()
-  const runtime = createDbRuntime()
+const intakeBlockedWords: Record<Exclude<IntakeStatus, "open">, string> = {
+  closed: "Loan requests are closed for this month.",
+  missing: "Loan requests are not open for this month yet.",
+  paused: "Loan requests are paused for now.",
+}
 
-  if (!context.tenant || runtime.status !== "database-configured") {
-    return {
-      state: "unavailable" as const,
-    }
-  }
-  const role = context.auth.membership?.role
-  const isMemberView = role === "member"
-  const actorMember =
-    isMemberView && context.auth.user
-      ? await getMemberByUserId({
-          tenantId: context.tenant.id,
-          userId: context.auth.user.id,
-        })
-      : null
+/** Plain words for the cycle warnings worth showing beside capacity. */
+const capacityWarningWords: Record<string, string | undefined> = {
+  collections_below_projected:
+    "Less money came in this month than members promised.",
+  normal_quota_closed: "No money left for normal loans this month.",
+  quick_quota_closed: "No money left for quick loans this month.",
+}
 
-  const actorReadiness = actorMember
-    ? await getMemberOperationalReadiness({
-        memberId: actorMember.id,
-        tenantId: context.tenant.id,
-      })
-    : null
-
-  const [members, loanProducts, financingCycle, chargeDefinitions] =
-    await Promise.all([
-      isMemberView
-        ? Promise.resolve({ data: [] as LoanMemberOptionRow[] })
-        : listMembersTable(context.tenant.id, { pageSize: 100 }),
-      listLoanProducts(context.tenant.id),
-      getMonthlyFinancingCycleHealth({ tenantId: context.tenant.id }),
-      listChargeDefinitions(context.tenant.id),
-    ])
-  const loanRequestCharges = (chargeDefinitions as any[])
+function toLoanRequestCharges(
+  chargeDefinitions: unknown[]
+): LoanRequestChargeOptionRow[] {
+  return (chargeDefinitions as any[])
     .map((definition) => {
       const applicability = definition.applicability?.find(
         (row: any) =>
@@ -133,62 +122,113 @@ export async function loadLoansPageData(): Promise<LoansPageData> {
       } satisfies LoanRequestChargeOptionRow
     })
     .filter((charge): charge is LoanRequestChargeOptionRow => Boolean(charge))
-  const visibleMembers = isMemberView
-    ? {
-        items: actorMember
-          ? [
-              {
-                fullName: actorMember.fullName,
-                id: actorMember.id,
-                memberNumber: actorMember.memberNumber,
-                operationalReadiness: actorReadiness,
-              },
-            ]
-          : [],
-      }
-    : {
-        // Pick only the option fields: member table rows carry Prisma
-        // Decimal values (contribution plan amounts) that cannot cross
-        // into the client component.
-        items: (members.data as LoanMemberOptionRow[])
-          .filter((member) => member.operationalReadiness?.isReady)
-          .map((member) => ({
-            fullName: member.fullName,
-            id: member.id,
-            memberNumber: member.memberNumber,
-            operationalReadiness: { isReady: true },
-          })),
-      }
-  const submissionBlockedReason = !isMemberView
+}
+
+/**
+ * `/loans` server data. Staff get lending capacity; members get only whether
+ * they can ask now and how many guarantor requests wait for them. Member and
+ * guarantor pickers search on demand (`members.options`), so no member list
+ * is loaded here.
+ */
+export async function loadLoansPageData(): Promise<LoansPageData> {
+  const context = await getDashboardServerContext()
+  const runtime = createDbRuntime()
+
+  if (!context.tenant || runtime.status !== "database-configured") {
+    return { state: "unavailable" }
+  }
+
+  const tenantId = context.tenant.id
+  const role = context.auth.membership?.role
+  const isMemberView = role === "member"
+  const isStaff = hasAnyRole(role, allStaffRoles)
+  const canReview = hasAnyRole(role, financeManagementRoles)
+  const actorMember =
+    isMemberView && context.auth.user
+      ? await getMemberByUserId({ tenantId, userId: context.auth.user.id })
+      : null
+
+  const [
+    actorReadiness,
+    loanProducts,
+    cycleHealth,
+    memberIntakeStatus,
+    chargeDefinitions,
+    pendingGuarantorCount,
+  ] = await Promise.all([
+    actorMember
+      ? getMemberOperationalReadiness({ memberId: actorMember.id, tenantId })
+      : Promise.resolve(null),
+    listLoanProducts(tenantId) as Promise<LoanProductRow[]>,
+    isMemberView
+      ? Promise.resolve(null)
+      : getMonthlyFinancingCycleHealth({ tenantId }),
+    isMemberView ? getFinancingIntakeStatus({ tenantId }) : Promise.resolve(null),
+    isStaff || actorMember ? listChargeDefinitions(tenantId) : Promise.resolve([]),
+    actorMember
+      ? countPendingGuarantorRequests({
+          guarantorMemberId: actorMember.id,
+          tenantId,
+        })
+      : Promise.resolve(0),
+  ])
+
+  const intakeStatus: IntakeStatus =
+    cycleHealth?.intakeStatus ?? memberIntakeStatus ?? "missing"
+  const memberBlockedReason = !isMemberView
     ? null
     : !actorMember
-      ? "Link your signed-in account to a member profile before requesting financing."
+      ? "Your account is not linked to a member yet. Please contact the cooperative."
       : !actorReadiness?.isReady
-        ? "Complete member verification and migration setup before requesting financing."
+        ? "You can ask for a loan once the cooperative has checked your details."
         : null
-
-  const canReview = hasAnyRole(
-    context.auth.membership?.role,
-    financeManagementRoles
-  )
+  const requestBlockedReason =
+    memberBlockedReason ??
+    (intakeStatus === "open" ? null : intakeBlockedWords[intakeStatus])
+  const usage = cycleHealth
+    ? { normal: cycleHealth.normal, quick: cycleHealth.quick }
+    : null
 
   return {
+    availablePool: cycleHealth?.deployableFunds.deployableFunds ?? 0,
     canReview,
-    canSubmit:
-      hasAnyRole(role, allStaffRoles) ||
-      Boolean(actorMember && actorReadiness?.isReady),
-    financingCycle,
+    canSubmit: isStaff || Boolean(actorMember && actorReadiness?.isReady),
+    capacity: cycleHealth
+      ? {
+          approvedHoldAmount: cycleHealth.deployableFunds.approvedHoldAmount,
+          canLendNow: cycleHealth.deployableFunds.deployableFunds,
+          normalLeft: cycleHealth.normal.remainingAmount,
+          quickLeft: cycleHealth.quick.remainingAmount,
+          // The intake banner already says when requests are closed.
+          warnings: cycleHealth.warnings
+            .map((warning) => capacityWarningWords[warning.key])
+            .filter((warning): warning is string => Boolean(warning)),
+        }
+      : null,
+    fixedMember: actorMember
+      ? {
+          id: actorMember.id,
+          label: `${actorMember.fullName} (${actorMember.memberNumber})`,
+        }
+      : undefined,
     intakeFix: getLoanIntakeFix({
       canManageFinance: canReview && !isMemberView,
-      intakeStatus: financingCycle.intakeStatus,
+      intakeStatus,
       productCount: loanProducts.length,
     }),
-    loanProducts: loanProducts as LoanProductOptionRow[],
-    loanRequestCharges,
-    members: visibleMembers,
+    intakeStatus,
     isMemberView,
+    loanProducts: loanProducts.map((product) => ({
+      id: product.id,
+      label: usage
+        ? `${product.name} · up to ${product.termMonths} months · ${formatCurrency(usage[product.loanType].remainingAmount)} left`
+        : `${product.name} · up to ${product.termMonths} months`,
+      termMonths: product.termMonths,
+    })),
+    loanRequestCharges: toLoanRequestCharges(chargeDefinitions as unknown[]),
+    pendingGuarantorCount,
     quickFillEnabled: canShowQuickFill(context),
-    submissionBlockedReason,
-    state: "ready" as const,
+    requestBlockedReason,
+    state: "ready",
   }
 }

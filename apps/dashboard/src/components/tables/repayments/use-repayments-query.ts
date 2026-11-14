@@ -33,6 +33,11 @@ export function useRepaymentScheduleQuery(view: "collections" | "schedule") {
         getNextPageParam: ({ meta }) => meta?.cursor,
       })
     )
+  // Stable rows between renders so the table keeps its row model.
+  const scheduleRows = useMemo(
+    () => data.pages.flatMap((page) => page.data) as RepaymentScheduleRow[],
+    [data.pages]
+  )
 
   return {
     fetchNextPage,
@@ -47,7 +52,7 @@ export function useRepaymentScheduleQuery(view: "collections" | "schedule") {
     ),
     hasNextPage,
     isFetchingNextPage,
-    rows: data.pages.flatMap((page) => page.data),
+    rows: scheduleRows,
   }
 }
 
@@ -67,6 +72,10 @@ export function useRepaymentHistoryQuery() {
         getNextPageParam: ({ meta }) => meta?.cursor,
       })
     )
+  const historyRows = useMemo(
+    () => data.pages.flatMap((page) => page.data) as RepaymentHistoryRow[],
+    [data.pages]
+  )
 
   return {
     fetchNextPage,
@@ -78,6 +87,6 @@ export function useRepaymentHistoryQuery() {
     ),
     hasNextPage,
     isFetchingNextPage,
-    rows: data.pages.flatMap((page) => page.data),
+    rows: historyRows,
   }
 }

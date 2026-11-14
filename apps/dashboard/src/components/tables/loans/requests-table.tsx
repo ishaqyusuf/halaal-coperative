@@ -13,6 +13,7 @@ import { useEffect, useRef } from "react"
 import { EmptyState, VirtualRow } from "@/components/tables/core"
 import { useDataTable } from "@/hooks/use-data-table"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
+import { useLoanParams } from "@/hooks/use-loan-params"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
 import { useTableDnd } from "@/hooks/use-table-dnd"
 import { useTableScroll } from "@/hooks/use-table-scroll"
@@ -24,40 +25,24 @@ import { requestColumns } from "./request-columns"
 import { LoanTableHeader } from "./table-header"
 import { useLoanRequestsQuery } from "./use-loans-query"
 
+/** One row of `loans.requests` (lean list shape, see `listLoanRequestRowsPage`). */
 export type LoanRequestRow = {
-  approvals: Array<{
-    action: string
-    actedAt: Date
-    actorUser: { fullName: string }
-    id: string
-    notes?: string | null
-  }>
-  eligibleAmountSnapshot: number | string | { toString(): string }
   estimatedMonthlyServicing: number | string | { toString(): string }
-  extraMonthlySavingsAmount: number | string | { toString(): string }
   guarantorApprovals: Array<{
-    guarantorMember: {
-      fullName: string
-      memberNumber: string
-    }
+    guarantorMember: { fullName: string; id: string }
     id: string
-    requestedAt: Date
-    respondedAt?: Date | null
-    respondedByUser?: { fullName: string } | null
-    responseNotes?: string | null
     status: "approved" | "pending" | "rejected"
   }>
   id: string
   loanProduct: { name: string }
-  member: { fullName: string }
-  purpose?: string | null
+  member: { fullName: string; id: string; memberNumber: string }
   requestedAmount: number | string | { toString(): string }
+  requestedAt: Date | string
   requestedTermMonths: number
-  reviewNotes?: string | null
   status: string
 }
 
-const NON_CLICKABLE_COLUMNS = new Set(["actions", "review"])
+const NON_CLICKABLE_COLUMNS = new Set(["actions"])
 const COLUMN_IDS = getColumnIds(requestColumns)
 
 export function LoanRequestsTable({
@@ -70,6 +55,7 @@ export function LoanRequestsTable({
   memberId?: string
 }) {
   const parentRef = useRef<HTMLDivElement>(null)
+  const { open: openLoan } = useLoanParams()
   const { setRequestColumns } = useLoanTableStore()
   const {
     fetchNextPage,
@@ -153,13 +139,11 @@ export function LoanRequestsTable({
       <EmptyState
         description={
           hasActiveControls
-            ? "Clear the current filters or choose a different status."
-            : "Submitted member loan requests will appear here for review and approval."
+            ? "Try another name or clear the filters."
+            : "New requests show here."
         }
         title={
-          hasActiveControls
-            ? "No matching loan requests"
-            : "No loan requests yet"
+          hasActiveControls ? "No requests match" : "No loan requests yet"
         }
       />
     )
@@ -214,6 +198,11 @@ export function LoanRequestsTable({
                         getStickyStyle={getStickyStyle}
                         key={row.id}
                         nonClickableColumns={NON_CLICKABLE_COLUMNS}
+                        onCellClick={(rowId: string) =>
+                          void openLoan({
+                            loanRequestId: rowId,
+                            loanSheetType: "request-details",
+                          })}
                         row={row}
                         rowHeight={rowHeight}
                         virtualStart={virtualRow.start}

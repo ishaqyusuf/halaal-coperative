@@ -1,7 +1,6 @@
 "use client"
 
 import { Button } from "@halaalvest/ui/components/button"
-import { CheckIcon, XIcon } from "lucide-react"
 import { useGuarantorApprovalParams } from "@/hooks/use-guarantor-approval-params"
 
 export function OpenGuarantorApprovalSheet({
@@ -15,22 +14,17 @@ export function OpenGuarantorApprovalSheet({
 
   return (
     <Button
+      className="h-12 flex-1 text-base sm:flex-none"
       onClick={() =>
-        setParams({
+        void setParams({
           guarantorApprovalId: approvalId,
           guarantorResponseStatus: status,
         })
       }
-      size="sm"
       type="button"
       variant={status === "approved" ? "default" : "outline"}
     >
-      {status === "approved" ? (
-        <CheckIcon data-icon="inline-start" />
-      ) : (
-        <XIcon data-icon="inline-start" />
-      )}
-      {status === "approved" ? "Approve" : "Reject"}
+      {status === "approved" ? "I agree" : "I can't"}
     </Button>
   )
 }

@@ -638,6 +638,22 @@ function getIntakeStatus(cycle: { status: FinancingCycleStatus } | null) {
   return "missing" as const
 }
 
+/**
+ * Whether this month's financing takes requests: one cycle-row read. For a
+ * member's loan page, which needs only this, not capacity or funds.
+ */
+export async function getFinancingIntakeStatus(
+  input: MonthlyFinancingCycleInput,
+  prismaOverride?: PrismaClient
+) {
+  const { cycle } = await getFinancingCycleSnapshotForPeriod(
+    input,
+    getPrisma(prismaOverride)
+  )
+
+  return getIntakeStatus(cycle)
+}
+
 function buildFinancingCycleWarnings(input: {
   cycle: { status: FinancingCycleStatus } | null
   normal: FinancingCycleUsageByType

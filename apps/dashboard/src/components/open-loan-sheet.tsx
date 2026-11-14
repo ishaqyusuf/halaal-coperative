@@ -1,134 +1,30 @@
 "use client"
 
 import { Button } from "@halaalvest/ui/components/button"
-import { BanknoteIcon, CheckCircle2Icon, HandCoinsIcon, PlusIcon } from "lucide-react"
+import { cn } from "@halaalvest/ui/lib/utils"
+import { PlusIcon } from "lucide-react"
 import { useLoanParams } from "@/hooks/use-loan-params"
 
 export function OpenLoanRequestSheet({
+  className,
   disabled,
-  iconOnly = false,
+  label = "Ask for a loan",
 }: {
+  className?: string
   disabled?: boolean
-  iconOnly?: boolean
+  label?: string
 }) {
-  const { setParams } = useLoanParams()
+  const { open } = useLoanParams()
 
   return (
     <Button
-      aria-label={iconOnly ? "Request loan" : undefined}
-      className={iconOnly ? "size-11" : undefined}
+      className={cn("h-11 text-base", className)}
       disabled={disabled}
-      onClick={() =>
-        setParams({
-          guarantorApprovalId: null,
-          guarantorReviewStatus: null,
-          loanId: null,
-          loanRequestId: null,
-          loanReviewStatus: null,
-          loanSheetType: "request",
-        })
-      }
-      size={iconOnly ? "icon-lg" : undefined}
+      onClick={() => void open({ loanSheetType: "request" })}
       type="button"
     >
       <PlusIcon data-icon="inline-start" />
-      {iconOnly ? <span className="sr-only">Request loan</span> : "Request loan"}
-    </Button>
-  )
-}
-
-export function OpenLoanReviewSheet({
-  loanRequestId,
-  status,
-  variant = "default",
-}: {
-  loanRequestId: string
-  status: "approved" | "rejected" | "under_review"
-  variant?: "default" | "outline"
-}) {
-  const { setParams } = useLoanParams()
-  const label =
-    status === "under_review"
-      ? "Mark under review"
-      : status === "approved"
-        ? "Approve"
-        : "Reject"
-
-  return (
-    <Button
-      onClick={() =>
-        setParams({
-          guarantorApprovalId: null,
-          guarantorReviewStatus: null,
-          loanId: null,
-          loanRequestId,
-          loanReviewStatus: status,
-          loanSheetType: "review",
-        })
-      }
-      size="sm"
-      type="button"
-      variant={variant}
-    >
-      <CheckCircle2Icon data-icon="inline-start" />
       {label}
-    </Button>
-  )
-}
-
-export function OpenLoanGuarantorReviewSheet({
-  guarantorApprovalId,
-  status,
-  variant = "default",
-}: {
-  guarantorApprovalId: string
-  status: "approved" | "rejected"
-  variant?: "default" | "outline"
-}) {
-  const { setParams } = useLoanParams()
-
-  return (
-    <Button
-      onClick={() =>
-        setParams({
-          guarantorApprovalId,
-          guarantorReviewStatus: status,
-          loanId: null,
-          loanRequestId: null,
-          loanReviewStatus: null,
-          loanSheetType: "guarantor",
-        })
-      }
-      size="sm"
-      type="button"
-      variant={variant}
-    >
-      <HandCoinsIcon data-icon="inline-start" />
-      Guarantor {status}
-    </Button>
-  )
-}
-
-export function OpenLoanDisbursementSheet({ loanId }: { loanId: string }) {
-  const { setParams } = useLoanParams()
-
-  return (
-    <Button
-      onClick={() =>
-        setParams({
-          guarantorApprovalId: null,
-          guarantorReviewStatus: null,
-          loanId,
-          loanRequestId: null,
-          loanReviewStatus: null,
-          loanSheetType: "disburse",
-        })
-      }
-      size="sm"
-      type="button"
-    >
-      <BanknoteIcon data-icon="inline-start" />
-      Disburse
     </Button>
   )
 }

@@ -8,13 +8,7 @@ import { useScrollHeader } from "@/hooks/use-scroll-header"
 import { LoanRequestMobileItem } from "./mobile-item"
 import { useLoanRequestsQuery } from "./use-loans-query"
 
-export function LoanRequestsMobileList({
-  canReview,
-  memberId,
-}: {
-  canReview: boolean
-  memberId?: string
-}) {
+export function LoanRequestsMobileList({ memberId }: { memberId?: string }) {
   const parentRef = useRef<HTMLDivElement>(null)
   const {
     fetchNextPage,
@@ -25,7 +19,7 @@ export function LoanRequestsMobileList({
   } = useLoanRequestsQuery(memberId)
   const rowVirtualizer = useVirtualizer({
     count: requests.length,
-    estimateSize: () => 216,
+    estimateSize: () => 132,
     getScrollElement: () => parentRef.current,
     overscan: 6,
   })
@@ -47,15 +41,13 @@ export function LoanRequestsMobileList({
     return (
       <div className="flex min-h-48 items-center justify-center border-y border-border px-4 text-center">
         <div>
-          <p className="text-sm font-medium text-foreground">
-            {hasActiveControls
-              ? "No matching loan requests"
-              : "No loan requests yet"}
+          <p className="text-lg font-medium text-foreground">
+            {hasActiveControls ? "No requests match" : "No loan requests yet"}
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-base text-muted-foreground">
             {hasActiveControls
-              ? "Adjust or clear the current request filters."
-              : "Submitted member requests will appear here for review and approval."}
+              ? "Try another name or clear the filters."
+              : "New requests show here."}
           </p>
         </div>
       </div>
@@ -86,7 +78,7 @@ export function LoanRequestsMobileList({
               ref={rowVirtualizer.measureElement}
               style={{ transform: `translateY(${virtualRow.start}px)` }}
             >
-              <LoanRequestMobileItem canReview={canReview} request={request} />
+              <LoanRequestMobileItem request={request} />
             </div>
           ) : null
         })}

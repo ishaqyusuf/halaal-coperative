@@ -5,6 +5,7 @@ import {
   getRepayment,
   getRepaymentScheduleItem,
   getRepaymentSummary,
+  isLateScheduleItem,
   listRepaymentHistoryPage,
   listRepaymentSchedulePage,
 } from "./repayments"
@@ -94,7 +95,10 @@ function createRepaymentsPrismaStub() {
     repaymentFindFirstCalls,
     repaymentFindManyCalls,
     repaymentScheduleItem: {
-      aggregate: async () => ({ _sum: { amountPaid: 75, totalDue: 300 } }),
+      aggregate: async () => ({
+        _count: { _all: 3 },
+        _sum: { amountPaid: 75, totalDue: 300 },
+      }),
       count: async () => 3,
       findFirst: async (args: any) => {
         scheduleFindFirstCalls.push(args)
@@ -158,6 +162,7 @@ describe("repayment read models", () => {
         dueAt: new Date("2026-08-01T00:00:00.000Z"),
         id: "schedule-1",
         installmentNumber: 1,
+        isLate: true,
         latestCollectionFollowUp: null,
         loan: {
           id: "loan-1",
@@ -187,16 +192,55 @@ describe("repayment read models", () => {
 
   test("keeps uncontacted overdue installments in collections only", async () => {
     const prisma = createRepaymentsPrismaStub()
+    const asOf = new Date("2026-11-14T00:00:00.000Z")
 
     await listRepaymentSchedulePage(
-      { collectionsOnly: true, tenantId: "tenant-1" },
+      { asOf, collectionsOnly: true, tenantId: "tenant-1" },
       prisma as never
     )
 
     expect(prisma.scheduleFindManyCalls[0].where).toMatchObject({
-      status: "overdue",
+      AND: [
+        {
+          dueAt: { lt: asOf },
+          status: { in: ["pending", "due", "partially_paid", "overdue"] },
+        },
+      ],
     })
     expect(prisma.scheduleFindManyCalls[0].where.collectionFollowUps).toBeUndefined()
+  })
+
+  test("late is decided from the due date, not a refreshed status", () => {
+    const asOf = new Date("2026-11-14T00:00:00.000Z")
+
+    expect(
+      isLateScheduleItem({ dueAt: "2021-11-02T00:00:00.000Z", status: "pending" }, asOf)
+    ).toBe(true)
+    expect(
+      isLateScheduleItem({ dueAt: "2026-11-14T00:00:00.000Z", status: "pending" }, asOf)
+    ).toBe(false)
+    expect(
+      isLateScheduleItem({ dueAt: "2021-11-02T00:00:00.000Z", status: "paid" }, asOf)
+    ).toBe(false)
+    expect(
+      isLateScheduleItem({ dueAt: "2021-11-02T00:00:00.000Z", status: "waived" }, asOf)
+    ).toBe(false)
+    expect(
+      isLateScheduleItem(
+        { dueAt: "2026-11-01T00:00:00.000Z", status: "partially_paid" },
+        asOf
+      )
+    ).toBe(true)
+  })
+
+  test("marks late rows on the list without changing the stored status", async () => {
+    const prisma = createRepaymentsPrismaStub()
+    const result = await listRepaymentSchedulePage(
+      { asOf: new Date("2026-11-14T00:00:00.000Z"), tenantId: "tenant-1" },
+      prisma as never
+    )
+
+    expect(result.data[0]).toMatchObject({ isLate: true, status: "overdue" })
   })
 
   test("returns bounded history rows and tenant-scoped detail records", async () => {
@@ -240,6 +284,7 @@ describe("repayment read models", () => {
     )
 
     expect(summary).toEqual({
+      lateAmount: 225,
       overdueScheduleItems: 3,
       totalOutstandingAmount: 225,
       totalRepaidAmount: 75,

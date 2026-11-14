@@ -6,7 +6,6 @@ export const repaymentParamsSchema = {
   repaymentId: parseAsString,
   repaymentScheduleItemId: parseAsString,
   repaymentSheetType: parseAsStringEnum([
-    "refresh",
     "post",
     "followUp",
     "scheduleDetails",
@@ -14,11 +13,26 @@ export const repaymentParamsSchema = {
   ]),
 }
 
+type RepaymentSheetOpenParams = {
+  loanId?: string
+  repaymentId?: string
+  repaymentScheduleItemId?: string
+  repaymentSheetType: "followUp" | "post" | "repaymentDetails" | "scheduleDetails"
+}
+
 export function useRepaymentParams() {
   const [params, setParams] = useQueryStates(repaymentParamsSchema)
 
   return {
     ...params,
+    /** Opens one repayment sheet; every other repayment param is cleared. */
+    open: (next: RepaymentSheetOpenParams) =>
+      setParams({
+        loanId: next.loanId ?? null,
+        repaymentId: next.repaymentId ?? null,
+        repaymentScheduleItemId: next.repaymentScheduleItemId ?? null,
+        repaymentSheetType: next.repaymentSheetType,
+      }),
     setParams,
   }
 }

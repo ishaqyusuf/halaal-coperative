@@ -68,9 +68,9 @@ export const workflowPresentations = {
   loan: {
     disburse: alertDialog(),
     guarantor: alertDialog(),
-    "loan-details": sheet("review"),
-    request: sheet("review"),
-    "request-details": sheet("review"),
+    "loan-details": sheet("form"),
+    request: sheet("form"),
+    "request-details": sheet("form"),
     review: alertDialog(),
   },
   member: {
@@ -159,10 +159,9 @@ export const workflowPresentations = {
   },
   repayment: {
     followUp: sheet("form"),
-    post: sheet("review"),
-    repaymentDetails: sheet("review"),
-    refresh: alertDialog(),
-    scheduleDetails: sheet("review"),
+    post: sheet("form"),
+    repaymentDetails: sheet("form"),
+    scheduleDetails: sheet("form"),
   },
   role: {
     assign: dialog("form"),

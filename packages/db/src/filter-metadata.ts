@@ -3,12 +3,13 @@ import {
   inputFilter,
   optionFilter,
   type PageFilterData,
+  type PageFilterOption,
 } from "@halaalvest/utils"
 import { createDbRuntime } from "./runtime"
-import { listTenantUsersWithMemberships } from "./queries/auth"
+import { listTenantUsersWithRoles } from "./queries/auth"
 import { listAuditLogs } from "./queries/audit"
 import { listMembers } from "./queries/members"
-import { listLoans } from "./queries/loans"
+import { listLoanBorrowerOptions } from "./queries/loan-views"
 
 const cooperativeRoles = [
   "super_admin",
@@ -174,77 +175,64 @@ export async function getMembershipApprovalFilterMetadata(): Promise<
   ]
 }
 
+const repaymentScheduleStatusOptions = [
+  { label: "Not due yet", value: "pending" },
+  { label: "Due", value: "due" },
+  { label: "Part paid", value: "partially_paid" },
+  { label: "Late", value: "overdue" },
+  { label: "Paid", value: "paid" },
+]
+const collectionStageOptions = [
+  { label: "Being followed up", value: "active" },
+  { label: "Promised to pay", value: "promise_tracking" },
+  { label: "Needs a senior", value: "escalated" },
+  { label: "Sorted out", value: "resolved" },
+]
+const collectionResolutionOptions = [
+  { label: "Still open", value: "open" },
+  { label: "Sorted out", value: "resolved" },
+]
+
+function repaymentFilters(
+  members: PageFilterOption[],
+  assignees: PageFilterOption[]
+): PageFilterData[] {
+  return [
+    optionFilter("memberId", "Member", members),
+    optionFilter("assignedToUserId", "Who follows up", assignees),
+    optionFilter("scheduleStatus", "Status", repaymentScheduleStatusOptions),
+    optionFilter("stage", "Follow-up", collectionStageOptions),
+    optionFilter("resolutionStatus", "Open or sorted", collectionResolutionOptions),
+    dateRangeFilter("dateRange", "Due date"),
+  ]
+}
+
 export async function getRepaymentFilterMetadata(
   tenantId: string
 ): Promise<PageFilterData[]> {
   const runtime = createDbRuntime()
 
   if (runtime.status !== "database-configured") {
-    return [
-      optionFilter("memberId", "Member", []),
-      optionFilter("assignedToUserId", "Assignee", []),
-      optionFilter("scheduleStatus", "Schedule status", [
-        "pending",
-        "due",
-        "partially_paid",
-        "overdue",
-        "paid",
-      ]),
-      optionFilter("stage", "Case stage", [
-        "active",
-        "promise_tracking",
-        "escalated",
-        "resolved",
-      ]),
-      optionFilter("resolutionStatus", "Resolution", ["open", "resolved"]),
-      dateRangeFilter("dateRange", "Due date"),
-    ]
+    return repaymentFilters([], [])
   }
 
-  const [loans, tenantUsers] = await Promise.all([
-    listLoans(tenantId),
-    listTenantUsersWithMemberships(tenantId),
+  // Lean: members who have a loan (labels only) and staff who can follow up.
+  // Previously every loan with product, request and schedule plus every
+  // tenant user with memberships was loaded to build these two lists.
+  const [borrowers, staffUsers] = await Promise.all([
+    listLoanBorrowerOptions(tenantId),
+    listTenantUsersWithRoles(tenantId, [
+      "super_admin",
+      "tenant_admin",
+      "finance_officer",
+      "operations_officer",
+    ]),
   ])
 
-  const uniqueMembers = Array.from(
-    new Map(loans.map((loan) => [loan.member.id, loan.member])).values()
+  return repaymentFilters(
+    toMemberOptions(borrowers),
+    staffUsers.map((user) => ({ label: user.fullName, value: user.id }))
   )
-
-  const assignees = tenantUsers
-    .filter((user) =>
-      user.memberships.some((membership) =>
-        [
-          "super_admin",
-          "tenant_admin",
-          "finance_officer",
-          "operations_officer",
-        ].includes(membership.role)
-      )
-    )
-    .map((user) => ({
-      label: `${user.fullName} (${user.email})`,
-      value: user.id,
-    }))
-
-  return [
-    optionFilter("memberId", "Member", toMemberOptions(uniqueMembers)),
-    optionFilter("assignedToUserId", "Assignee", assignees),
-    optionFilter("scheduleStatus", "Schedule status", [
-      "pending",
-      "due",
-      "partially_paid",
-      "overdue",
-      "paid",
-    ]),
-    optionFilter("stage", "Case stage", [
-      "active",
-      "promise_tracking",
-      "escalated",
-      "resolved",
-    ]),
-    optionFilter("resolutionStatus", "Resolution", ["open", "resolved"]),
-    dateRangeFilter("dateRange", "Due date"),
-  ]
 }
 
 export async function getRoleFilterMetadata(): Promise<PageFilterData[]> {

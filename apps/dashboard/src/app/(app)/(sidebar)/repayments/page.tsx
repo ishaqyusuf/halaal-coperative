@@ -12,7 +12,7 @@ import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server"
 import { getInitialTableSettings } from "@/utils/columns"
 
 export const metadata: Metadata = {
-  title: "Repayments | Halaalvest",
+  title: "Repayments",
 }
 
 export default async function RepaymentsPage({

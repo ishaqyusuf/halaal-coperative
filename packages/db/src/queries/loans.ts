@@ -296,13 +296,18 @@ export function toMemberSafeLoan<
   return safe
 }
 
-export async function listLoanRequestsPage(
+type LoanRequestPageQuery = {
+  orderBy: any[]
+  pageSize: number
+  sortDirection: "asc" | "desc"
+  sortField: string
+  where: any
+}
+
+function buildLoanRequestPageQuery(
   tenantId: string,
-  input: LoanListPageInput = {},
-  prismaOverride?: PrismaClient
-) {
-  const prisma = prismaOverride ?? createPrismaClient()
-  if (!prisma) throw new Error("Database not configured")
+  input: LoanListPageInput
+): LoanRequestPageQuery {
   const pageSize = normalizedLoanPageSize(input.pageSize)
   const cursor = decodeLoanListCursor(input.cursor)
   const [sortField, sortDirection] = input.sort ?? ["requestedAt", "desc"]
@@ -363,8 +368,53 @@ export async function listLoanRequestsPage(
       : sortField === "status"
         ? [{ status: sortDirection }, { id: sortDirection }]
         : [{ requestedAt: sortDirection }, { id: sortDirection }]
+
+  return { orderBy, pageSize, sortDirection, sortField, where }
+}
+
+function toLoanRequestPage<
+  TRow extends {
+    id: string
+    member: { fullName: string }
+    requestedAt: Date
+    status: string
+  },
+>(rows: TRow[], query: LoanRequestPageQuery) {
+  const hasNextPage = rows.length > query.pageSize
+  const data = hasNextPage ? rows.slice(0, query.pageSize) : rows
+  const last = data.at(-1)
+  return {
+    data: toPlainLoanDto(data),
+    meta: {
+      cursor:
+        hasNextPage && last
+          ? encodeLoanListCursor({
+              id: last.id,
+              direction: query.sortDirection,
+              field: query.sortField,
+              value:
+                query.sortField === "memberName"
+                  ? last.member.fullName
+                  : query.sortField === "status"
+                    ? last.status
+                    : last.requestedAt.toISOString(),
+            })
+          : null,
+      hasNextPage,
+    },
+  }
+}
+
+export async function listLoanRequestsPage(
+  tenantId: string,
+  input: LoanListPageInput = {},
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+  const query = buildLoanRequestPageQuery(tenantId, input)
   const rows = await prisma.loanRequest.findMany({
-    where,
+    where: query.where,
     include: {
       charges: {
         include: {
@@ -404,32 +454,52 @@ export async function listLoanRequestsPage(
       loanProduct: true,
       member: { select: { id: true, fullName: true, memberNumber: true } },
     },
-    orderBy,
-    take: pageSize + 1,
+    orderBy: query.orderBy,
+    take: query.pageSize + 1,
   })
-  const hasNextPage = rows.length > pageSize
-  const data = hasNextPage ? rows.slice(0, pageSize) : rows
-  const last = data.at(-1)
-  return {
-    data: toPlainLoanDto(data),
-    meta: {
-      cursor:
-        hasNextPage && last
-          ? encodeLoanListCursor({
-              id: last.id,
-              direction: sortDirection,
-              field: sortField,
-              value:
-                sortField === "memberName"
-                  ? last.member.fullName
-                  : sortField === "status"
-                    ? last.status
-                    : last.requestedAt.toISOString(),
-            })
-          : null,
-      hasNextPage,
+
+  return toLoanRequestPage(rows, query)
+}
+
+/**
+ * Dashboard list rows: only what a request row shows (amount, term, status,
+ * product, member, each guarantor's answer). Charges, review history and
+ * snapshots load with the details sheet. Same filters, sort and cursor as
+ * `listLoanRequestsPage`.
+ */
+export async function listLoanRequestRowsPage(
+  tenantId: string,
+  input: LoanListPageInput = {},
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+  const query = buildLoanRequestPageQuery(tenantId, input)
+  const rows = await prisma.loanRequest.findMany({
+    where: query.where,
+    select: {
+      estimatedMonthlyServicing: true,
+      guarantorApprovals: {
+        orderBy: { requestedAt: "asc" },
+        select: {
+          guarantorMember: { select: { fullName: true, id: true } },
+          id: true,
+          status: true,
+        },
+      },
+      id: true,
+      loanProduct: { select: { name: true } },
+      member: { select: { fullName: true, id: true, memberNumber: true } },
+      requestedAmount: true,
+      requestedAt: true,
+      requestedTermMonths: true,
+      status: true,
     },
-  }
+    orderBy: query.orderBy,
+    take: query.pageSize + 1,
+  })
+
+  return toLoanRequestPage(rows, query)
 }
 
 /** Detail query intentionally selects no staff/guarantor email fields and can be

@@ -943,6 +943,27 @@ function requireDateOnOrAfterTenantStartDate(
   )
 }
 
+/** A repayment date: a real calendar day, not in the future. */
+function parseRepaymentPaidDate(value: string) {
+  const paidAt = new Date(`${value}T12:00:00.000Z`)
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(paidAt.getTime())) {
+    throw new DashboardActionExpectedError("Enter the date the money was paid.")
+  }
+
+  // One day of slack so "today" in Lagos (UTC+1) is never refused, the same
+  // allowance the mobile repayment form has.
+  const latestAllowed = new Date(Date.now() + 86_400_000)
+    .toISOString()
+    .slice(0, 10)
+
+  if (value > latestAllowed) {
+    throw new DashboardActionExpectedError("Date paid cannot be in the future.")
+  }
+
+  return paidAt
+}
+
 function requireImportRowsOnOrAfterTenantStartDate(
   actor: Awaited<ReturnType<typeof requireDashboardActor>>,
   importKind: DashboardImportKind,
@@ -3793,6 +3814,17 @@ export async function submitLoanRequestAction(formData: FormData) {
   const requestedTermMonths = Number(
     getRequiredString(formData, "requestedTermMonths")
   )
+  const borrowerMemberId =
+    actorMember?.id ?? getRequiredString(formData, "memberId")
+
+  // Staff pick the borrower from a search of every member, so readiness
+  // (active, verified, migration finalized) is checked here, not by the list.
+  if (!actorMember) {
+    await assertMemberOperationalReadiness({
+      memberId: borrowerMemberId,
+      tenantId: actor.tenant.id,
+    })
+  }
 
   const request = await submitLoanRequest({
     actorUserId: actor.user.id,
@@ -3805,7 +3837,7 @@ export async function submitLoanRequestAction(formData: FormData) {
       (formData.get("guarantorTwoMemberId") as string | null)?.trim() ?? "",
     ],
     loanProductId: getRequiredString(formData, "loanProductId"),
-    memberId: actorMember?.id ?? getRequiredString(formData, "memberId"),
+    memberId: borrowerMemberId,
     purpose: (formData.get("purpose") as string | null)?.trim() || undefined,
     requestedAmount,
     requestedTermMonths,
@@ -3886,13 +3918,22 @@ export async function respondMemberLoanGuarantorApprovalAction(
   await requireLiveFinancialWritesOpen(actor)
 
   const member = await requireOperationalActorMember(actor)
+  const status = getRequiredString(formData, "status") as
+    | "approved"
+    | "rejected"
+  const notes = getOptionalTrimmedString(formData, "notes") ?? undefined
+
+  // Same rule as the mobile app: a guarantor who says no gives a reason.
+  if (status === "rejected" && !notes) {
+    throw new DashboardActionExpectedError("Say why you cannot be a guarantor.")
+  }
 
   await respondMemberLoanGuarantorApproval({
     actorUserId: actor.user.id,
     guarantorApprovalId: getRequiredString(formData, "guarantorApprovalId"),
     guarantorMemberId: member.id,
-    notes: getOptionalTrimmedString(formData, "notes") ?? undefined,
-    status: getRequiredString(formData, "status") as "approved" | "rejected",
+    notes,
+    status,
     tenantId: actor.tenant.id,
   })
 
@@ -3964,11 +4005,27 @@ export async function disburseLoanAction(formData: FormData) {
 export async function postRepaymentAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireLiveFinancialWritesOpen(actor)
+  const paidAtValue = getOptionalTrimmedString(formData, "paidAt")
+  const paidAt = paidAtValue ? parseRepaymentPaidDate(paidAtValue) : undefined
 
+  if (paidAt) {
+    requireDateOnOrAfterTenantStartDate(actor, paidAtValue, "Date paid")
+  }
+
+  // The balance and status the form showed. A second submit of the same
+  // repayment (double click, retry, another tab) sees a lower balance and is
+  // refused as a conflict instead of posting twice.
   await postRepayment({
     actorUserId: actor.user.id,
     amount: Number(getRequiredString(formData, "amount")),
+    expectedOutstandingPrincipal: getOptionalNumber(
+      formData,
+      "expectedOutstandingPrincipal"
+    ),
+    expectedStatus:
+      getOptionalTrimmedString(formData, "expectedStatus") ?? undefined,
     loanId: getRequiredString(formData, "loanId"),
+    paidAt,
     reference:
       (formData.get("reference") as string | null)?.trim() || undefined,
     repaymentScheduleItemId:

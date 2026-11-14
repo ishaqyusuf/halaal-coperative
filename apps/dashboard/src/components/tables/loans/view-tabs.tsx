@@ -6,24 +6,18 @@ import { useSortParams } from "@/hooks/use-sort-params"
 
 export type LoanView = "portfolio" | "requests"
 
-const views: Array<{
-  description: string
-  label: string
-  value: LoanView
-}> = [
-  {
-    description: "Submitted financing requests and approval progress",
-    label: "Requests",
-    value: "requests",
-  },
-  {
-    description: "Approved loans, balances, and servicing status",
-    label: "Portfolio",
-    value: "portfolio",
-  },
+const views: Array<{ label: string; memberLabel: string; value: LoanView }> = [
+  { label: "Requests", memberLabel: "My requests", value: "requests" },
+  { label: "Loans", memberLabel: "My loans", value: "portfolio" },
 ]
 
-export function LoanViewTabs({ activeView }: { activeView: LoanView }) {
+export function LoanViewTabs({
+  activeView,
+  isMemberView = false,
+}: {
+  activeView: LoanView
+  isMemberView?: boolean
+}) {
   const { setFilter } = useLoanFilterParams()
   const { setParams: setSortParams } = useSortParams()
 
@@ -52,17 +46,16 @@ export function LoanViewTabs({ activeView }: { activeView: LoanView }) {
           <Button
             aria-controls="loans-active-view"
             aria-selected={selected}
-            className="h-11 shrink-0 rounded-none border-x-0 border-t-0 border-b-2 border-transparent px-4 text-sm data-[active=true]:border-primary data-[active=true]:bg-transparent"
+            className="h-12 shrink-0 rounded-none border-x-0 border-t-0 border-b-2 border-transparent px-4 text-base data-[active=true]:border-primary data-[active=true]:bg-transparent data-[active=true]:font-semibold"
             data-active={selected}
             id={`loans-${view.value}-tab`}
             key={view.value}
             onClick={() => void selectView(view.value)}
             role="tab"
-            title={view.description}
             type="button"
             variant="ghost"
           >
-            {view.label}
+            {isMemberView ? view.memberLabel : view.label}
           </Button>
         )
       })}

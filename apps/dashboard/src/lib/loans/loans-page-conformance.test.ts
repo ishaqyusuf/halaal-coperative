@@ -24,7 +24,6 @@ describe("loans workspace Midday conformance", () => {
 
     expect(pageView).toContain("<LoansDataView")
     expect(pageView).not.toContain("TabsContent")
-    expect(pageView).toContain('activeView === "requests"')
     expect(dataView).toContain('view === "requests" ?')
     expect(dataView).toContain("<ResponsiveDataView")
     expect(dataView).toContain('id="loans-active-view"')
@@ -65,23 +64,28 @@ describe("loans workspace Midday conformance", () => {
     expect(pageView).toContain('id="loan-intake-blocker"')
     // The reason and its fix link show at every width (QA F1/F9).
     expect(pageView).toContain("{intakeFix.label}")
-    expect(toolbar).toContain("aria-describedby={")
-    expect(toolbar).toContain('intakeDisabled ? "loan-intake-blocker"')
+    // The labelled request button (phone and desktop) is off while blocked.
+    expect(pageView).toContain("disabled={Boolean(requestBlockedReason)}")
+    expect(toolbar).not.toContain("<Plus")
     expect(requests).toContain('"No loan requests yet"')
-    expect(requests).toContain('"No matching loan requests"')
+    expect(requests).toContain('"No requests match"')
     expect(portfolio).toContain('"No loans yet"')
-    expect(portfolio).toContain('"No matching loans"')
+    expect(portfolio).toContain('"No loans match"')
   })
 
   test("shows capacity, deployable funds and intake on phones (QA F9)", () => {
     const pageView = read("../../components/loans-page-view.tsx")
-    const sectionStart = pageView.indexOf('aria-label="Loan request capacity"')
+    const loader = read("./load-loans-page.ts")
+    const sectionStart = pageView.indexOf('aria-label="Money to lend"')
     const section = pageView.slice(sectionStart, sectionStart + 400)
 
     expect(sectionStart).toBeGreaterThan(-1)
     expect(section).not.toContain("hidden")
     expect(section).toContain("grid-cols-2")
-    expect(section).toContain("md:grid-cols-4")
-    expect(pageView).toContain('missing: "Not open"')
+    expect(section).toContain("md:grid-cols-3")
+    expect(pageView).toContain('label="Can lend now"')
+    expect(loader).toContain(
+      'missing: "Loan requests are not open for this month yet."'
+    )
   })
 })

@@ -7,7 +7,11 @@ import {
   getRepaymentFilterMetadata,
   getReportsFilterMetadata,
 } from "@halaalvest/db"
-import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
+import {
+  createTRPCRouter,
+  minRoleProcedure,
+  tenantProcedure,
+} from "../lib.trpc"
 
 export const filtersRouter = createTRPCRouter({
   audit: tenantProcedure.query(({ ctx }) => {
@@ -25,7 +29,8 @@ export const filtersRouter = createTRPCRouter({
   notifications: tenantProcedure.query(({ ctx }) => {
     return getNotificationFilterMetadata(ctx.tenant.current.id)
   }),
-  repayments: tenantProcedure.query(({ ctx }) => {
+  // Lists borrowers and staff: the repayments page's own finance roles only.
+  repayments: minRoleProcedure("finance_officer").query(({ ctx }) => {
     return getRepaymentFilterMetadata(ctx.tenant.current.id)
   }),
   reports: tenantProcedure.query(() => {

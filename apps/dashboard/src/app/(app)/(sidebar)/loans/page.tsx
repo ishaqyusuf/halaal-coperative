@@ -15,8 +15,7 @@ import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server"
 import { getInitialTableSettings } from "@/utils/columns"
 
 export const metadata: Metadata = {
-  description:
-    "Request, review, approve, and service cooperative financing safely.",
+  description: "Loan requests and loans.",
   title: "Loans",
 }
 
@@ -40,7 +39,7 @@ export default async function LoansPage({
     return <LoansUnavailableView />
   }
 
-  const memberId = data.isMemberView ? data.members.items[0]?.id : undefined
+  const memberId = data.fixedMember?.id
   const activeView = filter.view ?? "requests"
 
   if (activeView === "portfolio") {

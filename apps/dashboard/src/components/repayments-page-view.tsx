@@ -1,31 +1,27 @@
 "use client"
 
 import { formatCurrency } from "@halaalvest/utils"
-import {
-  WorkspaceEmptyState,
-  WorkspacePageShell,
-} from "@/components/dashboard"
-import {
-  OpenRepaymentPostSheet,
-  OpenRepaymentRefreshSheet,
-} from "@/components/open-repayment-sheet"
+import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
+import { OpenRepaymentPostSheet } from "@/components/open-repayment-sheet"
 import { RepaymentsHeader } from "@/components/repayments-header"
 import { RepaymentsMobileToolbar } from "@/components/repayments-mobile-toolbar"
 import { RepaymentSheet } from "@/components/sheets/repayment-sheet"
+import { SummaryCard } from "@/components/summary-card"
 import { RepaymentsDataView } from "@/components/tables/repayments/data-view"
+import { useRepaymentsFilterParams } from "@/hooks/use-repayments-filter-params"
 import type { RepaymentsPageData } from "@/lib/repayments/load-repayments-page"
 import type { TableSettings } from "@/utils/table-settings"
 
 export function RepaymentsUnavailableView() {
   return (
     <WorkspacePageShell
+      description="Repayments are not available right now."
       eyebrow="Repayments"
-      title="Repayment tracking"
-      description="Track overdue exposure, repayment progress, and the collections workflow from one route."
+      title="Repayments"
     >
       <WorkspaceEmptyState
-        title="Repayment workflows need the database runtime."
-        body="Once the database-backed environment is active, this route will manage schedule items, repayment posting, and collections follow-up."
+        body="Please try again later."
+        title="Repayments cannot be shown right now."
       />
     </WorkspacePageShell>
   )
@@ -40,63 +36,85 @@ export function RepaymentsPageView({
   historyInitialSettings?: Partial<TableSettings>
   scheduleInitialSettings?: Partial<TableSettings>
 }) {
+  const { filters, setFilters } = useRepaymentsFilterParams()
+
   if (data.state === "unavailable") {
     return <RepaymentsUnavailableView />
   }
+
+  const view = filters.view ?? "collections"
+  const { summary } = data
+  const showView = (next: "collections" | "history") =>
+    void setFilters(
+      {
+        assignedToUserId: null,
+        repaymentStatus: null,
+        resolutionStatus: null,
+        scheduleStatus: null,
+        stage: null,
+        view: next,
+      },
+      { shallow: false }
+    )
 
   return (
     <WorkspacePageShell
       actions={
         data.canPostRepayment ? (
-          <div className="hidden md:block">
-            <OpenRepaymentPostSheet />
-          </div>
+          <OpenRepaymentPostSheet className="hidden md:inline-flex" />
         ) : undefined
       }
+      description="Who is behind with loan payments, and money received."
       eyebrow="Repayments"
-      title="Repayment tracking"
-      description="Service installments, manage overdue follow-up, and review immutable repayment evidence from one focused workspace."
+      title="Repayments"
     >
       <RepaymentSheet
         assignees={data.assignees}
+        canPostRepayment={data.canPostRepayment}
         devMode={data.quickFillEnabled}
         loans={data.loans}
       />
 
+      {data.canPostRepayment ? (
+        <OpenRepaymentPostSheet className="h-12 w-full md:hidden" />
+      ) : null}
+
       <section
-        aria-label="Repayment summary"
-        className="hidden border-y border-border/70 md:block"
+        aria-label="Repayments summary"
+        className="grid grid-cols-2 gap-3 md:grid-cols-3"
       >
-        <div className="grid grid-cols-2 divide-x divide-y divide-border/70 xl:grid-cols-4 xl:divide-y-0">
-          <SummaryMetric
-            label="Outstanding"
-            value={formatCurrency(data.summary.totalOutstandingAmount)}
-          />
-          <SummaryMetric
-            label="Overdue installments"
-            value={data.summary.overdueScheduleItems.toString()}
-          />
-          <SummaryMetric
-            label="Repayments posted"
-            value={data.summary.totalRepayments.toString()}
-          />
-          <SummaryMetric
-            label="Principal repaid"
-            value={formatCurrency(data.summary.totalRepaidAmount)}
+        <div className="col-span-2 md:col-span-1">
+          <SummaryCard
+            detail={
+              summary.overdueScheduleItems > 0
+                ? `${summary.overdueScheduleItems} late payment${summary.overdueScheduleItems === 1 ? "" : "s"}`
+                : "Nobody is behind"
+            }
+            label="Late"
+            onClick={() => showView("collections")}
+            selected={view === "collections"}
+            tone={summary.overdueScheduleItems > 0 ? "attention" : "good"}
+            value={formatCurrency(summary.lateAmount)}
           />
         </div>
+        <SummaryCard
+          compact
+          label="Still owed"
+          value={formatCurrency(summary.totalOutstandingAmount)}
+        />
+        <SummaryCard
+          compact
+          label="Received"
+          onClick={() => showView("history")}
+          selected={view === "history"}
+          value={formatCurrency(summary.totalRepaidAmount)}
+        />
       </section>
 
-      <section className="overflow-hidden border-b border-border md:border-y">
+      <section className="min-w-0 overflow-hidden border-b border-border md:border-y">
         <div className="px-0 py-4 md:px-4">
-          <RepaymentsMobileToolbar
-            canPostRepayment={data.canPostRepayment}
-          />
-          <RepaymentsHeader
-            actions={
-              data.canPostRepayment ? <OpenRepaymentRefreshSheet /> : undefined
-            }
-          />
+          <RepaymentsMobileToolbar />
+          <RepaymentsHeader />
         </div>
         <RepaymentsDataView
           canPostRepayment={data.canPostRepayment}
@@ -105,16 +123,5 @@ export function RepaymentsPageView({
         />
       </section>
     </WorkspacePageShell>
-  )
-}
-
-function SummaryMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 px-4 py-4">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-2 truncate text-xl font-semibold text-foreground">
-        {value}
-      </p>
-    </div>
   )
 }

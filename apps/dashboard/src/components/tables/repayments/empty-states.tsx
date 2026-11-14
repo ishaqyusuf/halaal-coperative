@@ -22,18 +22,18 @@ export function RepaymentsEmptyState({
     <div className="flex min-h-[260px] items-center justify-center border-y border-border px-4 text-center md:border-y-0">
       <div className="space-y-4">
         <div className="space-y-1">
-          <h2 className="text-base font-medium">
+          <h2 className="text-lg font-medium">
             {filtered ? filteredTitle : title}
           </h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             {filtered
-              ? "Try another search or clear the current filters."
+              ? "Try another name or clear the filters."
               : description}
           </p>
         </div>
         {filtered ? (
           <Button
-            className="h-11 md:h-9"
+            className="h-11 text-base"
             onClick={() =>
               void Promise.all([
                 setFilters({

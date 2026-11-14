@@ -8,226 +8,187 @@ import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import { LoansToolbar } from "@/components/loans-mobile-toolbar"
 import { OpenLoanRequestSheet } from "@/components/open-loan-sheet"
 import { LoanSheet } from "@/components/sheets/loan-sheet"
+import { SummaryCard } from "@/components/summary-card"
 import { LoansDataView } from "@/components/tables/loans/data-view"
-import { useLoanFilterParams } from "@/hooks/use-loan-filter-params"
-import type { loadLoansPageData } from "@/lib/loans"
+import type { LoansPageData } from "@/lib/loans/load-loans-page"
 import type { TableSettings } from "@/utils/table-settings"
 
-type LoansPageData = Extract<
-  Awaited<ReturnType<typeof loadLoansPageData>>,
-  { state: "ready" }
->
+type ReadyLoansPageData = Extract<LoansPageData, { state: "ready" }>
 
-type LoansPageViewProps = LoansPageData & {
+type LoansPageViewProps = ReadyLoansPageData & {
   loanPortfolioTableSettings?: Partial<TableSettings>
   loanRequestTableSettings?: Partial<TableSettings>
 }
 
-const loanIntakeStatusLabels = {
-  closed: "Closed",
-  missing: "Not open",
-  open: "Open",
-  paused: "Paused",
-} as const
-
 export function LoansUnavailableView() {
   return (
     <WorkspacePageShell
+      description="Loans are not available right now."
       eyebrow="Loans"
-      title="Loan operations"
-      description="The loan workspace is staged for request review, approval sequencing, and liquidity-aware disbursement."
+      title="Loans"
     >
       <WorkspaceEmptyState
-        title="Loan workflows need the database runtime."
-        body="Once the database-backed environment is active, this route will manage requests, approvals, disbursement, and repayment setup."
+        body="Please try again later."
+        title="Loans cannot be shown right now."
       />
     </WorkspacePageShell>
   )
 }
 
+function Notice({
+  action,
+  children,
+}: {
+  action?: React.ReactNode
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex flex-col gap-3 border-y border-amber-200 bg-amber-50 px-4 py-3 text-base text-amber-950 sm:flex-row sm:items-center sm:justify-between">
+      <p>{children}</p>
+      {action}
+    </div>
+  )
+}
+
 export function LoansPageView({
+  availablePool,
   canReview,
   canSubmit,
-  financingCycle,
+  capacity,
+  fixedMember,
   intakeFix,
-  loanProducts,
-  loanRequestCharges,
-  members,
   isMemberView,
   loanPortfolioTableSettings,
+  loanProducts,
+  loanRequestCharges,
   loanRequestTableSettings,
+  pendingGuarantorCount,
   quickFillEnabled,
-  submissionBlockedReason,
+  requestBlockedReason,
 }: LoansPageViewProps) {
-  const { filter } = useLoanFilterParams()
-  const activeView = filter.view ?? "requests"
-  const intakeDisabledReason =
-    financingCycle.intakeStatus === "open"
-      ? null
-      : financingCycle.intakeStatus === "missing"
-        ? "Open the current monthly financing cycle before accepting loan requests."
-        : `The current monthly financing cycle is ${financingCycle.intakeStatus}; intake is closed.`
-  const effectiveDisabledReason =
-    submissionBlockedReason ?? intakeDisabledReason
-  const productUsageByType = {
-    normal: financingCycle.normal,
-    quick: financingCycle.quick,
-  }
-  const loanProductOptions = loanProducts.map((product) => {
-    const codePrefix = product.code ? `${product.code} - ` : ""
-    const remainingAmount = formatCurrency(
-      productUsageByType[product.loanType].remainingAmount
-    )
-
-    return {
-      id: product.id,
-      label: `${codePrefix}${product.name} (up to ${product.termMonths} months, ${remainingAmount} remaining)`,
-    }
-  })
-  const memberOptions = members.items.map((member) => ({
-    id: member.id,
-    label: `${member.fullName} (${member.memberNumber})`,
-  }))
-  const fixedMember =
-    isMemberView && members.items[0]
-      ? {
-          id: members.items[0].id,
-          label: `${members.items[0].fullName} (${members.items[0].memberNumber})`,
-        }
-      : undefined
-
   return (
     <WorkspacePageShell
       actions={
         canSubmit ? (
-          <div className="hidden md:block">
-            <OpenLoanRequestSheet disabled={Boolean(effectiveDisabledReason)} />
-          </div>
+          <OpenLoanRequestSheet
+            className="hidden md:inline-flex"
+            disabled={Boolean(requestBlockedReason)}
+          />
         ) : undefined
+      }
+      description={
+        isMemberView
+          ? "Ask for a loan and see what you owe."
+          : "Check loan requests and pay out approved loans."
       }
       eyebrow="Loans"
       title={isMemberView ? "My loans" : "Loans"}
-      description={
-        isMemberView
-          ? "Request cooperative financing and track your submitted requests and approved loans."
-          : "Review financing requests and manage approved loans from one focused workspace."
-      }
     >
-      {submissionBlockedReason ? (
-        <div className="border-y border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          {submissionBlockedReason}
-        </div>
+      {canSubmit ? (
+        <OpenLoanRequestSheet
+          className="h-12 w-full md:hidden"
+          disabled={Boolean(requestBlockedReason)}
+        />
       ) : null}
 
-      {effectiveDisabledReason && !submissionBlockedReason ? (
-        <div className="flex flex-col gap-3 border-y border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950 sm:flex-row sm:items-center sm:justify-between">
-          <p id="loan-intake-blocker">{effectiveDisabledReason}</p>
-          {intakeFix ? (
+      {pendingGuarantorCount > 0 ? (
+        <Notice
+          action={
             <Link
               className={cn(
-                buttonVariants({ size: "sm", variant: "outline" }),
-                "h-11 shrink-0 sm:h-8"
+                buttonVariants({ variant: "outline" }),
+                "h-11 shrink-0 bg-background text-base"
               )}
-              href={intakeFix.href}
+              href="/guarantor-approvals"
             >
-              {intakeFix.label}
+              Answer now
             </Link>
-          ) : null}
-        </div>
+          }
+        >
+          {pendingGuarantorCount === 1
+            ? "A member asked you to be their guarantor."
+            : `${pendingGuarantorCount} members asked you to be their guarantor.`}
+        </Notice>
       ) : null}
 
-      {!isMemberView && activeView === "requests" ? (
-        <section
-          aria-label="Loan request capacity"
-          className="border-y border-border/70"
+      {requestBlockedReason && (canSubmit || isMemberView) ? (
+        <Notice
+          action={
+            intakeFix ? (
+              <Link
+                className={cn(
+                  buttonVariants({ variant: "outline" }),
+                  "h-11 shrink-0 bg-background text-base"
+                )}
+                href={intakeFix.href}
+              >
+                {intakeFix.label}
+              </Link>
+            ) : undefined
+          }
         >
-          <div className="grid grid-cols-2 gap-px bg-border/70 md:grid-cols-4">
-            <LoanSummaryMetric
-              detail={`${formatCurrency(financingCycle.quick.requestedReservedAmount)} reserved`}
-              label="Quick capacity"
-              value={formatCurrency(financingCycle.quick.remainingAmount)}
+          <span id="loan-intake-blocker">{requestBlockedReason}</span>
+        </Notice>
+      ) : null}
+
+      {capacity ? (
+        <section aria-label="Money to lend" className="grid gap-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            <div className="col-span-2 md:col-span-1">
+              <SummaryCard
+                detail={
+                  capacity.approvedHoldAmount > 0
+                    ? `${formatCurrency(capacity.approvedHoldAmount)} kept for approved loans`
+                    : undefined
+                }
+                label="Can lend now"
+                tone={capacity.canLendNow > 0 ? "good" : "attention"}
+                value={formatCurrency(capacity.canLendNow)}
+              />
+            </div>
+            <SummaryCard
+              compact
+              label="Quick loans left"
+              value={formatCurrency(capacity.quickLeft)}
             />
-            <LoanSummaryMetric
-              detail={`${formatCurrency(financingCycle.normal.requestedReservedAmount)} reserved`}
-              label="Normal capacity"
-              value={formatCurrency(financingCycle.normal.remainingAmount)}
-            />
-            <LoanSummaryMetric
-              detail={`${formatCurrency(financingCycle.deployableFunds.approvedHoldAmount)} held for approvals`}
-              label="Deployable funds"
-              value={formatCurrency(
-                financingCycle.deployableFunds.deployableFunds
-              )}
-            />
-            <LoanSummaryMetric
-              detail={
-                financingCycle.intakeStatus === "open"
-                  ? "Accepting financing requests"
-                  : "Financing requests are paused"
-              }
-              label="Intake status"
-              value={loanIntakeStatusLabels[financingCycle.intakeStatus]}
+            <SummaryCard
+              compact
+              label="Normal loans left"
+              value={formatCurrency(capacity.normalLeft)}
             />
           </div>
-          {financingCycle.warnings.length ? (
-            <div className="border-t border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-              {financingCycle.warnings
-                .map((warning) => warning.label)
-                .join(" · ")}
-            </div>
+          {capacity.warnings.length ? (
+            <ul className="grid gap-1 text-base text-amber-900">
+              {capacity.warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
           ) : null}
         </section>
       ) : null}
 
-      <section className="overflow-hidden border-b border-border md:border-y">
+      <section className="min-w-0 overflow-hidden border-b border-border md:border-y">
         <div className="px-0 py-4 md:px-4">
-          <LoansToolbar
-            canSubmit={canSubmit}
-            intakeDisabled={Boolean(effectiveDisabledReason)}
-            intakeDisabledReason={effectiveDisabledReason}
-          />
+          <LoansToolbar />
         </div>
         <LoansDataView
-          availablePool={financingCycle.deployableFunds.deployableFunds}
           canReview={canReview}
           initialPortfolioSettings={loanPortfolioTableSettings}
           initialRequestSettings={loanRequestTableSettings}
+          isMemberView={isMemberView}
           memberId={fixedMember?.id}
         />
       </section>
 
       <LoanSheet
+        availablePool={availablePool}
+        canReview={canReview}
         devMode={quickFillEnabled}
-        disabledReason={effectiveDisabledReason}
+        disabledReason={requestBlockedReason}
         fixedMember={fixedMember}
-        loanProducts={loanProductOptions}
+        loanProducts={loanProducts}
         loanRequestCharges={loanRequestCharges}
-        members={memberOptions}
       />
     </WorkspacePageShell>
-  )
-}
-
-function LoanSummaryMetric({
-  detail,
-  label,
-  value,
-}: {
-  detail: string
-  label: string
-  value: string
-}) {
-  return (
-    <div className="min-w-0 bg-background px-4 py-3 md:py-4 xl:px-5">
-      <p className="text-xs font-medium text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-2 truncate text-lg font-semibold text-foreground tabular-nums md:text-xl">
-        {value}
-      </p>
-      <p className="mt-1 text-xs text-muted-foreground md:truncate">
-        {detail}
-      </p>
-    </div>
   )
 }

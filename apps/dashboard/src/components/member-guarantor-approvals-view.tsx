@@ -1,145 +1,106 @@
+import type { GuarantorRequestForMember } from "@halaalvest/db"
 import { formatCurrency } from "@halaalvest/utils"
-import type { listMemberLoanGuarantorApprovals } from "@halaalvest/db"
-import {
-  DashboardSectionCard,
-  DashboardSectionHeader,
-  TrendPill,
-  WorkspaceEmptyState,
-} from "@/components/dashboard"
+import { WorkspaceEmptyState } from "@/components/dashboard"
+import { LoanFacts, LoanStatusWord } from "@/components/loans/loan-status-word"
 import { OpenGuarantorApprovalSheet } from "@/components/open-guarantor-approval-sheet"
+import { formatDayMonthYear } from "@/utils/format"
 
-type GuarantorApproval = Awaited<
-  ReturnType<typeof listMemberLoanGuarantorApprovals>
->[number]
+const answerWords = {
+  approved: { label: "You agreed", tone: "good" },
+  pending: { label: "Waiting for you", tone: "attention" },
+  rejected: { label: "You said no", tone: "default" },
+} as const
 
-function formatDate(value: Date | string | null | undefined) {
-  if (!value) return "Not recorded"
-
-  const date = value instanceof Date ? value : new Date(value)
-
-  return date.toLocaleDateString("en-NG", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
-
-function statusTone(status: string): "neutral" | "positive" | "warning" {
-  if (status === "approved") return "positive"
-  if (status === "rejected") return "warning"
-  return "neutral"
-}
-
-function displayStatus(status: string) {
-  return status.replace(/_/g, " ")
-}
-
-function GuarantorApprovalRow({
-  approval,
+function GuarantorRequestCard({
+  canAnswer,
+  request,
 }: {
-  approval: GuarantorApproval
+  canAnswer: boolean
+  request: GuarantorRequestForMember
 }) {
-  const pending = approval.status === "pending"
+  const pending = request.status === "pending" && canAnswer
+  const loan = request.loanRequest
 
   return (
-    <div className="border border-border/70 bg-background p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-foreground">
-            {approval.loanRequest.member.fullName}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {approval.loanRequest.member.memberNumber} ·{" "}
-            {approval.loanRequest.loanProduct.name}
-          </p>
-        </div>
-        <TrendPill tone={statusTone(approval.status)}>
-          {displayStatus(approval.status)}
-        </TrendPill>
-      </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <MiniMetric
-          label="Requested"
-          value={formatCurrency(Number(approval.loanRequest.requestedAmount))}
-        />
-        <MiniMetric
-          label="Monthly"
-          value={formatCurrency(
-            Number(approval.loanRequest.estimatedMonthlyServicing)
-          )}
-        />
-        <MiniMetric
-          label="Requested on"
-          value={formatDate(approval.requestedAt)}
-        />
-      </div>
-      {approval.loanRequest.purpose ? (
-        <p className="mt-3 text-sm text-muted-foreground">
-          {approval.loanRequest.purpose}
+    <li className="grid gap-4 rounded-(--ui-radius-surface) border border-border bg-card p-4 sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xl font-semibold text-foreground">
+          {loan.member.fullName}
         </p>
-      ) : null}
-      {approval.responseNotes ? (
-        <p className="mt-3 border-t border-border/70 pt-3 text-xs text-muted-foreground">
-          Response note: {approval.responseNotes}
-        </p>
-      ) : null}
+        <LoanStatusWord word={answerWords[request.status]} />
+      </div>
+      <LoanFacts
+        rows={[
+          { label: "Loan", value: formatCurrency(loan.requestedAmount) },
+          {
+            label: "Pays back",
+            value: `${formatCurrency(loan.estimatedMonthlyServicing)} a month for ${loan.requestedTermMonths} months`,
+          },
+          loan.purpose ? { label: "For", value: loan.purpose } : null,
+          {
+            label: "Asked on",
+            value: formatDayMonthYear(request.requestedAt) ?? "—",
+          },
+          request.responseNotes
+            ? { label: "Your note", value: request.responseNotes }
+            : null,
+        ]}
+      />
       {pending ? (
-        <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-border/70 pt-3">
-          <OpenGuarantorApprovalSheet
-            approvalId={approval.id}
-            status="rejected"
-          />
-          <OpenGuarantorApprovalSheet
-            approvalId={approval.id}
-            status="approved"
-          />
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <OpenGuarantorApprovalSheet approvalId={request.id} status="rejected" />
+          <OpenGuarantorApprovalSheet approvalId={request.id} status="approved" />
         </div>
       ) : null}
-    </div>
-  )
-}
-
-function MiniMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border border-border/70 bg-muted/20 p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 break-words text-sm font-semibold text-foreground">
-        {value}
-      </p>
-    </div>
+    </li>
   )
 }
 
 export function MemberGuarantorApprovalsView({
-  approvals,
+  canAnswer,
+  requests,
 }: {
-  approvals: GuarantorApproval[]
+  canAnswer: boolean
+  requests: GuarantorRequestForMember[]
 }) {
-  const pendingCount = approvals.filter(
-    (approval) => approval.status === "pending"
-  ).length
-
-  if (!approvals.length) {
+  if (!requests.length) {
     return (
       <WorkspaceEmptyState
-        body="No financing request currently lists you as guarantor."
-        title="No guarantor requests."
+        body="When a member asks you to be their guarantor, it shows here."
+        title="Nobody has asked you yet."
       />
     )
   }
 
+  const waiting = requests.filter((request) => request.status === "pending")
+
   return (
-    <DashboardSectionCard>
-      <DashboardSectionHeader
-        actions={<TrendPill>{pendingCount} pending</TrendPill>}
-        eyebrow="Guarantor"
-        title="Requests requiring your response"
-      />
-      <div className="mt-5 grid gap-3">
-        {approvals.map((approval) => (
-          <GuarantorApprovalRow approval={approval} key={approval.id} />
+    <div className="grid gap-4">
+      <p className="text-lg text-foreground">
+        {waiting.length === 0
+          ? "You have answered every request."
+          : waiting.length === 1
+            ? "1 request is waiting for your answer."
+            : `${waiting.length} requests are waiting for your answer.`}{" "}
+        <span className="text-muted-foreground">
+          A guarantor promises to help if the member stops paying.
+        </span>
+      </p>
+      {canAnswer ? null : (
+        <p className="border-y border-amber-200 bg-amber-50 px-4 py-3 text-base text-amber-950">
+          You can answer once the cooperative has checked your details. Please
+          contact the cooperative.
+        </p>
+      )}
+      <ul className="grid gap-4">
+        {requests.map((request) => (
+          <GuarantorRequestCard
+            canAnswer={canAnswer}
+            key={request.id}
+            request={request}
+          />
         ))}
-      </div>
-    </DashboardSectionCard>
+      </ul>
+    </div>
   )
 }

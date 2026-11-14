@@ -1,12 +1,17 @@
 "use client"
 
+import { formatCurrency } from "@halaalvest/utils"
 import type { ColumnDef } from "@tanstack/react-table"
-import { RepaymentHistoryActionsMenu, RepaymentScheduleActionsMenu } from "./actions-menu"
 import {
+  RepaymentHistoryActionsMenu,
+  RepaymentScheduleActionsMenu,
+} from "./actions-menu"
+import {
+  describeFollowUp,
   formatRepaymentDate,
-  HistoryAmount,
-  RepaymentStatusBadge,
-  ScheduleAmount,
+  getOutstandingAmount,
+  InstallmentStatusWord,
+  RepaymentStatusWord,
 } from "./formatters"
 import type { RepaymentHistoryRow, RepaymentScheduleRow } from "./types"
 
@@ -17,127 +22,148 @@ type RepaymentTableMeta = {
 export const scheduleColumns: ColumnDef<RepaymentScheduleRow>[] = [
   {
     cell: ({ row }) => (
-      <div>
-        <p className="font-medium">{row.original.loan.member.fullName}</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {row.original.loan.member.memberNumber} · {row.original.loan.loanProduct.name}
+      <div className="min-w-0">
+        <p className="truncate text-base font-medium">
+          {row.original.loan.member.fullName}
+        </p>
+        <p className="mt-1 truncate text-sm text-muted-foreground">
+          {row.original.loan.loanProduct.name}
         </p>
       </div>
     ),
     header: "Member",
     id: "member",
-    minSize: 240,
-    size: 300,
+    minSize: 220,
+    size: 280,
   },
   {
-    cell: ({ row }) => `#${row.original.installmentNumber}`,
-    header: "Installment",
-    id: "installment",
-    minSize: 110,
-    size: 120,
-  },
-  {
-    cell: ({ row }) => formatRepaymentDate(row.original.dueAt),
-    header: "Due date",
+    cell: ({ row }) => (
+      <span className="text-base">{formatRepaymentDate(row.original.dueAt)}</span>
+    ),
+    header: "Due",
     id: "dueAt",
     minSize: 140,
     size: 150,
   },
   {
-    cell: ({ row }) => <RepaymentStatusBadge status={row.original.status} />,
+    cell: ({ row }) => (
+      <div className="min-w-0">
+        <p className="text-base font-medium tabular-nums">
+          {formatCurrency(getOutstandingAmount(row.original))}
+        </p>
+        {Number(row.original.amountPaid) > 0 ? (
+          <p className="mt-1 text-sm text-muted-foreground">
+            of {formatCurrency(Number(row.original.totalDue))}
+          </p>
+        ) : null}
+      </div>
+    ),
+    header: "Owed",
+    id: "amount",
+    minSize: 150,
+    size: 160,
+  },
+  {
+    cell: ({ row }) => <InstallmentStatusWord item={row.original} />,
     header: "Status",
     id: "status",
     minSize: 130,
     size: 140,
   },
   {
-    cell: ({ row }) => <ScheduleAmount item={row.original} />,
-    header: "Repayment",
-    id: "amount",
-    minSize: 170,
-    size: 180,
-  },
-  {
     cell: ({ row }) => {
-      const followUp = row.original.latestCollectionFollowUp
-      return followUp ? (
-        <div>
-          <p className="capitalize">{followUp.caseStage?.replaceAll("_", " ")}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {followUp.assignedToUser?.fullName ?? "Unassigned"}
-          </p>
-        </div>
-      ) : (
-        <span className="text-muted-foreground">No follow-up</span>
+      const followUp = describeFollowUp(row.original)
+      return (
+        <span
+          className={
+            followUp ? "truncate text-base" : "text-base text-muted-foreground"
+          }
+        >
+          {followUp ?? "—"}
+        </span>
       )
     },
-    header: "Collections",
+    header: "Follow-up",
     id: "collections",
-    minSize: 160,
-    size: 180,
+    minSize: 180,
+    size: 220,
   },
   {
     cell: ({ row, table }) => (
       <RepaymentScheduleActionsMenu
-        canPostRepayment={(table.options.meta as RepaymentTableMeta).canPostRepayment}
+        canPostRepayment={
+          (table.options.meta as RepaymentTableMeta).canPostRepayment
+        }
         item={row.original}
       />
     ),
     header: "Actions",
     id: "actions",
-    minSize: 80,
-    size: 88,
+    minSize: 200,
+    size: 210,
   },
 ]
 
 export const historyColumns: ColumnDef<RepaymentHistoryRow>[] = [
   {
     cell: ({ row }) => (
-      <div>
-        <p className="font-medium">{row.original.member.fullName}</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {row.original.member.memberNumber} · {row.original.loan.loanProduct.name}
+      <div className="min-w-0">
+        <p className="truncate text-base font-medium">
+          {row.original.member.fullName}
+        </p>
+        <p className="mt-1 truncate text-sm text-muted-foreground">
+          {row.original.loan.loanProduct.name}
         </p>
       </div>
     ),
     header: "Member",
     id: "repayment",
-    minSize: 240,
-    size: 320,
+    minSize: 220,
+    size: 300,
   },
   {
-    cell: ({ row }) => formatRepaymentDate(row.original.paidAt),
+    cell: ({ row }) => (
+      <span className="text-base">{formatRepaymentDate(row.original.paidAt)}</span>
+    ),
     header: "Paid on",
     id: "paidAt",
     minSize: 140,
     size: 150,
   },
   {
-    cell: ({ row }) => <RepaymentStatusBadge status={row.original.status} />,
-    header: "Status",
-    id: "status",
-    minSize: 130,
-    size: 140,
-  },
-  {
-    cell: ({ row }) => <HistoryAmount item={row.original} />,
+    cell: ({ row }) => (
+      <span className="text-base font-medium tabular-nums">
+        {formatCurrency(Number(row.original.amount))}
+      </span>
+    ),
     header: "Amount",
     id: "amount",
     minSize: 140,
     size: 150,
   },
   {
-    cell: ({ row }) => row.original.reference || "—",
+    cell: ({ row }) => (
+      <span className="truncate text-base text-muted-foreground">
+        {row.original.reference || "—"}
+      </span>
+    ),
     header: "Reference",
     id: "reference",
     minSize: 160,
     size: 180,
   },
   {
+    cell: ({ row }) => <RepaymentStatusWord item={row.original} />,
+    header: "Status",
+    id: "status",
+    minSize: 130,
+    size: 140,
+  },
+  {
     cell: ({ row }) => <RepaymentHistoryActionsMenu item={row.original} />,
     header: "Actions",
     id: "actions",
-    minSize: 80,
-    size: 88,
+    minSize: 100,
+    size: 110,
   },
 ]

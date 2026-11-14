@@ -20,16 +20,16 @@ import { useSortParams } from "@/hooks/use-sort-params"
 import { useTRPC } from "@/trpc/client"
 
 const scheduleSortOptions = [
-  { id: "dueAt,asc", name: "Due date: earliest" },
-  { id: "dueAt,desc", name: "Due date: latest" },
-  { id: "memberName,asc", name: "Member name" },
+  { id: "dueAt,asc", name: "Due soonest first" },
+  { id: "dueAt,desc", name: "Due latest first" },
+  { id: "memberName,asc", name: "Name" },
 ] as const
 
 const historySortOptions = [
-  { id: "paidAt,desc", name: "Paid date: latest" },
-  { id: "paidAt,asc", name: "Paid date: earliest" },
-  { id: "amount,desc", name: "Highest amount" },
-  { id: "memberName,asc", name: "Member name" },
+  { id: "paidAt,desc", name: "Newest first" },
+  { id: "paidAt,asc", name: "Oldest first" },
+  { id: "amount,desc", name: "Biggest amount" },
+  { id: "memberName,asc", name: "Name" },
 ] as const
 
 function asString(value: SearchFilterValue) {
@@ -178,7 +178,7 @@ export function RepaymentsFilterDrawer({
   const dateFilter = available("dateRange")
   const assigneeFilter = available("assignedToUserId")
   const scheduleStatusFilter = withOption(available("scheduleStatus"), {
-    label: "Waived",
+    label: "Not needed",
     value: "waived",
   })
   const stageFilter = available("stage")
@@ -186,10 +186,10 @@ export function RepaymentsFilterDrawer({
   const repaymentStatusFilter: PageFilterData = available(
     "repaymentStatus"
   ) ?? {
-    label: "Repayment status",
+    label: "Status",
     options: [
       { label: "Pending", value: "pending" },
-      { label: "Posted", value: "posted" },
+      { label: "Received", value: "posted" },
       { label: "Reversed", value: "reversed" },
     ],
     type: "checkbox",

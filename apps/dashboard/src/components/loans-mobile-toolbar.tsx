@@ -19,7 +19,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@halaalvest/ui/components/input-group"
-import { Plus, Search } from "lucide-react"
+import { Search } from "lucide-react"
 import { useState } from "react"
 import { LoanColumnVisibility } from "@/components/loan-column-visibility"
 import {
@@ -34,24 +34,14 @@ import {
   clearedLoanFilters,
   useLoanFilterParams,
 } from "@/hooks/use-loan-filter-params"
-import { useLoanParams } from "@/hooks/use-loan-params"
 import { useSortParams } from "@/hooks/use-sort-params"
 
 type LoanPortfolioStatus = (typeof portfolioStatuses)[number]["id"]
 type LoanRequestStatus = (typeof requestStatuses)[number]["id"]
 
-export function LoansToolbar({
-  canSubmit,
-  intakeDisabled,
-  intakeDisabledReason,
-}: {
-  canSubmit: boolean
-  intakeDisabled: boolean
-  intakeDisabledReason?: string | null
-}) {
+export function LoansToolbar() {
   const { filter, setFilter } = useLoanFilterParams()
   const activeView = filter.view ?? "requests"
-  const { setParams: setLoanParams } = useLoanParams()
   const { params, setParams: setSortParams } = useSortParams()
   const isMobile = useMobileViewport()
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
@@ -62,17 +52,6 @@ export function LoansToolbar({
       ? Boolean(filter.requestStatus)
       : Boolean(filter.portfolioStatus))
 
-  function openRequest() {
-    void setLoanParams({
-      guarantorApprovalId: null,
-      guarantorReviewStatus: null,
-      loanId: null,
-      loanRequestId: null,
-      loanReviewStatus: null,
-      loanSheetType: "request",
-    })
-  }
-
   return (
     <>
       <div className="flex items-center gap-2">
@@ -82,27 +61,19 @@ export function LoansToolbar({
           </InputGroupAddon>
           <InputGroupInput
             aria-label={
-              activeView === "requests"
-                ? "Search loan requests"
-                : "Search loan portfolio"
+              activeView === "requests" ? "Search requests" : "Search loans"
             }
             onChange={(event) =>
               void setFilter({ q: event.target.value || null })
             }
-            placeholder={
-              activeView === "requests"
-                ? "Search requests..."
-                : "Search portfolio..."
-            }
+            placeholder="Search by name"
             type="search"
             value={filter.q ?? ""}
           />
           <InputGroupAddon align="inline-end">
             <InputGroupButton
               aria-label={
-                activeView === "requests"
-                  ? "Filter loan requests"
-                  : "Filter loan portfolio"
+                activeView === "requests" ? "Filter requests" : "Filter loans"
               }
               className="size-11"
               onClick={() => setMobileFilterOpen(true)}
@@ -120,22 +91,6 @@ export function LoansToolbar({
         <div className="hidden md:block">
           <LoanColumnVisibility tableType={activeView} />
         </div>
-        {canSubmit ? (
-          <Button
-            aria-describedby={
-              intakeDisabled ? "loan-intake-blocker" : undefined
-            }
-            aria-label="Request loan"
-            className="size-11 md:hidden"
-            disabled={intakeDisabled}
-            onClick={openRequest}
-            size="icon-lg"
-            title={intakeDisabledReason ?? undefined}
-            type="button"
-          >
-            <Plus />
-          </Button>
-        ) : null}
       </div>
       {hasActiveControls ? (
         <div className="flex min-h-11 items-center md:min-h-0">
@@ -186,24 +141,18 @@ function DesktopLoanFilter({
 
   return (
     <DropdownMenu open={filterOpen} onOpenChange={onFilterOpenChange}>
-      <InputGroup className="hidden h-9 w-[350px] md:flex">
+      <InputGroup className="hidden h-11 w-[350px] md:flex">
         <InputGroupAddon align="inline-start">
           <Search aria-hidden className="size-4" />
         </InputGroupAddon>
         <InputGroupInput
           aria-label={
-            activeView === "requests"
-              ? "Search loan requests"
-              : "Search loan portfolio"
+            activeView === "requests" ? "Search requests" : "Search loans"
           }
           onChange={(event) =>
             void setFilter({ q: event.target.value || null })
           }
-          placeholder={
-            activeView === "requests"
-              ? "Search requests..."
-              : "Search portfolio..."
-          }
+          placeholder="Search by name"
           type="search"
           value={filter.q ?? ""}
         />
@@ -212,14 +161,12 @@ function DesktopLoanFilter({
             render={
               <InputGroupButton
                 aria-label={
-                  activeView === "requests"
-                    ? "Filter loan requests"
-                    : "Filter loan portfolio"
+                  activeView === "requests" ? "Filter requests" : "Filter loans"
                 }
                 className={
                   filterActive || filterOpen
-                    ? "size-9 text-foreground"
-                    : "size-9 text-muted-foreground"
+                    ? "size-11 text-foreground"
+                    : "size-11 text-muted-foreground"
                 }
                 size="icon-sm"
               />

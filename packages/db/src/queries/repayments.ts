@@ -35,6 +35,8 @@ export type CollectionResolutionStatus = "open" | "resolved"
 
 export type ListRepaymentSchedulePageInput = {
   assignedToUserId?: string
+  /** Day boundary for "late"; defaults to the start of today (UTC). */
+  asOf?: Date
   collectionsOnly?: boolean
   cursor?: string | null
   fromDate?: Date
@@ -87,6 +89,8 @@ export type RepaymentScheduleItemRow = {
   dueAt: Date
   id: string
   installmentNumber: number
+  /** Unpaid and due before today, whatever the stored status says. */
+  isLate: boolean
   latestCollectionFollowUp: CollectionFollowUpRow | null
   loan: {
     id: string
@@ -120,6 +124,9 @@ export type RepaymentHistoryRow = {
 }
 
 export type RepaymentSummary = {
+  /** Money still owed on late installments. */
+  lateAmount: number
+  /** Late installments: unpaid and due before today (see `isLateScheduleItem`). */
   overdueScheduleItems: number
   totalRepaidAmount: number
   totalRepayments: number
@@ -169,6 +176,41 @@ type HistoryCursor = {
   sortDirection: "asc" | "desc"
   sortField: RepaymentHistorySortField
   status: RepaymentStatus
+}
+
+/**
+ * Installment states that still owe money. An installment in one of these
+ * states whose due date has passed is late. Late is decided when reading, so
+ * the list never waits for a status refresh job.
+ */
+export const unpaidScheduleStatuses = [
+  "pending",
+  "due",
+  "partially_paid",
+  "overdue",
+] as const satisfies readonly RepaymentScheduleStatus[]
+
+export function startOfUtcDay(now = new Date()) {
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  )
+}
+
+export function isLateScheduleItem(
+  item: { dueAt: Date | string; status: string },
+  asOf = startOfUtcDay()
+) {
+  return (
+    (unpaidScheduleStatuses as readonly string[]).includes(item.status) &&
+    new Date(item.dueAt).getTime() < asOf.getTime()
+  )
+}
+
+export function lateScheduleItemWhere(asOf = startOfUtcDay()) {
+  return {
+    dueAt: { lt: asOf },
+    status: { in: [...unpaidScheduleStatuses] },
+  }
 }
 
 function validationError(message: string) {
@@ -311,7 +353,8 @@ function normalizeFollowUp(followUp: any): CollectionFollowUpRow {
 
 function normalizeScheduleItem(
   item: any,
-  detail = false
+  detail = false,
+  asOf = startOfUtcDay()
 ): RepaymentScheduleItemRow | RepaymentScheduleItemDetail {
   const followUps = (item.collectionFollowUps ?? []).map(normalizeFollowUp)
   const row: RepaymentScheduleItemRow = {
@@ -319,6 +362,7 @@ function normalizeScheduleItem(
     dueAt: item.dueAt,
     id: item.id,
     installmentNumber: item.installmentNumber,
+    isLate: isLateScheduleItem(item, asOf),
     latestCollectionFollowUp: followUps[0] ?? null,
     loan: {
       id: item.loan.id,
@@ -442,10 +486,14 @@ function getScheduleWhere(input: ListRepaymentSchedulePageInput) {
       : []),
   ]
 
+  // Collections and the "overdue" filter mean late: unpaid and due before
+  // today, read from the due date rather than a stored status.
+  const lateOnly = input.collectionsOnly || input.status === "overdue"
+
   return {
     tenantId: input.tenantId,
-    ...(input.collectionsOnly
-      ? { status: "overdue" }
+    ...(lateOnly
+      ? { AND: [lateScheduleItemWhere(input.asOf ?? startOfUtcDay())] }
       : input.status
         ? { status: input.status }
         : {}),
@@ -727,8 +775,9 @@ export async function listRepaymentSchedulePage(
     }),
     prisma.repaymentScheduleItem.count({ where }),
   ])
+  const asOf = input.asOf ?? startOfUtcDay()
   const data = items.slice(0, pageSize).map((item: any) =>
-    normalizeScheduleItem(item)
+    normalizeScheduleItem(item, false, asOf)
   ) as RepaymentScheduleItemRow[]
 
   return {
@@ -819,11 +868,15 @@ export async function getRepaymentSummary(
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
   const where = getScheduleWhere(input)
-  const [totalScheduleItems, overdueScheduleItems, scheduleTotals, totalRepayments] =
+  const [totalScheduleItems, lateTotals, scheduleTotals, totalRepayments] =
     await Promise.all([
       prisma.repaymentScheduleItem.count({ where }),
-      prisma.repaymentScheduleItem.count({
-        where: { AND: [where, { status: "overdue" }] },
+      prisma.repaymentScheduleItem.aggregate({
+        _count: { _all: true },
+        _sum: { amountPaid: true, totalDue: true },
+        where: {
+          AND: [where, lateScheduleItemWhere(input.asOf ?? startOfUtcDay())],
+        },
       }),
       prisma.repaymentScheduleItem.aggregate({
         _sum: { amountPaid: true, totalDue: true },
@@ -838,9 +891,15 @@ export async function getRepaymentSummary(
     ])
   const totalDue = Number(scheduleTotals._sum.totalDue ?? 0)
   const totalRepaidAmount = Number(scheduleTotals._sum.amountPaid ?? 0)
+  const lateAmount = Math.max(
+    0,
+    Number(lateTotals._sum?.totalDue ?? 0) -
+      Number(lateTotals._sum?.amountPaid ?? 0)
+  )
 
   return {
-    overdueScheduleItems,
+    lateAmount,
+    overdueScheduleItems: Number(lateTotals._count?._all ?? 0),
     totalRepaidAmount,
     totalRepayments,
     totalScheduleItems,

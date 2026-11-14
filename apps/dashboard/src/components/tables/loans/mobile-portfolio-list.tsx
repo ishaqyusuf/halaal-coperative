@@ -8,15 +8,7 @@ import { useScrollHeader } from "@/hooks/use-scroll-header"
 import { LoanPortfolioMobileItem } from "./mobile-item"
 import { useLoanPortfolioQuery } from "./use-loans-query"
 
-export function LoanPortfolioMobileList({
-  availablePool,
-  canReview,
-  memberId,
-}: {
-  availablePool: number
-  canReview: boolean
-  memberId?: string
-}) {
+export function LoanPortfolioMobileList({ memberId }: { memberId?: string }) {
   const parentRef = useRef<HTMLDivElement>(null)
   const {
     fetchNextPage,
@@ -27,7 +19,7 @@ export function LoanPortfolioMobileList({
   } = useLoanPortfolioQuery(memberId)
   const rowVirtualizer = useVirtualizer({
     count: loans.length,
-    estimateSize: () => 216,
+    estimateSize: () => 132,
     getScrollElement: () => parentRef.current,
     overscan: 6,
   })
@@ -49,13 +41,13 @@ export function LoanPortfolioMobileList({
     return (
       <div className="flex min-h-48 items-center justify-center border-y border-border px-4 text-center">
         <div>
-          <p className="text-sm font-medium text-foreground">
-            {hasActiveControls ? "No matching loans" : "No loans yet"}
+          <p className="text-lg font-medium text-foreground">
+            {hasActiveControls ? "No loans match" : "No loans yet"}
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-base text-muted-foreground">
             {hasActiveControls
-              ? "Adjust or clear the current portfolio filters."
-              : "Approved loans will appear here once they enter the portfolio."}
+              ? "Try another name or clear the filters."
+              : "Approved loans show here."}
           </p>
         </div>
       </div>
@@ -87,8 +79,6 @@ export function LoanPortfolioMobileList({
               style={{ transform: `translateY(${virtualRow.start}px)` }}
             >
               <LoanPortfolioMobileItem
-                availablePool={availablePool}
-                canReview={canReview}
                 loan={loan}
               />
             </div>

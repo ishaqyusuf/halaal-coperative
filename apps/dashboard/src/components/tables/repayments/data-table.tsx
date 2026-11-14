@@ -90,7 +90,7 @@ function RepaymentVirtualTable<TData extends { id: string }>({
   const rows = table.getRowModel().rows
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
-    estimateSize: () => 72,
+    estimateSize: () => 76,
     getScrollElement: () => parentRef.current,
     overscan: 10,
   })
@@ -144,7 +144,7 @@ function RepaymentVirtualTable<TData extends { id: string }>({
                   <TableCell
                     className={getStickyClassName(
                       cell.column.id,
-                      "flex h-full items-center bg-background px-4 text-sm group-hover:bg-muted/40"
+                      "flex h-full items-center bg-background px-4 text-base group-hover:bg-muted/40"
                     )}
                     key={cell.id}
                     onClick={
@@ -204,16 +204,16 @@ export function RepaymentScheduleDataTable({
       emptyCopy={{
         description:
           view === "collections"
-            ? "Overdue repayment accounts will appear here for follow-up."
-            : "Scheduled installments will appear after an approved loan is disbursed.",
+            ? "Nobody is behind with a payment."
+            : "Payments show here once a loan is paid out.",
         filteredTitle:
           view === "collections"
-            ? "No matching collection cases"
-            : "No matching schedule items",
+            ? "No late payments match"
+            : "No payments match",
         title:
           view === "collections"
-            ? "No collection cases yet"
-            : "No repayment schedule yet",
+            ? "No late payments"
+            : "No payments due yet",
       }}
       initialSettings={initialSettings}
       onOpen={open}
@@ -246,9 +246,9 @@ export function RepaymentHistoryDataTable({
       canPostRepayment={false}
       columns={historyColumns}
       emptyCopy={{
-        description: "Posted repayment evidence will appear here.",
-        filteredTitle: "No matching repayment history",
-        title: "No repayments posted yet",
+        description: "Money received for loans shows here.",
+        filteredTitle: "No payments match",
+        title: "Nothing received yet",
       }}
       initialSettings={initialSettings}
       onOpen={open}

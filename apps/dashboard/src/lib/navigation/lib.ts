@@ -119,6 +119,12 @@ const offNavRouteTitles = [
     subtitle: "Set up your cooperative",
     title: "Getting started",
   },
+  {
+    // Reached from the member's Loans page and guarantor emails.
+    paths: ["/guarantor-approvals"],
+    subtitle: "Loans",
+    title: "Guarantor requests",
+  },
 ]
 
 export function getOffNavRouteTitle(pathname: string) {

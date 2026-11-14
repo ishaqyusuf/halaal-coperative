@@ -17,52 +17,58 @@ import {
 import type { LoanPortfolioRow } from "./portfolio-table"
 import type { LoanRequestRow } from "./requests-table"
 
+function OpenButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <Button
+      className="h-10 px-3 text-base"
+      onClick={onClick}
+      type="button"
+      variant="outline"
+    >
+      {label}
+    </Button>
+  )
+}
+
+function MoreTrigger({ name }: { name: string }) {
+  return (
+    <DropdownMenuTrigger
+      render={<Button className="size-10 p-0" variant="ghost" />}
+    >
+      <MoreHorizontal className="size-5" />
+      <span className="sr-only">More for {name}</span>
+    </DropdownMenuTrigger>
+  )
+}
+
 export const LoanPortfolioActionsMenu = memo(
   ({ canReview, loan }: { canReview: boolean; loan: LoanPortfolioRow }) => {
-    const { setParams } = useLoanParams()
-    const canDisburse = canReview && loan.status === "approved"
+    const { open } = useLoanParams()
 
     return (
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={<Button className="h-8 w-8 p-0" variant="ghost" />}
-        >
-          <MoreHorizontal className="size-4" />
-          <span className="sr-only">Open loan actions</span>
-        </DropdownMenuTrigger>
-
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem
-            onClick={() =>
-              setParams({
-                guarantorApprovalId: null,
-                guarantorReviewStatus: null,
-                loanId: loan.id,
-                loanRequestId: null,
-                loanReviewStatus: null,
-                loanSheetType: "loan-details",
-              })
-            }
-          >
-            View details
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={!canDisburse}
-            onClick={() =>
-              setParams({
-                guarantorApprovalId: null,
-                guarantorReviewStatus: null,
-                loanId: loan.id,
-                loanRequestId: null,
-                loanReviewStatus: null,
-                loanSheetType: "disburse",
-              })
-            }
-          >
-            Disburse loan
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className="flex items-center gap-1">
+        <OpenButton
+          label="Open"
+          onClick={() =>
+            void open({ loanId: loan.id, loanSheetType: "loan-details" })
+          }
+        />
+        {canReview && loan.status === "approved" ? (
+          <DropdownMenu>
+            <MoreTrigger name={loan.member.fullName} />
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem
+                className="min-h-11 text-base"
+                onClick={() =>
+                  void open({ loanId: loan.id, loanSheetType: "disburse" })
+                }
+              >
+                Pay out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </div>
     )
   }
 )
@@ -71,118 +77,54 @@ LoanPortfolioActionsMenu.displayName = "LoanPortfolioActionsMenu"
 
 export const LoanRequestActionsMenu = memo(
   ({ canReview, request }: { canReview: boolean; request: LoanRequestRow }) => {
-    const { setParams } = useLoanParams()
-    const pendingGuarantor = request.guarantorApprovals.find(
-      (approval) => approval.status === "pending"
-    )
+    const { open } = useLoanParams()
+    const canAct = canReview && canFinalizeLoanRequest(request.status)
+    const decide = (status: "approved" | "rejected" | "under_review") =>
+      void open({
+        loanRequestId: request.id,
+        loanReviewStatus: status,
+        loanSheetType: "review",
+      })
 
     return (
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={<Button className="h-8 w-8 p-0" variant="ghost" />}
-        >
-          <MoreHorizontal className="size-4" />
-          <span className="sr-only">Open loan request actions</span>
-        </DropdownMenuTrigger>
-
-        <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuItem
-            onClick={() =>
-              setParams({
-                guarantorApprovalId: null,
-                guarantorReviewStatus: null,
-                loanId: null,
-                loanRequestId: request.id,
-                loanReviewStatus: null,
-                loanSheetType: "request-details",
-              })
-            }
-          >
-            View details
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={!canReview || !canFinalizeLoanRequest(request.status)}
-            onClick={() =>
-              setParams({
-                guarantorApprovalId: null,
-                guarantorReviewStatus: null,
-                loanId: null,
-                loanRequestId: request.id,
-                loanReviewStatus: "approved",
-                loanSheetType: "review",
-              })
-            }
-          >
-            Approve request
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={!canReview || !canFinalizeLoanRequest(request.status)}
-            onClick={() =>
-              setParams({
-                guarantorApprovalId: null,
-                guarantorReviewStatus: null,
-                loanId: null,
-                loanRequestId: request.id,
-                loanReviewStatus: "rejected",
-                loanSheetType: "review",
-              })
-            }
-          >
-            Reject request
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={
-              !canReview || !canMarkLoanRequestUnderReview(request.status)
-            }
-            onClick={() =>
-              setParams({
-                guarantorApprovalId: null,
-                guarantorReviewStatus: null,
-                loanId: null,
-                loanRequestId: request.id,
-                loanReviewStatus: "under_review",
-                loanSheetType: "review",
-              })
-            }
-          >
-            Mark under review
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={!canReview || !pendingGuarantor}
-            onClick={() => {
-              if (!pendingGuarantor) return
-
-              setParams({
-                guarantorApprovalId: pendingGuarantor.id,
-                guarantorReviewStatus: "approved",
-                loanId: null,
-                loanRequestId: null,
-                loanReviewStatus: null,
-                loanSheetType: "guarantor",
-              })
-            }}
-          >
-            Approve guarantor
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={!canReview || !pendingGuarantor}
-            onClick={() => {
-              if (!pendingGuarantor) return
-
-              setParams({
-                guarantorApprovalId: pendingGuarantor.id,
-                guarantorReviewStatus: "rejected",
-                loanId: null,
-                loanRequestId: null,
-                loanReviewStatus: null,
-                loanSheetType: "guarantor",
-              })
-            }}
-          >
-            Reject guarantor
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className="flex items-center gap-1">
+        <OpenButton
+          label={canAct ? "Review" : "Open"}
+          onClick={() =>
+            void open({
+              loanRequestId: request.id,
+              loanSheetType: "request-details",
+            })
+          }
+        />
+        {canAct ? (
+          <DropdownMenu>
+            <MoreTrigger name={request.member.fullName} />
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem
+                className="min-h-11 text-base"
+                onClick={() => decide("approved")}
+              >
+                Approve
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="min-h-11 text-base"
+                onClick={() => decide("rejected")}
+              >
+                Decline
+              </DropdownMenuItem>
+              {canMarkLoanRequestUnderReview(request.status) ? (
+                <DropdownMenuItem
+                  className="min-h-11 text-base"
+                  onClick={() => decide("under_review")}
+                >
+                  Mark as being checked
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </div>
     )
   }
 )

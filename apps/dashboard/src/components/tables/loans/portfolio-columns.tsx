@@ -1,42 +1,25 @@
 "use client"
 
 import { formatCurrency } from "@halaalvest/utils"
-import { Badge } from "@halaalvest/ui/components/badge"
 import type { ColumnDef } from "@tanstack/react-table"
+import { LoanStatusWord } from "@/components/loans/loan-status-word"
+import { getLoanWord } from "@/lib/loans/loan-words"
 import { LoanPortfolioActionsMenu } from "./actions-menu"
 import type { LoanPortfolioRow } from "./portfolio-table"
 
 type LoanPortfolioTableMeta = {
-  availablePool: number
   canReview: boolean
-}
-
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <Badge
-      className={
-        status === "active"
-          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-          : status === "approved"
-            ? "border-sky-200 bg-sky-50 text-sky-700"
-            : "border-muted bg-muted text-muted-foreground"
-      }
-      variant="outline"
-    >
-      {status.replace(/_/g, " ")}
-    </Badge>
-  )
 }
 
 export const portfolioColumns: ColumnDef<LoanPortfolioRow>[] = [
   {
     accessorFn: (row) => row.member.fullName,
     cell: ({ row }) => (
-      <div>
-        <p className="truncate font-medium text-foreground">
+      <div className="min-w-0">
+        <p className="truncate text-base font-medium text-foreground">
           {row.original.member.fullName}
         </p>
-        <p className="mt-1 truncate text-xs text-muted-foreground">
+        <p className="mt-1 truncate text-sm text-muted-foreground">
           {row.original.termMonths} months
         </p>
       </div>
@@ -44,109 +27,93 @@ export const portfolioColumns: ColumnDef<LoanPortfolioRow>[] = [
     enableResizing: true,
     header: "Member",
     id: "member",
-    maxSize: 520,
+    maxSize: 420,
     meta: {
       className:
-        "w-[300px] min-w-[240px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20",
+        "w-[280px] min-w-[220px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20",
       headerLabel: "Member",
       sticky: true,
     },
-    minSize: 240,
-    size: 300,
+    minSize: 220,
+    size: 280,
   },
   {
-    accessorFn: (row) => row.loanProduct.name,
+    accessorFn: (row) => row.outstandingPrincipal,
     cell: ({ row }) => (
-      <div>
-        <p className="truncate text-sm text-foreground">
-          {row.original.loanProduct.name} · principal{" "}
-          {formatCurrency(Number(row.original.principalAmount))}
-        </p>
-        <p className="mt-1 truncate text-xs text-muted-foreground">
-          Outstanding{" "}
+      <div className="min-w-0">
+        <p className="truncate text-base text-foreground tabular-nums">
           {formatCurrency(Number(row.original.outstandingPrincipal))}
+        </p>
+        <p className="mt-1 truncate text-sm text-muted-foreground">
+          of {formatCurrency(Number(row.original.principalAmount))} lent
         </p>
       </div>
     ),
     enableResizing: true,
-    header: "Loan",
-    id: "loan",
-    maxSize: 380,
+    enableSorting: false,
+    header: "Still owed",
+    id: "owed",
+    maxSize: 320,
     meta: {
-      className: "w-[300px] min-w-[240px]",
-      headerLabel: "Loan",
+      className: "w-[220px] min-w-[180px]",
+      headerLabel: "Still owed",
     },
-    minSize: 240,
-    size: 300,
-  },
-  {
-    accessorKey: "status",
-    cell: ({ row, table }) => {
-      const meta = table.options.meta as LoanPortfolioTableMeta
-
-      return (
-        <div>
-          <StatusBadge status={row.original.status} />
-          {row.original.status === "approved" &&
-          Number(row.original.principalAmount) > Number(meta.availablePool) ? (
-            <p className="mt-2 text-xs text-destructive">Liquidity warning</p>
-          ) : null}
-        </div>
-      )
-    },
-    enableResizing: true,
-    header: "Status",
-    id: "status",
-    maxSize: 180,
-    meta: {
-      className: "w-[150px] min-w-[130px]",
-      headerLabel: "Status",
-    },
-    minSize: 130,
-    size: 150,
+    minSize: 180,
+    size: 220,
   },
   {
     accessorKey: "estimatedMonthlyServicing",
-    cell: ({ row, table }) => {
-      const meta = table.options.meta as LoanPortfolioTableMeta
-
-      return (
-        <div>
-          <p className="truncate text-sm text-foreground">
-            {formatCurrency(Number(row.original.estimatedMonthlyServicing))}{" "}
-            monthly
-          </p>
-          <p className="mt-1 truncate text-xs text-muted-foreground">
-            Extra savings{" "}
-            {formatCurrency(Number(row.original.extraMonthlySavingsAmount))}
-          </p>
-          {row.original.status === "approved" ? (
-            <p className="mt-1 truncate text-xs text-muted-foreground">
-              Pool after disbursement:{" "}
-              {formatCurrency(
-                Number(meta.availablePool) -
-                  Number(row.original.principalAmount)
-              )}
-            </p>
-          ) : null}
-        </div>
-      )
-    },
+    cell: ({ row }) => (
+      <span className="text-base text-foreground tabular-nums">
+        {formatCurrency(Number(row.original.estimatedMonthlyServicing))}
+      </span>
+    ),
     enableResizing: true,
-    header: "Servicing",
+    header: "Each month",
     id: "servicing",
-    maxSize: 320,
+    maxSize: 260,
     meta: {
-      className: "w-[260px] min-w-[220px]",
-      headerLabel: "Servicing",
+      className: "w-[170px] min-w-[150px]",
+      headerLabel: "Each month",
     },
-    minSize: 220,
-    size: 260,
+    minSize: 150,
+    size: 170,
+  },
+  {
+    accessorFn: (row) => row.loanProduct.name,
+    cell: ({ row }) => (
+      <span className="truncate text-base text-muted-foreground">
+        {row.original.loanProduct.name}
+      </span>
+    ),
+    enableResizing: true,
+    header: "Type of loan",
+    id: "loan",
+    maxSize: 360,
+    meta: {
+      className: "w-[220px] min-w-[180px]",
+      headerLabel: "Type of loan",
+    },
+    minSize: 180,
+    size: 220,
+  },
+  {
+    accessorKey: "status",
+    cell: ({ row }) => <LoanStatusWord word={getLoanWord(row.original.status)} />,
+    enableResizing: true,
+    header: "Status",
+    id: "status",
+    maxSize: 240,
+    meta: {
+      className: "w-[180px] min-w-[150px]",
+      headerLabel: "Status",
+    },
+    minSize: 150,
+    size: 180,
   },
   {
     cell: ({ row, table }) => {
       const meta = table.options.meta as LoanPortfolioTableMeta
-
       return (
         <LoanPortfolioActionsMenu
           canReview={meta.canReview}
@@ -159,7 +126,7 @@ export const portfolioColumns: ColumnDef<LoanPortfolioRow>[] = [
     enableSorting: false,
     header: "Actions",
     id: "actions",
-    maxSize: 180,
+    maxSize: 200,
     meta: {
       className:
         "text-right sticky right-0 bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-30 justify-center !border-l !border-border",

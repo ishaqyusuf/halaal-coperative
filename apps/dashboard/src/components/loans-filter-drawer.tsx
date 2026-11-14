@@ -14,39 +14,40 @@ import { MobileFilterDrawer } from "@/components/search-filter/mobile-filter-dra
 import { useLoanFilterParams } from "@/hooks/use-loan-filter-params"
 import { useSortParams } from "@/hooks/use-sort-params"
 
+// Names match `lib/loans/loan-words.ts`.
 export const requestStatuses = [
-  { id: "submitted", name: "Submitted" },
-  { id: "under_review", name: "Under review" },
+  { id: "submitted", name: "New" },
+  { id: "under_review", name: "Being checked" },
   { id: "approved", name: "Approved" },
-  { id: "rejected", name: "Rejected" },
+  { id: "rejected", name: "Declined" },
 ] as const
 
 export const portfolioStatuses = [
-  { id: "approved", name: "Approved" },
-  { id: "disbursed", name: "Disbursed" },
-  { id: "active", name: "Active" },
-  { id: "defaulted", name: "Defaulted" },
-  { id: "completed", name: "Completed" },
+  { id: "approved", name: "Ready to pay out" },
+  { id: "disbursed", name: "Paid out" },
+  { id: "active", name: "Repaying" },
+  { id: "defaulted", name: "Stopped paying" },
+  { id: "completed", name: "Fully repaid" },
   { id: "written_off", name: "Written off" },
 ] as const
 
 export const loanRequestSortOptions = [
-  { id: "memberName,asc", name: "Member name" },
-  { id: "requestedAt,desc", name: "Newest request" },
-  { id: "requestedAt,asc", name: "Oldest request" },
+  { id: "memberName,asc", name: "Name" },
+  { id: "requestedAt,desc", name: "Newest first" },
+  { id: "requestedAt,asc", name: "Oldest first" },
   { id: "status,asc", name: "Status" },
 ] as const
 
 export const loanPortfolioSortOptions = [
-  { id: "memberName,asc", name: "Member name" },
-  { id: "loanProductName,asc", name: "Loan product" },
+  { id: "memberName,asc", name: "Name" },
+  { id: "loanProductName,asc", name: "Type of loan" },
   {
     id: "estimatedMonthlyServicing,desc",
-    name: "Highest monthly service",
+    name: "Biggest monthly payment",
   },
   {
     id: "estimatedMonthlyServicing,asc",
-    name: "Lowest monthly service",
+    name: "Smallest monthly payment",
   },
   { id: "status,asc", name: "Status" },
 ] as const

@@ -13,6 +13,7 @@ import { useEffect, useRef } from "react"
 import { EmptyState, VirtualRow } from "@/components/tables/core"
 import { useDataTable } from "@/hooks/use-data-table"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
+import { useLoanParams } from "@/hooks/use-loan-params"
 import { useStickyColumns } from "@/hooks/use-sticky-columns"
 import { useTableDnd } from "@/hooks/use-table-dnd"
 import { useTableScroll } from "@/hooks/use-table-scroll"
@@ -40,17 +41,16 @@ const NON_CLICKABLE_COLUMNS = new Set(["actions"])
 const COLUMN_IDS = getColumnIds(portfolioColumns)
 
 export function LoanPortfolioTable({
-  availablePool,
   canReview,
   initialSettings,
   memberId,
 }: {
-  availablePool: number
   canReview: boolean
   initialSettings?: Partial<TableSettings>
   memberId?: string
 }) {
   const parentRef = useRef<HTMLDivElement>(null)
+  const { open: openLoan } = useLoanParams()
   const { setPortfolioColumns } = useLoanTableStore()
   const {
     fetchNextPage,
@@ -81,7 +81,6 @@ export function LoanPortfolioTable({
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.id,
     meta: {
-      availablePool,
       canReview,
     },
     onColumnOrderChange: setColumnOrder,
@@ -135,13 +134,13 @@ export function LoanPortfolioTable({
       <EmptyState
         description={
           hasActiveControls
-            ? "Clear the current filters or choose a different status."
-            : "Approved and live cooperative loans will appear here once requests move into servicing."
+            ? "Try another name or clear the filters."
+            : "Approved loans show here."
         }
         title={
           hasActiveControls
-            ? "No matching loans"
-            : "No approved or active loans"
+            ? "No loans match"
+            : "No loans yet"
         }
       />
     )
@@ -196,6 +195,8 @@ export function LoanPortfolioTable({
                         getStickyStyle={getStickyStyle}
                         key={row.id}
                         nonClickableColumns={NON_CLICKABLE_COLUMNS}
+                        onCellClick={(rowId: string) =>
+                          void openLoan({ loanId: rowId, loanSheetType: "loan-details" })}
                         row={row}
                         rowHeight={rowHeight}
                         virtualStart={virtualRow.start}

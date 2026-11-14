@@ -36,7 +36,7 @@ function RepaymentMobileList<TItem extends { id: string }>({
   const parentRef = useRef<HTMLDivElement>(null)
   const rowVirtualizer = useVirtualizer({
     count: query.rows.length,
-    estimateSize: () => 242,
+    estimateSize: () => 150,
     getScrollElement: () => parentRef.current,
     overscan: 6,
   })
@@ -116,16 +116,16 @@ export function RepaymentScheduleMobileList({
       emptyCopy={{
         description:
           view === "collections"
-            ? "Overdue repayment accounts will appear here for follow-up."
-            : "Scheduled installments will appear after an approved loan is disbursed.",
+            ? "Nobody is behind with a payment."
+            : "Payments show here once a loan is paid out.",
         filteredTitle:
           view === "collections"
-            ? "No matching collection cases"
-            : "No matching schedule items",
+            ? "No late payments match"
+            : "No payments match",
         title:
           view === "collections"
-            ? "No collection cases yet"
-            : "No repayment schedule yet",
+            ? "No late payments"
+            : "No payments due yet",
       }}
       query={query}
       renderItem={(item) => (
@@ -144,9 +144,9 @@ export function RepaymentHistoryMobileList() {
   return (
     <RepaymentMobileList<RepaymentHistoryRow>
       emptyCopy={{
-        description: "Posted repayment evidence will appear here.",
-        filteredTitle: "No matching repayment history",
-        title: "No repayments posted yet",
+        description: "Money received for loans shows here.",
+        filteredTitle: "No payments match",
+        title: "Nothing received yet",
       }}
       query={query}
       renderItem={(item) => <RepaymentHistoryMobileItem item={item} />}

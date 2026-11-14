@@ -60,9 +60,7 @@ export function LoanRequestsDataView({
             />
           }
           fallback={<RequestsLoading />}
-          mobile={
-            <LoanRequestsMobileList canReview={canReview} memberId={memberId} />
-          }
+          mobile={<LoanRequestsMobileList memberId={memberId} />}
         />
       </Suspense>
     </LoansDataErrorBoundary>
@@ -70,12 +68,10 @@ export function LoanRequestsDataView({
 }
 
 export function LoanPortfolioDataView({
-  availablePool,
   canReview,
   initialSettings,
   memberId,
 }: {
-  availablePool: number
   canReview: boolean
   initialSettings?: Partial<TableSettings>
   memberId?: string
@@ -86,7 +82,6 @@ export function LoanPortfolioDataView({
         <ResponsiveDataView
           desktop={
             <LoanPortfolioTable
-              availablePool={availablePool}
               canReview={canReview}
               initialSettings={initialSettings}
               memberId={memberId}
@@ -94,11 +89,7 @@ export function LoanPortfolioDataView({
           }
           fallback={<PortfolioLoading />}
           mobile={
-            <LoanPortfolioMobileList
-              availablePool={availablePool}
-              canReview={canReview}
-              memberId={memberId}
-            />
+            <LoanPortfolioMobileList memberId={memberId} />
           }
         />
       </Suspense>
@@ -107,16 +98,16 @@ export function LoanPortfolioDataView({
 }
 
 export function LoansDataView({
-  availablePool,
   canReview,
   initialPortfolioSettings,
   initialRequestSettings,
+  isMemberView = false,
   memberId,
 }: {
-  availablePool: number
   canReview: boolean
   initialPortfolioSettings?: Partial<TableSettings>
   initialRequestSettings?: Partial<TableSettings>
+  isMemberView?: boolean
   memberId?: string
 }) {
   const { filter } = useLoanFilterParams()
@@ -124,7 +115,7 @@ export function LoansDataView({
 
   return (
     <section className="min-w-0">
-      <LoanViewTabs activeView={view} />
+      <LoanViewTabs activeView={view} isMemberView={isMemberView} />
       <div
         aria-labelledby={`loans-${view}-tab`}
         id="loans-active-view"
@@ -138,7 +129,6 @@ export function LoansDataView({
           />
         ) : (
           <LoanPortfolioDataView
-            availablePool={availablePool}
             canReview={canReview}
             initialSettings={initialPortfolioSettings}
             memberId={memberId}

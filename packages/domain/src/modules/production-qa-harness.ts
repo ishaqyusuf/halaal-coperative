@@ -28,6 +28,7 @@ export const PRODUCTION_QA_HARNESS_STATES = [
   "kyc_incomplete",
   "pending_review",
   "published_profit",
+  "setup_migration",
 ] as const
 
 export const PRODUCTION_QA_HARNESS_PRODUCT_AREAS = [
@@ -235,6 +236,18 @@ const PRODUCTION_QA_HARNESS_SCENARIOS = [
     planCode: "enterprise",
     productAreas: ["reports", "push_deep_links"],
     state: "stale",
+  },
+  {
+    // A cooperative still moving its records in: active (so QA sign-in works)
+    // but before go-live, so the import and migration tools stay open.
+    activeAddonCodes: [],
+    cooperativeCodePrefix: "QSS",
+    key: "standard-setup",
+    label: "Standard Setup Stage",
+    operationProfile: "office_led",
+    planCode: "standard",
+    productAreas: ["activation_auth", "member_reads"],
+    state: "setup_migration",
   },
 ] as const satisfies readonly ProductionQaHarnessScenarioDefinition[]
 
@@ -517,6 +530,8 @@ export type ProductionQaHarnessStateFacts = {
   hasPublishedProfit: boolean
   hasStaleRecord: boolean
   hasVerifiedActiveMember: boolean
+  /** True when the tenant has not gone live (or has an emergency unlock). */
+  migrationToolsOpen?: boolean
   productRecordCount: number
   subscriptionStatus: string | null
   tenantStatus: string | null
@@ -575,6 +590,10 @@ export function evaluateProductionQaHarnessStateMaterialization(input: {
     published_profit: {
       evidenceCode: "published_dividend_period",
       materialized: tenantIsActive && facts.hasPublishedProfit,
+    },
+    setup_migration: {
+      evidenceCode: "migration_tools_open",
+      materialized: tenantIsActive && facts.migrationToolsOpen === true,
     },
     stale: {
       evidenceCode: "stale_expected_state_record",

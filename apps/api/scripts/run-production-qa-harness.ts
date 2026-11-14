@@ -4,6 +4,10 @@ const result = await provisionProductionQaHarness({
   environment: process.env.HALAALVEST_ENV ?? "local",
   qaDomain: process.env.PRODUCTION_QA_DOMAIN ?? "ishaq.qa.test",
   runId: process.env.PRODUCTION_QA_RUN_ID ?? "ticket-30-provision",
+  // Comma-separated scenario keys, e.g. PRODUCTION_QA_SCENARIOS=standard-setup
+  scenarioKeys: (process.env.PRODUCTION_QA_SCENARIOS ?? "")
+    .split(",")
+    .filter(Boolean),
 })
 
 console.log(

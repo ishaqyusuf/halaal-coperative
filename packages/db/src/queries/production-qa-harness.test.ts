@@ -11,6 +11,7 @@ import {
   buildProductionQaHarnessScenarioSeed,
   inspectProductionQaHarnessStateCoverage,
   previewProductionQaHarness,
+  selectProductionQaHarnessScenarioKeys,
 } from "./production-qa-harness"
 
 const NOW = new Date("2026-09-04T12:00:00.000Z")
@@ -61,7 +62,7 @@ describe("production-contract QA harness persistence", () => {
 
     expect(preview.canProvision).toBe(true)
     expect(preview.collisions).toEqual([])
-    expect(preview.scenarios).toHaveLength(9)
+    expect(preview.scenarios).toHaveLength(10)
     expect(preview.scenarios.every(({ status }) => status === "new")).toBe(true)
   })
 
@@ -153,6 +154,53 @@ describe("production-contract QA harness persistence", () => {
     ).toHaveLength(2)
   })
 
+  test("seeds the setup-stage cooperative before go-live with a levy schedule", () => {
+    const plan = createPlan()
+    const setup = plan.scenarios.find(({ key }) => key === "standard-setup")!
+    const healthy = plan.scenarios.find(({ key }) => key === "starter-healthy")!
+    const setupSeed = buildProductionQaHarnessScenarioSeed({
+      now: NOW,
+      qaDomain: plan.qaDomain,
+      runId: plan.runId,
+      scenario: setup,
+    })
+    const healthySeed = buildProductionQaHarnessScenarioSeed({
+      now: NOW,
+      qaDomain: plan.qaDomain,
+      runId: plan.runId,
+      scenario: healthy,
+    })
+
+    expect(setup.state).toBe("setup_migration")
+    expect(setupSeed.migration).toEqual({
+      initialMigrationStatus: "historical_setup_in_progress",
+      migrationEmergencyUnlockUntil: null,
+      migrationFinalizedAt: null,
+      startDate: new Date("2025-01-01T00:00:00.000Z"),
+    })
+    expect(setupSeed.setupChargeSchedule).toMatchObject({
+      code: "QA-MONTHLY-LEVY",
+      effectiveFrom: new Date("2025-01-01T00:00:00.000Z"),
+    })
+    expect(healthySeed.migration).toEqual({
+      initialMigrationStatus: "live_operations",
+    })
+    expect(healthySeed.setupChargeSchedule).toBeNull()
+  })
+
+  test("selects only the requested scenarios and refuses unknown keys", () => {
+    const plan = createPlan()
+    expect(selectProductionQaHarnessScenarioKeys(plan).size).toBe(
+      plan.scenarios.length
+    )
+    expect([
+      ...selectProductionQaHarnessScenarioKeys(plan, [" standard-setup ", ""]),
+    ]).toEqual(["standard-setup"])
+    expect(() =>
+      selectProductionQaHarnessScenarioKeys(plan, ["not-a-scenario"])
+    ).toThrow(ExpectedQueryError)
+  })
+
   test("maps capacity, KYC, blocked, and subscription states without secrets", () => {
     const plan = createPlan()
     const seeds = plan.scenarios.map((scenario) => ({
@@ -225,7 +273,7 @@ describe("production-contract QA harness persistence", () => {
     )
 
     expect(coverage.complete).toBe(false)
-    expect(coverage.expectedStateCount).toBe(9)
+    expect(coverage.expectedStateCount).toBe(10)
     expect(coverage.materializedStateCount).toBe(0)
     expect(coverage.scenarios.every(({ tenantId }) => tenantId === null)).toBe(
       true

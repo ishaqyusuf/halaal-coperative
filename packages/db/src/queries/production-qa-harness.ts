@@ -78,6 +78,7 @@ export function buildProductionQaHarnessScenarioSeed(input: {
   const currentPeriodEndsAt = new Date(
     input.now.getTime() + 30 * 24 * 60 * 60 * 1000
   )
+  const isSetupStage = input.scenario.state === "setup_migration"
   const memberJoinedAt =
     input.scenario.state === "stale"
       ? new Date(
@@ -95,6 +96,27 @@ export function buildProductionQaHarnessScenarioSeed(input: {
           : ("verified" as const),
       totalSavingsSnapshot: input.scenario.state === "empty" ? 0 : 250_000,
     },
+    // The setup-stage cooperative is mid-migration: finance start date and a
+    // monthly levy schedule are in place, so every import kind can be tried,
+    // and re-provisioning puts it back before go-live.
+    migration: isSetupStage
+      ? {
+          initialMigrationStatus: "historical_setup_in_progress" as const,
+          migrationEmergencyUnlockUntil: null,
+          migrationFinalizedAt: null,
+          startDate: new Date(Date.UTC(input.now.getUTCFullYear() - 1, 0, 1)),
+        }
+      : { initialMigrationStatus: "live_operations" as const },
+    setupChargeSchedule: isSetupStage
+      ? {
+          amount: PRODUCTION_QA_HARNESS_TENANT_POLICY.monthlyLevyAmount,
+          code: "QA-MONTHLY-LEVY",
+          effectiveFrom: new Date(
+            Date.UTC(input.now.getUTCFullYear() - 1, 0, 1)
+          ),
+          name: "Monthly levy",
+        }
+      : null,
     operationProfile: {
       reviewedAt: input.now,
       serviceModes: input.scenario.serviceModes,
@@ -264,22 +286,37 @@ export async function provisionProductionQaHarness(
     now?: Date
     qaDomain: string
     runId: string
+    /**
+     * Provision only these scenarios (for example `["standard-setup"]`), so
+     * re-seeding one QA cooperative leaves the others' QA data alone.
+     * Omitted or empty means every scenario.
+     */
+    scenarioKeys?: readonly string[]
   },
   prismaOverride?: PrismaClient
 ) {
   const now = input.now ?? new Date()
   const prisma = requirePrisma(prismaOverride)
   const preview = await previewProductionQaHarness({ ...input, now }, prisma)
-  if (!preview.canProvision) {
+  const selectedKeys = selectProductionQaHarnessScenarioKeys(
+    preview.plan,
+    input.scenarioKeys
+  )
+  const blockingCollisions = preview.collisions.filter(({ scenarioKey }) =>
+    selectedKeys.has(scenarioKey)
+  )
+  if (blockingCollisions.length > 0) {
     throw ExpectedQueryError.conflict(
-      `QA harness preview found ${preview.collisions.length} unsafe collision(s).`
+      `QA harness preview found ${blockingCollisions.length} unsafe collision(s).`
     )
   }
 
   await ensureSubscriptionPlans(prisma)
   const results: ProductionQaHarnessExecutionResult[] = []
 
-  for (const scenario of preview.plan.scenarios) {
+  for (const scenario of preview.plan.scenarios.filter(({ key }) =>
+    selectedKeys.has(key)
+  )) {
     try {
       const tenantId = await prisma.$transaction(async (transaction) =>
         provisionScenario({
@@ -312,75 +349,97 @@ export async function provisionProductionQaHarness(
         status: "failed"
       }
   > = []
-  try {
-    fixtureResults.push(
-      await ensureProductionQaHarnessOverdueFixture({
-        now,
-        plan: preview.plan,
-        prisma,
+  if (selectedKeys.has("growth-overdue")) {
+    try {
+      fixtureResults.push(
+        await ensureProductionQaHarnessOverdueFixture({
+          now,
+          plan: preview.plan,
+          prisma,
+        })
+      )
+    } catch {
+      fixtureResults.push({
+        errorCode: "fixture_provision_failed",
+        scenarioKey: "growth-overdue",
+        state: "overdue",
+        status: "failed",
       })
-    )
-  } catch {
-    fixtureResults.push({
-      errorCode: "fixture_provision_failed",
-      scenarioKey: "growth-overdue",
-      state: "overdue",
-      status: "failed",
-    })
+    }
   }
-  try {
-    fixtureResults.push(
-      await ensureProductionQaHarnessPendingReviewFixture({
-        now,
-        plan: preview.plan,
-        prisma,
+  if (selectedKeys.has("standard-review")) {
+    try {
+      fixtureResults.push(
+        await ensureProductionQaHarnessPendingReviewFixture({
+          now,
+          plan: preview.plan,
+          prisma,
+        })
+      )
+    } catch {
+      fixtureResults.push({
+        errorCode: "fixture_provision_failed",
+        scenarioKey: "standard-review",
+        state: "pending_review",
+        status: "failed",
       })
-    )
-  } catch {
-    fixtureResults.push({
-      errorCode: "fixture_provision_failed",
-      scenarioKey: "standard-review",
-      state: "pending_review",
-      status: "failed",
-    })
+    }
   }
-  try {
-    fixtureResults.push(
-      await ensureProductionQaHarnessStaleStateFixture({
-        now,
-        plan: preview.plan,
-        prisma,
+  if (selectedKeys.has("enterprise-stale")) {
+    try {
+      fixtureResults.push(
+        await ensureProductionQaHarnessStaleStateFixture({
+          now,
+          plan: preview.plan,
+          prisma,
+        })
+      )
+    } catch {
+      fixtureResults.push({
+        errorCode: "fixture_provision_failed",
+        scenarioKey: "enterprise-stale",
+        state: "stale",
+        status: "failed",
       })
-    )
-  } catch {
-    fixtureResults.push({
-      errorCode: "fixture_provision_failed",
-      scenarioKey: "enterprise-stale",
-      state: "stale",
-      status: "failed",
-    })
+    }
   }
-  try {
-    fixtureResults.push(
-      await ensureProductionQaHarnessPublishedProfitFixture({
-        now,
-        plan: preview.plan,
-        prisma,
+  if (selectedKeys.has("enterprise-profit")) {
+    try {
+      fixtureResults.push(
+        await ensureProductionQaHarnessPublishedProfitFixture({
+          now,
+          plan: preview.plan,
+          prisma,
+        })
+      )
+    } catch {
+      fixtureResults.push({
+        errorCode: "fixture_provision_failed",
+        scenarioKey: "enterprise-profit",
+        state: "published_profit",
+        status: "failed",
       })
-    )
-  } catch {
-    fixtureResults.push({
-      errorCode: "fixture_provision_failed",
-      scenarioKey: "enterprise-profit",
-      state: "published_profit",
-      status: "failed",
-    })
+    }
   }
 
-  const stateCoverage = await inspectProductionQaHarnessStateCoverage(
+  const fullStateCoverage = await inspectProductionQaHarnessStateCoverage(
     { ...input, now },
     prisma
   )
+  const coveredScenarios = fullStateCoverage.scenarios.filter(
+    ({ scenarioKey }) => selectedKeys.has(scenarioKey)
+  )
+  const stateCoverage = {
+    complete: coveredScenarios.every(
+      ({ activeAddonPlanMatches, materialized }) =>
+        materialized && activeAddonPlanMatches
+    ),
+    expectedStateCount: coveredScenarios.length,
+    materializedStateCount: coveredScenarios.filter(
+      ({ materialized }) => materialized
+    ).length,
+    scenarios: coveredScenarios,
+  }
 
   return {
     complete:
@@ -396,6 +455,24 @@ export async function provisionProductionQaHarness(
     results,
     stateCoverage,
   }
+}
+
+export function selectProductionQaHarnessScenarioKeys(
+  plan: ProductionQaHarnessPlan,
+  scenarioKeys?: readonly string[]
+) {
+  const knownKeys = plan.scenarios.map(({ key }) => key)
+  const requested = (scenarioKeys ?? [])
+    .map((key) => key.trim())
+    .filter(Boolean)
+  if (requested.length === 0) return new Set(knownKeys)
+  const unknown = requested.filter((key) => !knownKeys.includes(key))
+  if (unknown.length > 0) {
+    throw ExpectedQueryError.validation(
+      `Unknown QA harness scenario: ${unknown.join(", ")}.`
+    )
+  }
+  return new Set(requested)
 }
 
 export async function inspectProductionQaHarnessStateCoverage(
@@ -442,11 +519,13 @@ export async function inspectProductionQaHarnessStateCoverage(
         where: { status: { in: ["submitted", "under_review"] } },
       },
       id: true,
+      initialMigrationStatus: true,
       loanRequests: {
         select: { id: true },
         take: 1,
         where: { status: { in: ["submitted", "under_review"] } },
       },
+      migrationEmergencyUnlockUntil: true,
       memberPaymentReceipts: {
         select: { id: true },
         take: 1,
@@ -553,6 +632,14 @@ export async function inspectProductionQaHarnessStateCoverage(
         hasVerifiedActiveMember: activeMembers.some(
           ({ kycStatus }) => kycStatus === "verified"
         ),
+        migrationToolsOpen: Boolean(
+          tenant &&
+          (!["finalized", "live_operations"].includes(
+            tenant.initialMigrationStatus
+          ) ||
+            (tenant.migrationEmergencyUnlockUntil &&
+              tenant.migrationEmergencyUnlockUntil > now))
+        ),
         productRecordCount,
         subscriptionStatus: tenant?.subscription?.status ?? null,
         tenantStatus: tenant?.status ?? null,
@@ -598,7 +685,7 @@ async function provisionScenario(input: {
       cooperativeCodePrefix: input.scenario.cooperativeCodePrefix,
       currencyCode: "NGN",
       dataClassification: "qa",
-      initialMigrationStatus: "live_operations",
+      ...seed.migration,
       memberNumberPrefix: input.scenario.memberNumberPrefix,
       name: input.scenario.name,
       qaMarkedAt: input.now,
@@ -611,7 +698,7 @@ async function provisionScenario(input: {
       cooperativeCodePrefix: input.scenario.cooperativeCodePrefix,
       currencyCode: "NGN",
       dataClassification: "qa",
-      initialMigrationStatus: "live_operations",
+      ...seed.migration,
       memberNumberPrefix: input.scenario.memberNumberPrefix,
       name: input.scenario.name,
       qaMarkedAt: input.now,
@@ -632,12 +719,46 @@ async function provisionScenario(input: {
     where: { tenantId: tenant.id },
   })
 
+  if (seed.setupChargeSchedule) {
+    const charge = seed.setupChargeSchedule
+    const definition = await input.transaction.chargeDefinition.upsert({
+      create: {
+        amount: charge.amount,
+        code: charge.code,
+        isMonthlyLevy: true,
+        kind: "fixed",
+        name: charge.name,
+        tenantId: tenant.id,
+      },
+      update: { amount: charge.amount, isActive: true, name: charge.name },
+      where: { tenantId_code: { code: charge.code, tenantId: tenant.id } },
+    })
+    await input.transaction.chargeDefinitionVersion.upsert({
+      create: {
+        amount: charge.amount,
+        chargeDefinitionId: definition.id,
+        effectiveFrom: charge.effectiveFrom,
+        kind: "fixed",
+        tenantId: tenant.id,
+      },
+      update: { amount: charge.amount },
+      where: {
+        chargeDefinitionId_effectiveFrom: {
+          chargeDefinitionId: definition.id,
+          effectiveFrom: charge.effectiveFrom,
+        },
+      },
+    })
+  }
+
   const plan = await input.transaction.subscriptionPlan.findUnique({
     select: { id: true },
     where: { code: input.scenario.planCode },
   })
   if (!plan) {
-    throw new QueryInfrastructureError(`Subscription plan ${input.scenario.planCode} is missing.`)
+    throw new QueryInfrastructureError(
+      `Subscription plan ${input.scenario.planCode} is missing.`
+    )
   }
   const subscription = await input.transaction.tenantSubscription.upsert({
     create: {
@@ -672,7 +793,9 @@ async function provisionScenario(input: {
         code as keyof typeof PRODUCTION_QA_HARNESS_ADDONS
       ]
     if (!addon) {
-      throw new QueryInfrastructureError(`Unsupported production QA harness add-on: ${code}.`)
+      throw new QueryInfrastructureError(
+        `Unsupported production QA harness add-on: ${code}.`
+      )
     }
     await input.transaction.tenantSubscriptionAddon.upsert({
       create: {

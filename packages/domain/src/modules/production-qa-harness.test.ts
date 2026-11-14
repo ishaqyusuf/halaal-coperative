@@ -133,6 +133,7 @@ describe("production-contract QA harness plan", () => {
       overdue: { ...baseFacts, hasOverdueSchedule: true },
       pending_review: { ...baseFacts, hasPendingReview: true },
       published_profit: { ...baseFacts, hasPublishedProfit: true },
+      setup_migration: { ...baseFacts, migrationToolsOpen: true },
       stale: { ...baseFacts, hasStaleRecord: true },
     } as const
 
@@ -211,7 +212,7 @@ describe("production-contract QA harness plan", () => {
     })
 
     expect(report).toContain("# Production-contract QA harness evidence")
-    expect(report).toContain("8 planned")
+    expect(report).toContain("9 planned")
     expect(report).toContain("1 failed")
     expect(report).toContain("published_profit")
     expect(report).toContain("Remaining acceptance gaps")

@@ -114,6 +114,17 @@ export async function discoverQaTenantCandidates(domains: readonly string[]) {
 
   if (configuredDomains.length === 0) return []
 
+  // Only live workspaces with an admin on a configured QA email domain; the
+  // exact domain match below stays the source of truth.
+  const qaAdmin: Prisma.UserWhereInput = {
+    deletedAt: null,
+    memberships: {
+      some: { role: { in: ["tenant_admin", "super_admin"] } },
+    },
+    OR: configuredDomains.map((domain) => ({
+      email: { endsWith: `@${domain}`, mode: "insensitive" },
+    })),
+  }
   const tenants = await prisma.tenant.findMany({
     orderBy: { createdAt: "desc" },
     select: {
@@ -126,14 +137,16 @@ export async function discoverQaTenantCandidates(domains: readonly string[]) {
           email: true,
           memberships: {
             select: { role: true },
+            where: { role: { in: ["tenant_admin", "super_admin"] } },
           },
         },
-        where: { deletedAt: null },
+        where: qaAdmin,
       },
     },
     where: {
       dataClassification: "live",
       qaPurgeStartedAt: null,
+      users: { some: qaAdmin },
     },
   })
 

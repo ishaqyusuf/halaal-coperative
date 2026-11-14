@@ -325,12 +325,15 @@ export async function listPrivacyQueue(
           }
         : {}),
     },
+    // List columns only: evidence stays in the one-request read below.
     select: {
-      ...publicSelection,
-      tenantId: true,
-      userId: true,
+      id: true,
+      status: true,
+      requestedAt: true,
+      verifiedAt: true,
+      accessRevokedAt: true,
+      tenant: { select: { name: true } },
       user: { select: { email: true, fullName: true } },
-      verificationEvidence: true,
     },
     orderBy: [{ requestedAt: "asc" }, { id: "asc" }],
     take: privacyQueuePageSize + 1,
@@ -348,6 +351,26 @@ export async function listPrivacyQueue(
           : null,
     },
   }
+}
+/** One privacy request for the operator's details sheet (2 statements). */
+export async function getPrivacyRequestForOperator(
+  input: { actorUserId: string; requestId: string },
+  override?: PrismaClient
+) {
+  const db = client(override)
+  await requirePrivacyOperator(db, input.actorUserId)
+  const request = await db.accountPrivacyRequest.findUnique({
+    where: { id: input.requestId },
+    select: {
+      ...publicSelection,
+      tenantId: true,
+      tenant: { select: { name: true } },
+      user: { select: { email: true, fullName: true } },
+      verificationEvidence: true,
+    },
+  })
+  if (!request) throw ExpectedQueryError.notFound("Privacy request not found.")
+  return request
 }
 export async function getPrivacyProcessingInventory(
   input: { actorUserId: string; requestId: string },

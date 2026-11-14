@@ -191,7 +191,8 @@ describe("account privacy safeguards", () => {
     } as unknown as PrismaClient
     await listPrivacyQueue({ actorUserId: "operator" }, prisma)
     expect(selection?.processingEvidence).toBeUndefined()
-    expect(selection?.verificationEvidence).toBe(true)
+    // Verification evidence is read one request at a time (details sheet).
+    expect(selection?.verificationEvidence).toBeUndefined()
   })
   it("paginates stable queue order so long-running processing requests cannot hide newer requests", async () => {
     const requestedAt = new Date("2026-09-25T12:00:00.000Z")

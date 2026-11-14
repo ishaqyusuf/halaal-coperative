@@ -142,6 +142,13 @@ export const workflowPresentations = {
   operationProfile: {
     edit: dialog("form"),
   },
+  // /platform/privacy-requests and /platform/refund-reviews: one record each.
+  platformPrivacy: {
+    request: sheet("form"),
+  },
+  platformRefund: {
+    review: sheet("form"),
+  },
   paymentReceipt: {
     create: sheet("review"),
     "member-create": sheet("review"),

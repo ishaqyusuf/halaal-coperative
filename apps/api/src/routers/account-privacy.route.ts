@@ -5,6 +5,7 @@ import {
   PRIVACY_PROCESSING_CATEGORIES,
   cancelOwnPrivacyRequest,
   getPrivacyProcessingInventory,
+  getPrivacyRequestForOperator,
   getPrivacyRevocationScope,
   listOwnPrivacyRequests,
   listPrivacyQueue,
@@ -21,6 +22,13 @@ import {
 } from "../lib.trpc"
 
 const requestId = z.object({ requestId: z.string().uuid() })
+// tRPC infinite queries add `direction` to the input; strict inputs must allow it.
+const queueInput = z
+  .object({
+    cursor: z.string().min(1).max(300).nullish(),
+    direction: z.enum(["forward", "backward"]).optional(),
+  })
+  .strict()
 
 // Privacy access must not depend on a paid software plan or financial readiness.
 export const accountPrivacyRouter = createTRPCRouter({
@@ -58,11 +66,19 @@ export const accountPrivacyRouter = createTRPCRouter({
       })
     ),
   operatorQueue: platformOwnerProcedure
-    .input(z.object({ cursor: z.string().min(1).max(300).nullish() }).strict())
+    .input(queueInput)
     .query(({ ctx, input }) =>
       listPrivacyQueue({
         actorUserId: ctx.auth.session.user.id,
         cursor: input.cursor,
+      })
+    ),
+  operatorRequest: platformOwnerProcedure
+    .input(requestId.strict())
+    .query(({ ctx, input }) =>
+      getPrivacyRequestForOperator({
+        actorUserId: ctx.auth.session.user.id,
+        requestId: input.requestId,
       })
     ),
   processingInventory: platformOwnerProcedure

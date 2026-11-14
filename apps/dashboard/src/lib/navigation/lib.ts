@@ -125,6 +125,27 @@ const offNavRouteTitles = [
     subtitle: "Loans",
     title: "Guarantor requests",
   },
+  // Platform-operator pages: no sidebar link (the sidebar is per cooperative).
+  {
+    paths: ["/platform/privacy-requests"],
+    subtitle: "Platform",
+    title: "Privacy requests",
+  },
+  {
+    paths: ["/platform/refund-reviews"],
+    subtitle: "Platform",
+    title: "Refund reviews",
+  },
+  {
+    paths: ["/platform/mobile-access-invoices"],
+    subtitle: "Platform",
+    title: "Mobile app bills",
+  },
+  {
+    paths: ["/platform/qa-maintenance"],
+    subtitle: "Platform",
+    title: "Test data",
+  },
 ]
 
 export function getOffNavRouteTitle(pathname: string) {

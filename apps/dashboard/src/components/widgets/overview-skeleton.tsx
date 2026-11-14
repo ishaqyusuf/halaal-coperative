@@ -1,22 +1,15 @@
 import { Skeleton } from "@halaalvest/ui/components/skeleton"
+import { SummaryCardSkeleton } from "@/components/summary-card"
 
-function OverviewSectionSkeleton({ rows = 3 }: { rows?: number }) {
+function OverviewListSkeleton({ rows = 3 }: { rows?: number }) {
   return (
-    <section className="border border-border bg-background p-4 sm:p-5">
-      <Skeleton className="h-3 w-20" />
-      <Skeleton className="mt-3 h-5 w-40" />
-      <Skeleton className="mt-3 h-3 w-full max-w-sm" />
-      <div className="mt-5 divide-y divide-border">
+    <section className="rounded-(--ui-radius-surface) border border-border bg-card p-5">
+      <Skeleton className="h-6 w-48" />
+      <div className="mt-3 divide-y divide-border">
         {Array.from({ length: rows }, (_, index) => (
-          <div
-            className="flex items-center justify-between gap-4 py-3"
-            key={index}
-          >
-            <div className="min-w-0 flex-1">
-              <Skeleton className="h-4 w-3/5" />
-              <Skeleton className="mt-2 h-3 w-2/5" />
-            </div>
-            <Skeleton className="h-7 w-16" />
+          <div className="flex min-h-14 items-center gap-4 py-2" key={index}>
+            <Skeleton className="size-10 rounded-full" />
+            <Skeleton className="h-5 flex-1" />
           </div>
         ))}
       </div>
@@ -26,44 +19,24 @@ function OverviewSectionSkeleton({ rows = 3 }: { rows?: number }) {
 
 export function OverviewSkeleton() {
   return (
-    <div className="flex flex-col gap-5">
-      <section className="border-b border-border pb-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0 flex-1">
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="mt-3 h-8 w-72 max-w-full" />
-            <Skeleton className="mt-3 h-4 w-full max-w-2xl" />
-          </div>
-          <div className="flex gap-2">
-            <Skeleton className="h-11 w-32" />
-            <Skeleton className="h-11 w-32" />
-          </div>
+    <div className="flex flex-col gap-6" role="status" aria-label="Loading">
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="mt-2 h-6 w-72" />
         </div>
+        <Skeleton className="h-11 w-40" />
       </section>
-
-      <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }, (_, index) => (
-          <div
-            className="min-h-[112px] border border-border bg-background p-4"
-            key={index}
-          >
-            <Skeleton className="h-3 w-24" />
-            <Skeleton className="mt-5 h-7 w-28" />
-            <Skeleton className="mt-3 h-3 w-full" />
-          </div>
+          <SummaryCardSkeleton key={index} />
         ))}
       </div>
-
-      <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <OverviewSectionSkeleton rows={4} />
-        <OverviewSectionSkeleton />
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-3">
-        <OverviewSectionSkeleton />
-        <OverviewSectionSkeleton />
-        <OverviewSectionSkeleton />
-      </section>
+      <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+        <OverviewListSkeleton />
+        <OverviewListSkeleton rows={2} />
+      </div>
+      <OverviewListSkeleton rows={4} />
     </div>
   )
 }

@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@halaalvest/ui/lib/utils"
 
-const buttonVariants = cva(
+const buttonVariantClasses = cva(
   "group/button inline-flex shrink-0 items-center justify-center rounded-(--ui-radius-control) border border-transparent bg-clip-padding text-xs font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
@@ -43,7 +43,7 @@ function Button({
   variant = "default",
   size = "default",
   ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+}: ButtonPrimitive.Props & VariantProps<typeof buttonVariantClasses>) {
   return (
     <ButtonPrimitive
       data-slot="button"
@@ -51,6 +51,17 @@ function Button({
       {...props}
     />
   )
+}
+
+/**
+ * Variant classes, merged so a variant's colours win over the base (for
+ * example the outline border over `border-transparent`) when the classes are
+ * used on a link or another element instead of `Button`.
+ */
+function buttonVariants(
+  props?: Parameters<typeof buttonVariantClasses>[0]
+): string {
+  return cn(buttonVariantClasses(props))
 }
 
 export { Button, buttonVariants }

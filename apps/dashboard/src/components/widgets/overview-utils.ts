@@ -2,7 +2,6 @@ import type { RouterOutputs } from "@halaalvest/api/trpc/routers/_app"
 
 export type OverviewSummary = RouterOutputs["overview"]["summary"]
 export type OverviewActionQueueItem = OverviewSummary["actionQueue"][number]
-export type OverviewComplianceItem = OverviewSummary["complianceWatch"][number]
 export type OverviewActivityItem = OverviewSummary["recentActivity"][number]
 
 export function formatShortDate(value: string) {

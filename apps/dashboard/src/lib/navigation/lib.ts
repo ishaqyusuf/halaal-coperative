@@ -153,7 +153,7 @@ export function getDashboardRouteTitle(
       : Boolean(offNavTitle),
     modules,
     pageSubtitle: offNavTitle?.subtitle ?? null,
-    pageTitle: offNavTitle?.title ?? activeItem?.title ?? "Dashboard",
+    pageTitle: offNavTitle?.title ?? activeItem?.title ?? "Home",
     roleLabel: getRoleDisplayName(role),
   }
 }

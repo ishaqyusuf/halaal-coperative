@@ -6,7 +6,7 @@ import {
   TenantUrlProvider,
   TenantUrlVariantSwitcher,
 } from "@halaalvest/tenant-url/react"
-import { DashboardPageFrame, WorkspaceEmptyState } from "@/components/dashboard"
+import { WorkspaceEmptyState } from "@/components/dashboard"
 import { DashboardHomeSkeleton } from "@/components/dashboard-home-page-states"
 import { DashboardShellClient } from "@/components/dashboard-shell"
 import { GoLiveBanner } from "@/components/go-live-banner"
@@ -24,7 +24,7 @@ import { tenantRedirect } from "@/utils/tenant-redirect"
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
 
 export const metadata: Metadata = {
-  title: "Overview | Halaalvest",
+  title: "Home | Halaalvest",
 }
 
 type TenantHomeSearchParams = Promise<
@@ -54,42 +54,27 @@ async function TenantHomePageContent({
     data.state === "member-ready"
   ) {
     let memberPortalContent = (
-      <DashboardPageFrame>
-        <WorkspaceEmptyState
-          body="Member dashboard data is available once the database-backed workspace is active."
-          title="Member dashboard needs the database runtime."
-        />
-      </DashboardPageFrame>
+      <WorkspaceEmptyState
+        body="Your account is not ready yet. Please try again later."
+        title="Your records are not available"
+      />
     )
 
     if (data.state === "member-profile-missing") {
       memberPortalContent = (
-        <DashboardPageFrame>
-          <WorkspaceEmptyState
-            body="Your user account is not linked to a member profile in this cooperative."
-            title="Member profile not linked."
-          />
-        </DashboardPageFrame>
+        <WorkspaceEmptyState
+          body="Your sign-in is not linked to a member record here. Please contact your cooperative."
+          title="We could not find your member record"
+        />
       )
     }
 
     if (data.state === "member-ready") {
       memberPortalContent = (
         <MemberPortalOverview
-          canCreateFoodPurchase={data.canCreateFoodPurchase}
-          canCreateProcurement={data.canCreateProcurement}
-          canShowFoodPurchase={data.canShowFoodPurchase}
-          canShowProcurement={data.canShowProcurement}
-          detail={data.detail}
-          foodPurchaseApplications={data.foodPurchaseApplications}
+          canSendReceipt={data.canSendReceipt}
           operationalReadiness={data.operationalReadiness}
-          procurementRequests={data.procurementRequests}
-          projectFinancingRequests={data.projectFinancingRequests}
-          receipts={data.receipts}
-          shareApplications={data.shareApplications}
-          sharePolicy={data.sharePolicy}
-          sharePosition={data.sharePosition}
-          supportCases={data.supportCases}
+          snapshot={data.snapshot}
         />
       )
     }
@@ -136,7 +121,7 @@ async function TenantHomePageContent({
         ) : null}
         <HydrateClient>
           <Suspense fallback={<OverviewSkeleton />}>
-            <OverviewView />
+            <OverviewView role={data.role} userName={data.userName} />
           </Suspense>
         </HydrateClient>
       </DashboardShellClient>

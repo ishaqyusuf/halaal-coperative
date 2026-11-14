@@ -1,92 +1,50 @@
 "use client"
 
-import { formatCurrency, formatPercent } from "@halaalvest/utils"
+import { formatCurrency } from "@halaalvest/utils"
+import { SummaryCard } from "@/components/summary-card"
 import { overdueRepaymentScheduleHref } from "@/lib/repayments/repayments-drilldown"
-import { OverviewActionLink } from "./overview-ui"
-import {
-  getCoverageTone,
-  getMetricTone,
-  type OverviewSummary,
-} from "./overview-utils"
-
-type WidgetCardProps = {
-  detail?: string
-  href: string
-  label: string
-  tone?: "neutral" | "positive" | "warning"
-  value: string
-}
-
-function WidgetCard({
-  detail,
-  href,
-  label,
-  tone = "neutral",
-  value,
-}: WidgetCardProps) {
-  return (
-    <OverviewActionLink
-      href={href}
-      variant="ghost"
-      className="group flex h-full min-h-[112px] flex-col items-start justify-start gap-2 rounded-(--ui-radius-surface) border border-border bg-background p-5 text-left hover:border-foreground/20 hover:bg-muted"
-    >
-      <span className="text-xs font-semibold text-foreground">{label}</span>
-      <div>
-        <span className="font-[family-name:var(--font-display)] text-3xl font-bold text-foreground">
-          {value}
-        </span>
-        {detail ? (
-          <p className="mt-2 text-xs leading-5 text-muted-foreground">
-            {detail}
-          </p>
-        ) : null}
-        <span
-          className={
-            tone === "warning"
-              ? "mt-3 block h-0.5 w-8 bg-amber-300"
-              : tone === "positive"
-                ? "mt-3 block h-0.5 w-8 bg-emerald-300"
-                : "mt-3 block h-0.5 w-8 bg-border"
-          }
-        />
-      </div>
-    </OverviewActionLink>
-  )
-}
+import type { OverviewSummary } from "./overview-utils"
 
 export function WidgetCards({ data }: { data: OverviewSummary }) {
+  const health = data.contributionHealth
+  const lateAmount = data.primaryMetrics.portfolioAtRiskAmount
+
   return (
-    <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <WidgetCard
-        label="Deployable funds"
+    <section
+      aria-label="Key numbers"
+      className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+    >
+      <SummaryCard
+        detail="Ready for new loans"
         href="/loans"
+        label="Money you can lend"
+        tone={data.primaryMetrics.deployableFunds > 0 ? "good" : "attention"}
         value={formatCurrency(data.primaryMetrics.deployableFunds)}
-        detail="After reserves, active exposure, and approved commitments."
-        tone={
-          data.primaryMetrics.deployableFunds > 0 ? "positive" : "warning"
+      />
+      <SummaryCard
+        detail={
+          health.state === "no_commitments"
+            ? "No monthly payments set yet"
+            : `of ${formatCurrency(health.expectedThisMonth)} due`
         }
-      />
-      <WidgetCard
-        label="Collection coverage"
         href="/monthly-records"
-        value={formatPercent(data.primaryMetrics.collectionCoverage)}
-        detail={`${formatCurrency(data.contributionHealth.receivedThisMonth)} received for ${data.contributionHealth.periodLabel}.`}
-        tone={getCoverageTone(data.primaryMetrics.collectionCoverage)}
+        label={`Paid in ${health.periodLabel}`}
+        tone={health.state === "gap" ? "attention" : "good"}
+        value={formatCurrency(health.receivedThisMonth)}
       />
-      <WidgetCard
-        label="Portfolio at risk"
+      <SummaryCard
+        detail="Still to be repaid"
+        href="/loans"
+        label="Loans owed"
+        value={formatCurrency(data.financingRisk.outstandingPrincipal)}
+      />
+      <SummaryCard
+        detail={lateAmount > 0 ? "Past the due date" : "Nothing is late"}
         href={overdueRepaymentScheduleHref}
-        value={formatCurrency(data.primaryMetrics.portfolioAtRiskAmount)}
-        detail={`${formatPercent(data.primaryMetrics.portfolioAtRiskRate)} of active outstanding principal.`}
-        tone={getMetricTone(data.primaryMetrics.portfolioAtRiskRate, 0)}
+        label="Late repayments"
+        tone={lateAmount > 0 ? "attention" : "good"}
+        value={formatCurrency(lateAmount)}
       />
-      <WidgetCard
-        label="Action queue"
-        href="/membership-approvals"
-        value={data.primaryMetrics.actionQueueTotal.toString()}
-        detail="Approvals, KYC, financing, collections, imports, and setup."
-        tone={getMetricTone(data.primaryMetrics.actionQueueTotal, 0)}
-      />
-    </div>
+    </section>
   )
 }

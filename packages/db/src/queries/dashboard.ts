@@ -73,7 +73,11 @@ export type OverviewSummary = {
     activeInvestmentPoolCount: number
   }
   recentActivity: Array<{
+    /** Money moved, or null for a request. */
+    amount: number | null
     id: string
+    kind: "contribution" | "loan_request" | "repayment"
+    memberName: string
     label: string
     detail: string
     occurredAt: string
@@ -238,15 +242,36 @@ export async function getOverviewSummary(
   }
 
   const { month, year } = getCurrentMonth()
-  const tenant = await prisma.tenant.findUnique({
-    select: {
-      currencyCode: true,
-      id: true,
-      initialMigrationStatus: true,
-      name: true,
-    },
-    where: { id: tenantId },
-  })
+  // The current month's record, or else the latest one still open. Rows load
+  // once, for the chosen record only.
+  const [tenant, candidateRecords] = await Promise.all([
+    prisma.tenant.findUnique({
+      select: {
+        currencyCode: true,
+        id: true,
+        initialMigrationStatus: true,
+        name: true,
+      },
+      where: { id: tenantId },
+    }),
+    prisma.monthlyRecord.findMany({
+      orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }],
+      select: {
+        id: true,
+        periodLabel: true,
+        periodMonth: true,
+        periodYear: true,
+      },
+      take: 2,
+      where: {
+        OR: [
+          { periodMonth: month, periodYear: year },
+          { status: { in: [...pendingMonthlyRecordStatuses] } },
+        ],
+        tenantId,
+      },
+    }),
+  ])
 
   if (!tenant) {
     return getEmptyOverviewSummary({
@@ -257,43 +282,16 @@ export async function getOverviewSummary(
   }
 
   const currentMonthlyRecord =
-    (await prisma.monthlyRecord.findFirst({
-      include: {
-        memberRows: {
-          select: {
-            calculatedPayableAmount: true,
-            status: true,
-            totalPaidAmount: true,
-          },
-        },
-      },
-      orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }],
-      where: {
-        periodMonth: month,
-        periodYear: year,
-        tenantId,
-      },
-    })) ??
-    (await prisma.monthlyRecord.findFirst({
-      include: {
-        memberRows: {
-          select: {
-            calculatedPayableAmount: true,
-            status: true,
-            totalPaidAmount: true,
-          },
-        },
-      },
-      orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }],
-      where: {
-        status: { in: [...pendingMonthlyRecordStatuses] },
-        tenantId,
-      },
-    }))
+    candidateRecords.find(
+      (record) => record.periodMonth === month && record.periodYear === year
+    ) ??
+    candidateRecords[0] ??
+    null
 
   const deployableFundsSnapshot = getDeployableFundsSnapshot({ tenantId }, prisma)
   const [
-    metrics,
+    deployableFundsForOverview,
+    monthlyRows,
     pendingMemberApprovals,
     kycReviewCount,
     pendingDocumentReviews,
@@ -320,9 +318,17 @@ export async function getOverviewSummary(
     financingCycleHealth,
     operationProfile,
   ] = await Promise.all([
-    getDashboardMetrics(tenantId, prisma, {
-      deployableFunds: deployableFundsSnapshot,
-    }),
+    deployableFundsSnapshot,
+    currentMonthlyRecord
+      ? prisma.monthlyRecordMember.findMany({
+          select: {
+            calculatedPayableAmount: true,
+            status: true,
+            totalPaidAmount: true,
+          },
+          where: { monthlyRecordId: currentMonthlyRecord.id, tenantId },
+        })
+      : Promise.resolve([]),
     prisma.memberOnboardingRequest.count({
       where: { status: "pending_approval", tenantId },
     }),
@@ -410,38 +416,35 @@ export async function getOverviewSummary(
       where: { status: "draft", tenantId },
     }),
     prisma.contribution.findMany({
-      include: {
-        member: {
-          select: {
-            fullName: true,
-          },
-        },
-      },
       orderBy: { postedAt: "desc" },
+      select: {
+        id: true,
+        memberId: true,
+        postedAt: true,
+        amount: true,
+      },
       take: 3,
       where: { status: "posted", tenantId },
     }),
     prisma.repayment.findMany({
-      include: {
-        member: {
-          select: {
-            fullName: true,
-          },
-        },
-      },
       orderBy: { paidAt: "desc" },
+      select: {
+        id: true,
+        memberId: true,
+        paidAt: true,
+        amount: true,
+      },
       take: 3,
       where: { status: "posted", tenantId },
     }),
     prisma.loanRequest.findMany({
-      include: {
-        member: {
-          select: {
-            fullName: true,
-          },
-        },
-      },
       orderBy: { requestedAt: "desc" },
+      select: {
+        id: true,
+        memberId: true,
+        requestedAt: true,
+        status: true,
+      },
       take: 3,
       where: { tenantId },
     }),
@@ -451,7 +454,26 @@ export async function getOverviewSummary(
     getTenantOperationProfile(tenantId, prisma),
   ])
 
-  const monthlyRows = currentMonthlyRecord?.memberRows ?? []
+  const activityMemberIds = [
+    ...new Set(
+      [...latestContributions, ...latestRepayments, ...latestLoanRequests]
+        .map((row) => row.memberId)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ]
+  const activityMemberNames = new Map(
+    activityMemberIds.length > 0
+      ? (
+          await prisma.member.findMany({
+            select: { fullName: true, id: true },
+            where: { id: { in: activityMemberIds }, tenantId },
+          })
+        ).map((member) => [member.id, member.fullName])
+      : []
+  )
+  const memberName = (memberId: string | null) =>
+    (memberId ? activityMemberNames.get(memberId) : null) ?? "A member"
+
   // Without a monthly record, estimate from active commitments and this
   // month's posted contributions instead of all-time totals (F22).
   const contributionHealth = buildContributionHealth({
@@ -491,7 +513,9 @@ export async function getOverviewSummary(
   // One snapshot feeds disbursement, Loans, mobile and this overview.
   const deployableFunds = financingCycleHealth.deployableFunds.deployableFunds
   const portfolioAtRiskRate =
-    metrics.outstandingLoans > 0 ? overdueAmount / metrics.outstandingLoans : 0
+    deployableFundsForOverview.outstandingFinancingAmount > 0
+      ? overdueAmount / deployableFundsForOverview.outstandingFinancingAmount
+      : 0
   const pendingProfitAmount =
     Number(pendingProfitEntries._sum.allocatableProfitAmount ?? 0) +
     Number(pendingShareAllocations._sum.allocatedProfitAmount ?? 0)
@@ -617,6 +641,13 @@ export async function getOverviewSummary(
       severity: "critical" as const,
     },
     {
+      count: draftDividendPeriods + Number(pendingProfitAmount > 0),
+      href: "/settings/finance/business",
+      key: "profit-review",
+      label: "Profit or dividend items pending review",
+      severity: "warning" as const,
+    },
+    {
       count: setupWarnings.length,
       href: "/getting-started",
       key: "setup-warnings",
@@ -660,21 +691,30 @@ export async function getOverviewSummary(
 
   const recentActivity = [
     ...latestContributions.map((contribution) => ({
-      detail: `${contribution.member?.fullName ?? "Unknown member"} posted ${Number(contribution.amount).toLocaleString("en-NG")}`,
+      amount: Number(contribution.amount),
+      detail: `${memberName(contribution.memberId)} paid ${Number(contribution.amount).toLocaleString("en-NG")}`,
+      kind: "contribution" as const,
+      memberName: memberName(contribution.memberId),
       href: "/contributions",
       id: `contribution-${contribution.id}`,
       label: "Contribution posted",
       occurredAt: contribution.postedAt.toISOString(),
     })),
     ...latestRepayments.map((repayment) => ({
-      detail: `${repayment.member?.fullName ?? "Unknown member"} repaid ${Number(repayment.amount).toLocaleString("en-NG")}`,
+      amount: Number(repayment.amount),
+      detail: `${memberName(repayment.memberId)} repaid ${Number(repayment.amount).toLocaleString("en-NG")}`,
+      kind: "repayment" as const,
+      memberName: memberName(repayment.memberId),
       href: "/repayments",
       id: `repayment-${repayment.id}`,
       label: "Repayment posted",
       occurredAt: repayment.paidAt.toISOString(),
     })),
     ...latestLoanRequests.map((request) => ({
-      detail: `${request.member?.fullName ?? "Unknown member"} · ${request.status.replace(/_/g, " ")}`,
+      amount: null,
+      detail: `${memberName(request.memberId)} · ${request.status.replace(/_/g, " ")}`,
+      kind: "loan_request" as const,
+      memberName: memberName(request.memberId),
       href: "/loans",
       id: `loan-request-${request.id}`,
       label: "Financing request updated",
@@ -705,7 +745,8 @@ export async function getOverviewSummary(
     contributionHealth,
     financingRisk: {
       financingCycleWarningCount: financingCycleHealth.warnings.length,
-      outstandingPrincipal: metrics.outstandingLoans,
+      outstandingPrincipal:
+        deployableFundsForOverview.outstandingFinancingAmount,
       overdueAmount,
       par30Amount,
       par60Amount,

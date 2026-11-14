@@ -65,9 +65,8 @@ const role = initRoleAccess<CooperativeRole>()
 export const dashboardNavRegistry: NavModule[] = [
   createNavModule("Home", HomeIcon, "Workspace overview", [
     createNavSection("general", "General", [
-      createNavLink("Dashboard", DashboardIcon, "/", [], [])
-        .level(1)
-        .title("Dashboard").data,
+      createNavLink("Home", DashboardIcon, "/", [], []).level(1).title("Home")
+        .data,
       createNavLink(
         "Analytics",
         AnalyticsIcon,

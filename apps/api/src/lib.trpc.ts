@@ -150,6 +150,18 @@ export const tenantProcedure = authenticatedProcedure.use(({ ctx, next }) => {
   })
 })
 
+/** Cooperative staff only: tenant-wide reads that members must not see. */
+export const staffProcedure = tenantProcedure.use(({ ctx, next }) => {
+  if (ctx.auth.activeMembership.role === "member") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Staff access is required for this action.",
+    })
+  }
+
+  return next({ ctx })
+})
+
 export const memberOperationalProcedure = tenantProcedure.use(
   async ({ ctx, next }) => {
     if (ctx.auth.activeMembership.role !== "member") {

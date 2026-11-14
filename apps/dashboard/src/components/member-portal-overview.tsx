@@ -1,510 +1,308 @@
-import { TenantLink as Link } from "@halaalvest/tenant-url/next"
-import { formatCurrency } from "@halaalvest/utils"
 import type {
-  FoodPurchaseApplicationRow,
-  MemberPaymentReceiptRow,
-  MemberShareApplicationRow,
-  MemberUnitSharePosition,
-  ProcurementRequestRow,
-  ProjectFinancingRequestRow,
-  SupportCaseRow,
-  TenantSharePolicySettings,
-  getMemberStatementDetail,
+  MemberHomeSnapshot,
   MemberOperationalReadiness,
 } from "@halaalvest/db"
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@halaalvest/ui/components/alert"
-import { BadgeCheck, CircleAlert } from "lucide-react"
-import {
-  DashboardPageFrame,
-  DashboardSectionCard,
-  DashboardSectionHeader,
-  DashboardStatCard,
-  TrendPill,
-} from "@/components/dashboard"
+import { TenantLink as Link } from "@halaalvest/tenant-url/next"
+import { buttonVariants } from "@halaalvest/ui/components/button"
+import { cn } from "@halaalvest/ui/lib/utils"
+import { formatCurrency } from "@halaalvest/utils"
+import { BadgeCheck, ChevronRight, CircleAlert } from "lucide-react"
 import { MemberDocumentSelfServiceForm } from "@/components/member-document-self-service-form"
-import { MemberPortalActions } from "@/components/member-portal-actions"
+import { SummaryCard } from "@/components/summary-card"
 import {
-  describeOtherObligations,
-  describeSpecialSavings,
-  getOtherObligationsOutstanding,
-} from "@/lib/members/member-balances"
+  getMemberStatusWord,
+  getMemberWaitingItems,
+} from "@/lib/dashboard/member-home"
+import { formatDayMonthYear } from "@/utils/format"
 
-type MemberStatementDetail = NonNullable<
-  Awaited<ReturnType<typeof getMemberStatementDetail>>
->
-
-function formatDate(value: Date | string | null | undefined) {
-  if (!value) return "Not recorded"
-
-  const date = value instanceof Date ? value : new Date(value)
-
-  return date.toLocaleDateString("en-NG", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
-
-function formatStatus(value: string | null | undefined) {
-  return value ? value.replace(/_/g, " ") : "Not set"
-}
-
-function activeLoanCount(detail: MemberStatementDetail) {
-  return detail.loans.filter((loan) =>
-    ["approved", "disbursed", "active", "defaulted"].includes(loan.status)
-  ).length
-}
-
-function latestOpenSupportCases(cases: SupportCaseRow[]) {
-  return cases.filter((supportCase) =>
-    ["open", "in_progress", "waiting_on_member"].includes(supportCase.status)
-  )
-}
+const sectionClassName =
+  "min-w-0 rounded-(--ui-radius-surface) border border-border bg-card p-5"
 
 function memberSupportPrefillHref(values: Record<string, string>) {
-  const params = new URLSearchParams(values)
-
-  return `/support?${params.toString()}`
+  return `/support?${new URLSearchParams(values).toString()}`
 }
 
+const detailsUpdateHref = memberSupportPrefillHref({
+  category: "account_update",
+  description: "Please update my details. The changes are:",
+  subject: "Update my details",
+})
+
 export function MemberPortalOverview({
-  canCreateFoodPurchase,
-  canCreateProcurement,
-  canShowFoodPurchase,
-  canShowProcurement,
-  detail,
-  foodPurchaseApplications,
+  canSendReceipt,
   operationalReadiness,
-  procurementRequests,
-  projectFinancingRequests,
-  receipts,
-  shareApplications,
-  sharePolicy,
-  sharePosition,
-  supportCases,
+  snapshot,
 }: {
-  canCreateFoodPurchase: boolean
-  canCreateProcurement: boolean
-  canShowFoodPurchase: boolean
-  canShowProcurement: boolean
-  detail: MemberStatementDetail
-  foodPurchaseApplications: FoodPurchaseApplicationRow[]
+  canSendReceipt: boolean
   operationalReadiness: MemberOperationalReadiness
-  procurementRequests: ProcurementRequestRow[]
-  projectFinancingRequests: ProjectFinancingRequestRow[]
-  receipts: MemberPaymentReceiptRow[]
-  shareApplications: MemberShareApplicationRow[]
-  sharePolicy: TenantSharePolicySettings
-  sharePosition: MemberUnitSharePosition | null
-  supportCases: SupportCaseRow[]
+  snapshot: MemberHomeSnapshot
 }) {
-  const summary = detail.summary
-  const activePlan =
-    detail.member.contributionPlans.find((plan) => plan.isActive) ?? null
-  const openSupportCases = latestOpenSupportCases(supportCases)
-  const openAccountUpdateCases = openSupportCases.filter(
-    (supportCase) => supportCase.category === "account_update"
-  )
-  const profileUpdateSupportHref = memberSupportPrefillHref({
-    category: "account_update",
-    description:
-      "Please review my profile or document update request. The details are:",
-    subject: "Profile or document update",
-  })
-  const pendingReceipts = receipts.filter((receipt) =>
-    ["submitted", "under_review", "correction_requested"].includes(
-      receipt.status
-    )
-  )
-  const pendingShareApplications = shareApplications.filter(
-    (application) => application.status === "pending"
-  )
-  const activeObligationCount =
-    activeLoanCount(detail) +
-    procurementRequests.filter((request) =>
-      ["approved", "active", "purchased"].includes(request.status)
-    ).length +
-    projectFinancingRequests.filter((request) =>
-      ["approved", "active"].includes(request.status)
-    ).length +
-    foodPurchaseApplications.filter(
-      (application) => application.status === "approved"
-    ).length
-  const otherObligationsOutstanding = getOtherObligationsOutstanding(summary)
+  const { activity, member, summary } = snapshot
+  const isReady = operationalReadiness.isReady
+  const waitingItems = getMemberWaitingItems(snapshot.inProgress)
+  const firstName = member.fullName.trim().split(/\s+/)[0] ?? ""
+  const otherOwed =
+    (summary?.procurementOutstanding ?? 0) +
+    (summary?.foodPurchaseOutstanding ?? 0)
+  const monthlyPayment = summary?.activeCommitmentAmount ?? 0
 
   return (
-    <DashboardPageFrame>
-      <section className="space-y-2">
-        <p className="text-xs font-medium text-muted-foreground">
-          Member dashboard
-        </p>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">
-              <span className="inline-flex items-center gap-2">
-                {detail.member.fullName}
-                {operationalReadiness.isReady ? (
-                  <BadgeCheck
-                    aria-label="Verified member"
-                    className="size-5 text-emerald-600"
-                  />
-                ) : null}
-              </span>
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {detail.member.memberNumber} ·{" "}
-              {formatStatus(detail.member.memberType)} ·{" "}
-              {detail.member.status === "active" &&
-              !operationalReadiness.isReady
-                ? "Action required"
-                : formatStatus(detail.member.status)}
-            </p>
-          </div>
-          <MemberPortalActions
-            canShowFoodPurchase={canShowFoodPurchase}
-            canShowProcurement={canShowProcurement}
-          />
+    <div className="flex flex-col gap-6">
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="font-[family-name:var(--font-display)] text-2xl font-semibold text-foreground sm:text-3xl">
+            {firstName ? `Welcome back, ${firstName}` : "Welcome back"}
+          </h2>
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-lg text-muted-foreground">
+            <span>Member {member.memberNumber}</span>
+            <span aria-hidden="true">·</span>
+            <span className="inline-flex items-center gap-1.5">
+              {isReady ? (
+                <BadgeCheck
+                  aria-hidden="true"
+                  className="size-5 text-emerald-600"
+                />
+              ) : null}
+              {getMemberStatusWord(member.status, isReady)}
+            </span>
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {canSendReceipt && isReady ? (
+            <Link
+              className={buttonVariants({ variant: "default" })}
+              href="/payment-receipts"
+            >
+              Send a payment receipt
+            </Link>
+          ) : null}
+          <Link
+            className={buttonVariants({ variant: "outline" })}
+            href="/member-statement-export"
+          >
+            Download statement
+          </Link>
         </div>
       </section>
 
-      {!operationalReadiness.isReady ? (
-        <Alert className="items-start border-amber-300 bg-amber-50 px-4 py-4 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
-          <CircleAlert className="mt-0.5 size-5" />
-          <AlertTitle className="text-sm">
-            Your account needs verification
-          </AlertTitle>
-          <AlertDescription className="mt-1 text-sm text-amber-900/80 dark:text-amber-100/80">
-            You can review your records and contact support, but financial and
-            operational requests stay read-only until cooperative staff finish
-            your KYC and required migration checks.
-            <div className="mt-3">
-              <MemberLink href={profileUpdateSupportHref}>
-                Request an update
-              </MemberLink>
+      {!isReady ? (
+        <section
+          className="flex flex-col gap-4 rounded-(--ui-radius-surface) border border-amber-300 bg-amber-50 p-5 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+          role="status"
+        >
+          <div className="flex items-start gap-3">
+            <CircleAlert
+              aria-hidden="true"
+              className="mt-0.5 size-6 shrink-0"
+            />
+            <div>
+              <h3 className="text-lg font-semibold">
+                We are still checking your details
+              </h3>
+              <p className="mt-1 text-base">
+                You can see your records and ask for help. New requests open
+                once the checks are done.
+              </p>
             </div>
-          </AlertDescription>
-        </Alert>
+          </div>
+          <div>
+            <Link
+              className={buttonVariants({ variant: "outline" })}
+              href={detailsUpdateHref}
+            >
+              Ask for help
+            </Link>
+          </div>
+        </section>
       ) : null}
 
-      <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-6">
-        <DashboardStatCard
+      <section
+        aria-label="Your money"
+        className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+      >
+        <SummaryCard
           detail={
-            activePlan
-              ? `Effective ${formatDate(activePlan.startsAt)}`
-              : "No active commitment plan"
+            monthlyPayment > 0
+              ? `You pay ${formatCurrency(monthlyPayment)} a month`
+              : "Your savings so far"
           }
-          label="Monthly commitment"
-          value={formatCurrency(summary?.activeCommitmentAmount ?? 0)}
-        />
-        <DashboardStatCard
-          detail={`${summary?.contributionsCount ?? 0} posted contributions`}
-          label="Savings snapshot"
-          tone="positive"
+          label="Savings"
+          tone="good"
           value={formatCurrency(summary?.totalSavingsSnapshot ?? 0)}
         />
-        <DashboardStatCard
-          detail={describeSpecialSavings(summary)}
+        <SummaryCard
+          detail="Extra savings you can ask to withdraw"
           label="Special savings"
           value={formatCurrency(summary?.specialSavingsBalance ?? 0)}
         />
-        <DashboardStatCard
-          detail={`${activeLoanCount(detail)} active financing records`}
-          label="Outstanding financing"
-          tone={summary?.totalOutstandingPrincipal ? "warning" : "default"}
+        <SummaryCard
+          detail={
+            (summary?.totalOutstandingPrincipal ?? 0) > 0
+              ? "Still to repay"
+              : "You owe nothing on loans"
+          }
+          href="/loans"
+          label="Loans you owe"
+          tone={
+            (summary?.totalOutstandingPrincipal ?? 0) > 0
+              ? "attention"
+              : "default"
+          }
           value={formatCurrency(summary?.totalOutstandingPrincipal ?? 0)}
         />
-        <DashboardStatCard
-          detail={`${describeOtherObligations(summary)} · ${activeObligationCount} active or approved items`}
-          label="Procurement and food"
-          tone={otherObligationsOutstanding ? "warning" : "default"}
-          value={formatCurrency(otherObligationsOutstanding)}
+        <SummaryCard
+          detail="Your shares in the cooperative"
+          href="/shares"
+          label="Share capital"
+          value={formatCurrency(summary?.shareCapitalBalance ?? 0)}
         />
-        <DashboardStatCard
-          detail={`${summary?.dividendAllocationCount ?? 0} published allocations`}
-          label="Published dividends"
-          value={formatCurrency(summary?.totalDividendAllocations ?? 0)}
-        />
+        {otherOwed > 0 ? (
+          <SummaryCard
+            detail="For items and food bought for you"
+            label="Other amounts you owe"
+            tone="attention"
+            value={formatCurrency(otherOwed)}
+          />
+        ) : null}
+        {(summary?.totalDividendAllocations ?? 0) > 0 ? (
+          <SummaryCard
+            detail="Your share of the profit"
+            label="Dividends"
+            tone="good"
+            value={formatCurrency(summary?.totalDividendAllocations ?? 0)}
+          />
+        ) : null}
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-        <DashboardSectionCard>
-          <DashboardSectionHeader
-            actions={
-              <>
-                <TrendPill
-                  tone={
-                    detail.member.kycStatus === "verified"
-                      ? "positive"
-                      : "warning"
-                  }
+      <div className="grid gap-4 xl:grid-cols-2">
+        <section
+          aria-labelledby="member-waiting-title"
+          className={sectionClassName}
+        >
+          <h2
+            className="text-xl font-semibold text-foreground"
+            id="member-waiting-title"
+          >
+            In progress
+          </h2>
+          {waitingItems.length > 0 ? (
+            <ul className="mt-3 divide-y divide-border">
+              {waitingItems.map((item) => (
+                <li key={item.key}>
+                  <Link
+                    className="group -mx-2 flex min-h-14 items-center gap-4 rounded-(--ui-radius-control) px-2 py-2 hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
+                    href={item.href}
+                  >
+                    <span
+                      className={cn(
+                        "flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full px-2 text-lg font-semibold tabular-nums",
+                        item.needsYou
+                          ? "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-100"
+                          : "bg-muted text-foreground"
+                      )}
+                    >
+                      {item.count}
+                    </span>
+                    <span className="min-w-0 flex-1 text-base font-medium text-foreground first-letter:uppercase">
+                      {item.label}
+                    </span>
+                    <ChevronRight
+                      aria-hidden="true"
+                      className="size-5 shrink-0 text-muted-foreground"
+                    />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-base text-muted-foreground">
+              Nothing is waiting right now.
+            </p>
+          )}
+        </section>
+
+        <section
+          aria-labelledby="member-activity-title"
+          className={sectionClassName}
+        >
+          <h2
+            className="text-xl font-semibold text-foreground"
+            id="member-activity-title"
+          >
+            Your recent payments
+          </h2>
+          {activity.length > 0 ? (
+            <ul className="mt-3 divide-y divide-border">
+              {activity.map((item) => (
+                <li
+                  className="flex min-h-14 items-center justify-between gap-4 py-2"
+                  key={item.id}
                 >
-                  {formatStatus(detail.member.kycStatus)}
-                </TrendPill>
-                <MemberLink href={profileUpdateSupportHref}>
-                  Request update
-                </MemberLink>
-              </>
-            }
-            eyebrow="Profile"
-            title="Profile status"
-          />
-          <dl className="mt-5 grid gap-4 text-sm md:grid-cols-2">
-            <DataPoint
-              label="Email"
-              value={detail.member.email ?? detail.member.user?.email}
-            />
-            <DataPoint label="Phone" value={detail.member.phoneNumber} />
-            <DataPoint
-              label="Joined"
-              value={formatDate(detail.member.joinedAt)}
-            />
-            <DataPoint
-              label="Deduction source"
-              value={detail.member.deductionSource?.name}
-            />
-            <DataPoint label="Occupation" value={detail.member.occupation} />
-            <DataPoint label="Address" value={detail.member.address} />
-            <DataPoint
-              label="Open update requests"
-              value={openAccountUpdateCases.length.toString()}
-            />
-          </dl>
-          <MemberDocumentSelfServiceForm />
-        </DashboardSectionCard>
+                  <span className="min-w-0">
+                    <span className="block text-base font-medium text-foreground">
+                      {item.kind === "repayment"
+                        ? "Loan repayment"
+                        : "Savings payment"}
+                    </span>
+                    <span className="block text-base text-muted-foreground">
+                      {formatDayMonthYear(item.occurredAt)}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-lg font-semibold text-foreground tabular-nums">
+                    {formatCurrency(item.amount)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-base text-muted-foreground">
+              Your payments will show here once they are recorded.
+            </p>
+          )}
+        </section>
+      </div>
 
-        <DashboardSectionCard>
-          <DashboardSectionHeader
-            actions={<TrendPill>{shareApplications.length} requests</TrendPill>}
-            eyebrow="Shares"
-            title="Share position"
-          />
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <MiniMetric
-              label="Share model"
-              value={formatStatus(sharePolicy.configurationMode)}
-            />
-            <MiniMetric
-              label="Share capital"
-              value={formatCurrency(summary?.shareCapitalBalance ?? 0)}
-            />
-            {sharePosition ? (
-              <MiniMetric
-                label="Approved units"
-                value={`${sharePosition.totalApprovedUnits} × ${formatCurrency(
-                  sharePosition.unitAmount
-                )}`}
-              />
-            ) : (
-              <MiniMetric
-                label="Unit value"
-                value={formatCurrency(sharePolicy.unitAmount)}
-              />
-            )}
-            <MiniMetric
-              label="Pending requests"
-              value={pendingShareApplications.length.toString()}
-            />
-          </div>
-        </DashboardSectionCard>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-        <DashboardSectionCard>
-          <DashboardSectionHeader
-            actions={
-              <>
-                <TrendPill>{detail.loans.length} records</TrendPill>
-                {canCreateProcurement ? (
-                  <MemberLink href="/procurement">Request item</MemberLink>
-                ) : null}
-                {operationalReadiness.isReady ? (
-                  <MemberLink href="/project-financing">
-                    Request business
-                  </MemberLink>
-                ) : null}
-              </>
-            }
-            eyebrow="Financing"
-            title="Financing and obligations"
-          />
-          <div className="mt-5 space-y-3">
-            <StatusRows
-              empty="No active financing records."
-              rows={detail.loans.slice(0, 4).map((loan) => ({
-                detail: `${formatCurrency(Number(loan.outstandingPrincipal))} outstanding`,
-                key: loan.id,
-                label: loan.loanProduct?.name ?? "Financing",
-                status: loan.status,
-              }))}
-            />
-            {canShowProcurement ? (
-              <StatusRows
-                empty="No procurement requests."
-                rows={procurementRequests.slice(0, 3).map((request) => ({
-                  detail: formatCurrency(request.requestedCost),
-                  key: request.id,
-                  label: request.itemName,
-                  status: request.status,
-                }))}
-              />
-            ) : null}
-            <StatusRows
-              empty="No project financing requests."
-              rows={projectFinancingRequests.slice(0, 3).map((request) => ({
-                detail: formatCurrency(request.requestedAmount),
-                key: request.id,
-                label: request.businessName,
-                status: request.status,
-              }))}
-            />
-          </div>
-        </DashboardSectionCard>
-
-        <DashboardSectionCard>
-          <DashboardSectionHeader
-            actions={<TrendPill>{receipts.length} recent</TrendPill>}
-            eyebrow="Payments"
-            title="Receipts and support"
-          />
-          <div className="mt-5 space-y-5">
-            <StatusRows
-              empty="No recent payment receipts."
-              rows={receipts.slice(0, 4).map((receipt) => ({
-                detail: formatCurrency(receipt.totalAmount),
-                key: receipt.id,
-                label: receipt.paymentReference ?? formatDate(receipt.paidAt),
-                status: receipt.status,
-              }))}
-            />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <MiniMetric
-                label="Pending receipts"
-                value={pendingReceipts.length.toString()}
-              />
-              <MiniMetric
-                label="Open support"
-                value={openSupportCases.length.toString()}
-              />
-            </div>
-            <StatusRows
-              empty="No recent support cases."
-              rows={supportCases.slice(0, 3).map((supportCase) => ({
-                detail: supportCase.category.replace(/_/g, " "),
-                key: supportCase.id,
-                label: supportCase.subject,
-                status: supportCase.status,
-              }))}
-            />
-          </div>
-        </DashboardSectionCard>
-      </section>
-
-      {canShowFoodPurchase ? (
-        <DashboardSectionCard>
-          <DashboardSectionHeader
-            actions={
-              <>
-                <TrendPill>
-                  {foodPurchaseApplications.length} applications
-                </TrendPill>
-                {canCreateFoodPurchase ? (
-                  <MemberLink href="/food-purchase">Apply</MemberLink>
-                ) : null}
-              </>
-            }
-            eyebrow="Foodstuff Purchase"
-            title="Foodstuff Purchase applications"
-          />
-          <div className="mt-5">
-            <StatusRows
-              empty="No Foodstuff Purchase applications."
-              rows={foodPurchaseApplications.slice(0, 5).map((application) => ({
-                detail: formatCurrency(application.requestedAmount),
-                key: application.id,
-                label:
-                  application.itemDescription ??
-                  formatDate(application.cycle.periodMonth),
-                status: application.status,
-              }))}
-            />
-          </div>
-        </DashboardSectionCard>
-      ) : null}
-
-      <DashboardSectionCard>
-        <DashboardSectionHeader
-          actions={
-            <>
-              <TrendPill>{detail.ledgerTransactions.length} entries</TrendPill>
-              <MemberLink href="/member-statement-export">Download</MemberLink>
-            </>
-          }
-          eyebrow="Statement"
-          title="Recent ledger activity"
-        />
-        <div className="mt-5">
-          <StatusRows
-            empty="No ledger activity has been posted yet."
-            rows={detail.ledgerTransactions.slice(0, 6).map((transaction) => ({
-              detail: formatDate(transaction.postedAt),
-              key: transaction.id,
-              label: transaction.narration ?? transaction.transactionType,
-              status: transaction.transactionType,
-            }))}
-          />
+      <section
+        aria-labelledby="member-details-title"
+        className={sectionClassName}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2
+            className="text-xl font-semibold text-foreground"
+            id="member-details-title"
+          >
+            Your details
+          </h2>
+          <Link
+            className={buttonVariants({ variant: "outline" })}
+            href={detailsUpdateHref}
+          >
+            Ask to change them
+          </Link>
         </div>
-      </DashboardSectionCard>
-
-      <DashboardSectionCard>
-        <DashboardSectionHeader
-          actions={
-            <TrendPill>
-              {detail.dividendAllocations.length} allocations
-            </TrendPill>
-          }
-          eyebrow="Dividends"
-          title="Published dividend allocations"
-        />
-        <div className="mt-5">
-          <StatusRows
-            empty="No published dividend allocations yet."
-            rows={detail.dividendAllocations.slice(0, 5).map((allocation) => ({
-              detail: `${formatCurrency(
-                Number(allocation.allocationAmount)
-              )} from ${formatCurrency(Number(allocation.savingsBasisAmount))} basis`,
-              key: allocation.id,
-              label: allocation.dividendPeriod.name,
-              status: allocation.dividendPeriod.status,
-            }))}
+        <dl className="mt-4 grid gap-4 text-base sm:grid-cols-2 xl:grid-cols-4">
+          <DetailItem label="Email" value={member.email} />
+          <DetailItem label="Phone" value={member.phoneNumber} />
+          <DetailItem label="Workplace" value={member.workplaceName} />
+          <DetailItem
+            label="Joined"
+            value={formatDayMonthYear(member.joinedAt)}
           />
-        </div>
-      </DashboardSectionCard>
-    </DashboardPageFrame>
+        </dl>
+        {member.kycStatus !== "verified" ? (
+          <div className="mt-6 border-t border-border pt-5">
+            <h3 className="text-lg font-semibold text-foreground">
+              Send your ID document
+            </h3>
+            <MemberDocumentSelfServiceForm />
+          </div>
+        ) : null}
+      </section>
+    </div>
   )
 }
 
-function MemberLink({
-  children,
-  href,
-}: {
-  children: React.ReactNode
-  href: string
-}) {
-  return (
-    <Link
-      className="inline-flex h-11 items-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground hover:bg-muted"
-      href={href}
-    >
-      {children}
-    </Link>
-  )
-}
-
-function DataPoint({
+function DetailItem({
   label,
   value,
 }: {
@@ -512,89 +310,11 @@ function DataPoint({
   value: string | null | undefined
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       <dt className="text-muted-foreground">{label}</dt>
-      <dd className="mt-1 font-medium text-foreground">
-        {value || "Not provided"}
+      <dd className="mt-0.5 font-medium break-words text-foreground">
+        {value || "Not given"}
       </dd>
     </div>
   )
-}
-
-function MiniMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border border-border bg-background p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-2 font-medium text-foreground capitalize">{value}</p>
-    </div>
-  )
-}
-
-function StatusRows({
-  empty,
-  rows,
-}: {
-  empty: string
-  rows: Array<{
-    detail: string
-    key: string
-    label: string
-    status: string
-  }>
-}) {
-  if (!rows.length) {
-    return <p className="text-sm text-muted-foreground">{empty}</p>
-  }
-
-  return (
-    <div className="space-y-2">
-      {rows.map((row) => (
-        <div
-          className="flex flex-col items-start justify-between gap-2 border border-border bg-background px-3 py-2 sm:flex-row sm:items-center sm:gap-4"
-          key={row.key}
-        >
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground sm:truncate">
-              {row.label}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">{row.detail}</p>
-          </div>
-          <TrendPill tone={statusTone(row.status)}>
-            {formatStatus(row.status)}
-          </TrendPill>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function statusTone(status: string): "neutral" | "positive" | "warning" {
-  if (
-    [
-      "approved",
-      "active",
-      "completed",
-      "posted",
-      "verified",
-      "resolved",
-      "closed",
-      "fulfilled",
-    ].includes(status)
-  ) {
-    return "positive"
-  }
-
-  if (
-    [
-      "rejected",
-      "cancelled",
-      "defaulted",
-      "failed",
-      "correction_requested",
-    ].includes(status)
-  ) {
-    return "warning"
-  }
-
-  return "neutral"
 }

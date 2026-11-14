@@ -2,16 +2,8 @@ import { normalizeRole } from "@halaalvest/auth/roles"
 import {
   createDbRuntime,
   getMemberByUserId,
+  getMemberHomeSnapshot,
   getMemberOperationalReadiness,
-  getMemberStatementDetail,
-  getMemberUnitSharePosition,
-  getTenantSharePolicy,
-  listFoodPurchaseApplications,
-  listMemberPaymentReceipts,
-  listMemberShareApplications,
-  listProcurementRequests,
-  listProjectFinancingRequests,
-  listSupportCases,
 } from "@halaalvest/db"
 import {
   getOperationProfileHiddenNavPaths,
@@ -83,91 +75,34 @@ export async function loadTenantHomePageData() {
       }
     }
 
-    const [detail, operationalReadiness, receipts, supportCases, sharePolicy] =
+    // One lean snapshot instead of the full statement (75 → about 26
+    // statements on 14 Nov 2026).
+    const [snapshot, operationalReadiness, operationProfile] =
       await Promise.all([
-        getMemberStatementDetail(context.tenant.id, member.id),
+        getMemberHomeSnapshot({
+          memberId: member.id,
+          tenantId: context.tenant.id,
+        }),
         getMemberOperationalReadiness({
           memberId: member.id,
           tenantId: context.tenant.id,
         }),
-        listMemberPaymentReceipts(context.tenant.id, {
-          memberId: member.id,
-        }),
-        listSupportCases({
-          limit: 5,
-          memberId: member.id,
-          tenantId: context.tenant.id,
-        }),
-        getTenantSharePolicy(context.tenant.id),
+        getRequestTenantOperationProfile(context.tenant.id),
       ])
 
-    if (!detail || !operationalReadiness) {
+    if (!snapshot || !operationalReadiness) {
       return {
         state: "member-profile-missing" as const,
         ...shell,
       }
     }
 
-    const [
-      shareApplications,
-      sharePosition,
-      procurementRequests,
-      projectFinancingRequests,
-      foodPurchaseApplications,
-      operationProfile,
-    ] = await Promise.all([
-      listMemberShareApplications({
-        memberId: member.id,
-        tenantId: context.tenant.id,
-      }),
-      sharePolicy.configurationMode === "unit_based"
-        ? getMemberUnitSharePosition({
-            memberId: member.id,
-            tenantId: context.tenant.id,
-          })
-        : Promise.resolve(null),
-      listProcurementRequests({
-        limit: 5,
-        memberId: member.id,
-        tenantId: context.tenant.id,
-      }),
-      listProjectFinancingRequests({
-        limit: 5,
-        memberId: member.id,
-        tenantId: context.tenant.id,
-      }),
-      listFoodPurchaseApplications({
-        limit: 5,
-        memberId: member.id,
-        tenantId: context.tenant.id,
-      }),
-      getRequestTenantOperationProfile(context.tenant.id),
-    ])
-    const procurementCapability = operationProfile.services.procurement
-    const foodPurchaseCapability = operationProfile.services.food_purchase
-
     return {
       state: "member-ready" as const,
-      canCreateFoodPurchase:
-        operationalReadiness.isReady && foodPurchaseCapability.canMemberCreate,
-      canCreateProcurement:
-        operationalReadiness.isReady && procurementCapability.canMemberCreate,
-      canShowFoodPurchase:
-        foodPurchaseCapability.shouldShowInMemberNav ||
-        foodPurchaseApplications.length > 0,
-      canShowProcurement:
-        procurementCapability.shouldShowInMemberNav ||
-        procurementRequests.length > 0,
-      detail,
-      foodPurchaseApplications,
+      canSendReceipt:
+        operationProfile.services.payment_receipts.shouldShowInMemberNav,
       operationalReadiness,
-      procurementRequests,
-      projectFinancingRequests,
-      receipts: receipts.slice(0, 5),
-      shareApplications: shareApplications.slice(0, 5),
-      sharePolicy,
-      sharePosition,
-      supportCases,
+      snapshot,
       ...shell,
     }
   }

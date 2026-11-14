@@ -1,62 +1,62 @@
 "use client"
 
-import {
-  OverviewActionLink,
-  OverviewPill,
-  OverviewSection,
-} from "./overview-ui"
-import {
-  getSeverityTone,
-  type OverviewActionQueueItem,
-} from "./overview-utils"
+import { TenantLink as Link } from "@halaalvest/tenant-url/next"
+import { cn } from "@halaalvest/ui/lib/utils"
+import { CircleCheck, ChevronRight } from "lucide-react"
+import type { OverviewAttentionItem } from "@/lib/dashboard/overview-attention"
 
-export function ActionQueue({
-  items,
-}: {
-  items: OverviewActionQueueItem[]
-}) {
-  const activeItems = items.filter((item) => item.count > 0)
-
+/** The work waiting for this person, as one tappable row per queue. */
+export function ActionQueue({ items }: { items: OverviewAttentionItem[] }) {
   return (
-    <OverviewSection
-      eyebrow="Today"
-      title="Action queue"
-      description="Work that blocks member trust, money movement, or daily operations."
-      actions={
-        <OverviewPill tone={activeItems.length ? "warning" : "positive"}>
-          {activeItems.length
-            ? `${activeItems.length} ${activeItems.length === 1 ? "queue" : "queues"} open`
-            : "No open queues"}
-        </OverviewPill>
-      }
+    <section
+      aria-labelledby="overview-attention-title"
+      className="min-w-0 rounded-(--ui-radius-surface) border border-border bg-card p-5"
+      id="needs-attention"
     >
-      <div className="divide-y divide-border">
-        {items.map((item) => (
-          <div
-            key={item.key}
-            className="flex flex-col gap-3 py-3 first:pt-4 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
-          >
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">
-                {item.label}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {item.count === 1
-                  ? "1 item requires review"
-                  : `${item.count} items require review`}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <OverviewPill tone={getSeverityTone(item.severity)}>
-                {item.count}
-              </OverviewPill>
-              <OverviewActionLink href={item.href} variant="ghost">
-                Open
-              </OverviewActionLink>
-            </div>
-          </div>
-        ))}
-      </div>
-    </OverviewSection>
+      <h2
+        className="text-xl font-semibold text-foreground"
+        id="overview-attention-title"
+      >
+        Needs your attention
+      </h2>
+      {items.length > 0 ? (
+        <ul className="mt-3 divide-y divide-border">
+          {items.map((item) => (
+            <li key={item.key}>
+              <Link
+                className="group -mx-2 flex min-h-14 items-center gap-4 rounded-(--ui-radius-control) px-2 py-2 hover:bg-muted focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+                href={item.href}
+              >
+                <span
+                  className={cn(
+                    "flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full px-2 text-lg font-semibold tabular-nums",
+                    item.urgent
+                      ? "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-100"
+                      : "bg-muted text-foreground"
+                  )}
+                >
+                  {item.count}
+                </span>
+                <span className="min-w-0 flex-1 text-base font-medium text-foreground first-letter:uppercase">
+                  {item.label}
+                </span>
+                <ChevronRight
+                  aria-hidden="true"
+                  className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+                />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-4 flex items-center gap-3 text-base text-foreground">
+          <CircleCheck
+            aria-hidden="true"
+            className="size-6 shrink-0 text-emerald-600"
+          />
+          You're all caught up.
+        </p>
+      )}
+    </section>
   )
 }

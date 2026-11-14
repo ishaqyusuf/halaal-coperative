@@ -1,6 +1,8 @@
 "use client"
 
-import { OverviewActionLink } from "./overview-ui"
+import { TenantLink as Link } from "@halaalvest/tenant-url/next"
+import { buttonVariants } from "@halaalvest/ui/components/button"
+import { CircleAlert } from "lucide-react"
 import type { OverviewSummary } from "./overview-utils"
 
 export function SetupWarnings({
@@ -13,29 +15,20 @@ export function SetupWarnings({
   }
 
   return (
-    <section className="border border-amber-200 bg-amber-50 px-4 py-3">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <p className="text-sm font-medium text-amber-950">
-            Setup needs attention
-          </p>
-          <p className="mt-1 text-sm text-amber-800">
-            Resolve setup warnings before treating the dashboard as a live
-            operating view.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {warnings.map((warning) => (
-            <OverviewActionLink
-              key={warning.key}
-              href={warning.href}
-              variant="secondary"
-            >
-              {warning.label}
-            </OverviewActionLink>
-          ))}
-        </div>
-      </div>
+    <section
+      className="flex flex-col gap-4 rounded-(--ui-radius-surface) border border-amber-300 bg-amber-50 p-5 text-amber-950 sm:flex-row sm:items-center sm:justify-between dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+      role="status"
+    >
+      <p className="flex items-start gap-3 text-base font-medium">
+        <CircleAlert aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
+        Setup is not finished. Some numbers may be incomplete.
+      </p>
+      <Link
+        className={buttonVariants({ variant: "default" })}
+        href={warnings[0]?.href ?? "/getting-started"}
+      >
+        Finish setup
+      </Link>
     </section>
   )
 }

@@ -12,7 +12,7 @@ describe("dashboard home Midday conformance", () => {
     const error = read("../app/(home)/error.tsx")
     const states = read("../components/dashboard-home-page-states.tsx")
 
-    expect(route).toContain('title: "Overview | Halaalvest"')
+    expect(route).toContain('title: "Home | Halaalvest"')
     expect(route).toContain(
       "prefetch(trpc.overview.summary.queryOptions())"
     )
@@ -37,25 +37,28 @@ describe("dashboard home Midday conformance", () => {
     expect(loader).toContain("getMemberOperationalReadiness")
   })
 
-  test("keeps member overview actions and summaries phone responsive", () => {
+  test("keeps the member home lean and phone friendly", () => {
     const overview = read("../components/member-portal-overview.tsx")
-    const actions = read("../components/member-portal-actions.tsx")
-    const overviewUi = read("../components/widgets/overview-ui.tsx")
+    const loader = read("./dashboard/load-tenant-home-page.ts")
     const skeleton = read("../components/widgets/overview-skeleton.tsx")
 
-    expect(overview).toContain("<MemberPortalActions")
-    expect(overview).toContain("grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-6")
-    expect(overview).toContain("sm:flex-row sm:items-center sm:gap-4")
+    // One snapshot read, not the full statement.
+    expect(loader).toContain("getMemberHomeSnapshot")
+    expect(loader).not.toContain("getMemberStatementDetail")
+    // One column of numbers on phones, no nested <main>.
+    expect(overview).toContain("grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4")
+    expect(overview).not.toContain("DashboardPageFrame")
     expect(
-      overview.match(
-        /<MemberLink href="\/member-statement-export">Download<\/MemberLink>/g
-      )?.length
+      overview.match(/href="\/member-statement-export"/g)?.length
     ).toBe(1)
-    expect(actions).toContain("<MobileActionsDrawer")
-    expect(actions).toContain('aria-label="More member dashboard actions"')
-    expect(actions).toContain('className="flex w-full gap-2 md:hidden"')
-    expect(overviewUi).toContain("min-h-11")
-    expect(overviewUi).toContain("md:min-h-10 md:px-3.5")
-    expect(skeleton).toContain('className="h-11 w-32"')
+    expect(overview).toContain("min-h-14")
+    expect(skeleton).toContain("SummaryCardSkeleton")
+  })
+
+  test("staff overview shows one title and plain, role-aware work", () => {
+    const view = read("../components/widgets/overview-view.tsx")
+
+    expect(view).not.toContain("<h1")
+    expect(view).toContain("getOverviewAttentionItems(data.actionQueue, role)")
   })
 })

@@ -1,9 +1,10 @@
 import { getOverviewSummary } from "@halaalvest/db"
 
-import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
+import { createTRPCRouter, staffProcedure } from "../lib.trpc"
 
 export const overviewRouter = createTRPCRouter({
-  summary: tenantProcedure.query(({ ctx }) => {
+  // Cooperative-wide numbers: members get their own home view instead.
+  summary: staffProcedure.query(({ ctx }) => {
     return getOverviewSummary(ctx.tenant.current.id)
   }),
 })

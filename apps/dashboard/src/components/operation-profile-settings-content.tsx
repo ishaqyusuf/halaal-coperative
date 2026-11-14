@@ -10,18 +10,17 @@ import type {
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
 import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-  FieldSet,
-} from "@halaalvest/ui/components/field"
+  RadioGroup,
+  RadioGroupItem,
+} from "@halaalvest/ui/components/radio-group"
 import { Textarea } from "@halaalvest/ui/components/textarea"
+import { cn } from "@halaalvest/ui/lib/utils"
 import { useRouter } from "next/navigation"
-import { LabeledSelectInput } from "@/components/labeled-select-input"
+import { ConfirmActionDialog } from "@/components/confirm-action-dialog"
 import { useOperationProfileSettingsParams } from "@/hooks/use-operation-profile-settings-params"
 import { updateTenantOperationProfileAction } from "@/lib/dashboard-actions"
 import {
+  getOperationProfileAccessEffect,
   getOperationProfileService,
   getOperationProfileServiceInputName,
   isRestrictiveOperationProfileAccessChange,
@@ -41,38 +40,59 @@ export function OperationProfileSettingsContent({
   const { setParams } = useOperationProfileSettingsParams()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
+  const [confirming, setConfirming] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
   const [nextAccessMode, setNextAccessMode] =
     useState<TenantServiceAccessMode>(currentAccessMode)
+  const [reason, setReason] = useState("")
   const service = getOperationProfileService(serviceKey)
   const selectedMode = operationProfileAccessModeOptions.find(
     (option) => option.value === nextAccessMode
   )!
-  const requiresChangeReason = isRestrictiveOperationProfileAccessChange({
+  const reducesAccess = isRestrictiveOperationProfileAccessChange({
     next: nextAccessMode,
     previous: currentAccessMode,
   })
+  const inputName = getOperationProfileServiceInputName(serviceKey)
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const formData = new FormData(event.currentTarget)
+  function save() {
+    if (!formRef.current) return
+    const formData = new FormData(formRef.current)
 
     startTransition(async () => {
       try {
         await updateTenantOperationProfileAction(formData)
         showSuccess(
-          "Service access saved",
-          `${service.label} is now ${selectedMode.label.toLowerCase()}.`
+          "Saved",
+          `${service.label}: ${selectedMode.label.toLowerCase()}.`
         )
+        setConfirming(false)
         await setParams(null)
         router.refresh()
       } catch (error) {
+        setConfirming(false)
         showError(
-          "Could not save service access",
+          "Could not save",
           error instanceof Error ? error.message : "Something went wrong."
         )
       }
     })
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (nextAccessMode === currentAccessMode) {
+      void setParams(null)
+      return
+    }
+
+    if (reducesAccess) {
+      setConfirming(true)
+      return
+    }
+
+    save()
   }
 
   return (
@@ -83,64 +103,81 @@ export function OperationProfileSettingsContent({
     >
       <DashboardNativeQuickFill
         values={() => ({
-          changeReason:
-            "Agreed at the monthly executive meeting to match current member demand.",
+          changeReason: "Agreed at the monthly executive meeting.",
         })}
       />
-      <FieldSet>
-        <FieldGroup>
-          <Field>
-            <FieldLabel
-              htmlFor={getOperationProfileServiceInputName(serviceKey)}
-            >
-              Access mode
-            </FieldLabel>
-            <FieldDescription>{service.body}</FieldDescription>
-            <LabeledSelectInput
-              disabled={isPending}
-              id={getOperationProfileServiceInputName(serviceKey)}
-              name={getOperationProfileServiceInputName(serviceKey)}
-              onValueChange={(value) => {
-                const option = operationProfileAccessModeOptions.find(
-                  (candidate) => candidate.value === value
-                )
+      <p className="text-base text-muted-foreground">{service.body}</p>
 
-                if (option) {
-                  setNextAccessMode(option.value)
-                  formRef.current?.dispatchEvent(
-                    new Event("input", { bubbles: true })
-                  )
-                }
-              }}
-              options={operationProfileAccessModeOptions.map((option) => ({
-                label: option.label,
-                value: option.value,
-              }))}
-              triggerClassName="h-11 md:h-9"
-              value={nextAccessMode}
-            />
-            <FieldDescription>{selectedMode.description}</FieldDescription>
-          </Field>
-        </FieldGroup>
-      </FieldSet>
-
-      <Field>
-        <FieldLabel htmlFor="changeReason">
-          Change reason{requiresChangeReason ? " (required)" : " (optional)"}
-        </FieldLabel>
-        <Textarea
+      <fieldset className="grid gap-2">
+        <legend className="mb-2 text-base font-medium text-foreground">
+          Who can start a new one?
+        </legend>
+        <input name={inputName} type="hidden" value={nextAccessMode} />
+        <RadioGroup
+          className="grid gap-2"
           disabled={isPending}
-          id="changeReason"
-          name="changeReason"
-          placeholder="Example: This service is paused while the new operating policy is approved."
-          required={requiresChangeReason}
-        />
-        <FieldDescription>
-          {requiresChangeReason
-            ? "Reducing access requires an audit reason before this change can be saved."
-            : "Any reason provided is saved to the audit log with the before and after access mode."}
-        </FieldDescription>
-      </Field>
+          onValueChange={(value) =>
+            setNextAccessMode(value as TenantServiceAccessMode)
+          }
+          value={nextAccessMode}
+        >
+          {operationProfileAccessModeOptions.map((option) => (
+            <label
+              className={cn(
+                "flex min-h-11 cursor-pointer items-start gap-3 rounded-(--ui-radius-control) border px-4 py-3",
+                option.value === nextAccessMode
+                  ? "border-primary bg-primary/5"
+                  : "border-border"
+              )}
+              htmlFor={`access-${option.value}`}
+              key={option.value}
+            >
+              <RadioGroupItem
+                className="mt-1"
+                id={`access-${option.value}`}
+                value={option.value}
+              />
+              <span>
+                <span className="block text-base font-semibold text-foreground">
+                  {option.label}
+                  {option.value === currentAccessMode ? (
+                    <span className="font-normal text-muted-foreground">
+                      {" "}
+                      (now)
+                    </span>
+                  ) : null}
+                </span>
+                <span className="block text-base text-muted-foreground">
+                  {option.description}
+                </span>
+              </span>
+            </label>
+          ))}
+        </RadioGroup>
+      </fieldset>
+
+      {reducesAccess ? (
+        <div className="grid gap-2">
+          <label
+            className="text-base font-medium text-foreground"
+            htmlFor="changeReason"
+          >
+            Why are you changing this?
+          </label>
+          <Textarea
+            className="text-base"
+            disabled={isPending}
+            id="changeReason"
+            name="changeReason"
+            onChange={(event) => setReason(event.target.value)}
+            required
+            value={reason}
+          />
+          <p className="text-base text-muted-foreground">
+            Kept in the activity log.
+          </p>
+        </div>
+      ) : null}
 
       <input
         name="procurementMaximumActiveObligationsPerMember"
@@ -158,15 +195,34 @@ export function OperationProfileSettingsContent({
         value={policy.foodPurchaseRequiresOpenCycle ? "true" : "false"}
       />
 
-      <div className="flex border-t border-border/70 pt-4 sm:justify-end">
+      <div className="flex border-t border-border pt-4 sm:justify-end">
         <Button
-          className="h-11 w-full sm:h-9 sm:w-auto"
-          disabled={isPending}
+          className="h-11 w-full text-base sm:w-auto"
+          disabled={isPending || (reducesAccess && !reason.trim())}
           type="submit"
         >
-          {isPending ? "Saving..." : "Save access"}
+          {isPending ? "Saving…" : "Save"}
         </Button>
       </div>
+
+      <ConfirmActionDialog
+        actionLabel={nextAccessMode === "disabled" ? "Turn off" : "Save"}
+        description={getOperationProfileAccessEffect({
+          label: service.label,
+          next: nextAccessMode,
+          previous: currentAccessMode,
+        })}
+        destructive
+        onCancel={() => setConfirming(false)}
+        onConfirm={save}
+        open={confirming}
+        pending={isPending}
+        title={
+          nextAccessMode === "disabled"
+            ? `Turn off ${service.label.toLowerCase()}?`
+            : `Change ${service.label.toLowerCase()}?`
+        }
+      />
     </form>
   )
 }

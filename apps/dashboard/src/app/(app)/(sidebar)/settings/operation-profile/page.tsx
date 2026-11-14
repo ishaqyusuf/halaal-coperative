@@ -22,7 +22,6 @@ export default async function OperationProfileSettingsPage({
     return (
       <OperationProfileSettingsUnavailableView
         body={state.body}
-        description={state.description}
         title={state.title}
       />
     )
@@ -31,7 +30,6 @@ export default async function OperationProfileSettingsPage({
   return (
     <OperationProfileSettingsView
       policy={state.profile.policy}
-      reviewedAt={state.profile.reviewedAt}
       services={state.profile.services}
     />
   )

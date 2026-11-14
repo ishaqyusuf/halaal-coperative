@@ -1,7 +1,7 @@
 "use client"
 
 import { Suspense } from "react"
-import type { TenantTrustProfileForm } from "@/components/forms/settings-forms"
+import type { TenantTrustProfileForm } from "@/components/workspace-settings/trust-form"
 import { TrustSettingsContent } from "@/components/trust-settings-content"
 import { TrustSettingsSheetHeader } from "@/components/trust-settings-sheet-header"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
@@ -34,7 +34,7 @@ export function TrustSettingsSheet({
         <Suspense
           fallback={
             <div className="px-6 text-sm text-muted-foreground">
-              Loading trust profile form...
+              Loading…
             </div>
           }
         >

@@ -73,6 +73,7 @@ import {
   updateCollectionSourceContributionBatchRows,
   recordCollectionFollowUp,
   provisionTenantUserRole,
+  removeTenantStaffRole,
   rotateMemberSignupLinkToken,
   refreshCollectionsStatuses,
   recordFoodPurchaseAccounting,
@@ -4160,7 +4161,8 @@ export async function postRepaymentAction(formData: FormData) {
 }
 
 export async function updateCooperativeProfileAction(formData: FormData) {
-  const actor = await requireDashboardActor(workspaceConfigurationRoles)
+  // Admin only, matching the Cooperative profile page in the sidebar registry.
+  const actor = await requireDashboardActor(workspaceAdminRoles)
   const rawCurrentSize = (formData.get("currentSize") as string | null)?.trim()
   const country = getOptionalTrimmedString(formData, "country")
   const state = getOptionalTrimmedString(formData, "state")
@@ -5847,18 +5849,56 @@ export async function runTenantDomainVerificationCheckAction(
   revalidatePath("/domains")
 }
 
+/** Roles a cooperative admin may give or take away on the Roles page. */
+const assignableStaffRoles: MembershipRole[] = [
+  "tenant_admin",
+  "finance_officer",
+  "operations_officer",
+  "member",
+]
+
+function requireAssignableRole(
+  actor: Awaited<ReturnType<typeof requireDashboardActor>>,
+  role: string
+): MembershipRole {
+  // Super admin is platform-wide; only a super admin can hand it out.
+  const allowed =
+    actor.membership.role === "super_admin"
+      ? [...assignableStaffRoles, "super_admin" as const]
+      : assignableStaffRoles
+
+  if (!allowed.includes(role as MembershipRole)) {
+    throw new DashboardActionExpectedError("Choose a role from the list.")
+  }
+
+  return role as MembershipRole
+}
+
 export async function provisionTenantUserRoleAction(formData: FormData) {
   const actor = await requireDashboardActor(workspaceAdminRoles)
+  const role = requireAssignableRole(actor, getRequiredString(formData, "role"))
 
   await provisionTenantUserRole({
     actorUserId: actor.user.id,
     email: getRequiredString(formData, "email"),
     fullName: getRequiredString(formData, "fullName"),
     makeDefault: formData.get("makeDefault") === "on",
-    role: getRequiredString(
-      formData,
-      "role"
-    ) as import("@halaalvest/db").MembershipRole,
+    role,
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/roles")
+}
+
+export async function removeTenantStaffRoleAction(formData: FormData) {
+  const actor = await requireDashboardActor(workspaceAdminRoles)
+  const role = getRequiredString(formData, "role")
+
+  await removeTenantStaffRole({
+    actorUserId: actor.user.id,
+    // The role named in the confirm must be one this admin may take away.
+    expectedRole: requireAssignableRole(actor, role),
+    membershipId: getRequiredString(formData, "membershipId"),
     tenantId: actor.tenant.id,
   })
 
@@ -7162,6 +7202,7 @@ const dashboardActionHandlers = {
   updateTenantDomainVerificationStatusAction,
   runTenantDomainVerificationCheckAction,
   provisionTenantUserRoleAction,
+  removeTenantStaffRoleAction,
   saveNotificationPreferenceAction,
   refreshCollectionsStatusesAction,
   recordCollectionFollowUpAction,
@@ -7503,6 +7544,9 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   provisionTenantUserRoleAction: formAction(
     dashboardActionHandlers.provisionTenantUserRoleAction
+  ),
+  removeTenantStaffRoleAction: formAction(
+    dashboardActionHandlers.removeTenantStaffRoleAction
   ),
   saveNotificationPreferenceAction: formAction(
     dashboardActionHandlers.saveNotificationPreferenceAction

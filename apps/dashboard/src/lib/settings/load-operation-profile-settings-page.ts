@@ -8,7 +8,6 @@ import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
 
 type OperationProfileSettingsUnavailableState = {
   body: string
-  description: string
   status: "unavailable"
   title: string
 }
@@ -27,33 +26,25 @@ export async function loadOperationProfileSettingsPage(): Promise<OperationProfi
 
   if (!context.tenant) {
     return {
-      body: "Open a cooperative workspace before editing service access.",
-      description:
-        "Service activation and member access settings are available from a cooperative workspace.",
+      body: "Open your cooperative's dashboard to see its services.",
       status: "unavailable",
-      title: "Choose a cooperative workspace first.",
+      title: "No cooperative open",
     }
   }
 
-  if (
-    !hasAnyRole(context.auth.membership?.role, workspaceAdminRoles)
-  ) {
+  if (!hasAnyRole(context.auth.membership?.role, workspaceAdminRoles)) {
     return {
-      body: "Ask a cooperative admin to review service access settings.",
-      description:
-        "Only cooperative admins and super admins can change service activation.",
+      body: "Only cooperative admins can see this page.",
       status: "unavailable",
-      title: "Operation profile access is limited.",
+      title: "Not available",
     }
   }
 
   if (createDbRuntime().status !== "database-configured") {
     return {
-      body: "Connect the database runtime before reviewing cooperative service access.",
-      description:
-        "Operation profile settings require the database-backed cooperative workspace.",
+      body: "Services can't be shown right now. Try again later.",
       status: "unavailable",
-      title: "Operation profile needs the database runtime.",
+      title: "Services aren't available",
     }
   }
 

@@ -1,222 +1,177 @@
-import type { ComponentProps } from "react"
-import {
-  cooperativeRoles,
-  getRoleDisplayName,
-  getRoleScopeSummary,
-} from "@halaalvest/auth/roles"
-import type { MembershipRole } from "@halaalvest/db"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@halaalvest/ui/components/tabs"
-import { ChevronDownIcon } from "lucide-react"
-import {
-  DashboardStatCard,
-  TrendPill,
-  WorkspaceEmptyState,
-  WorkspacePageShell,
-} from "@/components/dashboard"
+import type { MembershipRole, TenantStaffPerson } from "@halaalvest/db"
 import { OpenRoleSettingsSheet } from "@/components/open-role-settings-sheet"
-import {
-  RoleSettingsUserList,
-  type RoleSettingsUser,
-} from "@/components/role-settings-user-list"
 import { RoleSettingsSheet } from "@/components/sheets/role-settings-sheet"
-
-type RoleSettingsSheetRoles = ComponentProps<typeof RoleSettingsSheet>["roles"]
-
-export type RolePermissionGroup = {
-  label: string
-  module: string
-  permissions: Array<{
-    action: string
-    allowedRoles: readonly MembershipRole[]
-    summary: string
-  }>
-}
+import { RemoveRoleButton } from "@/components/workspace-settings/remove-role-button"
+import {
+  SettingsEmpty,
+  SettingsPage,
+  SettingsSection,
+} from "@/components/workspace-settings/settings-page"
+import {
+  explainedRoles,
+  getRoleAbility,
+  getRoleWord,
+} from "@/lib/settings/role-words"
 
 export function RoleSettingsUnavailableView() {
   return (
-    <WorkspacePageShell
-      description="Staff provisioning, role assignment, and module permission guidance for cooperative operators."
-      eyebrow="Settings"
-      title="Workspace roles"
-    >
-      <WorkspaceEmptyState
-        body="Once the database-backed environment is active, this route will show workspace users and let admins assign cooperative roles."
-        title="Role management needs the database runtime."
+    <SettingsPage>
+      <SettingsEmpty
+        body="Roles can't be shown right now. Try again later."
+        title="Roles aren't available"
       />
-    </WorkspacePageShell>
+    </SettingsPage>
   )
 }
 
-export function RoleSettingsView({
-  canManageRoles,
-  devMode,
-  permissionGroups,
-  roleOptions,
-  users,
+/** Why a role has no Remove button, or null when it can be removed. */
+function getKeepReason({
+  actorRole,
+  adminCount,
+  currentUserId,
+  person,
+  role,
 }: {
-  canManageRoles: boolean
-  devMode: boolean
-  permissionGroups: RolePermissionGroup[]
-  roleOptions: RoleSettingsSheetRoles
-  users: RoleSettingsUser[]
+  actorRole: MembershipRole | null
+  adminCount: number
+  currentUserId: string | null
+  person: TenantStaffPerson
+  role: MembershipRole
 }) {
-  const defaultRoleCount = users.filter((user) =>
-    user.memberships.some((membership) => membership.isDefault)
+  if (role === "member") return "Member login"
+  if (role === "super_admin" && actorRole !== "super_admin") return null
+  if (role === "tenant_admin" || role === "super_admin") {
+    if (person.id === currentUserId) return "You"
+    if (role === "tenant_admin" && adminCount <= 1) return "Only admin"
+  }
+  return undefined
+}
+
+export function RoleSettingsView({
+  actorRole,
+  canManageRoles,
+  currentUserId,
+  devMode,
+  givableRoles,
+  people,
+}: {
+  actorRole: MembershipRole | null
+  canManageRoles: boolean
+  currentUserId: string | null
+  devMode: boolean
+  givableRoles: MembershipRole[]
+  people: TenantStaffPerson[]
+}) {
+  const adminCount = people.filter((person) =>
+    person.roles.some((entry) => entry.role === "tenant_admin")
   ).length
-  const permissionCount = permissionGroups.reduce(
-    (sum, group) => sum + group.permissions.length,
-    0
-  )
 
   return (
-    <WorkspacePageShell
-      actions={canManageRoles ? <OpenRoleSettingsSheet /> : undefined}
-      description="Staff provisioning, default-role visibility, and module permission guidance for cooperative operators."
-      eyebrow="Settings"
-      title="Workspace roles"
+    <SettingsPage
+      action={canManageRoles ? <OpenRoleSettingsSheet /> : undefined}
+      intro="Who can run the cooperative from this dashboard."
     >
-      <section className="hidden gap-4 md:grid md:grid-cols-3">
-        <DashboardStatCard
-          detail="Users currently loaded for this cooperative workspace."
-          label="Workspace users"
-          value={users.length.toString()}
-        />
-        <DashboardStatCard
-          detail="Users with a default membership role set."
-          label="Default roles"
-          value={defaultRoleCount.toString()}
-        />
-        <DashboardStatCard
-          detail={`${cooperativeRoles.length} roles across ${permissionGroups.length} modules.`}
-          label="Governed actions"
-          value={permissionCount.toString()}
-        />
-      </section>
-
-      <Tabs className="gap-5" defaultValue="users">
-        <TabsList
-          aria-label="Workspace role settings"
-          className="h-auto w-full justify-start gap-5 border-b border-border/70 p-0 pb-3"
-          variant="line"
-        >
-          <TabsTrigger className="h-9 flex-none px-0 text-sm" value="users">
-            Workspace users
-            <span className="text-muted-foreground">{users.length}</span>
-          </TabsTrigger>
-          <TabsTrigger
-            className="h-9 flex-none px-0 text-sm"
-            value="permissions"
-          >
-            Permissions
-            <span className="text-muted-foreground">{permissionCount}</span>
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent className="text-sm" value="users">
-          <RoleSettingsUserList users={users} />
-        </TabsContent>
-
-        <TabsContent className="text-sm" value="permissions">
-          <section aria-labelledby="permission-matrix-title">
-            <div className="pb-4">
-              <h3
-                className="text-base font-semibold text-foreground"
-                id="permission-matrix-title"
+      <SettingsSection title="Staff">
+        {people.length === 0 ? (
+          <SettingsEmpty
+            body="Add a person to give them a staff role."
+            title="No staff yet"
+          />
+        ) : (
+          <ul className="divide-y divide-border border-y border-border">
+            {people.map((person) => (
+              <li
+                className="grid gap-3 px-1 py-4 sm:px-3"
+                data-role-person={person.fullName}
+                key={person.id}
               >
-                Module action matrix
-              </h3>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                Expand a module to see the roles allowed to perform each
-                governed action.
-              </p>
-            </div>
+                <div className="min-w-0">
+                  <p className="text-lg font-semibold text-foreground">
+                    {person.fullName}
+                    {person.id === currentUserId ? (
+                      <span className="font-normal text-muted-foreground">
+                        {" "}
+                        (you)
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="text-base [overflow-wrap:anywhere] text-muted-foreground">
+                    {person.email}
+                  </p>
+                </div>
+                <ul className="grid gap-2">
+                  {person.roles.map((entry) => {
+                    const keepReason = getKeepReason({
+                      actorRole,
+                      adminCount,
+                      currentUserId,
+                      person,
+                      role: entry.role,
+                    })
 
-            <div className="border-y border-border/70">
-              {permissionGroups.map((group) => (
-                <details
-                  className="group border-b border-border/70 last:border-b-0"
-                  key={group.module}
-                >
-                  <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-3 text-left [&::-webkit-details-marker]:hidden">
-                    <span>
-                      <span className="block font-medium text-foreground">
-                        {group.label}
-                      </span>
-                      <span className="mt-0.5 block text-xs text-muted-foreground">
-                        {group.permissions.length} governed{" "}
-                        {group.permissions.length === 1 ? "action" : "actions"}
-                      </span>
-                    </span>
-                    <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
-                  </summary>
-                  <div className="ml-6 divide-y divide-border/70 border-t border-l-2 border-border/70 pb-1 pl-6 sm:ml-8 sm:pl-8">
-                    {group.permissions.map((permission) => (
-                      <div
-                        className="grid gap-3 py-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.2fr)]"
-                        key={permission.action}
+                    return (
+                      <li
+                        className="flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-1"
+                        key={entry.id}
                       >
-                        <div>
-                          <p className="font-medium text-foreground capitalize">
-                            {permission.action.replace(/_/g, " ")}
-                          </p>
-                          <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                            {permission.summary}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2 lg:justify-end">
-                          {permission.allowedRoles.map((role) => (
-                            <TrendPill
-                              className="h-5 px-2 py-0 leading-none"
-                              key={role}
-                            >
-                              {getRoleDisplayName(role)}
-                            </TrendPill>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              ))}
-            </div>
+                        <span className="text-base text-foreground">
+                          {getRoleWord(entry.role)}
+                          {entry.isDefault && person.roles.length > 1 ? (
+                            <span className="text-muted-foreground">
+                              {" "}
+                              · opens first
+                            </span>
+                          ) : null}
+                        </span>
+                        {!canManageRoles ||
+                        keepReason === null ? null : keepReason ? (
+                          <span className="text-base text-muted-foreground">
+                            {keepReason}
+                          </span>
+                        ) : (
+                          <RemoveRoleButton
+                            membershipId={entry.id}
+                            name={person.fullName}
+                            otherRoles={person.roles
+                              .filter((other) => other.id !== entry.id)
+                              .map((other) => other.role)}
+                            role={entry.role}
+                          />
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="text-base text-muted-foreground">
+          Members aren&apos;t listed here. They sign in with their own login.
+        </p>
+      </SettingsSection>
 
-            <div className="mt-8">
-              <h3 className="text-base font-semibold text-foreground">
-                Role scope guide
-              </h3>
-              <div className="mt-3 border-y border-border/70">
-                {cooperativeRoles.map((role) => (
-                  <div
-                    className="border-b border-border/70 py-4 last:border-b-0 sm:grid sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)] sm:gap-6"
-                    key={role}
-                  >
-                    <div>
-                      <p className="font-medium text-foreground">
-                        {getRoleDisplayName(role)}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {role}
-                      </p>
-                    </div>
-                    <p className="mt-2 text-sm leading-6 text-muted-foreground sm:mt-0">
-                      {getRoleScopeSummary(role)}
-                    </p>
-                  </div>
-                ))}
-              </div>
+      <SettingsSection title="What each role can do">
+        <dl className="divide-y divide-border border-y border-border">
+          {explainedRoles.map((role) => (
+            <div
+              className="grid gap-1 px-1 py-4 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] sm:gap-6 sm:px-3"
+              key={role}
+            >
+              <dt className="text-lg font-semibold text-foreground">
+                {getRoleWord(role)}
+              </dt>
+              <dd className="text-base text-muted-foreground">
+                {getRoleAbility(role)}
+              </dd>
             </div>
-          </section>
-        </TabsContent>
-      </Tabs>
+          ))}
+        </dl>
+      </SettingsSection>
 
       {canManageRoles ? (
-        <RoleSettingsSheet devMode={devMode} roles={roleOptions} />
+        <RoleSettingsSheet devMode={devMode} roles={givableRoles} />
       ) : null}
-    </WorkspacePageShell>
+    </SettingsPage>
   )
 }

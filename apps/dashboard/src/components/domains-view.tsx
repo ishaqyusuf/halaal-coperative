@@ -1,110 +1,115 @@
 import type { TenantDomainRecord } from "@halaalvest/db"
+import { AddDomainDialog } from "@/components/domains/add-domain-dialog"
 import {
-  DashboardSectionCard,
-  DashboardSectionHeader,
-  DashboardStatCard,
-  DashboardSurfaceCard,
-  TrendPill,
-  WorkspacePageShell,
-} from "@/components/dashboard"
+  CheckDomainButton,
+  MakeMainDomainButton,
+  OpenAddDomainButton,
+} from "@/components/domains/domain-actions"
+import {
+  SettingsEmpty,
+  SettingsPage,
+  SettingsSection,
+} from "@/components/workspace-settings/settings-page"
+import { getDomainStatus, isPlatformDomain } from "@/lib/domains/domain-words"
 
-function verificationTone(status: string) {
-  return status === "verified" ? "positive" : "warning"
+function DomainRow({
+  actions,
+  domain,
+}: {
+  actions?: React.ReactNode
+  domain: TenantDomainRecord
+}) {
+  const status = getDomainStatus(domain)
+
+  return (
+    <li
+      className="flex flex-col gap-3 px-1 py-4 sm:flex-row sm:items-center sm:px-3"
+      data-domain={domain.hostname}
+    >
+      <div className="min-w-0 flex-1">
+        <p className="text-lg font-semibold [overflow-wrap:anywhere] text-foreground">
+          {domain.hostname}
+        </p>
+        <p className="text-base text-foreground">{status.word}</p>
+        <p className="text-base [overflow-wrap:anywhere] text-muted-foreground">
+          {status.detail}
+        </p>
+      </div>
+      {actions ? (
+        <div className="flex flex-wrap gap-2 [&>*]:flex-1 sm:[&>*]:flex-none">
+          {actions}
+        </div>
+      ) : null}
+    </li>
+  )
 }
 
 export function DomainsView({
-  canonicalHostname,
+  devMode,
   domains,
 }: {
-  canonicalHostname?: string | null
+  devMode: boolean
   domains: TenantDomainRecord[]
 }) {
-  const verifiedCount = domains.filter(
-    (domain) => domain.verificationStatus === "verified"
-  ).length
+  const main =
+    domains.find((domain) => domain.isPrimary) ??
+    domains.find((domain) => isPlatformDomain(domain)) ??
+    null
+  const others = domains.filter((domain) => domain.id !== main?.id)
 
   return (
-    <WorkspacePageShell
-      description="Review the canonical cooperative host used for the public site and authenticated workspace."
-      eyebrow="Domains"
-      title="Domain and routing"
+    <SettingsPage
+      action={<OpenAddDomainButton />}
+      intro="The web address members use to reach your cooperative."
     >
-      <section className="grid gap-4 md:grid-cols-3">
-        <DashboardStatCard
-          detail="Platform hostnames available for this cooperative."
-          label="Registered hostnames"
-          value={domains.length.toString()}
-        />
-        <DashboardStatCard
-          detail="Hostnames currently marked verified."
-          label="Verified"
-          tone="positive"
-          value={verifiedCount.toString()}
-        />
-        <DashboardStatCard
-          detail="Primary hostname serving the public site, login, and authenticated workspace."
-          label="Canonical cooperative host"
-          value={canonicalHostname ?? "Not set"}
-        />
-      </section>
+      <SettingsSection title="Main address">
+        {main ? (
+          <ul className="border-y border-border">
+            <DomainRow domain={main} />
+          </ul>
+        ) : (
+          <SettingsEmpty
+            body="Contact support to set up your web address."
+            title="No web address yet"
+          />
+        )}
+      </SettingsSection>
 
-      <DashboardSectionCard>
-        <DashboardSectionHeader
-          eyebrow="Platform"
-          title="Single cooperative domain"
-        />
-        <p className="mt-5 text-sm leading-6 text-muted-foreground">
-          The cooperative host is the only canonical domain for the public site,
-          login, and authenticated workspace.
-        </p>
-      </DashboardSectionCard>
+      {others.length > 0 ? (
+        <SettingsSection title="Other addresses">
+          <ul className="divide-y divide-border border-y border-border">
+            {others.map((domain) => {
+              const status = getDomainStatus(domain)
 
-      <DashboardSectionCard>
-        <DashboardSectionHeader
-          actions={<TrendPill>{domains.length} domains</TrendPill>}
-          eyebrow="Hostnames"
-          title="Registered hostnames"
-        />
-        <div className="mt-5 space-y-3">
-          {domains.length > 0 ? (
-            domains.map((domain) => (
-              <DashboardSurfaceCard key={domain.id}>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="font-medium text-foreground">
-                      {domain.hostname}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {domain.kind} · {domain.routingScope} routing ·{" "}
-                      {domain.verificationStatus.replace(/_/g, " ")}
-                    </p>
-                    {domain.verificationNote ? (
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {domain.verificationNote}
-                      </p>
-                    ) : null}
-                    {domain.verificationTarget ? (
-                      <p className="mt-1 text-xs font-medium text-muted-foreground">
-                        {domain.verificationRecordType} target:{" "}
-                        {domain.verificationTarget}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <TrendPill tone={verificationTone(domain.verificationStatus)}>
-                      {domain.isPrimary ? "Primary" : "Secondary"}
-                    </TrendPill>
-                  </div>
-                </div>
-              </DashboardSurfaceCard>
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No persisted domains available in the current runtime yet.
-            </p>
-          )}
-        </div>
-      </DashboardSectionCard>
-    </WorkspacePageShell>
+              return (
+                <DomainRow
+                  actions={
+                    <>
+                      {isPlatformDomain(domain) ? null : (
+                        <CheckDomainButton
+                          domainId={domain.id}
+                          hostname={domain.hostname}
+                        />
+                      )}
+                      {status.ready ? (
+                        <MakeMainDomainButton
+                          currentMain={main?.hostname ?? null}
+                          domainId={domain.id}
+                          hostname={domain.hostname}
+                        />
+                      ) : null}
+                    </>
+                  }
+                  domain={domain}
+                  key={domain.id}
+                />
+              )
+            })}
+          </ul>
+        </SettingsSection>
+      ) : null}
+
+      <AddDomainDialog devMode={devMode} />
+    </SettingsPage>
   )
 }

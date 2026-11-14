@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { CooperativeProfileForm } from "@/components/forms/settings-forms"
+import { CooperativeProfileForm } from "@/components/workspace-settings/profile-form"
 import { useProfileSettingsParams } from "@/hooks/use-profile-settings-params"
 
 type CooperativeProfileFormProps = Parameters<typeof CooperativeProfileForm>[0]

@@ -1,17 +1,11 @@
 import type { Metadata } from "next"
-import {
-  cooperativePermissionModules,
-  cooperativeRolePermissions,
-  cooperativeRoles,
-  getPermissionModuleLabel,
-  getRoleDisplayName,
-} from "@halaalvest/auth/roles"
-import { createDbRuntime, listTenantUsersWithMemberships } from "@halaalvest/db"
+import { createDbRuntime, listTenantStaffPeople } from "@halaalvest/db"
 import {
   RoleSettingsUnavailableView,
   RoleSettingsView,
 } from "@/components/role-settings-view"
 import { loadRoleSettingsParams } from "@/hooks/use-role-settings-params"
+import { getGivableRoles } from "@/lib/settings/role-words"
 import {
   canShowQuickFill,
   getDashboardServerContext,
@@ -19,7 +13,7 @@ import {
 import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
 
 export const metadata: Metadata = {
-  title: "Workspace roles | Halaalvest",
+  title: "Roles | Halaalvest",
 }
 
 export default async function RolesPage({
@@ -30,35 +24,28 @@ export default async function RolesPage({
   loadRoleSettingsParams(await searchParams)
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
-  const canManageRoles = hasAnyRole(
-    context.auth.membership?.role,
-    workspaceAdminRoles
-  )
-  const permissionsByModule = cooperativePermissionModules.map((module) => ({
-    label: getPermissionModuleLabel(module),
-    module,
-    permissions: cooperativeRolePermissions.filter(
-      (permission) => permission.module === module
-    ),
-  }))
+  const actorRole = context.auth.membership?.role ?? null
+  const canManageRoles = hasAnyRole(actorRole, workspaceAdminRoles)
 
-  if (!context.tenant || runtime.status !== "database-configured") {
+  if (
+    !context.tenant ||
+    !canManageRoles ||
+    runtime.status !== "database-configured"
+  ) {
     return <RoleSettingsUnavailableView />
   }
 
-  const users = await listTenantUsersWithMemberships(context.tenant.id)
-  const roleOptions = cooperativeRoles.map((role) => ({
-    label: getRoleDisplayName(role),
-    value: role,
-  }))
+  // Staff only: member logins can run into the thousands.
+  const people = await listTenantStaffPeople(context.tenant.id)
 
   return (
     <RoleSettingsView
+      actorRole={actorRole}
       canManageRoles={canManageRoles}
+      currentUserId={context.auth.user?.id ?? null}
       devMode={canShowQuickFill(context)}
-      permissionGroups={permissionsByModule}
-      roleOptions={roleOptions}
-      users={users}
+      givableRoles={getGivableRoles(actorRole)}
+      people={people}
     />
   )
 }

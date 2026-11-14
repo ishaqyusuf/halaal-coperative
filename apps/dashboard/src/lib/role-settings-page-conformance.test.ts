@@ -5,64 +5,53 @@ function read(relativePath: string) {
   return readFileSync(new URL(relativePath, import.meta.url), "utf8")
 }
 
-describe("workspace roles Midday conformance", () => {
-  test("owns page metadata and route-specific recovery boundaries", () => {
+describe("roles page (thread 15)", () => {
+  test("owns metadata and recovery boundaries", () => {
     const page = read("../app/(app)/(sidebar)/settings/roles/page.tsx")
     const loading = read("../app/(app)/(sidebar)/settings/roles/loading.tsx")
     const error = read("../app/(app)/(sidebar)/settings/roles/error.tsx")
 
-    expect(page).toContain('title: "Workspace roles | Halaalvest"')
+    expect(page).toContain('title: "Roles | Halaalvest"')
     expect(page).toContain("loadRoleSettingsParams")
     expect(loading).toContain("<RoleSettingsPageSkeleton")
     expect(error).toContain("reset")
-    expect(error).toContain("No role assignments were changed")
+    expect(error).toContain("No roles were changed")
   })
 
-  test("uses the Midday members-settings tab pattern and flat rows", () => {
+  test("lists staff only, from the lean query, for admins", () => {
+    const page = read("../app/(app)/(sidebar)/settings/roles/page.tsx")
+
+    expect(page).toContain("listTenantStaffPeople")
+    expect(page).not.toContain("listTenantUsersWithMemberships")
+    expect(page).toContain("!canManageRoles")
+    expect(page).toContain("getGivableRoles(actorRole)")
+  })
+
+  test("plain list, no matrix, no own heading, removal behind an AlertDialog", () => {
     const view = read("../components/role-settings-view.tsx")
-    const userList = read("../components/role-settings-user-list.tsx")
+    const remove = read("../components/workspace-settings/remove-role-button.tsx")
 
-    expect(view).toContain('defaultValue="users"')
-    expect(view).toContain('value="users"')
-    expect(view).toContain('value="permissions"')
-    expect(view).toContain('className="hidden gap-4 md:grid md:grid-cols-3"')
-    expect(view).toContain("<details")
-    expect(view).toContain("min-h-12")
-    expect(view).toContain(
-      "ml-6 divide-y divide-border/70 border-t border-l-2 border-border/70 pb-1 pl-6 sm:ml-8 sm:pl-8"
-    )
-    expect(view).toContain(
-      'group.permissions.length === 1 ? "action" : "actions"'
-    )
-    expect(view).toContain("Role scope guide")
-    expect(view).not.toContain("<DashboardSurfaceCard")
-    expect(view).not.toContain("<DashboardSectionCard")
-    expect(userList).toContain('aria-label="Search workspace users"')
-    expect(userList).toContain("filteredUsers")
-    expect(userList).toContain("border-y border-border/70")
-    expect(userList).toContain('className="h-5 px-2 py-0 leading-none"')
-    expect(view).toContain('className="h-5 px-2 py-0 leading-none"')
-    expect(userList).not.toContain("<DashboardSurfaceCard")
+    expect(view).not.toContain("WorkspacePageShell")
+    expect(view).not.toContain("<details")
+    expect(view).not.toContain("DashboardStatCard")
+    expect(view).toContain("What each role can do")
+    expect(view).toContain('"Only admin"')
+    expect(remove).toContain("ConfirmActionDialog")
+    expect(remove).toContain("getRemoveRoleEffect")
+    expect(remove).toContain('formData.set("role", role)')
   })
 
-  test("keeps role assignment URL-owned and refreshes after success", () => {
+  test("keeps adding a person URL-owned and refreshes after success", () => {
     const params = read("../hooks/use-role-settings-params.ts")
     const sheet = read("../components/sheets/role-settings-sheet.tsx")
     const content = read("../components/role-settings-content.tsx")
-    const form = read("../components/forms/settings-forms.tsx")
-    const roleForm = form.slice(
-      form.indexOf("export function RoleAssignmentForm")
-    )
+    const form = read("../components/workspace-settings/role-form.tsx")
 
     expect(params).toContain("roleSettingsSheetType")
     expect(sheet).toContain('roleSettingsSheetType === "assign"')
     expect(content).toContain("void setParams(null)")
     expect(content).toContain("router.refresh()")
     expect(form).toContain("onSuccess?.()")
-    expect(form).toContain(
-      'className="border-t border-border/70 pt-4 md:col-span-2 md:flex md:justify-end"'
-    )
-    expect(form).toContain('className="h-11 w-full md:h-9 md:w-auto"')
-    expect(roleForm).not.toContain("rounded-lg border")
+    expect(form).toContain('className="h-11 w-full text-base sm:w-auto"')
   })
 })

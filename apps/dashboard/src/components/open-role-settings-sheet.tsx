@@ -9,12 +9,12 @@ export function OpenRoleSettingsSheet() {
 
   return (
     <Button
-      className="h-10 w-full sm:w-auto"
+      className="h-11 w-full text-base sm:w-auto"
       onClick={() => setParams({ roleSettingsSheetType: "assign" })}
       type="button"
     >
       <UserPlusIcon data-icon="inline-start" />
-      Assign role
+      Add a person
     </Button>
   )
 }

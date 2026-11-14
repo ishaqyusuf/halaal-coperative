@@ -11,34 +11,34 @@ export const operationProfileServiceKeys = [
 
 export const operationProfileServiceRows = [
   {
-    body: "Manual commitment proof, transfer receipts, cash office payments, and other payment evidence.",
+    body: "Members send proof of a transfer or cash payment.",
     key: "payment_receipts",
     label: "Payment receipts",
   },
   {
-    body: "Member procurement requests and staff-recorded procurement workflows.",
+    body: "Members ask the cooperative to buy an item for them.",
     key: "procurement",
     label: "Procurement",
   },
   {
-    body: "Foodstuff Purchase applications and cycle participation.",
+    body: "Members join a bulk food buy.",
     key: "food_purchase",
-    label: "Foodstuff Purchase",
+    label: "Foodstuff purchase",
   },
   {
-    body: "Member support cases and official responses.",
+    body: "Members send questions and complaints.",
     key: "support_cases",
-    label: "Member support",
+    label: "Support",
   },
   {
-    body: "Ministry, employer, payroll, or other deduction-source records.",
+    body: "Employers that take savings from members' pay.",
     key: "collection_sources",
-    label: "Collection sources",
+    label: "Workplaces",
   },
   {
-    body: "Monthly batch posting when a collection source has released deductions.",
+    body: "Record the monthly payment a workplace sends for its members.",
     key: "collection_source_batch_posting",
-    label: "Source batch posting",
+    label: "Workplace payments",
   },
 ] as const satisfies ReadonlyArray<{
   body: string
@@ -48,9 +48,9 @@ export const operationProfileServiceRows = [
 
 export const operationProfileServiceSections = [
   {
-    body: "Configure how contributions, payment evidence, and deduction-source batches enter the cooperative workspace.",
+    body: "How members' money reaches the cooperative.",
     key: "collections",
-    label: "Collections",
+    label: "Payments",
     serviceKeys: [
       "payment_receipts",
       "collection_sources",
@@ -58,7 +58,7 @@ export const operationProfileServiceSections = [
     ],
   },
   {
-    body: "Configure the request and support services members can access through the cooperative.",
+    body: "Requests members can make.",
     key: "member_services",
     label: "Member services",
     serviceKeys: ["procurement", "food_purchase", "support_cases"],
@@ -72,32 +72,28 @@ export const operationProfileServiceSections = [
 
 export const operationProfileAccessModeOptions = [
   {
-    description:
-      "The service is hidden for new work while existing records remain readable.",
-    label: "Not offered",
-    summary: "Unavailable for new work",
-    value: "disabled",
-  },
-  {
-    description:
-      "Staff can create and manage service records from the cooperative office.",
-    label: "Office only",
-    summary: "Staff can create",
-    value: "office_only",
-  },
-  {
-    description:
-      "Members can start requests while staff retain operational access.",
-    label: "Member self-service",
-    summary: "Members and staff can create",
+    description: "Members can start their own. Staff can too.",
+    label: "Members and staff",
+    summary: "Members and staff can start one",
     value: "member_self_service",
   },
   {
-    description:
-      "Existing records remain visible, but no new service work can start.",
-    label: "View only",
-    summary: "History remains visible",
+    description: "Only staff can start a new one.",
+    label: "Staff only",
+    summary: "Only staff can start one",
+    value: "office_only",
+  },
+  {
+    description: "Nobody can start a new one. Past records can still be seen.",
+    label: "Past records only",
+    summary: "No new ones; past records stay",
     value: "read_only",
+  },
+  {
+    description: "Hidden from the menu. Past records stay.",
+    label: "Off",
+    summary: "Not offered",
+    value: "disabled",
   },
 ] as const satisfies ReadonlyArray<{
   description: string
@@ -105,6 +101,33 @@ export const operationProfileAccessModeOptions = [
   summary: string
   value: TenantServiceAccessMode
 }>
+
+/** What a change that reduces access does, for the confirm. */
+export function getOperationProfileAccessEffect({
+  label,
+  next,
+  previous,
+}: {
+  label: string
+  next: TenantServiceAccessMode
+  previous: TenantServiceAccessMode
+}) {
+  const name = label.toLowerCase()
+
+  if (next === "disabled") {
+    return `${label} will disappear from the menu for members and staff. Past records stay.`
+  }
+
+  if (next === "read_only") {
+    return `Nobody will be able to start new ${name}. Past records can still be seen.`
+  }
+
+  if (previous === "member_self_service") {
+    return `Members won't be able to start ${name} themselves any more. Staff still can.`
+  }
+
+  return `Access to ${name} will be reduced.`
+}
 
 export function getOperationProfileAccessModeLabel(
   value: TenantServiceAccessMode

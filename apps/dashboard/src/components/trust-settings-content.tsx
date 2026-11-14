@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { TenantTrustProfileForm } from "@/components/forms/settings-forms"
+import { TenantTrustProfileForm } from "@/components/workspace-settings/trust-form"
 import { useTrustSettingsParams } from "@/hooks/use-trust-settings-params"
 
 type TenantTrustProfileFormProps = Parameters<typeof TenantTrustProfileForm>[0]

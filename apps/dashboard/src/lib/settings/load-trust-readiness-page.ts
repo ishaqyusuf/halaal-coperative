@@ -3,22 +3,18 @@ import { getTenantTrustProfile, type TenantTrustProfile } from "@halaalvest/db"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
 
+/**
+ * One checklist row. Only things the cooperative itself records or can do
+ * are listed; platform engineering items (monitoring, error pages) are not
+ * the admin's to tick and were removed (thread 15).
+ */
 export type TrustReadinessItem = {
   actionHref?: string
   actionLabel?: string
   detail: string
-  evidence: string
+  done: boolean
+  key: string
   label: string
-  owner: string
-  status: string
-  tone?: "neutral" | "positive" | "warning"
-}
-
-function isMonitoringConfigured() {
-  return Boolean(
-    process.env.SENTRY_DSN_DASHBOARD ||
-    process.env.NEXT_PUBLIC_SENTRY_DSN_DASHBOARD
-  )
 }
 
 const emptyTrustProfile: TenantTrustProfile = {
@@ -34,106 +30,56 @@ const emptyTrustProfile: TenantTrustProfile = {
   reviewedByUserId: null,
 }
 
-function buildTrustReadinessItems(
+export function buildTrustReadinessItems(
   trustProfile: TenantTrustProfile
 ): TrustReadinessItem[] {
-  const monitoringConfigured = isMonitoringConfigured()
-  const hasRestoreEvidence = Boolean(
-    trustProfile.backupRetentionNote ||
-    trustProfile.recoveryPointObjective ||
-    trustProfile.recoveryTimeObjective ||
-    trustProfile.incidentContactEmail
+  const contact = [
+    trustProfile.incidentContactName,
+    trustProfile.incidentContactEmail,
+  ]
+    .filter(Boolean)
+    .join(", ")
+  const recovery = [
+    trustProfile.recoveryPointObjective
+      ? `Could lose up to ${trustProfile.recoveryPointObjective}`
+      : null,
+    trustProfile.recoveryTimeObjective
+      ? `back in ${trustProfile.recoveryTimeObjective}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(", ")
+  const backupWritten = Boolean(
+    trustProfile.backupRetentionNote?.trim() ||
+    trustProfile.recoveryPointObjective?.trim() ||
+    trustProfile.recoveryTimeObjective?.trim()
   )
 
   return [
+    ...buildLegalReadinessItems(trustProfile),
+    {
+      detail: trustProfile.incidentContactEmail
+        ? contact
+        : "Add a name and email for problems.",
+      done: Boolean(trustProfile.incidentContactEmail),
+      key: "contact",
+      label: "Who to contact if something goes wrong",
+    },
+    {
+      detail: backupWritten
+        ? trustProfile.backupRetentionNote?.trim() || recovery
+        : "Write down how your records are backed up.",
+      done: backupWritten,
+      key: "backups",
+      label: "Backups",
+    },
     {
       actionHref: "/reports",
       actionLabel: "Open reports",
-      detail:
-        "Tenant-scoped exports are available for audit activity, support cases, " +
-        "members, contributions, financing, repayments, charges, and statements.",
-      evidence: "Reports workspace and CSV export routes",
-      label: "Backup and offline confidence",
-      owner: "Tenant admin and platform operator",
-      status: "Export-ready",
-      tone: "positive",
-    },
-    {
-      detail: hasRestoreEvidence
-        ? "Restore evidence has been recorded for pilot discussions. " +
-          "Infrastructure and database-provider procedures still need to " +
-          "match the documented retention and recovery objectives."
-        : "Restore remains an infrastructure and database-operation " +
-          "responsibility. Pilot terms should name recovery responsibilities, " +
-          "retention windows, and escalation contacts before launch.",
-      evidence: hasRestoreEvidence
-        ? "Saved trust profile"
-        : "Operational policy item",
-      label: "Restore posture",
-      owner: "Platform operator",
-      status: hasRestoreEvidence ? "Evidence saved" : "Document before pilot",
-      tone: hasRestoreEvidence ? "positive" : "warning",
-    },
-    ...buildLegalReadinessItems(trustProfile),
-    {
-      detail: monitoringConfigured
-        ? "A Sentry-compatible DSN is present in this runtime, so application " +
-          "errors can be routed to monitoring."
-        : "No Sentry-compatible DSN was detected in this runtime. Configure " +
-          "monitoring before pilot traffic is invited.",
-      evidence: "SENTRY_DSN or NEXT_PUBLIC_SENTRY_DSN",
-      label: "Error monitoring",
-      owner: "Platform operator",
-      status: monitoringConfigured ? "Configured" : "Needs setup",
-      tone: monitoringConfigured ? "positive" : "warning",
-    },
-    {
-      actionHref: "/reports/audit-export",
-      actionLabel: "Open activity report",
-      detail:
-        "The dashboard error boundary sends sanitized crash reports to the " +
-        "tenant audit log when database-backed tenant context is available. " +
-        "This gives admins internal evidence even before external alerting is " +
-        "configured.",
-      evidence: "Audit action: application.error_captured",
-      label: "Internal crash evidence",
-      owner: "Engineering and support",
-      status: "Available",
-      tone: "positive",
-    },
-    {
-      actionHref: "/support",
-      actionLabel: "Open support",
-      detail:
-        "Feature requests are captured through the audited support workflow with " +
-        "assignment, replies, status updates, notifications, and CSV export.",
-      evidence: "Support category: feature_request",
-      label: "Feature request triage",
-      owner: "Product and support",
-      status: "Live",
-      tone: "positive",
-    },
-    {
-      detail:
-        "Pilot messaging should describe beta availability, support response " +
-        "expectations, and planned maintenance honestly instead of promising a " +
-        "formal uptime SLA too early.",
-      evidence: "Reliability messaging item",
-      label: "Reliability expectations",
-      owner: "Founder and platform operator",
-      status: "Beta posture",
-      tone: "warning",
-    },
-    {
-      detail:
-        "The app-level error boundary gives users a safe recovery message for " +
-        "unexpected crashes without exposing stack traces, database details, or " +
-        "infrastructure internals.",
-      evidence: "Dashboard error boundary",
-      label: "Sensitive error disclosure",
-      owner: "Engineering",
-      status: "Guarded",
-      tone: "positive",
+      detail: "Download members, payments and loans as spreadsheets.",
+      done: true,
+      key: "downloads",
+      label: "Copies of your records",
     },
   ]
 }
@@ -149,22 +95,14 @@ export async function loadTrustReadinessPageData() {
       ? await getTenantTrustProfile(context.tenant.id)
       : emptyTrustProfile
   const items = buildTrustReadinessItems(trustProfile)
-  const lastReviewedAt = trustProfile.reviewedAt
-    ? trustProfile.reviewedAt.toISOString()
-    : null
 
   return {
     canViewTrustReadiness,
+    doneCount: items.filter((item) => item.done).length,
     items,
-    lastReviewedAt,
-    monitoringConfigured: isMonitoringConfigured(),
-    readyItems: items.filter((item) => item.tone === "positive"),
-    savedLegalLinks: [
-      trustProfile.legalTermsUrl,
-      trustProfile.privacyPolicyUrl,
-      trustProfile.dataProcessingUrl,
-    ].filter(Boolean).length,
+    lastSavedAt: trustProfile.reviewedAt
+      ? trustProfile.reviewedAt.toISOString()
+      : null,
     trustProfile,
-    warningItems: items.filter((item) => item.tone === "warning"),
   }
 }

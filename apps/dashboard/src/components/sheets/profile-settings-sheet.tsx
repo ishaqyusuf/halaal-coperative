@@ -1,7 +1,7 @@
 "use client"
 
 import { Suspense } from "react"
-import type { CooperativeProfileForm } from "@/components/forms/settings-forms"
+import type { CooperativeProfileForm } from "@/components/workspace-settings/profile-form"
 import { ProfileSettingsContent } from "@/components/profile-settings-content"
 import { ProfileSettingsSheetHeader } from "@/components/profile-settings-sheet-header"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
@@ -35,7 +35,7 @@ export function ProfileSettingsSheet({
         <Suspense
           fallback={
             <div className="px-4 text-sm text-muted-foreground sm:px-6">
-              Loading profile form...
+              Loading…
             </div>
           }
         >

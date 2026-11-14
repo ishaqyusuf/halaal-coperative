@@ -666,6 +666,10 @@ export async function provisionTenantUserRoleAction(formData: FormData) {
   return callDashboardFormAction("provisionTenantUserRoleAction", formData)
 }
 
+export async function removeTenantStaffRoleAction(formData: FormData) {
+  return callDashboardFormAction("removeTenantStaffRoleAction", formData)
+}
+
 export async function saveNotificationPreferenceAction(formData: FormData) {
   return callDashboardFormAction("saveNotificationPreferenceAction", formData)
 }

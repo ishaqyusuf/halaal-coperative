@@ -55,6 +55,10 @@ export const workflowPresentations = {
     preference: sheet(),
     stageBatch: sheet("review"),
   },
+  // Connecting a web address: a short modal, not a record sheet.
+  domain: {
+    add: dialog("compact"),
+  },
   foodPurchase: {
     // Four figures on an existing month: a dialog (audit FP4).
     accounting: dialog("form"),

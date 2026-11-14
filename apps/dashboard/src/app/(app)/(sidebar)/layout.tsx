@@ -104,9 +104,10 @@ export default async function SidebarLayout({
           >
             <main className="mx-auto flex min-h-[60vh] w-full max-w-2xl flex-col justify-center px-4 py-12 sm:px-6">
               <div className="rounded-lg border border-border/70 bg-card p-6 sm:p-8">
-                <h1 className="text-2xl text-foreground">
+                {/* The top bar is the page's only <h1> (ADR-20261114 one page title). */}
+                <h2 className="text-2xl text-foreground">
                   {tenantName} is still being set up
-                </h1>
+                </h2>
                 <p className="mt-3 text-base leading-7 text-muted-foreground">
                   Your admin is finishing setup. You can use the workspace once
                   it goes live.

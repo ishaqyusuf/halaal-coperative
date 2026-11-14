@@ -19,8 +19,12 @@ import {
 } from "@halaalvest/ui/components/alert-dialog"
 import { Button } from "@halaalvest/ui/components/button"
 import { Checkbox } from "@halaalvest/ui/components/checkbox"
-import { WorkspacePageShell } from "@/components/dashboard"
+import {
+  SettingsEmpty,
+  SettingsPage,
+} from "@/components/workspace-settings/settings-page"
 import { useTRPC } from "@/trpc/client"
+import { formatDayMonthYear } from "@/utils/format"
 
 type Bundle = ReturnType<typeof getPublishedLegalBundle>
 type Records = Awaited<ReturnType<typeof listOwnLegalAcceptances>>
@@ -96,43 +100,54 @@ export function PlatformDocumentsView({
   }
 
   return (
-    <WorkspacePageShell
-      description="Review the platform terms and privacy notice for your account."
-      eyebrow="Account"
-      title="Platform documents"
-    >
+    <SettingsPage intro="The Halaalvest terms and privacy notice for your account.">
       {records === null ? (
-        <div className="space-y-3" role="alert">
-          <p>
-            Acceptance records could not be loaded. Recording is unavailable.
-          </p>
-          <Button onClick={() => router.refresh()} variant="outline">
-            Retry
+        <div className="space-y-3 text-base" role="alert">
+          <p>We couldn&apos;t load what you have accepted. Try again.</p>
+          <Button
+            className="h-11 text-base"
+            onClick={() => router.refresh()}
+            variant="outline"
+          >
+            Try again
           </Button>
         </div>
       ) : null}
-      {error ? <p role="alert">{error}</p> : null}
-      {message ? <p role="status">{message}</p> : null}
-      {!bundle.available ? (
-        <p className="text-sm text-muted-foreground">
-          {bundle.acceptanceRequired
-            ? "Approved current documents are temporarily unavailable. Try again later."
-            : "These platform documents are review drafts. There is nothing to accept yet."}
+      {error ? (
+        <p className="text-base" role="alert">
+          {error}
         </p>
+      ) : null}
+      {message ? (
+        <p className="text-base" role="status">
+          {message}
+        </p>
+      ) : null}
+      {!bundle.available ? (
+        <SettingsEmpty
+          body={
+            bundle.acceptanceRequired
+              ? "Try again later."
+              : "The documents are still being written."
+          }
+          title={
+            bundle.acceptanceRequired
+              ? "The documents can't be shown right now"
+              : "Nothing to accept yet"
+          }
+        />
       ) : null}
       {bundle.documents.map((document) => (
         <section
-          className="space-y-4 rounded-xl border border-border p-5"
+          className="space-y-4 rounded-xl border border-border p-4 text-base sm:p-5"
           key={document.documentType}
         >
-          <h2 className="text-lg font-semibold">
+          <h2 className="text-xl font-semibold">
             {document.contentSnapshot.title}
           </h2>
-          <p className="text-sm text-muted-foreground">
-            Version {document.documentVersion} · Effective{" "}
-            {new Date(document.contentSnapshot.effectiveAt)
-              .toISOString()
-              .slice(0, 10)}
+          <p className="text-muted-foreground">
+            Version {document.documentVersion}, from{" "}
+            {formatDayMonthYear(document.contentSnapshot.effectiveAt)}
           </p>
           <p className="whitespace-pre-wrap">
             {document.contentSnapshot.introduction}
@@ -148,15 +163,15 @@ export function PlatformDocumentsView({
         </section>
       ))}
       {current ? (
-        <p role="status">
-          Your acceptance of the current terms and acknowledgement of the
-          current privacy notice are recorded.
+        <p className="text-base" role="status">
+          You have accepted the current terms and read the privacy notice.
         </p>
       ) : null}
       {bundle.available && records !== null && !current ? (
         <div className="space-y-4">
-          <label className="flex items-start gap-3 text-sm">
+          <label className="flex min-h-11 items-start gap-3 text-base">
             <Checkbox
+              className="mt-0.5 size-5"
               checked={reviewed}
               disabled={accept.isPending}
               onCheckedChange={(value) => setReviewed(value === true)}
@@ -167,43 +182,48 @@ export function PlatformDocumentsView({
             </span>
           </label>
           <Button
+            className="h-11 w-full text-base sm:w-auto"
             disabled={!reviewed || accept.isPending}
             onClick={() => setConfirming(true)}
           >
-            Review and record
+            Accept
           </Button>
         </div>
       ) : null}
       <AlertDialog open={confirming} onOpenChange={setConfirming}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Record platform documents?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Your acceptance of the terms and acknowledgement of the privacy
-              notice will be recorded with these exact versions.
+            <AlertDialogTitle>Accept these documents?</AlertDialogTitle>
+            <AlertDialogDescription className="text-base">
+              We keep a record that you accepted these versions. You
+              can&apos;t undo this.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <ul className="space-y-1 text-sm">
+          <ul className="space-y-1 text-base">
             {bundle.documents.map((document) => (
               <li key={document.documentType}>
-                {document.contentSnapshot.title} · Version{" "}
+                {document.contentSnapshot.title}, version{" "}
                 {document.documentVersion}
               </li>
             ))}
           </ul>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={accept.isPending}>
-              Review documents
+            <AlertDialogCancel
+              className="h-11 text-base"
+              disabled={accept.isPending}
+            >
+              Go back
             </AlertDialogCancel>
             <AlertDialogAction
+              className="h-11 text-base"
               disabled={!reviewed || accept.isPending}
               onClick={() => void recordAcknowledgement()}
             >
-              Record acknowledgement
+              {accept.isPending ? "Saving…" : "Accept"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </WorkspacePageShell>
+    </SettingsPage>
   )
 }

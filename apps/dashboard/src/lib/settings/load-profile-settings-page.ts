@@ -3,27 +3,22 @@ import {
   formatCooperativeSizeRangeLabel,
   resolveCooperativeSizeRange,
 } from "@halaalvest/domain"
+import type { SettingsFact } from "@/components/workspace-settings/settings-page"
 import {
   canShowQuickFill,
   getDashboardServerContext,
 } from "@/lib/server-context"
-import { hasAnyRole, workspaceConfigurationRoles } from "@/lib/workspace-access"
-
-export type ProfileSettingsField = {
-  label: string
-  value: string
-}
+import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
+import { formatDayMonthYear } from "@/utils/format"
 
 export type ProfileSettingsSection = {
-  description: string
-  fields: ProfileSettingsField[]
-  key: "identity" | "location" | "regional"
+  facts: SettingsFact[]
+  key: "cooperative" | "office"
   title: string
 }
 
 type ProfileSettingsReadyState = {
   canManageProfile: boolean
-  currentSizeLabel: string
   devMode: boolean
   formDefaultValues: {
     city: string
@@ -36,16 +31,12 @@ type ProfileSettingsReadyState = {
     state: string
     timezone: string
   }
-  locationSummary: string
-  memberPrefixLabel: string
   profileSections: ProfileSettingsSection[]
   status: "ready"
-  tenantName: string
 }
 
 type ProfileSettingsUnavailableState = {
   body: string
-  description: string
   status: "unavailable"
   title: string
 }
@@ -54,42 +45,33 @@ export type ProfileSettingsPageState =
   | ProfileSettingsReadyState
   | ProfileSettingsUnavailableState
 
+const notAdded = "Not added"
+
+function fact(label: string, value: string | null | undefined): SettingsFact {
+  return value ? { label, value } : { label, missing: true, value: notAdded }
+}
+
 export async function loadProfileSettingsPage(): Promise<ProfileSettingsPageState> {
   const context = await getDashboardServerContext()
   const tenant = context.tenant
 
   if (!tenant) {
     return {
-      body: "Open a cooperative workspace before reviewing its identity and office details.",
-      description:
-        "Cooperative identity, location, and regional settings are available from a cooperative workspace.",
+      body: "Open your cooperative's dashboard to see its details.",
       status: "unavailable",
-      title: "Choose a cooperative workspace first.",
+      title: "No cooperative open",
     }
   }
 
   const currentSizeRange = resolveCooperativeSizeRange(tenant.currentSize)
-  const currentSizeLabel = formatCooperativeSizeRangeLabel(
-    tenant.currentSize,
-    "Not captured"
-  )
-  const currentSizeDetailLabel = formatCooperativeSizeRangeLabel(
-    tenant.currentSize,
-    "Not captured yet"
-  )
   const stateValue = tenant.state ?? tenant.region ?? null
-  const countryValue = tenant.country ?? null
-  const locationSummary =
-    [tenant.city, stateValue, countryValue].filter(Boolean).join(", ") ||
-    "Not captured"
-  const notCaptured = "Not captured yet"
 
   return {
+    // Matches the sidebar rule for this page and the API save check.
     canManageProfile: hasAnyRole(
       context.auth.membership?.role,
-      workspaceConfigurationRoles
+      workspaceAdminRoles
     ),
-    currentSizeLabel,
     devMode: canShowQuickFill(context),
     formDefaultValues: {
       city: tenant.city ?? "",
@@ -102,51 +84,35 @@ export async function loadProfileSettingsPage(): Promise<ProfileSettingsPageStat
       state: stateValue ?? "",
       timezone: tenant.timezone,
     },
-    locationSummary,
-    memberPrefixLabel: tenant.memberNumberPrefix ?? "Not set",
     profileSections: [
       {
-        description:
-          "The cooperative identity used across member records, statements, and workspace communication.",
-        fields: [
-          { label: "Cooperative name", value: tenant.name },
-          { label: "Current size", value: currentSizeDetailLabel },
-          {
-            label: "Member prefix",
-            value: tenant.memberNumberPrefix ?? notCaptured,
-          },
-          {
-            label: "Finance start date",
-            value: tenant.startDate ?? notCaptured,
-          },
+        facts: [
+          fact("Name", tenant.name),
+          fact(
+            "Number of members",
+            formatCooperativeSizeRangeLabel(tenant.currentSize, "")
+          ),
+          fact(
+            "Member numbers start with",
+            tenant.memberNumberPrefix?.trim() || null
+          ),
+          fact("Records start on", formatDayMonthYear(tenant.startDate)),
+          fact("Time zone", tenant.timezone.replace(/_/g, " ")),
         ],
-        key: "identity",
-        title: "Identity",
+        key: "cooperative",
+        title: "Your cooperative",
       },
       {
-        description:
-          "The primary office address used to identify where the cooperative operates.",
-        fields: [
-          {
-            label: "Office address",
-            value: tenant.officeAddress ?? notCaptured,
-          },
-          { label: "City", value: tenant.city ?? notCaptured },
-          { label: "State", value: stateValue ?? notCaptured },
-          { label: "Country", value: countryValue ?? notCaptured },
+        facts: [
+          fact("Address", tenant.officeAddress),
+          fact("Town or city", tenant.city),
+          fact("State", stateValue),
+          fact("Country", tenant.country),
         ],
-        key: "location",
-        title: "Office location",
-      },
-      {
-        description:
-          "Regional settings used when the workspace displays and records dates and times.",
-        fields: [{ label: "Timezone", value: tenant.timezone }],
-        key: "regional",
-        title: "Regional settings",
+        key: "office",
+        title: "Office",
       },
     ],
     status: "ready",
-    tenantName: tenant.name,
   }
 }

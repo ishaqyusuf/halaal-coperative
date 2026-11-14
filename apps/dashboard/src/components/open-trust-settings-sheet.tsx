@@ -9,12 +9,12 @@ export function OpenTrustSettingsSheet() {
 
   return (
     <Button
-      className="h-11 w-full md:h-10 md:w-auto"
+      className="h-11 w-full text-base sm:w-auto"
       onClick={() => setParams({ trustSettingsSheetType: "edit" })}
       type="button"
     >
       <PencilIcon data-icon="inline-start" />
-      Edit trust profile
+      Edit details
     </Button>
   )
 }

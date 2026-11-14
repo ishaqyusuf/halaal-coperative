@@ -1,6 +1,7 @@
 export * from "./runtime"
 export * from "./prisma"
 export * from "./queries/auth"
+export * from "./queries/staff-roles"
 export * from "./queries/tenants"
 export * from "./queries/ledger"
 export * from "./queries/members"

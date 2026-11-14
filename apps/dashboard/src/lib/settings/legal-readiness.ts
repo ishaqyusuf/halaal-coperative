@@ -1,29 +1,46 @@
 import type { TrustReadinessItem } from "./load-trust-readiness-page"
 
-/** References are evidence of configuration, never approval or publication. */
+/** Only a working https link counts; a saved link is not legal approval. */
+export function isSecureLink(url: string | null | undefined) {
+  if (!url) return false
+
+  try {
+    return new URL(url).protocol === "https:"
+  } catch {
+    return false
+  }
+}
+
+function linkHost(url: string) {
+  return new URL(url).host
+}
+
+/** One checklist row per legal document link. */
 export function buildLegalReadinessItems(profile: {
   legalTermsUrl: string | null
   privacyPolicyUrl: string | null
   dataProcessingUrl: string | null
 }): TrustReadinessItem[] {
   return [
-    { label: "Cooperative terms", url: profile.legalTermsUrl },
-    { label: "Cooperative privacy notice", url: profile.privacyPolicyUrl },
-    { label: "Data-processing agreement", url: profile.dataProcessingUrl },
-  ].map(({ label, url }) => {
-    let validReference = false
-    try {
-      validReference = Boolean(url && new URL(url).protocol === "https:")
-    } catch {
-      // Invalid saved references remain visible as incomplete evidence.
-    }
+    { key: "terms", label: "Terms for members", url: profile.legalTermsUrl },
+    { key: "privacy", label: "Privacy notice", url: profile.privacyPolicyUrl },
+    {
+      key: "data",
+      label: "Data agreement",
+      url: profile.dataProcessingUrl,
+    },
+  ].map(({ key, label, url }) => {
+    const done = isSecureLink(url)
+
     return {
+      detail: done
+        ? `Link on ${linkHost(url!)}`
+        : url
+          ? "The saved link doesn't start with https://"
+          : "Add a link to it.",
+      done,
+      key,
       label,
-      owner: "Legal and cooperative administrator",
-      status: validReference ? "Reference saved; review required" : "Document required",
-      evidence: validReference ? "HTTPS reference saved" : "Missing or invalid HTTPS reference",
-      detail: "Confirm the accessible document, exact version, effective date, scope, and legal approval. Saving a link or reviewing this checklist does not approve a legal document.",
-      tone: "warning",
     }
   })
 }

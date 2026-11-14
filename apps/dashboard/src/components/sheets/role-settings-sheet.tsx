@@ -1,7 +1,7 @@
 "use client"
 
 import { Suspense } from "react"
-import type { RoleAssignmentForm } from "@/components/forms/settings-forms"
+import type { RoleAssignmentForm } from "@/components/workspace-settings/role-form"
 import { RoleSettingsContent } from "@/components/role-settings-content"
 import { RoleSettingsSheetHeader } from "@/components/role-settings-sheet-header"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
@@ -32,7 +32,7 @@ export function RoleSettingsSheet({ devMode, roles }: RoleAssignmentFormProps) {
         <Suspense
           fallback={
             <div className="px-6 text-sm text-muted-foreground">
-              Loading role assignment form...
+              Loading…
             </div>
           }
         >

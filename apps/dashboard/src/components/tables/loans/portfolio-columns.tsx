@@ -30,12 +30,26 @@ export const portfolioColumns: ColumnDef<LoanPortfolioRow>[] = [
     maxSize: 420,
     meta: {
       className:
-        "w-[280px] min-w-[220px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20",
+        "w-[260px] min-w-[220px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f] z-20",
       headerLabel: "Member",
       sticky: true,
     },
     minSize: 220,
-    size: 280,
+    size: 260,
+  },
+  {
+    accessorKey: "status",
+    cell: ({ row }) => <LoanStatusWord word={getLoanWord(row.original.status)} />,
+    enableResizing: true,
+    header: "Status",
+    id: "status",
+    maxSize: 240,
+    meta: {
+      className: "w-[180px] min-w-[150px]",
+      headerLabel: "Status",
+    },
+    minSize: 150,
+    size: 180,
   },
   {
     accessorFn: (row) => row.outstandingPrincipal,
@@ -55,11 +69,11 @@ export const portfolioColumns: ColumnDef<LoanPortfolioRow>[] = [
     id: "owed",
     maxSize: 320,
     meta: {
-      className: "w-[220px] min-w-[180px]",
+      className: "w-[210px] min-w-[180px]",
       headerLabel: "Still owed",
     },
     minSize: 180,
-    size: 220,
+    size: 210,
   },
   {
     accessorKey: "estimatedMonthlyServicing",
@@ -73,11 +87,11 @@ export const portfolioColumns: ColumnDef<LoanPortfolioRow>[] = [
     id: "servicing",
     maxSize: 260,
     meta: {
-      className: "w-[170px] min-w-[150px]",
+      className: "w-[150px] min-w-[130px]",
       headerLabel: "Each month",
     },
-    minSize: 150,
-    size: 170,
+    minSize: 130,
+    size: 150,
   },
   {
     accessorFn: (row) => row.loanProduct.name,
@@ -96,20 +110,6 @@ export const portfolioColumns: ColumnDef<LoanPortfolioRow>[] = [
     },
     minSize: 180,
     size: 220,
-  },
-  {
-    accessorKey: "status",
-    cell: ({ row }) => <LoanStatusWord word={getLoanWord(row.original.status)} />,
-    enableResizing: true,
-    header: "Status",
-    id: "status",
-    maxSize: 240,
-    meta: {
-      className: "w-[180px] min-w-[150px]",
-      headerLabel: "Status",
-    },
-    minSize: 150,
-    size: 180,
   },
   {
     cell: ({ row, table }) => {
@@ -133,7 +133,7 @@ export const portfolioColumns: ColumnDef<LoanPortfolioRow>[] = [
       headerLabel: "Actions",
       sticky: true,
     },
-    minSize: 160,
-    size: 160,
+    minSize: 140,
+    size: 140,
   },
 ]

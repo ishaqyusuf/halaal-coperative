@@ -99,8 +99,8 @@ export const scheduleColumns: ColumnDef<RepaymentScheduleRow>[] = [
     ),
     header: "Actions",
     id: "actions",
-    minSize: 200,
-    size: 210,
+    minSize: 240,
+    size: 250,
   },
 ]
 

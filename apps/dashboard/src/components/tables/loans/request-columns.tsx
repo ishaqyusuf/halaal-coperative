@@ -67,11 +67,11 @@ export const requestColumns: ColumnDef<LoanRequestRow>[] = [
     id: "request",
     maxSize: 360,
     meta: {
-      className: "w-[280px] min-w-[240px]",
+      className: "w-[260px] min-w-[230px]",
       headerLabel: "Amount",
     },
-    minSize: 240,
-    size: 280,
+    minSize: 230,
+    size: 260,
   },
   {
     cell: ({ row }) => {
@@ -90,11 +90,11 @@ export const requestColumns: ColumnDef<LoanRequestRow>[] = [
     id: "review",
     maxSize: 420,
     meta: {
-      className: "w-[260px] min-w-[200px]",
+      className: "w-[240px] min-w-[200px]",
       headerLabel: "Guarantors",
     },
     minSize: 200,
-    size: 260,
+    size: 240,
   },
   {
     accessorKey: "status",

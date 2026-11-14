@@ -187,7 +187,7 @@ export function RepaymentPostForm({
                   <option value="">Choose</option>
                   {loans.map((option) => (
                     <option key={option.id} value={option.id}>
-                      {option.memberName} · {option.productName}
+                      {`${option.memberName} · owes ${formatCurrency(option.outstandingPrincipal)}`}
                     </option>
                   ))}
                 </NativeSelect>

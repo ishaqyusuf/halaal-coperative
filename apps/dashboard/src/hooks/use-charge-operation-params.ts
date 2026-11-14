@@ -1,21 +1,24 @@
 import { useQueryStates } from "nuqs"
 import { createLoader, parseAsString, parseAsStringEnum } from "nuqs/server"
 
+export const chargeOperationSheetTypes = [
+  "details",
+  "definition",
+  "application",
+  "waive",
+  "settle",
+  "reverse",
+  "toggle",
+  "version",
+] as const
+
+export type ChargeOperationSheetType =
+  (typeof chargeOperationSheetTypes)[number]
+
 export const chargeOperationParamsSchema = {
   chargeApplicationId: parseAsString,
   chargeDefinitionId: parseAsString,
-  chargeIsActive: parseAsString,
-  chargeKind: parseAsString,
-  chargeOperationSheetType: parseAsStringEnum([
-    "definition",
-    "application",
-    "waive",
-    "settle",
-    "reverse",
-    "toggle",
-    "version",
-  ]),
-  chargeValueType: parseAsString,
+  chargeOperationSheetType: parseAsStringEnum([...chargeOperationSheetTypes]),
 }
 
 export function useChargeOperationParams() {

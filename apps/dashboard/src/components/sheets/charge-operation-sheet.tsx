@@ -2,74 +2,52 @@
 
 import { Suspense } from "react"
 import { ChargeOperationContent } from "@/components/charge-operation-content"
-import { ChargeOperationSheetHeader } from "@/components/charge-operation-sheet-header"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useChargeOperationParams } from "@/hooks/use-charge-operation-params"
 import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
-function isChargeOperationSheetOpen(type: string | null) {
-  return Boolean(
-    type === "definition" ||
-      type === "application" ||
-      type === "waive" ||
-      type === "settle" ||
-      type === "reverse" ||
-      type === "toggle" ||
-      type === "version"
-  )
-}
-
+/**
+ * Every /charges overlay, URL-addressed by `chargeOperationSheetType`:
+ * details/new charge/charge a member are sheets, change amount and record
+ * payment are dialogs, turn on/off, waive and undo are alert dialogs.
+ */
 export function ChargeOperationSheet({
-  activeCharges,
+  canManageCharges,
   devMode,
-  members,
 }: {
-  activeCharges: Array<{ amount: number; code: string; id: string; name: string }>
+  canManageCharges: boolean
   devMode: boolean
-  members: Array<{ fullName: string; id: string; memberNumber: string }>
 }) {
   const { chargeOperationSheetType, setParams } = useChargeOperationParams()
-  const isOpen = isChargeOperationSheetOpen(chargeOperationSheetType)
+  const isOpen = Boolean(chargeOperationSheetType)
   const presentation = getWorkflowPresentation(
     "chargeOperation",
     chargeOperationSheetType
   )
 
-  const handleOnOpenChange = (open: boolean) => {
-    if (open) {
-      return
-    }
-
-    setParams(null)
-  }
-
   return (
     <WorkflowPresentation
       config={presentation}
-      mobileFullScreen={
-        chargeOperationSheetType === "application" ||
-        chargeOperationSheetType === "definition" ||
-        chargeOperationSheetType === "version"
-      }
+      mobileFullScreen={presentation.presentation === "sheet"}
       open={isOpen}
-      onOpenChange={handleOnOpenChange}
+      onOpenChange={(open) => {
+        if (!open) void setParams(null)
+      }}
     >
-        {isOpen ? (
-          <Suspense
-            fallback={
-              <div className="px-6 text-sm text-muted-foreground">
-                Loading charge form...
-              </div>
-            }
-          >
-            <ChargeOperationSheetHeader />
-            <ChargeOperationContent
-              activeCharges={activeCharges}
-              devMode={devMode}
-              members={members}
-            />
-          </Suspense>
-        ) : null}
+      {isOpen ? (
+        <Suspense
+          fallback={
+            <p className="px-4 py-6 text-base text-muted-foreground md:px-6">
+              Loading…
+            </p>
+          }
+        >
+          <ChargeOperationContent
+            canManageCharges={canManageCharges}
+            devMode={devMode}
+          />
+        </Suspense>
+      ) : null}
     </WorkflowPresentation>
   )
 }

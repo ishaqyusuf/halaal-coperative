@@ -40,6 +40,7 @@ export function MemberCombobox({
   emptyLabel,
   id,
   name,
+  onLabelChange,
   onValueChange,
   placeholder = "Search members",
   value,
@@ -50,6 +51,8 @@ export function MemberCombobox({
   id?: string
   /** Renders a hidden input for FormData submits. */
   name?: string
+  /** The chosen member's "Name (number)" label, for confirm messages. */
+  onLabelChange?: (label: string) => void
   onValueChange: (memberId: string) => void
   placeholder?: string
   value: string
@@ -129,6 +132,7 @@ export function MemberCombobox({
         onValueChange={(option) => {
           const next = option && option.id ? option : null
           setSelected(next)
+          onLabelChange?.(next?.label ?? "")
           onValueChange(next?.id ?? "")
         }}
         open={open}

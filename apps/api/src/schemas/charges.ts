@@ -21,6 +21,14 @@ export const listChargeLibrarySchema = z
   })
   .optional()
 
+export const listChargeActivitySchema = z
+  .object({
+    cursor: z.string().uuid().nullable().optional(),
+    pageSize: z.coerce.number().int().min(1).max(50).optional(),
+    q: z.string().trim().max(100).nullable().optional(),
+  })
+  .optional()
+
 const financeChargeSortFieldSchema = z.enum([
   "chargeFrequency",
   "chargeValueType",

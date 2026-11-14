@@ -1,50 +1,28 @@
 "use client"
 
 import { Button } from "@halaalvest/ui/components/button"
-import { useChargeFilterParams } from "@/hooks/use-charge-filter-params"
-import { useSortParams } from "@/hooks/use-sort-params"
+import { cn } from "@halaalvest/ui/lib/utils"
+import {
+  useChargesPageParams,
+  type ChargesPageView,
+} from "@/hooks/use-charges-page-params"
 
-export type ChargeView = "applications" | "definitions"
-
-const views: Array<{
-  description: string
-  label: string
-  value: ChargeView
-}> = [
-  {
-    description: "Reusable charge rules and dated amounts",
-    label: "Definitions",
-    value: "definitions",
-  },
-  {
-    description: "Charges posted to cooperative members",
-    label: "Applications",
-    value: "applications",
-  },
+const views: Array<{ label: string; value: ChargesPageView }> = [
+  { label: "Charge types", value: "definitions" },
+  { label: "Charged to members", value: "applications" },
 ]
 
-export function ChargeViewTabs({ activeView }: { activeView: ChargeView }) {
-  const { setFilter } = useChargeFilterParams()
-  const { setParams: setSortParams } = useSortParams()
-
-  async function selectView(view: ChargeView) {
-    await setSortParams({ sort: null })
-    await setFilter(
-      {
-        frequency: null,
-        q: null,
-        status: null,
-        valueType: null,
-        view,
-      },
-      { shallow: false }
-    )
-  }
+export function ChargeViewTabs({
+  activeView,
+}: {
+  activeView: ChargesPageView
+}) {
+  const { setParams } = useChargesPageParams()
 
   return (
     <div
-      aria-label="Charge workspace view"
-      className="flex min-w-0 gap-1 overflow-x-auto border-b border-border"
+      aria-label="Charges"
+      className="flex min-w-0 gap-x-1 overflow-x-auto border-b border-border"
       role="tablist"
     >
       {views.map((view) => {
@@ -54,13 +32,21 @@ export function ChargeViewTabs({ activeView }: { activeView: ChargeView }) {
           <Button
             aria-controls="charges-active-view"
             aria-selected={selected}
-            className="h-11 shrink-0 rounded-none border-x-0 border-t-0 border-b-2 border-transparent px-4 text-sm data-[active=true]:border-primary data-[active=true]:bg-transparent"
-            data-active={selected}
+            className={cn(
+              "h-11 shrink-0 rounded-none border-b-2 px-3 text-base shadow-none",
+              selected
+                ? "border-b-foreground font-semibold text-foreground"
+                : "border-transparent text-muted-foreground"
+            )}
             id={`charges-${view.value}-tab`}
             key={view.value}
-            onClick={() => void selectView(view.value)}
+            onClick={() =>
+              void setParams(
+                { chargedQ: null, view: view.value },
+                { shallow: false }
+              )
+            }
             role="tab"
-            title={view.description}
             type="button"
             variant="ghost"
           >

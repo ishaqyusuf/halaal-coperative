@@ -638,6 +638,138 @@ export async function countRecentPostedChargeApplications(
   }) as Promise<number>
 }
 
+export type ChargeActivitySource =
+  | "food_purchase"
+  | "loan"
+  | "loan_request"
+  | "manual"
+  | "monthly_collection"
+  | "procurement"
+  | "project_financing"
+
+export type ChargeActivityRow = {
+  amount: number
+  assessedAt: string
+  chargeName: string
+  collectionMode: "deduct_from_savings" | "pay_separately"
+  id: string
+  memberName: string
+  memberNumber: string
+  notes: string | null
+  source: ChargeActivitySource
+  status: "pending" | "posted" | "reversed" | "waived"
+}
+
+export const chargeActivityMaxPageSize = 50
+
+function toChargeActivitySource(row: {
+  chargeApplicability: { workflow: string } | null
+  foodPurchaseApplicationId: string | null
+  loanId: string | null
+  loanRequestId: string | null
+  procurementRequestId: string | null
+  projectFinancingRequestId: string | null
+}): ChargeActivitySource {
+  if (row.procurementRequestId) return "procurement"
+  if (row.foodPurchaseApplicationId) return "food_purchase"
+  if (row.projectFinancingRequestId) return "project_financing"
+  if (row.loanRequestId) return "loan_request"
+  if (row.loanId) return "loan"
+  if (row.chargeApplicability?.workflow === "commitment_collection") {
+    return "monthly_collection"
+  }
+
+  return "manual"
+}
+
+// Staff "charged to members" list: newest first, keyset-paged, only the
+// columns the list shows (target ids name the source without loading it).
+export async function listChargeActivityPage(
+  input: {
+    cursor?: string | null
+    pageSize?: number
+    q?: string | null
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<{
+  data: ChargeActivityRow[]
+  meta: { cursor?: string }
+}> {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const pageSize = Math.min(
+    Math.max(input.pageSize ?? 30, 1),
+    chargeActivityMaxPageSize
+  )
+  const search = input.q?.trim()
+  const rows = await prisma.chargeApplication.findMany({
+    ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+    orderBy: [{ assessedAt: "desc" }, { id: "desc" }],
+    select: {
+      amount: true,
+      assessedAt: true,
+      chargeApplicability: { select: { workflow: true } },
+      chargeDefinition: { select: { name: true } },
+      collectionMode: true,
+      foodPurchaseApplicationId: true,
+      id: true,
+      loanId: true,
+      loanRequestId: true,
+      member: { select: { fullName: true, memberNumber: true } },
+      notes: true,
+      procurementRequestId: true,
+      projectFinancingRequestId: true,
+      status: true,
+    },
+    take: pageSize + 1,
+    where: {
+      tenantId: input.tenantId,
+      ...(search
+        ? {
+            OR: [
+              {
+                member: {
+                  fullName: { contains: search, mode: "insensitive" },
+                },
+              },
+              {
+                member: {
+                  memberNumber: { contains: search, mode: "insensitive" },
+                },
+              },
+              {
+                chargeDefinition: {
+                  name: { contains: search, mode: "insensitive" },
+                },
+              },
+            ],
+          }
+        : {}),
+    },
+  })
+  const pageRows = rows.slice(0, pageSize)
+
+  return {
+    data: pageRows.map((row) => ({
+      amount: Number(row.amount),
+      assessedAt: row.assessedAt.toISOString(),
+      chargeName: row.chargeDefinition.name,
+      collectionMode: row.collectionMode,
+      id: row.id,
+      memberName: row.member.fullName,
+      memberNumber: row.member.memberNumber,
+      notes: row.notes,
+      source: toChargeActivitySource(row),
+      status: row.status,
+    })),
+    meta: {
+      cursor: rows.length > pageSize ? pageRows.at(-1)?.id : undefined,
+    },
+  }
+}
+
 export type CreateChargeDefinitionInput = {
   tenantId: string
   name: string

@@ -1,21 +1,19 @@
 import { z } from "zod"
-import {
-  createTRPCRouter,
-  tenantProcedure,
-  minRoleProcedure,
-} from "../lib.trpc"
+import { createTRPCRouter, minRoleProcedure, staffProcedure } from "../lib.trpc"
 import {
   chargeApplicabilityTriggerKeys,
   chargeCollectionModeKeys,
   chargeWorkflowKeys,
   createChargeDefinitionVersion,
   getTenantFinanceSetup,
+  listChargeActivityPage,
   listChargeDefinitions,
   listChargeDefinitionVersions,
   createChargeDefinition,
   updateChargeDefinition,
 } from "@halaalvest/db"
 import {
+  listChargeActivitySchema,
   listChargeLibrarySchema,
   listFinanceChargesSchema,
   listFinanceSharesSchema,
@@ -73,8 +71,17 @@ type ChargeLibraryVersionRow = {
   status: ChargeVersionStatus
 }
 
+type ChargeAppliesTo =
+  | "food_purchase"
+  | "loan"
+  | "loan_request"
+  | "monthly_collection"
+  | "procurement"
+  | "project_financing"
+
 type ChargeLibraryRow = {
   amount: number
+  appliesTo: ChargeAppliesTo[]
   chargeFrequency: ChargeFrequency
   chargeValueType: ChargeValueType
   code: string
@@ -129,6 +136,31 @@ type ListFinanceSharesInput = NonNullable<
   z.infer<typeof listFinanceSharesSchema>
 >
 
+const chargeAppliesToByWorkflow: Record<string, ChargeAppliesTo> = {
+  commitment_collection: "monthly_collection",
+  food_purchase_application: "food_purchase",
+  loan: "loan",
+  loan_request: "loan_request",
+  procurement_request: "procurement",
+  project_financing_request: "project_financing",
+}
+
+// Which workflows post this charge on their own, in one stable order.
+function toChargeAppliesTo(
+  applicability: Array<{ isActive?: boolean; workflow: string }>
+): ChargeAppliesTo[] {
+  const found = new Set(
+    applicability
+      .filter((row) => row.isActive !== false)
+      .map((row) => chargeAppliesToByWorkflow[row.workflow])
+      .filter((value): value is ChargeAppliesTo => Boolean(value))
+  )
+
+  return Object.values(chargeAppliesToByWorkflow).filter((value) =>
+    found.has(value)
+  )
+}
+
 function mapChargeLibraryRows(
   charges: Awaited<ReturnType<typeof listChargeDefinitions>>
 ): ChargeLibraryRow[] {
@@ -150,6 +182,7 @@ function mapChargeLibraryRows(
       amount: currentVersion
         ? Number(currentVersion.amount)
         : Number(charge.amount),
+      appliesTo: toChargeAppliesTo(charge.applicability ?? []),
       chargeFrequency: charge.chargeFrequency ?? "recurring_monthly",
       chargeValueType:
         charge.chargeValueType ??
@@ -482,7 +515,7 @@ function paginateRows<T extends { id: string }>(
 }
 
 export const chargesRouter = createTRPCRouter({
-  chargeLibrary: tenantProcedure
+  chargeLibrary: staffProcedure
     .input(listChargeLibrarySchema)
     .query(async ({ ctx, input }) => {
       const rows = sortChargeLibraryRows(
@@ -503,7 +536,18 @@ export const chargesRouter = createTRPCRouter({
       }
     }),
 
-  financeCharges: tenantProcedure
+  activity: staffProcedure
+    .input(listChargeActivitySchema)
+    .query(async ({ ctx, input }) => {
+      return listChargeActivityPage({
+        cursor: input?.cursor,
+        pageSize: input?.pageSize,
+        q: input?.q,
+        tenantId: ctx.tenant.current.id,
+      })
+    }),
+
+  financeCharges: staffProcedure
     .input(listFinanceChargesSchema)
     .query(async ({ ctx, input }) => {
       const setup = await getTenantFinanceSetup(ctx.tenant.current.id)
@@ -518,7 +562,7 @@ export const chargesRouter = createTRPCRouter({
       return paginateRows(rows, input)
     }),
 
-  financeShares: tenantProcedure
+  financeShares: staffProcedure
     .input(listFinanceSharesSchema)
     .query(async ({ ctx, input }) => {
       const setup = await getTenantFinanceSetup(ctx.tenant.current.id)
@@ -533,7 +577,7 @@ export const chargesRouter = createTRPCRouter({
       return paginateRows(rows, input)
     }),
 
-  listDefinitions: tenantProcedure.query(async ({ ctx }) => {
+  listDefinitions: staffProcedure.query(async ({ ctx }) => {
     return listChargeDefinitions(ctx.tenant.current.id)
   }),
 
@@ -560,7 +604,7 @@ export const chargesRouter = createTRPCRouter({
       })
     }),
 
-  listVersions: tenantProcedure
+  listVersions: staffProcedure
     .input(
       z.object({
         chargeDefinitionId: z.string().uuid(),

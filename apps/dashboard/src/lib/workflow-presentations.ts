@@ -29,12 +29,13 @@ export const workflowPresentations = {
     update: sheet(),
   },
   chargeOperation: {
-    application: sheet("review"),
-    definition: sheet("review"),
+    application: sheet("form"),
+    definition: sheet("form"),
+    details: sheet("form"),
     reverse: alertDialog(),
-    settle: dialog("form"),
+    settle: dialog("compact"),
     toggle: alertDialog(),
-    version: sheet(),
+    version: dialog("compact"),
     waive: alertDialog(),
   },
   contribution: {

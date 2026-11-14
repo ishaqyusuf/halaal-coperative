@@ -1,68 +1,67 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
+import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 const dashboardRoot = resolve(import.meta.dir, "../..")
 const read = (path: string) =>
   readFileSync(resolve(dashboardRoot, path), "utf8")
 
-describe("charges workspace Midday conformance", () => {
-  test("uses one URL-backed active dataset and flat page structure", () => {
+describe("charges page", () => {
+  test("loads charge types once and member charges only on their tab", () => {
+    const page = read("app/(app)/(sidebar)/charges/page.tsx")
+
+    expect(page).toContain("trpc.charges.chargeLibrary.queryOptions")
+    expect(page).toContain('view === "applications"')
+    expect(page).not.toContain("listChargeDefinitions")
+    expect(page).not.toContain("listMembers")
+    expect(page).not.toContain("listChargeApplications")
+  })
+
+  test("keeps one URL-backed tab and one title", () => {
     const view = read("components/charges-page-view.tsx")
     const tabs = read("components/charge-view-tabs.tsx")
 
     expect(tabs).toContain('role="tablist"')
-    expect(tabs).toContain('value: "definitions"')
-    expect(tabs).toContain('value: "applications"')
     expect(tabs).toContain("{ shallow: false }")
-    expect(view).toContain('activeView === "definitions"')
     expect(view).toContain('id="charges-active-view"')
-    expect(view).toContain("divide-x divide-border border-y border-border")
-    expect(view).not.toContain("DashboardStatCard")
-    expect(view).not.toContain("DashboardSectionCard")
-    expect(view).not.toContain("ChargeLibraryHistory")
+    expect(view).not.toContain("<h1")
+    expect(view).not.toContain("<h2")
   })
 
-  test("keeps compact row actions and flat mobile filters", () => {
-    const columns = read("components/tables/charge-library/columns.tsx")
-    const actions = read("components/tables/charge-library/actions-menu.tsx")
-    const applicationActions = read(
-      "components/charge-application-actions-menu.tsx"
-    )
-    const drawer = read("components/charge-library-filter-drawer.tsx")
-    const mobileToolbar = read("components/charge-library-mobile-toolbar.tsx")
-    const empty = read("components/tables/charge-library/empty-states.tsx")
+  test("uses real alert dialogs for money and on/off confirms", () => {
+    for (const mode of ["reverse", "toggle", "waive"]) {
+      expect(
+        getWorkflowPresentation("chargeOperation", mode).presentation
+      ).toBe("alert-dialog")
+    }
+    expect(getWorkflowPresentation("chargeOperation", "details")).toEqual({
+      presentation: "sheet",
+      width: "form",
+    })
 
-    expect(columns).toContain("<ChargeLibraryActionsMenu")
-    expect(columns).toContain("size: 72")
-    expect(actions).toContain("View dated history")
-    expect(applicationActions).toContain("Waive charge")
-    expect(applicationActions).toContain("Reverse charge")
-    expect(drawer).toContain("divide-y divide-border border-y border-border")
-    expect(drawer).not.toContain("border border-border px-3")
-    expect(mobileToolbar).toContain('aria-label="Charge actions"')
-    expect(mobileToolbar).not.toContain("MoreHorizontal")
-    expect(empty).not.toContain("chargeOperationSheetType")
+    const forms = read("components/forms/charge-forms.tsx")
+    expect(forms).toContain("<ConfirmActionDialog")
   })
 
-  test("closes URL state after invalidation and before route refresh", () => {
+  test("asks for a reason before a waiver or undo", () => {
     const content = read("components/charge-operation-content.tsx")
-    const forms = read("components/forms/finance-forms.tsx")
-    const query = read(
-      "components/tables/charge-library/use-charge-library-query.ts"
-    )
 
-    const invalidateAt = content.indexOf("await queryClient.invalidateQueries")
+    expect(content).toContain('name="reason"')
+    expect(content).toContain("!reason.trim()")
+  })
+
+  test("refreshes charge reads after a change, then closes, then refreshes the route", () => {
+    const content = read("components/charge-operation-content.tsx")
+    const invalidateAt = content.indexOf("invalidateQueries")
     const closeAt = content.indexOf("await setParams(null)")
     const refreshAt = content.indexOf("router.refresh()")
 
     expect(invalidateAt).toBeGreaterThan(-1)
     expect(closeAt).toBeGreaterThan(invalidateAt)
     expect(refreshAt).toBeGreaterThan(closeAt)
-    expect(content.match(/await refreshCharges\(\)/g) ?? []).toHaveLength(5)
-    expect(
-      forms.match(/await onSuccess\?\.\(\)/g)?.length ?? 0
-    ).toBeGreaterThan(1)
-    expect(query).not.toContain("refetchInterval")
+    expect(read("hooks/use-charge-activity-query.ts")).not.toContain(
+      "refetchInterval"
+    )
   })
 })

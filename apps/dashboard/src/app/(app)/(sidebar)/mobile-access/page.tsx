@@ -68,7 +68,7 @@ export default async function MobileAccessPage({
               </Link>
             ) : null
           }
-          title={isMember ? "Mobile app" : "Mobile access"}
+          title="Mobile access"
         />
         <div className="space-y-10">
           {isMember ? <MemberAccessView /> : null}

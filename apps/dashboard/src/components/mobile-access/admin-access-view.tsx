@@ -223,7 +223,7 @@ export function AdminAccessView() {
       <div className="space-y-3">
         <div
           aria-label="Members"
-          className="flex gap-1 overflow-x-auto border-b border-border"
+          className="flex flex-wrap gap-x-1 border-b border-border"
           role="tablist"
         >
           {tabs.map((tab) => {
@@ -235,7 +235,7 @@ export function AdminAccessView() {
                 className={cn(
                   "h-11 shrink-0 rounded-none border-b-2 px-3 text-base shadow-none",
                   selected
-                    ? "border-foreground font-semibold"
+                    ? "border-b-foreground font-semibold text-foreground"
                     : "border-transparent text-muted-foreground"
                 )}
                 id={`mobile-access-${tab.status}-tab`}

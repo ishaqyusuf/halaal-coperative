@@ -70,7 +70,7 @@ function AskAssistantUnavailable({ noAccess, cooperativeName }: ScreenProps) {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   return (
-    <View className="flex-1 bg-card" style={{ paddingTop: insets.top }}>
+    <View className="bg-card" style={{ flex: 1, paddingTop: insets.top }}>
       <AssistantHeader title="Assistant" subtitle={cooperativeName} />
       <View className="gap-3 p-[18px]">
         <Banner
@@ -253,8 +253,11 @@ function AskAssistantLive({
 
   return (
     // The chat is white (card colour), like the reply surface in ChatGPT.
-    <View className="flex-1 bg-card" style={{ paddingTop: insets.top }}>
-      <KeyboardAvoidingView behavior="padding" className="flex-1">
+    // flex comes from style: with an inline style here, a "flex-1" class was
+    // dropped and the screen measured only its top inset (composer off screen).
+    <View className="bg-card" style={{ flex: 1, paddingTop: insets.top }}>
+      {/* keyboard-controller's view isn't mapped by NativeWind. */}
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <AssistantHeader
           title="Assistant"
           subtitle={[

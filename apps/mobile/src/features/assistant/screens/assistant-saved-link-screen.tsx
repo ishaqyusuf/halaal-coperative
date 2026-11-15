@@ -69,7 +69,7 @@ export function AssistantSavedLinkScreen({
   const text = copy(kind === "message" ? "answer" : "draft")[state]
   const busy = state === "waiting" || state === "opening"
   return (
-    <View className="flex-1 bg-card" style={{ paddingTop: insets.top }}>
+    <View className="bg-card" style={{ flex: 1, paddingTop: insets.top }}>
       <AssistantHeader title="Assistant" />
       <ScrollView
         contentContainerStyle={{

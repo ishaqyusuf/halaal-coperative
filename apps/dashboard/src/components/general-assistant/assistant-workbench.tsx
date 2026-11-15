@@ -101,7 +101,6 @@ export function AssistantWorkbench() {
     // Edge to edge under the shell header: no card frame. Negative margins
     // cancel the shell's page padding so only the columns scroll.
     <div className="-mx-4 -my-6 flex flex-1 flex-col sm:-mx-6 lg:-mx-8">
-      <h1 className="sr-only">Assistant</h1>
       <div
         className={cn(
           "grid h-[calc(100svh-71px)] min-h-[32rem] overflow-hidden",

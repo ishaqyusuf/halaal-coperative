@@ -15,6 +15,7 @@ import {
 } from "@halaalvest/ui/components/radio-group"
 import { Spinner } from "@halaalvest/ui/components/spinner"
 import { cn } from "@halaalvest/ui/lib/utils"
+import { DashboardStateQuickFill } from "@/components/dashboard-quick-fill"
 import { FinanceStartDateForm } from "@/components/forms/tenant-finance-forms"
 import { OnePathStep } from "@/components/one-path/one-path-step"
 import { updateTenantMigrationSetupAction } from "@/lib/dashboard-actions"
@@ -149,6 +150,14 @@ export function SetupModeStep({
           id={setupModeFormId}
           onSubmit={onSubmit}
         >
+          {/* QA: picks the recommended start (or rebuilding history). */}
+          <DashboardStateQuickFill
+            className="self-end"
+            draft={pickedMode}
+            enabled={!modeLocked && !needsStartDate && !isPending}
+            onFill={() => setMode(recommended ?? "historical_backfill")}
+            restore={setMode}
+          />
           <RadioGroup
             aria-label="Where records start"
             className="grid gap-3 @xl:grid-cols-2"

@@ -37,6 +37,7 @@ import {
 import { OpeningCurrencyInput } from "./opening-currency-input"
 import { MemberOpeningSharePositionFields } from "./member-opening-share-position-fields"
 import { OpeningBalanceOptionalSections } from "./opening-balance-optional-sections"
+import { HistoricalSharePurchaseQuickFill } from "./historical-share-purchase-quick-fill"
 import { OpeningBalanceQuickFillButton } from "./opening-balance-quick-fill-button"
 import { OpeningPositionDateGuard } from "./opening-position-date-guard"
 
@@ -455,6 +456,9 @@ export function HistoricalSharePurchaseContent({
       action={createHistoricalMemberSharePurchaseAction}
       className="grid gap-3"
     >
+      {data.quickFillEnabled ? (
+        <HistoricalSharePurchaseQuickFill disabled={disabled} />
+      ) : null}
       <input name="memberId" type="hidden" value={data.member.id} />
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="grid gap-1 text-xs font-medium text-muted-foreground">

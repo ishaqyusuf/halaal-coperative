@@ -42,8 +42,6 @@ describe("dashboard Quick fill coverage", () => {
 
   test("every covered form uses the shared, QA-gated Quick Fill", async () => {
     // Recipe forms (see .brain/features/form-quick-fill-coverage.md).
-    // monthly-record-content.tsx is being reworked (workplaces); re-add it
-    // once that lands with its Quick Fill.
     const coveredForms = [
       "components/business/business-forms.tsx",
       "components/charge-content.tsx",
@@ -67,6 +65,10 @@ describe("dashboard Quick fill coverage", () => {
       "components/migration/member-backfill-controls.tsx",
       "components/migration/member-migration-history-forms.tsx",
       "components/mobile-access/remittance-dialog.tsx",
+      "components/monthly-record-content.tsx",
+      "components/one-path/setup-mode-step.tsx",
+      "components/members/opening-balance-quick-fill-button.tsx",
+      "components/members/historical-share-purchase-quick-fill.tsx",
       "components/onboarding/member-signup-form.tsx",
       "components/onboarding/membership-approval-form.tsx",
       "components/operation-profile-settings-content.tsx",

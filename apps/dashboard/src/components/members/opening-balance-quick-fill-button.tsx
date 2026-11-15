@@ -1,6 +1,6 @@
 "use client"
 
-import { Button } from "@halaalvest/ui/components/button"
+import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
 
 type OpeningPositionQuickFillValues = {
   activeFinancingGuarantorOneMemberId?: string
@@ -111,15 +111,8 @@ export function OpeningBalanceQuickFillButton({
     }, 50)
   }
 
+  // The shared control: QA badge and QA gate, like every other form.
   return (
-    <Button
-      disabled={disabled}
-      onClick={quickFillOpeningPosition}
-      size="sm"
-      type="button"
-      variant="outline"
-    >
-      Quick fill
-    </Button>
+    <DashboardQuickFill enabled={!disabled} onFill={quickFillOpeningPosition} />
   )
 }

@@ -10,6 +10,7 @@ import type {
   MonthlyRecordSettingView,
 } from "@halaalvest/db"
 import { formatCurrency } from "@halaalvest/utils"
+import { DashboardNativeQuickFill } from "@/components/dashboard-quick-fill"
 import { WorkplaceReceiveContent } from "@/components/monthly-records/workplace-receive-content"
 import { WorkplacesContent } from "@/components/monthly-records/workplaces-content"
 import { WorkflowConfirmFooter } from "@/components/workflow-confirm-footer"
@@ -99,23 +100,26 @@ export function MonthlyRecordContent({
 
   if (monthlyRecordSheetType === "apply") {
     if (!selectedRow) {
-      return (
-        <p className="text-muted-foreground">This member was not found.</p>
-      )
+      return <p className="text-muted-foreground">This member was not found.</p>
     }
 
     return (
-      <form
-        action={applyMonthlyRecordMemberAction}
-        className="grid gap-5"
-      >
+      <form action={applyMonthlyRecordMemberAction} className="grid gap-5">
+        {/* QA: pays what the member owes this month. */}
+        <DashboardNativeQuickFill
+          values={() => ({
+            totalPaidAmount: selectedRow.totalPayableAmount.toFixed(2),
+          })}
+        />
         <input
           name="monthlyRecordMemberId"
           type="hidden"
           value={selectedRow.id}
         />
         <div>
-          <p className="font-medium text-foreground">{selectedRow.memberName}</p>
+          <p className="font-medium text-foreground">
+            {selectedRow.memberName}
+          </p>
           <p className="text-muted-foreground">
             Owes {formatCurrency(selectedRow.totalPayableAmount)}
           </p>
@@ -172,6 +176,9 @@ export function MonthlyRecordContent({
         }}
         className="grid gap-5"
       >
+        <DashboardNativeQuickFill
+          values={() => ({ generationDayOfMonth: "25" })}
+        />
         <label className="flex min-h-11 items-center justify-between gap-4 font-medium">
           Start each month automatically
           <input

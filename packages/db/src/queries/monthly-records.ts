@@ -1226,13 +1226,14 @@ export async function applyMonthlyRecordMember(
           tenantId: input.tenantId,
         },
         select: {
+          deductionSourceId: true,
           paymentAllocationPreference: true,
         },
       })
 
       if (!member) throw ExpectedQueryError.notFound("Member not found.")
 
-      return postClaimedMonthlyRecordRow(
+      const applied = await postClaimedMonthlyRecordRow(
         {
           actorUserId: input.actorUserId,
           channel: "manual",
@@ -1243,6 +1244,35 @@ export async function applyMonthlyRecordMember(
         },
         tx
       )
+
+      // Like workplace receiving, record the payment on the member's
+      // workplace batch for the month, so the contributions page shows it.
+      if (member.deductionSourceId) {
+        await recordWorkplaceBatchPostings(
+          {
+            actorUserId: input.actorUserId,
+            postedAt: getPeriodRange(
+              row.monthlyRecord.periodYear,
+              row.monthlyRecord.periodMonth
+            ).start,
+            postings: [
+              {
+                contributionId: applied.contributionId,
+                contributionPlanId: row.contributionPlanId,
+                expectedAmount: Number(row.calculatedPayableAmount),
+                memberId: row.memberId,
+                paidAmount: input.totalPaidAmount,
+              },
+            ],
+            record: row.monthlyRecord,
+            tenantId: input.tenantId,
+            workplaceId: member.deductionSourceId,
+          },
+          tx
+        )
+      }
+
+      return applied
     },
     {
       maxWait: 5_000,
@@ -1551,89 +1581,21 @@ export async function receiveWorkplaceMonthlyPayments(
 
         if (chunkReceived.length === 0) return
 
-        const batch = await tx.collectionSourceContributionBatch.upsert({
-          where: {
-            tenantId_deductionSourceId_periodYear_periodMonth: {
-              deductionSourceId: workplace.id,
-              periodMonth: record.periodMonth,
-              periodYear: record.periodYear,
-              tenantId: input.tenantId,
-            },
-          },
-          create: {
-            createdByUserId: input.actorUserId,
-            deductionSourceId: workplace.id,
-            periodLabel: record.periodLabel,
-            periodMonth: record.periodMonth,
-            periodYear: record.periodYear,
-            postedByUserId: input.actorUserId,
-            tenantId: input.tenantId,
-          },
-          update: { postedByUserId: input.actorUserId },
-          select: { id: true },
-        })
-        batchId = batch.id
-        const existingBatchRows =
-          await tx.collectionSourceContributionBatchRow.findMany({
-            where: {
-              batchId: batch.id,
-              memberId: {
-                in: chunkPostings.map((posting) => posting.memberId),
-              },
-            },
-            select: { memberId: true },
-          })
-        const existingMemberIds = new Set(
-          existingBatchRows.map((row) => row.memberId)
-        )
-        const newBatchRows = chunkPostings.filter(
-          (posting) => !existingMemberIds.has(posting.memberId)
-        )
-
-        if (newBatchRows.length > 0) {
-          await tx.collectionSourceContributionBatchRow.createMany({
-            data: newBatchRows.map((posting) => ({
-              batchId: batch.id,
+        batchId = await recordWorkplaceBatchPostings(
+          {
+            actorUserId: input.actorUserId,
+            postedAt,
+            postings: chunkPostings.map((posting) => ({
               contributionId: posting.contributionId,
               contributionPlanId: posting.contributionPlanId,
               expectedAmount: posting.amount,
               memberId: posting.memberId,
               paidAmount: posting.amount,
-              postedAt,
-              status: "posted" as const,
-              tenantId: input.tenantId,
             })),
-            skipDuplicates: true,
-          })
-        }
-
-        // A staged row for the same member (from the contributions page), or a
-        // row whose posting was undone, is closed with this posting so it can
-        // never be posted a second time.
-        for (const posting of chunkPostings) {
-          if (!existingMemberIds.has(posting.memberId)) continue
-          await tx.collectionSourceContributionBatchRow.updateMany({
-            where: {
-              batchId: batch.id,
-              memberId: posting.memberId,
-              OR: [
-                { contributionId: null },
-                { contribution: { status: "reversed" } },
-              ],
-            },
-            data: {
-              blocker: null,
-              contributionId: posting.contributionId,
-              exceptionReason: null,
-              paidAmount: posting.amount,
-              postedAt,
-              status: "posted",
-            },
-          })
-        }
-
-        await refreshCollectionSourceBatchStatus(
-          { batchId: batch.id, tenantId: input.tenantId },
+            record,
+            tenantId: input.tenantId,
+            workplaceId: workplace.id,
+          },
           tx
         )
         await tx.auditLog.create({
@@ -1644,7 +1606,7 @@ export async function receiveWorkplaceMonthlyPayments(
             entityId: record.id,
             entityType: "MonthlyRecord",
             metadata: {
-              collectionSourceBatchId: batch.id,
+              collectionSourceBatchId: batchId,
               deductionSourceId: workplace.id,
               periodLabel: record.periodLabel,
               receivedAmount: chunkReceived.reduce(
@@ -1672,6 +1634,118 @@ export async function receiveWorkplaceMonthlyPayments(
     skipped,
     workplaceName: workplace.name,
   }
+}
+
+type WorkplaceBatchPosting = {
+  contributionId: string | null
+  contributionPlanId: string | null
+  expectedAmount: number
+  memberId: string
+  paidAmount: number
+}
+
+// Records monthly-record payments on the workplace's
+// `CollectionSourceContributionBatch` for the month (one posted row per
+// member), as workplace receiving and a single "Mark paid" both do. A staged
+// or undone row for the same member is closed with the new posting. Runs in
+// the caller's posting transaction; returns the batch id.
+async function recordWorkplaceBatchPostings(
+  input: {
+    actorUserId: string
+    postedAt: Date
+    postings: WorkplaceBatchPosting[]
+    record: { periodLabel: string; periodMonth: number; periodYear: number }
+    tenantId: string
+    workplaceId: string
+  },
+  tx: PrismaClient
+) {
+  const batch = await tx.collectionSourceContributionBatch.upsert({
+    where: {
+      tenantId_deductionSourceId_periodYear_periodMonth: {
+        deductionSourceId: input.workplaceId,
+        periodMonth: input.record.periodMonth,
+        periodYear: input.record.periodYear,
+        tenantId: input.tenantId,
+      },
+    },
+    create: {
+      createdByUserId: input.actorUserId,
+      deductionSourceId: input.workplaceId,
+      periodLabel: input.record.periodLabel,
+      periodMonth: input.record.periodMonth,
+      periodYear: input.record.periodYear,
+      postedByUserId: input.actorUserId,
+      tenantId: input.tenantId,
+    },
+    update: { postedByUserId: input.actorUserId },
+    select: { id: true },
+  })
+  const existingBatchRows =
+    await tx.collectionSourceContributionBatchRow.findMany({
+      where: {
+        batchId: batch.id,
+        memberId: {
+          in: input.postings.map((posting) => posting.memberId),
+        },
+      },
+      select: { memberId: true },
+    })
+  const existingMemberIds = new Set(
+    existingBatchRows.map((row) => row.memberId)
+  )
+  const newBatchRows = input.postings.filter(
+    (posting) => !existingMemberIds.has(posting.memberId)
+  )
+
+  if (newBatchRows.length > 0) {
+    await tx.collectionSourceContributionBatchRow.createMany({
+      data: newBatchRows.map((posting) => ({
+        batchId: batch.id,
+        contributionId: posting.contributionId,
+        contributionPlanId: posting.contributionPlanId,
+        expectedAmount: posting.expectedAmount,
+        memberId: posting.memberId,
+        paidAmount: posting.paidAmount,
+        postedAt: input.postedAt,
+        status: "posted" as const,
+        tenantId: input.tenantId,
+      })),
+      skipDuplicates: true,
+    })
+  }
+
+  // A staged row for the same member (from the contributions page), or a
+  // row whose posting was undone, is closed with this posting so it can
+  // never be posted a second time.
+  for (const posting of input.postings) {
+    if (!existingMemberIds.has(posting.memberId)) continue
+    await tx.collectionSourceContributionBatchRow.updateMany({
+      where: {
+        batchId: batch.id,
+        memberId: posting.memberId,
+        OR: [
+          { contributionId: null },
+          { contribution: { status: "reversed" } },
+        ],
+      },
+      data: {
+        blocker: null,
+        contributionId: posting.contributionId,
+        exceptionReason: null,
+        paidAmount: posting.paidAmount,
+        postedAt: input.postedAt,
+        status: "posted",
+      },
+    })
+  }
+
+  await refreshCollectionSourceBatchStatus(
+    { batchId: batch.id, tenantId: input.tenantId },
+    tx
+  )
+
+  return batch.id
 }
 
 async function reverseMonthlyContribution(input: {

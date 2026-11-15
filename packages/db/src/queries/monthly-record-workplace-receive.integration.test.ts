@@ -320,12 +320,31 @@ run("workplace bulk receiving", () => {
   })
 
   describe("monthly record and workplace batch guard each other", () => {
-    it("skips a batch post for a member already marked paid this month", async () => {
-      await addMember("e", workplaceId)
-      await markPaid("e")
-      const batchRowId = await addCollectedBatchRow("e")
+    it("records a single Mark paid on the member's workplace batch", async () => {
+      await addMember("h", workplaceId)
+      const applied = await markPaid("h")
 
-      const result = await postCollectionSourceContributionBatchRows(
+      const row = await db!.collectionSourceContributionBatchRow.findFirstOrThrow({
+        where: { batchId: await workplaceBatchId(), memberId: memberIds.h! },
+      })
+      expect(row.status).toBe("posted")
+      expect(row.contributionId).toBe(applied.contributionId)
+      expect(Number(row.paidAmount)).toBe(5000)
+      expect(Number(row.expectedAmount)).toBe(5000)
+    })
+
+    it("closes a staged batch row with Mark paid, so a batch post cannot pay twice", async () => {
+      await addMember("e", workplaceId)
+      const batchRowId = await addCollectedBatchRow("e")
+      const applied = await markPaid("e")
+
+      const closed = await db!.collectionSourceContributionBatchRow.findUniqueOrThrow({
+        where: { id: batchRowId },
+      })
+      expect(closed.status).toBe("posted")
+      expect(closed.contributionId).toBe(applied.contributionId)
+
+      await postCollectionSourceContributionBatchRows(
         {
           actorUserId: userId,
           batchId: await workplaceBatchId(),
@@ -333,17 +352,8 @@ run("workplace bulk receiving", () => {
           tenantId,
         },
         db!
-      )
-
-      expect(result.skipped).toEqual([
-        expect.objectContaining({ reason: "already_paid_this_month", rowId: batchRowId }),
-      ])
+      ).catch(() => null)
       expect(await liveContributions("e")).toBe(1)
-      const row = await db!.collectionSourceContributionBatchRow.findUniqueOrThrow({
-        where: { id: batchRowId },
-      })
-      expect(row.status).toBe("skipped")
-      expect(row.contributionId).toBeNull()
     })
 
     it("refuses Mark paid and skips bulk receive for a member paid by a batch", async () => {

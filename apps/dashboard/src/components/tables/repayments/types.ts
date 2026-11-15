@@ -7,14 +7,9 @@ export type RepaymentScheduleRow = {
   installmentNumber: number
   /** Unpaid and due before today (decided by the server). */
   isLate: boolean
+  /** The latest follow-up's outcome and promised date (row-only shape). */
   latestCollectionFollowUp: {
-    assignedToUser: { fullName: string } | null
-    caseStage: "active" | "escalated" | "promise_tracking" | "resolved"
-    createdAt: Date | string
-    nextActionAt: Date | string | null
-    priority: "low" | "normal" | "high"
     promiseToPayAt?: Date | string | null
-    resolutionStatus: "open" | "resolved"
     status: string
   } | null
   loan: {
@@ -23,13 +18,7 @@ export type RepaymentScheduleRow = {
     member: { fullName: string; memberNumber: string }
   }
   outstandingAmount: number
-  status:
-    | "pending"
-    | "due"
-    | "partially_paid"
-    | "overdue"
-    | "paid"
-    | "waived"
+  status: "pending" | "due" | "partially_paid" | "overdue" | "paid" | "waived"
   totalDue: number
 }
 

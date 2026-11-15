@@ -91,7 +91,8 @@ export type RepaymentScheduleItemRow = {
   installmentNumber: number
   /** Unpaid and due before today, whatever the stored status says. */
   isLate: boolean
-  latestCollectionFollowUp: CollectionFollowUpRow | null
+  /** What the schedule list shows of the latest follow-up. */
+  latestCollectionFollowUp: RepaymentScheduleFollowUpPreview | null
   loan: {
     id: string
     loanProduct: { id: string; name: string }
@@ -104,8 +105,18 @@ export type RepaymentScheduleItemRow = {
   updatedAt: Date
 }
 
-export type RepaymentScheduleItemDetail = RepaymentScheduleItemRow & {
+/** The latest follow-up in a schedule row: its outcome and promised date. */
+export type RepaymentScheduleFollowUpPreview = Pick<
+  CollectionFollowUpRow,
+  "promiseToPayAt" | "status"
+>
+
+export type RepaymentScheduleItemDetail = Omit<
+  RepaymentScheduleItemRow,
+  "latestCollectionFollowUp"
+> & {
   collectionFollowUps: CollectionFollowUpRow[]
+  latestCollectionFollowUp: CollectionFollowUpRow | null
 }
 
 export type RepaymentHistoryRow = {
@@ -293,14 +304,21 @@ function decodeHistoryCursor(
 
 function scheduleInclude(detail = false) {
   return {
-    collectionFollowUps: {
-      include: {
-        actorUser: { select: { fullName: true, id: true } },
-        assignedToUser: { select: { fullName: true, id: true } },
-      },
-      orderBy: { createdAt: "desc" as const },
-      ...(detail ? {} : { take: 1 }),
-    },
+    // A list row shows only the latest outcome and promised date; the
+    // detail sheet shows every follow-up with who logged and owns it.
+    collectionFollowUps: detail
+      ? {
+          include: {
+            actorUser: { select: { fullName: true, id: true } },
+            assignedToUser: { select: { fullName: true, id: true } },
+          },
+          orderBy: { createdAt: "desc" as const },
+        }
+      : {
+          orderBy: { createdAt: "desc" as const },
+          select: { promiseToPayAt: true, status: true },
+          take: 1,
+        },
     loan: {
       select: {
         id: true,
@@ -356,14 +374,22 @@ function normalizeScheduleItem(
   detail = false,
   asOf = startOfUtcDay()
 ): RepaymentScheduleItemRow | RepaymentScheduleItemDetail {
-  const followUps = (item.collectionFollowUps ?? []).map(normalizeFollowUp)
+  const followUps: CollectionFollowUpRow[] = detail
+    ? (item.collectionFollowUps ?? []).map(normalizeFollowUp)
+    : []
+  const latest = item.collectionFollowUps?.[0]
   const row: RepaymentScheduleItemRow = {
     amountPaid: Number(item.amountPaid),
     dueAt: item.dueAt,
     id: item.id,
     installmentNumber: item.installmentNumber,
     isLate: isLateScheduleItem(item, asOf),
-    latestCollectionFollowUp: followUps[0] ?? null,
+    latestCollectionFollowUp: latest
+      ? {
+          promiseToPayAt: latest.promiseToPayAt ?? null,
+          status: latest.status,
+        }
+      : null,
     loan: {
       id: item.loan.id,
       loanProduct: {
@@ -377,13 +403,22 @@ function normalizeScheduleItem(
       },
       status: item.loan.status,
     },
-    outstandingAmount: Math.max(0, Number(item.totalDue) - Number(item.amountPaid)),
+    outstandingAmount: Math.max(
+      0,
+      Number(item.totalDue) - Number(item.amountPaid)
+    ),
     status: item.status,
     totalDue: Number(item.totalDue),
     updatedAt: item.updatedAt,
   }
 
-  return detail ? { ...row, collectionFollowUps: followUps } : row
+  return detail
+    ? {
+        ...row,
+        collectionFollowUps: followUps,
+        latestCollectionFollowUp: followUps[0] ?? null,
+      }
+    : row
 }
 
 function normalizeHistory(repayment: any): RepaymentHistoryRow {
@@ -505,9 +540,7 @@ function getScheduleWhere(input: ListRepaymentSchedulePageInput) {
           },
         }
       : {}),
-    ...(loanPredicates.length
-      ? { loan: { is: { AND: loanPredicates } } }
-      : {}),
+    ...(loanPredicates.length ? { loan: { is: { AND: loanPredicates } } } : {}),
     ...(hasFollowUpFilter
       ? { collectionFollowUps: { some: followUpPredicate } }
       : {}),
@@ -713,7 +746,11 @@ function historyKeysetWhere(input: {
       : { [field]: cursor[field] }
   const primaryAfter =
     field === "memberName"
-      ? { member: { is: { fullName: compareAfter(cursor.memberName, direction) } } }
+      ? {
+          member: {
+            is: { fullName: compareAfter(cursor.memberName, direction) },
+          },
+        }
       : { [field]: compareAfter(cursor[field], direction) }
 
   return { OR: [primaryAfter, { AND: [primaryEquals, paidAtTie] }] }
@@ -776,9 +813,11 @@ export async function listRepaymentSchedulePage(
     prisma.repaymentScheduleItem.count({ where }),
   ])
   const asOf = input.asOf ?? startOfUtcDay()
-  const data = items.slice(0, pageSize).map((item: any) =>
-    normalizeScheduleItem(item, false, asOf)
-  ) as RepaymentScheduleItemRow[]
+  const data = items
+    .slice(0, pageSize)
+    .map((item: any) =>
+      normalizeScheduleItem(item, false, asOf)
+    ) as RepaymentScheduleItemRow[]
 
   return {
     data,
@@ -803,7 +842,9 @@ export async function getRepaymentScheduleItem(
     include: scheduleInclude(true),
     where: { id: input.repaymentScheduleItemId, tenantId: input.tenantId },
   })
-  return item ? (normalizeScheduleItem(item, true) as RepaymentScheduleItemDetail) : null
+  return item
+    ? (normalizeScheduleItem(item, true) as RepaymentScheduleItemDetail)
+    : null
 }
 
 export async function listRepaymentHistoryPage(

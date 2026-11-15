@@ -78,7 +78,10 @@ function createRepaymentsPrismaStub() {
     scheduleItem("schedule-2", 2),
     scheduleItem("schedule-3", 3),
   ]
-  const repayments = [repayment("repayment-1", 100), repayment("repayment-2", 50)]
+  const repayments = [
+    repayment("repayment-1", 100),
+    repayment("repayment-2", 50),
+  ]
 
   return {
     repayment: {
@@ -147,9 +150,20 @@ describe("repayment read models", () => {
       },
     })
     expect(result.data).toHaveLength(2)
+    // Row-only follow-up: outcome and promised date, no actor/assignee loads.
+    expect(prisma.scheduleFindManyCalls[0].include.collectionFollowUps).toEqual(
+      {
+        orderBy: { createdAt: "desc" },
+        select: { promiseToPayAt: true, status: true },
+        take: 1,
+      }
+    )
     expect(result.data[0]).toMatchObject({
-      latestCollectionFollowUp: { id: "follow-up-schedule-1" },
       outstandingAmount: 75,
+    })
+    expect(result.data[0]?.latestCollectionFollowUp).toEqual({
+      promiseToPayAt: null,
+      status: "promise_to_pay",
     })
     expect(result.meta).toMatchObject({ hasNextPage: true, total: 3 })
     expect(result.meta.cursor).toEqual(expect.any(String))
@@ -207,23 +221,37 @@ describe("repayment read models", () => {
         },
       ],
     })
-    expect(prisma.scheduleFindManyCalls[0].where.collectionFollowUps).toBeUndefined()
+    expect(
+      prisma.scheduleFindManyCalls[0].where.collectionFollowUps
+    ).toBeUndefined()
   })
 
   test("late is decided from the due date, not a refreshed status", () => {
     const asOf = new Date("2026-11-14T00:00:00.000Z")
 
     expect(
-      isLateScheduleItem({ dueAt: "2021-11-02T00:00:00.000Z", status: "pending" }, asOf)
+      isLateScheduleItem(
+        { dueAt: "2021-11-02T00:00:00.000Z", status: "pending" },
+        asOf
+      )
     ).toBe(true)
     expect(
-      isLateScheduleItem({ dueAt: "2026-11-14T00:00:00.000Z", status: "pending" }, asOf)
+      isLateScheduleItem(
+        { dueAt: "2026-11-14T00:00:00.000Z", status: "pending" },
+        asOf
+      )
     ).toBe(false)
     expect(
-      isLateScheduleItem({ dueAt: "2021-11-02T00:00:00.000Z", status: "paid" }, asOf)
+      isLateScheduleItem(
+        { dueAt: "2021-11-02T00:00:00.000Z", status: "paid" },
+        asOf
+      )
     ).toBe(false)
     expect(
-      isLateScheduleItem({ dueAt: "2021-11-02T00:00:00.000Z", status: "waived" }, asOf)
+      isLateScheduleItem(
+        { dueAt: "2021-11-02T00:00:00.000Z", status: "waived" },
+        asOf
+      )
     ).toBe(false)
     expect(
       isLateScheduleItem(
@@ -257,16 +285,27 @@ describe("repayment read models", () => {
     expect(prisma.repaymentFindManyCalls[0]).toMatchObject({ take: 2 })
     expect(historyCursor).toEqual(expect.any(String))
     await getRepayment(
-      { repaymentId: "33333333-3333-4333-8333-333333333333", tenantId: "tenant-1" },
+      {
+        repaymentId: "33333333-3333-4333-8333-333333333333",
+        tenantId: "tenant-1",
+      },
       prisma as never
     )
-    await getRepaymentScheduleItem(
+    const scheduleDetail = await getRepaymentScheduleItem(
       {
         repaymentScheduleItemId: "44444444-4444-4444-8444-444444444444",
         tenantId: "tenant-1",
       },
       prisma as never
     )
+    // The detail sheet keeps every follow-up with who logged and owns it.
+    expect(scheduleDetail?.collectionFollowUps[0]).toMatchObject({
+      actorUser: { fullName: "Finance Officer" },
+      assignedToUser: { fullName: "Collections Officer" },
+    })
+    expect(scheduleDetail?.latestCollectionFollowUp).toMatchObject({
+      caseStage: "promise_tracking",
+    })
     expect(prisma.repaymentFindFirstCalls[0].where).toEqual({
       id: "33333333-3333-4333-8333-333333333333",
       tenantId: "tenant-1",

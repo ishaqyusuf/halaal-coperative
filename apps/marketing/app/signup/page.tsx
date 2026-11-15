@@ -3,6 +3,7 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@halaalvest/ui/components/alert"
+import { getPublishedLegalBundle } from "@halaalvest/db"
 import { redirect } from "next/navigation"
 import { EarlyAccessForm } from "@/components/marketing/early-access-form"
 import { QaPreviewFlashConsumer } from "@/components/qa-preview-flash-consumer"
@@ -69,6 +70,8 @@ export default async function SignupPage({
   })()
   const quickFill = await getMarketingQaQuickFillContext()
   const workspaceUrlSuffix = getWorkspaceUrlSuffix()
+  // Static: what the sign-up route checks before it accepts a request.
+  const legalBundle = getPublishedLegalBundle()
 
   if (requiresApproval && approvalResult.status === "missing") {
     redirect("/#early-access")
@@ -98,6 +101,9 @@ export default async function SignupPage({
     <SignupShell stage="sign-up">
       {approval ? <QaPreviewFlashConsumer /> : null}
       <SignupForm
+        legalUnavailable={
+          legalBundle.acceptanceRequired && !legalBundle.available
+        }
         approvalToken={
           approvalResult.status === "valid" ? approvalResult.token : null
         }

@@ -139,11 +139,17 @@ function AvailabilityLine({
 export function SignupForm({
   approvalToken,
   defaultValues,
+  legalUnavailable = false,
   quickFill,
   workspaceUrlSuffix,
 }: {
   approvalToken?: string | null
   defaultValues?: Partial<SignupIntentInput>
+  /**
+   * Terms and Privacy must be accepted (launch stage) but are still drafts:
+   * the server would refuse with 412, so the button waits instead.
+   */
+  legalUnavailable?: boolean
   quickFill: QaQuickFillContext
   workspaceUrlSuffix: string
 }) {
@@ -206,6 +212,7 @@ export function SignupForm({
     previewCooperativeAccessCode(cooperativeCodePrefix, "0042").code ??
     "AMN-0042"
   const canSubmit =
+    !legalUnavailable &&
     availability.status !== "checking" &&
     (availability.status !== "ready" ||
       (availability.cooperativeName.available &&
@@ -530,6 +537,15 @@ export function SignupForm({
           id={signupFormId}
           onSubmit={form.handleSubmit(onSubmit)}
         >
+          {legalUnavailable ? (
+            <Alert>
+              <AlertTitle>Sign-up opens soon</AlertTitle>
+              <AlertDescription>
+                Our terms and privacy notice are being finalised. You can fill
+                this in, but you can&apos;t send it until they are published.
+              </AlertDescription>
+            </Alert>
+          ) : null}
           <FieldGroup className="grid gap-4 md:grid-cols-2">
             <FormField
               control={form.control}

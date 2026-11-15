@@ -134,6 +134,12 @@ describe("production-contract QA harness plan", () => {
       pending_review: { ...baseFacts, hasPendingReview: true },
       published_profit: { ...baseFacts, hasPublishedProfit: true },
       setup_migration: { ...baseFacts, migrationToolsOpen: true },
+      member_ready: {
+        ...baseFacts,
+        hasOperationallyReadyMember: true,
+        hasPendingSeparateCharge: true,
+        hasRequestWorkflowCharges: true,
+      },
       stale: { ...baseFacts, hasStaleRecord: true },
     } as const
 
@@ -157,6 +163,61 @@ describe("production-contract QA harness plan", () => {
         }).materialized
       ).toBe(false)
     }
+  })
+
+  test("needs a ready member, request charges and a pending separate charge", () => {
+    const facts = {
+      activeMemberCount: 1,
+      activeMemberLimit: null,
+      hasKycIncompleteMember: false,
+      hasOperationallyReadyMember: true,
+      hasOverdueSchedule: false,
+      hasPendingReview: false,
+      hasPendingSeparateCharge: true,
+      hasPublishedProfit: false,
+      hasRequestWorkflowCharges: true,
+      hasStaleRecord: false,
+      hasVerifiedActiveMember: true,
+      productRecordCount: 1,
+      subscriptionStatus: "active",
+      tenantStatus: "active",
+    }
+    const evaluate = (overrides: Partial<typeof facts>) =>
+      evaluateProductionQaHarnessStateMaterialization({
+        facts: { ...facts, ...overrides },
+        state: "member_ready",
+      })
+
+    expect(evaluate({})).toEqual({
+      evidenceCode: "ready_member_with_request_charges",
+      materialized: true,
+      state: "member_ready",
+    })
+    // KYC verified alone is not ready: migration must be done too.
+    expect(evaluate({ hasOperationallyReadyMember: false }).materialized).toBe(
+      false
+    )
+    expect(evaluate({ hasRequestWorkflowCharges: false }).materialized).toBe(
+      false
+    )
+    // Settled by a tester: not materialized until the next harness run.
+    expect(evaluate({ hasPendingSeparateCharge: false }).materialized).toBe(
+      false
+    )
+
+    const ready = createPlan().scenarios.find(
+      ({ state }) => state === "member_ready"
+    )
+    expect(ready).toMatchObject({
+      key: "standard-ready",
+      operationProfile: "member_self_service",
+      serviceModes: {
+        food_purchase: "member_self_service",
+        payment_receipts: "member_self_service",
+        procurement: "member_self_service",
+      },
+      slug: "qa-harness-v1-standard-ready",
+    })
   })
 
   test("fails closed outside governed non-production environments", () => {
@@ -212,7 +273,7 @@ describe("production-contract QA harness plan", () => {
     })
 
     expect(report).toContain("# Production-contract QA harness evidence")
-    expect(report).toContain("9 planned")
+    expect(report).toContain("10 planned")
     expect(report).toContain("1 failed")
     expect(report).toContain("published_profit")
     expect(report).toContain("Remaining acceptance gaps")

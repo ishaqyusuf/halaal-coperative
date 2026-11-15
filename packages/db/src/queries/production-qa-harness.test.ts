@@ -62,7 +62,7 @@ describe("production-contract QA harness persistence", () => {
 
     expect(preview.canProvision).toBe(true)
     expect(preview.collisions).toEqual([])
-    expect(preview.scenarios).toHaveLength(10)
+    expect(preview.scenarios).toHaveLength(11)
     expect(preview.scenarios.every(({ status }) => status === "new")).toBe(true)
   })
 
@@ -273,7 +273,7 @@ describe("production-contract QA harness persistence", () => {
     )
 
     expect(coverage.complete).toBe(false)
-    expect(coverage.expectedStateCount).toBe(10)
+    expect(coverage.expectedStateCount).toBe(11)
     expect(coverage.materializedStateCount).toBe(0)
     expect(coverage.scenarios.every(({ tenantId }) => tenantId === null)).toBe(
       true

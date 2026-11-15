@@ -172,14 +172,14 @@ describe("production-contract QA harness cleanup", () => {
 
     expect(preview.canPurge).toBe(true)
     expect(preview.blockers).toEqual([])
-    expect(preview.presentScenarioKeys).toHaveLength(10)
+    expect(preview.presentScenarioKeys).toHaveLength(11)
     expect(preview.counts).toEqual({
       auditLogs: 24,
       ledgerTransactions: 4,
       memberDocuments: 0,
       members: 10,
       users: 36,
-      workspaces: 10,
+      workspaces: 11,
     })
     expect(preview.fingerprint).toHaveLength(64)
   })
@@ -296,10 +296,10 @@ describe("production-contract QA harness cleanup", () => {
     })
 
     expect(receipt.complete).toBe(true)
-    expect(receipt.deletedScenarioKeys).toHaveLength(10)
-    expect(receipt.deleted.workspaces).toBe(10)
+    expect(receipt.deletedScenarioKeys).toHaveLength(11)
+    expect(receipt.deleted.workspaces).toBe(11)
     expect(receipt.after.workspaces).toBe(0)
-    expect(fixture.deletedIds).toHaveLength(10)
+    expect(fixture.deletedIds).toHaveLength(11)
     expect(JSON.stringify(receipt)).not.toContain("tenant-")
     expect(JSON.stringify(receipt)).not.toContain("@ishaq.qa.test")
   })
@@ -321,10 +321,10 @@ describe("production-contract QA harness cleanup", () => {
 
     expect(receipt.complete).toBe(true)
     expect(receipt.rollbackVerified).toBe(true)
-    expect(receipt.rehearsedScenarioKeys).toHaveLength(10)
-    expect(receipt.rehearsalDeleted.workspaces).toBe(10)
+    expect(receipt.rehearsedScenarioKeys).toHaveLength(11)
+    expect(receipt.rehearsalDeleted.workspaces).toBe(11)
     expect(receipt.afterRollback).toEqual(receipt.before)
-    expect(fixture.tenants).toHaveLength(10)
+    expect(fixture.tenants).toHaveLength(11)
     expect(fixture.deletedIds).toEqual([])
   })
 

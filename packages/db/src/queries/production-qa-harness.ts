@@ -19,6 +19,12 @@ import {
   ensureProductionQaHarnessStaleStateFixture,
   type ProductionQaHarnessFixtureResult,
 } from "./production-qa-harness-fixtures"
+import {
+  ensureProductionQaHarnessMemberReadyFixture,
+  PRODUCTION_QA_MEMBER_READY_FIXTURE,
+  type ProductionQaMemberReadyFixtureResult,
+} from "./production-qa-harness-member-ready-fixture"
+import { resolveMemberOperationalReadiness } from "./member-readiness"
 
 type ProductionQaHarnessEnvironment = "local" | "development" | "preview"
 
@@ -79,6 +85,9 @@ export function buildProductionQaHarnessScenarioSeed(input: {
     input.now.getTime() + 30 * 24 * 60 * 60 * 1000
   )
   const isSetupStage = input.scenario.state === "setup_migration"
+  // The ready member's savings arrive through an applied brought-forward
+  // opening balance, so the snapshot starts at zero and the ledger fills it.
+  const isMemberReady = input.scenario.state === "member_ready"
   const memberJoinedAt =
     input.scenario.state === "stale"
       ? new Date(
@@ -94,7 +103,8 @@ export function buildProductionQaHarnessScenarioSeed(input: {
         input.scenario.state === "empty"
           ? ("not_started" as const)
           : ("verified" as const),
-      totalSavingsSnapshot: input.scenario.state === "empty" ? 0 : 250_000,
+      totalSavingsSnapshot:
+        input.scenario.state === "empty" || isMemberReady ? 0 : 250_000,
     },
     // The setup-stage cooperative is mid-migration: finance start date and a
     // monthly levy schedule are in place, so every import kind can be tried,
@@ -152,7 +162,12 @@ export function buildProductionQaHarnessScenarioSeed(input: {
       trialEndsAt,
       trialStartsAt: isFreeBeta ? input.now : null,
     },
-    tenantPolicy: { ...PRODUCTION_QA_HARNESS_TENANT_POLICY },
+    tenantPolicy: {
+      ...PRODUCTION_QA_HARNESS_TENANT_POLICY,
+      ...(isMemberReady
+        ? { migrationSetupMode: "brought_forward" as const }
+        : {}),
+    },
   }
 }
 
@@ -342,10 +357,16 @@ export async function provisionProductionQaHarness(
 
   const fixtureResults: Array<
     | ProductionQaHarnessFixtureResult
+    | ProductionQaMemberReadyFixtureResult
     | {
         errorCode: "fixture_provision_failed"
         scenarioKey: string
-        state: "overdue" | "pending_review" | "published_profit" | "stale"
+        state:
+          | "member_ready"
+          | "overdue"
+          | "pending_review"
+          | "published_profit"
+          | "stale"
         status: "failed"
       }
   > = []
@@ -417,6 +438,25 @@ export async function provisionProductionQaHarness(
         errorCode: "fixture_provision_failed",
         scenarioKey: "enterprise-profit",
         state: "published_profit",
+        status: "failed",
+      })
+    }
+  }
+
+  if (selectedKeys.has("standard-ready")) {
+    try {
+      fixtureResults.push(
+        await ensureProductionQaHarnessMemberReadyFixture({
+          now,
+          plan: preview.plan,
+          prisma,
+        })
+      )
+    } catch {
+      fixtureResults.push({
+        errorCode: "fixture_provision_failed",
+        scenarioKey: "standard-ready",
+        state: "member_ready",
         status: "failed",
       })
     }
@@ -501,6 +541,20 @@ export async function inspectProductionQaHarnessStateCoverage(
           supportCases: true,
         },
       },
+      chargeApplicability: {
+        select: { trigger: true, workflow: true },
+        where: {
+          chargeDefinition: { isActive: true },
+          isActive: true,
+          trigger: { in: ["submission", "approval"] },
+          workflow: { in: [...PRODUCTION_QA_MEMBER_READY_FIXTURE.workflows] },
+        },
+      },
+      chargeApplications: {
+        select: { id: true },
+        take: 1,
+        where: { collectionMode: "pay_separately", status: "pending" },
+      },
       auditLogs: {
         select: { entityId: true },
         where: {
@@ -532,8 +586,18 @@ export async function inspectProductionQaHarnessStateCoverage(
         where: { status: { in: ["submitted", "under_review"] } },
       },
       members: {
-        select: { kycStatus: true, status: true },
+        select: {
+          joinedAt: true,
+          kycStatus: true,
+          openingBalances: {
+            select: { id: true },
+            take: 1,
+            where: { status: "applied" },
+          },
+          status: true,
+        },
       },
+      policies: { select: { migrationSetupMode: true } },
       procurementRequests: {
         select: { id: true },
         take: 1,
@@ -553,6 +617,7 @@ export async function inspectProductionQaHarnessStateCoverage(
         },
       },
       slug: true,
+      startDate: true,
       status: true,
       subscription: {
         select: {
@@ -610,6 +675,34 @@ export async function inspectProductionQaHarnessStateCoverage(
         hasKycIncompleteMember: activeMembers.some(
           ({ kycStatus }) => kycStatus !== "verified"
         ),
+        // Brought-forward readiness only: backfill months are not loaded
+        // here, so a historical-backfill member reads as not ready.
+        hasOperationallyReadyMember: activeMembers.some(
+          (member) =>
+            resolveMemberOperationalReadiness(
+              {
+                appliedOpeningBalanceId: member.openingBalances[0]?.id,
+                joinedAt: member.joinedAt,
+                kycStatus: member.kycStatus,
+                memberStatus: member.status,
+                migrationSetupMode:
+                  tenant?.policies?.migrationSetupMode === "brought_forward"
+                    ? "brought_forward"
+                    : "historical_backfill",
+                tenantStartDate: tenant?.startDate,
+              },
+              now
+            ).isReady
+        ),
+        hasPendingSeparateCharge: Boolean(tenant?.chargeApplications.length),
+        hasRequestWorkflowCharges:
+          PRODUCTION_QA_MEMBER_READY_FIXTURE.workflows.every((workflow) =>
+            ["submission", "approval"].every((trigger) =>
+              tenant?.chargeApplicability.some(
+                (rule) => rule.workflow === workflow && rule.trigger === trigger
+              )
+            )
+          ),
         hasOverdueSchedule: Boolean(tenant?.repaymentSchedules.length),
         hasPendingReview: Boolean(
           tenant &&
@@ -944,7 +1037,10 @@ async function provisionScenario(input: {
           ...(input.scenario.state === "stale"
             ? { joinedAt: seed.member.joinedAt }
             : {}),
-          ...(input.scenario.state === "overdue"
+          // Overdue and member-ready savings come from ledger postings, so a
+          // re-run leaves their cached snapshot alone.
+          ...(input.scenario.state === "overdue" ||
+          input.scenario.state === "member_ready"
             ? {}
             : { totalSavingsSnapshot: seed.member.totalSavingsSnapshot }),
         },

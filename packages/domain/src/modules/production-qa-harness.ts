@@ -29,6 +29,7 @@ export const PRODUCTION_QA_HARNESS_STATES = [
   "pending_review",
   "published_profit",
   "setup_migration",
+  "member_ready",
 ] as const
 
 export const PRODUCTION_QA_HARNESS_PRODUCT_AREAS = [
@@ -248,6 +249,19 @@ const PRODUCTION_QA_HARNESS_SCENARIOS = [
     planCode: "standard",
     productAreas: ["activation_auth", "member_reads"],
     state: "setup_migration",
+  },
+  {
+    // A live cooperative whose member can ask for things today: KYC verified,
+    // brought-forward opening balance applied, request charges configured and
+    // one pay-separately charge waiting for Record payment.
+    activeAddonCodes: [],
+    cooperativeCodePrefix: "QMR",
+    key: "standard-ready",
+    label: "Standard Member Ready",
+    operationProfile: "member_self_service",
+    planCode: "standard",
+    productAreas: ["requests", "receipts", "charges"],
+    state: "member_ready",
   },
 ] as const satisfies readonly ProductionQaHarnessScenarioDefinition[]
 
@@ -525,9 +539,15 @@ export type ProductionQaHarnessStateFacts = {
   activeMemberCount: number
   activeMemberLimit: number | null
   hasKycIncompleteMember: boolean
+  /** An active member passes operational readiness (KYC and migration). */
+  hasOperationallyReadyMember?: boolean
+  /** A pending pay-separately charge application exists (Record payment). */
+  hasPendingSeparateCharge?: boolean
   hasOverdueSchedule: boolean
   hasPendingReview: boolean
   hasPublishedProfit: boolean
+  /** Request workflows carry both submission and approval charges. */
+  hasRequestWorkflowCharges?: boolean
   hasStaleRecord: boolean
   hasVerifiedActiveMember: boolean
   /** True when the tenant has not gone live (or has an emergency unlock). */
@@ -574,6 +594,14 @@ export function evaluateProductionQaHarnessStateMaterialization(input: {
           facts.subscriptionStatus ?? ""
         ) &&
         facts.hasVerifiedActiveMember,
+    },
+    member_ready: {
+      evidenceCode: "ready_member_with_request_charges",
+      materialized:
+        tenantIsActive &&
+        facts.hasOperationallyReadyMember === true &&
+        facts.hasRequestWorkflowCharges === true &&
+        facts.hasPendingSeparateCharge === true,
     },
     kyc_incomplete: {
       evidenceCode: "active_member_kyc_incomplete",

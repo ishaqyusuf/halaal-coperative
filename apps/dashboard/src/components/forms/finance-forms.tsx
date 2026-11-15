@@ -1,5 +1,6 @@
 "use client"
 
+import { useQuery } from "@tanstack/react-query"
 import { useTransition } from "react"
 import { z } from "zod"
 import { useNotifications } from "@halaalvest/notifications-react"
@@ -20,6 +21,8 @@ import { DatePickerInput } from "@/components/date-picker-input"
 import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
 import { createQaAmount } from "@halaalvest/utils"
 import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
+import { MemberCombobox } from "@/components/member-combobox"
+import { useTRPC } from "@/trpc/client"
 import {
   recordMemberPaymentAction,
   setMemberContributionPlanAction,
@@ -63,15 +66,27 @@ const contributionPlanSchema = z.object({
 
 type ContributionPlanValues = z.infer<typeof contributionPlanSchema>
 
+/**
+ * Quick Fill's member: the first match of the members search, read only when
+ * Quick Fill shows (the forms no longer receive a member list).
+ */
+function useQuickFillMemberId(enabled: boolean) {
+  const trpc = useTRPC()
+  const { data } = useQuery(
+    trpc.members.options.queryOptions({}, { enabled, staleTime: 5 * 60_000 })
+  )
+
+  return data?.[0]?.id ?? ""
+}
+
 export function ContributionPlanForm({
   devMode,
-  members,
   onSuccess,
 }: {
   devMode: boolean
-  members: Array<{ id: string; label: string }>
   onSuccess?: () => Promise<void> | void
 }) {
+  const quickFillMemberId = useQuickFillMemberId(devMode)
   const form = useZodForm<ContributionPlanValues>(contributionPlanSchema, {
     defaultValues: {
       amount: "",
@@ -119,7 +134,7 @@ export function ContributionPlanForm({
                   form,
                   "contribution_plan",
                   {
-                    memberId: members[0]?.id ?? "",
+                    memberId: quickFillMemberId,
                   },
                   { emailDomain }
                 )
@@ -135,14 +150,12 @@ export function ContributionPlanForm({
             <FormItem className="md:col-span-2">
               <FormLabel>Member</FormLabel>
               <FormControl>
-                <NativeSelect {...field}>
-                  <option value="">Select a member</option>
-                  {members.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.label}
-                    </option>
-                  ))}
-                </NativeSelect>
+                <MemberCombobox
+                  disabled={isPending}
+                  id={field.name}
+                  onValueChange={field.onChange}
+                  value={field.value}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -232,15 +245,14 @@ export function MemberPaymentForm({
   commitmentPlans,
   devMode,
   loans,
-  members,
   onSuccess,
 }: {
   commitmentPlans: Array<{ id: string; label: string }>
   devMode: boolean
   loans: Array<{ id: string; label: string }>
-  members: Array<{ id: string; label: string }>
   onSuccess?: () => Promise<void> | void
 }) {
+  const quickFillMemberId = useQuickFillMemberId(devMode)
   const form = useZodForm<MemberPaymentValues>(memberPaymentSchema, {
     defaultValues: {
       channel: "transfer",
@@ -310,7 +322,7 @@ export function MemberPaymentForm({
                     contributionPlanId: commitmentPlans[0]?.id ?? "",
                     extraLoanPaymentAmount: loanId ? "5000" : "",
                     loanId,
-                    memberId: members[0]?.id ?? "",
+                    memberId: quickFillMemberId,
                     scheduledLoanServicingAmount: loanId ? "15000" : "",
                     totalAmount: loanId ? "50000" : "30000",
                   },
@@ -328,14 +340,12 @@ export function MemberPaymentForm({
             <FormItem className="md:col-span-2">
               <FormLabel>Member</FormLabel>
               <FormControl>
-                <NativeSelect {...field}>
-                  <option value="">Select a member</option>
-                  {members.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.label}
-                    </option>
-                  ))}
-                </NativeSelect>
+                <MemberCombobox
+                  disabled={isPending}
+                  id={field.name}
+                  onValueChange={field.onChange}
+                  value={field.value}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

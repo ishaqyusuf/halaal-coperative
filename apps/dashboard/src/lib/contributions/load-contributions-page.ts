@@ -112,7 +112,11 @@ export async function loadContributionsPageData(
     collectionSourceOptions,
     collectionSourceBatches,
   ] = await Promise.all([
-    listMembers(context.tenant.id, { page: 1, pageSize: 100 }),
+    // Only the Commitments tab lists members (with their payment
+    // preference); the forms search members on demand (MemberCombobox).
+    filters.view === "commitments"
+      ? listMembers(context.tenant.id, { page: 1, pageSize: 100 })
+      : Promise.resolve({ items: [] }),
     listContributionPlans(context.tenant.id),
     listLoanOptions(context.tenant.id),
     canUseCollectionSourceBatches

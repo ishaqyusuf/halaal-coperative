@@ -107,7 +107,6 @@ function useCompleteContributionWorkflow() {
   }
 }
 
-
 // Members already paid this month in monthly records are skipped by the
 // server; say who, so staff are not left guessing.
 function notifySkippedBatchMembers(names?: string[]) {
@@ -147,10 +146,6 @@ export function ContributionContent({
   const selectedPlan = activeCommitmentPlans.find(
     (plan) => plan.id === selectedContributionPlanId
   )
-  const memberOptions = members.map((member) => ({
-    id: member.id,
-    label: member.label,
-  }))
   const commitmentPlanOptions = activeCommitmentPlans.map((plan) => ({
     id: plan.id,
     label: `${plan.member.fullName} · ${formatCurrency(Number(plan.amount))}`,
@@ -173,7 +168,6 @@ export function ContributionContent({
     return (
       <ContributionPlanForm
         devMode={devMode}
-        members={memberOptions}
         onSuccess={completeContributionWorkflow}
       />
     )
@@ -185,7 +179,6 @@ export function ContributionContent({
         commitmentPlans={commitmentPlanOptions}
         devMode={devMode}
         loans={loanOptions}
-        members={memberOptions}
         onSuccess={completeContributionWorkflow}
       />
     )

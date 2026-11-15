@@ -28,8 +28,13 @@ describe("member workspace Midday conformance", () => {
     const router = read("../../../api/src/routers/members.route.ts")
     const loader = read("./members/load-members-page.ts")
 
-    expect(router).toContain('list: minRoleProcedure("operations_officer")')
-    expect(router).toContain('get: minRoleProcedure("operations_officer")')
+    // Admins and operations officers only (27c16a46); finance officers use
+    // the lean members.options picker instead.
+    expect(router).toContain(
+      'const memberRegistryProcedure = permissionProcedure("manage_members")'
+    )
+    expect(router).toContain("list: memberRegistryProcedure")
+    expect(router).toContain("get: memberRegistryProcedure")
     expect(loader).toContain("if (!hasImportRole)")
     expect(loader).toContain("accessDenied: true")
   })

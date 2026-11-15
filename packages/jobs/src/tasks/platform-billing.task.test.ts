@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test"
-import { COOPERATIVE_MOBILE_BILLING_CRON } from "./cooperative-mobile-billing.task"
+import { PLATFORM_BILLING_CRON } from "./platform-billing.task"
 
-describe("cooperative mobile billing schedule", () => {
+describe("platform billing schedule", () => {
   test("runs once a day at the month-close time, not hourly", () => {
     const [minute, hour, dayOfMonth, month, dayOfWeek] =
-      COOPERATIVE_MOBILE_BILLING_CRON.split(" ")
+      PLATFORM_BILLING_CRON.split(" ")
 
     expect(minute).toBe("15")
     expect(hour).toBe("0")

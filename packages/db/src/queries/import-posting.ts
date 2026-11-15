@@ -8,7 +8,7 @@ import type {
   PrismaClient,
 } from "../../generated/prisma/client"
 import { ExpectedQueryError } from "../query-error"
-import { mobileAccessChargeCode } from "./cooperative-mobile-billing-constants"
+import { systemBillingChargeCodes } from "./cooperative-mobile-billing-constants"
 import { ensureTenantLedgerAccounts } from "./ledger"
 
 /**
@@ -276,9 +276,9 @@ export async function postImportedCharges(
   const { rows, tenantId } = input
   if (rows.length === 0) return { processed: 0 }
 
-  if (rows.some((row) => row.code === mobileAccessChargeCode)) {
+  if (rows.some((row) => systemBillingChargeCodes.includes(row.code))) {
     throw ExpectedQueryError.validation(
-      "Mobile app access charges are added by mobile billing, not by import."
+      "Mobile app access and seat fee charges are added by billing, not by import."
     )
   }
 

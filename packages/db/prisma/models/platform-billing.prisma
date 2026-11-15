@@ -1,0 +1,156 @@
+/// One Halaalvest bill per cooperative per Lagos month. See
+/// .brain/features/platform-billing.md.
+enum PlatformBillStatus {
+  issued
+  paid
+  /// The month closed with nothing to pay.
+  no_charge
+}
+
+enum PlatformBillLineKind {
+  seat_fee
+  ai_overage
+  mobile_access
+}
+
+enum PlatformSeatFeePayer {
+  cooperative
+  members
+}
+
+enum PlatformBillFundingSourceType {
+  charge
+  business
+}
+
+model PlatformBill {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String             @map("tenant_id") @db.Uuid
+  period             String             @db.VarChar(7)
+  currencyCode       String             @map("currency_code") @db.VarChar(3)
+  totalAmount        Decimal            @map("total_amount") @db.Decimal(18, 2)
+  status             PlatformBillStatus @default(issued)
+  /// Seat payer setting in force when the month closed.
+  seatFeePayer       PlatformSeatFeePayer @default(cooperative) @map("seat_fee_payer")
+  issuedAt           DateTime           @map("issued_at") @db.Timestamptz(6)
+  dueAt              DateTime           @map("due_at") @db.Date
+  paidAt             DateTime?          @map("paid_at") @db.Date
+  paymentReference   String?            @map("payment_reference") @db.VarChar(120)
+  paymentKey         String?            @unique @map("payment_key") @db.VarChar(120)
+  /// Which of the cooperative's funds pays this bill (attribution, chosen before paying).
+  fundingSourceType  PlatformBillFundingSourceType? @map("funding_source_type")
+  fundingSourceId    String?            @map("funding_source_id") @db.Uuid
+  fundingSourceName  String?            @map("funding_source_name") @db.VarChar(200)
+  fundingChosenAt    DateTime?          @map("funding_chosen_at") @db.Timestamptz(6)
+  fundingChosenByUserId String?         @map("funding_chosen_by_user_id") @db.Uuid
+  accrualPostedAt    DateTime?          @map("accrual_posted_at") @db.Timestamptz(6)
+  remittancePostedAt DateTime?          @map("remittance_posted_at") @db.Timestamptz(6)
+  updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant            Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lines             PlatformBillLine[]
+  seats             PlatformBillSeat[]
+  items             CooperativeMobileInvoiceItem[]
+  paystackCheckouts PlatformBillPaystackCheckout[]
+
+  @@unique([tenantId, period], map: "platform_bills_tenant_period_key")
+  @@index([status, period], map: "platform_bills_status_period_idx")
+  @@index([tenantId, fundingSourceType, fundingSourceId], map: "platform_bills_tenant_funding_idx")
+  @@map("platform_bills")
+}
+
+model PlatformBillLine {
+  id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  billId      String               @map("bill_id") @db.Uuid
+  kind        PlatformBillLineKind
+  description String               @db.VarChar(200)
+  quantity    Int
+  unitAmount  Decimal              @map("unit_amount") @db.Decimal(18, 2)
+  amount      Decimal              @db.Decimal(18, 2)
+
+  bill PlatformBill @relation(fields: [billId], references: [id], onDelete: Cascade)
+
+  @@unique([billId, kind], map: "platform_bill_lines_bill_kind_key")
+  @@map("platform_bill_lines")
+}
+
+/// A member counted as a seat on a bill, and their ₦ seat charge when members pay.
+model PlatformBillSeat {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  billId              String   @map("bill_id") @db.Uuid
+  tenantId            String   @map("tenant_id") @db.Uuid
+  memberId            String   @map("member_id") @db.Uuid
+  amount              Decimal  @db.Decimal(18, 2)
+  chargeApplicationId String?  @unique @map("charge_application_id") @db.Uuid
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  bill              PlatformBill       @relation(fields: [billId], references: [id], onDelete: Cascade)
+  member            Member             @relation(fields: [memberId], references: [id], onDelete: NoAction)
+  chargeApplication ChargeApplication? @relation(fields: [chargeApplicationId], references: [id], onDelete: SetNull)
+
+  @@unique([billId, memberId], map: "platform_bill_seats_bill_member_key")
+  @@index([tenantId, memberId], map: "platform_bill_seats_tenant_member_idx")
+  @@map("platform_bill_seats")
+}
+
+model PlatformBillPaystackCheckout {
+  reference        String    @id @db.VarChar(120)
+  invoiceId        String    @map("invoice_id") @db.Uuid
+  mode             String    @db.VarChar(4)
+  authorizationUrl String?   @map("authorization_url")
+  verifiedAt       DateTime? @map("verified_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  invoice PlatformBill @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId, mode, createdAt])
+  @@map("platform_bill_paystack_checkouts")
+}
+
+/// One approved mobile access term on a bill (the `mobile_access` line's evidence).
+model CooperativeMobileInvoiceItem {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  termId              String    @unique @map("term_id") @db.Uuid
+  chargeApplicationId String?   @unique @map("charge_application_id") @db.Uuid
+  invoiceId           String?   @map("invoice_id") @db.Uuid
+  chargeDueAt         DateTime  @map("charge_due_at") @db.Date
+  amount              Decimal   @db.Decimal(18, 2)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  term              CooperativeMobileAccessTerm @relation(fields: [termId], references: [id], onDelete: Cascade)
+  invoice           PlatformBill?               @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  chargeApplication ChargeApplication?           @relation(fields: [chargeApplicationId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId, chargeDueAt], map: "coop_mobile_invoice_items_invoice_due_idx")
+  @@map("cooperative_mobile_invoice_items")
+}
+
+/// Cooperative settings for the Halaalvest bill.
+model TenantPlatformBillingSetting {
+  tenantId             String               @id @map("tenant_id") @db.Uuid
+  seatFeePayer         PlatformSeatFeePayer @default(cooperative) @map("seat_fee_payer")
+  assistantAutoBilling Boolean              @default(false) @map("assistant_auto_billing")
+  /// Most the cooperative will pay for assistant messages above the free allowance in a month (₦).
+  assistantMonthlyCap  Decimal              @default(0) @map("assistant_monthly_cap") @db.Decimal(18, 2)
+  updatedByUserId      String?              @map("updated_by_user_id") @db.Uuid
+  updatedAt            DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_platform_billing_settings")
+}
+
+/// Website assistant messages sent by a cooperative's staff in a Lagos month.
+model PlatformAssistantUsage {
+  tenantId         String   @map("tenant_id") @db.Uuid
+  period           String   @db.VarChar(7)
+  messages         Int      @default(0)
+  /// Messages allowed above the free allowance while automatic billing was on.
+  billableMessages Int      @default(0) @map("billable_messages")
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, period])
+  @@map("platform_assistant_usage")
+}

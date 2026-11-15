@@ -89,6 +89,9 @@ const countLabels = {
   assistantProposalsActed: "Assistant proposals acted on",
   assistantChannelChallenges: "Assistant channel link codes",
   assistantChannelLinks: "Assistant linked channels",
+  mobileAccessTermsAccepted: "Mobile access charges agreed",
+  platformBillingSettingsUpdated: "Billing settings changed",
+  platformBillFundingChosen: "Bill payment sources chosen",
 } as const
 
 type CountKey = keyof typeof countLabels
@@ -226,6 +229,14 @@ const countGroups: { title: string; keys: CountKey[] }[] = [
       "assistantProposalsActed",
       "assistantChannelChallenges",
       "assistantChannelLinks",
+    ],
+  },
+  {
+    title: "Billing",
+    keys: [
+      "mobileAccessTermsAccepted",
+      "platformBillingSettingsUpdated",
+      "platformBillFundingChosen",
     ],
   },
   {

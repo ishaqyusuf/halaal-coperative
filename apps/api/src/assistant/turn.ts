@@ -236,6 +236,8 @@ export async function runAssistantTurn(
     requestId: input.requestId,
     userParts: [{ type: "text", text: input.text }],
     title: null,
+    // Platform billing meters staff messages on the website only.
+    meterPlatformUsage: principal.channel === "web" && principal.role !== "member",
   })
   if (begun.kind === "replay") {
     if (!begun.reply)

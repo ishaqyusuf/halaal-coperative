@@ -19,20 +19,20 @@ import {
 } from "@/components/workflow-presentation"
 import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 import { useTRPC } from "@/trpc/client"
-import { formatAccessAmount, formatBillingMonth } from "./format"
-import type { MobileAccessInvoice } from "./mobile-invoice-list"
+import { formatAccessAmount } from "@/components/mobile-access/format"
+import type { PlatformBillRow } from "./bill-list"
 
-/** Record a confirmed bank transfer (`?remitInvoiceId=`). Platform owners only. */
+/** Record a confirmed bank transfer (`?remitBillId=`). Platform owners only. */
 export function RemittanceDialog({
   invoice,
   onClose,
 }: {
-  invoice?: MobileAccessInvoice
+  invoice?: PlatformBillRow
   onClose: () => void
 }) {
   return (
     <WorkflowPresentation
-      config={getWorkflowPresentation("mobileAccess", "remittance")}
+      config={getWorkflowPresentation("billing", "remittance")}
       onOpenChange={(open) => !open && onClose()}
       open={Boolean(invoice)}
     >
@@ -47,7 +47,7 @@ function RemittanceForm({
   invoice,
   onClose,
 }: {
-  invoice: MobileAccessInvoice
+  invoice: PlatformBillRow
   onClose: () => void
 }) {
   const trpc = useTRPC()
@@ -56,17 +56,17 @@ function RemittanceForm({
   const [reference, setReference] = useState("")
   const [paidAt, setPaidAt] = useState("")
   const remittance = useMutation(
-    trpc.cooperativeMobileBilling.recordRemittance.mutationOptions({
+    trpc.platformBilling.recordRemittance.mutationOptions({
       onSuccess: async () => {
         await Promise.all([
           queryClient.invalidateQueries(
-            trpc.cooperativeMobileBilling.listReceivables.queryFilter()
+            trpc.platformBilling.listReceivables.queryFilter()
           ),
           queryClient.invalidateQueries(
-            trpc.cooperativeMobileBilling.listInvoices.queryFilter()
+            trpc.platformBilling.listBills.queryFilter()
           ),
           queryClient.invalidateQueries(
-            trpc.cooperativeMobileBilling.invoiceDetail.queryFilter()
+            trpc.platformBilling.billDetail.queryFilter()
           ),
         ])
         markSaved()
@@ -79,7 +79,7 @@ function RemittanceForm({
     event.preventDefault()
     if (remittance.isPending || !paidAt || !reference.trim()) return
     remittance.mutate({
-      invoiceId: invoice.id,
+      billId: invoice.id,
       reference: reference.trim(),
       paidAt,
     })
@@ -94,7 +94,10 @@ function RemittanceForm({
         <DialogDescription className="text-base">
           {invoice.tenantName} paid{" "}
           {formatAccessAmount(invoice.totalAmount, invoice.currencyCode)} for{" "}
-          {formatBillingMonth(invoice.period)}.
+          {invoice.periodLabel}.
+          {invoice.fundingSource
+            ? ` ${invoice.fundingSource.type === "charge" ? "Charge" : "Business"} chosen: ${invoice.fundingSource.name}.`
+            : " They have not chosen where the money comes from."}
         </DialogDescription>
       </DialogHeader>
       <form className="space-y-4" onSubmit={submit}>

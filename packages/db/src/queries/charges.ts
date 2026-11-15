@@ -9,6 +9,9 @@ import {
 import {
   mobileAccessChargeCode,
   mobileAccessExpenseAccountCode,
+  platformFeesExpenseAccountCode,
+  platformSeatFeeChargeCode,
+  systemBillingChargeCodes,
 } from "./cooperative-mobile-billing-constants"
 import {
   getLedgerAccountByCode,
@@ -100,6 +103,7 @@ export type ChargeApplicabilitySnapshot = {
     | "manual"
     | "workflow_applicability"
     | "workflow_legacy_flags"
+    | "platform_seat_fee"
     | "cooperative_mobile_access"
   sourceType: "backfill" | "import" | "live"
   target: { id: string; type: ChargeTargetType } | null
@@ -497,7 +501,7 @@ export async function listChargeDefinitions(
   if (!prisma) throw new Error("Database not configured")
 
   return (prisma as any).chargeDefinition.findMany({
-    where: { tenantId, code: { not: mobileAccessChargeCode } },
+    where: { tenantId, code: { notIn: systemBillingChargeCodes } },
     include: {
       applicability: {
         orderBy: [{ workflow: "asc" }, { trigger: "asc" }],
@@ -544,7 +548,7 @@ export async function getChargeDefinitionOnDate(
       },
     },
     where: {
-      code: { not: mobileAccessChargeCode },
+      code: { notIn: systemBillingChargeCodes },
       id: chargeDefinitionId,
       tenantId,
     },
@@ -883,7 +887,7 @@ export async function createChargeDefinition(
   const internalCode =
     normalizedInput.code?.trim() ||
     `charge-${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`
-  if (internalCode === mobileAccessChargeCode) {
+  if (systemBillingChargeCodes.includes(internalCode)) {
     throw ExpectedQueryError.validation("This charge code is reserved.")
   }
   const mutationMode = await getChargeDefinitionMutationMode(
@@ -982,7 +986,7 @@ export async function deleteChargeDefinition(
     where: {
       id: chargeDefinitionId,
       tenantId,
-      code: { not: mobileAccessChargeCode },
+      code: { notIn: systemBillingChargeCodes },
     },
   })
 }
@@ -1090,9 +1094,9 @@ export async function updateChargeDefinition(
     if (!currentDefinition) {
       throw ExpectedQueryError.notFound("Charge definition not found")
     }
-    if (currentDefinition.code === mobileAccessChargeCode) {
+    if (systemBillingChargeCodes.includes(currentDefinition.code)) {
       throw ExpectedQueryError.validation(
-        "This charge definition is managed by mobile billing."
+        "This charge definition is managed by billing."
       )
     }
 
@@ -1300,6 +1304,8 @@ async function applyChargeInTransaction(
     actorUserId?: string
     applicabilitySnapshot?: ChargeApplicabilitySnapshot
     mobileAccessTermId?: string
+    /** Set only by platform billing when members pay the seat fee. */
+    platformBillSeatId?: string
     workflowIdempotencyKey?: string
   },
   tx: PrismaClient
@@ -1320,7 +1326,15 @@ async function applyChargeInTransaction(
       "This charge is assessed by mobile billing."
     )
   }
-  if (chargeDef.isActive === false && !input.mobileAccessTermId) {
+  if (chargeDef.code === platformSeatFeeChargeCode && !input.platformBillSeatId) {
+    throw ExpectedQueryError.validation(
+      "This charge is assessed by platform billing."
+    )
+  }
+  const isBillingAssessment = Boolean(
+    input.mobileAccessTermId || input.platformBillSeatId
+  )
+  if (chargeDef.isActive === false && !isBillingAssessment) {
     throw ExpectedQueryError.precondition("Charge definition is inactive.")
   }
 
@@ -1370,7 +1384,11 @@ async function applyChargeInTransaction(
       collectionMode,
       isRequired: null,
       schemaVersion: 1,
-      source: input.mobileAccessTermId ? "cooperative_mobile_access" : "manual",
+      source: input.mobileAccessTermId
+        ? "cooperative_mobile_access"
+        : input.platformBillSeatId
+          ? "platform_seat_fee"
+          : "manual",
       sourceType: input.sourceType ?? "live",
       target: target ? { id: target.id, type: target.type } : null,
       trigger: null,
@@ -1379,11 +1397,15 @@ async function applyChargeInTransaction(
     }
   const shouldPostToSavings = collectionMode === "deduct_from_savings"
   const isShareCharge = (chargeDef as any).purpose === "member_share"
-  const ledgerAccountCode = isShareCharge
-    ? "3200"
-    : chargeDef.isMonthlyLevy
-      ? "3100"
-      : "3000"
+  // A members-pay seat fee reimburses the cooperative's platform fee expense.
+  const ledgerAccountCode =
+    chargeDef.code === platformSeatFeeChargeCode
+      ? platformFeesExpenseAccountCode
+      : isShareCharge
+        ? "3200"
+        : chargeDef.isMonthlyLevy
+          ? "3100"
+          : "3000"
   const savingsAccount = shouldPostToSavings
     ? await getLedgerAccountByCode(input.tenantId, "1000", tx)
     : null
@@ -1434,7 +1456,7 @@ async function applyChargeInTransaction(
       data: {
         tenantId: input.tenantId,
         actorUserId: input.actorUserId,
-        actorType: input.mobileAccessTermId ? "system" : "user",
+        actorType: isBillingAssessment ? "system" : "user",
         action: "charge.staged",
         entityType: "ChargeApplication",
         entityId: application.id,
@@ -1517,7 +1539,7 @@ async function applyChargeInTransaction(
     data: {
       tenantId: input.tenantId,
       actorUserId: input.actorUserId,
-      actorType: "user",
+      actorType: isBillingAssessment ? "system" : "user",
       action: "charge.applied",
       entityType: "ChargeApplication",
       entityId: application.id,
@@ -1592,6 +1614,49 @@ export async function assessCooperativeMobileAccessCharge(
       collectionMode: "pay_separately",
       mobileAccessTermId: input.termId,
       workflowIdempotencyKey: `cooperative-mobile-access:${input.termId}`,
+    },
+    tx
+  ) as Promise<{ id: string }>
+}
+
+/** Platform billing: the ₦ seat fee deducted from a counted member's savings. */
+export async function assessPlatformSeatFeeCharge(
+  input: {
+    tenantId: string
+    memberId: string
+    seatId: string
+    amount: number
+    assessedAt: Date
+  },
+  tx: PrismaClient
+) {
+  const definition = await tx.chargeDefinition.upsert({
+    where: {
+      tenantId_code: { tenantId: input.tenantId, code: platformSeatFeeChargeCode },
+    },
+    create: {
+      tenantId: input.tenantId,
+      code: platformSeatFeeChargeCode,
+      name: "Platform seat fee",
+      kind: "fixed",
+      chargeFrequency: "manual",
+      amount: input.amount,
+      appliesToMembers: false,
+      isActive: false,
+    },
+    update: {},
+    select: { id: true },
+  })
+  return applyChargeInTransaction(
+    {
+      tenantId: input.tenantId,
+      memberId: input.memberId,
+      chargeDefinitionId: definition.id,
+      amount: input.amount,
+      assessedAt: input.assessedAt,
+      collectionMode: "deduct_from_savings",
+      platformBillSeatId: input.seatId,
+      workflowIdempotencyKey: `platform-seat-fee:${input.seatId}`,
     },
     tx
   ) as Promise<{ id: string }>

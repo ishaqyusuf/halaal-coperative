@@ -7,7 +7,7 @@ import { cn } from "@halaalvest/ui/lib/utils"
 const pages = [
   { href: "/platform/privacy-requests", label: "Privacy requests" },
   { href: "/platform/refund-reviews", label: "Refund reviews" },
-  { href: "/platform/mobile-access-invoices", label: "Mobile app bills" },
+  { href: "/platform/bills", label: "Halaalvest bills" },
   { href: "/platform/qa-maintenance", label: "Test data" },
 ] as const
 

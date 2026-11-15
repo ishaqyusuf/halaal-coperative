@@ -1,6 +1,7 @@
 import { ExpectedQueryError } from "../query-error"
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { meterPlatformAssistantMessage } from "./platform-billing"
 
 /**
  * Assistant persistence and scoped reads. Every function takes an explicit
@@ -179,6 +180,8 @@ export async function beginAssistantTurn(
     requestId: string
     userParts: unknown[]
     title: string | null
+    /** Staff website turns count toward the cooperative's monthly allowance. */
+    meterPlatformUsage?: boolean
   },
   prismaOverride?: PrismaClient
 ): Promise<BeginAssistantTurnResult> {
@@ -235,6 +238,10 @@ export async function beginAssistantTurn(
         where: { id: running.id },
         data: { status: "failed", errorCode: "STALE", completedAt: new Date() },
       })
+
+    // Refuses the turn (and rolls everything back) at the monthly limit.
+    if (input.meterPlatformUsage)
+      await meterPlatformAssistantMessage(tx, { tenantId: input.tenantId })
 
     const userMessage = await tx.assistantMessage.create({
       data: {

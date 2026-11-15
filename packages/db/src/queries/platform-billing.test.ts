@@ -1,9 +1,9 @@
 import { describe, expect, mock, test } from "bun:test"
 import { Prisma, type PrismaClient } from "../../generated/prisma/client"
 import {
-  recordCooperativeMobileRemittance,
-  recordVerifiedCooperativeMobilePaystackPayment,
-} from "./cooperative-mobile-billing"
+  recordPlatformBillRemittance,
+  recordVerifiedPlatformBillPaystackPayment,
+} from "./platform-billing"
 
 function summary(overrides: Record<string, unknown> = {}) {
   return {
@@ -38,16 +38,16 @@ function stubDb(input: {
 
 const remittance = {
   actorUserId: "user-1",
-  invoiceId: "invoice-1",
+  billId: "invoice-1",
   paidAt: "2026-11-01",
   reference: "ref-1",
 }
 
-describe("recordCooperativeMobileRemittance inline accounting", () => {
+describe("recordPlatformBillRemittance inline accounting", () => {
   test("posts accounting right after a newly recorded remittance", async () => {
     const { db, transactions } = stubDb({ claimed: summary() })
 
-    const result = await recordCooperativeMobileRemittance(remittance, db)
+    const result = await recordPlatformBillRemittance(remittance, db)
 
     expect(result.status).toBe("paid")
     expect(transactions).toHaveLength(2)
@@ -61,7 +61,7 @@ describe("recordCooperativeMobileRemittance inline accounting", () => {
       },
     })
 
-    const result = await recordCooperativeMobileRemittance(remittance, db)
+    const result = await recordPlatformBillRemittance(remittance, db)
 
     expect(result.id).toBe("invoice-1")
     expect(transactions).toHaveLength(2)
@@ -72,7 +72,7 @@ describe("recordCooperativeMobileRemittance inline accounting", () => {
       claimed: summary({ remittancePostedAt: new Date() }),
     })
 
-    await recordCooperativeMobileRemittance(remittance, db)
+    await recordPlatformBillRemittance(remittance, db)
 
     expect(transactions).toHaveLength(1)
   })
@@ -81,15 +81,15 @@ describe("recordCooperativeMobileRemittance inline accounting", () => {
     const { db, transactions } = stubDb({ claimed: summary() })
 
     await expect(
-      recordCooperativeMobileRemittance({ ...remittance, reference: " " }, db)
+      recordPlatformBillRemittance({ ...remittance, reference: " " }, db)
     ).rejects.toThrow()
     expect(transactions).toHaveLength(0)
   })
 })
 
-test("redelivered verified Paystack payment claims the invoice and audit once", async () => {
+test("redelivered verified Paystack payment claims the bill and audits once", async () => {
   const payment = {
-    invoiceId: "invoice-1",
+    billId: "invoice-1",
     reference: "hv-invoice-test",
     paidAt: "2026-11-01",
     mode: "test" as const,
@@ -116,11 +116,11 @@ test("redelivered verified Paystack payment claims the invoice and audit once", 
   })
   const audit = mock(async () => ({}))
   const transaction = {
-    cooperativeMobileInvoice: {
+    platformBill: {
       findFirst: async () => invoice,
       updateMany: claimInvoice,
     },
-    cooperativeMobilePaystackCheckout: {
+    platformBillPaystackCheckout: {
       findUnique: async () => checkout,
       update: async ({ data }: { data: { verifiedAt: Date } }) => {
         checkout.verifiedAt = data.verifiedAt
@@ -135,10 +135,10 @@ test("redelivered verified Paystack payment claims the invoice and audit once", 
   } as unknown as PrismaClient
 
   expect(
-    (await recordVerifiedCooperativeMobilePaystackPayment(payment, db)).status
+    (await recordVerifiedPlatformBillPaystackPayment(payment, db)).status
   ).toBe("paid")
   expect(
-    (await recordVerifiedCooperativeMobilePaystackPayment(payment, db)).status
+    (await recordVerifiedPlatformBillPaystackPayment(payment, db)).status
   ).toBe("paid")
   expect(claimInvoice).toHaveBeenCalledTimes(1)
   expect(audit).toHaveBeenCalledTimes(1)

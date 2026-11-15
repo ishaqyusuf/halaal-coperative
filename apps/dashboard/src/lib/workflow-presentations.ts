@@ -19,6 +19,11 @@ export const workflowPresentations = {
   activityEntry: {
     details: sheet("form"),
   },
+  // /billing: one Halaalvest bill (`billId`); /platform/bills: Mark paid.
+  billing: {
+    bill: sheet("form"),
+    remittance: dialog("compact"),
+  },
   business: {
     create: sheet(),
     details: sheet("review"),
@@ -128,8 +133,6 @@ export const workflowPresentations = {
   },
   mobileAccess: {
     give: sheet("form"),
-    invoice: sheet("form"),
-    remittance: dialog("compact"),
   },
   monthlyRecord: {
     apply: dialog("compact"),

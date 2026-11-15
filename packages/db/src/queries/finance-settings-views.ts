@@ -1,6 +1,6 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
-import { mobileAccessChargeCode } from "./cooperative-mobile-billing-constants"
+import { systemBillingChargeCodes } from "./cooperative-mobile-billing-constants"
 import { excludeBroughtForwardLoanProductWhere } from "./loan-product-rules"
 import { getTenantFinanceSetupLock } from "./migration"
 import {
@@ -81,7 +81,7 @@ export async function getFinanceSettingsOverview(
     prisma.chargeDefinition.groupBy({
       _count: { _all: true },
       by: ["isActive"],
-      where: { code: { not: mobileAccessChargeCode }, tenantId },
+      where: { code: { notIn: systemBillingChargeCodes }, tenantId },
     }),
     prisma.loanProduct.findMany({
       orderBy: [{ loanType: "asc" }, { isActive: "desc" }, { name: "asc" }],
@@ -263,7 +263,7 @@ export async function getFinanceChargeSettings(
           },
         },
       },
-      where: { code: { not: mobileAccessChargeCode }, tenantId },
+      where: { code: { notIn: systemBillingChargeCodes }, tenantId },
     }),
     getTenantFinanceSetupLock(tenantId, prisma),
   ])

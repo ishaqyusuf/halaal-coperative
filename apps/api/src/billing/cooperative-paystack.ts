@@ -1,8 +1,8 @@
 import {
-  findCooperativeMobilePaystackCheckout,
-  recordVerifiedCooperativeMobilePaystackPayment,
-  reserveCooperativeMobilePaystackCheckout,
-  saveCooperativeMobilePaystackAuthorization,
+  findPlatformBillPaystackCheckout,
+  recordVerifiedPlatformBillPaystackPayment,
+  reservePlatformBillPaystackCheckout,
+  savePlatformBillPaystackAuthorization,
 } from "@halaalvest/db"
 import { TRPCError } from "@trpc/server"
 import { z } from "zod"
@@ -87,7 +87,7 @@ async function paystackRequest(
 }
 
 export async function startCooperativePaystackCheckout(input: {
-  invoiceId: string
+  billId: string
   tenantId: string
   email: string
   callback: URL
@@ -112,14 +112,14 @@ export async function startCooperativePaystackCheckout(input: {
     })
 
   const reservation = {
-    invoiceId: input.invoiceId,
+    billId: input.billId,
     tenantId: input.tenantId,
     mode: config.mode,
   }
-  let checkout = await reserveCooperativeMobilePaystackCheckout(reservation)
+  let checkout = await reservePlatformBillPaystackCheckout(reservation)
   if (checkout.authorizationUrl) {
     const status = await reconcileCooperativePaystackCheckout(config, {
-      invoiceId: input.invoiceId,
+      billId: input.billId,
       tenantId: input.tenantId,
       reference: checkout.reference,
     })
@@ -130,7 +130,7 @@ export async function startCooperativePaystackCheckout(input: {
         url: checkoutUrl.parse(checkout.authorizationUrl),
       }
 
-    checkout = await reserveCooperativeMobilePaystackCheckout({
+    checkout = await reservePlatformBillPaystackCheckout({
       ...reservation,
       replaceReference: checkout.reference,
     })
@@ -165,7 +165,7 @@ export async function startCooperativePaystackCheckout(input: {
     })
 
   const url = result.data.data.authorization_url
-  await saveCooperativeMobilePaystackAuthorization(checkout.reference, url)
+  await savePlatformBillPaystackAuthorization(checkout.reference, url)
   return { status: "checkout" as const, url }
 }
 
@@ -185,14 +185,14 @@ export async function reconcileCooperativePaystackCheckout(
   config: PaystackConfig,
   input:
     | { reference: string }
-    | { reference?: string; invoiceId: string; tenantId: string }
+    | { reference?: string; billId: string; tenantId: string }
 ): Promise<"paid" | "pending" | "failed" | "unavailable"> {
-  const checkout = await findCooperativeMobilePaystackCheckout({
+  const checkout = await findPlatformBillPaystackCheckout({
     ...input,
     mode: config.mode,
   })
   if (!checkout) return "unavailable"
-  if (!canUseCooperativePaystack(config, checkout.invoice.tenantId))
+  if (!canUseCooperativePaystack(config, checkout.tenantId))
     return "unavailable"
   if (checkout.verifiedAt) return "paid"
 
@@ -217,8 +217,8 @@ export async function reconcileCooperativePaystackCheckout(
   if (payment.status === "failed") return "failed"
   if (payment.status !== "success" || !payment.paid_at) return "pending"
 
-  await recordVerifiedCooperativeMobilePaystackPayment({
-    invoiceId: checkout.invoiceId,
+  await recordVerifiedPlatformBillPaystackPayment({
+    billId: checkout.billId,
     reference: payment.reference,
     paidAt: nigeriaPaymentDate.format(new Date(payment.paid_at)),
     mode: payment.domain,

@@ -486,6 +486,9 @@ export async function getPrivacyProcessingInventory(
     assistantProposalsActed,
     assistantChannelChallenges,
     assistantChannelLinks,
+    mobileAccessTermsAccepted,
+    platformBillingSettingsUpdated,
+    platformBillFundingChosen,
   ] = await Promise.all([
     db.member.count({ where: { userId } }),
     db.memberDocument.count({ where: { member: { userId } } }),
@@ -606,6 +609,9 @@ export async function getPrivacyProcessingInventory(
     db.assistantProposal.count({ where: { actorUserId: userId } }),
     db.assistantChannelChallenge.count({ where: { userId } }),
     db.assistantChannelLink.count({ where: { userId } }),
+    db.cooperativeMobileAccessTerm.count({ where: { acceptedByUserId: userId } }),
+    db.tenantPlatformBillingSetting.count({ where: { updatedByUserId: userId } }),
+    db.platformBill.count({ where: { fundingChosenByUserId: userId } }),
   ])
   return {
     requestId: request.id,
@@ -699,6 +705,9 @@ export async function getPrivacyProcessingInventory(
       assistantProposalsActed,
       assistantChannelChallenges,
       assistantChannelLinks,
+      mobileAccessTermsAccepted,
+      platformBillingSettingsUpdated,
+      platformBillFundingChosen,
     },
     externalProcessorsReviewed: false,
     sharedRecordsReviewed: false,

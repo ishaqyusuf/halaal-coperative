@@ -34,6 +34,7 @@ model Member {
   paymentReceipts                       MemberPaymentReceipt[]
   paymentReceiptAllocations             MemberPaymentReceiptAllocation[]
   cooperativeMobileAccessTerms          CooperativeMobileAccessTerm[]
+  platformBillSeats                     PlatformBillSeat[]
   shareOverrides                        MemberShareOverride[]
   amountLogs                            MemberAmountLog[]
   chargeApplications                    ChargeApplication[]

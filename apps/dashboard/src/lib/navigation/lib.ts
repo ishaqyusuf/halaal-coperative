@@ -137,9 +137,9 @@ const offNavRouteTitles = [
     title: "Refund reviews",
   },
   {
-    paths: ["/platform/mobile-access-invoices"],
+    paths: ["/platform/bills"],
     subtitle: "Platform",
-    title: "Mobile app bills",
+    title: "Halaalvest bills",
   },
   {
     paths: ["/platform/qa-maintenance"],

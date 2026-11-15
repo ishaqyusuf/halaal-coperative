@@ -55,7 +55,9 @@ model Tenant {
   mobileAppAccessPurchases              MobileAppAccessPurchase[]
   mobileAppReviewGrants                 MobileAppReviewGrant[]
   cooperativeMobileAccessTerms          CooperativeMobileAccessTerm[]
-  cooperativeMobileInvoices             CooperativeMobileInvoice[]
+  platformBills                         PlatformBill[]
+  platformBillingSetting                TenantPlatformBillingSetting?
+  platformAssistantUsage                PlatformAssistantUsage[]
   serviceSettings                       TenantServiceSetting[]
   businessPolicy                        TenantBusinessPolicy?
   domains                               TenantDomain[]

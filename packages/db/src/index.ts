@@ -88,7 +88,7 @@ export * from "./filter-metadata"
 
 export * from "./queries/store-refund-reviews"
 export * from "./queries/cooperative-mobile-access"
-export * from "./queries/cooperative-mobile-billing"
+export * from "./queries/platform-billing"
 
 export * from "./queries/account-privacy"
 export * from "./queries/dashboard-evidence-uploads"

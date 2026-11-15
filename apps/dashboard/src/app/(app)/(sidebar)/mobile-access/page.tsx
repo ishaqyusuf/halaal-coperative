@@ -9,7 +9,6 @@ import {
   AdminAccessView,
   accessListPageSize,
 } from "@/components/mobile-access/admin-access-view"
-import { CooperativeInvoicesView } from "@/components/mobile-access/cooperative-invoices-view"
 import { MemberAccessView } from "@/components/mobile-access/member-access-view"
 import { loadMobileAccessFilterParams } from "@/hooks/use-mobile-access-filter-params"
 import { getDashboardServerContext } from "@/lib/server-context"
@@ -47,24 +46,21 @@ export default async function MobileAccessPage({
       )
     )
   }
-  if (canViewInvoices) {
-    prefetch(trpc.cooperativeMobileBilling.listInvoices.queryOptions())
-  }
 
   return (
     <HydrateClient>
       <DashboardPageShell>
         <DashboardPageTitle
           action={
-            context.auth.user?.isPlatformOwner ? (
+            canViewInvoices ? (
               <Link
                 className={buttonVariants({
                   className: "h-11 text-base",
                   variant: "outline",
                 })}
-                href="/platform/mobile-access-invoices"
+                href="/billing"
               >
-                All cooperative bills
+                Bills
               </Link>
             ) : null
           }
@@ -73,7 +69,6 @@ export default async function MobileAccessPage({
         <div className="space-y-10">
           {isMember ? <MemberAccessView /> : null}
           {canReview ? <AdminAccessView /> : null}
-          {canViewInvoices ? <CooperativeInvoicesView /> : null}
         </div>
       </DashboardPageShell>
     </HydrateClient>

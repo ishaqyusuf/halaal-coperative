@@ -30,7 +30,7 @@ import { mobileRouter } from "./mobile.route"
 import { qaMaintenanceRouter } from "./qa-maintenance.route"
 import { subscriptionsRouter } from "./subscriptions.route"
 import { cooperativeMobileAccessRouter } from "./cooperative-mobile-access.route"
-import { cooperativeMobileBillingRouter } from "./cooperative-mobile-billing.route"
+import { platformBillingRouter } from "./platform-billing.route"
 import { storeRefundReviewsRouter } from "./store-refund-reviews.route"
 import { qaAcceleratorRouter } from "./qa-accelerator.route"
 import { workplacesRouter } from "./workplaces.route"
@@ -61,7 +61,7 @@ export const appRouter = createTRPCRouter({
   workplaces: workplacesRouter,
   subscriptions: subscriptionsRouter,
   cooperativeMobileAccess: cooperativeMobileAccessRouter,
-  cooperativeMobileBilling: cooperativeMobileBillingRouter,
+  platformBilling: platformBillingRouter,
   storeRefundReviews: storeRefundReviewsRouter,
   overview: overviewRouter,
   notifications: notificationsRouter,

@@ -8,7 +8,7 @@ import type {
 } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
-import { getMobileBillingCommitmentAmount } from "./cooperative-mobile-billing"
+import { getMobileBillingCommitmentAmount } from "./platform-billing"
 import {
   excludeBroughtForwardLoanProductWhere,
   isBroughtForwardLoanProduct,

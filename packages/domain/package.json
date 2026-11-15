@@ -22,6 +22,7 @@
     "./mobile-notifications": "./src/modules/mobile-notifications.ts",
     "./mobile-reports": "./src/modules/mobile-reports.ts",
     "./cooperative-mobile-access": "./src/modules/cooperative-mobile-access.ts",
+    "./platform-billing": "./src/modules/platform-billing.ts",
     "./subscriptions": "./src/modules/subscriptions.ts",
     "./public-policies": "./src/modules/public-policies.ts",
     "./account-privacy-notice": "./src/modules/account-privacy-notice.ts",

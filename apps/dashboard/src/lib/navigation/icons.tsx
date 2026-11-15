@@ -8,6 +8,7 @@ import {
   ClipboardCheckIcon,
   ClipboardListIcon,
   CoinsIcon,
+  CreditCardIcon,
   FileBarChartIcon,
   FileClockIcon,
   FileCogIcon,
@@ -48,6 +49,7 @@ export const MemberRegistryIcon = UsersIcon
 export const MembershipApprovalsIcon = UserCheckIcon
 export const SignupLinksIcon = Link2Icon
 export const MobileAccessIcon = SmartphoneIcon
+export const BillingIcon = CreditCardIcon
 export const SupportIcon = LifeBuoyIcon
 export const GuarantorApprovalsIcon = ShieldCheckIcon
 

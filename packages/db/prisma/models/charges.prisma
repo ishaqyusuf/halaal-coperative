@@ -84,6 +84,7 @@ model ChargeApplication {
   projectFinancingRequest ProjectFinancingRequest? @relation(fields: [projectFinancingRequestId], references: [id], onDelete: SetNull)
   ledgerTransaction       LedgerTransaction?
   cooperativeMobileInvoiceItem CooperativeMobileInvoiceItem?
+  platformBillSeat             PlatformBillSeat?
 
   @@unique([tenantId, workflowIdempotencyKey], map: "charge_applications_tenant_workflow_key")
   @@index([tenantId, memberId, status], map: "charge_applications_tenant_member_status_idx")

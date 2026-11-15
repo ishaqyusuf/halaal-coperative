@@ -93,18 +93,21 @@ test("renders every selected deletion link and keeps the partial-inventory cavea
     assistantProposalsActed: 87,
     assistantChannelChallenges: 88,
     assistantChannelLinks: 89,
+    mobileAccessTermsAccepted: 90,
+    platformBillingSettingsUpdated: 91,
+    platformBillFundingChosen: 92,
   }
   const html = renderToStaticMarkup(
     <PrivacyProcessingCountList counts={counts} />
   )
 
-  expect(html.match(/<dt>/g)).toHaveLength(89)
+  expect(html.match(/<dt>/g)).toHaveLength(92)
   const renderedCounts = Array.from(
     html.matchAll(/<dd[^>]*>(\d+)<\/dd>/g),
     (match) => Number(match[1])
   ).sort((a, b) => a - b)
   expect(renderedCounts).toEqual(
-    Array.from({ length: 89 }, (_, index) => index + 1)
+    Array.from({ length: 92 }, (_, index) => index + 1)
   )
   expect(html).toContain("Staff and import history")
   expect(html).toContain("Support cases assigned to staff account")

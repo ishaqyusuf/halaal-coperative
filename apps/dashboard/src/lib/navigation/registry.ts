@@ -10,6 +10,7 @@ import {
 import {
   AnalyticsIcon,
   AssistantIcon,
+  BillingIcon,
   BusinessIcon,
   ChargesIcon,
   ContributionsIcon,
@@ -293,6 +294,13 @@ export const dashboardNavRegistry: NavModule[] = [
       )
         .childPaths("/settings/finance")
         .title("Finance setup").data,
+      createNavLink(
+        "Billing",
+        BillingIcon,
+        "/billing",
+        [],
+        [role.in(...financeRoles)]
+      ).title("Billing").data,
       createNavLink(
         "Operation Profile",
         OperationProfileIcon,

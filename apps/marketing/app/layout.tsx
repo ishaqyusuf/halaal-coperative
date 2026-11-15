@@ -1,4 +1,4 @@
-import { getQaAcceleratorCapability } from "@halaalvest/api/qa-accelerator-config"
+import { getQaAcceleratorEnvCapability } from "@halaalvest/api/qa-accelerator-config"
 import { EventsProvider } from "@halaalvest/events/client"
 import "@halaalvest/ui/globals.css"
 import { NotificationsProvider } from "@halaalvest/notifications-react"
@@ -76,7 +76,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const qaAvailable = getQaAcceleratorCapability({
+  const qaAvailable = getQaAcceleratorEnvCapability({
     clientKind: "web",
     contractVersion: 1,
   }).available

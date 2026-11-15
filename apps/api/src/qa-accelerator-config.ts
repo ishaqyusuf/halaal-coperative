@@ -61,26 +61,42 @@ export async function resolveQaPolicyGate(env: RuntimeEnv = process.env): Promis
   }
 }
 
-export async function getQaAcceleratorCapability(
-  input: {
-    clientKind: QaAcceleratorClientKind
-    contractVersion: number
-  },
-  gate?: QaPolicyGate
-) {
+type QaAcceleratorCapabilityInput = {
+  clientKind: QaAcceleratorClientKind
+  contractVersion: number
+}
+
+function capabilityFor(input: QaAcceleratorCapabilityInput, policyAllows: boolean) {
   const environment = getEnvironment()
-  const policy = gate ?? (await resolveQaPolicyGate())
   return resolveQaAcceleratorCapability({
     clientKind: input.clientKind,
     contractVersion: input.contractVersion,
     enabled:
       process.env.QA_ACCELERATOR_ENABLED !== "false" &&
       environment !== "production" &&
-      (!policy.managed || policy.enabled),
+      policyAllows,
     environment,
     hasCredentialSecret: Boolean(process.env.QA_ACCELERATOR_SECRET?.trim()),
     permittedClientKinds: getPermittedClientKinds(),
   })
+}
+
+/** The full check, including Oversight's policy. Used by the QA routes. */
+export async function getQaAcceleratorCapability(
+  input: QaAcceleratorCapabilityInput,
+  gate?: QaPolicyGate
+) {
+  const policy = gate ?? (await resolveQaPolicyGate())
+  return capabilityFor(input, !policy.managed || policy.enabled)
+}
+
+/**
+ * Environment-only check with no network read, for prerendered public pages
+ * that only decide whether to offer the QA entry point. Every QA route still
+ * applies Oversight's policy through `getQaAcceleratorCapability`.
+ */
+export function getQaAcceleratorEnvCapability(input: QaAcceleratorCapabilityInput) {
+  return capabilityFor(input, true)
 }
 
 export function getConfiguredLocalQaCredential() {

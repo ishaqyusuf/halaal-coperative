@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test"
 import {
   getQaAcceleratorCapability,
+  getQaAcceleratorEnvCapability,
   isConfiguredQaEntryDomain,
   resolveQaPolicyGate,
   type QaPolicyGate,
@@ -73,5 +74,20 @@ test("an Oversight policy decides environments and domains, and fails closed", (
       // The policy host is unreachable here: QA is off, not open.
       const gate = await resolveQaPolicyGate()
       expect(gate).toMatchObject({ managed: true, enabled: false })
+    }
+  ))
+
+test("the env-only check reads no policy and never opens production", () =>
+  withEnv(
+    {
+      APP_ENV: "local",
+      QA_ACCELERATOR_SECRET: secret,
+      QA_POLICY_URL: "https://oversight.invalid/api/qa-policy/v1/halaalvest",
+      QA_POLICY_READ_KEY: "k".repeat(40),
+    },
+    async () => {
+      expect(getQaAcceleratorEnvCapability({ clientKind: "web", contractVersion: 1 }).available).toBe(true)
+      process.env.VERCEL_ENV = "production"
+      expect(getQaAcceleratorEnvCapability({ clientKind: "web", contractVersion: 1 }).available).toBe(false)
     }
   ))

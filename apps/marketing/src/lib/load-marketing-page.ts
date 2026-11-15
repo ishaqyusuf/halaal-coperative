@@ -1,4 +1,4 @@
-import { getQaAcceleratorCapability } from "@halaalvest/api/qa-accelerator-config"
+import { getQaAcceleratorEnvCapability } from "@halaalvest/api/qa-accelerator-config"
 import { listTenants } from "@halaalvest/db"
 import type { MarketingConfig } from "@halaalvest/domain"
 import { resolveQaQuickFillContext } from "@halaalvest/utils"
@@ -26,7 +26,7 @@ export async function loadMarketingPageData(
     : showDevTenantFab
       ? await getSignupHref()
       : "/signup"
-  const quickFill = getQaAcceleratorCapability({
+  const quickFill = getQaAcceleratorEnvCapability({
     clientKind: "web",
     contractVersion: 1,
   }).available

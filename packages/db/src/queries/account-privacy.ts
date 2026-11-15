@@ -482,6 +482,10 @@ export async function getPrivacyProcessingInventory(
     memberFinancingRequests,
     memberLoans,
     memberRepayments,
+    assistantConversations,
+    assistantProposalsActed,
+    assistantChannelChallenges,
+    assistantChannelLinks,
   ] = await Promise.all([
     db.member.count({ where: { userId } }),
     db.memberDocument.count({ where: { member: { userId } } }),
@@ -598,6 +602,10 @@ export async function getPrivacyProcessingInventory(
     db.loanRequest.count({ where: { member: { userId } } }),
     db.loan.count({ where: { member: { userId } } }),
     db.repayment.count({ where: { member: { userId } } }),
+    db.assistantConversation.count({ where: { userId } }),
+    db.assistantProposal.count({ where: { actorUserId: userId } }),
+    db.assistantChannelChallenge.count({ where: { userId } }),
+    db.assistantChannelLink.count({ where: { userId } }),
   ])
   return {
     requestId: request.id,
@@ -687,6 +695,10 @@ export async function getPrivacyProcessingInventory(
       memberFinancingRequests,
       memberLoans,
       memberRepayments,
+      assistantConversations,
+      assistantProposalsActed,
+      assistantChannelChallenges,
+      assistantChannelLinks,
     },
     externalProcessorsReviewed: false,
     sharedRecordsReviewed: false,

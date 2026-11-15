@@ -89,18 +89,22 @@ test("renders every selected deletion link and keeps the partial-inventory cavea
     memberFinancingRequests: 78,
     memberLoans: 79,
     memberRepayments: 80,
+    assistantConversations: 86,
+    assistantProposalsActed: 87,
+    assistantChannelChallenges: 88,
+    assistantChannelLinks: 89,
   }
   const html = renderToStaticMarkup(
     <PrivacyProcessingCountList counts={counts} />
   )
 
-  expect(html.match(/<dt>/g)).toHaveLength(85)
+  expect(html.match(/<dt>/g)).toHaveLength(89)
   const renderedCounts = Array.from(
     html.matchAll(/<dd[^>]*>(\d+)<\/dd>/g),
     (match) => Number(match[1])
   ).sort((a, b) => a - b)
   expect(renderedCounts).toEqual(
-    Array.from({ length: 85 }, (_, index) => index + 1)
+    Array.from({ length: 89 }, (_, index) => index + 1)
   )
   expect(html).toContain("Staff and import history")
   expect(html).toContain("Support cases assigned to staff account")
@@ -120,6 +124,7 @@ test("renders every selected deletion link and keeps the partial-inventory cavea
   expect(html).toContain("A financial record can appear")
   expect(html).toContain("Member-linked financial records")
   expect(html).toContain("Post-revocation checks")
+  expect(html).toContain("Assistant linked channels")
   expect(html).toContain("Post-revocation access artifacts remain")
   expect(html).toContain("counts do not establish whether a session")
   expect(html).toContain("support case categories can overlap")

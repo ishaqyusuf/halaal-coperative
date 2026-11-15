@@ -68,8 +68,9 @@ describe("Halaalvest error-system adoption", () => {
   })
 
   test("does not serialize thrown marketing messages", () => {
+    // Route sources only: route tests read `body.error.message` from responses.
     const routes = sourceFiles("apps/marketing/app/api")
-      .filter((path) => path.endsWith(".ts"))
+      .filter((path) => path.endsWith(".ts") && !path.endsWith(".test.ts"))
       .map(read)
       .join("\n")
 

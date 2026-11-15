@@ -436,6 +436,10 @@ describe("account privacy safeguards", () => {
       mobilePushRegistration: { count },
       mobileUserNotificationPreference: { count },
       auditLog: { count },
+      assistantConversation: { count },
+      assistantProposal: { count },
+      assistantChannelChallenge: { count },
+      assistantChannelLink: { count },
     } as unknown as PrismaClient
     const inventory = await getPrivacyProcessingInventory(
       { actorUserId: "operator", requestId: request.id },
@@ -479,6 +483,9 @@ describe("account privacy safeguards", () => {
     expect(inventory.counts.memberFinancingRequests).toBe(1)
     expect(inventory.counts.memberLoans).toBe(1)
     expect(inventory.counts.memberRepayments).toBe(1)
+    expect(inventory.counts.assistantConversations).toBe(1)
+    expect(inventory.counts.assistantProposalsActed).toBe(1)
+    expect(inventory.counts.assistantChannelLinks).toBe(1)
     expect(financialActorCalls).toEqual(
       [
         ["memberSpecialSavingsWithdrawal", "processedByUserId"],
@@ -594,7 +601,7 @@ describe("account privacy safeguards", () => {
         prisma
       )
     ).rejects.toThrow("not ready")
-    expect(calls).toHaveLength(85)
+    expect(calls).toHaveLength(89)
     operator = false
     await expect(
       getPrivacyProcessingInventory(

@@ -85,6 +85,10 @@ const countLabels = {
   memberFinancingRequests: "Financing requests linked to member profile",
   memberLoans: "Financing facilities linked to member profile",
   memberRepayments: "Repayments linked to member profile",
+  assistantConversations: "Assistant conversations",
+  assistantProposalsActed: "Assistant proposals acted on",
+  assistantChannelChallenges: "Assistant channel link codes",
+  assistantChannelLinks: "Assistant linked channels",
 } as const
 
 type CountKey = keyof typeof countLabels
@@ -213,6 +217,15 @@ const countGroups: { title: string; keys: CountKey[] }[] = [
       "cooperativeMobileAccessTerms",
       "cooperativeMobileInvoiceItems",
       "auditEntries",
+    ],
+  },
+  {
+    title: "Assistant",
+    keys: [
+      "assistantConversations",
+      "assistantProposalsActed",
+      "assistantChannelChallenges",
+      "assistantChannelLinks",
     ],
   },
   {

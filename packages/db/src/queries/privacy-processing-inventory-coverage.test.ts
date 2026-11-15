@@ -74,6 +74,6 @@ test("privacy processing inventory covers every direct Prisma user-ID field", ()
   const schemaFields = [...directUserIdFields()].sort()
   const countedFields = [...countedDirectUserIdFields()].sort()
   // A schema addition requires the operator data map and inventory to be reviewed.
-  expect(schemaFields).toHaveLength(75)
+  expect(schemaFields).toHaveLength(79)
   expect(countedFields).toEqual(schemaFields)
 })

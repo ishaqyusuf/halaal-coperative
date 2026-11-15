@@ -39,10 +39,18 @@ runIntegration("mobile device session API", () => {
     if (!prisma) return
     const [primaryTenant, otherTenant] = await Promise.all([
       prisma.tenant.create({
-        data: { name: "Session API Cooperative", slug, status: "active" },
+        // Mobile sessions are only usable once the cooperative turns on the
+        // mobile app (and, for members, approves their access term).
+        data: {
+          cooperativeMobileAccessEnabled: true,
+          name: "Session API Cooperative",
+          slug,
+          status: "active",
+        },
       }),
       prisma.tenant.create({
         data: {
+          cooperativeMobileAccessEnabled: true,
           name: "Other Session Cooperative",
           slug: `${slug}-other`,
           status: "active",
@@ -83,6 +91,7 @@ runIntegration("mobile device session API", () => {
         },
       })
       if (input.role === "member") {
+        const now = Date.now()
         await prisma.member.create({
           data: {
             email: user.email,
@@ -93,6 +102,20 @@ runIntegration("mobile device session API", () => {
             status: "active",
             tenantId: input.tenantId,
             userId: user.id,
+            cooperativeMobileAccessTerms: {
+              create: {
+                amount: 0,
+                approvedAt: new Date(now - 86_400_000),
+                currencyCode: "NGN",
+                endsAt: new Date(now + 30 * 86_400_000),
+                requestedAt: new Date(now - 86_400_000),
+                startsAt: new Date(now - 86_400_000),
+                status: "approved",
+                tenantId: input.tenantId,
+                termMonths: 1,
+                termsVersion: "integration-test",
+              },
+            },
           },
         })
       }

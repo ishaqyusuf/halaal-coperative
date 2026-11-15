@@ -418,6 +418,7 @@ describe("tenant finance queries", () => {
     } as never)
 
     expect(policy).toEqual({
+      confirmedAt: null,
       configurationMode: "monthly_history",
       compulsoryShareUnits: 1,
       id: null,
@@ -434,6 +435,7 @@ describe("tenant finance queries", () => {
     } as never)
 
     expect(setup).toEqual({
+      confirmedAt: null,
       id: null,
       mode: "historical_backfill",
     })
@@ -473,6 +475,7 @@ describe("tenant finance queries", () => {
     )
 
     expect(setup).toEqual({
+      confirmedAt: null,
       id: "policy-1",
       mode: "brought_forward",
     })
@@ -646,6 +649,7 @@ describe("tenant finance queries", () => {
     } as never)
 
     expect(policy).toEqual({
+      confirmedAt: null,
       configurationMode: "monthly_history",
       compulsoryShareUnits: 1,
       id: "policy-1",
@@ -697,6 +701,7 @@ describe("tenant finance queries", () => {
     )
 
     expect(policy).toEqual({
+      confirmedAt: null,
       configurationMode: "unit_based",
       compulsoryShareUnits: 1,
       id: "policy-1",
@@ -787,6 +792,7 @@ describe("tenant finance queries", () => {
     )
 
     expect(policy).toEqual({
+      confirmedAt: null,
       configurationMode: "monthly_history",
       compulsoryShareUnits: 1,
       id: "policy-1",

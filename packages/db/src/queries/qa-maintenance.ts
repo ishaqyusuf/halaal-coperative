@@ -401,8 +401,33 @@ export async function beginQaPurgeRun(id: string) {
 
   return {
     counts: preview.counts,
+    startedAt,
     tenants: preview.tenants,
   }
+}
+
+/**
+ * Re-reads a tenant just before its files and domains are deleted. Returns
+ * its current hostnames only while it is still classified `qa` and still
+ * marked by this purge run; otherwise null, and nothing may be deleted.
+ */
+export async function confirmQaTenantForPurge(
+  input: { startedAt: Date; tenantId: string },
+  prismaOverride?: QaMaintenancePrisma
+) {
+  const prisma = requirePrisma(prismaOverride)
+  const tenant = await prisma.tenant.findFirst({
+    select: { domains: { select: { hostname: true } }, id: true },
+    where: {
+      dataClassification: "qa",
+      id: input.tenantId,
+      qaPurgeStartedAt: input.startedAt,
+    },
+  })
+
+  return tenant
+    ? { hostnames: tenant.domains.map((domain) => domain.hostname) }
+    : null
 }
 
 export async function markQaTenantForPurge(

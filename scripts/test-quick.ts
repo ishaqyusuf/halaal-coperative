@@ -80,6 +80,7 @@ export const suites = {
     "packages/db/src/queries/monthly-records.test.ts",
     "packages/db/src/query-error.test.ts",
     "packages/db/src/postgres-connection.test.ts",
+    "packages/jobs/src/handlers/qa-purge.test.ts",
   ],
 }
 export type Suite = keyof typeof suites

@@ -1,6 +1,7 @@
 import {
   beginQaPurgeRun,
   blockQaPurgeRun,
+  confirmQaTenantForPurge,
   deleteQaTenant,
   finishQaPurgeRun,
   getQaPurgeRun,
@@ -27,28 +28,68 @@ const emptyCounts = (): QaMaintenanceCounts => ({
   workspaces: 0,
 })
 
-export async function qaPurgeHandler({ runId }: QaPurgePayload) {
-  const existingRun = await getQaPurgeRun(runId)
+export type QaPurgeDependencies = {
+  beginRun: typeof beginQaPurgeRun
+  blockRun: typeof blockQaPurgeRun
+  confirmTenant: typeof confirmQaTenantForPurge
+  credentialBlocker: typeof getQaHostingCredentialBlocker
+  deleteDomains: typeof deleteQaHostingDomains
+  deletePrivateUploads: typeof deleteQaPrivateUploads
+  deleteTenant: typeof deleteQaTenant
+  deleteUploads: typeof deleteQaUploads
+  finishRun: typeof finishQaPurgeRun
+  getRun: typeof getQaPurgeRun
+}
+
+const defaultDependencies: QaPurgeDependencies = {
+  beginRun: beginQaPurgeRun,
+  blockRun: blockQaPurgeRun,
+  confirmTenant: confirmQaTenantForPurge,
+  credentialBlocker: getQaHostingCredentialBlocker,
+  deleteDomains: deleteQaHostingDomains,
+  deletePrivateUploads: deleteQaPrivateUploads,
+  deleteTenant: deleteQaTenant,
+  deleteUploads: deleteQaUploads,
+  finishRun: finishQaPurgeRun,
+  getRun: getQaPurgeRun,
+}
+
+export async function qaPurgeHandler(
+  { runId }: QaPurgePayload,
+  deps: QaPurgeDependencies = defaultDependencies
+) {
+  const existingRun = await deps.getRun(runId)
   if (!existingRun || existingRun.status !== "queued") {
     return { deletedCounts: emptyCounts(), errors: [] }
   }
 
-  const credentialBlocker = getQaHostingCredentialBlocker()
+  const credentialBlocker = deps.credentialBlocker()
   if (credentialBlocker) {
-    await blockQaPurgeRun(runId, credentialBlocker)
+    await deps.blockRun(runId, credentialBlocker)
     return { deletedCounts: emptyCounts(), errors: [credentialBlocker] }
   }
 
-  const snapshot = await beginQaPurgeRun(runId)
+  const snapshot = await deps.beginRun(runId)
   const deletedCounts = emptyCounts()
   const errors: string[] = []
 
   for (const tenant of snapshot.tenants) {
     try {
-      const uploads = await deleteQaUploads(tenant.id)
-      const privateUploads = await deleteQaPrivateUploads(tenant.id)
-      await deleteQaHostingDomains(tenant.hostnames)
-      await deleteQaTenant(tenant.id)
+      // Re-check right before deleting anything outside the database: the
+      // tenant must still be QA and still marked by this run. Files and
+      // domains are deleted for the hostnames it has now, not the preview's.
+      const confirmed = await deps.confirmTenant({
+        startedAt: snapshot.startedAt,
+        tenantId: tenant.id,
+      })
+      if (!confirmed) {
+        errors.push("tenant_not_qa")
+        continue
+      }
+      const uploads = await deps.deleteUploads(tenant.id)
+      const privateUploads = await deps.deletePrivateUploads(tenant.id)
+      await deps.deleteDomains(confirmed.hostnames)
+      await deps.deleteTenant(tenant.id, undefined, snapshot.startedAt)
       deletedCounts.workspaces += 1
       deletedCounts.files += uploads.files + privateUploads.files
       deletedCounts.fileBytes += uploads.fileBytes + privateUploads.fileBytes
@@ -58,7 +99,7 @@ export async function qaPurgeHandler({ runId }: QaPurgePayload) {
   }
 
   if (deletedCounts.workspaces === snapshot.tenants.length) {
-    await finishQaPurgeRun({
+    await deps.finishRun({
       counts: {
         ...snapshot.counts,
         fileBytes: deletedCounts.fileBytes,
@@ -68,12 +109,11 @@ export async function qaPurgeHandler({ runId }: QaPurgePayload) {
       status: "completed",
     })
   } else {
-    await finishQaPurgeRun({
+    await deps.finishRun({
       counts: deletedCounts,
       errorCategory: errors[0] ?? "tenant_delete_failed",
       id: runId,
-      status:
-        deletedCounts.workspaces > 0 ? "partially_completed" : "failed",
+      status: deletedCounts.workspaces > 0 ? "partially_completed" : "failed",
     })
   }
 

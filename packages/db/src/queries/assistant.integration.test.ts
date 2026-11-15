@@ -9,6 +9,7 @@ import {
   listAssistantConversations,
   readAssistantConversation,
   readAssistantProposal,
+  resolveAssistantLink,
   reviseAssistantProposal,
   saveAssistantProposalResult,
   searchAssistantMembers,
@@ -214,5 +215,57 @@ run("assistant persistence boundary", () => {
       confirmationKey: "confirm-expired-1",
     })
     expect(claim).toEqual({ kind: "refused", reason: "expired" })
+  })
+  it("resolves saved-answer and draft links only for the chat's owner", async () => {
+    const conversation = await createAssistantConversation({ ...owner, channel: "telegram" })
+    const begun = await beginAssistantTurn({
+      ...owner,
+      conversationId: conversation.id,
+      requestId: "req-link-0001",
+      userParts: [{ type: "text", text: "hello" }],
+      title: null,
+    })
+    if (begun.kind !== "started") throw new Error("expected a new turn")
+    const reply = await completeAssistantTurn({
+      turnId: begun.turnId,
+      tenantId: owner.tenantId,
+      conversationId: conversation.id,
+      status: "completed",
+      replyParts: [{ type: "text", text: "hi" }],
+      capabilityId: null,
+      provider: "deterministic",
+      model: null,
+      errorCode: null,
+      durationMs: 1,
+    })
+    const proposal = await createAssistantProposal({
+      ...owner,
+      conversationId: conversation.id,
+      capabilityId: "M05",
+      kind: "payment-request",
+      status: "review",
+      fields: { kind: "payment-request", purpose: "money_owed", amount: null, note: null },
+      expiresAt: new Date(Date.now() + 60_000),
+    })
+
+    // A messaging chat's answer opens for the same person in the app.
+    expect(await resolveAssistantLink({ ...owner, target: { kind: "message", id: reply.id } })).toEqual({
+      conversationId: conversation.id,
+      channel: "telegram",
+      messageId: reply.id,
+      proposalId: null,
+    })
+    expect(
+      (await resolveAssistantLink({ ...owner, target: { kind: "proposal", id: proposal.id } }))?.proposalId
+    ).toBe(proposal.id)
+    // Another cooperative, or another membership in the same one, gets nothing.
+    expect(await resolveAssistantLink({ ...otherTenant, target: { kind: "message", id: reply.id } })).toBeNull()
+    expect(
+      await resolveAssistantLink({
+        ...owner,
+        membershipId: otherTenant.membershipId,
+        target: { kind: "proposal", id: proposal.id },
+      })
+    ).toBeNull()
   })
 })

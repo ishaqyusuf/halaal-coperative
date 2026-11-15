@@ -14,6 +14,7 @@
   "exports": {
     "./context": "./src/context.ts",
     "./internal-api": "./src/internal-api.ts",
+    "./assistant-stream": "./src/assistant/stream-route.ts",
     "./router": "./src/routers/_app.ts",
     "./trpc": "./src/lib.trpc.ts",
     "./trpc/init": "./src/lib.trpc.ts",

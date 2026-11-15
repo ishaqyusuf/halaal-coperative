@@ -30,6 +30,7 @@ import {
 } from "@halaalvest/db"
 import type { AssistantPrincipal } from "./principal"
 import { denied, unavailable } from "./reads"
+import { receiptProofUrl } from "./uploads"
 
 /**
  * Exact-draft writes: collect → review → confirm exact revision → saved
@@ -455,6 +456,28 @@ export async function chooseRecordPaymentMember(
 // Edit / cancel / confirm
 // ---------------------------------------------------------------------------
 
+/**
+ * Receipt proof comes only from the signed-in app's private upload (web or
+ * native). Messaging channels keep whatever proof the draft already has.
+ */
+function evidenceFor(
+  principal: AssistantPrincipal,
+  requested: Extract<AssistantProposalFields, { kind: "receipt-submission" }>,
+  current: AssistantProposalFields
+) {
+  const kept = current.kind === "receipt-submission"
+    ? { evidenceUploadId: current.evidenceUploadId, evidenceName: current.evidenceName ?? null }
+    : { evidenceUploadId: null, evidenceName: null }
+  if (principal.channel !== "web" && principal.channel !== "native") return kept
+  if (!requested.evidenceUploadId) return { evidenceUploadId: null, evidenceName: null }
+  if (!receiptProofUrl(requested.evidenceUploadId))
+    throw new ProposalError("BAD_REQUEST", "That proof upload isn't valid. Upload it again.")
+  return {
+    evidenceUploadId: requested.evidenceUploadId,
+    evidenceName: requested.evidenceName?.trim().slice(0, 160) || "Payment proof",
+  }
+}
+
 export async function editProposal(
   principal: AssistantPrincipal,
   input: { proposalId: string; revision: number; fields: AssistantProposalFields },
@@ -473,7 +496,7 @@ export async function editProposal(
       next = {
         ...input.fields,
         allocations: amount ? await memberReceiptAllocations(principal, gate.member!.id, amount, deps) : [],
-        evidenceUploadId: current.kind === "receipt-submission" ? current.evidenceUploadId : null,
+        ...evidenceFor(principal, input.fields, current),
       }
       break
     }
@@ -622,6 +645,8 @@ async function executeConfirmed(
         memberNotes: "Submitted through the Halaalvest assistant.",
         paidAt: new Date(`${fields.paidOn}T00:00:00.000Z`),
         paymentReference: fields.paymentReference,
+        proofDocumentName: receiptProofUrl(fields.evidenceUploadId) ? fields.evidenceName ?? "Payment proof" : null,
+        proofDocumentUrl: receiptProofUrl(fields.evidenceUploadId),
         submittedByUserId: principal.userId,
         tenantId: principal.tenantId,
         totalAmount: Number(fields.amount.amount),

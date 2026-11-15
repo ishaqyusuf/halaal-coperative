@@ -716,3 +716,53 @@ export async function readAssistantPaymentTargets(
   ])
   return { member, plan, loan }
 }
+
+/**
+ * Saved-answer and draft links. Re-authorized on every open: the chat must
+ * belong to the same user, cooperative and membership and not be archived.
+ * Returns null otherwise, so callers can't tell whether it exists.
+ */
+export async function resolveAssistantLink(
+  scope: AssistantOwnerScope & { target: { kind: "message" | "proposal"; id: string } },
+  prismaOverride?: PrismaClient
+): Promise<{
+  conversationId: string
+  channel: AssistantChannelValue
+  messageId: string | null
+  proposalId: string | null
+} | null> {
+  const prisma = db(prismaOverride)
+  const owned = { ...ownerWhere(scope), archivedAt: null }
+  if (scope.target.kind === "message") {
+    const message = await prisma.assistantMessage.findFirst({
+      where: { id: scope.target.id, tenantId: scope.tenantId, conversation: owned },
+      select: { id: true, conversation: { select: { id: true, channel: true } } },
+    })
+    return message
+      ? {
+          conversationId: message.conversation.id,
+          channel: message.conversation.channel as AssistantChannelValue,
+          messageId: message.id,
+          proposalId: null,
+        }
+      : null
+  }
+  const proposal = await prisma.assistantProposal.findFirst({
+    where: {
+      id: scope.target.id,
+      tenantId: scope.tenantId,
+      actorUserId: scope.userId,
+      membershipId: scope.membershipId,
+      conversation: owned,
+    },
+    select: { id: true, conversation: { select: { id: true, channel: true } } },
+  })
+  return proposal
+    ? {
+        conversationId: proposal.conversation.id,
+        channel: proposal.conversation.channel as AssistantChannelValue,
+        messageId: null,
+        proposalId: proposal.id,
+      }
+    : null
+}

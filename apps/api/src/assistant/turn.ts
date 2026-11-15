@@ -3,6 +3,7 @@ import {
   type AssistantMessage,
   type AssistantPart,
   type AssistantProposal,
+  type AssistantStreamStage,
   type AssistantTurnInput,
   type AssistantTurnOutput,
   type CapabilityId,
@@ -197,10 +198,24 @@ const defaultTurnDependencies: TurnDependencies = {
   now: () => new Date(),
 }
 
+/** Progress for streamed clients. Best effort: a failing listener never changes the turn. */
+export type TurnHooks = { onStage?: (stage: AssistantStreamStage) => void }
+
+function emit(hooks: TurnHooks | undefined, stage: AssistantStreamStage) {
+  try {
+    hooks?.onStage?.(stage)
+  } catch {
+    // Progress is cosmetic; the saved reply is the source of truth.
+  }
+}
+
+const draftCapabilities = new Set<CapabilityId>(["M04", "M05", "S04"])
+
 export async function runAssistantTurn(
   principal: AssistantPrincipal,
   rawInput: AssistantTurnInput,
-  deps: TurnDependencies = defaultTurnDependencies
+  deps: TurnDependencies = defaultTurnDependencies,
+  hooks?: TurnHooks
 ): Promise<AssistantTurnOutput> {
   const parsed = assistantTurnInputSchema.safeParse(rawInput)
   if (!parsed.success) throw new AssistantTurnError("BAD_REQUEST", "Invalid assistant message.")
@@ -225,11 +240,12 @@ export async function runAssistantTurn(
     }
   }
 
+  emit(hooks, "received")
   const model = deps.resolveModel()
   let outcome: Outcome
   let errorCode: string | null = null
   try {
-    outcome = await decide(principal, input, model, deps)
+    outcome = await decide(principal, input, model, deps, hooks)
   } catch (error) {
     errorCode = error instanceof Error ? error.name.slice(0, 60) : "UNKNOWN"
     console.error("[assistant] turn failed", { code: errorCode, channel: principal.channel })
@@ -271,7 +287,8 @@ async function decide(
   principal: AssistantPrincipal,
   input: AssistantTurnInput,
   model: ReturnType<typeof resolveAssistantModel>,
-  deps: TurnDependencies
+  deps: TurnDependencies,
+  hooks?: TurnHooks
 ): Promise<Outcome> {
   if (input.choice) {
     const chosen = await handleChoice(principal, input.choice.value)
@@ -290,6 +307,7 @@ async function decide(
         const text = parts.find((part) => part?.type === "text" && typeof part.text === "string")
         return text ? [{ role: row.role, text: text.text as string }] : []
       })
+    emit(hooks, "thinking")
     const picked = await deps.interpret({ model, principal, text: input.text, history }).catch(() => null)
     if (picked) intent = { capabilityId: picked.capabilityId, candidates: { ...intent.candidates, ...picked.candidates } }
   }
@@ -302,5 +320,6 @@ async function decide(
   // Messaging adapters only call this when their channel flag is on.
   if (!capabilityAllowed(intent.capabilityId, principal.role, principal.channel, { messagingChannelEnabled: true }))
     return { capabilityId: intent.capabilityId, text: "That isn't available here.", answer: denied("That isn't available on this channel or for your role.") }
+  emit(hooks, draftCapabilities.has(intent.capabilityId) ? "drafting" : "reading")
   return runCapability(principal, input.conversationId, intent.capabilityId, intent.candidates)
 }

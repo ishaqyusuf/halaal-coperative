@@ -3,7 +3,9 @@ import {
   assistantSuggestions,
   proposalConfirmInputSchema,
   proposalEditInputSchema,
+  assistantLinkTargetSchema,
   assistantTurnInputSchema,
+  type AssistantLinkResolution,
   type AssistantRole,
 } from "@halaalvest/assistant"
 import {
@@ -13,6 +15,7 @@ import {
   listConversationProposals,
   readAssistantConversation,
   readAssistantProposal,
+  resolveAssistantLink,
 } from "@halaalvest/db"
 import { AppError } from "@halaalvest/errors"
 import { z } from "zod"
@@ -25,7 +28,9 @@ import {
   ProposalError,
   toProposalDto,
 } from "../assistant/proposals"
-import { AssistantTurnError, runAssistantTurn } from "../assistant/turn"
+import { ASSISTANT_HOOKS } from "../assistant/stream-hooks"
+import { AssistantTurnError, runAssistantTurn, type TurnHooks } from "../assistant/turn"
+import { receiptProofUploadsAvailable } from "../assistant/uploads"
 import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
 import { assistantChannelsRouter } from "./assistant-channels.route"
 
@@ -101,6 +106,9 @@ export const assistantRouter = createTRPCRouter({
         cooperativeName: principal.tenantName,
         suggestions: assistantSuggestions(principal.role, principal.channel),
         help: assistantHelpItems(principal.role, principal.channel),
+        uploads: {
+          receiptProof: principal.role === "member" && receiptProofUploadsAvailable(),
+        },
       }
     }),
 
@@ -163,7 +171,9 @@ export const assistantRouter = createTRPCRouter({
     .input(assistantTurnInputSchema.extend({ channel: appChannel }))
     .mutation(async ({ ctx, input }) => {
       const { channel, ...turn } = input
-      return runAssistantTurn(principalFor(ctx, channel), turn).catch(publicError)
+      // Set only by the streamed route (stream-route.ts) for progress events.
+      const hooks = (ctx as { [ASSISTANT_HOOKS]?: TurnHooks })[ASSISTANT_HOOKS]
+      return runAssistantTurn(principalFor(ctx, channel), turn, undefined, hooks).catch(publicError)
     }),
 
   proposals: createTRPCRouter({
@@ -194,6 +204,20 @@ export const assistantRouter = createTRPCRouter({
       .mutation(({ ctx, input }) =>
         cancelProposal(principalFor(ctx, input.channel), input.proposalId).catch(publicError)
       ),
+  }),
+
+  links: createTRPCRouter({
+    /** Saved-answer and draft links. Opening one never runs anything. */
+    resolve: tenantProcedure
+      .input(z.object({ target: assistantLinkTargetSchema }))
+      .query(async ({ ctx, input }): Promise<AssistantLinkResolution> => {
+        if (!z.string().uuid().safeParse(input.target.id).success) return { status: "unavailable" }
+        const found = await resolveAssistantLink({
+          ...scopeOf(principalFor(ctx, "web")),
+          target: input.target,
+        })
+        return found ? { status: "ok", ...found } : { status: "unavailable" }
+      }),
   }),
 
   channels: assistantChannelsRouter,

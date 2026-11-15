@@ -407,6 +407,13 @@ export const mobileQaFormCoverage = [
     sources: [feature("device-sessions/screens/device-sessions-screen.tsx")],
   },
   {
+    formId: "mobile.assistant.proposal-edit",
+    kind: "excluded",
+    reason:
+      "Corrects a draft the assistant built from the person's own words; there are no fixture values to fill.",
+    sources: [feature("assistant/components/assistant-proposal-editor.tsx")],
+  },
+  {
     formId: "mobile.notifications.preferences",
     kind: "excluded",
     reason: "Preference toggles save immediately; there is no draft to fill.",
@@ -421,6 +428,14 @@ export const mobileQaFormCoverage = [
  * primitives, list search, and report filters.
  */
 export const mobileQaNonFormFieldSources = [
+  {
+    reason: "Assistant chat composer: a message is sent, not a form draft.",
+    source: "src/features/assistant/components/assistant-ui.tsx",
+  },
+  {
+    reason: "Holds a ref to the assistant composer; renders no field itself.",
+    source: "src/features/assistant/screens/ask-assistant-screen.tsx",
+  },
   {
     reason: "Shared input primitive; the parent form owns coverage.",
     source: "src/components/ui/input.tsx",

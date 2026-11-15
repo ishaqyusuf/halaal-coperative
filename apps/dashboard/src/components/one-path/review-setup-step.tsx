@@ -62,7 +62,7 @@ function ReviewRow({
   label: string
 }) {
   return (
-    <div className="grid gap-1 border-b border-border/70 py-3 last:border-b-0 sm:grid-cols-[10rem_minmax(0,1fr)_auto] sm:items-center sm:gap-4">
+    <div className="grid gap-1 border-b border-border/70 py-3 last:border-b-0 @lg:grid-cols-[10rem_minmax(0,1fr)_auto] @lg:items-center @lg:gap-4">
       <dt className="text-base font-medium">{label}</dt>
       <dd className="min-w-0 text-base text-muted-foreground">
         {done ? children : <Badge variant="secondary">Not saved yet</Badge>}
@@ -163,7 +163,7 @@ export function ReviewSetupStep({
       stepKey="review-setup"
       title="Review your setup"
     >
-      <dl>
+      <dl className="@container">
         <ReviewRow
           action={<EditLink href={getGettingStartedStepHref("setup-mode")} />}
           done={completion.setupMode}
@@ -220,7 +220,7 @@ export function ReviewSetupStep({
             ? shareBusinesses.map((business) => business.name).join(", ")
             : "No businesses"}
         </ReviewRow>
-        <div className="grid gap-1 py-3 sm:grid-cols-[10rem_minmax(0,1fr)_auto] sm:items-center sm:gap-4">
+        <div className="grid gap-1 py-3 @lg:grid-cols-[10rem_minmax(0,1fr)_auto] @lg:items-center @lg:gap-4">
           <dt className="text-base font-medium">Start date</dt>
           <dd className="text-base text-muted-foreground">
             {formatGettingStartedDate(tenantStartDate)}

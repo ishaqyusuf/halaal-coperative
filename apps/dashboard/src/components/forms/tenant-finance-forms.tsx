@@ -738,8 +738,8 @@ export function ShareStructureVersionForm({
       }
 
       showError(
-        "Share history required",
-        "Add at least one share history date, rule, and value."
+        "Add an amount",
+        "Add at least one date and amount."
       )
       return
     }
@@ -748,8 +748,8 @@ export function ShareStructureVersionForm({
       try {
         await persistShareHistoryRows(sortedHistoryRows, values.notes)
         showSuccess(
-          "Share update saved",
-          "Cooperative default share history updated."
+          "Saved",
+          "The share amount is updated."
         )
         form.reset({
           notes: "",
@@ -768,7 +768,7 @@ export function ShareStructureVersionForm({
         onSuccess?.()
       } catch (error) {
         showError(
-          "Could not save share update",
+          "Could not save",
           error instanceof Error ? error.message : "Something went wrong."
         )
       }
@@ -820,7 +820,7 @@ export function ShareStructureVersionForm({
       >
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <h3 className="shrink-0 text-sm font-medium">Share History</h3>
+            <h3 className="shrink-0 text-sm font-medium">Share amount over time</h3>
             <div className="min-w-10 flex-1 border-t border-border/70" />
             <QuickFill
               args={{
@@ -852,19 +852,19 @@ export function ShareStructureVersionForm({
                 key={row.id}
               >
                 <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                  Date
+                  From
                   <DatePickerInput
                     allowClear={false}
                     min={financeStartDate ?? undefined}
                     onChange={(effectiveFrom) =>
                       updateShareHistoryRow(row.id, { effectiveFrom })
                     }
-                    placeholder="Effective Date"
+                    placeholder="Choose the date"
                     value={row.effectiveFrom}
                   />
                 </label>
                 <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                  Rule
+                  Worked out as
                   <SelectFormInput
                     onChange={(value) =>
                       updateShareHistoryRow(row.id, {
@@ -872,9 +872,9 @@ export function ShareStructureVersionForm({
                       })
                     }
                     options={[
-                      { label: "Fixed amount", value: "fixed_amount" },
+                      { label: "A set amount", value: "fixed_amount" },
                       {
-                        label: "Percentage after charges",
+                        label: "A percentage after charges",
                         value: "percentage",
                       },
                     ]}
@@ -882,7 +882,7 @@ export function ShareStructureVersionForm({
                   />
                 </label>
                 <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                  Value
+                  Amount
                   {row.valueType === "percentage" ? (
                     <PercentageFormInput
                       onChange={(amount) =>
@@ -896,7 +896,7 @@ export function ShareStructureVersionForm({
                       onChange={(amount) =>
                         updateShareHistoryRow(row.id, { amount })
                       }
-                      placeholder="Enter amount"
+                      placeholder="Amount"
                       value={row.amount}
                     />
                   )}
@@ -907,7 +907,7 @@ export function ShareStructureVersionForm({
                       shareHistoryRows.length === 1 &&
                       !shareHistoryRowHasValue(row)
                     }
-                    label="share history row"
+                    label="this row"
                     onDelete={() => deleteShareHistoryRow(row.id)}
                   />
                 </div>
@@ -915,7 +915,7 @@ export function ShareStructureVersionForm({
             ))}
             <AddInlineRowButton
               disabled={isPending}
-              label="Add Amount"
+              label="Add a change"
               onAdd={addShareHistoryRow}
             />
           </div>
@@ -923,7 +923,7 @@ export function ShareStructureVersionForm({
         {showSubmitButton ? (
           <div className="flex justify-end">
             <Button disabled={isPending} type="submit">
-              Add share
+              Save
             </Button>
           </div>
         ) : null}
@@ -1957,7 +1957,7 @@ export function ChargeDefinitionForm({
         await saveCharges()
         showSuccess(
           "Charges saved",
-          "Charge definitions and history rows were recorded."
+          "Each charge and its amounts are saved."
         )
         setChargeRows(buildChargeDefinitionRows(initialDefinitions))
         onSuccess?.()
@@ -2029,12 +2029,12 @@ export function ChargeDefinitionForm({
                       name: event.target.value,
                     })
                   }
-                  placeholder="Enter charge title"
+                  placeholder="For example, monthly levy"
                   value={chargeRow.name}
                 />
               </label>
               <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                Frequency
+                How often
                 <SelectFormInput
                   disabled={isPending}
                   onChange={(chargeFrequency) =>
@@ -2045,21 +2045,21 @@ export function ChargeDefinitionForm({
                   }
                   options={[
                     {
-                      label: "Recurring monthly",
+                      label: "Every month",
                       value: "recurring_monthly",
                     },
                     {
-                      label: "Per contribution",
+                      label: "With each saving",
                       value: "per_contribution",
                     },
-                    { label: "One time", value: "one_time" },
-                    { label: "Manual", value: "manual" },
+                    { label: "Once", value: "one_time" },
+                    { label: "Only when staff add it", value: "manual" },
                   ]}
                   value={chargeRow.chargeFrequency}
                 />
               </label>
               <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                Value
+                Amount type
                 <SelectFormInput
                   disabled={isPending}
                   onChange={(chargeValueType) =>
@@ -2069,14 +2069,14 @@ export function ChargeDefinitionForm({
                     })
                   }
                   options={[
-                    { label: "Fixed amount", value: "fixed_amount" },
-                    { label: "Percentage", value: "percentage" },
+                    { label: "A set amount", value: "fixed_amount" },
+                    { label: "A percentage", value: "percentage" },
                   ]}
                   value={chargeRow.chargeValueType}
                 />
               </label>
               <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                Purpose
+                What it is for
                 <SelectFormInput
                   disabled={isPending}
                   onChange={(purpose) =>
@@ -2085,7 +2085,7 @@ export function ChargeDefinitionForm({
                     })
                   }
                   options={[
-                    { label: "General charge", value: "general" },
+                    { label: "General", value: "general" },
                     { label: "Member share", value: "member_share" },
                     { label: "Loan fee", value: "loan_fee" },
                     { label: "Membership fee", value: "membership_fee" },
@@ -2114,7 +2114,7 @@ export function ChargeDefinitionForm({
                       chargeRows.filter((row) => !row.saved).length === 1 &&
                       chargeRows.every((row) => !row.saved))
                   }
-                  label="charge row"
+                  label="this charge"
                   onDelete={() => deleteChargeRow(chargeRow.id)}
                 />
               </div>
@@ -2122,7 +2122,7 @@ export function ChargeDefinitionForm({
 
             <div className="grid gap-3 pl-0 md:pl-6">
               <p className="text-xs font-medium text-muted-foreground">
-                Dated amounts
+                Amount over time
               </p>
               {chargeRow.historyRows.map((row) => (
                 <div
@@ -2130,7 +2130,7 @@ export function ChargeDefinitionForm({
                   key={row.id}
                 >
                   <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                    Date
+                    From
                     <DatePickerInput
                       allowClear={false}
                       disabled={isPending}
@@ -2140,7 +2140,7 @@ export function ChargeDefinitionForm({
                           effectiveFrom: value,
                         })
                       }
-                      placeholder="Select charge effective date"
+                      placeholder="Choose the date"
                       value={row.effectiveFrom}
                     />
                   </label>
@@ -2154,7 +2154,7 @@ export function ChargeDefinitionForm({
                             amount,
                           })
                         }
-                        placeholder="Enter charge percentage"
+                        placeholder="Percentage"
                         value={row.amount}
                       />
                     ) : (
@@ -2165,7 +2165,7 @@ export function ChargeDefinitionForm({
                             amount,
                           })
                         }
-                        placeholder="Enter charge amount"
+                        placeholder="Amount"
                         value={row.amount}
                       />
                     )}
@@ -2174,7 +2174,7 @@ export function ChargeDefinitionForm({
                     <div className="pt-6">
                       <DeleteInlineRowButton
                         disabled={isPending}
-                        label="charge history row"
+                        label="this amount"
                         onDelete={() =>
                           deleteChargeHistoryRow(chargeRow.id, row.id)
                         }
@@ -2187,7 +2187,7 @@ export function ChargeDefinitionForm({
               ))}
               <AddInlineRowButton
                 disabled={isPending}
-                label="Add dated amount"
+                label="Add a change"
                 onAdd={() => addChargeHistoryRow(chargeRow.id)}
               />
             </div>
@@ -2195,7 +2195,7 @@ export function ChargeDefinitionForm({
         ))}
         <AddInlineRowButton
           disabled={isPending}
-          label="Add Charge"
+          label="Add a charge"
           onAdd={addChargeRow}
         />
       </div>
@@ -2219,9 +2219,9 @@ export function ChargeDefinitionForm({
 
 const chargeVersionSchema = z.object({
   amount: z.string().min(1, "Amount is required."),
-  chargeDefinitionId: z.string().min(1, "Charge is required."),
+  chargeDefinitionId: z.string().min(1, "Choose the charge."),
   chargeValueType: z.enum(["fixed_amount", "percentage"]),
-  effectiveFrom: z.string().min(1, "Effective date is required."),
+  effectiveFrom: z.string().min(1, "Choose the date."),
   kind: z.enum(["fixed", "percentage"]),
   notes: z.string().optional(),
 })
@@ -2262,7 +2262,7 @@ export function ChargeDefinitionVersionForm({
       setDateBeforeFinanceStartError(
         form,
         "effectiveFrom",
-        "Effective date",
+        "Date",
         financeStartDate
       )
       return
@@ -2272,7 +2272,7 @@ export function ChargeDefinitionVersionForm({
       try {
         await createChargeDefinitionVersionAction(objectToFormData(values))
         markWorkflowSaved()
-        showSuccess("Charge update saved", "Charge amount history updated.")
+        showSuccess("Saved", "The charge amount is updated.")
         form.reset({
           amount: "",
           chargeDefinitionId: chargeDefinitions[0]?.id ?? "",
@@ -2293,7 +2293,7 @@ export function ChargeDefinitionVersionForm({
         }
       } catch (error) {
         showError(
-          "Could not save charge update",
+          "Could not save",
           error instanceof Error ? error.message : "Something went wrong."
         )
       }
@@ -2331,7 +2331,7 @@ export function ChargeDefinitionVersionForm({
                 <SelectFormInput
                   onChange={field.onChange}
                   options={[
-                    { label: "Select a charge", value: "" },
+                    { label: "Choose a charge", value: "" },
                     ...chargeDefinitions.map((charge) => ({
                       label: charge.label,
                       value: charge.id,
@@ -2349,13 +2349,13 @@ export function ChargeDefinitionVersionForm({
           name="effectiveFrom"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Effective date</FormLabel>
+              <FormLabel>From</FormLabel>
               <FormControl>
                 <DatePickerInput
                   {...field}
                   allowClear={false}
                   min={financeStartDate ?? undefined}
-                  placeholder="Select effective date"
+                  placeholder="Choose the date"
                 />
               </FormControl>
               <FormMessage />
@@ -2367,13 +2367,13 @@ export function ChargeDefinitionVersionForm({
           name="kind"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Kind</FormLabel>
+              <FormLabel>Type</FormLabel>
               <FormControl>
                 <SelectFormInput
                   onChange={field.onChange}
                   options={[
-                    { label: "Fixed", value: "fixed" },
-                    { label: "Percentage", value: "percentage" },
+                    { label: "A set amount", value: "fixed" },
+                    { label: "A percentage", value: "percentage" },
                   ]}
                   value={field.value}
                 />
@@ -2387,13 +2387,13 @@ export function ChargeDefinitionVersionForm({
           name="chargeValueType"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Value type</FormLabel>
+              <FormLabel>Amount type</FormLabel>
               <FormControl>
                 <SelectFormInput
                   onChange={field.onChange}
                   options={[
-                    { label: "Fixed amount", value: "fixed_amount" },
-                    { label: "Percentage", value: "percentage" },
+                    { label: "A set amount", value: "fixed_amount" },
+                    { label: "A percentage", value: "percentage" },
                   ]}
                   value={field.value}
                 />
@@ -2407,7 +2407,7 @@ export function ChargeDefinitionVersionForm({
           name="amount"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Updated amount</FormLabel>
+              <FormLabel>New amount</FormLabel>
               <FormControl>
                 <CurrencyFormInput {...field} placeholder="2500" />
               </FormControl>
@@ -2425,7 +2425,7 @@ export function ChargeDefinitionVersionForm({
                 <Textarea
                   {...field}
                   value={field.value ?? ""}
-                  placeholder="Updated for new fiscal period"
+                  placeholder="For example, new rate agreed at the AGM"
                 />
               </FormControl>
               <FormMessage />
@@ -3612,8 +3612,9 @@ function ShareBusinessProfitHistoryTableForm({
                   )}
                   key={businessRow.id}
                 >
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_10rem_9.5rem_2.75rem] xl:items-start">
-                    <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                  {/* Phones: name with its delete button, then capital and start side by side. */}
+                  <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_10rem_9.5rem_2.75rem] xl:items-start">
+                    <label className="order-1 col-span-2 grid gap-1 text-xs font-medium text-muted-foreground md:order-none md:col-span-1">
                       Business
                       <Input
                         disabled={isPending}
@@ -3626,7 +3627,7 @@ function ShareBusinessProfitHistoryTableForm({
                         value={businessRow.name}
                       />
                     </label>
-                    <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                    <label className="order-3 grid gap-1 text-xs font-medium text-muted-foreground md:order-none">
                       Capital invested
                       <CurrencyInput
                         allowNegative={false}
@@ -3643,7 +3644,7 @@ function ShareBusinessProfitHistoryTableForm({
                         valueIsNumericString
                       />
                     </label>
-                    <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                    <label className="order-4 col-span-2 grid gap-1 text-xs font-medium text-muted-foreground md:order-none md:col-span-1">
                       Started
                       <DatePickerInput
                         allowClear={false}
@@ -3656,7 +3657,7 @@ function ShareBusinessProfitHistoryTableForm({
                         value={businessRow.startDate}
                       />
                     </label>
-                    <div className="pt-6">
+                    <div className="order-2 pt-6 md:order-none">
                       <DeleteInlineRowButton
                         disabled={
                           businessRow.saved ||
@@ -3722,7 +3723,8 @@ function ShareBusinessProfitHistoryTableForm({
                       return (
                         <div
                           className={cn(
-                            "grid gap-3 md:grid-cols-2 xl:items-start",
+                            // Phones: two short fields a row; the reason takes a full row.
+                            "grid grid-flow-row-dense grid-cols-2 gap-3 md:grid-flow-row xl:items-start",
                             isBroughtForwardSetup
                               ? "xl:grid-cols-[9.5rem_9rem_9rem_8.5rem_minmax(0,1fr)_9rem_2.75rem]"
                               : "xl:grid-cols-[9.5rem_9rem_9rem_minmax(0,1fr)_9rem_2.75rem]"
@@ -3814,7 +3816,7 @@ function ShareBusinessProfitHistoryTableForm({
                               />
                             </label>
                           ) : null}
-                          <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                          <label className="col-span-2 grid gap-1 text-xs font-medium text-muted-foreground md:col-span-1">
                             Reason
                             <Input
                               disabled={isPending}
@@ -3844,7 +3846,7 @@ function ShareBusinessProfitHistoryTableForm({
                               valueIsNumericString
                             />
                           </label>
-                          <div className="pt-6">
+                          <div className="col-span-2 flex justify-end md:col-span-1 md:block md:pt-6">
                             <DeleteInlineRowButton
                               disabled={
                                 isPending || Boolean(profitRow.profitEntryId)

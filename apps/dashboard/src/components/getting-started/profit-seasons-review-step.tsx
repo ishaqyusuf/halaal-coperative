@@ -121,7 +121,7 @@ function ProfitSeasonsReviewForm({
   return (
     <form
       action={saveBusinessProfitSeasonReviewAction}
-      className="grid gap-4"
+      className="@container grid gap-4"
       id={profitSeasonsReviewFormId}
     >
       <input name="redirectTo" type="hidden" value={redirectTo} />
@@ -150,7 +150,7 @@ function ProfitSeasonsReviewForm({
 
           return (
             <div
-              className="grid gap-3 border-t border-border/70 pt-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.4fr)_7rem_7rem_8rem_8rem_7rem] xl:items-start"
+              className="grid gap-3 border-t border-border/70 pt-3 @md:grid-cols-2 @4xl:grid-cols-[minmax(0,1.4fr)_7rem_7rem_8rem_8rem_7rem] @4xl:items-start"
               key={season.key}
             >
               <div>

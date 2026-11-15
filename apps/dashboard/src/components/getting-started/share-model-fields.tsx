@@ -179,7 +179,10 @@ export function ShareModelFields({
 
   return (
     <Form {...form}>
-      <section aria-labelledby="one-path-shares-heading" className="grid gap-4">
+      <section
+        aria-labelledby="one-path-shares-heading"
+        className="@container grid gap-4"
+      >
         <h3
           className="text-base font-medium text-foreground"
           id="one-path-shares-heading"
@@ -194,7 +197,7 @@ export function ShareModelFields({
               <FormControl>
                 <RadioGroup
                   aria-labelledby="one-path-shares-heading"
-                  className="grid gap-2 sm:grid-cols-2"
+                  className="grid gap-2 @md:grid-cols-2"
                   disabled={disabled}
                   onValueChange={(value) => {
                     const mode = value as ShareConfigurationMode
@@ -244,7 +247,7 @@ export function ShareModelFields({
         />
 
         {selectedMode === "unit_based" ? (
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 @2xl:grid-cols-3">
             <FormField
               control={form.control}
               name="unitAmount"
@@ -377,7 +380,7 @@ function MonthlyShareAmountFields({
   }
 
   return (
-    <div className="grid gap-3">
+    <div className="@container grid gap-3">
       <label className="grid max-w-sm gap-1 text-sm font-medium text-foreground">
         Share amount per member, each month
         <ShareAmountInput
@@ -427,7 +430,7 @@ function MonthlyShareAmountFields({
               />
             ) : null}
           </div>
-          <div className="grid gap-3 sm:grid-cols-[9.5rem_minmax(0,16rem)] sm:items-start">
+          <div className="grid gap-3 @md:grid-cols-[9.5rem_minmax(0,16rem)] @md:items-start">
             <ShareRowDateField
               disabled={disabled}
               financeStartDate={financeStartDate}
@@ -445,7 +448,7 @@ function MonthlyShareAmountFields({
           </div>
           {laterRows.map((row) => (
             <div
-              className="grid gap-3 border-t border-border/70 pt-3 sm:grid-cols-[9.5rem_minmax(0,16rem)_9.5rem_2.75rem] sm:items-start"
+              className="grid gap-3 border-t border-border/70 pt-3 @2xl:grid-cols-[9.5rem_minmax(0,16rem)_9.5rem_2.75rem] @2xl:items-start"
               key={row.id}
             >
               <ShareRowDateField

@@ -78,7 +78,7 @@ export function MembersPageView({
       <div className="flex flex-col gap-6">
         <div className="hidden md:block">
           <CollapsibleSummary>
-            <section className="grid grid-cols-2 gap-6 pt-6 lg:grid-cols-4">
+            <section className="grid grid-cols-2 gap-3 pt-6 lg:grid-cols-4">
               <MembersAll
                 filters={data.filters}
                 totalCount={data.summary.totalCount}

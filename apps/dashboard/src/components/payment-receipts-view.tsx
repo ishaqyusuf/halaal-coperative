@@ -4,10 +4,12 @@ import type { MemberPaymentReceiptSummary } from "@halaalvest/db"
 import { Suspense } from "react"
 import { PaymentReceiptHeader } from "@/components/payment-receipt-header"
 import { PaymentReceiptSheet } from "@/components/sheets/payment-receipt-sheet"
+import { SummaryCard } from "@/components/summary-card"
 import { PaymentReceiptsDataView } from "@/components/tables/payment-receipts/data-view"
 import { PaymentReceiptsDataErrorBoundary } from "@/components/tables/payment-receipts/error-boundary"
 import { PaymentReceiptsSkeleton } from "@/components/tables/payment-receipts/skeleton"
 import type { PaymentReceiptOption } from "@/components/payment-receipt-content"
+import { usePaymentReceiptFilterParams } from "@/hooks/use-payment-receipt-filter-params"
 import type { PaymentReceiptCategoryOption } from "@/lib/payment-receipts/load-payment-receipts-page"
 import type { TableSettings } from "@/utils/table-settings"
 
@@ -25,15 +27,31 @@ export function PaymentReceiptsView({
   return (
     <div className="space-y-6">
       <PaymentReceiptSheet categoryOptions={categoryOptions} />
-      <section className="hidden divide-x divide-border border-y border-border md:grid md:grid-cols-4">
-        <SummaryTile label="To review" value={summary.pendingReviewReceipts} />
-        <SummaryTile label="New" value={summary.submittedReceipts} />
-        <SummaryTile
-          label="Needs correction"
-          value={summary.correctionRequestedReceipts}
-        />
-        <SummaryTile label="Approved" value={summary.approvedReceipts} />
-      </section>
+      <ReceiptSummary
+        cards={[
+          {
+            label: "To review",
+            tone: summary.pendingReviewReceipts ? "attention" : "default",
+            value: summary.pendingReviewReceipts,
+          },
+          {
+            label: "New",
+            status: "submitted",
+            value: summary.submittedReceipts,
+          },
+          {
+            label: "Needs correction",
+            status: "correction_requested",
+            value: summary.correctionRequestedReceipts,
+          },
+          {
+            label: "Approved",
+            status: "approved",
+            tone: "good",
+            value: summary.approvedReceipts,
+          },
+        ]}
+      />
 
       <section className="min-w-0">
         <PaymentReceiptHeader canCreateReceipt={canCreateReceipt} />
@@ -89,15 +107,28 @@ export function MemberPaymentReceiptsView({
         procurementSchedules={procurementSchedules}
         projectFinancingRequests={projectFinancingRequests}
       />
-      <section className="hidden divide-x divide-border border-y border-border md:grid md:grid-cols-4">
-        <SummaryTile label="Waiting" value={summary.pendingReviewReceipts} />
-        <SummaryTile
-          label="Needs correction"
-          value={summary.correctionRequestedReceipts}
-        />
-        <SummaryTile label="Approved" value={summary.approvedReceipts} />
-        <SummaryTile label="Rejected" value={summary.rejectedReceipts} />
-      </section>
+      <ReceiptSummary
+        cards={[
+          { label: "Waiting", value: summary.pendingReviewReceipts },
+          {
+            label: "Needs correction",
+            status: "correction_requested",
+            tone: summary.correctionRequestedReceipts ? "attention" : "default",
+            value: summary.correctionRequestedReceipts,
+          },
+          {
+            label: "Approved",
+            status: "approved",
+            tone: "good",
+            value: summary.approvedReceipts,
+          },
+          {
+            label: "Rejected",
+            status: "rejected",
+            value: summary.rejectedReceipts,
+          },
+        ]}
+      />
 
       <section className="min-w-0">
         <PaymentReceiptHeader
@@ -121,13 +152,48 @@ export function MemberPaymentReceiptsView({
   )
 }
 
-function SummaryTile({ label, value }: { label: string; value: number }) {
+type ReceiptSummaryCard = {
+  label: string
+  /** A card with one receipt status filters the table to it. */
+  status?: string
+  tone?: "attention" | "default" | "good"
+  value: number
+}
+
+// Hidden on phones, where the filter drawer does the same job. "To review"
+// and "Waiting" count two statuses, so they only show the number.
+function ReceiptSummary({ cards }: { cards: ReceiptSummaryCard[] }) {
+  const { filter, setFilter } = usePaymentReceiptFilterParams()
+
   return (
-    <div className="px-4 py-4">
-      <p className="text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
-        {value}
-      </p>
-    </div>
+    <section aria-label="Summary" className="hidden grid-cols-4 gap-3 sm:grid">
+      {cards.map((card) => {
+        const { status } = card
+
+        return status ? (
+          <SummaryCard
+            compact
+            key={card.label}
+            label={card.label}
+            onClick={() =>
+              void setFilter({
+                status: filter.status === status ? null : status,
+              })
+            }
+            selected={filter.status === status}
+            tone={card.tone}
+            value={String(card.value)}
+          />
+        ) : (
+          <SummaryCard
+            compact
+            key={card.label}
+            label={card.label}
+            tone={card.tone}
+            value={String(card.value)}
+          />
+        )
+      })}
+    </section>
   )
 }

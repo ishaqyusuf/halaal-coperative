@@ -1,6 +1,12 @@
-import Link from "next/link"
-import { cn } from "@halaalvest/ui/lib/utils"
+import { SummaryCard } from "@/components/summary-card"
 
+const toneMap = {
+  default: "default",
+  positive: "good",
+  warning: "attention",
+} as const
+
+/** A member count on /members: the shared summary card (WP11). */
 export function MembersSummaryCard({
   detail,
   href,
@@ -11,46 +17,23 @@ export function MembersSummaryCard({
   detail?: string
   href?: string
   label: string
-  tone?: "default" | "positive" | "warning"
+  tone?: keyof typeof toneMap
   value: string
 }) {
-  const card = (
-    <div
-      className={cn(
-        "rounded-xl border bg-card px-5 py-4 text-left transition-colors",
-        tone === "default" && "border-border",
-        tone === "positive" && "border-border",
-        tone === "warning" && "border-border",
-        href && "hover:bg-accent/25"
-      )}
-    >
-      <div className="flex flex-col gap-1.5">
-        <div
-          className={cn(
-            "text-3xl font-semibold text-foreground tabular-nums",
-            tone === "positive" && "text-emerald-700 dark:text-emerald-400",
-            tone === "warning" && "text-amber-700 dark:text-amber-400"
-          )}
-        >
-          {value}
-        </div>
-        <div className="text-base text-foreground">{label}</div>
-        {detail ? (
-          <div className="text-xs leading-5 text-muted-foreground">
-            {detail}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  )
-
-  if (!href) {
-    return card
-  }
-
-  return (
-    <Link className="block text-left" href={href}>
-      {card}
-    </Link>
+  return href ? (
+    <SummaryCard
+      detail={detail}
+      href={href}
+      label={label}
+      tone={toneMap[tone]}
+      value={value}
+    />
+  ) : (
+    <SummaryCard
+      detail={detail}
+      label={label}
+      tone={toneMap[tone]}
+      value={value}
+    />
   )
 }

@@ -964,6 +964,21 @@ export async function revokePrivacyRequestAccount(
     })
     await tx.mobileDeviceSession.deleteMany({ where: { userId: target.id } })
     await tx.authChallenge.deleteMany({ where: { userId: target.id } })
+    // Assistant chats, linked messaging channels and link codes are personal,
+    // not financial records: erase them. Writes a confirmed proposal made keep
+    // their own rows and audit entries. Conversations cascade to messages,
+    // turns and proposals; channel queues hold the chat id, so go first.
+    await tx.assistantChannelOutbox.deleteMany({
+      where: { link: { is: { userId: target.id } } },
+    })
+    await tx.assistantChannelInbox.deleteMany({
+      where: { link: { is: { userId: target.id } } },
+    })
+    await tx.assistantChannelLink.deleteMany({ where: { userId: target.id } })
+    await tx.assistantChannelChallenge.deleteMany({
+      where: { userId: target.id },
+    })
+    await tx.assistantConversation.deleteMany({ where: { userId: target.id } })
     await tx.user.update({
       where: { id: target.id },
       data: {
@@ -985,6 +1000,7 @@ export async function revokePrivacyRequestAccount(
           accountIdentifiers: "anonymised",
           passwordAndChallenges: "erased",
           deviceSessionsAndPushTokens: "erased",
+          assistantConversationsAndChannels: "erased",
           sharedFinancialRecords: "pending_retention_review",
           processorErasure: "pending",
           completionNotification: "pending",

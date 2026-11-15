@@ -142,6 +142,10 @@ test("renders every selected deletion link and keeps the partial-inventory cavea
         remainingMobileSessions: 0,
         remainingPushRegistrations: 0,
         remainingNotificationPreferences: 0,
+        assistantConversations: 0,
+        assistantProposalsActed: 0,
+        assistantChannelChallenges: 0,
+        assistantChannelLinks: 0,
       }}
     />
   )
@@ -149,4 +153,22 @@ test("renders every selected deletion link and keeps the partial-inventory cavea
     "Post-revocation access artifacts remain"
   )
   expect(zeroArtifactHtml).toContain("A zero count does not establish erasure")
+
+  const leftoverAssistantHtml = renderToStaticMarkup(
+    <PrivacyProcessingCountList
+      counts={{
+        ...counts,
+        remainingAuthChallenges: 0,
+        remainingMobileSessions: 0,
+        remainingPushRegistrations: 0,
+        remainingNotificationPreferences: 0,
+        assistantConversations: 0,
+        assistantProposalsActed: 0,
+        assistantChannelChallenges: 0,
+      }}
+    />
+  )
+  expect(leftoverAssistantHtml).toContain(
+    "Post-revocation access artifacts remain"
+  )
 })

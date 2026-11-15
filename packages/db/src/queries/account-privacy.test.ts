@@ -128,6 +128,36 @@ function database(
         return {}
       },
     },
+    assistantChannelOutbox: {
+      deleteMany: async () => {
+        writes.push("assistant-outbox")
+        return {}
+      },
+    },
+    assistantChannelInbox: {
+      deleteMany: async () => {
+        writes.push("assistant-inbox")
+        return {}
+      },
+    },
+    assistantChannelLink: {
+      deleteMany: async () => {
+        writes.push("assistant-links")
+        return {}
+      },
+    },
+    assistantChannelChallenge: {
+      deleteMany: async () => {
+        writes.push("assistant-challenges")
+        return {}
+      },
+    },
+    assistantConversation: {
+      deleteMany: async () => {
+        writes.push("assistant-conversations")
+        return {}
+      },
+    },
   }
   const prisma = {
     $transaction: async (fn: (transaction: typeof tx) => unknown) => fn(tx),
@@ -713,6 +743,11 @@ describe("account privacy safeguards", () => {
       "preferences",
       "sessions",
       "challenges",
+      "assistant-outbox",
+      "assistant-inbox",
+      "assistant-links",
+      "assistant-challenges",
+      "assistant-conversations",
       "user",
       "request",
       "message",
@@ -726,6 +761,7 @@ describe("account privacy safeguards", () => {
             completionContactEmail: "member@example.test",
             completionNotification: "pending",
             sharedFinancialRecords: "pending_retention_review",
+            assistantConversationsAndChannels: "erased",
           }),
         }),
       })

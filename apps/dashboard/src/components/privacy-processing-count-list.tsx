@@ -260,15 +260,21 @@ export function PrivacyProcessingCountList({
     counts.remainingAuthChallenges +
     counts.remainingMobileSessions +
     counts.remainingPushRegistrations +
-    counts.remainingNotificationPreferences
+    counts.remainingNotificationPreferences +
+    // Revocation erases assistant data, so any left over needs a look too.
+    counts.assistantConversations +
+    counts.assistantProposalsActed +
+    counts.assistantChannelChallenges +
+    counts.assistantChannelLinks
   return (
     <div className="space-y-4">
       <p className="font-medium">Selected links to the revoked account</p>
       {remainingAccessArtifacts > 0 ? (
         <p role="alert" className="text-destructive">
           Post-revocation access artifacts remain in these selected counts.
-          Investigate the challenges, mobile sessions, push registrations and
-          notification preferences before relying on access revocation. The
+          Investigate the challenges, mobile sessions, push registrations,
+          notification preferences and assistant chats or linked channels
+          before relying on access revocation. The
           counts do not establish whether a session or provider copy is usable.
         </p>
       ) : null}

@@ -46,11 +46,24 @@ export function generalChatFlags(vm: GeneralAssistantVM) {
 
 export function generalChatTitle(vm: GeneralAssistantVM) {
   if (!vm.conversationId) return "New chat"
+  // A chat the server hasn't titled is named by its first question, so a
+  // refetch (e.g. after a confirm) doesn't reset the header to "New chat".
+  const firstQuestion = vm.messages
+    .find((message) => message.role === "user")
+    ?.parts.flatMap((part) => (part.type === "text" ? [part.text] : []))
+    .join(" ")
+    .trim()
+    .slice(0, 60)
+  // The server stores "New chat" until it titles a chat; that's no title.
+  const titled = (title: string | null | undefined) =>
+    title && title !== "New chat" ? title : null
   return (
-    vm.data?.conversation.title ??
-    vm.conversations.data?.items.find((row) => row.id === vm.conversationId)
-      ?.title ??
-    "New chat"
+    titled(vm.data?.conversation.title) ??
+    titled(
+      vm.conversations.data?.items.find((row) => row.id === vm.conversationId)
+        ?.title
+    ) ??
+    (firstQuestion || "New chat")
   )
 }
 

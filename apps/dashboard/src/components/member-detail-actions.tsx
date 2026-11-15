@@ -1,6 +1,6 @@
 "use client"
 
-import { TenantLink as Link } from "@halaalvest/tenant-url/next"
+import { TenantLink as Link, useTenantRouter } from "@halaalvest/tenant-url/next"
 import { Button, buttonVariants } from "@halaalvest/ui/components/button"
 import {
   DropdownMenu,
@@ -9,8 +9,12 @@ import {
   DropdownMenuTrigger,
 } from "@halaalvest/ui/components/dropdown-menu"
 import { cn } from "@halaalvest/ui/lib/utils"
-import { FileTextIcon, MoreHorizontalIcon } from "lucide-react"
+import { FileTextIcon, MoreHorizontalIcon, SparklesIcon } from "lucide-react"
 import { useState } from "react"
+import {
+  askAssistant,
+  memberHistoryDraft,
+} from "@/components/quick-assistant/quick-assistant-requests"
 import { MobileActionsDrawer } from "@/components/tables/core/mobile-actions-drawer"
 import { useMemberDetailParams } from "@/hooks/use-member-detail-params"
 import { useMemberParams } from "@/hooks/use-member-params"
@@ -31,18 +35,27 @@ type MemberAction = {
 export function MemberDetailActions({
   canManageMembers,
   memberId,
+  memberNumber,
   status,
 }: {
   canManageMembers: boolean
   memberId: string
+  memberNumber: string
   status: string
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const router = useTenantRouter()
+  // Fills the assistant's composer only; the staff user sends it.
+  const ask = () =>
+    askAssistant(memberHistoryDraft(memberNumber), () =>
+      router.push("/assistant")
+    )
   const { setParams: setDetailParams } = useMemberDetailParams()
   const { setParams: setMemberParams } = useMemberParams()
   const statementHref = `/members/${memberId}/statement`
 
   const actions: MemberAction[] = [
+    { label: "Ask assistant", onSelect: ask },
     {
       href: `/members/${memberId}/statement-export`,
       label: "Download statement",
@@ -85,6 +98,16 @@ export function MemberDetailActions({
         Statement
       </Link>
 
+      <Button
+        className="hidden sm:inline-flex"
+        onClick={ask}
+        type="button"
+        variant="outline"
+      >
+        <SparklesIcon data-icon="inline-start" />
+        Ask assistant
+      </Button>
+
       <div className="hidden sm:block">
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="outline" />}>
@@ -92,7 +115,7 @@ export function MemberDetailActions({
             More
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-60">
-            {actions.map((action) =>
+            {actions.slice(1).map((action) =>
               action.href ? (
                 <DropdownMenuItem
                   key={action.label}

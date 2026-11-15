@@ -1,7 +1,10 @@
 "use client"
 
 import { Suspense } from "react"
+import { useTenantRouter } from "@halaalvest/tenant-url/next"
+import { Button } from "@halaalvest/ui/components/button"
 import { useSuspenseQuery } from "@tanstack/react-query"
+import { SparklesIcon } from "lucide-react"
 import {
   MemberPaymentReceiptCreateContent,
   MemberPaymentReceiptSupportCaseContent,
@@ -11,6 +14,10 @@ import {
   type PaymentReceiptOption,
 } from "@/components/payment-receipt-content"
 import { PaymentReceiptSheetHeader } from "@/components/payment-receipt-sheet-header"
+import {
+  askAssistant,
+  receiptReviewDraft,
+} from "@/components/quick-assistant/quick-assistant-requests"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
 import {
   type PaymentReceiptSheetType,
@@ -127,6 +134,7 @@ function SelectedPaymentReceiptContent({
   type: PaymentReceiptSheetType
 }) {
   const trpc = useTRPC()
+  const router = useTenantRouter()
   const { data: receipt } = useSuspenseQuery(
     trpc.paymentReceipts.get.queryOptions({ receiptId })
   )
@@ -143,7 +151,32 @@ function SelectedPaymentReceiptContent({
   // support dialogs sit inside the dialog's padding.
   return (
     <>
-      <PaymentReceiptSheetHeader receipt={receipt} type={type} />
+      <PaymentReceiptSheetHeader
+        action={
+          type === "review" ? (
+            <Button
+              onClick={async () => {
+                const draft = receiptReviewDraft(receipt.member.memberNumber)
+                // The sheet is modal: close it, then open the panel with
+                // the prefill. Nothing is sent.
+                await onClose()
+                setTimeout(
+                  () => askAssistant(draft, () => router.push("/assistant")),
+                  0
+                )
+              }}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <SparklesIcon data-icon="inline-start" />
+              Ask assistant
+            </Button>
+          ) : undefined
+        }
+        receipt={receipt}
+        type={type}
+      />
       {type === "review" ? (
         <PaymentReceiptReviewContent
           categoryOptions={categoryOptions}

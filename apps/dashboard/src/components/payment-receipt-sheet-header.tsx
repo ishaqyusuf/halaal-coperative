@@ -9,6 +9,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@halaalvest/ui/components/sheet"
+import type { ReactNode } from "react"
 import type { PaymentReceiptSheetType } from "@/hooks/use-payment-receipt-params"
 
 function getHeaderCopy({
@@ -51,9 +52,12 @@ function getHeaderCopy({
 }
 
 export function PaymentReceiptSheetHeader({
+  action,
   receipt,
   type,
 }: {
+  /** An extra header action, e.g. "Ask assistant" while reviewing. */
+  action?: ReactNode
   receipt?: MemberPaymentReceiptRow
   type: PaymentReceiptSheetType
 }) {
@@ -74,6 +78,7 @@ export function PaymentReceiptSheetHeader({
     <SheetHeader>
       <SheetTitle>{copy.title}</SheetTitle>
       <SheetDescription>{copy.description}</SheetDescription>
+      {action ? <div className="pt-1">{action}</div> : null}
     </SheetHeader>
   )
 }

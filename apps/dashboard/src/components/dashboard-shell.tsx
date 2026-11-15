@@ -4,7 +4,11 @@ import { useState } from "react"
 import { usePathname } from "next/navigation"
 import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import type { CooperativeRole } from "@halaalvest/auth/roles"
-import { getDashboardRouteTitle } from "@/lib/navigation/lib"
+import {
+  canAccessDashboardPath,
+  getDashboardRouteTitle,
+} from "@/lib/navigation/lib"
+import { QuickAssistant } from "@/components/quick-assistant/quick-assistant"
 import { DeepLinkSheetPlaceholder } from "@/components/deep-link-sheet-placeholders"
 import { GlobalSheetsProvider } from "@/components/sheets/global-sheets-provider"
 import {
@@ -68,6 +72,12 @@ export function DashboardShellClient({
 
       <div className="md:[padding-left:var(--dashboard-sidebar-offset)] lg:[padding-left:var(--dashboard-sidebar-offset-wide)]">
         <DashboardTopbar
+          assistant={
+            canAccessDashboardPath("/assistant", role) &&
+            !hiddenNavPaths.includes("/assistant") ? (
+              <QuickAssistant />
+            ) : null
+          }
           currentModuleSubtitle={pageSubtitle}
           onOpenMobileNav={() => setMobileSidebarOpen(true)}
           roleLabel={roleLabel}

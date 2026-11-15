@@ -231,7 +231,11 @@ export function GeneralThread({
               </Button>
             </div>
           ) : null}
-          {enabled && !vm.messages.length && !vm.busy && !vm.state.isPending ? (
+          {enabled &&
+          !vm.messages.length &&
+          !vm.busy &&
+          // A blank chat's query is disabled, which also reads as pending.
+          !(vm.conversationId && vm.state.isPending) ? (
             <div className="flex flex-col items-start gap-3">
               <p className="text-sm text-muted-foreground">
                 {welcomeCopy(vm.bootstrap.data?.role)}

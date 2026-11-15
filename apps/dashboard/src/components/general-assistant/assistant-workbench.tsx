@@ -27,6 +27,7 @@ import {
   generalChatTitle,
   openProposals,
 } from "./general-chat"
+import { useAssistantDraftRequests } from "@/components/quick-assistant/quick-assistant-requests"
 import { useGeneralAssistant } from "./use-general-assistant"
 
 /** Reading width shared by the welcome, the thread and the composer. */
@@ -44,6 +45,9 @@ export function AssistantWorkbench() {
   // A saved-answer link (/assistant/m/<id>) lands here with ?m=<messageId>.
   const focusMessageId = useSearchParams().get("m")
   const vm = useGeneralAssistant({ initialConversationId: routeId })
+  // "Ask assistant" from a record page lands here when the quick panel is
+  // not mounted: it fills the composer and sends nothing.
+  useAssistantDraftRequests(vm.setDraft)
   const router = useRouter()
   const { enabled, navigationDisabled } = generalChatFlags(vm)
   const [historyOpen, setHistoryOpen] = useState(false)

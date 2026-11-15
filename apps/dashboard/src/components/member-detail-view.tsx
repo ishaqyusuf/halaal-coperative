@@ -156,6 +156,7 @@ export function MemberDetailView({
             <MemberDetailActions
               canManageMembers={canManageMembers}
               memberId={member.id}
+              memberNumber={member.memberNumber}
               status={member.status}
             />
           }

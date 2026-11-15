@@ -1,15 +1,19 @@
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { Menu } from "lucide-react"
+import type { ReactNode } from "react"
 import { DashboardUserMenu } from "./user-menu"
 
 export function DashboardTopbar({
+  assistant,
   currentModuleSubtitle,
   onOpenMobileNav,
   roleLabel,
   title,
   userName,
 }: {
+  /** The quick assistant launcher, when this role can use the assistant. */
+  assistant?: ReactNode
   currentModuleSubtitle?: string | null
   onOpenMobileNav?: () => void
   roleLabel: string
@@ -43,6 +47,7 @@ export function DashboardTopbar({
             {title}
           </h1>
         </div>
+        {assistant}
         <DashboardUserMenu roleLabel={roleLabel} userName={userName} />
       </header>
     </div>

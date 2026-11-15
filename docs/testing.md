@@ -127,6 +127,16 @@ The journey, against the local dashboard only:
    list `active` tenants, and a One Path cooperative becomes `active` when it
    goes live. So today no seeded QA admin can be in setup, and this check waits
    for the write smoke to create one.
+6. **Member-ready cooperative** (only when `readyMemberProfileLabel` /
+   `readyStaffProfileLabel` are set): the QA harness scenario `standard-ready`
+   (see below). Its member, in a fresh context, must see the ask button on
+   `/procurement`, `/project-financing` and `/food-purchase` (it shows only for
+   an operationally ready member), then opens each request form, presses Quick
+   fill, and must see the "Request form fee" charge in the form and in the
+   confirm. "Go back" closes the confirm; nothing is sent. The member also opens
+   the receipt form with Quick fill. Its finance officer, in a third context,
+   opens **Record payment** on the pending "Passbook fee" from
+   `/charges?view=applications`, presses Quick fill and closes it.
 
 Every non-GET request except `/auth/qa` and the Next dev overlay's
 `/__nextjs_original-stack-frames` is aborted. A blocked tRPC request fails the
@@ -160,8 +170,34 @@ Needs:
 
 The config takes `qaDomain`, `profileLabel` (the full name on the profile
 button) and an optional `cooperative`, plus optional `setupProfileLabel` and
-`setupCooperative` for the One Path check. If a label doesn't match, the failure
-lists the available profiles.
+`setupCooperative` for the One Path check, and optional
+`readyMemberProfileLabel`, `readyStaffProfileLabel` and `readyCooperative` for the
+member-ready cooperative. `scripts/fixtures/qa-smoke.candidate.example.json` sets
+all of them for `ishaq.qa.test`. If a label doesn't match, the failure lists the
+available profiles.
+
+### The member-ready QA cooperative
+
+The production-contract QA harness has an eleventh scenario, `standard-ready`
+(slug `qa-harness-v1-standard-ready`, prefix `QMR`, "QA ONLY — Standard Member
+Ready Cooperative"). It is live, member self-service, and its member is
+operationally ready: KYC verified, and migration done through a 250,000
+brought-forward opening balance (created, approved and applied by the QA staff
+through the opening-balance workflow). It also has a "Request form fee"
+(submission, deducted from savings) and an "Approval fee" (approval, paid
+separately) on procurement, project financing and foodstuff requests, one
+pending pay-separately "Passbook fee" for Record payment, and an open foodstuff
+month. Seed or refresh it (local loopback database only; other QA tenants are
+untouched):
+
+```bash
+cd apps/api && HALAALVEST_ENV=local PRODUCTION_QA_DOMAIN=ishaq.qa.test \
+  PRODUCTION_QA_SCENARIOS=standard-ready bun --env-file=../../.env.local scripts/run-production-qa-harness.ts
+```
+
+Re-running is idempotent. A Passbook fee a tester recorded or waived is replaced
+by a new pending one; a closed foodstuff month is reported as `not_open` (one
+cycle per month).
 
 A QA Domain can only be authorized when it has at least one profile: a tenant
 with `dataClassification = qa`, `qaSourceDomain` set to that domain, and

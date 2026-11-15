@@ -17,6 +17,11 @@ export type SmokeConfig = {
   // Optional QA admin of a cooperative still in One Path setup.
   setupProfileLabel?: string
   setupCooperative?: string
+  // Optional QA member and staff of the member-ready harness cooperative
+  // (scenario standard-ready): member requests, receipts and Record payment.
+  readyMemberProfileLabel?: string
+  readyStaffProfileLabel?: string
+  readyCooperative?: string
   origin: string
 }
 export type SmokeCheck = {
@@ -39,6 +44,10 @@ Drives the local dashboard (${localOrigins.dashboard}) in headless Chromium:
 QA sign-in through /auth/qa, the members, contributions and charges pages, and
 Quick Fill on the member, contribution-plan and charge forms, and the
 /getting-started gate (plus the One Path rail when setupProfileLabel is set).
+With readyMemberProfileLabel / readyStaffProfileLabel (the member-ready QA
+cooperative), also member procurement, project financing and foodstuff
+requests up to the confirm, the member receipt form and the charge Record
+payment dialog.
 Uses existing seeded QA data only. Writes are blocked; nothing is submitted.
 Copy scripts/fixtures/qa-smoke.example.json to the config path first.`
 
@@ -76,6 +85,9 @@ export function validateSmokeConfig(raw: unknown): SmokeConfig {
     "cooperative",
     "setupProfileLabel",
     "setupCooperative",
+    "readyMemberProfileLabel",
+    "readyStaffProfileLabel",
+    "readyCooperative",
   ] as const)
     if (value[key] !== undefined && typeof value[key] !== "string")
       throw new Error(`${key} must be a string when set.`)
@@ -93,6 +105,15 @@ export function validateSmokeConfig(raw: unknown): SmokeConfig {
       : {}),
     ...(value.setupCooperative
       ? { setupCooperative: value.setupCooperative }
+      : {}),
+    ...(value.readyMemberProfileLabel?.trim()
+      ? { readyMemberProfileLabel: value.readyMemberProfileLabel.trim() }
+      : {}),
+    ...(value.readyStaffProfileLabel?.trim()
+      ? { readyStaffProfileLabel: value.readyStaffProfileLabel.trim() }
+      : {}),
+    ...(value.readyCooperative
+      ? { readyCooperative: value.readyCooperative }
       : {}),
     origin,
   }

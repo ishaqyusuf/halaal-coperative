@@ -6,7 +6,10 @@ import {
   classifyGettingStarted,
   forms,
   isDashboardHost,
+  memberRequests,
   pages,
+  readyCharges,
+  readyCooperativeJourney,
   requestPolicy,
   swapIfFrozen,
 } from "./qa-web-smoke.mjs"
@@ -157,6 +160,97 @@ describe("qa:smoke summary", () => {
     expect(
       summarizeSmoke({ checks: [], blocked: [], consoleErrors: 0 }).passed
     ).toBe(false)
+  })
+})
+
+describe("qa:smoke member-ready cooperative", () => {
+  test("ready profile fields pass validation through", () => {
+    expect(
+      validateSmokeConfig({
+        qaDomain: "ishaq.qa.test",
+        profileLabel: "Admin",
+        readyMemberProfileLabel: " Standard Member Ready Member ",
+        readyStaffProfileLabel: "Standard Member Ready Finance Officer",
+      })
+    ).toMatchObject({
+      readyMemberProfileLabel: "Standard Member Ready Member",
+      readyStaffProfileLabel: "Standard Member Ready Finance Officer",
+    })
+    expect(() =>
+      validateSmokeConfig({
+        qaDomain: "ishaq.qa.test",
+        profileLabel: "Admin",
+        readyStaffProfileLabel: 7,
+      })
+    ).toThrow("readyStaffProfileLabel")
+  })
+
+  test("covers the three member request workflows and the harness charges", () => {
+    expect(memberRequests.map(({ path }) => path)).toEqual([
+      "/procurement",
+      "/project-financing",
+      "/food-purchase",
+    ])
+    // Names the harness provisions (production-qa-harness-member-ready-fixture).
+    expect(readyCharges).toEqual({
+      separate: "Passbook fee",
+      submission: "Request form fee",
+    })
+  })
+
+  function fakeSession(signedIn: boolean, steps: string[]) {
+    return {
+      signIn: async (name: string) => {
+        steps.push(name)
+        return signedIn
+      },
+      step: async (name: string) => {
+        steps.push(name)
+        return true
+      },
+      open: async () => new URL("https://x.halaalvest-dash.localhost/"),
+      gettingStarted: async () => true,
+      page: () => {
+        throw new Error("steps are not run in this test")
+      },
+    }
+  }
+  const config = {
+    qaDomain: "ishaq.qa.test",
+    profileLabel: "Admin",
+    origin: "https://halaalvest-dash.localhost",
+    readyMemberProfileLabel: "Standard Member Ready Member",
+    readyStaffProfileLabel: "Standard Member Ready Finance Officer",
+  }
+
+  test("runs member journeys then the staff Record payment dialog", async () => {
+    const steps: string[] = []
+    await readyCooperativeJourney(
+      fakeSession(true, steps) as never,
+      fakeSession(true, steps) as never,
+      config,
+      "/tmp"
+    )
+    expect(steps).toEqual([
+      "ready member sign-in",
+      "member procurement request",
+      "member project financing request",
+      "member foodstuff request",
+      "member receipt form",
+      "ready staff sign-in",
+      "charge record payment dialog",
+    ])
+  })
+
+  test("skips a session's journeys when its sign-in fails", async () => {
+    const steps: string[] = []
+    await readyCooperativeJourney(
+      fakeSession(false, steps) as never,
+      null,
+      config,
+      "/tmp"
+    )
+    expect(steps).toEqual(["ready member sign-in"])
   })
 })
 

@@ -24,6 +24,37 @@ export const forms = [
   },
 ]
 
+/**
+ * Member requests on the member-ready QA cooperative (harness scenario
+ * `standard-ready`). The ask button shows only for an operationally ready
+ * member; the form and its confirm list the request's submission charge.
+ */
+export const memberRequests = [
+  {
+    name: "member procurement request",
+    path: "/procurement",
+    button: "Ask for an item",
+    sheet: "procurementSheetType=self-service",
+  },
+  {
+    name: "member project financing request",
+    path: "/project-financing",
+    button: "Ask for funding",
+    sheet: "projectFinancingSheetType=self-service",
+  },
+  {
+    name: "member foodstuff request",
+    path: "/food-purchase",
+    button: "Ask for foodstuff",
+    sheet: "foodPurchaseSheetType=self-service",
+  },
+]
+// Charge names provisioned by the harness for the member-ready cooperative.
+export const readyCharges = {
+  submission: "Request form fee",
+  separate: "Passbook fee",
+}
+
 const readMethods = new Set(["GET", "HEAD", "OPTIONS"])
 // /auth/qa is the QA entry route. The Next dev overlay POSTs stack frames to
 // the dev server for symbolication; blocking it made the overlay retry and
@@ -120,8 +151,51 @@ export async function swapIfFrozen(page, attach, probeMs = frozenProbeMs) {
 /** @param {string} text */
 const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 
+const fieldSelector = "input:not([type=hidden]):not([type=file]), textarea"
+
 /**
- * @typedef {{ qaDomain: string, profileLabel: string, cooperative?: string, setupProfileLabel?: string, setupCooperative?: string, origin: string }} SmokeConfig
+ * Press the open dialog's Quick fill and count the fields it changed. Fills
+ * a draft only; nothing is submitted.
+ * @param {import("playwright").Page} page
+ * @returns {Promise<number>}
+ */
+async function quickFillDialog(page) {
+  const dialog = page.getByRole("dialog").last()
+  await dialog.waitFor({ state: "visible" })
+  const fields = dialog.locator(fieldSelector)
+  const before = await fields.evaluateAll((elements) =>
+    elements.map((element) => /** @type {HTMLInputElement} */ (element).value)
+  )
+  await dialog
+    .getByRole("button", { name: /^quick fill$/i })
+    .first()
+    .click()
+  await page.waitForFunction(
+    ([selector, previous]) => {
+      const dialogs = document.querySelectorAll('[role="dialog"]')
+      const current = dialogs[dialogs.length - 1]
+      if (!current) return false
+      const values = Array.from(current.querySelectorAll(selector)).map(
+        (element) => /** @type {HTMLInputElement} */ (element).value
+      )
+      return values.some((value, index) => value && value !== previous[index])
+    },
+    /** @type {[string, string[]]} */ ([fieldSelector, before]),
+    { timeout: 10_000 }
+  )
+  return fields.evaluateAll(
+    (elements, previous) =>
+      elements.filter(
+        (element, index) =>
+          /** @type {HTMLInputElement} */ (element).value &&
+          /** @type {HTMLInputElement} */ (element).value !== previous[index]
+      ).length,
+    before
+  )
+}
+
+/**
+ * @typedef {{ qaDomain: string, profileLabel: string, cooperative?: string, setupProfileLabel?: string, setupCooperative?: string, readyMemberProfileLabel?: string, readyStaffProfileLabel?: string, readyCooperative?: string, origin: string }} SmokeConfig
  * @typedef {{ name: string, status: "pass" | "fail", ms: number, detail: string }} Check
  * @typedef {{ checks: Check[], blocked: string[], consoleErrors: number }} Results
  */
@@ -357,6 +431,124 @@ export async function createSession(initialPage, config, artifacts, results) {
 }
 
 /**
+ * The member-ready QA cooperative: its member asks for things (the ask
+ * button proves readiness, the form and confirm show the request charge)
+ * and opens the receipt form; its staff open Record payment on the pending
+ * pay-separately charge. Every dialog is filled at most and then closed.
+ * @param {Awaited<ReturnType<typeof createSession>> | null} member
+ * @param {Awaited<ReturnType<typeof createSession>> | null} staff
+ * @param {SmokeConfig} config
+ * @param {string} artifacts
+ */
+export async function readyCooperativeJourney(
+  member,
+  staff,
+  config,
+  artifacts
+) {
+  /** @param {import("playwright").Page} page @param {string} name */
+  const shot = (page, name) =>
+    page.screenshot({
+      path: resolve(artifacts, `${name.replaceAll(" ", "-")}.png`),
+    })
+  if (
+    member &&
+    config.readyMemberProfileLabel &&
+    (await member.signIn(
+      "ready member sign-in",
+      config.readyMemberProfileLabel,
+      config.readyCooperative
+    ))
+  ) {
+    for (const request of memberRequests)
+      await member.step(request.name, async () => {
+        await member.open(request.path)
+        const page = member.page()
+        const ask = page.getByRole("button", {
+          name: request.button,
+          exact: true,
+        })
+        // Hidden for a member who is not operationally ready.
+        await ask.first().waitFor({ state: "visible", timeout: 20_000 })
+        // The button only sets this query; opening it directly avoids a
+        // click that lands before hydration and does nothing.
+        await member.open(`${request.path}?${request.sheet}`)
+        const filled = await quickFillDialog(page)
+        const dialog = page.getByRole("dialog").last()
+        await dialog
+          .getByText(readyCharges.submission)
+          .first()
+          .waitFor({ state: "visible", timeout: 15_000 })
+        await dialog
+          .getByRole("button", { name: "Send request", exact: true })
+          .click()
+        const confirm = page.getByRole("alertdialog")
+        await confirm
+          .getByText(readyCharges.submission)
+          .first()
+          .waitFor({ state: "visible" })
+        await shot(page, `${request.name} confirm`)
+        // Never confirm: "Go back" closes the confirm without sending.
+        await confirm
+          .getByRole("button", { name: "Go back", exact: true })
+          .click()
+        await confirm.waitFor({ state: "hidden" })
+        await page.keyboard.press("Escape")
+        return `Ask button shown (member ready); Quick Fill set ${filled} field(s); "${readyCharges.submission}" listed in the form and confirm; went back without sending`
+      })
+
+    await member.step("member receipt form", async () => {
+      await member.open("/payment-receipts")
+      const page = member.page()
+      await page
+        .getByRole("button", { name: "Submit receipt", exact: true })
+        .first()
+        .click()
+      const filled = await quickFillDialog(page)
+      await shot(page, "member receipt form")
+      await page.keyboard.press("Escape")
+      return `Quick Fill set ${filled} field(s); closed without submitting`
+    })
+  }
+
+  if (
+    staff &&
+    config.readyStaffProfileLabel &&
+    (await staff.signIn(
+      "ready staff sign-in",
+      config.readyStaffProfileLabel,
+      config.readyCooperative
+    ))
+  )
+    await staff.step("charge record payment dialog", async () => {
+      await staff.open("/charges?view=applications")
+      const page = staff.page()
+      await page
+        .getByRole("button", {
+          name: new RegExp(
+            `^Actions for ${escapeRegex(readyCharges.separate)} for `
+          ),
+        })
+        .first()
+        .click()
+      await page
+        .getByRole("menuitem", { name: "Record payment", exact: true })
+        .click()
+      const dialog = page.getByRole("dialog").last()
+      await dialog
+        .getByText(readyCharges.separate)
+        .first()
+        .waitFor({ state: "visible" })
+      const filled = await quickFillDialog(page)
+      await page.screenshot({
+        path: resolve(artifacts, "charge-record-payment-dialog.png"),
+      })
+      await page.keyboard.press("Escape")
+      return `Record payment opened for the pending "${readyCharges.separate}"; Quick Fill set ${filled} field(s); closed without recording`
+    })
+}
+
+/**
  * @param {import("playwright").Page} initialPage
  * @param {SmokeConfig} config
  * @param {string} artifacts
@@ -384,48 +576,7 @@ export async function webJourney(initialPage, config, artifacts, newPage) {
     await step(`${form.name} quick fill`, async () => {
       await open(form.path)
       const page = session.page()
-      const dialog = page.getByRole("dialog").last()
-      await dialog.waitFor({ state: "visible" })
-      const fields = dialog.locator(
-        "input:not([type=hidden]):not([type=file]), textarea"
-      )
-      const before = await fields.evaluateAll((elements) =>
-        elements.map(
-          (element) => /** @type {HTMLInputElement} */ (element).value
-        )
-      )
-      await dialog
-        .getByRole("button", { name: /^quick fill$/i })
-        .first()
-        .click()
-      await page.waitForFunction(
-        ([selector, previous]) => {
-          const dialogs = document.querySelectorAll('[role="dialog"]')
-          const current = dialogs[dialogs.length - 1]
-          if (!current) return false
-          const values = Array.from(current.querySelectorAll(selector)).map(
-            (element) => /** @type {HTMLInputElement} */ (element).value
-          )
-          return values.some(
-            (value, index) => value && value !== previous[index]
-          )
-        },
-        /** @type {[string, string[]]} */ ([
-          "input:not([type=hidden]):not([type=file]), textarea",
-          before,
-        ]),
-        { timeout: 10_000 }
-      )
-      const filled = await fields.evaluateAll(
-        (elements, previous) =>
-          elements.filter(
-            (element, index) =>
-              /** @type {HTMLInputElement} */ (element).value &&
-              /** @type {HTMLInputElement} */ (element).value !==
-                previous[index]
-          ).length,
-        before
-      )
+      const filled = await quickFillDialog(page)
       await page.screenshot({
         path: resolve(
           artifacts,
@@ -455,6 +606,17 @@ export async function webJourney(initialPage, config, artifacts, newPage) {
       )
     )
       await setup.gettingStarted("one path setup render", true)
+  }
+
+  // The member-ready cooperative: its member and its staff each get a fresh
+  // context, so three QA sessions never share cookies.
+  if (newPage) {
+    const session = async () =>
+      createSession(await newPage(), config, artifacts, results)
+    const member = config.readyMemberProfileLabel ? await session() : null
+    const staff = config.readyStaffProfileLabel ? await session() : null
+    if (member || staff)
+      await readyCooperativeJourney(member, staff, config, artifacts)
   }
 
   return results

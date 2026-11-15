@@ -903,3 +903,149 @@ describe("deployable funds funding side (QA F1)", () => {
     expect(funds.deployableFunds).toBe(0)
   })
 })
+
+describe("one-statement reads (Phase 4.1)", () => {
+  function sqlText(args: unknown[]) {
+    return (args[0] as TemplateStringsArray).join("?")
+  }
+
+  test("deployable funds reads funds held, loan totals and the reserve in one SQL statement", async () => {
+    const queries: unknown[][] = []
+    const prisma = {
+      $queryRaw: async (...args: unknown[]) => {
+        queries.push(args)
+        return [
+          {
+            approvedHold: "8000",
+            contribution: "30000",
+            historicalShare: "0",
+            openingCommitmentSavings: "880000",
+            openingFinancing: "1266667",
+            openingShareCapital: "30000",
+            openingSpecialSavings: "210000",
+            outstandingFinancing: "1246667",
+            receiptShare: "0",
+            reserveBuffer: null,
+            separateShareCharge: "0",
+            withdrawal: "0",
+          },
+        ]
+      },
+    }
+
+    const funds = await getDeployableFundsSnapshot(
+      { excludeLoanId: "loan-9", tenantId: "tenant-1" },
+      prisma as never
+    )
+
+    // Same amana-savings figures as the Prisma path test above.
+    expect(funds).toMatchObject({
+      approvedHoldAmount: 8000,
+      availablePoolAmount: 50000,
+      cooperativeOpeningEquityAmount: 146667,
+      deployableFunds: 42000,
+      memberFundsHeldAmount: 1296667,
+      reserveBufferAmount: 0,
+    })
+    expect(queries).toHaveLength(1)
+    expect(queries[0]).toContain("tenant-1")
+    expect(queries[0]).toContain("loan-9")
+    expect(sqlText(queries[0]!)).toContain("member_opening_balances")
+  })
+
+  test("cycle health reads the period's usage once and skips the preview when the cycle exists", async () => {
+    const usageReads: unknown[][] = []
+    const prisma = {
+      ...createPreviewPrismaStub({
+        existingCycle: {
+          id: "cycle-1",
+          normalAllocationPercentage: 70,
+          normalBudgetAmount: 70000,
+          projectedCommitmentAmount: 100000,
+          quickAllocationPercentage: 30,
+          quickBudgetAmount: 30000,
+          receivedContributionAmount: 40000,
+          reserveBufferAmount: 5000,
+          status: "open",
+          totalCapacityAmount: 100000,
+        },
+      }),
+      $queryRaw: async (...args: unknown[]) => {
+        const text = sqlText(args)
+        if (text.includes("loan_requests")) {
+          usageReads.push(args)
+          return [
+            {
+              approved: "30000",
+              disbursed: 0,
+              loanType: "quick",
+              requestedReserved: "30000",
+            },
+            {
+              approved: 0,
+              disbursed: "10000",
+              loanType: "quick",
+              requestedReserved: 0,
+            },
+          ]
+        }
+        return [{ contribution: "40000" }]
+      },
+    }
+
+    const health = await getMonthlyFinancingCycleHealth(
+      {
+        periodStart: new Date("2026-07-14T12:00:00.000Z"),
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(usageReads).toHaveLength(1)
+    expect(prisma.calls.contributionPlanAggregate).toHaveLength(0)
+    expect(prisma.calls.financingCycleFindUnique).toHaveLength(1)
+    expect(health.quick).toMatchObject({
+      approvedAmount: 30000,
+      disbursedAmount: 10000,
+      heldAmount: 20000,
+      remainingAmount: 0,
+    })
+    expect(health.normal.remainingAmount).toBe(70000)
+  })
+
+  test("cycle health without a cycle builds the preview from the same usage read", async () => {
+    let usageReads = 0
+    const prisma = {
+      ...createPreviewPrismaStub({ projectedAmount: 100000 }),
+      $queryRaw: async (...args: unknown[]) => {
+        if (sqlText(args).includes("loan_requests")) {
+          usageReads += 1
+          return [
+            {
+              approved: 0,
+              disbursed: 0,
+              loanType: "normal",
+              requestedReserved: "20000",
+            },
+          ]
+        }
+        return [{}]
+      },
+    }
+
+    const health = await getMonthlyFinancingCycleHealth(
+      {
+        periodStart: new Date("2026-07-14T12:00:00.000Z"),
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(usageReads).toBe(1)
+    // The cycle is read once, not again by the preview.
+    expect(prisma.calls.financingCycleFindUnique).toHaveLength(1)
+    expect(health.intakeStatus).toBe("missing")
+    expect(health.normal.requestedReservedAmount).toBe(20000)
+    expect(health.normal.remainingAmount).toBe(50000)
+  })
+})

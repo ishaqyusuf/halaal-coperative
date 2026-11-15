@@ -85,9 +85,7 @@ function createDashboardPrismaStub({
         },
       }),
       count: async (input: any) =>
-        input?.where?.status === "pending_review"
-          ? pendingOpeningBalances
-          : 0,
+        input?.where?.status === "pending_review" ? pendingOpeningBalances : 0,
     },
     memberPaymentReceipt: {
       count: async () => 0,
@@ -100,6 +98,7 @@ function createDashboardPrismaStub({
     },
     monthlyRecord: {
       findFirst: async () => null,
+      findMany: async () => [],
     },
     procurementRequest: {
       count: async () => 0,

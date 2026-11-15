@@ -505,18 +505,81 @@ function byLoanType<T extends { loanType: LoanType }>(items: T[]) {
   }
 }
 
-async function getFinancingCycleUsage(
-  input: FinancingCyclePeriod & {
-    normalBudgetAmount: number
-    quickBudgetAmount: number
-    tenantId: string
-  },
+type FinancingCycleUsageSums = Record<
+  LoanType,
+  { approved: number; disbursed: number; requestedReserved: number }
+>
+
+function emptyUsageSums(): FinancingCycleUsageSums {
+  return {
+    normal: { approved: 0, disbursed: 0, requestedReserved: 0 },
+    quick: { approved: 0, disbursed: 0, requestedReserved: 0 },
+  }
+}
+
+/**
+ * Loan request and paid-out loan totals per loan type for one period: one
+ * grouped SQL statement. Clients without `$queryRaw` (narrow test doubles)
+ * read the rows through Prisma and sum them in JS, as before.
+ */
+async function readFinancingCycleUsageSums(
+  input: FinancingCyclePeriod & { tenantId: string },
   prisma: PrismaClient
-): Promise<{
-  normal: FinancingCycleUsageByType
-  quick: FinancingCycleUsageByType
-}> {
+): Promise<FinancingCycleUsageSums> {
   const exclusivePeriodEnd = getExclusivePeriodEnd(input.periodEnd)
+  const sums = emptyUsageSums()
+  const raw = prisma as unknown as { $queryRaw?: unknown }
+
+  if (typeof raw.$queryRaw === "function") {
+    const reservedStatuses = [...REQUEST_RESERVED_STATUSES]
+    const rows = (await prisma.$queryRaw`
+      SELECT
+        p.loan_type::text AS "loanType",
+        COALESCE(SUM(r.requested_amount) FILTER (
+          WHERE r.status::text = ANY(${reservedStatuses}::text[])
+        ), 0) AS "requestedReserved",
+        COALESCE(SUM(r.requested_amount) FILTER (
+          WHERE r.status::text = 'approved'
+        ), 0) AS "approved",
+        0 AS "disbursed"
+      FROM loan_requests r
+      JOIN loan_products p ON p.id = r.loan_product_id
+      WHERE r.tenant_id = ${input.tenantId}::uuid
+        AND r.requested_at >= ${input.periodStart}
+        AND r.requested_at < ${exclusivePeriodEnd}
+      GROUP BY p.loan_type
+      UNION ALL
+      SELECT
+        p.loan_type::text,
+        0,
+        0,
+        COALESCE(SUM(l.principal_amount), 0)
+      FROM loans l
+      JOIN loan_requests r ON r.id = l.loan_request_id
+      JOIN loan_products p ON p.id = l.loan_product_id
+      WHERE l.tenant_id = ${input.tenantId}::uuid
+        AND l.disbursed_at IS NOT NULL
+        AND r.requested_at >= ${input.periodStart}
+        AND r.requested_at < ${exclusivePeriodEnd}
+      GROUP BY p.loan_type
+    `) as Array<{
+      approved: unknown
+      disbursed: unknown
+      loanType: string
+      requestedReserved: unknown
+    }>
+
+    for (const row of rows) {
+      const target = sums[row.loanType as LoanType]
+      if (!target) continue
+      target.requestedReserved += sumOrZero(row.requestedReserved)
+      target.approved += sumOrZero(row.approved)
+      target.disbursed += sumOrZero(row.disbursed)
+    }
+
+    return sums
+  }
+
   const [requests, loans] = await Promise.all([
     prisma.loanRequest.findMany({
       select: {
@@ -560,36 +623,36 @@ async function getFinancingCycleUsage(
     }),
   ])
 
-  const typedRequests = requests.map((request) => ({
-    amount: Number(request.requestedAmount),
-    loanType: request.loanProduct.loanType,
-    status: request.status,
-  }))
-  const typedLoans = loans.map((loan) => ({
-    amount: Number(loan.principalAmount),
-    loanType: loan.loanProduct.loanType,
-  }))
-  const requestGroups = byLoanType(typedRequests)
-  const loanGroups = byLoanType(typedLoans)
+  for (const request of requests) {
+    const target = sums[request.loanProduct.loanType]
+    const amount = Number(request.requestedAmount)
+    if (REQUEST_RESERVED_STATUSES.includes(request.status)) {
+      target.requestedReserved += amount
+    }
+    if (request.status === "approved") target.approved += amount
+  }
+  for (const loan of loans) {
+    sums[loan.loanProduct.loanType].disbursed += Number(loan.principalAmount)
+  }
 
+  return sums
+}
+
+function summarizeFinancingCycleUsage(
+  sums: FinancingCycleUsageSums,
+  budgets: { normalBudgetAmount: number; quickBudgetAmount: number }
+): {
+  normal: FinancingCycleUsageByType
+  quick: FinancingCycleUsageByType
+} {
   function summarize(
     loanType: LoanType,
     budgetAmount: number
   ): FinancingCycleUsageByType {
-    const productRequests = requestGroups[loanType]
-    const requestedReservedAmount = roundMoney(
-      productRequests
-        .filter((request) => REQUEST_RESERVED_STATUSES.includes(request.status))
-        .reduce((sum, request) => sum + request.amount, 0)
-    )
-    const approvedAmount = roundMoney(
-      productRequests
-        .filter((request) => request.status === "approved")
-        .reduce((sum, request) => sum + request.amount, 0)
-    )
-    const disbursedAmount = roundMoney(
-      loanGroups[loanType].reduce((sum, loan) => sum + loan.amount, 0)
-    )
+    const typeSums = sums[loanType]
+    const requestedReservedAmount = roundMoney(typeSums.requestedReserved)
+    const approvedAmount = roundMoney(typeSums.approved)
+    const disbursedAmount = roundMoney(typeSums.disbursed)
     const heldAmount = roundMoney(Math.max(0, approvedAmount - disbursedAmount))
     const remainingAmount = roundMoney(
       Math.max(0, budgetAmount - requestedReservedAmount)
@@ -606,9 +669,26 @@ async function getFinancingCycleUsage(
   }
 
   return {
-    normal: summarize("normal", input.normalBudgetAmount),
-    quick: summarize("quick", input.quickBudgetAmount),
+    normal: summarize("normal", budgets.normalBudgetAmount),
+    quick: summarize("quick", budgets.quickBudgetAmount),
   }
+}
+
+async function getFinancingCycleUsage(
+  input: FinancingCyclePeriod & {
+    normalBudgetAmount: number
+    quickBudgetAmount: number
+    tenantId: string
+  },
+  prisma: PrismaClient
+): Promise<{
+  normal: FinancingCycleUsageByType
+  quick: FinancingCycleUsageByType
+}> {
+  return summarizeFinancingCycleUsage(
+    await readFinancingCycleUsageSums(input, prisma),
+    input
+  )
 }
 
 async function getFinancingCycleSnapshotForPeriod(
@@ -719,31 +799,88 @@ function sumOrZero(value: unknown) {
   return Number.isFinite(amount) ? amount : 0
 }
 
+/** Raw tenant-wide sums behind the funds-held and deployable-funds figures. */
+type DeployableFundsSums = {
+  approvedHold: unknown
+  contribution: unknown
+  historicalShare: unknown
+  openingCommitmentSavings: unknown
+  openingFinancing: unknown
+  openingShareCapital: unknown
+  openingSpecialSavings: unknown
+  outstandingFinancing: unknown
+  receiptShare: unknown
+  reserveBuffer: unknown
+  separateShareCharge: unknown
+  withdrawal: unknown
+}
+
 /**
- * Money members (and, at go-live, the cooperative itself) have put into the
- * pool. Sources are counted once each:
- * - posted contributions (savings, including the share portion deducted from
- *   savings, so monthly share charges are not added again);
- * - applied brought-forward opening savings and share capital;
- * - share capital paid outside contributions: approved receipt share
- *   allocations, settled pay-separately share charges, historical unit-share
- *   purchases;
- * - cooperative opening equity: the part of applied opening financing that
- *   opening member funds cannot cover. Opening financing is subtracted as
- *   outstanding financing, so without it a migrated cooperative whose loan
- *   book exceeds member balances would never show its own funds.
- * Special-savings refunds paid out are subtracted.
+ * Reads every sum the funds snapshot needs in one SQL statement. Clients
+ * without `$queryRaw` (narrow test doubles) read them through Prisma
+ * aggregates, as before; a missing optional delegate counts as zero.
  */
-export async function getMemberFundsHeldBreakdown(
-  tenantId: string,
-  prismaOverride?: PrismaClient
-): Promise<MemberFundsHeldBreakdown> {
-  const prisma = getPrisma(prismaOverride) as any
+async function readDeployableFundsSums(
+  input: DeployableFundsInput,
+  prismaClient: PrismaClient
+): Promise<DeployableFundsSums> {
+  const prisma = prismaClient as any
+  const { tenantId } = input
+  const excludeLoanId = input.excludeLoanId ?? null
+
+  if (typeof prisma.$queryRaw === "function") {
+    const activeStatuses = [...ACTIVE_FINANCING_STATUSES]
+    const [row] = (await prisma.$queryRaw`
+      SELECT
+        (SELECT COALESCE(SUM(amount), 0) FROM contributions
+          WHERE tenant_id = ${tenantId}::uuid AND status = 'posted') AS "contribution",
+        opening."openingCommitmentSavings",
+        opening."openingSpecialSavings",
+        opening."openingShareCapital",
+        opening."openingFinancing",
+        (SELECT COALESCE(SUM(amount), 0) FROM member_special_savings_withdrawals
+          WHERE tenant_id = ${tenantId}::uuid) AS "withdrawal",
+        (SELECT COALESCE(SUM(amount), 0) FROM member_share_ledger_entries
+          WHERE tenant_id = ${tenantId}::uuid
+            AND source_type = 'payment_receipt') AS "receiptShare",
+        (SELECT COALESCE(SUM(a.amount), 0)
+          FROM charge_applications a
+          JOIN charge_definitions d ON d.id = a.charge_definition_id
+          WHERE a.tenant_id = ${tenantId}::uuid
+            AND d.purpose = 'member_share'
+            AND a.collection_mode = 'pay_separately'
+            AND a.status = 'posted') AS "separateShareCharge",
+        (SELECT COALESCE(SUM(share_capital_amount), 0)
+          FROM historical_member_share_purchases
+          WHERE tenant_id = ${tenantId}::uuid) AS "historicalShare",
+        (SELECT COALESCE(SUM(outstanding_principal), 0) FROM loans
+          WHERE tenant_id = ${tenantId}::uuid
+            AND status::text = ANY(${activeStatuses}::text[])) AS "outstandingFinancing",
+        (SELECT COALESCE(SUM(principal_amount), 0) FROM loans
+          WHERE tenant_id = ${tenantId}::uuid
+            AND status = 'approved'
+            AND (${excludeLoanId}::uuid IS NULL OR id <> ${excludeLoanId}::uuid)) AS "approvedHold",
+        (SELECT reserve_buffer_amount FROM tenant_policies
+          WHERE tenant_id = ${tenantId}::uuid) AS "reserveBuffer"
+      FROM (
+        SELECT
+          COALESCE(SUM(commitment_savings_balance), 0) AS "openingCommitmentSavings",
+          COALESCE(SUM(special_savings_balance), 0) AS "openingSpecialSavings",
+          COALESCE(SUM(share_capital_balance), 0) AS "openingShareCapital",
+          COALESCE(SUM(active_financing_outstanding), 0) AS "openingFinancing"
+        FROM member_opening_balances
+        WHERE tenant_id = ${tenantId}::uuid AND status = 'applied'
+      ) opening
+    `) as DeployableFundsSums[]
+
+    // An aggregate-only SELECT always returns one row.
+    return row ?? ({} as DeployableFundsSums)
+  }
+
   const optionalAggregate = (delegate: any, args: unknown) =>
     typeof delegate?.aggregate === "function"
       ? delegate.aggregate(args)
       : Promise.resolve({ _sum: {} })
-
   const [
     contributionSum,
     openingSum,
@@ -751,6 +888,9 @@ export async function getMemberFundsHeldBreakdown(
     receiptShareSum,
     separateShareChargeSum,
     historicalShareSum,
+    outstandingLoanSum,
+    approvedHoldSum,
+    policy,
   ] = await Promise.all([
     prisma.contribution.aggregate({
       _sum: { amount: true },
@@ -786,30 +926,61 @@ export async function getMemberFundsHeldBreakdown(
       _sum: { shareCapitalAmount: true },
       where: { tenantId },
     }),
+    optionalAggregate(prisma.loan, {
+      _sum: { outstandingPrincipal: true },
+      where: {
+        tenantId,
+        status: { in: [...ACTIVE_FINANCING_STATUSES] },
+      },
+    }),
+    optionalAggregate(prisma.loan, {
+      _sum: { principalAmount: true },
+      where: {
+        tenantId,
+        status: "approved",
+        ...(excludeLoanId ? { id: { not: excludeLoanId } } : {}),
+      },
+    }),
+    typeof prisma.tenantPolicy?.findUnique === "function"
+      ? prisma.tenantPolicy.findUnique({ where: { tenantId } })
+      : null,
   ])
 
-  const totalContributionAmount = roundMoney(
-    sumOrZero(contributionSum._sum.amount)
-  )
+  return {
+    approvedHold: approvedHoldSum._sum.principalAmount,
+    contribution: contributionSum._sum.amount,
+    historicalShare: historicalShareSum._sum.shareCapitalAmount,
+    openingCommitmentSavings: openingSum._sum.commitmentSavingsBalance,
+    openingFinancing: openingSum._sum.activeFinancingOutstanding,
+    openingShareCapital: openingSum._sum.shareCapitalBalance,
+    openingSpecialSavings: openingSum._sum.specialSavingsBalance,
+    outstandingFinancing: outstandingLoanSum._sum.outstandingPrincipal,
+    receiptShare: receiptShareSum._sum.amount,
+    reserveBuffer: policy?.reserveBufferAmount,
+    separateShareCharge: separateShareChargeSum._sum.amount,
+    withdrawal: withdrawalSum._sum.amount,
+  }
+}
+
+function summarizeMemberFundsHeld(
+  sums: DeployableFundsSums
+): MemberFundsHeldBreakdown {
+  const totalContributionAmount = roundMoney(sumOrZero(sums.contribution))
   const openingSavingsAmount = roundMoney(
-    sumOrZero(openingSum._sum.commitmentSavingsBalance) +
-      sumOrZero(openingSum._sum.specialSavingsBalance)
+    sumOrZero(sums.openingCommitmentSavings) +
+      sumOrZero(sums.openingSpecialSavings)
   )
   const openingShareCapitalAmount = roundMoney(
-    sumOrZero(openingSum._sum.shareCapitalBalance)
+    sumOrZero(sums.openingShareCapital)
   )
-  const openingFinancingAmount = roundMoney(
-    sumOrZero(openingSum._sum.activeFinancingOutstanding)
-  )
-  const specialSavingsWithdrawalAmount = roundMoney(
-    sumOrZero(withdrawalSum._sum.amount)
-  )
+  const openingFinancingAmount = roundMoney(sumOrZero(sums.openingFinancing))
+  const specialSavingsWithdrawalAmount = roundMoney(sumOrZero(sums.withdrawal))
   const separateSharePurchaseAmount = roundMoney(
     Math.max(
       0,
-      sumOrZero(receiptShareSum._sum.amount) +
-        sumOrZero(separateShareChargeSum._sum.amount) +
-        sumOrZero(historicalShareSum._sum.shareCapitalAmount)
+      sumOrZero(sums.receiptShare) +
+        sumOrZero(sums.separateShareCharge) +
+        sumOrZero(sums.historicalShare)
     )
   )
   const memberSavingsHeldAmount = roundMoney(
@@ -848,52 +1019,50 @@ export async function getMemberFundsHeldBreakdown(
 }
 
 /**
+ * Money members (and, at go-live, the cooperative itself) have put into the
+ * pool. Sources are counted once each:
+ * - posted contributions (savings, including the share portion deducted from
+ *   savings, so monthly share charges are not added again);
+ * - applied brought-forward opening savings and share capital;
+ * - share capital paid outside contributions: approved receipt share
+ *   allocations, settled pay-separately share charges, historical unit-share
+ *   purchases;
+ * - cooperative opening equity: the part of applied opening financing that
+ *   opening member funds cannot cover. Opening financing is subtracted as
+ *   outstanding financing, so without it a migrated cooperative whose loan
+ *   book exceeds member balances would never show its own funds.
+ * Special-savings refunds paid out are subtracted.
+ */
+export async function getMemberFundsHeldBreakdown(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+): Promise<MemberFundsHeldBreakdown> {
+  return summarizeMemberFundsHeld(
+    await readDeployableFundsSums({ tenantId }, getPrisma(prismaOverride))
+  )
+}
+
+/**
  * deployable = max(0, member funds held − outstanding financing − approved
  * holds − reserve buffer − mobile billing commitment). Every staff and mobile
- * surface reads this snapshot so they agree.
+ * surface reads this snapshot so they agree. Three statements: the sums
+ * (`readDeployableFundsSums`) and the two mobile billing totals.
  */
 export async function getDeployableFundsSnapshot(
   input: DeployableFundsInput,
   prismaOverride?: PrismaClient
 ): Promise<DeployableFundsSnapshot> {
   const prisma = getPrisma(prismaOverride)
-  const [
-    fundsHeld,
-    outstandingLoanSum,
-    approvedHoldSum,
-    policy,
-    mobileBillingCommitmentAmount,
-  ] = await Promise.all([
-    getMemberFundsHeldBreakdown(input.tenantId, prisma),
-    prisma.loan.aggregate({
-      _sum: { outstandingPrincipal: true },
-      where: {
-        tenantId: input.tenantId,
-        status: { in: [...ACTIVE_FINANCING_STATUSES] },
-      },
-    }),
-    prisma.loan.aggregate({
-      _sum: { principalAmount: true },
-      where: {
-        tenantId: input.tenantId,
-        status: "approved",
-        ...(input.excludeLoanId ? { id: { not: input.excludeLoanId } } : {}),
-      },
-    }),
-    prisma.tenantPolicy.findUnique({
-      where: { tenantId: input.tenantId },
-    }),
+  const [sums, mobileBillingCommitmentAmount] = await Promise.all([
+    readDeployableFundsSums(input, prisma),
     getMobileBillingCommitmentAmount(input.tenantId, prisma),
   ])
+  const fundsHeld = summarizeMemberFundsHeld(sums)
   const outstandingFinancingAmount = roundMoney(
-    Number(outstandingLoanSum._sum.outstandingPrincipal ?? 0)
+    sumOrZero(sums.outstandingFinancing)
   )
-  const approvedHoldAmount = roundMoney(
-    Number(approvedHoldSum._sum.principalAmount ?? 0)
-  )
-  const reserveBufferAmount = roundMoney(
-    Number(policy?.reserveBufferAmount ?? 0)
-  )
+  const approvedHoldAmount = roundMoney(sumOrZero(sums.approvedHold))
+  const reserveBufferAmount = roundMoney(sumOrZero(sums.reserveBuffer))
   const billingAmount = roundMoney(sumOrZero(mobileBillingCommitmentAmount))
   const unclampedPool =
     fundsHeld.memberFundsHeldAmount -
@@ -923,15 +1092,25 @@ export async function getMonthlyFinancingCycleHealth(
   } = {}
 ): Promise<MonthlyFinancingCycleHealth> {
   const prisma = getPrisma(prismaOverride)
-  const [{ cycle, periodEnd, periodStart }, preview, deployableFunds] =
+  const period = resolveMonthlyPeriod(input.periodStart)
+  // The cycle row, the funds snapshot and the period's usage sums are read
+  // once each; the usage sums serve both the preview and the open cycle.
+  const [{ cycle, periodEnd, periodStart }, deployableFunds, usageSums] =
     await Promise.all([
       getFinancingCycleSnapshotForPeriod(input, prisma),
-      previewMonthlyFinancingCycle(input, prisma),
       options.deployableFunds ??
         getDeployableFundsSnapshot({ tenantId: input.tenantId }, prisma),
+      readFinancingCycleUsageSums(
+        { ...period, tenantId: input.tenantId },
+        prisma
+      ),
     ])
 
   if (!cycle) {
+    const preview = await buildMonthlyFinancingCyclePreview(input, prisma, {
+      existingCycle: null,
+      usageSums,
+    })
     const warnings = buildFinancingCycleWarnings({
       cycle,
       normal: preview.normal,
@@ -949,18 +1128,10 @@ export async function getMonthlyFinancingCycleHealth(
     }
   }
 
-  const normalBudgetAmount = Number(cycle.normalBudgetAmount)
-  const quickBudgetAmount = Number(cycle.quickBudgetAmount)
-  const usage = await getFinancingCycleUsage(
-    {
-      normalBudgetAmount,
-      periodEnd,
-      periodStart,
-      quickBudgetAmount,
-      tenantId: input.tenantId,
-    },
-    prisma
-  )
+  const usage = summarizeFinancingCycleUsage(usageSums, {
+    normalBudgetAmount: Number(cycle.normalBudgetAmount),
+    quickBudgetAmount: Number(cycle.quickBudgetAmount),
+  })
   const projectedCommitmentAmount = roundMoney(
     Number(cycle.projectedCommitmentAmount)
   )
@@ -1060,7 +1231,21 @@ export async function previewMonthlyFinancingCycle(
   input: MonthlyFinancingCycleInput,
   prismaOverride?: PrismaClient
 ): Promise<MonthlyFinancingCyclePreview> {
-  const prisma = getPrisma(prismaOverride)
+  return buildMonthlyFinancingCyclePreview(input, getPrisma(prismaOverride))
+}
+
+/**
+ * The preview, optionally reusing reads the caller already has: the cycle row
+ * (`null` when the caller knows there is none) and the period's usage sums.
+ */
+async function buildMonthlyFinancingCyclePreview(
+  input: MonthlyFinancingCycleInput,
+  prisma: PrismaClient,
+  known: {
+    existingCycle?: MonthlyFinancingCyclePreview["existingCycle"]
+    usageSums?: FinancingCycleUsageSums
+  } = {}
+): Promise<MonthlyFinancingCyclePreview> {
   const period = resolveMonthlyPeriod(input.periodStart)
   const exclusivePeriodEnd = getExclusivePeriodEnd(period.periodEnd)
 
@@ -1107,19 +1292,21 @@ export async function previewMonthlyFinancingCycle(
         status: "posted",
       },
     }),
-    prisma.financingCycle.findUnique({
-      select: {
-        id: true,
-        status: true,
-      },
-      where: {
-        tenantId_periodStart_periodEnd: {
-          tenantId: input.tenantId,
-          periodStart: period.periodStart,
-          periodEnd: period.periodEnd,
-        },
-      },
-    }),
+    known.existingCycle !== undefined
+      ? known.existingCycle
+      : prisma.financingCycle.findUnique({
+          select: {
+            id: true,
+            status: true,
+          },
+          where: {
+            tenantId_periodStart_periodEnd: {
+              tenantId: input.tenantId,
+              periodStart: period.periodStart,
+              periodEnd: period.periodEnd,
+            },
+          },
+        }),
   ])
 
   const policy = normalizePolicy(policyRow)
@@ -1136,14 +1323,13 @@ export async function previewMonthlyFinancingCycle(
     (totalCapacityAmount * policy.quickLoanAllocationPercentage) / 100
   )
   const normalBudgetAmount = roundMoney(totalCapacityAmount - quickBudgetAmount)
-  const usage = await getFinancingCycleUsage(
-    {
-      ...period,
-      normalBudgetAmount,
-      quickBudgetAmount,
-      tenantId: input.tenantId,
-    },
-    prisma
+  const usage = summarizeFinancingCycleUsage(
+    known.usageSums ??
+      (await readFinancingCycleUsageSums(
+        { ...period, tenantId: input.tenantId },
+        prisma
+      )),
+    { normalBudgetAmount, quickBudgetAmount }
   )
 
   return {

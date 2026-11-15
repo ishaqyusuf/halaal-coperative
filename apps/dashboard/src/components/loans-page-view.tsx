@@ -60,7 +60,6 @@ export function LoansPageView({
   isMemberView,
   loanPortfolioTableSettings,
   loanProducts,
-  loanRequestCharges,
   loanRequestTableSettings,
   pendingGuarantorCount,
   quickFillEnabled,
@@ -187,7 +186,6 @@ export function LoansPageView({
         disabledReason={requestBlockedReason}
         fixedMember={fixedMember}
         loanProducts={loanProducts}
-        loanRequestCharges={loanRequestCharges}
       />
     </WorkspacePageShell>
   )

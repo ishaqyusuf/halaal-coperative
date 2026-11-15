@@ -2,10 +2,8 @@ import {
   countPendingGuarantorRequests,
   createDbRuntime,
   getFinancingIntakeStatus,
-  getMemberByUserId,
-  getMemberOperationalReadiness,
+  isMemberOperationallyReady,
   getMonthlyFinancingCycleHealth,
-  listChargeDefinitions,
   listLoanProducts,
 } from "@halaalvest/db"
 import { formatCurrency } from "@halaalvest/utils"
@@ -13,6 +11,7 @@ import {
   getLoanIntakeFix,
   type LoanIntakeFix,
 } from "@/lib/loans/loan-intake-fix"
+import { findRequestMemberByUserId } from "@/lib/request-lookups"
 import {
   canShowQuickFill,
   getDashboardServerContext,
@@ -31,15 +30,6 @@ type LoanProductRow = {
   loanType: "normal" | "quick"
   name: string
   termMonths: number
-}
-
-type LoanRequestChargeOptionRow = {
-  amount: number
-  chargeValueType: "fixed_amount" | "percentage"
-  code: string
-  collectionMode: string
-  id: string
-  name: string
 }
 
 /** Staff only: how much the cooperative can lend now. */
@@ -64,7 +54,6 @@ export type LoansPageData =
       intakeStatus: IntakeStatus
       isMemberView: boolean
       loanProducts: Array<{ id: string; label: string; termMonths: number }>
-      loanRequestCharges: LoanRequestChargeOptionRow[]
       /** Member only: guarantor requests waiting for their answer. */
       pendingGuarantorCount: number
       quickFillEnabled: boolean
@@ -85,43 +74,6 @@ const capacityWarningWords: Record<string, string | undefined> = {
     "Less money came in this month than members promised.",
   normal_quota_closed: "No money left for normal loans this month.",
   quick_quota_closed: "No money left for quick loans this month.",
-}
-
-function toLoanRequestCharges(
-  chargeDefinitions: unknown[]
-): LoanRequestChargeOptionRow[] {
-  return (chargeDefinitions as any[])
-    .map((definition) => {
-      const applicability = definition.applicability?.find(
-        (row: any) =>
-          row.isActive !== false &&
-          row.workflow === "loan_request" &&
-          row.trigger === "submission"
-      )
-      const legacyApplies =
-        definition.appliesToLoanRequests || definition.purpose === "loan_fee"
-
-      if (!applicability && !legacyApplies) {
-        return null
-      }
-
-      const version = definition.versions?.[0]
-      if (!version) {
-        return null
-      }
-
-      return {
-        amount: Number(version.amount ?? definition.amount ?? 0),
-        chargeValueType:
-          version.chargeValueType ??
-          (version.kind === "percentage" ? "percentage" : "fixed_amount"),
-        code: definition.code,
-        collectionMode: applicability?.collectionMode ?? "deduct_from_savings",
-        id: definition.id,
-        name: definition.name,
-      } satisfies LoanRequestChargeOptionRow
-    })
-    .filter((charge): charge is LoanRequestChargeOptionRow => Boolean(charge))
 }
 
 /**
@@ -145,26 +97,30 @@ export async function loadLoansPageData(): Promise<LoansPageData> {
   const canReview = hasAnyRole(role, financeManagementRoles)
   const actorMember =
     isMemberView && context.auth.user
-      ? await getMemberByUserId({ tenantId, userId: context.auth.user.id })
+      ? // Request-cached: the tRPC prefetches reuse this lookup.
+        await findRequestMemberByUserId({
+          tenantId,
+          userId: context.auth.user.id,
+        })
       : null
 
   const [
-    actorReadiness,
+    actorIsReady,
     loanProducts,
     cycleHealth,
     memberIntakeStatus,
-    chargeDefinitions,
     pendingGuarantorCount,
   ] = await Promise.all([
     actorMember
-      ? getMemberOperationalReadiness({ memberId: actorMember.id, tenantId })
-      : Promise.resolve(null),
+      ? isMemberOperationallyReady({ member: actorMember, tenantId })
+      : Promise.resolve(false),
     listLoanProducts(tenantId) as Promise<LoanProductRow[]>,
     isMemberView
       ? Promise.resolve(null)
       : getMonthlyFinancingCycleHealth({ tenantId }),
-    isMemberView ? getFinancingIntakeStatus({ tenantId }) : Promise.resolve(null),
-    isStaff || actorMember ? listChargeDefinitions(tenantId) : Promise.resolve([]),
+    isMemberView
+      ? getFinancingIntakeStatus({ tenantId })
+      : Promise.resolve(null),
     actorMember
       ? countPendingGuarantorRequests({
           guarantorMemberId: actorMember.id,
@@ -179,7 +135,7 @@ export async function loadLoansPageData(): Promise<LoansPageData> {
     ? null
     : !actorMember
       ? "Your account is not linked to a member yet. Please contact the cooperative."
-      : !actorReadiness?.isReady
+      : !actorIsReady
         ? "You can ask for a loan once the cooperative has checked your details."
         : null
   const requestBlockedReason =
@@ -192,7 +148,7 @@ export async function loadLoansPageData(): Promise<LoansPageData> {
   return {
     availablePool: cycleHealth?.deployableFunds.deployableFunds ?? 0,
     canReview,
-    canSubmit: isStaff || Boolean(actorMember && actorReadiness?.isReady),
+    canSubmit: isStaff || Boolean(actorMember && actorIsReady),
     capacity: cycleHealth
       ? {
           approvedHoldAmount: cycleHealth.deployableFunds.approvedHoldAmount,
@@ -225,7 +181,6 @@ export async function loadLoansPageData(): Promise<LoansPageData> {
         : `${product.name} · up to ${product.termMonths} months`,
       termMonths: product.termMonths,
     })),
-    loanRequestCharges: toLoanRequestCharges(chargeDefinitions as unknown[]),
     pendingGuarantorCount,
     quickFillEnabled: canShowQuickFill(context),
     requestBlockedReason,

@@ -12,7 +12,6 @@ import {
   LoanPayOutConfirm,
   LoanRequestForm,
   type LoanProductChoice,
-  type LoanRequestChargeChoice,
 } from "@/components/forms/loan-forms"
 import { LoanFacts, LoanStatusWord } from "@/components/loans/loan-status-word"
 import { useLoanParams } from "@/hooks/use-loan-params"
@@ -38,7 +37,6 @@ export type LoanContentProps = {
   disabledReason?: string | null
   fixedMember?: LoanMemberOption
   loanProducts: LoanProductChoice[]
-  loanRequestCharges?: LoanRequestChargeChoice[]
 }
 
 function useCompleteLoanWorkflow() {
@@ -336,7 +334,10 @@ function LoanDetails({
       <LoanFacts
         rows={[
           { label: "Still owed", value: money(outstanding) },
-          isLive && { label: "Paid so far", value: money(principal - outstanding) },
+          isLive && {
+            label: "Paid so far",
+            value: money(principal - outstanding),
+          },
           { label: "Amount lent", value: money(principal) },
           {
             label: "Pays back each month",
@@ -470,9 +471,7 @@ function GuarantorConfirm({
       guarantorApprovalId={guarantorApprovalId}
       guarantorName={guarantor?.guarantorMember.fullName}
       onSuccess={onSuccess}
-      summary={
-        request ? `Guarantor for ${requestSummary(request)}` : undefined
-      }
+      summary={request ? `Guarantor for ${requestSummary(request)}` : undefined}
     />
   )
 }
@@ -504,6 +503,21 @@ function PayOutConfirm({
   )
 }
 
+/** "Ask for a loan" with its charges, read only while the form is open. */
+function LoanRequestFormWithCharges(
+  props: Omit<Parameters<typeof LoanRequestForm>[0], "loanRequestCharges">
+) {
+  const trpc = useTRPC()
+  const { data: loanRequestCharges } = useQuery(
+    trpc.loans.chargeOptions.queryOptions(undefined, {
+      retry: 1,
+      staleTime: 5 * 60_000,
+    })
+  )
+
+  return <LoanRequestForm {...props} loanRequestCharges={loanRequestCharges} />
+}
+
 export function LoanContent({
   availablePool,
   canReview,
@@ -511,7 +525,6 @@ export function LoanContent({
   disabledReason,
   fixedMember,
   loanProducts,
-  loanRequestCharges,
 }: LoanContentProps) {
   const completeLoanWorkflow = useCompleteLoanWorkflow()
   const {
@@ -525,12 +538,11 @@ export function LoanContent({
 
   if (loanSheetType === "request") {
     return (
-      <LoanRequestForm
+      <LoanRequestFormWithCharges
         devMode={devMode}
         disabledReason={disabledReason}
         fixedMember={fixedMember}
         loanProducts={loanProducts}
-        loanRequestCharges={loanRequestCharges}
         onSuccess={completeLoanWorkflow}
       />
     )

@@ -1,7 +1,6 @@
 import {
   getLoanDetail,
   getLoanRequestDetail,
-  getMemberByUserId,
   listLoanRequestRowsPage,
   listLoansPage,
   searchGuarantorOptions,
@@ -14,30 +13,29 @@ import {
   listLoanPortfolioSchema,
   listLoanRequestsSchema,
 } from "../schemas/loans"
+import { getRequestChargeOptions, getScopedMemberId } from "../lib/member-scope"
 import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
 
-type LoanRouterContext = {
-  auth: {
-    activeMembership: { role: string }
-    session: { user: { id: string } }
-  }
-  tenant: { current: { id: string } }
-}
-
-async function getScopedMemberId(ctx: LoanRouterContext) {
-  if (ctx.auth.activeMembership.role !== "member") {
-    return undefined
-  }
-
-  const member = await getMemberByUserId({
-    tenantId: ctx.tenant.current.id,
-    userId: ctx.auth.session.user.id,
-  })
-
-  return member?.id ?? "__missing_member_profile__"
-}
-
 export const loansRouter = createTRPCRouter({
+  // Charges shown on "Ask for a loan", read only when that form opens. The
+  // amount is the charge's own figure (a rate for percentage charges); the
+  // form works out the estimate from the amount asked for.
+  chargeOptions: tenantProcedure.query(async ({ ctx }) => {
+    const quotes = await getRequestChargeOptions(ctx, {
+      trigger: "submission",
+      workflow: "loan_request",
+    })
+
+    return quotes.map((quote) => ({
+      amount: quote.effectiveAmount,
+      chargeValueType: quote.chargeValueType,
+      code: quote.code,
+      collectionMode: quote.collectionMode,
+      id: quote.chargeDefinitionId,
+      name: quote.name,
+    }))
+  }),
+
   // Guarantor pickers on "Ask for a loan": names of ready members of this
   // cooperative only (no numbers, contacts or balances), never the asker.
   guarantorOptions: tenantProcedure

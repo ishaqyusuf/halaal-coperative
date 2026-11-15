@@ -57,7 +57,8 @@ export const workflowPresentations = {
     plan: sheet("review"),
     postBatchRow: alertDialog(),
     postBatchRows: dialog("review"),
-    preference: sheet(),
+    // One choice for one member: a compact dialog (audit CT3).
+    preference: dialog("compact"),
     stageBatch: sheet("review"),
   },
   // Connecting a web address: a short modal, not a record sheet.

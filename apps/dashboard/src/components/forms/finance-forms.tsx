@@ -555,20 +555,16 @@ export function MemberPaymentPreferenceForm({
 
   return (
     <Form {...form}>
-      <form
-        className="grid gap-3 border-y border-border py-4 md:grid-cols-[minmax(0,1fr)_220px_auto]"
-        onSubmit={form.handleSubmit(onSubmit)}
-      >
-        <div>
-          <p className="font-medium text-foreground">{title}</p>
-        </div>
+      <form className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
+        <p className="font-medium text-foreground">{title}</p>
         <FormField
           control={form.control}
           name="preference"
           render={({ field }) => (
             <FormItem>
+              <FormLabel>How their payments are split</FormLabel>
               <FormControl>
-                <NativeSelect {...field}>
+                <NativeSelect className="w-full" {...field}>
                   <option value="manual_split">Manual split</option>
                   <option value="savings_first">Savings first</option>
                   <option value="loan_first">Loan first</option>
@@ -578,17 +574,13 @@ export function MemberPaymentPreferenceForm({
             </FormItem>
           )}
         />
-        <div className="flex items-center">
-          <Button
-            className="h-11 md:h-9"
-            disabled={isPending}
-            size="sm"
-            type="submit"
-            variant="outline"
-          >
-            Save preset
-          </Button>
-        </div>
+        <Button
+          className="h-11 w-full sm:w-auto sm:justify-self-end"
+          disabled={isPending}
+          type="submit"
+        >
+          Save preset
+        </Button>
       </form>
     </Form>
   )

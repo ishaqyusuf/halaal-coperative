@@ -42,12 +42,25 @@ describe("Halaalvest local-infra contract", () => {
         if (!command.includes("local-infra-kit")) continue
 
         if (command.includes("bin/infra.ts release")) continue
+        // The kit's app-update parser requires the action (publish|status|
+        // withdraw) as the first argument, so a profile flag in the script
+        // would break every call. app-update.config.ts pins the profile and
+        // the kit rejects any other --profile; asserted below.
+        if (command.includes("bin/app-update.ts")) continue
         expect(
           command,
           `${packageFile} ${name} must select the Halaalvest profile`
         ).toContain("--profile halaalvest")
       }
     }
+  })
+
+  test("app:update selects the Halaalvest profile through its config", () => {
+    expect(packageScripts("package.json")["app:update"]).toBe(
+      "bun --env-file=/dev/null ../local-infra-kit/bin/app-update.ts"
+    )
+    const config = readFileSync(resolve(root, "app-update.config.ts"), "utf8")
+    expect(config).toContain('profile: "halaalvest"')
   })
 
   test("publishes the standardized database without replacing its volume", () => {

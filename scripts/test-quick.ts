@@ -17,6 +17,7 @@ export const suites = {
     "scripts/agent-chat.test.ts",
     "scripts/local-infra-command.test.ts",
     "scripts/db-command-contract.test.ts",
+    "scripts/local-infra-contract.test.ts",
   ],
   dashboard: [
     "apps/dashboard/src/proxy.test.ts",
@@ -32,7 +33,7 @@ export const suites = {
     "apps/dashboard/src/lib/members/member-list-input.test.ts",
     "apps/dashboard/src/lib/members/member-statement-lines.test.ts",
     "apps/dashboard/src/lib/members/member-status-words.test.ts",
-    "apps/dashboard/src/lib/charges/charge-library-list-input.test.ts",
+    "apps/dashboard/src/lib/charges/charge-words.test.ts",
     "apps/dashboard/src/lib/charges/charges-page-conformance.test.ts",
     "apps/dashboard/src/lib/contributions/contribution-list-input.test.ts",
     "apps/dashboard/src/lib/contributions/contributions-page-conformance.test.ts",

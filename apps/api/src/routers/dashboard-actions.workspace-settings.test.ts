@@ -141,6 +141,10 @@ runIntegration("workspace settings actions", () => {
       "runTenantDomainVerificationCheckAction",
       [["domainId", "00000000-0000-0000-0000-000000000000"]],
     ],
+    [
+      "removeTenantCustomDomainAction",
+      [["domainId", "00000000-0000-0000-0000-000000000000"]],
+    ],
   ]
 
   test.each(adminOnlyActions)(
@@ -262,5 +266,37 @@ runIntegration("workspace settings actions", () => {
     await expect(
       run(admin, "setTenantDomainPrimaryAction", [["domainId", domain.id]])
     ).rejects.toThrow("must be verified")
+  })
+
+  test("an admin removes an extra custom address, never the main one", async () => {
+    const hostname = `spare.${slug}.example.test`
+    await run(admin, "createTenantDomainAction", [["hostname", hostname]])
+    const spare = await prisma!.tenantDomain.findFirstOrThrow({
+      select: { id: true },
+      where: { hostname, tenantId },
+    })
+    const main = await prisma!.tenantDomain.create({
+      data: {
+        hostname: `main.${slug}.example.test`,
+        isPrimary: true,
+        kind: "custom",
+        tenantId,
+        verificationStatus: "verified",
+      },
+    })
+
+    await expect(
+      run(admin, "removeTenantCustomDomainAction", [["domainId", main.id]])
+    ).rejects.toThrow("Make another address the main one first.")
+    await run(admin, "removeTenantCustomDomainAction", [["domainId", spare.id]])
+
+    expect(await prisma!.tenantDomain.count({ where: { id: spare.id } })).toBe(
+      0
+    )
+    expect(
+      await prisma!.auditLog.count({
+        where: { action: "tenant_domain.removed", entityId: spare.id },
+      })
+    ).toBe(1)
   })
 })

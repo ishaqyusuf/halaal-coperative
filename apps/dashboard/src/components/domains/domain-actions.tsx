@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog"
 import { useDomainParams } from "@/hooks/use-domain-params"
 import {
+  removeTenantCustomDomainAction,
   runTenantDomainVerificationCheckAction,
   setTenantDomainPrimaryAction,
 } from "@/lib/dashboard-actions"
@@ -75,7 +76,10 @@ export function MakeMainDomainButton({
     startTransition(async () => {
       try {
         await setTenantDomainPrimaryAction(domainForm(domainId))
-        showSuccess("Main address changed", `${hostname} is now your main address.`)
+        showSuccess(
+          "Main address changed",
+          `${hostname} is now your main address.`
+        )
         setOpen(false)
         router.refresh()
       } catch (error) {
@@ -108,6 +112,60 @@ export function MakeMainDomainButton({
         open={open}
         pending={pending}
         title={`Make ${hostname} your main address?`}
+      />
+    </>
+  )
+}
+
+/** Removes one of the cooperative's own extra addresses, after an AlertDialog. */
+export function RemoveDomainButton({
+  domainId,
+  hostname,
+}: {
+  domainId: string
+  hostname: string
+}) {
+  const router = useRouter()
+  const { showError, showSuccess } = useNotifications()
+  const [open, setOpen] = useState(false)
+  const [pending, startTransition] = useTransition()
+
+  function remove() {
+    startTransition(async () => {
+      try {
+        await removeTenantCustomDomainAction(domainForm(domainId))
+        showSuccess("Address removed", `${hostname} no longer opens your site.`)
+        setOpen(false)
+        router.refresh()
+      } catch (error) {
+        showError(
+          "Could not remove",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
+      }
+    })
+  }
+
+  return (
+    <>
+      <Button
+        aria-label={`Remove ${hostname}`}
+        className="h-11 text-base"
+        onClick={() => setOpen(true)}
+        type="button"
+        variant="ghost"
+      >
+        Remove
+      </Button>
+      <ConfirmActionDialog
+        actionLabel="Remove address"
+        description={`Members can no longer open your cooperative at ${hostname}. Your main address keeps working. You can add it again later.`}
+        destructive
+        onCancel={() => setOpen(false)}
+        onConfirm={remove}
+        open={open}
+        pending={pending}
+        title={`Remove ${hostname}?`}
       />
     </>
   )

@@ -4,6 +4,7 @@ import {
   CheckDomainButton,
   MakeMainDomainButton,
   OpenAddDomainButton,
+  RemoveDomainButton,
 } from "@/components/domains/domain-actions"
 import {
   SettingsEmpty,
@@ -98,6 +99,12 @@ export function DomainsView({
                           hostname={domain.hostname}
                         />
                       ) : null}
+                      {domain.kind !== "custom" || domain.isPrimary ? null : (
+                        <RemoveDomainButton
+                          domainId={domain.id}
+                          hostname={domain.hostname}
+                        />
+                      )}
                     </>
                   }
                   domain={domain}

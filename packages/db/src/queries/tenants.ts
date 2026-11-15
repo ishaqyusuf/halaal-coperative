@@ -1169,6 +1169,71 @@ export async function setTenantDomainPrimary(input: {
   })
 }
 
+/**
+ * Removes a cooperative's own web address. The Halaalvest address and the
+ * main address can't be removed (make another address the main one first).
+ */
+export async function removeTenantCustomDomain(
+  input: {
+    actorUserId: string
+    domainId: string
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+
+  if (!prisma) {
+    throw new Error("Database not configured")
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const domain = await tx.tenantDomain.findFirst({
+      where: {
+        id: input.domainId,
+        tenantId: input.tenantId,
+      },
+    })
+
+    if (!domain) {
+      throw ExpectedQueryError.notFound("Address not found")
+    }
+
+    if (domain.kind !== "custom") {
+      throw ExpectedQueryError.precondition(
+        "Your Halaalvest address can't be removed."
+      )
+    }
+
+    if (domain.isPrimary) {
+      throw ExpectedQueryError.precondition(
+        "This is your main address. Make another address the main one first."
+      )
+    }
+
+    await tx.tenantDomain.delete({ where: { id: domain.id } })
+
+    await tx.auditLog.create({
+      data: {
+        action: "tenant_domain.removed",
+        actorType: "user",
+        actorUserId: input.actorUserId,
+        entityId: domain.id,
+        entityType: "TenantDomain",
+        metadata: {
+          hostname: domain.hostname,
+          kind: domain.kind,
+          verificationStatus: domain.verificationStatus,
+        },
+        occurredAt: new Date(),
+        tenantId: input.tenantId,
+      },
+    })
+
+    return { hostname: domain.hostname, id: domain.id }
+  })
+}
+
 export async function updateTenantDomainVerificationStatus(input: {
   actorUserId: string
   domainId: string

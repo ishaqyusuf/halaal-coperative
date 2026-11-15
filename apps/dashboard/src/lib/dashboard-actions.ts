@@ -644,6 +644,10 @@ export async function setTenantDomainPrimaryAction(formData: FormData) {
   return callDashboardFormAction("setTenantDomainPrimaryAction", formData)
 }
 
+export async function removeTenantCustomDomainAction(formData: FormData) {
+  return callDashboardFormAction("removeTenantCustomDomainAction", formData)
+}
+
 export async function updateTenantDomainVerificationStatusAction(
   formData: FormData
 ) {

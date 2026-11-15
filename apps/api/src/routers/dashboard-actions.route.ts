@@ -102,6 +102,7 @@ import {
   runTenantDomainVerificationCheck,
   setTenantInitialMigrationEmergencyUnlock,
   setTenantDomainPrimary,
+  removeTenantCustomDomain,
   updateTenantDomainVerificationStatus,
   updateTenantShareStructureVersion,
   updateTenantSharePolicy,
@@ -5793,6 +5794,19 @@ export async function setTenantDomainPrimaryAction(formData: FormData) {
   revalidatePath("/domains")
 }
 
+// Admins remove one of their own extra addresses; never the main one.
+export async function removeTenantCustomDomainAction(formData: FormData) {
+  const actor = await requireDashboardActor(workspaceAdminRoles)
+
+  await removeTenantCustomDomain({
+    actorUserId: actor.user.id,
+    domainId: getRequiredString(formData, "domainId"),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/domains")
+}
+
 export async function updateTenantDomainVerificationStatusAction(
   formData: FormData
 ) {
@@ -7215,6 +7229,7 @@ const dashboardActionHandlers = {
   rotateMemberSignupLinkAction,
   createTenantDomainAction,
   setTenantDomainPrimaryAction,
+  removeTenantCustomDomainAction,
   updateTenantDomainVerificationStatusAction,
   runTenantDomainVerificationCheckAction,
   provisionTenantUserRoleAction,
@@ -7551,6 +7566,9 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   setTenantDomainPrimaryAction: formAction(
     dashboardActionHandlers.setTenantDomainPrimaryAction
+  ),
+  removeTenantCustomDomainAction: formAction(
+    dashboardActionHandlers.removeTenantCustomDomainAction
   ),
   updateTenantDomainVerificationStatusAction: formAction(
     dashboardActionHandlers.updateTenantDomainVerificationStatusAction

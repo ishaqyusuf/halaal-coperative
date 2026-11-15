@@ -11,15 +11,7 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
 } from "@halaalvest/ui/components/dropdown-menu"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@halaalvest/ui/components/input-group"
-import { Search } from "lucide-react"
 import { useState } from "react"
 import { LoanColumnVisibility } from "@/components/loan-column-visibility"
 import {
@@ -28,7 +20,7 @@ import {
   portfolioStatuses,
   requestStatuses,
 } from "@/components/loans-filter-drawer"
-import { MiddayFilterIcon } from "@/components/search-filter-dropdown-input"
+import { SearchFilterDropdownInput } from "@/components/search-filter-dropdown-input"
 import { useMobileViewport } from "@/hooks/use-mobile"
 import {
   clearedLoanFilters,
@@ -46,6 +38,8 @@ export function LoansToolbar() {
   const isMobile = useMobileViewport()
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
   const [desktopFilterOpen, setDesktopFilterOpen] = useState(false)
+  const searchLabel =
+    activeView === "requests" ? "Search requests" : "Search loans"
   const hasActiveControls =
     Boolean(filter.q || params.sort) ||
     (activeView === "requests"
@@ -55,34 +49,19 @@ export function LoansToolbar() {
   return (
     <>
       <div className="flex items-center gap-2">
-        <InputGroup className="h-11 min-w-0 flex-1 md:hidden">
-          <InputGroupAddon align="inline-start">
-            <Search aria-hidden className="size-4" />
-          </InputGroupAddon>
-          <InputGroupInput
-            aria-label={
-              activeView === "requests" ? "Search requests" : "Search loans"
-            }
+        <div className="min-w-0 flex-1 md:hidden">
+          <SearchFilterDropdownInput
+            aria-label={searchLabel}
+            filterActive={hasActiveControls}
+            filterOpen={mobileFilterOpen}
             onChange={(event) =>
               void setFilter({ q: event.target.value || null })
             }
+            onFilterClick={() => setMobileFilterOpen(true)}
             placeholder="Search by name"
-            type="search"
             value={filter.q ?? ""}
           />
-          <InputGroupAddon align="inline-end">
-            <InputGroupButton
-              aria-label={
-                activeView === "requests" ? "Filter requests" : "Filter loans"
-              }
-              className="size-11"
-              onClick={() => setMobileFilterOpen(true)}
-              size="icon-sm"
-            >
-              <MiddayFilterIcon />
-            </InputGroupButton>
-          </InputGroupAddon>
-        </InputGroup>
+        </div>
         <DesktopLoanFilter
           activeView={activeView}
           filterOpen={desktopFilterOpen}
@@ -141,41 +120,20 @@ function DesktopLoanFilter({
 
   return (
     <DropdownMenu open={filterOpen} onOpenChange={onFilterOpenChange}>
-      <InputGroup className="hidden h-11 w-[350px] md:flex">
-        <InputGroupAddon align="inline-start">
-          <Search aria-hidden className="size-4" />
-        </InputGroupAddon>
-        <InputGroupInput
+      <div className="hidden md:block">
+        <SearchFilterDropdownInput
           aria-label={
             activeView === "requests" ? "Search requests" : "Search loans"
           }
+          filterActive={filterActive}
+          filterOpen={filterOpen}
           onChange={(event) =>
             void setFilter({ q: event.target.value || null })
           }
           placeholder="Search by name"
-          type="search"
           value={filter.q ?? ""}
         />
-        <InputGroupAddon align="inline-end">
-          <DropdownMenuTrigger
-            render={
-              <InputGroupButton
-                aria-label={
-                  activeView === "requests" ? "Filter requests" : "Filter loans"
-                }
-                className={
-                  filterActive || filterOpen
-                    ? "size-11 text-foreground"
-                    : "size-11 text-muted-foreground"
-                }
-                size="icon-sm"
-              />
-            }
-          >
-            <MiddayFilterIcon />
-          </DropdownMenuTrigger>
-        </InputGroupAddon>
-      </InputGroup>
+      </div>
 
       <DropdownMenuContent
         align="end"

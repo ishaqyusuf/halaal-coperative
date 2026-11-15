@@ -16,4 +16,13 @@ describe("table residue (WP15)", () => {
     expect(boundary).toContain("QueryErrorResetBoundary")
     expect(boundary).toContain("Try again")
   })
+
+  test("loans search uses the shared search filter input", () => {
+    const toolbar = read("../components/loans-mobile-toolbar.tsx")
+
+    // Phones: the filter button opens the drawer; wider: the dropdown.
+    expect(toolbar.match(/<SearchFilterDropdownInput/g)).toHaveLength(2)
+    expect(toolbar).toContain("onFilterClick={() => setMobileFilterOpen(true)}")
+    expect(toolbar).not.toContain("<InputGroup")
+  })
 })

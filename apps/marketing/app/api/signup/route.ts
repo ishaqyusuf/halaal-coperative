@@ -24,6 +24,10 @@ import { getMarketingEmailOrigin } from "@/lib/marketing-email-origin"
 import { getMarketingErrorResponse } from "@/lib/error-response"
 import { getMarketingServerErrorResponse } from "@/lib/error-response.server"
 import { parseMarketingJson } from "@/lib/parse-json.server"
+import {
+  enforceMarketingRateLimit,
+  type MarketingRateLimiter,
+} from "@/lib/public-rate-limit.server"
 
 function normalizeComparableText(value: string) {
   return value.trim().replace(/\s+/g, " ").toLowerCase()
@@ -72,7 +76,10 @@ function verifyEarlyAccessApproval(input: {
   }
 }
 
-export async function POST(request: Request) {
+export async function handleSignupRequest(
+  request: Request,
+  limit: MarketingRateLimiter = enforceMarketingRateLimit
+) {
   try {
     const input = signupRequestSchema.parse(await parseMarketingJson(request))
     const legalBundle = getPublishedLegalBundle()
@@ -84,6 +91,12 @@ export async function POST(request: Request) {
       })
     const emailOrigin = getMarketingEmailOrigin(request.url)
     verifyEarlyAccessApproval(input)
+    // Counted only once the request is valid and would look up and email.
+    await limit({
+      email: input.primaryContactEmail,
+      headers: request.headers,
+      operation: "signup_verification",
+    })
     const emailDeliveryConfigured = isServerEmailDeliveryConfigured()
     const availability = await checkTenantSignupAvailability({
       cooperativeCodePrefix: input.cooperativeCodePrefix,
@@ -181,4 +194,8 @@ export async function POST(request: Request) {
     const response = getMarketingServerErrorResponse(error, { method: "POST" })
     return NextResponse.json(response.body, { status: response.status })
   }
+}
+
+export function POST(request: Request) {
+  return handleSignupRequest(request)
 }

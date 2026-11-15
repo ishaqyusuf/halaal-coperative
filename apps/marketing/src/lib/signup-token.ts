@@ -5,7 +5,7 @@ import {
   type SignupVerificationPayload,
 } from "./signup-flow"
 
-function getSignupTokenSecret() {
+export function getSignupTokenSecret() {
   const configuredSecret = process.env.SIGNUP_TOKEN_SECRET?.trim()
 
   if (configuredSecret) {

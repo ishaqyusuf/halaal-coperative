@@ -45,6 +45,7 @@ export const suites = {
     "apps/marketing/src/lib/dev-form-fill.test.ts",
     "apps/marketing/src/lib/early-access.test.ts",
     "apps/marketing/src/lib/pricing-comparison.test.ts",
+    "apps/marketing/src/lib/public-rate-limit.server.test.ts",
   ],
   mobile: [
     "apps/mobile/scripts/android-dev.test.ts",

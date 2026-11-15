@@ -14,6 +14,10 @@ import {
   WORKSPACE_NOT_FOUND_MESSAGE,
   type WorkspaceSignInLookups,
 } from "@/lib/workspace-sign-in"
+import {
+  enforceMarketingRateLimit,
+  type MarketingRateLimiter,
+} from "@/lib/public-rate-limit.server"
 
 const defaultLookups: WorkspaceSignInLookups = {
   findByPrefix: findTenantByCooperativeCodePrefixAsync,
@@ -22,7 +26,8 @@ const defaultLookups: WorkspaceSignInLookups = {
 
 export async function handleWorkspaceSignInRequest(
   request: Request,
-  lookups: WorkspaceSignInLookups = defaultLookups
+  lookups: WorkspaceSignInLookups = defaultLookups,
+  limit: MarketingRateLimiter = enforceMarketingRateLimit
 ) {
   try {
     const body = (await parseMarketingJson(request)) as unknown
@@ -38,6 +43,7 @@ export async function handleWorkspaceSignInRequest(
       })
     }
 
+    await limit({ headers: request.headers, operation: "workspace_sign_in" })
     const tenantSlug = await resolveWorkspaceSignInSlug(workspace, lookups)
 
     if (!tenantSlug) {

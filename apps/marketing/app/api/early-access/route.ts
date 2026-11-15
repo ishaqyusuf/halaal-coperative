@@ -24,6 +24,10 @@ import { formatCooperativeSizeRangeLabel } from "@halaalvest/domain"
 import { getMarketingEmailOrigin } from "@/lib/marketing-email-origin"
 import { getMarketingServerErrorResponse } from "@/lib/error-response.server"
 import { parseMarketingJson } from "@/lib/parse-json.server"
+import {
+  enforceMarketingRateLimit,
+  type MarketingRateLimiter,
+} from "@/lib/public-rate-limit.server"
 
 function getMarketingAdminRecipients() {
   const configured =
@@ -44,7 +48,10 @@ function buildApprovalUrl(origin: string, token: string) {
   return url.toString()
 }
 
-export async function POST(request: Request) {
+export async function handleEarlyAccessRequest(
+  request: Request,
+  limit: MarketingRateLimiter = enforceMarketingRateLimit
+) {
   try {
     const input = earlyAccessRequestSchema.parse(
       await parseMarketingJson(request)
@@ -75,6 +82,12 @@ export async function POST(request: Request) {
     }
 
     const emailOrigin = getMarketingEmailOrigin(request.url)
+    // Counted only once the request is valid and would send email.
+    await limit({
+      email: input.primaryContactEmail,
+      headers: request.headers,
+      operation: "early_access_request",
+    })
     const payload = createEarlyAccessRequestPayload(input)
     const token = createSignedEarlyAccessRequestToken(payload)
     const approvalUrl = buildApprovalUrl(emailOrigin, token)
@@ -190,4 +203,8 @@ export async function POST(request: Request) {
     const response = getMarketingServerErrorResponse(error, { method: "POST" })
     return NextResponse.json(response.body, { status: response.status })
   }
+}
+
+export function POST(request: Request) {
+  return handleEarlyAccessRequest(request)
 }

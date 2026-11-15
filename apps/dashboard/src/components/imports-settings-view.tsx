@@ -8,6 +8,7 @@ import type { ImportAvailability } from "@/components/imports/import-types"
 import { OpenImportSheet } from "@/components/open-import-sheet"
 import { SecondaryMenu } from "@/components/secondary-menu"
 import { DataTable as ImportDataTable } from "@/components/tables/imports/data-table"
+import { ImportsDataErrorBoundary } from "@/components/tables/imports/error-boundary"
 import { Loading as ImportTableLoading } from "@/components/tables/imports/skeleton"
 import type { DashboardImportKind } from "@/lib/import-csv"
 import {
@@ -249,14 +250,16 @@ export function ImportsSettingsView({
               >
                 {importKind ? "Added before" : "All imports"}
               </h2>
-              <Suspense fallback={<ImportTableLoading />}>
-                <ImportDataTable
-                  devMode={quickFillEnabled}
-                  importAvailability={importAvailability}
-                  importKind={importKind}
-                  initialSettings={initialSettings}
-                />
-              </Suspense>
+              <ImportsDataErrorBoundary>
+                <Suspense fallback={<ImportTableLoading />}>
+                  <ImportDataTable
+                    devMode={quickFillEnabled}
+                    importAvailability={importAvailability}
+                    importKind={importKind}
+                    initialSettings={initialSettings}
+                  />
+                </Suspense>
+              </ImportsDataErrorBoundary>
             </section>
           </>
         )}

@@ -1,8 +1,7 @@
 import { headers } from "next/headers"
-import { verifyMemberOnboardingRequest } from "@halaalvest/db"
 import { buildTenantHref } from "@halaalvest/tenant-url"
 import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
-import { buttonVariants } from "@halaalvest/ui/components/button"
+import { Button, buttonVariants } from "@halaalvest/ui/components/button"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { PublicAuthNotice } from "@/components/public-auth-notice"
 import { PublicAuthShell } from "@/components/public-auth-shell"
@@ -10,8 +9,9 @@ import { verifyMemberOnboardingVerificationToken } from "@/lib/member-onboarding
 import { getDashboardServerContext } from "@/lib/server-context"
 import { getRequestMigrationGateState } from "@/lib/setup-gate"
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
+import { confirmMemberSignupEmailAction } from "./actions"
 
-type VerifyOutcome = "closed" | "failed" | "no-tenant" | "verified"
+type VerifyOutcome = "closed" | "confirm" | "failed" | "no-tenant" | "verified"
 
 export default async function MemberSignupVerificationPage({
   searchParams,
@@ -28,6 +28,8 @@ export default async function MemberSignupVerificationPage({
   const context = await getDashboardServerContext()
   const tenant = context.tenant
   const token = typeof params.token === "string" ? params.token : null
+  // Set by the confirm action after its redirect (no token in this URL).
+  const status = typeof params.status === "string" ? params.status : null
   const loginHref = buildTenantHref(tenantUrlContext, "/login", tenantUrlConfig)
   let outcome: VerifyOutcome = "failed"
 
@@ -38,18 +40,16 @@ export default async function MemberSignupVerificationPage({
       .canUseLiveFinancialWrites
   ) {
     outcome = "closed"
+  } else if (status === "verified") {
+    outcome = "verified"
   } else if (token) {
-    // The emailed link is the confirmation: a signed, single-request token
-    // whose second visit is a no-op, so this one GET write is deliberate.
+    // Opening the link only checks it; the member confirms with a button
+    // (POST), so mail scanners that open links can't confirm for them.
     try {
       const payload = verifyMemberOnboardingVerificationToken(token)
 
       if (payload.tenantId === tenant.id) {
-        await verifyMemberOnboardingRequest({
-          requestId: payload.requestId,
-          tenantId: payload.tenantId,
-        })
-        outcome = "verified"
+        outcome = "confirm"
       }
     } catch {
       outcome = "failed"
@@ -62,11 +62,26 @@ export default async function MemberSignupVerificationPage({
     <PublicAuthShell
       cooperativeName={tenant?.name}
       title={
-        outcome === "verified" ? "Email confirmed" : "This link did not work"
+        outcome === "verified"
+          ? "Email confirmed"
+          : outcome === "confirm"
+            ? "Confirm your email"
+            : "This link did not work"
       }
     >
       <div className="grid gap-6">
-        {outcome === "verified" ? (
+        {outcome === "confirm" ? (
+          <form action={confirmMemberSignupEmailAction} className="grid gap-4">
+            <input name="token" type="hidden" value={token ?? ""} />
+            <PublicAuthNotice>
+              Press the button to confirm this is your email. {tenantName} will
+              then review your request.
+            </PublicAuthNotice>
+            <Button className="w-full" size="lg" type="submit">
+              Confirm my email
+            </Button>
+          </form>
+        ) : outcome === "verified" ? (
           <PublicAuthNotice tone="success">
             {tenantName} will now review your request. We will email you when
             you can sign in.
@@ -86,12 +101,14 @@ export default async function MemberSignupVerificationPage({
           </PublicAuthNotice>
         )}
 
-        <a
-          className={cn(buttonVariants({ size: "lg" }), "w-full")}
-          href={loginHref}
-        >
-          Go to sign in
-        </a>
+        {outcome === "confirm" ? null : (
+          <a
+            className={cn(buttonVariants({ size: "lg" }), "w-full")}
+            href={loginHref}
+          >
+            Go to sign in
+          </a>
+        )}
       </div>
     </PublicAuthShell>
   )

@@ -118,7 +118,6 @@ import {
   postRepayment,
   publishShareProfitAllocations,
   setMigrationBackfillDefaultingMonths,
-  upsertNotificationPreference,
   rejectMemberOnboardingRequest,
   updateContributionPlan,
   updateMemberPaymentAllocationPreference,
@@ -5932,21 +5931,6 @@ export async function removeTenantStaffRoleAction(formData: FormData) {
   revalidatePath("/settings/roles")
 }
 
-export async function saveNotificationPreferenceAction(formData: FormData) {
-  const actor = await requireDashboardActor(workspaceAdminRoles)
-
-  await upsertNotificationPreference({
-    actorUserId: actor.user.id,
-    channel: getRequiredString(formData, "channel"),
-    enabled: getRequiredString(formData, "enabled") === "true",
-    notificationType: getRequiredString(formData, "notificationType"),
-    role: (formData.get("role") as string | null)?.trim() || null,
-    tenantId: actor.tenant.id,
-  })
-
-  revalidatePath("/notifications")
-}
-
 export async function recordCollectionFollowUpAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireLiveFinancialWritesOpen(actor)
@@ -7267,7 +7251,6 @@ const dashboardActionHandlers = {
   runTenantDomainVerificationCheckAction,
   provisionTenantUserRoleAction,
   removeTenantStaffRoleAction,
-  saveNotificationPreferenceAction,
   recordCollectionFollowUpAction,
   createSupportCaseAction,
   addSupportCaseMessageAction,
@@ -7615,9 +7598,6 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   removeTenantStaffRoleAction: formAction(
     dashboardActionHandlers.removeTenantStaffRoleAction
-  ),
-  saveNotificationPreferenceAction: formAction(
-    dashboardActionHandlers.saveNotificationPreferenceAction
   ),
   recordCollectionFollowUpAction: formAction(
     dashboardActionHandlers.recordCollectionFollowUpAction

@@ -130,13 +130,34 @@ export async function getMemberDetailOverview(
   return { contributions, loans, member, repayments, summary }
 }
 
+/** Postings per statement page, newest first. */
+export const MEMBER_STATEMENT_PAGE_SIZE = 100
+
+export type MemberStatementPostingsOptions =
+  /** Every posting: the text downloads. */
+  | { allPostings: true }
+  /** One page of postings (1-based), `MEMBER_STATEMENT_PAGE_SIZE` each. */
+  | { page?: number }
+
+/**
+ * A member's printable statement. The page reads one page of postings
+ * (`MEMBER_STATEMENT_PAGE_SIZE`, newest first, one extra row to know whether
+ * older postings exist); the downloads ask for every posting.
+ */
 export async function getMemberStatementView(
   tenantId: string,
   memberId: string,
-  prismaOverride?: PrismaClient
+  prismaOverride?: PrismaClient,
+  options: MemberStatementPostingsOptions = {}
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
+
+  const allPostings = "allPostings" in options && options.allPostings
+  const page =
+    !allPostings && "page" in options && Number.isInteger(options.page)
+      ? Math.max(1, options.page ?? 1)
+      : 1
 
   const member = await prisma.member.findFirst({
     where: { id: memberId, tenantId },
@@ -158,7 +179,13 @@ export async function getMemberStatementView(
     await Promise.all([
       prisma.ledgerTransaction.findMany({
         where: { tenantId, memberId },
-        orderBy: [{ postedAt: "desc" }, { createdAt: "desc" }],
+        orderBy: [{ postedAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+        ...(allPostings
+          ? {}
+          : {
+              skip: (page - 1) * MEMBER_STATEMENT_PAGE_SIZE,
+              take: MEMBER_STATEMENT_PAGE_SIZE + 1,
+            }),
         select: {
           entries: {
             select: {
@@ -201,11 +228,21 @@ export async function getMemberStatementView(
       getMemberStatementSummary(tenantId, memberId, prisma),
     ])
 
+  const hasOlderPostings =
+    !allPostings && ledgerTransactions.length > MEMBER_STATEMENT_PAGE_SIZE
+
   return {
     dividendAllocations,
-    ledgerTransactions,
+    ledgerTransactions: hasOlderPostings
+      ? ledgerTransactions.slice(0, MEMBER_STATEMENT_PAGE_SIZE)
+      : ledgerTransactions,
     member,
     pendingCharges,
+    postings: {
+      hasOlder: hasOlderPostings,
+      page: allPostings ? null : page,
+      pageSize: allPostings ? null : MEMBER_STATEMENT_PAGE_SIZE,
+    },
     summary,
   }
 }

@@ -17,7 +17,8 @@ export type MemberStatementPageData =
     }
 
 export async function loadMemberStatementPageData(
-  memberId: string
+  memberId: string,
+  postingsPage = 1
 ): Promise<MemberStatementPageData> {
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
@@ -30,7 +31,12 @@ export async function loadMemberStatementPageData(
     return { state: "forbidden" }
   }
 
-  const detail = await getMemberStatementView(context.tenant.id, memberId)
+  const detail = await getMemberStatementView(
+    context.tenant.id,
+    memberId,
+    undefined,
+    { page: postingsPage }
+  )
 
   if (!detail) {
     return { state: "not-found" }

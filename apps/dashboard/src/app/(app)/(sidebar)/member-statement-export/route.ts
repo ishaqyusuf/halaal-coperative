@@ -24,7 +24,9 @@ export async function GET() {
 
   const detail = await getMemberStatementView(
     serverContext.tenant.id,
-    member.id
+    member.id,
+    undefined,
+    { allPostings: true }
   )
 
   if (!detail) {

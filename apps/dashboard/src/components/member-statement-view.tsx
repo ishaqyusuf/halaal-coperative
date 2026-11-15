@@ -64,8 +64,65 @@ function EmptyStatementRows({ label }: { label: string }) {
 }
 
 /**
+ * "Postings 1–100" with Newer/Older links. The page shows one page of
+ * postings; Download has them all.
+ */
+function StatementPostingsPager({
+  hasOlder,
+  memberId,
+  page,
+  pageSize,
+  shown,
+}: {
+  hasOlder: boolean
+  memberId: string
+  page: number
+  pageSize: number
+  shown: number
+}) {
+  if (page === 1 && !hasOlder) return null
+
+  const first = (page - 1) * pageSize + 1
+  const statementHref = `/members/${memberId}/statement`
+
+  return (
+    <nav
+      aria-label="Statement pages"
+      className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <p className="text-sm text-muted-foreground">
+        {shown === 1
+          ? `Posting ${first}`
+          : `Postings ${first}–${first + shown - 1}`}
+        , newest first.
+        <span className="hidden print:inline">
+          {" "}
+          Download the statement for every posting.
+        </span>
+      </p>
+      <div className="grid grid-cols-2 gap-2 sm:flex print:hidden">
+        {page > 1 ? (
+          <DashboardActionLink
+            href={
+              page === 2 ? statementHref : `${statementHref}?page=${page - 1}`
+            }
+          >
+            Newer
+          </DashboardActionLink>
+        ) : null}
+        {hasOlder ? (
+          <DashboardActionLink href={`${statementHref}?page=${page + 1}`}>
+            Older
+          </DashboardActionLink>
+        ) : null}
+      </div>
+    </nav>
+  )
+}
+
+/**
  * Printable member statement, written for the member to read: balances,
- * then every posting in plain words, newest first.
+ * then its postings in plain words, newest first, a page at a time.
  */
 export function MemberStatementView({
   cooperativeName,
@@ -155,7 +212,21 @@ export function MemberStatementView({
                 </li>
               ))}
             </ol>
+            <StatementPostingsPager
+              hasOlder={detail.postings.hasOlder}
+              memberId={member.id}
+              page={detail.postings.page ?? 1}
+              pageSize={detail.postings.pageSize ?? lines.length}
+              shown={lines.length}
+            />
           </>
+        ) : detail.postings.page && detail.postings.page > 1 ? (
+          <div className="flex flex-col items-start gap-3 py-4">
+            <EmptyStatementRows label="No older postings." />
+            <DashboardActionLink href={`/members/${member.id}/statement`}>
+              Newest postings
+            </DashboardActionLink>
+          </div>
         ) : (
           <EmptyStatementRows label="Nothing has been posted yet." />
         )}

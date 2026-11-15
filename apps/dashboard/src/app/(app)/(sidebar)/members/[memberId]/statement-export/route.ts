@@ -17,7 +17,12 @@ export async function GET(
     return new Response("Unauthorized", { status: 403 })
   }
 
-  const detail = await getMemberStatementView(serverContext.tenant.id, memberId)
+  const detail = await getMemberStatementView(
+    serverContext.tenant.id,
+    memberId,
+    undefined,
+    { allPostings: true }
+  )
 
   if (!detail) {
     return new Response("Not found", { status: 404 })

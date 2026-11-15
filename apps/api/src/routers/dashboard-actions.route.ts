@@ -75,7 +75,6 @@ import {
   provisionTenantUserRole,
   removeTenantStaffRole,
   rotateMemberSignupLinkToken,
-  refreshCollectionsStatuses,
   recordFoodPurchaseAccounting,
   transitionFoodPurchaseCycle,
   recordMemberPayment,
@@ -5932,19 +5931,6 @@ export async function saveNotificationPreferenceAction(formData: FormData) {
   revalidatePath("/notifications")
 }
 
-export async function refreshCollectionsStatusesAction() {
-  const actor = await requireDashboardActor(financeManagementRoles)
-  await requireLiveFinancialWritesOpen(actor)
-
-  await refreshCollectionsStatuses({
-    actorUserId: actor.user.id,
-    tenantId: actor.tenant.id,
-  })
-
-  revalidatePath("/repayments")
-  revalidatePath("/loans")
-}
-
 export async function recordCollectionFollowUpAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireLiveFinancialWritesOpen(actor)
@@ -7216,7 +7202,6 @@ const dashboardActionHandlers = {
   provisionTenantUserRoleAction,
   removeTenantStaffRoleAction,
   saveNotificationPreferenceAction,
-  refreshCollectionsStatusesAction,
   recordCollectionFollowUpAction,
   createSupportCaseAction,
   addSupportCaseMessageAction,
@@ -7562,9 +7547,6 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   saveNotificationPreferenceAction: formAction(
     dashboardActionHandlers.saveNotificationPreferenceAction
-  ),
-  refreshCollectionsStatusesAction: noInputAction(
-    dashboardActionHandlers.refreshCollectionsStatusesAction
   ),
   recordCollectionFollowUpAction: formAction(
     dashboardActionHandlers.recordCollectionFollowUpAction

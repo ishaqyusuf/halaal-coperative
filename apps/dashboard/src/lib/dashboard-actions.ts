@@ -674,10 +674,6 @@ export async function saveNotificationPreferenceAction(formData: FormData) {
   return callDashboardFormAction("saveNotificationPreferenceAction", formData)
 }
 
-export async function refreshCollectionsStatusesAction() {
-  return callDashboardNoInputAction("refreshCollectionsStatusesAction")
-}
-
 export async function recordCollectionFollowUpAction(formData: FormData) {
   return callDashboardFormAction("recordCollectionFollowUpAction", formData)
 }

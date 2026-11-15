@@ -1101,53 +1101,6 @@ export async function getCollectionFollowUpSummary(
   }
 }
 
-export async function refreshCollectionsStatuses(
-  input: {
-    actorUserId: string
-    /** Server-owned clock override for deterministic internal workflows. */
-    asOf?: Date
-    tenantId: string
-  },
-  prismaOverride?: PrismaClient
-) {
-  const prisma = prismaOverride ?? createPrismaClient()
-  if (!prisma) throw new Error("Database not configured")
-  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
-
-  const today = input.asOf ?? new Date()
-
-  return prisma.$transaction(async (tx) => {
-    const result = await tx.repaymentScheduleItem.updateMany({
-      where: {
-        tenantId: input.tenantId,
-        dueAt: { lt: today },
-        status: {
-          in: ["pending", "due", "partially_paid"],
-        },
-      },
-      data: {
-        status: "overdue",
-      },
-    })
-
-    await tx.auditLog.create({
-      data: {
-        tenantId: input.tenantId,
-        actorUserId: input.actorUserId,
-        actorType: "user",
-        action: "collections.statuses_refreshed",
-        entityType: "RepaymentScheduleItem",
-        metadata: {
-          updatedCount: result.count,
-        },
-        occurredAt: today,
-      },
-    })
-
-    return result
-  })
-}
-
 function calculateEstimatedMonthlyServicing(
   requestedAmount: number,
   requestedTermMonths: number

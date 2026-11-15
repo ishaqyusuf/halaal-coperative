@@ -94,13 +94,13 @@ test("renders every selected deletion link and keeps the partial-inventory cavea
     <PrivacyProcessingCountList counts={counts} />
   )
 
-  expect(html.match(/<dt>/g)).toHaveLength(83)
+  expect(html.match(/<dt>/g)).toHaveLength(85)
   const renderedCounts = Array.from(
     html.matchAll(/<dd[^>]*>(\d+)<\/dd>/g),
     (match) => Number(match[1])
   ).sort((a, b) => a - b)
   expect(renderedCounts).toEqual(
-    Array.from({ length: 83 }, (_, index) => index + 1)
+    Array.from({ length: 85 }, (_, index) => index + 1)
   )
   expect(html).toContain("Staff and import history")
   expect(html).toContain("Support cases assigned to staff account")
@@ -108,6 +108,7 @@ test("renders every selected deletion link and keeps the partial-inventory cavea
   expect(html).toContain("Software checkout intents requested")
   expect(html).toContain("Personal mobile app store purchase chains")
   expect(html).toContain("Personal mobile app provider events")
+  expect(html).toContain("Cooperative mobile access terms")
   expect(html).toContain("Shared financial and collections history")
   expect(html).toContain("Guarantor approvals responded")
   expect(html).toContain("Foodstuff, procurement and project financing")

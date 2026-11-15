@@ -551,6 +551,8 @@ describe("account privacy safeguards", () => {
     expect(inventory.counts.mobileAppAccessPurchases).toBe(1)
     expect(inventory.counts.mobileAppReviewGrants).toBe(1)
     expect(inventory.counts.mobileAppAccessProviderEvents).toBe(1)
+    expect(inventory.counts.cooperativeMobileAccessTerms).toBe(1)
+    expect(inventory.counts.cooperativeMobileInvoiceItems).toBe(1)
     expect(inventory.counts.privacyRequests).toBe(1)
     expect(inventory.counts.remainingMobileSessions).toBe(1)
     expect(inventory.erasureComplete).toBe(false)
@@ -574,6 +576,9 @@ describe("account privacy safeguards", () => {
     expect(calls).toContainEqual({ where: { respondedByUserId: "user-a" } })
     expect(calls).toContainEqual({ where: { receivedByUserId: "user-a" } })
     expect(calls).toContainEqual({ where: { member: { userId: "user-a" } } })
+    expect(calls).toContainEqual({
+      where: { term: { member: { userId: "user-a" } } },
+    })
     expect(calls).toContainEqual({ where: { verifiedByUserId: "user-a" } })
     expect(calls).toContainEqual({ where: { revokedByUserId: "user-a" } })
     expect(calls).toContainEqual({
@@ -589,7 +594,7 @@ describe("account privacy safeguards", () => {
         prisma
       )
     ).rejects.toThrow("not ready")
-    expect(calls).toHaveLength(83)
+    expect(calls).toHaveLength(85)
     operator = false
     await expect(
       getPrivacyProcessingInventory(

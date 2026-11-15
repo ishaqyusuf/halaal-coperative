@@ -204,8 +204,10 @@ export async function proxy(request: NextRequest) {
   return NextResponse.next({ request: { headers: requestHeaders } })
 }
 
+// Provider webhooks and the machine-only channel worker never need tenant
+// routing or a session, so the proxy does no work for them.
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|brand/|favicon.ico|sitemap.xml|robots.txt).*)",
+    "/((?!_next/static|_next/image|brand/|favicon.ico|sitemap.xml|robots.txt|api/webhooks/assistant/|api/internal/assistant/channels/).*)",
   ],
 }

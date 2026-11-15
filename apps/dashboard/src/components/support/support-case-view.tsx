@@ -319,6 +319,8 @@ function SupportReply({
   )
 }
 
+const noAssignee = "none"
+
 function SupportCaseDetails({
   assignees,
   supportCase,
@@ -329,8 +331,9 @@ function SupportCaseDetails({
   const refresh = useSupportRefresh()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
+  // "none" is sent as-is so the server takes the case off everyone.
   const [assignedToUserId, setAssignedToUserId] = useState(
-    supportCase.assignedToUserId ?? ""
+    supportCase.assignedToUserId ?? noAssignee
   )
   const [priority, setPriority] = useState<SupportCasePriority>(
     supportCase.priority
@@ -343,7 +346,7 @@ function SupportCaseDetails({
     ? [{ label: "Solved", value: "resolved" as const }, ...supportActiveStatusOptions]
     : supportActiveStatusOptions
   const changed =
-    assignedToUserId !== (supportCase.assignedToUserId ?? "") ||
+    assignedToUserId !== (supportCase.assignedToUserId ?? noAssignee) ||
     priority !== supportCase.priority ||
     status !== supportCase.status ||
     needsMoneyFix !== supportCase.requiresFinancialAdjustment
@@ -377,9 +380,10 @@ function SupportCaseDetails({
             disabled={isPending}
             onValueChange={setAssignedToUserId}
             options={[
-              ...(supportCase.assignedToUserId
-                ? []
-                : [{ label: "No one yet", value: "" }]),
+              {
+                label: supportCase.assignedToUserId ? "No one" : "No one yet",
+                value: noAssignee,
+              },
               ...assignees.map((assignee) => ({
                 label: assignee.label,
                 value: assignee.id,

@@ -197,6 +197,7 @@ import {
   sendEmailDraftWithAudit as sendEmailDraftWithAuditBase,
   sendTenantRoleNotificationEmails as sendTenantRoleNotificationEmailsBase,
 } from "../lib/server-notifications"
+import { readSupportCaseAssignee } from "../lib/support-assignee"
 import {
   createQaNotificationPreviews,
   type QaNotificationPreview,
@@ -6172,7 +6173,8 @@ export async function updateSupportCaseStatusAction(formData: FormData) {
 
   const supportCase = await updateSupportCaseStatus({
     actorUserId: actor.user.id,
-    assignedToUserId: getOptionalTrimmedString(formData, "assignedToUserId"),
+    // "none" unassigns; an empty field keeps the current assignee.
+    assignedToUserId: readSupportCaseAssignee(formData),
     priority: getRequiredString(formData, "priority") as
       | "low"
       | "normal"

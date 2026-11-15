@@ -68,7 +68,9 @@ function formatDateLabel(value?: string | null) {
     return "Pick a date"
   }
 
-  return new Intl.DateTimeFormat("en", {
+  // "14 Nov 2026", like formatDayMonthYear elsewhere on the dashboard. The
+  // picker's Date is a local calendar day, so no time zone is forced here.
+  return new Intl.DateTimeFormat("en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric",

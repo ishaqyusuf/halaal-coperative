@@ -13,6 +13,7 @@ import {
   type NotificationEmailDraft,
 } from "@halaalvest/notifications"
 import { createServerNotificationService } from "@halaalvest/notifications/server"
+import { getRequestOrigin } from "@halaalvest/api/context"
 import { buildTenantDashboardUrl } from "@halaalvest/utils"
 import { resolveMemberSignupGate } from "@/lib/member-signup-access"
 import { verifyMemberSignupLinkToken } from "@/lib/member-signup-link-token"
@@ -131,7 +132,9 @@ export async function submitMemberOnboardingAction(formData: FormData) {
     tenantId: context.tenant.id,
   })
   const verificationUrl = buildTenantDashboardUrl(context.tenant.slug, {
-    currentOrigin: headerStore.get("origin") ?? undefined,
+    // The forwarded origin keeps https behind Portless and Vercel.
+    currentOrigin:
+      getRequestOrigin(headerStore) ?? headerStore.get("origin") ?? undefined,
     pathname: `/signup/members/verify?token=${encodeURIComponent(verificationToken)}`,
     tenantHostname: headerStore.get("x-tenant-hostname"),
   })
@@ -189,7 +192,9 @@ export async function resendMemberVerificationAction() {
     tenantId: context.tenant.id,
   })
   const verificationUrl = buildTenantDashboardUrl(context.tenant.slug, {
-    currentOrigin: headerStore.get("origin") ?? undefined,
+    // The forwarded origin keeps https behind Portless and Vercel.
+    currentOrigin:
+      getRequestOrigin(headerStore) ?? headerStore.get("origin") ?? undefined,
     pathname: `/signup/members/verify?token=${encodeURIComponent(verificationToken)}`,
     tenantHostname: headerStore.get("x-tenant-hostname"),
   })

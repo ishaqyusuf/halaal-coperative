@@ -26,6 +26,7 @@ import { createServerNotificationService } from "@halaalvest/notifications/serve
 import { AppError } from "@halaalvest/errors"
 import { captureApiNotificationError } from "../observability/sentry"
 import { randomUUID } from "node:crypto"
+import { buildTenantDashboardUrl } from "@halaalvest/utils"
 
 type MobilePushRecipientHint = {
   entityId?: string
@@ -166,9 +167,33 @@ export async function sendEmailDraftWithAudit(input: {
   return delivery
 }
 
+/**
+ * Email buttons need a full link. A dashboard path ("/domains") becomes the
+ * cooperative's dashboard URL, built from the caller's origin when known and
+ * otherwise from DASHBOARD_APP_URL, so local links keep Portless's https
+ * instead of the bare http:// fallback. Full links pass through.
+ */
+export function resolveTenantEmailActionUrl(input: {
+  actionUrl: string
+  currentOrigin?: string | null
+  tenantSlug: string
+}) {
+  if (!input.actionUrl.startsWith("/")) return input.actionUrl
+
+  return (
+    buildTenantDashboardUrl(input.tenantSlug, {
+      currentOrigin:
+        input.currentOrigin || process.env.DASHBOARD_APP_URL?.trim() || null,
+      pathname: input.actionUrl,
+    }) || input.actionUrl
+  )
+}
+
 export async function sendTenantRoleNotificationEmails(input: {
   actionLabel: string
   actionUrl: string
+  /** The caller's public origin, when the request has one. */
+  currentOrigin?: string | null
   bodyText: string
   metadata?: Record<string, unknown>
   notificationType: string
@@ -187,11 +212,12 @@ export async function sendTenantRoleNotificationEmails(input: {
   })
 
   const deliveries: Awaited<ReturnType<typeof sendEmailDraftWithAudit>>[] = []
+  const actionUrl = resolveTenantEmailActionUrl(input)
 
   for (const recipient of recipients) {
     const draft = createNotificationEmailDraft({
       actionLabel: input.actionLabel,
-      actionUrl: input.actionUrl,
+      actionUrl,
       bodyText: input.bodyText,
       eventLabel: input.notificationType,
       notificationType: input.notificationType,

@@ -251,7 +251,10 @@ async function sendEmailDraftWithAudit(
 async function sendTenantRoleNotificationEmails(
   input: Parameters<typeof sendTenantRoleNotificationEmailsBase>[0]
 ) {
-  const deliveries = await sendTenantRoleNotificationEmailsBase(input)
+  const deliveries = await sendTenantRoleNotificationEmailsBase({
+    currentOrigin: dashboardActionState.getStore()?.context.request.origin,
+    ...input,
+  })
   collectQaPreviews(createQaNotificationPreviews(deliveries))
 
   return deliveries

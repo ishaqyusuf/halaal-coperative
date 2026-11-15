@@ -3,8 +3,11 @@
 import type {
   AssistantActionResult,
   AssistantConversationSummary,
+  AssistantLinkResolution,
+  AssistantLinkTarget,
   AssistantMessage,
   AssistantProposal,
+  AssistantStreamStage,
   AssistantTurnInput,
   AssistantTurnOutput,
   ProposalConfirmInput,
@@ -25,6 +28,8 @@ export type AssistantBootstrap = {
   cooperativeName: string
   suggestions: { capabilityId: string; label: string }[]
   help: { capabilityId: string; title: string; suggestion: string }[]
+  /** Optional until every API build returns it; absent means no uploads. */
+  uploads?: { receiptProof: boolean }
 }
 
 export type AssistantConversationDetail = {
@@ -43,10 +48,22 @@ export type AssistantApi = {
   getConversation: (id: string) => Promise<AssistantConversationDetail>
   archiveConversation: (id: string) => Promise<{ ok: true }>
   send: (input: AssistantTurnInput) => Promise<AssistantTurnOutput>
+  /**
+   * The same turn as `send`, streamed (POST /api/assistant/turn). Calls
+   * `onStage` for each progress event. Throws `AssistantStreamUnavailable`
+   * when the stream itself failed (network, non-200, cut short) so the
+   * caller can repeat the turn through `send` with the same `requestId`.
+   */
+  streamTurn: (
+    input: AssistantTurnInput,
+    onStage: (stage: AssistantStreamStage) => void
+  ) => Promise<AssistantTurnOutput>
   getProposal: (proposalId: string) => Promise<AssistantProposal>
   editProposal: (input: ProposalEditInput) => Promise<AssistantProposal>
   confirmProposal: (input: ProposalConfirmInput) => Promise<AssistantActionResult>
   cancelProposal: (proposalId: string) => Promise<AssistantProposal>
+  /** Re-authorizes a saved-answer or draft link. Reads only. */
+  resolveLink: (target: AssistantLinkTarget) => Promise<AssistantLinkResolution>
 }
 
 const AssistantApiContext = createContext<AssistantApi | null>(null)
@@ -66,6 +83,8 @@ export const assistantKeys = {
   conversations: () => [...assistantKeys.all, "conversations"] as const,
   conversation: (id: string) =>
     [...assistantKeys.all, "conversation", id] as const,
+  link: (target: AssistantLinkTarget) =>
+    [...assistantKeys.all, "link", target.kind, target.id] as const,
 }
 
 /** Client idempotency key for one send or one confirmation. */

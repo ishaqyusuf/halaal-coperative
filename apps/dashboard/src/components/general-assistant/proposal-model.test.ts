@@ -5,6 +5,7 @@ import {
   proposalFieldsFromForm,
   proposalFormValues,
   proposalLines,
+  receiptProofUploadId,
 } from "./proposal-model"
 
 const receipt: AssistantProposalFields = {
@@ -104,5 +105,23 @@ describe("proposalLines", () => {
     const lines = proposalLines(receipt)
     expect(lines[0]).toEqual({ label: "Amount", value: "₦25,000", strong: true })
     expect(lines.map((line) => line.label)).toContain("→ Regular savings")
+  })
+})
+
+describe("receipt proof", () => {
+  test("reads the upload id from an upload URL only", () => {
+    const id = "0f8b1c2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d"
+    expect(receiptProofUploadId(`/api/uploads/${id}`)).toBe(id)
+    expect(receiptProofUploadId(`https://evil.test/api/uploads/${id}`)).toBeNull()
+    expect(receiptProofUploadId("/api/uploads/not-an-id")).toBeNull()
+  })
+
+  test("the review names the attached file", () => {
+    const lines = proposalLines({
+      ...receipt,
+      evidenceUploadId: "0f8b1c2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d",
+      evidenceName: "transfer.pdf",
+    })
+    expect(lines.find((line) => line.label === "Proof")?.value).toBe("transfer.pdf")
   })
 })

@@ -1,8 +1,10 @@
 "use client"
 
-import type {
-  AssistantMessage,
-  AssistantProposal,
+import {
+  type AssistantMessage,
+  type AssistantProposal,
+  type AssistantStreamStage,
+  assistantHrefs,
 } from "@halaalvest/assistant/contracts"
 import { Button } from "@halaalvest/ui/components/button"
 import {
@@ -17,6 +19,7 @@ import { Copy01Icon, Tick02Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Fragment, type ReactNode, useEffect, useRef, useState } from "react"
 import { AssistantComposer } from "./assistant-composer"
+import { AssistantCopyLink } from "./assistant-copy-link"
 import { AssistantText } from "./assistant-text"
 import { type AnswerActions, GeneralAnswerCard } from "./general-answer-card"
 import { ActionResultCard, GeneralProposalCard } from "./general-proposal-card"
@@ -72,6 +75,14 @@ function placeProposals(messages: AssistantMessage[]) {
   return last
 }
 
+/** What the reply in flight is doing, from the stream's status events. */
+export const assistantStageLabel: Record<AssistantStreamStage, string> = {
+  received: "Sending…",
+  thinking: "Thinking…",
+  reading: "Reading your records…",
+  drafting: "Preparing a draft…",
+}
+
 const welcomeCopy = (role: "member" | "staff" | undefined) =>
   role === "staff"
     ? "Find a member, check their history, see receipts waiting for review, or record a payment. Nothing changes until you confirm."
@@ -82,15 +93,23 @@ export function GeneralThread({
   vm,
   compact = false,
   contentClassName,
+  focusMessageId = null,
 }: {
   vm: GeneralAssistantVM
   compact?: boolean
   /** Width of the message column, e.g. a centred reading width on the page. */
   contentClassName?: string
+  /** A saved-answer link's message: scrolled to and highlighted once. */
+  focusMessageId?: string | null
 }) {
   const [editing, setEditing] = useState<AssistantProposal | null>(null)
   const { enabled, disabled } = generalChatFlags(vm)
   const scroller = useRef<HTMLDivElement | null>(null)
+  const focused = useRef<string | null>(null)
+  const [highlight, setHighlight] = useState<string | null>(null)
+  const focusReady =
+    !!focusMessageId &&
+    vm.messages.some((message) => message.id === focusMessageId)
   const proposals = new Map(
     (vm.data?.proposals ?? []).map((proposal) => [proposal.id, proposal])
   )
@@ -111,13 +130,34 @@ export function GeneralThread({
     onAsk: (text) => void vm.send(text),
   }
 
-  // Keep the newest message in view as the thread grows.
+  // Keep the newest message in view as the thread grows, unless a linked
+  // answer is still waiting to be shown.
   const length = vm.messages.length
   useEffect(() => {
     const element = scroller.current
     if (!element) return
+    if (focusMessageId && focused.current !== focusMessageId) return
     element.scrollTo({ top: element.scrollHeight, behavior: "smooth" })
-  }, [length, vm.pendingText, vm.conversationId])
+  }, [length, vm.pendingText, vm.conversationId, vm.stage])
+
+  // A saved-answer link opens on that exact message, once. The message is
+  // already committed when this runs (no animation frame, which a
+  // background tab would hold back).
+  useEffect(() => {
+    if (!focusMessageId || !focusReady || focused.current === focusMessageId)
+      return
+    const element = document.getElementById(`general-message-${focusMessageId}`)
+    if (!element) return
+    focused.current = focusMessageId
+    element.scrollIntoView({ block: "start", behavior: "instant" })
+    element.focus({ preventScroll: true })
+    setHighlight(focusMessageId)
+  }, [focusMessageId, focusReady])
+  useEffect(() => {
+    if (!highlight) return
+    const timer = setTimeout(() => setHighlight(null), 2400)
+    return () => clearTimeout(timer)
+  }, [highlight])
 
   const proposalCard = (proposalId: string) => {
     const proposal = proposals.get(proposalId)
@@ -131,9 +171,11 @@ export function GeneralThread({
           }
           disabled={disabled}
           working={vm.working.has(proposalId)}
+          receiptProofUploads={vm.receiptProofUploads}
           onConfirm={() => void vm.confirm(proposal)}
           onCancel={() => void vm.cancel(proposal)}
           onEdit={() => setEditing(proposal)}
+          onProofUploaded={(file) => void vm.attachProof(proposal, file)}
         />
       </div>
     )
@@ -201,9 +243,18 @@ export function GeneralThread({
             const text = message.parts
               .flatMap((part) => (part.type === "text" ? [part.text] : []))
               .join("\n\n")
+            const highlighted = highlight === message.id
             if (message.role === "user")
               return (
-                <div key={message.id} className="flex flex-col items-end gap-1.5">
+                <div
+                  key={message.id}
+                  id={`general-message-${message.id}`}
+                  tabIndex={-1}
+                  className={cn(
+                    "flex scroll-mt-6 flex-col items-end gap-1.5 rounded-lg outline-none transition-shadow duration-700",
+                    highlighted && "ring-4 ring-primary/30"
+                  )}
+                >
                   {text ? (
                     <p
                       className={cn(
@@ -220,7 +271,12 @@ export function GeneralThread({
               <div
                 key={message.id}
                 id={`general-message-${message.id}`}
-                className="flex min-w-0 scroll-mt-6 flex-col gap-2 text-foreground"
+                tabIndex={-1}
+                aria-current={focusMessageId === message.id ? "true" : undefined}
+                className={cn(
+                  "flex min-w-0 scroll-mt-6 flex-col gap-2 rounded-lg text-foreground outline-none transition-shadow duration-700",
+                  highlighted && "ring-4 ring-primary/30 ring-offset-4 ring-offset-background"
+                )}
               >
                 {message.parts.map((part, index) => (
                   <Fragment key={`${message.id}:${index}`}>
@@ -250,7 +306,7 @@ export function GeneralThread({
                     ) : null}
                   </Fragment>
                 ))}
-                {text ? <ReplyFooter text={text} /> : null}
+                <ReplyFooter text={text} messageId={message.id} />
               </div>
             )
           })}
@@ -268,8 +324,11 @@ export function GeneralThread({
             </div>
           ) : null}
           {vm.busy ? (
-            <p className="animate-pulse text-xs text-muted-foreground">
-              Thinking…
+            <p
+              className="animate-pulse text-xs text-muted-foreground"
+              data-stage={vm.stage ?? "received"}
+            >
+              {assistantStageLabel[vm.stage ?? "received"]}
             </p>
           ) : null}
           {vm.notice ? (
@@ -344,8 +403,11 @@ export function GeneralComposer({
   )
 }
 
-/** Who wrote the reply, and a copy button, under each finished reply. */
-function ReplyFooter({ text }: { text: string }) {
+/**
+ * Who wrote the reply, a copy button for its text, and a link to this exact
+ * saved answer (`assistantHrefs.message`), under each finished reply.
+ */
+function ReplyFooter({ text, messageId }: { text: string; messageId: string }) {
   const [copied, setCopied] = useState(false)
   useEffect(() => {
     if (!copied) return
@@ -355,24 +417,27 @@ function ReplyFooter({ text }: { text: string }) {
   return (
     <div className="-mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
       <span>Halaalvest assistant</span>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-xs"
-        aria-label={copied ? "Copied" : "Copy reply"}
-        title={copied ? "Copied" : "Copy reply"}
-        onClick={() =>
-          void navigator.clipboard
-            ?.writeText(text)
-            .then(() => setCopied(true))
-            .catch(() => {})
-        }
-      >
-        <HugeiconsIcon
-          icon={copied ? Tick02Icon : Copy01Icon}
-          className="size-3.5"
-        />
-      </Button>
+      {text ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          aria-label={copied ? "Copied" : "Copy reply"}
+          title={copied ? "Copied" : "Copy reply"}
+          onClick={() =>
+            void navigator.clipboard
+              ?.writeText(text)
+              .then(() => setCopied(true))
+              .catch(() => {})
+          }
+        >
+          <HugeiconsIcon
+            icon={copied ? Tick02Icon : Copy01Icon}
+            className="size-3.5"
+          />
+        </Button>
+      ) : null}
+      <AssistantCopyLink href={assistantHrefs.message(messageId)} />
     </div>
   )
 }

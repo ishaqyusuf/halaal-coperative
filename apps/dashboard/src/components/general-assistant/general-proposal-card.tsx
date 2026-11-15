@@ -1,9 +1,11 @@
 "use client"
 
-import type {
-  AssistantActionResult,
-  AssistantProposal,
+import {
+  type AssistantActionResult,
+  type AssistantProposal,
+  assistantHrefs,
 } from "@halaalvest/assistant/contracts"
+import { TenantLink } from "@halaalvest/tenant-url/next"
 import { Badge } from "@halaalvest/ui/components/badge"
 import { Button } from "@halaalvest/ui/components/button"
 import { cn } from "@halaalvest/ui/lib/utils"
@@ -13,6 +15,9 @@ import {
   Tick02Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { useState } from "react"
+import { UploadEvidenceInput } from "@/components/upload-evidence-input"
+import { AssistantCopyLink } from "./assistant-copy-link"
 import { AssistantLinkButton } from "./general-answer-card"
 import {
   proposalConfirmLabel,
@@ -20,6 +25,7 @@ import {
   proposalLines,
   proposalStatusLabel,
   proposalTitle,
+  receiptProofUploadId,
 } from "./proposal-model"
 
 /**
@@ -32,9 +38,11 @@ export function GeneralProposalCard({
   result,
   disabled,
   working,
+  receiptProofUploads = false,
   onConfirm,
   onCancel,
   onEdit,
+  onProofUploaded,
 }: {
   proposal: AssistantProposal
   /** The confirmation's saved result, when this page confirmed it. */
@@ -43,9 +51,13 @@ export function GeneralProposalCard({
   disabled: boolean
   /** A confirm, edit or cancel for this draft is in flight. */
   working: boolean
+  /** `bootstrap.uploads.receiptProof`: proof can be attached in chat. */
+  receiptProofUploads?: boolean
   onConfirm: () => void
   onCancel: () => void
   onEdit: () => void
+  /** An uploaded proof for a receipt draft; saved as a new revision. */
+  onProofUploaded?: (file: { uploadId: string; name: string }) => void
 }) {
   const kind = proposal.fields.kind
   const title = proposalTitle[kind]
@@ -84,6 +96,11 @@ export function GeneralProposalCard({
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold">{title}</h3>
+        <div className="flex items-center gap-1">
+        <AssistantCopyLink
+          href={assistantHrefs.proposal(proposal.id)}
+          label="Copy draft link"
+        />
         {status === "expired" ? (
           <Badge
             variant="outline"
@@ -97,6 +114,7 @@ export function GeneralProposalCard({
             {proposalStatusLabel[status]}
           </Badge>
         )}
+        </div>
       </div>
       <ul className="min-w-0 space-y-1 text-sm">
         {lines.map((line, index) => (
@@ -124,6 +142,15 @@ export function GeneralProposalCard({
         <p className="text-sm text-amber-700 dark:text-amber-400">
           Still needed: {proposal.missing.join(", ")}.
         </p>
+      ) : null}
+      {open && proposal.fields.kind === "receipt-submission" ? (
+        <ReceiptProofStep
+          fileName={proposal.fields.evidenceName ?? null}
+          attached={!!proposal.fields.evidenceUploadId}
+          uploads={receiptProofUploads && !!onProofUploaded}
+          disabled={busy}
+          onUploaded={(file) => onProofUploaded?.(file)}
+        />
       ) : null}
       {open ? <p className="text-xs text-muted-foreground">{proposal.effect}</p> : null}
       {open && proposal.confirmInApp ? (
@@ -170,6 +197,59 @@ export function GeneralProposalCard({
         <p className="text-xs text-muted-foreground">Nothing was saved.</p>
       )}
     </section>
+  )
+}
+
+/**
+ * Proof for a member's receipt draft (M04). With private uploads on, the
+ * file goes up as `payment_receipt_proof` and the draft gets a new revision
+ * naming it; otherwise the receipts page takes the proof.
+ */
+function ReceiptProofStep({
+  attached,
+  fileName,
+  uploads,
+  disabled,
+  onUploaded,
+}: {
+  attached: boolean
+  fileName: string | null
+  uploads: boolean
+  disabled: boolean
+  onUploaded: (file: { uploadId: string; name: string }) => void
+}) {
+  const [error, setError] = useState<string | null>(null)
+  if (!uploads)
+    return attached ? null : (
+      <p className="text-xs text-muted-foreground">
+        <TenantLink
+          href="/payment-receipts"
+          className="font-medium text-primary underline-offset-4 hover:underline"
+        >
+          Add proof on the receipts page
+        </TenantLink>
+      </p>
+    )
+  return (
+    <div className="grid gap-1.5 rounded-md bg-muted/40 p-3">
+      <p className="text-xs font-medium">
+        {attached ? "Replace proof of payment" : "Add proof of payment"}
+      </p>
+      <UploadEvidenceInput
+        disabled={disabled}
+        purpose="payment_receipt_proof"
+        onUploaded={(upload) => {
+          const uploadId = receiptProofUploadId(upload.url)
+          if (!uploadId) {
+            setError("That upload didn't finish. Try again.")
+            return
+          }
+          setError(null)
+          onUploaded({ uploadId, name: upload.fileName })
+        }}
+      />
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+    </div>
   )
 }
 

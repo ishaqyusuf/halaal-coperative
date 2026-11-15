@@ -5,6 +5,8 @@ import type {
   AssistantMessage,
   AssistantProposal,
   AssistantProposalFields,
+  AssistantStreamStage,
+  AssistantTurnInput,
 } from "@halaalvest/assistant/contracts"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useRef, useState } from "react"
@@ -14,6 +16,7 @@ import {
   newAssistantKey,
   useAssistantApi,
 } from "./assistant-api"
+import { sendTurnWithFallback } from "./assistant-stream"
 
 type Choice = { proposalId: string | null; value: string }
 
@@ -32,10 +35,12 @@ const errorText = (error: unknown, fallback: string) =>
 
 /**
  * The assistant page's state: bootstrap, saved chats, the open chat, the
- * composer draft, and proposal review. Sends are non-streaming; a failed send
- * is only retried when the person taps "Try again", with the same
- * `requestId`, so the server returns the saved reply instead of answering
- * twice. Confirmations reuse one key per proposal revision for the same
+ * composer draft, and proposal review. Sends stream progress from
+ * POST /api/assistant/turn; if that stream fails (network, non-200, cut
+ * short) the same turn goes once through `assistant.send` with the same
+ * `requestId`, which is replay-safe. A send that still fails is only retried
+ * when the person taps "Try again", again with the same `requestId`, so the
+ * server returns the saved reply instead of answering twice. Confirmations reuse one key per proposal revision for the same
  * reason, and never run on their own.
  */
 export function useGeneralAssistant({
@@ -55,6 +60,8 @@ export function useGeneralAssistant({
   const [draft, setDraft] = useState("")
   const [busy, setBusy] = useState(false)
   const [pendingText, setPendingText] = useState<string | null>(null)
+  // Progress of the reply in flight, from the stream's status events.
+  const [stage, setStage] = useState<AssistantStreamStage | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [failed, setFailed] = useState<FailedSend | null>(null)
   const [working, setWorking] = useState<ReadonlySet<string>>(new Set())
@@ -123,13 +130,17 @@ export function useGeneralAssistant({
       setBusy(true)
       setNotice(null)
       setPendingText(attempt.text)
+      setStage("received")
       try {
-        const output = await api.send({
+        const input: AssistantTurnInput = {
           conversationId: attempt.conversationId,
           requestId: attempt.requestId,
           text: attempt.text,
           ...(attempt.choice ? { choice: attempt.choice } : {}),
-        })
+        }
+        // A broken stream falls back to assistant.send with the same
+        // requestId, which returns the saved reply if the turn ran.
+        const output = await sendTurnWithFallback(api, input, setStage)
         writeDetail(attempt.conversationId, (current) => {
           const base = current ?? {
             conversation: {
@@ -176,6 +187,7 @@ export function useGeneralAssistant({
         sending.current = false
         setBusy(false)
         setPendingText(null)
+        setStage(null)
       }
     },
     [api, queryClient, writeDetail]
@@ -319,6 +331,22 @@ export function useGeneralAssistant({
     [api, conversationId, putProposal, working]
   )
 
+  /**
+   * Attaches an uploaded receipt proof to a receipt draft: a new revision
+   * with `evidenceUploadId` and `evidenceName`, reviewed before confirming.
+   */
+  const attachProof = useCallback(
+    (proposal: AssistantProposal, file: { uploadId: string; name: string }) => {
+      if (proposal.fields.kind !== "receipt-submission") return Promise.resolve(false)
+      return save(proposal, {
+        ...proposal.fields,
+        evidenceUploadId: file.uploadId,
+        evidenceName: file.name.slice(0, 160),
+      })
+    },
+    [save]
+  )
+
   const choose = useCallback((id: string) => {
     setConversationId(id)
     setNotice(null)
@@ -361,6 +389,7 @@ export function useGeneralAssistant({
     draft,
     setDraft,
     busy,
+    stage,
     pendingText,
     notice,
     failed: !!failed,
@@ -372,6 +401,8 @@ export function useGeneralAssistant({
     confirm,
     cancel,
     save,
+    attachProof,
+    receiptProofUploads: bootstrap.data?.uploads?.receiptProof === true,
     choose,
     clearThread,
     archive,

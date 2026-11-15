@@ -15,7 +15,7 @@ import {
   SidebarLeftIcon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import {
   GENERAL_DIALOG,
@@ -41,6 +41,8 @@ const COLUMN = "mx-auto w-full max-w-[720px]"
  */
 export function AssistantWorkbench() {
   const routeId = useParams<{ id?: string }>().id ?? null
+  // A saved-answer link (/assistant/m/<id>) lands here with ?m=<messageId>.
+  const focusMessageId = useSearchParams().get("m")
   const vm = useGeneralAssistant({ initialConversationId: routeId })
   const router = useRouter()
   const { enabled, navigationDisabled } = generalChatFlags(vm)
@@ -213,7 +215,11 @@ export function AssistantWorkbench() {
             </div>
           ) : (
             <>
-              <GeneralThread vm={vm} contentClassName={COLUMN} />
+              <GeneralThread
+                vm={vm}
+                contentClassName={COLUMN}
+                focusMessageId={routeId ? focusMessageId : null}
+              />
               <div className="shrink-0 px-4 pb-3 sm:px-6">
                 <div className={`${COLUMN} flex flex-col gap-1.5`}>
                   <GeneralComposer

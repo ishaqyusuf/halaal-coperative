@@ -7,6 +7,13 @@ import type { AppRouter } from "@halaalvest/api/trpc/routers/_app"
 import { halaalvestDataTransformer } from "@halaalvest/api/trpc/transformer"
 import { createTRPCClient, httpLink } from "@trpc/client"
 import type { AssistantApi } from "./assistant-api"
+import {
+  AssistantStreamUnavailable,
+  readAssistantStream,
+} from "./assistant-stream"
+
+/** Streamed turn route; same body and session auth as `assistant.send`. */
+const TURN_URL = "/api/assistant/turn"
 
 const CHANNEL = "web" as const
 
@@ -62,6 +69,24 @@ export function createTrpcAssistantApi(): AssistantApi {
     },
     archiveConversation: (id) => assistant.conversations.archive.mutate({ id }),
     send: (input) => assistant.send.mutate({ ...input, channel: CHANNEL }),
+    streamTurn: async (input, onStage) => {
+      let response: Response
+      try {
+        response = await fetch(TURN_URL, {
+          method: "POST",
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: {
+            "content-type": "application/json",
+            accept: "application/x-ndjson",
+          },
+          body: JSON.stringify({ ...input, channel: CHANNEL }),
+        })
+      } catch {
+        throw new AssistantStreamUnavailable("network")
+      }
+      return readAssistantStream(response, onStage)
+    },
     getProposal: (proposalId) => assistant.proposals.get.query({ proposalId }),
     editProposal: (input) =>
       assistant.proposals.edit.mutate({ ...input, channel: CHANNEL }),
@@ -69,5 +94,6 @@ export function createTrpcAssistantApi(): AssistantApi {
       assistant.proposals.confirm.mutate({ ...input, channel: CHANNEL }),
     cancelProposal: (proposalId) =>
       assistant.proposals.cancel.mutate({ proposalId, channel: CHANNEL }),
+    resolveLink: (target) => assistant.links.resolve.query({ target }),
   }
 }

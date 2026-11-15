@@ -103,12 +103,20 @@ export function proposalLines(fields: AssistantProposalFields): ReviewLine[] {
       })
   }
   if (fields.kind === "receipt-submission" && fields.evidenceUploadId) {
-    lines.push({ label: "Proof", value: "Attached" })
+    lines.push({ label: "Proof", value: fields.evidenceName || "Attached" })
   }
   if (fields.kind === "payment-request" && fields.note) {
     lines.push({ label: "Note", value: fields.note })
   }
   return lines.filter((line): line is ReviewLine => !!line)
+}
+
+const uploadUrl =
+  /^\/api\/uploads\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i
+
+/** The `DashboardEvidenceUpload` id in an upload URL (`/api/uploads/<id>`). */
+export function receiptProofUploadId(url: string) {
+  return uploadUrl.exec(url)?.[1] ?? null
 }
 
 export function proposalLapsed(proposal: AssistantProposal, now = Date.now()) {

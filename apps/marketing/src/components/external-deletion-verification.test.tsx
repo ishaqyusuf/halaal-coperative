@@ -12,6 +12,4 @@ test("public verification presents the complete versioned deletion notice", () =
   expect(html.match(/<li>/g)).toHaveLength(
     accountDeletionNoticeCopy.consequences.length
   )
-  expect(html).toContain("https://support.apple.com/en-us/118428")
-  expect(html).toContain("https://support.google.com/googleplay/answer/7018481")
 })

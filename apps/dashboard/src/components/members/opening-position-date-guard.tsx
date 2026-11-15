@@ -15,7 +15,8 @@ const dateFields = [
 
 /**
  * Stops the opening-position form from staging dates that fall before the
- * member joined, and says which dates to fix. The server repeats the check.
+ * member joined, or start dates after the opening date, and says which dates
+ * to fix. The server repeats the check.
  */
 export function OpeningPositionDateGuard({
   formId,
@@ -55,9 +56,13 @@ export function OpeningPositionDateGuard({
       }
     }
 
-    function onChange(event: Event) {
+    // Read the captured form: React may run this updater after the event has
+    // finished dispatching, when `event.currentTarget` is already null.
+    const guardedForm = form
+
+    function onChange() {
       setIssues((current) =>
-        current.length ? readIssues(event.currentTarget as HTMLFormElement) : current
+        current.length ? readIssues(guardedForm) : current
       )
     }
 

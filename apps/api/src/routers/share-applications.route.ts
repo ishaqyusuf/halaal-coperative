@@ -4,6 +4,8 @@ import {
   getMemberByUserId,
   listMemberShareApplicationPage,
 } from "@halaalvest/db"
+import { isRoleAtLeast } from "@halaalvest/auth/roles"
+import { TRPCError } from "@trpc/server"
 import { createTRPCRouter, tenantProcedure } from "../lib.trpc"
 import { listShareApplicationsSchema } from "../schemas/share-applications"
 
@@ -26,8 +28,23 @@ async function getScopedMemberId(ctx: {
   return member?.id ?? "__missing_member_profile__"
 }
 
+// /shares is for finance roles and members (lib/navigation/registry.ts).
+// Members only ever see their own requests (getScopedMemberId); staff below
+// finance officer (operations officers) see none.
+const shareApplicationsProcedure = tenantProcedure.use(({ ctx, next }) => {
+  const role = ctx.auth.activeMembership.role
+  if (role !== "member" && !isRoleAtLeast(role, "finance_officer")) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Finance access is required to see share requests.",
+    })
+  }
+
+  return next({ ctx })
+})
+
 export const shareApplicationsRouter = createTRPCRouter({
-  get: tenantProcedure
+  get: shareApplicationsProcedure
     .input(z.object({ memberShareApplicationId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const scopedMemberId = await getScopedMemberId(ctx)
@@ -39,7 +56,7 @@ export const shareApplicationsRouter = createTRPCRouter({
       })
     }),
 
-  list: tenantProcedure
+  list: shareApplicationsProcedure
     .input(listShareApplicationsSchema)
     .query(async ({ ctx, input }) => {
       const pageSize = input?.pageSize ?? 50

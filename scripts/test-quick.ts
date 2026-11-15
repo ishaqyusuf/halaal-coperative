@@ -60,6 +60,7 @@ export const suites = {
     "apps/api/src/transformer.test.ts",
     "apps/api/src/trpc/error-contract.test.ts",
     "apps/api/src/rest/error-response.test.ts",
+    "apps/api/src/routers/staff-page-authorization.test.ts",
   ],
   domain: [
     "packages/domain/src/modules/finance.test.ts",

@@ -9,11 +9,20 @@ import {
 import { AppError } from "@halaalvest/errors"
 import { z } from "zod"
 import { listMembersSchema, memberOptionsSchema } from "../schemas/members"
-import { createTRPCRouter, minRoleProcedure } from "../lib.trpc"
+import {
+  createTRPCRouter,
+  minRoleProcedure,
+  permissionProcedure,
+} from "../lib.trpc"
 import { sendTenantRoleNotificationEmails } from "../lib/server-notifications"
 
+// The member registry (/members) is for member managers only (admins and
+// operations officers), as in lib/navigation/registry.ts. Finance officers
+// still get the lean picker below for receipts, contributions and loans.
+const memberRegistryProcedure = permissionProcedure("manage_members")
+
 export const membersRouter = createTRPCRouter({
-  list: minRoleProcedure("operations_officer")
+  list: memberRegistryProcedure
     .input(listMembersSchema)
     .query(async ({ ctx, input }) => {
       return listMembersTable(ctx.tenant.current.id, input ?? {})
@@ -29,7 +38,7 @@ export const membersRouter = createTRPCRouter({
       })
     }),
 
-  get: minRoleProcedure("operations_officer")
+  get: memberRegistryProcedure
     .input(z.object({ memberId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const member = await getMemberById(ctx.tenant.current.id, input.memberId)
@@ -43,7 +52,7 @@ export const membersRouter = createTRPCRouter({
       return member
     }),
 
-  create: minRoleProcedure("operations_officer")
+  create: memberRegistryProcedure
     .input(
       z.object({
         memberNumber: z.string().min(1),
@@ -70,7 +79,7 @@ export const membersRouter = createTRPCRouter({
       })
     }),
 
-  update: minRoleProcedure("operations_officer")
+  update: memberRegistryProcedure
     .input(
       z.object({
         memberId: z.string().uuid(),
@@ -98,7 +107,7 @@ export const membersRouter = createTRPCRouter({
       })
     }),
 
-  updateStatus: minRoleProcedure("operations_officer")
+  updateStatus: memberRegistryProcedure
     .input(
       z.object({
         memberId: z.string().uuid(),

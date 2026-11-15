@@ -10,13 +10,15 @@ import {
 import {
   createTRPCRouter,
   minRoleProcedure,
+  staffProcedure,
   tenantProcedure,
 } from "../lib.trpc"
 
 export const filtersRouter = createTRPCRouter({
   // Static plain areas; no tenant data, so no role check is needed.
   audit: tenantProcedure.query(() => getAuditFilterMetadata()),
-  contributions: tenantProcedure.query(({ ctx }) => {
+  // Lists up to 100 member names: the contributions page's staff roles only.
+  contributions: staffProcedure.query(({ ctx }) => {
     return getContributionFilterMetadata(ctx.tenant.current.id)
   }),
   members: tenantProcedure.query(() => {

@@ -134,7 +134,7 @@ export function MissedMonthsRangeGrid({
           type="button"
           onClick={applyRange}
         >
-          Apply
+          Set these months
         </Button>
       </div>
       <div className="max-h-[60vh] overflow-y-auto pr-1">

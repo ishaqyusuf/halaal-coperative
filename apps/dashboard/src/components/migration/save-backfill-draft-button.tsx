@@ -19,12 +19,12 @@ export function SaveBackfillDraftButton({ memberId }: { memberId: string }) {
       try {
         await queueBackfillDraftAction(formData)
         showSuccess(
-          "Backfill draft saved",
-          "The generated ledger rows were saved as a draft."
+          "Saved for later",
+          "Come back to check and add these months."
         )
       } catch (error) {
         showError(
-          "Could not save the backfill draft",
+          "Could not save",
           error instanceof Error ? error.message : "Something went wrong."
         )
       }
@@ -39,7 +39,7 @@ export function SaveBackfillDraftButton({ memberId }: { memberId: string }) {
       type="button"
       variant="outline"
     >
-      {isPending ? "Saving..." : "Save draft"}
+      {isPending ? "Saving…" : "Save for later"}
     </Button>
   )
 }

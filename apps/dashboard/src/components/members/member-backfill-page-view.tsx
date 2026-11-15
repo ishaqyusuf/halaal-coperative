@@ -1125,11 +1125,11 @@ function ApplyStep({ data }: { data: MemberBackfillData }) {
       </div>
       <div className="mt-5">
         <MemberBackfillActionSheet
-          description="Confirm and post the reviewed historical rows for this member. Applied backfill locks migration edits for the member."
+          description="These months become the member's records. After this, their past records can't be changed here."
           disabled={disabled}
           mode="apply"
-          title="Apply member backfill"
-          triggerLabel="Apply backfill"
+          title="Add to member's records?"
+          triggerLabel="Add to member's records"
           variant="default"
         >
           <MemberBackfillApplyForm

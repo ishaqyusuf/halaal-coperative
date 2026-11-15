@@ -4,7 +4,7 @@ import type {
   MemberLedgerBackfillRow,
   MonthlyLedgerSegment,
 } from "@halaalvest/backfill"
-import { Button } from "@halaalvest/ui/components/button"
+import { Button, buttonVariants } from "@halaalvest/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,10 +55,6 @@ function formatAmountRange(values: number[]) {
   return `${formatCurrency(Math.min(...uniqueValues))} - ${formatCurrency(
     Math.max(...uniqueValues)
   )}`
-}
-
-function formatHeaderAmount(label: string, values: number[]) {
-  return `${label} (${formatAmountRange(values)})`
 }
 
 function formatSegmentAmountSummary(summary: {
@@ -252,6 +248,14 @@ function LedgerMetricBlock({
   )
 }
 
+const phoneMonthLimit = 6
+
+// Words from the shared backfill package, shown plainly here.
+const reasonWords: Record<string, string> = {
+  Commitment: "Monthly saving",
+  "Loan repayment": "Loan payment",
+}
+
 function SegmentReasonList({ reasons }: { reasons: string[] }) {
   return (
     <div className="mb-1 flex flex-wrap gap-1.5">
@@ -260,7 +264,7 @@ function SegmentReasonList({ reasons }: { reasons: string[] }) {
           className="text-xs font-semibold text-muted-foreground"
           key={reason}
         >
-          {reason}
+          {reasonWords[reason] ?? reason}
         </span>
       ))}
     </div>
@@ -307,7 +311,7 @@ function MonthlyLedgerSegmentTable({
       ? renderDefaultingControl(
           firstSegmentRow,
           isRowAdjustmentDisabled(firstSegmentRow),
-          "Commitment status"
+          "Missed or paused months"
         )
       : null
   const visibilityColumns = [
@@ -315,13 +319,13 @@ function MonthlyLedgerSegmentTable({
       defaultVisible: true,
       disabled: true,
       key: "period" as const,
-      label: "Period",
+      label: "Month",
     },
     {
       defaultVisible: true,
       disabled: forceSavingsColumn,
       key: "commitment" as const,
-      label: "Commitment",
+      label: "Monthly saving",
     },
     ...(chargeColumns.length > 0
       ? [
@@ -345,13 +349,13 @@ function MonthlyLedgerSegmentTable({
     {
       defaultVisible: true,
       key: "share" as const,
-      label: "Share capital",
+      label: "Shares so far",
     },
     {
       defaultVisible: true,
       disabled: true,
       key: "finalSaving" as const,
-      label: "Final saving",
+      label: "Saved after charges",
     },
     ...(segmentLoanColumns.length > 0
       ? [
@@ -367,7 +371,7 @@ function MonthlyLedgerSegmentTable({
       defaultVisible: true,
       disabled: true,
       key: "totalSaving" as const,
-      label: "Total saving",
+      label: "Savings so far",
     },
     {
       defaultVisible: true,
@@ -379,7 +383,7 @@ function MonthlyLedgerSegmentTable({
   const segmentMetadataItems = [
     {
       columnKey: "commitment" as const,
-      label: "Commitment",
+      label: "Monthly saving",
       labelClassName: ledgerDomainColor.saving.text,
       value: formatAmountRange(
         segment.rows.map((row) => row.savingsContribution)
@@ -413,6 +417,10 @@ function MonthlyLedgerSegmentTable({
     },
   ]
 
+  // Phones show the first months until "Show all" is ticked (CSS only: this
+  // renders on the server).
+  const hiddenOnPhone = Math.max(segment.rows.length - phoneMonthLimit, 0)
+
   return (
     <div>
       <SegmentReasonList reasons={segment.reasonList} />
@@ -421,45 +429,48 @@ function MonthlyLedgerSegmentTable({
         columns={visibilityColumns}
         metadataItems={segmentMetadataItems}
       >
-        <div className="space-y-3">
-          {segment.rows.map((row) => {
+        <div className="group/months space-y-3">
+          {segment.rows.map((row, rowIndex) => {
             const adjustmentsDisabled = isRowAdjustmentDisabled(row)
 
             return (
               <DashboardSurfaceCard
                 as="article"
-                className="rounded-lg"
+                className={cn(
+                  "rounded-lg",
+                  hiddenOnPhone > 0 &&
+                    rowIndex >= phoneMonthLimit &&
+                    "group-has-[[data-show-all-months]:checked]/months:block max-sm:hidden"
+                )}
                 key={`${segment.key}-${row.period}`}
               >
-                <div className="grid gap-4 xl:grid-cols-[7rem_minmax(0,1fr)_auto] xl:items-start">
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">
-                      Period
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 sm:gap-4 xl:grid-cols-[7rem_minmax(0,1fr)_auto] xl:items-start">
+                  <div className="order-1">
+                    <p className="text-xs font-medium text-muted-foreground max-sm:sr-only">
+                      Month
                     </p>
-                    <p className="mt-1 text-sm font-semibold text-foreground">
+                    <p className="text-sm font-semibold text-foreground sm:mt-1">
                       {formatCompactPeriod(row.period)}
                     </p>
                     {row.isEdited &&
                     row.status !== "missed" &&
                     row.status !== "paused" ? (
                       <p className="mt-1 text-xs text-amber-700">
-                        One-time override
+                        Changed for this month
                       </p>
                     ) : null}
                     {row.status === "missed" || row.status === "paused" ? (
                       <p className="mt-1 text-xs font-medium text-muted-foreground">
                         {row.statusReason ??
-                          (row.status === "missed" ? "Defaulting" : "Inactive")}
+                          (row.status === "missed" ? "Missed" : "Paused")}
                       </p>
                     ) : null}
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <div className="order-3 col-span-2 grid grid-cols-2 gap-x-3 gap-y-2 sm:gap-3 lg:grid-cols-3 xl:order-2 xl:col-span-1 xl:grid-cols-4">
                     <LedgerMetricBlock
                       className="commitment-column"
-                      label={formatHeaderAmount("Commitment", [
-                        row.savingsContribution,
-                      ])}
+                      label="Monthly saving"
                     >
                       <LedgerDomainValue domain="saving">
                         {renderSavingsControl(
@@ -474,9 +485,7 @@ function MonthlyLedgerSegmentTable({
                       <LedgerMetricBlock
                         className="charge-column"
                         key={`${charge.label}-charge-${row.period}`}
-                        label={formatHeaderAmount(charge.label, [
-                          row.chargeDeductions[charge.label] ?? 0,
-                        ])}
+                        label={charge.label}
                       >
                         <LedgerDomainValue domain="charge">
                           {formatCurrency(
@@ -495,10 +504,7 @@ function MonthlyLedgerSegmentTable({
                         <LedgerMetricBlock
                           className="repayment-column"
                           key={`${segmentLoan.id}-repayment`}
-                          label={getLoanColumnLabel(
-                            segmentLoan,
-                            "repayment"
-                          )}
+                          label={getLoanColumnLabel(segmentLoan, "repayment")}
                         >
                           {rowLoan ? (
                             <LedgerDomainValue domain="repayment">
@@ -517,13 +523,13 @@ function MonthlyLedgerSegmentTable({
 
                     <LedgerMetricBlock
                       className="share-column"
-                      label="Total share value"
+                      label="Shares so far"
                     >
                       {formatCurrency(row.runningShareCapitalBalance)}
                     </LedgerMetricBlock>
                     <LedgerMetricBlock
                       className="final-saving-column"
-                      label="Final saving"
+                      label="Saved after charges"
                     >
                       {formatCurrency(row.netSavingsContribution)}
                     </LedgerMetricBlock>
@@ -550,13 +556,13 @@ function MonthlyLedgerSegmentTable({
 
                     <LedgerMetricBlock
                       className="total-saving-column"
-                      label="Total saving"
+                      label="Savings so far"
                     >
                       {formatCurrency(row.runningSavingsBalance)}
                     </LedgerMetricBlock>
                   </div>
 
-                  <div className="flex justify-start xl:justify-end">
+                  <div className="order-2 flex justify-end xl:order-3">
                     <LedgerActionMenu>
                       <LedgerActionItem label="Savings">
                         <LedgerDomainValue domain="saving">
@@ -582,7 +588,7 @@ function MonthlyLedgerSegmentTable({
                             </LedgerDomainValue>
                             {rowLoan.repaymentOnTime ? (
                               <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700">
-                                On-time
+                                On time
                               </span>
                             ) : null}
                           </div>
@@ -611,6 +617,21 @@ function MonthlyLedgerSegmentTable({
               </DashboardSurfaceCard>
             )
           })}
+          {hiddenOnPhone > 0 ? (
+            <label
+              className={cn(
+                buttonVariants({ variant: "outline" }),
+                "h-11 w-full cursor-pointer text-base group-has-[[data-show-all-months]:checked]/months:hidden focus-within:ring-2 focus-within:ring-ring sm:hidden"
+              )}
+            >
+              <input
+                className="sr-only"
+                data-show-all-months=""
+                type="checkbox"
+              />
+              Show all {segment.rows.length} months
+            </label>
+          ) : null}
         </div>
       </LedgerColumnVisibilityFrame>
     </div>
@@ -628,12 +649,9 @@ export function MemberLedgerBackfillTable({
   if (segments.length === 0) {
     return (
       <div>
-        <p className="text-sm font-semibold text-foreground">
-          No generated ledger preview
-        </p>
+        <p className="text-sm font-semibold text-foreground">No months yet</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Select a member above to load historical ledger rows from the current
-          migration setup.
+          Add the member’s monthly saving above to see their months.
         </p>
       </div>
     )
@@ -653,12 +671,9 @@ export function MemberLedgerBackfillTable({
           return (
             <div key={segment.key}>
               <SegmentReasonList reasons={segment.reasonList} />
-              <DashboardSurfaceCard
-                as="article"
-                className="rounded-lg"
-              >
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-[7rem_minmax(0,1.2fr)_6rem_9rem_minmax(0,1fr)_9rem_auto] xl:items-center">
-                  <LedgerMetricBlock label="Period">
+              <DashboardSurfaceCard as="article" className="rounded-lg">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:gap-4 xl:grid-cols-[7rem_minmax(0,1.2fr)_6rem_9rem_minmax(0,1fr)_9rem] xl:items-center">
+                  <LedgerMetricBlock label="Month">
                     {formatCompactPeriod(row.period)}
                   </LedgerMetricBlock>
                   <LedgerMetricBlock label="Business profit">
@@ -671,14 +686,14 @@ export function MemberLedgerBackfillTable({
                       {row.dividendLabel ?? "Business profit"}
                     </span>
                   </LedgerMetricBlock>
-                  <LedgerMetricBlock label="Share %">
+                  <LedgerMetricBlock label="Their share">
                     <LedgerDomainValue domain="profit">
                       {row.dividendSharePercentage == null
                         ? "-"
                         : `${row.dividendSharePercentage}%`}
                     </LedgerDomainValue>
                   </LedgerMetricBlock>
-                  <LedgerMetricBlock label="Member amount">
+                  <LedgerMetricBlock label="Their profit">
                     <LedgerDomainValue domain="profit">
                       {formatCurrency(row.dividendCredit)}
                     </LedgerDomainValue>
@@ -686,14 +701,13 @@ export function MemberLedgerBackfillTable({
                   <LedgerMetricBlock label="Source">
                     <span className="text-muted-foreground">
                       {row.dividendProfitEntryId
-                        ? "Migration profit allocation"
-                        : "Existing dividend allocation"}
+                        ? "Past profit"
+                        : "Profit already shared"}
                     </span>
                   </LedgerMetricBlock>
-                  <LedgerMetricBlock label="Total saving">
+                  <LedgerMetricBlock label="Savings so far">
                     {formatCurrency(profitRunningSavingsBalance)}
                   </LedgerMetricBlock>
-                  <LedgerMetricBlock label="Action">-</LedgerMetricBlock>
                 </div>
               </DashboardSurfaceCard>
             </div>
@@ -706,12 +720,9 @@ export function MemberLedgerBackfillTable({
           return (
             <div key={segment.key}>
               <SegmentReasonList reasons={segment.reasonList} />
-              <DashboardSurfaceCard
-                as="article"
-                className="rounded-lg"
-              >
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-[7rem_9rem_9rem_9rem_5rem_9rem_minmax(0,1fr)_auto] xl:items-center">
-                  <LedgerMetricBlock label="Period">
+              <DashboardSurfaceCard as="article" className="rounded-lg">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:gap-4 xl:grid-cols-[7rem_9rem_9rem_9rem_5rem_9rem_minmax(0,1fr)] xl:items-center">
+                  <LedgerMetricBlock label="Month">
                     {formatCompactPeriod(row.period)}
                   </LedgerMetricBlock>
                   <LedgerMetricBlock label="Amount">
@@ -719,20 +730,20 @@ export function MemberLedgerBackfillTable({
                       {formatCurrency(loan.amount)}
                     </LedgerDomainValue>
                   </LedgerMetricBlock>
-                  <LedgerMetricBlock label="Repay amount">
+                  <LedgerMetricBlock label="Paid back each month">
                     <LedgerDomainValue domain="loan">
                       {formatCurrency(loan.repaymentAmount)}
                     </LedgerDomainValue>
                   </LedgerMetricBlock>
-                  <LedgerMetricBlock label="Commitment">
+                  <LedgerMetricBlock label="Saved each month">
                     <LedgerDomainValue domain="loan">
                       {formatCurrency(loan.commitmentAmount)}
                     </LedgerDomainValue>
                   </LedgerMetricBlock>
-                  <LedgerMetricBlock label="Term">
-                    {loan.termMonths} mo
+                  <LedgerMetricBlock label="Months">
+                    {loan.termMonths}
                   </LedgerMetricBlock>
-                  <LedgerMetricBlock label="Opening pending">
+                  <LedgerMetricBlock label="Still owed at start">
                     <LedgerDomainValue domain="loan">
                       {formatCurrency(loan.openingPendingAmount)}
                     </LedgerDomainValue>
@@ -742,7 +753,6 @@ export function MemberLedgerBackfillTable({
                       {loan.label}
                     </span>
                   </LedgerMetricBlock>
-                  <LedgerMetricBlock label="Action">-</LedgerMetricBlock>
                 </div>
               </DashboardSurfaceCard>
             </div>

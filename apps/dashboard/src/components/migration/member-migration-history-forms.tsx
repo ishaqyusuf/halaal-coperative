@@ -214,7 +214,7 @@ const loanHistoryRowSchema = z
       if (!row.scheduledMonthlyPrincipalRepayment) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Repayment is required.",
+          message: "Enter what they paid back each month.",
           path: ["scheduledMonthlyPrincipalRepayment"],
         })
       }
@@ -222,7 +222,7 @@ const loanHistoryRowSchema = z
       if (!row.savingsDuringLoan) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Commitment is required.",
+          message: "Enter what they saved each month.",
           path: ["savingsDuringLoan"],
         })
       }
@@ -247,7 +247,7 @@ const loanHistoryRowSchema = z
       ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Repayment must be greater than 0.",
+          message: "What they paid back must be more than 0.",
           path: ["scheduledMonthlyPrincipalRepayment"],
         })
       }
@@ -263,7 +263,7 @@ const loanHistoryRowSchema = z
       ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Repayment must be less than loan amount.",
+          message: "What they paid back each month must be less than the loan.",
           path: ["scheduledMonthlyPrincipalRepayment"],
         })
       }
@@ -598,7 +598,7 @@ function buildRandomCommitmentHistoryRows(memberJoinedAt?: string | null) {
 
   if (!joinedDate) {
     throw new Error(
-      "Set the member joined date before quick filling commitments."
+      "Set the member joined date before quick filling monthly savings."
     )
   }
 
@@ -735,7 +735,7 @@ function CommitmentHistoryQuickFillButton({
       })
     } catch (error) {
       showError(
-        "Could not quick fill commitments",
+        "Could not quick fill monthly savings",
         error instanceof Error ? error.message : "Something went wrong."
       )
     }
@@ -899,7 +899,7 @@ export function GuarantorMemberCombobox({
         }
       >
         <span className="truncate">
-          {selectedOption?.label ?? "Search member"}
+          {selectedOption?.label ?? "Search members"}
         </span>
         <ChevronsUpDownIcon className="size-3.5 opacity-50" />
       </PopoverTrigger>
@@ -907,7 +907,7 @@ export function GuarantorMemberCombobox({
         <Command shouldFilter={false}>
           <CommandInput
             onValueChange={setQuery}
-            placeholder="Search member"
+            placeholder="Search members"
             value={query}
           />
           <CommandList>
@@ -918,7 +918,7 @@ export function GuarantorMemberCombobox({
               >
                 <PlusIcon className="size-3.5" />
                 <span className="truncate">
-                  {createName ? `Create "${createName}"` : "Create Member"}
+                  {createName ? `Add "${createName}"` : "Add a member"}
                 </span>
               </CommandItem>
             ) : value ? (
@@ -1095,7 +1095,7 @@ function DeleteCommitmentHistoryRowButton({
       <AlertDialogTrigger
         render={
           <Button
-            aria-label="Delete commitment row"
+            aria-label="Delete monthly saving row"
             className="size-8"
             disabled={disabled}
             size="icon-sm"
@@ -1108,7 +1108,7 @@ function DeleteCommitmentHistoryRowButton({
       </AlertDialogTrigger>
       <AlertDialogContent size="sm">
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete commitment row?</AlertDialogTitle>
+          <AlertDialogTitle>Delete this row?</AlertDialogTitle>
           <AlertDialogDescription>
             This removes the row from the form before it is saved.
           </AlertDialogDescription>
@@ -1253,7 +1253,7 @@ export function CommitmentHistoryEntryForm({
           </>
         ) : null}
         <div className="flex items-center gap-3">
-          <h3 className="shrink-0 text-sm font-medium">Commitment History</h3>
+          <h3 className="shrink-0 text-sm font-medium">Monthly saving</h3>
           <div className="min-w-10 flex-1 border-t border-border/70" />
           <CommitmentHistoryQuickFillButton
             disabled={disabled || !memberId}
@@ -1287,14 +1287,14 @@ export function CommitmentHistoryEntryForm({
                   <DatePickerInput
                     allowClear={false}
                     aria-invalid={Boolean(effectiveFromError)}
-                    aria-label="Commitment date"
+                    aria-label="Date the monthly saving started"
                     disabled={disabled || !memberId}
                     min={memberJoinedAt ?? undefined}
                     name="effectiveFrom"
                     onChange={(effectiveFrom) =>
                       updateRow(row.id, { effectiveFrom })
                     }
-                    placeholder="Select commitment date"
+                    placeholder="Choose the date"
                     value={row.effectiveFrom}
                   />
                   <input name="notes" type="hidden" value={row.notes} />
@@ -1304,14 +1304,14 @@ export function CommitmentHistoryEntryForm({
                   <CurrencyInput
                     allowNegative={false}
                     aria-invalid={Boolean(amountError)}
-                    aria-label="Commitment amount"
+                    aria-label="Monthly saving amount"
                     decimalScale={2}
                     disabled={disabled || !memberId}
                     inputMode="decimal"
                     onValueChange={(values) =>
                       updateRow(row.id, { amount: values.value })
                     }
-                    placeholder="Enter commitment amount"
+                    placeholder="Amount each month"
                     value={row.amount}
                     valueIsNumericString
                   />
@@ -1328,14 +1328,14 @@ export function CommitmentHistoryEntryForm({
           })}
           <AddInlineRowButton
             disabled={disabled || !memberId}
-            label="Add Commitment"
+            label="Add a change"
             onAdd={addCommitmentRow}
           />
         </div>
         {showSubmitButton ? (
           <div className="flex justify-end">
             <Button disabled={disabled || !memberId} size="sm" type="submit">
-              Save commitments
+              Save monthly saving
             </Button>
           </div>
         ) : null}
@@ -1390,8 +1390,7 @@ export function LoanHistoryEntryForm({
   } = useCreateMemberParams()
   const [pendingGuarantorTarget, setPendingGuarantorTarget] =
     useState<PendingGuarantorTarget | null>(null)
-  const [isGuarantorCreateClosed, setIsGuarantorCreateClosed] =
-    useState(false)
+  const [isGuarantorCreateClosed, setIsGuarantorCreateClosed] = useState(false)
   const [flashRowId, setFlashRowId] = useState<string | null>(null)
   const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [quickCreatedGuarantorOptions, setQuickCreatedGuarantorOptions] =
@@ -1627,7 +1626,7 @@ export function LoanHistoryEntryForm({
             </>
           ) : null}
           <div className="flex items-center gap-3">
-            <h3 className="shrink-0 text-sm font-medium">Loan History</h3>
+            <h3 className="shrink-0 text-sm font-medium">Old loans</h3>
             <div className="min-w-10 flex-1 border-t border-border/70" />
             <LoanHistoryQuickFillButton
               disabled={disabled || !memberId}
@@ -1684,7 +1683,7 @@ export function LoanHistoryEntryForm({
                       min={memberJoinedAt ?? undefined}
                       name="openedAt"
                       onChange={(openedAt) => updateLoanDate(row.id, openedAt)}
-                      placeholder="Select loan date"
+                      placeholder="Choose the date"
                       value={row.openedAt}
                     />
                     <input name="draftId" type="hidden" value={row.draftId} />
@@ -1715,7 +1714,7 @@ export function LoanHistoryEntryForm({
                           principalAmount: values.value,
                         })
                       }
-                      placeholder="Enter loan amount"
+                      placeholder="Amount borrowed"
                       value={row.principalAmount}
                       valueIsNumericString
                     />
@@ -1729,7 +1728,7 @@ export function LoanHistoryEntryForm({
                     <GuarantorMemberInput
                       disabled={disabled || !memberId}
                       fieldPrefix="guarantorOne"
-                      label="G1"
+                      label="Guarantor 1"
                       onCreateMember={handleCreateGuarantor}
                       options={guarantorOptions}
                       promotedOptionIds={promotedGuarantorIds}
@@ -1756,13 +1755,11 @@ export function LoanHistoryEntryForm({
                   <GuarantorMemberInput
                     disabled={disabled || !memberId}
                     disabledOptionIds={
-                      row.guarantorOneMemberId
-                        ? [row.guarantorOneMemberId]
-                        : []
+                      row.guarantorOneMemberId ? [row.guarantorOneMemberId] : []
                     }
                     fieldPrefix="guarantorTwo"
                     invalid={Boolean(guarantorTwoError)}
-                    label="G2"
+                    label="Guarantor 2"
                     onCreateMember={handleCreateGuarantor}
                     options={guarantorOptions}
                     promotedOptionIds={promotedGuarantorIds}
@@ -1770,7 +1767,7 @@ export function LoanHistoryEntryForm({
                     updateRow={(patch) => updateRow(row.id, patch)}
                   />
                   <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                    Repayment
+                    Paid back each month
                     <CurrencyInput
                       allowNegative={false}
                       aria-invalid={Boolean(repaymentError)}
@@ -1783,7 +1780,7 @@ export function LoanHistoryEntryForm({
                           scheduledMonthlyPrincipalRepayment: values.value,
                         })
                       }
-                      placeholder="Enter monthly repayment"
+                      placeholder="Amount each month"
                       value={row.scheduledMonthlyPrincipalRepayment}
                       valueIsNumericString
                     />
@@ -1794,11 +1791,11 @@ export function LoanHistoryEntryForm({
                     />
                   </label>
                   <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-                    Commitment
+                    Saved each month
                     <CurrencyInput
                       allowNegative={false}
                       aria-invalid={Boolean(savingsDuringLoanError)}
-                      aria-label="Savings commitment during loan"
+                      aria-label="Saved each month while paying the loan"
                       decimalScale={2}
                       disabled={disabled || !memberId}
                       inputMode="decimal"
@@ -1807,7 +1804,7 @@ export function LoanHistoryEntryForm({
                           savingsDuringLoan: values.value,
                         })
                       }
-                      placeholder="Enter savings commitment"
+                      placeholder="Amount each month"
                       value={row.savingsDuringLoan}
                       valueIsNumericString
                     />
@@ -1828,7 +1825,7 @@ export function LoanHistoryEntryForm({
             })}
             <AddInlineRowButton
               disabled={disabled || !memberId}
-              label="Add Loan"
+              label="Add a loan"
               onAdd={addLoanRow}
             />
           </div>
@@ -1855,7 +1852,7 @@ export function LoanHistoryEntryForm({
 
       <MemberCreateSheet
         cooperativeStartDate={cooperativeStartDate}
-        description="Create a member profile and select them as guarantor."
+        description="Add the member, then they are chosen as guarantor."
         devMode={quickFillEnabled}
         initialValues={{ fullName: createMemberName ?? "" }}
         memberNumberPrefix={memberNumberPrefix}
@@ -1889,12 +1886,12 @@ export function LoanHistoryEntryForm({
         }}
         open={Boolean(
           gm &&
-            createMemberId === "-1" &&
-            pendingGuarantorTarget &&
-            !isGuarantorCreateClosed
+          createMemberId === "-1" &&
+          pendingGuarantorTarget &&
+          !isGuarantorCreateClosed
         )}
         suppressBackfillPrompt
-        title="Create guarantor"
+        title="Add a guarantor"
       />
     </>
   )

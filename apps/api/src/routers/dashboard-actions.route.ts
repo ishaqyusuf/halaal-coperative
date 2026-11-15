@@ -5416,9 +5416,10 @@ export async function markLegacyLoansReviewedAction(formData: FormData) {
   await requireHistoricalFinanceSetupMutable(actor)
   const confirmation = getRequiredString(formData, "confirmation")
 
-  if (confirmation !== "NO LEGACY LOANS") {
+  // "NO OLD LOANS" is the plain phrase; the older one still works.
+  if (confirmation !== "NO OLD LOANS" && confirmation !== "NO LEGACY LOANS") {
     throw new DashboardActionExpectedError(
-      "Type NO LEGACY LOANS to confirm there are no historical loan balances to migrate."
+      "Type NO OLD LOANS to confirm no member owed a loan when you started."
     )
   }
 
@@ -7089,9 +7090,10 @@ export async function queueBackfillApplyAction(formData: FormData) {
   const endMonth =
     (formData.get("endMonth") as string | null)?.trim() || undefined
 
-  if (confirmation !== "APPLY BACKFILL") {
+  // "ADD RECORDS" is the plain phrase; the older one still works.
+  if (confirmation !== "ADD RECORDS" && confirmation !== "APPLY BACKFILL") {
     throw new DashboardActionExpectedError(
-      "Type APPLY BACKFILL to post the selected member's historical ledger."
+      "Type ADD RECORDS to add this member's past records."
     )
   }
 

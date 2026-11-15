@@ -19,30 +19,28 @@ export function MemberMigrationInputPanels({
 }: MemberMigrationInputPanelsProps) {
   const [mode, setMode] = useState<
     "activity" | "commitment" | "loan" | "profit"
-  >(
-    "commitment"
-  )
+  >("commitment")
   const modeOptions = [
-    { label: "Commitment", value: "commitment" },
-    { label: "Loan", value: "loan" },
+    { label: "Monthly saving", value: "commitment" },
+    { label: "Old loans", value: "loan" },
     ...(profit ? [{ label: "Profit", value: "profit" }] : []),
-    ...(activity ? [{ label: "Activity", value: "activity" }] : []),
+    ...(activity
+      ? [{ label: "Missed or paused months", value: "activity" }]
+      : []),
   ]
 
   return (
     <div className="mt-5 rounded-lg border border-border/70 bg-muted/20 p-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-foreground">
-            Preview member input
-          </p>
+          <p className="text-sm font-semibold text-foreground">Their history</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Add dated migration inputs, then the generated ledger refreshes from
-            the saved history.
+            Add each change with its date. The months below update when you
+            save.
           </p>
         </div>
         <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-          Input type
+          Show
           <LabeledSelectInput
             options={modeOptions}
             value={mode}

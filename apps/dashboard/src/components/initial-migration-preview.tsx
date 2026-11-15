@@ -4,10 +4,7 @@ import {
 } from "@halaalvest/backfill"
 import type { InitialMigrationSnapshot } from "@halaalvest/domain"
 import { formatCurrency } from "@halaalvest/utils"
-import {
-  DashboardSurfaceCard,
-  TrendPill,
-} from "@/components/dashboard"
+import { DashboardSurfaceCard, TrendPill } from "@/components/dashboard"
 import {
   ApplyMemberBackfillContent,
   CreateLegacyLoanMigrationDraftContent,
@@ -330,11 +327,10 @@ function BusinessProfitMigrationPanel({
       <div className="flex flex-col gap-2 rounded-lg border border-border/70 bg-background p-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-foreground">
-            Business profit migration
+            Past business profit
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Assign historical business profit to this member so it appears in
-            the generated ledger table.
+            This member’s share of business profit from before you started.
           </p>
         </div>
         <div className="text-left sm:text-right">
@@ -513,9 +509,9 @@ function LegacyLoanDraftEditSheet({
   return (
     <MigrationActionSheet
       bodyClassName="grid gap-4"
-      description="Update the principal-only opening loan position before member ledger backfill is applied."
+      description="What the member still owed when you started (the amount borrowed, without profit)."
       disabled={disabled}
-      eyebrow="Legacy loan draft"
+      eyebrow="Old loan"
       mode="legacyLoanEdit"
       targetId={loan.id}
       title={`Edit ${loan.loanLabel}`}
@@ -726,8 +722,7 @@ export function InitialMigrationPreview({
   const memberProfileBlockingStepKeys =
     migrationSnapshot?.missingStepKeys.filter(
       (stepKey) =>
-        stepKey === "finance_start_date" ||
-        stepKey === "charge_schedules"
+        stepKey === "finance_start_date" || stepKey === "charge_schedules"
     ) ?? []
   const memberProfileBlockingLabels =
     migrationSnapshot?.steps
@@ -751,18 +746,20 @@ export function InitialMigrationPreview({
     !migrationSnapshot?.canUseLiveFinancialWrites
   const finalizationWarnings = [
     blockingFinalizationLabels.length > 0
-      ? `Missing setup: ${blockingFinalizationLabels.join(", ")}.`
+      ? `Still to do: ${blockingFinalizationLabels.join(", ")}.`
       : null,
     membersMissingAppliedBackfill > 0
-      ? `${membersMissingAppliedBackfill} member backfill record(s) are not applied.`
+      ? `${membersMissingAppliedBackfill} ${membersMissingAppliedBackfill === 1 ? "member's" : "members'"} past records not added yet.`
       : null,
     activeLegacyLoanDrafts.length > 0
-      ? `${activeLegacyLoanDrafts.length} active opening loan position(s) need review before go-live.`
+      ? `${activeLegacyLoanDrafts.length} old ${activeLegacyLoanDrafts.length === 1 ? "loan needs" : "loans need"} checking before you go live.`
       : null,
   ].filter((warning): warning is string => Boolean(warning))
-  const renderLedgerBackfillActions = (className = "flex flex-wrap items-end gap-2") => {
+  const renderLedgerBackfillActions = (
+    className = "flex flex-wrap items-end gap-2"
+  ) => {
     if (selectedMemberBackfillApplied) {
-      return <TrendPill tone="positive">Applied</TrendPill>
+      return <TrendPill tone="positive">Added</TrendPill>
     }
 
     if (!selectedMigrationMemberId || displayedLedgerRows.length === 0) {
@@ -773,7 +770,7 @@ export function InitialMigrationPreview({
       <div className={className}>
         <SaveBackfillDraftButton memberId={selectedMigrationMemberId} />
         <MigrationActionTrigger
-          label="Apply backfill"
+          label="Add to member's records"
           mode="apply"
           variant="default"
         />
@@ -785,34 +782,33 @@ export function InitialMigrationPreview({
       <div className="flex flex-col gap-2 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-foreground">
-            Ledger backfill
+            Month by month
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Review generated member ledger rows after commitment and loan
-            history are saved.
+            Made from the history above. Check each month, then add them to the
+            member’s records.
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
           <TrendPill tone={segments.length > 0 ? "positive" : "warning"}>
             {segments.length > 0
-              ? `${displayedLedgerRows.length} rows • ${segments.length} segments`
-              : "No generated rows"}
+              ? `${displayedLedgerRows.length} ${displayedLedgerRows.length === 1 ? "month" : "months"}`
+              : "No months yet"}
           </TrendPill>
-          <TrendPill tone="warning">After commitments and loans</TrendPill>
           {renderLedgerBackfillActions()}
         </div>
       </div>
       {generatedLedgerError ? (
         <div className="border-l-2 border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          <p className="font-medium">Could not generate ledger preview</p>
+          <p className="font-medium">Could not work out the months</p>
           <p className="mt-1 text-xs">{generatedLedgerError}</p>
         </div>
       ) : null}
       {selectedMigrationMemberId && !selectedMemberBackfillApplied ? (
         <MigrationActionOverlay
-          description="Confirm and apply the generated ledger rows for the selected member. Applied backfill locks migration edits for that member."
+          description="These months become the member's records. After this, their past records can't be changed here."
           mode="apply"
-          title="Apply member backfill"
+          title="Add to member's records?"
         >
           <ApplyMemberBackfillContent memberId={selectedMigrationMemberId} />
         </MigrationActionOverlay>
@@ -857,7 +853,7 @@ export function InitialMigrationPreview({
               selectedMonth={row.month}
               triggerLabel={triggerLabel}
               triggerVariant={
-                triggerLabel === "Commitment status" ? "default" : "ghost"
+                triggerLabel === "Missed or paused months" ? "default" : "ghost"
               }
             />
           )}
@@ -874,18 +870,14 @@ export function InitialMigrationPreview({
       ) : (
         <div className="border border-border/70 bg-muted/20 p-4">
           <p className="text-sm font-semibold text-foreground">
-            Select a member to generate ledger backfill.
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Commitment and loan history need a selected member before the
-            generated ledger can be reviewed.
+            Pick a member to see their months.
           </p>
         </div>
       )}
       {selectedMigrationMemberId ? (
         <div className="flex flex-col gap-3 border-t border-border/70 pt-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-muted-foreground">
-            Save or apply after reviewing the generated ledger rows.
+            Checked every month? Add them, or save and come back later.
           </p>
           {renderLedgerBackfillActions(
             "flex flex-wrap items-end justify-end gap-2"
@@ -937,24 +929,24 @@ export function InitialMigrationPreview({
             <div>
               <p className="text-sm font-semibold text-foreground">
                 {hasSelectedMigrationOverviewMember
-                  ? "Selected member preview"
-                  : "Member backfill preview"}
+                  ? "This member"
+                  : "Check one member"}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {hasSelectedMigrationOverviewMember
-                  ? "Generated ledger rows are shown below."
-                  : "Select a member to load the generated ledger preview here."}
+                  ? "Their months are below."
+                  : "Pick a member to see their past records month by month."}
               </p>
             </div>
             <div className="flex flex-wrap items-end gap-2">
               {canCreateMigrationMemberProfile ? (
                 <MemberCreateSheet
                   cooperativeStartDate={tenantStartDate}
-                  description="Create the member profile before generating historical ledger rows."
+                  description="Add the member first, then their past records."
                   devMode={quickFillEnabled}
                   memberNumberPrefix={memberNumberPrefix}
-                  title="Create migration member"
-                  triggerLabel="Create member"
+                  title="Add a member"
+                  triggerLabel="Add a member"
                 />
               ) : null}
               <MemberPreviewPicker
@@ -968,7 +960,7 @@ export function InitialMigrationPreview({
           !hasSelectedMigrationOverviewMember &&
           memberProfileBlockingLabels.length > 0 ? (
             <p className="mt-3 text-xs text-muted-foreground">
-              Create member is locked until:{" "}
+              You can add members after:{" "}
               {memberProfileBlockingLabels.join(", ")}.
             </p>
           ) : null}
@@ -985,7 +977,7 @@ export function InitialMigrationPreview({
               </div>
               <div>
                 <p className="text-xs font-medium text-muted-foreground">
-                  Member ID
+                  Member number
                 </p>
                 <p className="mt-1 font-semibold text-foreground">
                   {selectedMemberHeadline.memberNumber ?? "Not available"}
@@ -1006,7 +998,7 @@ export function InitialMigrationPreview({
                 <p className="mt-1 font-semibold text-foreground">
                   {firstLedgerRow
                     ? `${formatCurrency(firstLedgerRow.savingsContribution)} from ${firstLedgerRow.period}`
-                    : "Not generated"}
+                    : "Not worked out yet"}
                 </p>
               </div>
               <div>
@@ -1016,7 +1008,7 @@ export function InitialMigrationPreview({
                 <p className="mt-1 font-semibold text-foreground">
                   {latestLedgerRow
                     ? formatCurrency(projectedTotalSavings)
-                    : "Not generated"}
+                    : "Not worked out yet"}
                 </p>
               </div>
               <div>
@@ -1026,7 +1018,7 @@ export function InitialMigrationPreview({
                 <p className="mt-1 font-semibold text-foreground">
                   {latestLedgerRow
                     ? formatCurrency(projectedShareCapital)
-                    : "Not generated"}
+                    : "Not worked out yet"}
                 </p>
               </div>
               <div>
@@ -1046,7 +1038,7 @@ export function InitialMigrationPreview({
         <section className="mt-5 space-y-4">
           {selectedMemberHeadline ? (
             <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 2xl:grid-cols-7">
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">
                     Member
@@ -1057,7 +1049,7 @@ export function InitialMigrationPreview({
                 </div>
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">
-                    Member ID
+                    Member number
                   </p>
                   <p className="mt-1 text-sm font-semibold text-foreground">
                     {selectedMemberHeadline.memberNumber ?? "Not available"}
@@ -1078,7 +1070,7 @@ export function InitialMigrationPreview({
                   <p className="mt-1 text-sm font-semibold text-foreground">
                     {firstLedgerRow
                       ? `${formatCurrency(firstLedgerRow.savingsContribution)} from ${firstLedgerRow.period}`
-                      : "Not generated here"}
+                      : "Not worked out yet"}
                   </p>
                 </div>
                 <div>
@@ -1088,7 +1080,7 @@ export function InitialMigrationPreview({
                   <p className="mt-1 text-sm font-semibold text-foreground">
                     {latestLedgerRow
                       ? formatCurrency(projectedTotalSavings)
-                      : "Not generated"}
+                      : "Not worked out yet"}
                   </p>
                 </div>
                 <div>
@@ -1098,7 +1090,7 @@ export function InitialMigrationPreview({
                   <p className="mt-1 text-sm font-semibold text-foreground">
                     {latestLedgerRow
                       ? formatCurrency(projectedShareCapital)
-                      : "Not generated"}
+                      : "Not worked out yet"}
                   </p>
                 </div>
                 <div>
@@ -1177,21 +1169,21 @@ export function InitialMigrationPreview({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-foreground">
-                Finalization review
+                Ready to go live?
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Review member migration readiness before locking historical
-                setup and opening live operations.
+                Add every member’s past records first. After going live, past
+                records can’t be changed here.
               </p>
             </div>
             <TrendPill tone="neutral">
-              {appliedBackfillMembers}/{reviewRows.length} applied
+              {appliedBackfillMembers} of {reviewRows.length} added
             </TrendPill>
           </div>
           <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
             <div className="border-l border-border/70 pl-3">
               <p className="text-xs font-medium text-muted-foreground">
-                Member profiles
+                Members
               </p>
               <p className="mt-1 font-semibold text-foreground">
                 {reviewRows.length}
@@ -1199,7 +1191,7 @@ export function InitialMigrationPreview({
             </div>
             <div className="border-l border-border/70 pl-3">
               <p className="text-xs font-medium text-muted-foreground">
-                Applied member backfills
+                Past records added
               </p>
               <p className="mt-1 font-semibold text-foreground">
                 {appliedBackfillMembers}/{reviewRows.length}
@@ -1207,7 +1199,7 @@ export function InitialMigrationPreview({
             </div>
             <div className="border-l border-border/70 pl-3">
               <p className="text-xs font-medium text-muted-foreground">
-                Missing histories
+                Still to add
               </p>
               <p className="mt-1 font-semibold text-foreground">
                 {membersMissingAppliedBackfill}
@@ -1228,7 +1220,7 @@ export function InitialMigrationPreview({
                 ))}
               </div>
             ) : (
-              <p>All visible migration review checks are clear.</p>
+              <p>Everything is ready.</p>
             )}
           </div>
           <div className="mt-4 border-t border-border/70 pt-4">
@@ -1261,36 +1253,30 @@ export function InitialMigrationPreview({
         >
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-semibold text-foreground">
-                Legacy loan setup
-              </p>
+              <p className="text-sm font-semibold text-foreground">Old loans</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Principal-only balances, scheduled repayment, and savings during
-                loan feed the member ledger before backfill generation.
+                What each member still owed, what they paid back each month and
+                what they saved while paying.
               </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <TrendPill tone="warning">Before member backfill</TrendPill>
-              <TrendPill tone="neutral">Savings during loan</TrendPill>
             </div>
           </div>
           <div className="mb-5 flex flex-wrap gap-2">
             {!legacyLoansReviewed && displayedLegacyLoanDrafts.length === 0 ? (
               <MigrationActionSheet
-                description="Record an auditable review when the cooperative has no historical loans to migrate."
+                description="Say that no member owed a loan when you started. This is recorded."
                 mode="noHistory"
-                title="Mark legacy loans reviewed"
-                triggerLabel="No legacy loans"
+                title="No old loans?"
+                triggerLabel="No old loans"
               >
                 <MarkLegacyLoansReviewedContent />
               </MigrationActionSheet>
             ) : null}
             {mutableMigrationMemberOptions.length === 0 ? null : (
               <MigrationActionSheet
-                description="Create a principal-only opening loan position before member ledger backfill generation."
+                description="What the member still owed when you started (the amount borrowed, without profit)."
                 mode="legacyLoanCreate"
-                title="Add legacy loan draft"
-                triggerLabel="Add loan draft"
+                title="Add an old loan"
+                triggerLabel="Add an old loan"
                 variant="default"
               >
                 <CreateLegacyLoanMigrationDraftContent
@@ -1303,32 +1289,29 @@ export function InitialMigrationPreview({
             <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
               <div>
                 <p className="text-sm font-semibold">
-                  No legacy loan balances?
+                  No member owed a loan when you started?
                 </p>
                 <p className="mt-1 text-xs leading-5 text-amber-900">
-                  Record an auditable review before member ledger backfill when
-                  the cooperative has no historical loans to migrate.
+                  Choose “No old loans” before adding members’ past records.
                 </p>
               </div>
             </div>
           ) : null}
           {mutableMigrationMemberOptions.length === 0 ? (
             <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              <p className="font-medium">Legacy loan drafts are locked</p>
+              <p className="font-medium">Old loans can’t be added now</p>
               <p className="mt-1">
-                Every available member has an applied historical ledger. Use
-                correction workflows instead of adding migration loan drafts.
+                Every member’s past records are already added.
               </p>
             </div>
           ) : null}
           {displayedLegacyLoanDrafts.length === 0 ? (
             <div className="rounded-lg border border-border/70 bg-background p-4">
               <p className="text-sm font-semibold text-foreground">
-                No legacy loan drafts
+                No old loans yet
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Add a draft only when a member has a principal-only opening loan
-                balance to migrate.
+                Add one for each member who still owed a loan when you started.
               </p>
             </div>
           ) : (
@@ -1341,9 +1324,7 @@ export function InitialMigrationPreview({
                 >
                   <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_10rem_10rem_10rem_10rem_8rem_auto] xl:items-center">
                     <div>
-                      <p className="text-xs text-muted-foreground">
-                        Loan date
-                      </p>
+                      <p className="text-xs text-muted-foreground">Loan date</p>
                       <p className="text-sm font-medium text-foreground">
                         {loan.openedAt}
                       </p>
@@ -1352,9 +1333,7 @@ export function InitialMigrationPreview({
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">
-                        Principal
-                      </p>
+                      <p className="text-xs text-muted-foreground">Principal</p>
                       <p className="text-sm font-medium text-foreground">
                         {formatCurrency(loan.principalAmount)}
                       </p>
@@ -1417,7 +1396,9 @@ export function InitialMigrationPreview({
         </DashboardSurfaceCard>
       ) : null}
 
-      {isMigrationOverview ? ledgerBackfillSection : null}
+      {isMigrationOverview && hasSelectedMigrationOverviewMember
+        ? ledgerBackfillSection
+        : null}
     </section>
   )
 }

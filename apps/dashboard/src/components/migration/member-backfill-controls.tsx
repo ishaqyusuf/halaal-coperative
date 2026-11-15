@@ -180,12 +180,12 @@ function AdjustmentEditor({
                 disabled={disabled}
                 name="loanRepaymentOnTime"
               />
-              Mark repayment as on-time
+              Paid on time
             </label>
           </>
         ) : (
           <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-            Actual savings contribution
+            Saved this month
             <CurrencyPrefixInput
               defaultValue={row.savingsContribution}
               disabled={disabled}
@@ -208,7 +208,7 @@ function AdjustmentEditor({
         </label>
         <div className="flex justify-end">
           <Button disabled={disabled} size="sm" type="submit">
-            Save adjustment
+            Save
           </Button>
         </div>
       </MemberBackfillActionForm>
@@ -281,8 +281,8 @@ export function MemberBackfillCellEditors({
         {memberId && adjustmentRow ? (
           <>
             <WorkflowPresentationHeader
-              description="Save a month-specific override. The generated ledger will recompute segments from this month while preserving the saved migration history."
-              eyebrow="One-time migration adjustment"
+              description="Change this month only. The months after it are worked out again; the rest of their history stays."
+              eyebrow="This month only"
               presentation={adjustmentConfig.presentation}
               title={`${adjustmentLoan ? "Edit loan repayment" : "Edit savings"} for ${adjustmentRow.period}`}
             />
@@ -304,9 +304,9 @@ export function MemberBackfillCellEditors({
         {memberId && isMissedMonthsOpen ? (
           <>
             <WorkflowPresentationHeader
-              description="Toggle months where this member made no commitment during migration. These months will not add savings, share capital, or charges."
+              description="Tick the months this member paid nothing. Those months add no savings, shares or charges."
               presentation={missedMonthsConfig.presentation}
-              title="Missed commitment months"
+              title="Missed months"
             />
             <MemberBackfillActionForm
               action={setMigrationBackfillDefaultingMonthsAction}
@@ -398,7 +398,7 @@ export function MonthStatusControl({
               type="submit"
               variant={active ? "secondary" : "ghost"}
             >
-              {nextStatus === "missed" ? "Missed" : "Committed"}
+              {nextStatus === "missed" ? "Missed" : "Paid"}
             </Button>
           </form>
         )

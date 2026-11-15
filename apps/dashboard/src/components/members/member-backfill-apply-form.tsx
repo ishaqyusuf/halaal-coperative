@@ -46,18 +46,18 @@ export function MemberBackfillApplyForm({
     <form className="grid gap-4" onSubmit={onSubmit}>
       <input name="memberId" type="hidden" value={memberId} />
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        Type APPLY BACKFILL
+        Type ADD RECORDS
         <Input
           disabled={isDisabled}
           name="confirmation"
-          placeholder="APPLY BACKFILL"
+          placeholder="ADD RECORDS"
           required
           type="text"
         />
       </label>
       <WorkflowConfirmFooter disabled={isPending}>
         <Button disabled={isDisabled} type="submit">
-          {isPending ? "Applying..." : "Apply backfill"}
+          {isPending ? "Adding…" : "Add to member's records"}
         </Button>
       </WorkflowConfirmFooter>
     </form>

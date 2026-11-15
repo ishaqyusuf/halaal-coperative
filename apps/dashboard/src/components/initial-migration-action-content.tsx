@@ -103,16 +103,16 @@ export function ApplyMemberBackfillContent({ memberId }: { memberId: string }) {
     >
       <input name="memberId" type="hidden" value={memberId} />
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        Type APPLY BACKFILL
+        Type ADD RECORDS
         <Input
           name="confirmation"
-          placeholder="APPLY BACKFILL"
+          placeholder="ADD RECORDS"
           required
           type="text"
         />
       </label>
       <WorkflowConfirmFooter>
-        <Button type="submit">Apply backfill</Button>
+        <Button type="submit">Add to member’s records</Button>
       </WorkflowConfirmFooter>
     </InitialMigrationActionForm>
   )
@@ -146,17 +146,17 @@ export function MarkLegacyLoansReviewedContent() {
       className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"
     >
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        Type NO LEGACY LOANS
+        Type NO OLD LOANS
         <Input
           name="confirmation"
-          placeholder="NO LEGACY LOANS"
+          placeholder="NO OLD LOANS"
           required
           type="text"
         />
       </label>
       <div className="flex items-end justify-end">
         <Button size="sm" type="submit">
-          Mark reviewed
+          Confirm
         </Button>
       </div>
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground sm:col-span-2">
@@ -214,7 +214,7 @@ export function CreateLegacyLoanMigrationDraftContent({
         <DatePickerInput name="closedAt" placeholder="Select closed date" />
       </label>
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        Principal
+        Amount borrowed
         <CurrencyPrefixInput
           min="0"
           name="principalAmount"
@@ -224,7 +224,7 @@ export function CreateLegacyLoanMigrationDraftContent({
         />
       </label>
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        Monthly principal repayment
+        Paid back each month
         <CurrencyPrefixInput
           min="0"
           name="scheduledMonthlyPrincipalRepayment"
@@ -244,7 +244,7 @@ export function CreateLegacyLoanMigrationDraftContent({
         />
       </label>
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        Outstanding principal
+        Still owed
         <CurrencyPrefixInput
           min="0"
           name="outstandingPrincipalBalance"
@@ -263,7 +263,7 @@ export function CreateLegacyLoanMigrationDraftContent({
       </label>
       <div className="flex items-end justify-end sm:col-span-2">
         <Button size="sm" type="submit">
-          Add loan draft
+          Add the loan
         </Button>
       </div>
     </InitialMigrationActionForm>
@@ -294,8 +294,8 @@ export function LegacyLoanDraftEditContent({
           {loan.memberName} · {loan.memberNumber}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          These values feed the generated loan repayment, savings-during-loan,
-          and principal balance columns.
+          These amounts make the loan’s months: what they paid back, what they
+          saved and what they still owed.
         </p>
       </div>
       <InitialMigrationActionForm
@@ -332,7 +332,7 @@ export function LegacyLoanDraftEditContent({
           />
         </label>
         <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-          Principal
+          Amount borrowed
           <CurrencyPrefixInput
             defaultValue={loan.principalAmount}
             min="0"
@@ -343,7 +343,7 @@ export function LegacyLoanDraftEditContent({
           />
         </label>
         <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-          Monthly principal repayment
+          Paid back each month
           <CurrencyPrefixInput
             defaultValue={loan.scheduledMonthlyPrincipalRepayment}
             min="0"
@@ -391,7 +391,7 @@ export function LegacyLoanDraftEditContent({
           />
         </div>
         <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-          Outstanding principal
+          Still owed
           <CurrencyPrefixInput
             defaultValue={loan.outstandingPrincipalBalance}
             min="0"
@@ -411,7 +411,7 @@ export function LegacyLoanDraftEditContent({
         </label>
         <div className="flex justify-end sm:col-span-2">
           <Button disabled={disabled} size="sm" type="submit">
-            Save loan draft
+            Save the loan
           </Button>
         </div>
       </InitialMigrationActionForm>

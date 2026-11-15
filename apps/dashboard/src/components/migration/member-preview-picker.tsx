@@ -41,7 +41,7 @@ export function MemberPreviewPicker({
             label: member.label,
             value: member.id,
           }))}
-          placeholder="Select a member"
+          placeholder="Choose a member"
           triggerClassName="min-w-[260px]"
           onValueChange={setMemberId}
           value={memberId}
@@ -53,7 +53,7 @@ export function MemberPreviewPicker({
         type="submit"
         variant="outline"
       >
-        Open preview
+        Open
       </Button>
     </form>
   )

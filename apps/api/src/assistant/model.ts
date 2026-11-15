@@ -55,6 +55,8 @@ const candidateSchema = z.object({
   amount: z.string().regex(/^\d+(\.\d{1,2})?$/).nullable().optional(),
   memberQuery: z.string().max(80).nullable().optional(),
   period: z.string().regex(/^\d{4}-\d{2}$/).nullable().optional(),
+  /** Payment date YYYY-MM-DD, only when the person said when they paid. */
+  paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
 })
 
 /**
@@ -85,6 +87,7 @@ export async function interpretWithModel(input: {
               amount: args.amount ?? null,
               memberQuery: args.memberQuery ?? null,
               period: args.period ?? null,
+              paidOn: args.paidOn ?? null,
             },
           }
           return { ok: true }

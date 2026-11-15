@@ -211,6 +211,15 @@ function emit(hooks: TurnHooks | undefined, stage: AssistantStreamStage) {
 
 const draftCapabilities = new Set<CapabilityId>(["M04", "M05", "S04"])
 
+/** Model candidates only fill gaps; what the fixed rules read wins. */
+function fillMissing(base: IntentCandidates, extra: Partial<IntentCandidates>): IntentCandidates {
+  const merged = { ...base }
+  for (const key of Object.keys(extra) as (keyof IntentCandidates)[]) {
+    if ((merged[key] === null || merged[key] === undefined) && extra[key]) (merged as Record<string, unknown>)[key] = extra[key]
+  }
+  return merged
+}
+
 export async function runAssistantTurn(
   principal: AssistantPrincipal,
   rawInput: AssistantTurnInput,
@@ -300,7 +309,12 @@ async function decide(
     const continued = await continueDraft(principal, input.conversationId, input.text)
     if (continued) return continued
   }
-  if (!intent.capabilityId && model) {
+  // A draft the fixed rules recognized but whose amount they couldn't read
+  // ("five thousand naira" is handled; odder wording falls to the model).
+  const needsAmount =
+    intent.capabilityId !== null && draftCapabilities.has(intent.capabilityId) &&
+    intent.capabilityId !== "M05" && !intent.candidates.amount
+  if ((!intent.capabilityId || needsAmount) && model) {
     const history = (await listAssistantHistory({ conversationId: input.conversationId, limit: 10 }))
       .flatMap((row) => {
         const parts = (Array.isArray(row.parts) ? row.parts : []) as { type?: string; text?: string }[]
@@ -309,7 +323,9 @@ async function decide(
       })
     emit(hooks, "thinking")
     const picked = await deps.interpret({ model, principal, text: input.text, history }).catch(() => null)
-    if (picked) intent = { capabilityId: picked.capabilityId, candidates: { ...intent.candidates, ...picked.candidates } }
+    if (picked && !intent.capabilityId)
+      intent = { capabilityId: picked.capabilityId, candidates: fillMissing(intent.candidates, picked.candidates) }
+    else if (picked) intent = { ...intent, candidates: fillMissing(intent.candidates, picked.candidates) }
   }
   if (!intent.capabilityId)
     return {

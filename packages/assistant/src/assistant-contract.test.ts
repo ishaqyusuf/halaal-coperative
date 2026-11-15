@@ -5,7 +5,7 @@ import {
 } from "./contracts"
 import { capabilitiesFor, capabilityAllowed } from "./capabilities/manifest"
 import { fixtureAnswers, fixtureProposal } from "./fixtures"
-import { extractAmount, extractPeriod, routeIntent } from "./intents"
+import { extractAmount, extractPaidOn, extractPeriod, routeIntent } from "./intents"
 import { formatMoney, money } from "./format"
 
 const now = new Date("2026-11-14T00:00:00Z")
@@ -74,6 +74,30 @@ describe("intent routing", () => {
     expect(extractAmount("₦1,250.50 yesterday")).toBe("1250.50")
     expect(extractAmount("no amount")).toBeNull()
     expect(extractPeriod("for 2026-10", now)).toBe("2026-10")
+  })
+
+  test("amounts in words need a scale word or naira", () => {
+    expect(extractAmount("I paid my cooperative five thousand naira yesterday")).toBe("5000")
+    expect(extractAmount("twenty-five thousand")).toBe("25000")
+    expect(extractAmount("2.5 million naira")).toBe("2500000")
+    expect(extractAmount("one hundred and fifty naira")).toBe("150")
+    expect(extractAmount("one of my receipts")).toBeNull()
+    expect(extractAmount("₦5,000 and five thousand")).toBe("5000")
+  })
+
+  test("payment dates in Lagos, never in the future", () => {
+    // 14 Nov 2026 00:00 UTC is 01:00 in Lagos.
+    expect(extractPaidOn("I paid yesterday", now)).toBe("2026-11-13")
+    expect(extractPaidOn("paid today", now)).toBe("2026-11-14")
+    expect(extractPaidOn("on 12th November", now)).toBe("2026-11-12")
+    expect(extractPaidOn("November 20", now)).toBe("2025-11-20")
+    expect(extractPaidOn("on 31 February", now)).toBeNull()
+    expect(extractPaidOn("2026-12-01", now)).toBeNull()
+    expect(extractPaidOn("no date here", now)).toBeNull()
+    expect(routeIntent("I paid five thousand naira yesterday", "member", now).candidates).toMatchObject({
+      amount: "5000",
+      paidOn: "2026-11-13",
+    })
   })
 })
 

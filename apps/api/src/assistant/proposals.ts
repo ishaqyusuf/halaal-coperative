@@ -72,6 +72,13 @@ const scopeOf = (principal: AssistantPrincipal) => ({
 })
 
 /** Africa/Lagos calendar date, YYYY-MM-DD. */
+/** A stated payment date if it is a real past or current day, else today (Lagos). */
+function paidOnOrToday(paidOn: string | null | undefined, now: Date) {
+  const today = lagosToday(now)
+  if (!paidOn || !/^\d{4}-\d{2}-\d{2}$/.test(paidOn) || paidOn > today) return today
+  return Number.isNaN(Date.parse(`${paidOn}T00:00:00Z`)) ? today : paidOn
+}
+
 export function lagosToday(now: Date) {
   return new Date(now.getTime() + 60 * 60 * 1000).toISOString().slice(0, 10)
 }
@@ -262,7 +269,7 @@ export async function startReceiptSubmission(
   const fields: AssistantProposalFields = {
     kind: "receipt-submission",
     amount: amount ? money(amount) : null,
-    paidOn: lagosToday(deps.now()),
+    paidOn: paidOnOrToday(candidates.paidOn, deps.now()),
     paymentReference: null,
     allocations: amount ? await memberReceiptAllocations(principal, gate.member!.id, amount, deps) : [],
     evidenceUploadId: null,
@@ -398,7 +405,7 @@ export async function startRecordPayment(
     kind: "record-payment",
     member: member ? { memberId: member.id, memberNumber: member.memberNumber, name: member.fullName } : null,
     amount: amount ? money(amount) : null,
-    paidOn: lagosToday(deps.now()),
+    paidOn: paidOnOrToday(candidates.paidOn, deps.now()),
     period: candidates.period,
     channel: "transfer",
     paymentReference: null,

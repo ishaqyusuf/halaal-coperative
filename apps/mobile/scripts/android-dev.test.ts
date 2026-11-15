@@ -23,6 +23,9 @@ import {
   reverseMappings,
 } from "./prepare-android-dev.mjs"
 
+// The scripts take a process env; tests pass only the keys they need.
+const env = (values: Record<string, string> = {}) => values as NodeJS.ProcessEnv
+
 const devices = parseAdbDevicesOutput(
   [
     "List of devices attached",
@@ -53,11 +56,13 @@ describe("adb device selection", () => {
   })
 
   test("resolves adb from explicit paths before the SDK default", () => {
-    expect(resolveAdbPath({ ANDROID_ADB_PATH: "/opt/adb" })).toBe("/opt/adb")
-    expect(resolveAdbPath({ ADB_PATH: "/opt/other-adb" })).toBe(
+    expect(resolveAdbPath(env({ ANDROID_ADB_PATH: "/opt/adb" }))).toBe(
+      "/opt/adb"
+    )
+    expect(resolveAdbPath(env({ ADB_PATH: "/opt/other-adb" }))).toBe(
       "/opt/other-adb"
     )
-    expect(resolveAdbPath({ ANDROID_HOME: "/sdk" })).toBe(
+    expect(resolveAdbPath(env({ ANDROID_HOME: "/sdk" }))).toBe(
       "/sdk/platform-tools/adb"
     )
   })
@@ -148,7 +153,7 @@ describe("mobile:android:connect", () => {
   })
 
   test("parses options with Halaalvest defaults", () => {
-    expect(parseArguments([], {})).toMatchObject({
+    expect(parseArguments([], env())).toMatchObject({
       metroPort: 1443,
       launch: true,
       packageName: "com.halaalvest.mobile.dev",
@@ -157,17 +162,17 @@ describe("mobile:android:connect", () => {
     expect(
       parseArguments(
         ["--device", "emulator-5556", "--api-host-port", "4123", "--no-launch"],
-        {}
+        env()
       )
     ).toMatchObject({
       device: "emulator-5556",
       apiHostPort: 4123,
       launch: false,
     })
-    expect(() => parseArguments(["--metro-port", "99999"], {})).toThrow(
+    expect(() => parseArguments(["--metro-port", "99999"], env())).toThrow(
       "between 1 and 65535"
     )
-    expect(() => parseArguments(["--reset"], {})).toThrow("Unknown option")
+    expect(() => parseArguments(["--reset"], env())).toThrow("Unknown option")
   })
 })
 
@@ -223,7 +228,7 @@ describe("mobile:android:open", () => {
     expect(
       parseOpenArguments(
         ["--device", "emulator-5554", "--url", "halaalvest-dev://x"],
-        {}
+        env()
       )
     ).toMatchObject({ device: "emulator-5554", url: "halaalvest-dev://x" })
   })

@@ -45,11 +45,11 @@ export function randomQaTesterCredential() {
     .padStart(78, "0")
 }
 
-function requireCapability(input: {
+async function requireCapability(input: {
   clientKind: "mobile" | "web"
   contractVersion: number
 }) {
-  const capability = getQaAcceleratorCapability(input)
+  const capability = await getQaAcceleratorCapability(input)
   if (!capability.available) {
     throw new TRPCError({
       code:
@@ -89,7 +89,7 @@ async function requireAuthorization(
   },
   ctx: Parameters<typeof clientSignal>[1]
 ) {
-  const capability = requireCapability(input)
+  const capability = await requireCapability(input)
   const authorization = await getQaAuthorizationByToken({
     clientSignalHash: clientSignal(input, ctx),
     tokenHash: hashQaAcceleratorEvidence(
@@ -124,7 +124,7 @@ export const qaAcceleratorRouter = createTRPCRouter({
   issueCredential: platformOwnerProcedure
     .input(qaIssueCredentialInput)
     .mutation(async ({ ctx, input }) => {
-      requireCapability({ clientKind: "web", contractVersion: 1 })
+      await requireCapability({ clientKind: "web", contractVersion: 1 })
       const qaDomain = normalizeQaDomain(input.qaDomain)
       const credential = randomQaTesterCredential()
       const created = await createQaTesterCredential({
@@ -149,7 +149,7 @@ export const qaAcceleratorRouter = createTRPCRouter({
   authorize: publicProcedure
     .input(qaAuthorizeInput)
     .mutation(async ({ ctx, input }) => {
-      const capability = requireCapability(input)
+      const capability = await requireCapability(input)
       const qaDomain = normalizeQaDomain(input.qaDomain)
       if (ctx.runtime.status === "database-configured") {
         await enforcePublicAuthLimits({
@@ -161,7 +161,7 @@ export const qaAcceleratorRouter = createTRPCRouter({
       }
       const authorizationToken = randomCredential("hqa_auth")
       const configuredCredential = getConfiguredLocalQaCredential()
-      if (!input.credential && !isConfiguredQaEntryDomain(qaDomain)) {
+      if (!input.credential && !(await isConfiguredQaEntryDomain(qaDomain))) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "This domain is not set up for QA on this server.",

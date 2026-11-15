@@ -1,4 +1,5 @@
 import { parseQaDomainRoutes } from "@halaalvest/notifications"
+import { getQaPolicy, qaPolicyTarget } from "@halaalvest/utils/qa-policy-server"
 import {
   normalizeQaAcceleratorEnvironment,
   resolveQaAcceleratorCapability,
@@ -30,17 +31,52 @@ function getPermittedClientKinds() {
   return [...new Set(configured)]
 }
 
-export function getQaAcceleratorCapability(input: {
-  clientKind: QaAcceleratorClientKind
-  contractVersion: number
-}) {
+type RuntimeEnv = Record<string, string | undefined>
+
+export type QaPolicyGate =
+  | { managed: false }
+  | { managed: true; enabled: boolean; domains: ReadonlySet<string> }
+
+/**
+ * Oversight's central QA policy decides, as in EwaTrade, once `QA_POLICY_URL`
+ * is configured: QA is on only for the environments the policy turns on and
+ * only for its active `.test` domains. An unreachable or invalid policy fails
+ * closed (ordinary sign-in still works). Without `QA_POLICY_URL` the local
+ * `EMAIL_QA_DOMAIN_ROUTES` configuration applies. Production never has QA.
+ */
+export async function resolveQaPolicyGate(env: RuntimeEnv = process.env): Promise<QaPolicyGate> {
+  if (!env.QA_POLICY_URL?.trim()) return { managed: false }
+  const target = qaPolicyTarget(env)
+  if (!target) return { managed: true, enabled: false, domains: new Set() }
+  try {
+    const policy = await getQaPolicy(env)
+    const enabled = policy.environments[target] === true
+    return {
+      managed: true,
+      enabled,
+      domains: new Set(enabled ? policy.entries.filter((entry) => entry.active).map((entry) => entry.qa) : []),
+    }
+  } catch {
+    return { managed: true, enabled: false, domains: new Set() }
+  }
+}
+
+export async function getQaAcceleratorCapability(
+  input: {
+    clientKind: QaAcceleratorClientKind
+    contractVersion: number
+  },
+  gate?: QaPolicyGate
+) {
   const environment = getEnvironment()
+  const policy = gate ?? (await resolveQaPolicyGate())
   return resolveQaAcceleratorCapability({
     clientKind: input.clientKind,
     contractVersion: input.contractVersion,
     enabled:
       process.env.QA_ACCELERATOR_ENABLED !== "false" &&
-      environment !== "production",
+      environment !== "production" &&
+      (!policy.managed || policy.enabled),
     environment,
     hasCredentialSecret: Boolean(process.env.QA_ACCELERATOR_SECRET?.trim()),
     permittedClientKinds: getPermittedClientKinds(),
@@ -62,12 +98,12 @@ export function assertQaAcceleratorStartupSafety() {
   }
 }
 
-export function isConfiguredQaEntryDomain(domain: string) {
+export async function isConfiguredQaEntryDomain(domain: string, gate?: QaPolicyGate) {
+  if ((process.env.QA_ACCELERATOR_SECRET?.trim().length ?? 0) < 32) return false
+  const policy = gate ?? (await resolveQaPolicyGate())
+  if (policy.managed) return policy.enabled && policy.domains.has(domain)
   try {
-    return (
-      (process.env.QA_ACCELERATOR_SECRET?.trim().length ?? 0) >= 32 &&
-      parseQaDomainRoutes(process.env.EMAIL_QA_DOMAIN_ROUTES).has(domain)
-    )
+    return parseQaDomainRoutes(process.env.EMAIL_QA_DOMAIN_ROUTES).has(domain)
   } catch {
     return false
   }

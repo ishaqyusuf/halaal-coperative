@@ -22,6 +22,8 @@
     "./shared-env": "./src/shared-env.mjs",
     ".": "./src/index.ts",
     "./runtime-url": "./src/runtime-url.ts",
-    "./app-update": "./src/app-update.ts"
+    "./app-update": "./src/app-update.ts",
+    "./qa-policy": "./src/qa-policy.ts",
+    "./qa-policy-server": "./src/qa-policy-server.ts"
   }
 }

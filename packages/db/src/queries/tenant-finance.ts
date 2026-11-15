@@ -1223,11 +1223,43 @@ async function assertLiveFinancialWritesOpen(
   }
 }
 
+/**
+ * Optional parts of `getTenantFinanceSetup`. Getting started reads only what
+ * its open step shows; the rest come back empty. The policies, tenant row and
+ * profit seasons (setup progress) are always read.
+ * - `charges`: charge definitions with versions.
+ * - `shareStructure`: share structure versions.
+ * - `broughtForward`: the brought-forward snapshot.
+ * - `businessDetail`: each business's linked period and each profit entry's
+ *   allocations and linked period (seasons need neither).
+ */
+export type TenantFinanceSetupPart =
+  | "broughtForward"
+  | "businessDetail"
+  | "charges"
+  | "shareStructure"
+
+const allTenantFinanceSetupParts: readonly TenantFinanceSetupPart[] = [
+  "broughtForward",
+  "businessDetail",
+  "charges",
+  "shareStructure",
+]
+
 export async function getTenantFinanceSetup(
   tenantId: string,
-  prismaOverride?: PrismaClient
+  prismaOverride?: PrismaClient,
+  options: { parts?: readonly TenantFinanceSetupPart[] } = {}
 ) {
   const prisma = (prismaOverride ?? createPrismaClient()) as any
+  const parts = new Set(options.parts ?? allTenantFinanceSetupParts)
+  const linkedPeriodSelect = {
+    select: {
+      id: true,
+      name: true,
+      status: true,
+    },
+  }
 
   if (!prisma) {
     const tenant = getTenantById(tenantId)
@@ -1276,46 +1308,46 @@ export async function getTenantFinanceSetup(
         where: { tenantId },
       })
     ),
-    prisma.tenantBroughtForwardSnapshot.findUnique({
-      where: { tenantId },
-    }),
-    prisma.tenantShareStructureVersion.findMany({
-      where: { tenantId },
-      orderBy: { effectiveFrom: "asc" },
-    }),
-    prisma.chargeDefinition.findMany({
-      where: { tenantId, code: { not: mobileAccessChargeCode } },
-      include: {
-        versions: {
+    parts.has("broughtForward")
+      ? prisma.tenantBroughtForwardSnapshot.findUnique({
+          where: { tenantId },
+        })
+      : null,
+    parts.has("shareStructure")
+      ? prisma.tenantShareStructureVersion.findMany({
+          where: { tenantId },
           orderBy: { effectiveFrom: "asc" },
-        },
-      },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.shareBusiness.findMany({
-      where: { tenantId },
-      include: {
-        linkedDividendPeriod: {
-          select: {
-            id: true,
-            name: true,
-            status: true,
-          },
-        },
-        profitEntries: {
+        })
+      : [],
+    parts.has("charges")
+      ? prisma.chargeDefinition.findMany({
+          where: { tenantId, code: { not: mobileAccessChargeCode } },
           include: {
-            allocations: true,
-            linkedDividendPeriod: {
-              select: {
-                id: true,
-                name: true,
-                status: true,
-              },
+            versions: {
+              orderBy: { effectiveFrom: "asc" },
             },
           },
-          orderBy: [{ profitDate: "desc" }, { createdAt: "desc" }],
-        },
-      },
+          orderBy: { createdAt: "asc" },
+        })
+      : [],
+    prisma.shareBusiness.findMany({
+      where: { tenantId },
+      include: parts.has("businessDetail")
+        ? {
+            linkedDividendPeriod: linkedPeriodSelect,
+            profitEntries: {
+              include: {
+                allocations: true,
+                linkedDividendPeriod: linkedPeriodSelect,
+              },
+              orderBy: [{ profitDate: "desc" }, { createdAt: "desc" }],
+            },
+          }
+        : {
+            profitEntries: {
+              orderBy: [{ profitDate: "desc" }, { createdAt: "desc" }],
+            },
+          },
       orderBy: [{ startDate: "desc" }, { createdAt: "desc" }],
     }),
     listDividendPeriodsForBusinessProfitReview(prisma, {
@@ -4597,10 +4629,7 @@ export async function publishShareProfitAllocations(
     if (!profitEntry) {
       throw ExpectedQueryError.notFound("Business profit entry not found")
     }
-    if (
-      input.expectedStatus &&
-      profitEntry.status !== input.expectedStatus
-    ) {
+    if (input.expectedStatus && profitEntry.status !== input.expectedStatus) {
       throw ExpectedQueryError.conflict(
         "Only approved profit entries can be published. Refresh and review the current state."
       )

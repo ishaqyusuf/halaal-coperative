@@ -3,6 +3,7 @@ import type { SearchParams } from "nuqs"
 import {
   createDbRuntime,
   getTenantFinanceSetup,
+  type TenantFinanceSetupPart,
   recommendTenantMigrationSetupMode,
 } from "@halaalvest/db"
 import {
@@ -97,6 +98,22 @@ function toDateString(value: Date | string | null | undefined) {
     : value.slice(0, 10)
 }
 
+/** The `getTenantFinanceSetup` parts each step shows (progress needs none). */
+function gettingStartedStepParts(
+  step: GettingStartedStepKey
+): TenantFinanceSetupPart[] {
+  switch (step) {
+    case "shares-charges":
+      return ["charges", "shareStructure"]
+    case "profit":
+      return ["businessDetail"]
+    case "review-setup":
+      return ["businessDetail", "charges"]
+    default:
+      return []
+  }
+}
+
 export async function GettingStartedPageContent({
   searchParams,
 }: {
@@ -140,11 +157,16 @@ export async function GettingStartedPageContent({
     gettingStartedParams.step as GettingStartedStepKey | null
   // The sidebar layout's setup gate already read the migration state and the
   // operation profile in this request; the request-cached readers reuse them.
-  const [data, migrationState, operationProfile] = await Promise.all([
-    getTenantFinanceSetup(context.tenant.id),
+  // Each step reads only the setup parts it shows; progress needs none.
+  const tenantId = context.tenant.id
+  const [stepData, migrationState, operationProfile] = await Promise.all([
+    getTenantFinanceSetup(tenantId, undefined, {
+      parts: requestedStep ? gettingStartedStepParts(requestedStep) : [],
+    }),
     getRequestInitialMigrationState(context.tenant.id),
     getRequestTenantOperationProfile(context.tenant.id),
   ])
+  let data = stepData
   const isMemberMigration =
     migrationState.snapshot.status === "member_migration_in_progress"
   const shouldShowOnboardingSuccess =
@@ -173,6 +195,13 @@ export async function GettingStartedPageContent({
   })
   const activeStep: GettingStartedStepKey =
     requestedStep ?? resolveGettingStartedResumeStep(progress)
+
+  // Resuming without a step: read the parts the resume step shows, if any.
+  if (!requestedStep && gettingStartedStepParts(activeStep).length > 0) {
+    data = await getTenantFinanceSetup(tenantId, undefined, {
+      parts: gettingStartedStepParts(activeStep),
+    })
+  }
 
   if (activeStep === "admin-member") {
     await tenantRedirect("/onboarding-success")

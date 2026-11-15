@@ -33,7 +33,9 @@ describe("getting started Midday conformance", () => {
 
     expect(content).toContain("getDashboardServerContext")
     expect(content).toContain("createDbRuntime")
-    expect(content).toContain("getTenantFinanceSetup(context.tenant.id)")
+    // Each step reads only the setup parts it shows (Phase 4.4).
+    expect(content).toContain("getTenantFinanceSetup(tenantId, undefined, {")
+    expect(content).toContain("gettingStartedStepParts(")
     // Request-cached: the sidebar layout's setup gate already read both.
     expect(content).toContain(
       "getRequestInitialMigrationState(context.tenant.id)"

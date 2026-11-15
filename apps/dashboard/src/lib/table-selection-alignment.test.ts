@@ -4,10 +4,12 @@ import { readFileSync } from "node:fs"
 // /business is a plain list since thread 12 (no table, no selection).
 const selectableTables: [string][] = [["members"]]
 
-const individualActionTables: [string][] = [["payment-receipts"], ["support"]]
+const individualActionTables: [string][] = [["payment-receipts"]]
 
-// Request tables: a row opens the request's sheet, where every action lives.
+// Request tables and support (since 9e8b3543): a row opens its sheet, where
+// every action lives.
 const rowOpensSheetTables: [string][] = [
+  ["support"],
   ["food-purchase"],
   ["procurement"],
   ["project-financing"],

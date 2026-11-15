@@ -113,6 +113,7 @@ import {
   setMemberSignupLinkEnabled,
   submitFoodPurchaseApplication,
   submitLoanRequest,
+  searchGuarantorOptions,
   postRepayment,
   publishShareProfitAllocations,
   setMigrationBackfillDefaultingMonths,
@@ -3911,6 +3912,10 @@ export async function submitLoanRequestAction(formData: FormData) {
   )
   const borrowerMemberId =
     actorMember?.id ?? getRequiredString(formData, "memberId")
+  const guarantorMemberIds = [
+    (formData.get("guarantorOneMemberId") as string | null)?.trim() ?? "",
+    (formData.get("guarantorTwoMemberId") as string | null)?.trim() ?? "",
+  ]
 
   // Staff pick the borrower from a search of every member, so readiness
   // (active, verified, migration finalized) is checked here, not by the list.
@@ -3921,16 +3926,31 @@ export async function submitLoanRequestAction(formData: FormData) {
     })
   }
 
+  // A member picks guarantors from the ready-members search; hold a posted
+  // form to the same rules.
+  const chosenGuarantorIds = [...new Set(guarantorMemberIds.filter(Boolean))]
+  if (actorMember && chosenGuarantorIds.length > 0) {
+    const allowed = await searchGuarantorOptions({
+      excludeMemberId: actorMember.id,
+      ids: chosenGuarantorIds,
+      tenantId: actor.tenant.id,
+    })
+    if (allowed.length !== chosenGuarantorIds.length) {
+      throw new AppError({
+        code: "PRECONDITION_FAILED",
+        publicMessage:
+          "Choose guarantors from the list. They must be verified members.",
+      })
+    }
+  }
+
   const request = await submitLoanRequest({
     actorUserId: actor.user.id,
     extraMonthlySavingsAmount: getOptionalNumber(
       formData,
       "extraMonthlySavingsAmount"
     ),
-    guarantorMemberIds: [
-      (formData.get("guarantorOneMemberId") as string | null)?.trim() ?? "",
-      (formData.get("guarantorTwoMemberId") as string | null)?.trim() ?? "",
-    ],
+    guarantorMemberIds,
     loanProductId: getRequiredString(formData, "loanProductId"),
     memberId: borrowerMemberId,
     purpose: (formData.get("purpose") as string | null)?.trim() || undefined,

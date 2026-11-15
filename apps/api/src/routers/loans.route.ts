@@ -4,9 +4,12 @@ import {
   getMemberByUserId,
   listLoanRequestRowsPage,
   listLoansPage,
+  searchGuarantorOptions,
 } from "@halaalvest/db"
 import {
   getLoanRequestSchema,
+  guarantorOptionsOutputSchema,
+  guarantorOptionsSchema,
   getLoanSchema,
   listLoanPortfolioSchema,
   listLoanRequestsSchema,
@@ -35,6 +38,23 @@ async function getScopedMemberId(ctx: LoanRouterContext) {
 }
 
 export const loansRouter = createTRPCRouter({
+  // Guarantor pickers on "Ask for a loan": names of ready members of this
+  // cooperative only (no numbers, contacts or balances), never the asker.
+  guarantorOptions: tenantProcedure
+    .input(guarantorOptionsSchema)
+    .output(guarantorOptionsOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const scopedMemberId = await getScopedMemberId(ctx)
+      if (scopedMemberId === "__missing_member_profile__") return []
+
+      return searchGuarantorOptions({
+        excludeMemberId: scopedMemberId,
+        ids: input.ids,
+        query: input.q,
+        tenantId: ctx.tenant.current.id,
+      })
+    }),
+
   loan: tenantProcedure.input(getLoanSchema).query(async ({ ctx, input }) => {
     const scopedMemberId = await getScopedMemberId(ctx)
     const loan = await getLoanDetail({

@@ -27,6 +27,7 @@ import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { qaFirstOfNextMonth } from "@halaalvest/utils"
 import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
 import { DatePickerInput } from "@/components/date-picker-input"
+import { GuarantorCombobox } from "@/components/guarantor-combobox"
 import { MemberCombobox } from "@/components/member-combobox"
 import { WorkflowConfirmFooter } from "@/components/workflow-confirm-footer"
 import {
@@ -153,7 +154,10 @@ export function LoanRequestForm({
 }: {
   devMode: boolean
   disabledReason?: string | null
-  /** A member asking for themselves: no member or guarantor pickers. */
+  /**
+   * A member asking for themselves: no member picker, and guarantors come
+   * from the members-safe search (names of verified members only).
+   */
   fixedMember?: { id: string; label: string }
   loanProducts: LoanProductChoice[]
   loanRequestCharges?: LoanRequestChargeChoice[]
@@ -346,16 +350,23 @@ export function LoanRequestForm({
           </div>
         ) : null}
 
-        {fixedMember ? null : (
-          <div className="grid gap-6 sm:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="guarantorOneMemberId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className={fieldLabel} htmlFor="loan-guarantor-1">
-                    Guarantor (optional)
-                  </FormLabel>
+        <div className="grid gap-6 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="guarantorOneMemberId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className={fieldLabel} htmlFor="loan-guarantor-1">
+                  Guarantor (optional)
+                </FormLabel>
+                {fixedMember ? (
+                  <GuarantorCombobox
+                    disabled={isDisabled}
+                    id="loan-guarantor-1"
+                    onValueChange={field.onChange}
+                    value={field.value ?? ""}
+                  />
+                ) : (
                   <MemberCombobox
                     disabled={isDisabled}
                     emptyLabel="No guarantor"
@@ -363,18 +374,27 @@ export function LoanRequestForm({
                     onValueChange={field.onChange}
                     value={field.value ?? ""}
                   />
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="guarantorTwoMemberId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className={fieldLabel} htmlFor="loan-guarantor-2">
-                    Second guarantor (optional)
-                  </FormLabel>
+                )}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="guarantorTwoMemberId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className={fieldLabel} htmlFor="loan-guarantor-2">
+                  Second guarantor (optional)
+                </FormLabel>
+                {fixedMember ? (
+                  <GuarantorCombobox
+                    disabled={isDisabled}
+                    id="loan-guarantor-2"
+                    onValueChange={field.onChange}
+                    value={field.value ?? ""}
+                  />
+                ) : (
                   <MemberCombobox
                     disabled={isDisabled}
                     emptyLabel="No guarantor"
@@ -382,12 +402,12 @@ export function LoanRequestForm({
                     onValueChange={field.onChange}
                     value={field.value ?? ""}
                   />
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        )}
+                )}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <FormField
           control={form.control}

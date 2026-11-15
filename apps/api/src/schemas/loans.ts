@@ -68,3 +68,16 @@ export const getLoanRequestSchema = z.object({
 export const getLoanSchema = z.object({
   loanId: z.string().uuid(),
 })
+
+// Members choosing guarantors: a name search, or the two chosen ids.
+export const guarantorOptionsSchema = z
+  .object({
+    ids: z.array(z.string().uuid()).max(2).optional(),
+    q: z.string().trim().max(100).optional(),
+  })
+  .strict()
+
+// Names only: anything else a query returns is stripped before it leaves.
+export const guarantorOptionsOutputSchema = z.array(
+  z.object({ fullName: z.string(), id: z.string() })
+)

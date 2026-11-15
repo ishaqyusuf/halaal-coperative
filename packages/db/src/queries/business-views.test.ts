@@ -172,4 +172,52 @@ describe("shareProfitSeason", () => {
       where: { profitEntryId: { in: ["e1"] }, status: "draft" },
     })
   })
+
+  test("keeps an optional approval note on the shared record", async () => {
+    const audits: Array<{ metadata: { note: string | null } }> = []
+    const { prisma } = mockPrisma({
+      auditLog: {
+        create: async ({ data }: { data: (typeof audits)[number] }) => {
+          audits.push(data)
+          return {}
+        },
+      },
+      dividendAllocation: {
+        createMany: async () => ({ count: 1 }),
+        deleteMany: async () => ({ count: 0 }),
+      },
+      dividendPeriod: {
+        findFirst: async () => ({ status: "approved" }),
+        update: async () => ({}),
+      },
+      shareBusinessProfitEntry: {
+        findMany: async (args: { include?: unknown }) =>
+          args.include
+            ? [{ allocations: [], id: "e1" }]
+            : [
+                {
+                  allocatableProfitAmount: 100,
+                  allocations: [{ allocatedProfitAmount: 100, status: "draft" }],
+                  id: "e1",
+                  status: "reviewed",
+                },
+              ],
+        updateMany: async () => ({ count: 1 }),
+      },
+      shareProfitAllocation: { updateMany: async () => ({ count: 1 }) },
+    })
+
+    await shareProfitSeason(
+      {
+        ...command,
+        commandId: crypto.randomUUID(),
+        note: "  Approved at the March board meeting  ",
+      },
+      prisma
+    )
+
+    expect(audits[0]?.metadata.note).toBe(
+      "Approved at the March board meeting"
+    )
+  })
 })

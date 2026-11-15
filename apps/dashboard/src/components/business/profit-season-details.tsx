@@ -5,6 +5,7 @@ import { useNotifications } from "@halaalvest/notifications-react"
 import { Badge } from "@halaalvest/ui/components/badge"
 import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
+import { Textarea } from "@halaalvest/ui/components/textarea"
 import { formatCurrency } from "@halaalvest/utils"
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query"
 import { Search } from "lucide-react"
@@ -15,7 +16,10 @@ import {
   RequestFacts,
   RequestSection,
 } from "@/components/requests/request-facts"
-import { RequestFormActions } from "@/components/requests/request-field"
+import {
+  RequestField,
+  RequestFormActions,
+} from "@/components/requests/request-field"
 import {
   formatDateRange,
   getProfitEntryWord,
@@ -93,6 +97,7 @@ export function ProfitSeasonDetails({
   const [confirm, setConfirm] = useState<SeasonStep | null>(null)
   // One command id per opened confirm: a double tap or retry replays it.
   const [commandId, setCommandId] = useState(() => crypto.randomUUID())
+  const [shareNote, setShareNote] = useState("")
   const word = getSeasonWord(season.status)
   const next = getNextStep(season)
 
@@ -103,7 +108,11 @@ export function ProfitSeasonDetails({
 
   function run(step: SeasonStep) {
     startTransition(async () => {
-      const form = objectToFormData({ commandId, seasonId: season.id })
+      const form = objectToFormData({
+        commandId,
+        seasonId: season.id,
+        ...(step === "share" ? { note: shareNote.trim() } : {}),
+      })
 
       try {
         if (step === "close") {
@@ -134,7 +143,10 @@ export function ProfitSeasonDetails({
   return (
     <div className="grid gap-6" data-profit-season>
       <div className="flex flex-wrap items-center gap-2">
-        <Badge className={memberStateToneClassNames[word.tone]} variant="outline">
+        <Badge
+          className={memberStateToneClassNames[word.tone]}
+          variant="outline"
+        >
           {word.label}
         </Badge>
         <span className="text-base text-muted-foreground">
@@ -170,13 +182,21 @@ export function ProfitSeasonDetails({
             </Button>
           ) : null}
           {next.step === "workOut" ? (
-            <Button disabled={isPending} onClick={() => open("workOut")} type="button">
+            <Button
+              disabled={isPending}
+              onClick={() => open("workOut")}
+              type="button"
+            >
               Work out shares
             </Button>
           ) : null}
           {next.step === "share" ? (
             <>
-              <Button disabled={isPending} onClick={() => open("share")} type="button">
+              <Button
+                disabled={isPending}
+                onClick={() => open("share")}
+                type="button"
+              >
                 Share with members
               </Button>
               <Button
@@ -233,6 +253,7 @@ export function ProfitSeasonDetails({
       {season.memberCount > 0 ? (
         <RequestSection title="Who gets what">
           <SeasonShareList season={season} />
+          <MembersWithNothing season={season} />
         </RequestSection>
       ) : null}
 
@@ -274,7 +295,44 @@ export function ProfitSeasonDetails({
         open={confirm === "share"}
         pending={isPending}
         title={`Share ${formatCurrency(season.sharesTotal)} with ${membersWord(season.memberCount)}?`}
-      />
+      >
+        <RequestField
+          hint="For example, the meeting that approved it. Kept on record."
+          label="Note"
+          optional
+        >
+          <Textarea
+            disabled={isPending}
+            maxLength={500}
+            onChange={(event) => setShareNote(event.target.value)}
+            value={shareNote}
+          />
+        </RequestField>
+      </RequestConfirmDialog>
+    </div>
+  )
+}
+
+/** Active members left out of this season, so nobody is missed silently. */
+function MembersWithNothing({ season }: { season: ProfitSeason }) {
+  // Older API responses (mid-deploy) have no list; show nothing then.
+  const { count, names } = season.membersWithNothing ?? { count: 0, names: [] }
+  if (count === 0) return null
+
+  const more = count - names.length
+
+  return (
+    <div className="mt-6 grid gap-2">
+      <h4 className="text-base font-semibold text-foreground">
+        Get nothing this season ({count})
+      </h4>
+      <p className="text-base text-muted-foreground">
+        They had no share capital on the profit date.
+      </p>
+      <p className="text-base text-foreground">
+        {names.join(", ")}
+        {more > 0 ? `, and ${more} more` : ""}
+      </p>
     </div>
   )
 }

@@ -3452,6 +3452,7 @@ export async function shareProfitSeasonAction(formData: FormData) {
   await shareProfitSeason({
     actorUserId: actor.user.id,
     commandId: getRequiredString(formData, "commandId"),
+    note: getOptionalTrimmedString(formData, "note"),
     seasonId: getRequiredString(formData, "seasonId"),
     tenantId: actor.tenant.id,
   })

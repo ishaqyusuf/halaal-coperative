@@ -254,7 +254,10 @@ export async function getBusinessDetail(
     profitAmount: money(business.profitAmount),
     profitEntries,
     profitTotal: money(
-      profitEntries.reduce((total, entry) => total + entry.allocatableProfitAmount, 0)
+      profitEntries.reduce(
+        (total, entry) => total + entry.allocatableProfitAmount,
+        0
+      )
     ),
     sharedTotal: money(
       profitEntries
@@ -349,51 +352,56 @@ export async function listProfitSeasons(
       publishedAt: dateOnly(period.publishedAt),
       status: period.status,
       toShare:
-        period.status === "draft" ? recorded : money(period.distributableAmount),
+        period.status === "draft"
+          ? recorded
+          : money(period.distributableAmount),
     }
   })
 }
 
 /** One season: its totals, its profit entries and where member shares stand. */
+const membersWithNothingLimit = 20
+
 export async function getProfitSeasonDetail(
   input: { seasonId: string; tenantId: string },
   prismaOverride?: PrismaClient
 ) {
   const prisma = getPrisma(prismaOverride)
-  const [period, entries, entryTotals, memberTotals] = await Promise.all([
-    prisma.dividendPeriod.findFirst({
-      select: {
-        deductionAmount: true,
-        distributableAmount: true,
-        id: true,
-        name: true,
-        periodEnd: true,
-        periodStart: true,
-        publishedAt: true,
-        status: true,
-        totalProfitAmount: true,
-      },
-      where: { id: input.seasonId, tenantId: input.tenantId },
-    }),
-    prisma.shareBusinessProfitEntry.findMany({
-      orderBy: [{ profitDate: "desc" }, { createdAt: "desc" }],
-      select: {
-        allocatableProfitAmount: true,
-        expenseAmount: true,
-        id: true,
-        profitAmount: true,
-        profitDate: true,
-        shareBusiness: { select: { id: true, name: true } },
-        status: true,
-      },
-      where: {
-        linkedDividendPeriodId: input.seasonId,
-        status: { not: "archived" },
-        tenantId: input.tenantId,
-      },
-    }),
-    prisma.$queryRawUnsafe<SeasonEntryTotalsRow[]>(
-      `SELECT a.profit_entry_id::text AS profit_entry_id,
+  const [period, entries, entryTotals, memberTotals, leftOut] =
+    await Promise.all([
+      prisma.dividendPeriod.findFirst({
+        select: {
+          deductionAmount: true,
+          distributableAmount: true,
+          id: true,
+          name: true,
+          periodEnd: true,
+          periodStart: true,
+          publishedAt: true,
+          status: true,
+          totalProfitAmount: true,
+        },
+        where: { id: input.seasonId, tenantId: input.tenantId },
+      }),
+      prisma.shareBusinessProfitEntry.findMany({
+        orderBy: [{ profitDate: "desc" }, { createdAt: "desc" }],
+        select: {
+          allocatableProfitAmount: true,
+          expenseAmount: true,
+          id: true,
+          profitAmount: true,
+          profitDate: true,
+          shareBusiness: { select: { id: true, name: true } },
+          status: true,
+        },
+        where: {
+          linkedDividendPeriodId: input.seasonId,
+          status: { not: "archived" },
+          tenantId: input.tenantId,
+        },
+      }),
+      prisma.$queryRawUnsafe<SeasonEntryTotalsRow[]>(
+        `SELECT a.profit_entry_id::text AS profit_entry_id,
           count(*) AS allocation_count,
           count(*) FILTER (WHERE a.status::text = 'draft') AS draft_count,
           count(*) FILTER (WHERE a.status::text = 'published') AS published_count,
@@ -403,24 +411,44 @@ export async function getProfitSeasonDetail(
         WHERE a.tenant_id = $1::uuid AND e.linked_dividend_period_id = $2::uuid
           AND e.status::text <> 'archived' AND a.status::text <> 'cancelled'
         GROUP BY a.profit_entry_id`,
-      input.tenantId,
-      input.seasonId
-    ),
-    prisma.$queryRawUnsafe<Array<{ member_count: bigint; total: string }>>(
-      `SELECT count(DISTINCT a.member_id) AS member_count,
+        input.tenantId,
+        input.seasonId
+      ),
+      prisma.$queryRawUnsafe<Array<{ member_count: bigint; total: string }>>(
+        `SELECT count(DISTINCT a.member_id) AS member_count,
           coalesce(sum(a.allocated_profit_amount), 0)::text AS total
         FROM share_profit_allocations a
         JOIN share_business_profit_entries e ON e.id = a.profit_entry_id
         WHERE a.tenant_id = $1::uuid AND e.linked_dividend_period_id = $2::uuid
           AND e.status::text <> 'archived' AND a.status::text <> 'cancelled'`,
-      input.tenantId,
-      input.seasonId
-    ),
-  ])
+        input.tenantId,
+        input.seasonId
+      ),
+      // Active members with no share in this season (no share capital on the
+      // profit date): named in "Who gets what" so nobody is silently left out.
+      prisma.$queryRawUnsafe<Array<{ full_name: string; total: bigint }>>(
+        `SELECT m.full_name, count(*) OVER () AS total
+        FROM members m
+        WHERE m.tenant_id = $1::uuid AND m.status::text = 'active'
+          AND NOT EXISTS (
+            SELECT 1 FROM share_profit_allocations a
+            JOIN share_business_profit_entries e ON e.id = a.profit_entry_id
+            WHERE a.tenant_id = $1::uuid AND a.member_id = m.id
+              AND e.linked_dividend_period_id = $2::uuid
+              AND e.status::text <> 'archived' AND a.status::text <> 'cancelled'
+          )
+        ORDER BY m.full_name
+        LIMIT ${membersWithNothingLimit}`,
+        input.tenantId,
+        input.seasonId
+      ),
+    ])
 
   if (!period) return null
 
-  const totalsByEntry = new Map(entryTotals.map((row) => [row.profit_entry_id, row]))
+  const totalsByEntry = new Map(
+    entryTotals.map((row) => [row.profit_entry_id, row])
+  )
   const serializedEntries = entries.map((entry) => {
     const total = totalsByEntry.get(entry.id)
     const toShare = money(entry.allocatableProfitAmount)
@@ -436,8 +464,7 @@ export async function getProfitSeasonDetail(
       isShared: publishedCount > 0,
       profitAmount: money(entry.profitAmount),
       profitDate: dateOnly(entry.profitDate) as string,
-      sharesReady:
-        allocationCount > 0 && Math.abs(allocated - toShare) < 0.01,
+      sharesReady: allocationCount > 0 && Math.abs(allocated - toShare) < 0.01,
       status: entry.status,
       toShare,
     }
@@ -458,6 +485,10 @@ export async function getProfitSeasonDetail(
     entries: serializedEntries,
     id: period.id,
     memberCount: Number(members?.member_count ?? 0),
+    membersWithNothing: {
+      count: Number(leftOut[0]?.total ?? 0),
+      names: leftOut.map((row) => row.full_name),
+    },
     name: period.name,
     periodEnd: dateOnly(period.periodEnd) as string,
     periodStart: dateOnly(period.periodStart) as string,
@@ -473,9 +504,7 @@ export async function getProfitSeasonDetail(
             toShare: recordedToShare,
           }
         : {
-            costs: money(
-              recordedCosts + money(period.deductionAmount)
-            ),
+            costs: money(recordedCosts + money(period.deductionAmount)),
             profit: money(period.totalProfitAmount),
             toShare: money(period.distributableAmount),
           },
@@ -608,7 +637,8 @@ export async function closeProfitSeason(
             const sum = (key: string) =>
               money(
                 entries.reduce(
-                  (total: number, entry: any) => total + Number(entry[key] ?? 0),
+                  (total: number, entry: any) =>
+                    total + Number(entry[key] ?? 0),
                   0
                 )
               )
@@ -738,6 +768,8 @@ export async function shareProfitSeason(
   input: {
     actorUserId: string
     commandId: string
+    /** Optional approval note (for example the board meeting), kept on record. */
+    note?: string | null
     seasonId: string
     tenantId: string
   },
@@ -858,6 +890,7 @@ export async function shareProfitSeason(
                 entityType: "DividendPeriod",
                 metadata: {
                   memberCount: summary.periodAllocationCount,
+                  note: input.note?.trim().slice(0, 500) || null,
                   profitEntryIds: ids,
                   publishedAllocationCount: published.count,
                   seasonShared: summary.allLinkedEntriesPublished,

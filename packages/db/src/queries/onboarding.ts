@@ -1,4 +1,8 @@
-import { getPublishedLegalBundle, validateLegalAcknowledgement, type LegalAcknowledgement } from "../legal-publication"
+import {
+  getPublishedLegalBundle,
+  validateLegalAcknowledgement,
+  type LegalAcknowledgement,
+} from "../legal-publication"
 import { recordLegalAcceptanceInTransaction } from "./legal-acceptance"
 import type { PrismaClient } from "../../generated/prisma/client"
 import {
@@ -349,8 +353,11 @@ export async function createTenantWorkspaceBootstrap(
   const primarySiteHostname = buildTenantSiteHostname(slug)
   const primaryDashboardHostname = primarySiteHostname
 
-  const requiresLegalAcceptance = getPublishedLegalBundle().acceptanceRequired || input.legalAcknowledgement !== undefined
-  if (requiresLegalAcceptance) validateLegalAcknowledgement(input.legalAcknowledgement)
+  const requiresLegalAcceptance =
+    getPublishedLegalBundle().acceptanceRequired ||
+    input.legalAcknowledgement !== undefined
+  if (requiresLegalAcceptance)
+    validateLegalAcknowledgement(input.legalAcknowledgement)
 
   const tenant = await prisma.$transaction(
     async (tx) => {
@@ -469,7 +476,12 @@ export async function createTenantWorkspaceBootstrap(
       })
 
       if (requiresLegalAcceptance) {
-        await recordLegalAcceptanceInTransaction(tx, {tenantId:createdTenant.id,userId:owner.id,acknowledgement:input.legalAcknowledgement!,surface:"web_onboarding"})
+        await recordLegalAcceptanceInTransaction(tx, {
+          tenantId: createdTenant.id,
+          userId: owner.id,
+          acknowledgement: input.legalAcknowledgement!,
+          surface: "web_onboarding",
+        })
       }
 
       if (input.ownerMemberNumber?.trim()) {

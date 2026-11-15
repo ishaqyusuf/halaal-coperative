@@ -51,7 +51,9 @@ export default async function OnboardingSuccessPage() {
 
   const user = context.auth.user
   const [financeSetup, adminMember, registrySummary] = await Promise.all([
-    getTenantFinanceSetup(tenant.id),
+    // Only setup progress and mode are needed: no charges, share versions or
+    // business detail (6 statements, not 13).
+    getTenantFinanceSetup(tenant.id, undefined, { parts: [] }),
     // The admin's own member record: one indexed lookup by user, then email.
     user
       ? getGoLiveOwnerMember({

@@ -61,16 +61,8 @@ const sendStreamed: AssistantApi["sendStreamed"] = async (input, onStage) => {
     } catch {
       throw new AssistantStreamError("The reply stream could not start.", true)
     }
-    if (
-      shouldInvalidateUnauthorizedMobileSession({
-        currentToken: getToken(),
-        requestToken,
-        responseStatus: response.status,
-      })
-    ) {
-      notifyMobileSessionUnauthorized()
+    if (response.status === 401)
       throw new AssistantStreamError("Sign in again.", false, "unauthorized")
-    }
     if (!response.ok || !response.body)
       throw new AssistantStreamError(
         `The reply stream answered ${response.status}.`,
@@ -79,6 +71,18 @@ const sendStreamed: AssistantApi["sendStreamed"] = async (input, onStage) => {
       )
     return await readAssistantStream(textChunks(response.body), onStage)
   } catch (error) {
+    // The stream reports a lapsed session as an event on a 200 response;
+    // treat it like the tRPC client's 401.
+    if (
+      error instanceof AssistantStreamError &&
+      error.code === "unauthorized" &&
+      shouldInvalidateUnauthorizedMobileSession({
+        currentToken: getToken(),
+        requestToken,
+        responseStatus: 401,
+      })
+    )
+      notifyMobileSessionUnauthorized()
     if (error instanceof AssistantStreamError) throw error
     throw new AssistantStreamError("The reply stream was interrupted.", true)
   } finally {

@@ -150,6 +150,7 @@ export type ImportBatchState =
   | "applied"
   | "failed"
   | "partial"
+  | "undone"
 
 /** One plain status word per batch, with the tone of its badge. */
 export function importStatusWord(status: string): {
@@ -165,6 +166,8 @@ export function importStatusWord(status: string): {
       return { label: "Not added", tone: "problem" }
     case "partial":
       return { label: "Partly added", tone: "problem" }
+    case "undone":
+      return { label: "Undone", tone: "waiting" }
     default:
       return { label: "Not added yet", tone: "waiting" }
   }

@@ -19,6 +19,7 @@ import {
   approveMemberOnboardingRequest,
   applyCharge,
   applyImportBatch,
+  undoImportBatch,
   closeContributionPlan,
   createSupportCase,
   createTenantCustomDomain,
@@ -7014,6 +7015,36 @@ export async function applyImportBatchAction(formData: FormData) {
   }
 }
 
+/**
+ * Undoes an added member or workplace import while nothing depends on what it
+ * created (the query refuses money kinds and anything in use). Same roles and
+ * import window as adding the file.
+ */
+export async function undoImportBatchAction(formData: FormData) {
+  const actor = await requireDashboardActor(allStaffRoles)
+  const batchId = getRequiredString(formData, "batchId")
+  const importKind = await getImportBatchKind({
+    batchId,
+    tenantId: actor.tenant.id,
+  })
+  const authorizedActor = await requireDashboardActor(
+    getImportManagementRoles(importKind)
+  )
+  await requireImportWindowOpen(authorizedActor)
+
+  try {
+    const result = await undoImportBatch({
+      actorUserId: authorizedActor.user.id,
+      batchId,
+      tenantId: authorizedActor.tenant.id,
+    })
+
+    return { batchId, removed: result.removed }
+  } finally {
+    revalidateAfterImport(importKind)
+  }
+}
+
 export async function queueBackfillDraftAction(formData: FormData) {
   const actor = await requireDashboardActor(allStaffRoles)
   const memberId = getRequiredString(formData, "memberId")
@@ -7272,6 +7303,7 @@ const dashboardActionHandlers = {
   stageImportBatchAction,
   importFileAction,
   applyImportBatchAction,
+  undoImportBatchAction,
   queueBackfillDraftAction,
   getBackfillPreviewAction,
   queueBackfillApplyAction,
@@ -7693,6 +7725,9 @@ export const dashboardActionsRouter = createTRPCRouter({
   importFileAction: formAction(dashboardActionHandlers.importFileAction),
   applyImportBatchAction: formAction(
     dashboardActionHandlers.applyImportBatchAction
+  ),
+  undoImportBatchAction: formAction(
+    dashboardActionHandlers.undoImportBatchAction
   ),
   queueBackfillDraftAction: formAction(
     dashboardActionHandlers.queueBackfillDraftAction

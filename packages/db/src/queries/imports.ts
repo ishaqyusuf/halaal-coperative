@@ -1423,3 +1423,249 @@ export async function importRepaymentMigrations(
 
   return { processed }
 }
+
+/** Import kinds that can be undone: they create records but move no money. */
+export const undoableImportKinds = ["members", "deduction_sources"] as const
+
+type UndoableImportKind = (typeof undoableImportKinds)[number]
+
+const undoTargets: Record<
+  UndoableImportKind,
+  {
+    /** Child rows the import itself wrote; deleted with the record. */
+    ownChildTables: readonly string[]
+    payloadKey: "memberNumber" | "name"
+    table: "deduction_sources" | "members"
+  }
+> = {
+  deduction_sources: {
+    ownChildTables: [],
+    payloadKey: "name",
+    table: "deduction_sources",
+  },
+  members: {
+    ownChildTables: ["contribution_plans", "member_amount_logs"],
+    payloadKey: "memberNumber",
+    table: "members",
+  },
+}
+
+function isUndoableImportKind(kind: string): kind is UndoableImportKind {
+  return (undoableImportKinds as readonly string[]).includes(kind)
+}
+
+/**
+ * Rows in other tables that point at these records, found from the database's
+ * own foreign keys, so a table added later blocks undo without a code change.
+ * `ownChildTables` (rows the import wrote) are left out.
+ */
+async function countReferencingRows(
+  tx: PrismaClient,
+  input: {
+    ids: string[]
+    ownChildTables: readonly string[]
+    table: "contribution_plans" | "deduction_sources" | "members"
+  }
+) {
+  const references = await tx.$queryRaw<
+    Array<{ column_name: string; table_name: string }>
+  >`
+    SELECT child.relname AS table_name, attribute.attname AS column_name
+    FROM pg_constraint constraint_row
+    JOIN pg_class child ON child.oid = constraint_row.conrelid
+    JOIN pg_namespace child_schema ON child_schema.oid = child.relnamespace
+    JOIN pg_attribute attribute
+      ON attribute.attrelid = constraint_row.conrelid
+     AND attribute.attnum = ANY (constraint_row.conkey)
+    WHERE constraint_row.contype = 'f'
+      AND constraint_row.confrelid = to_regclass(${input.table}::text)
+      AND child_schema.nspname = current_schema()`
+  const counted = references.filter(
+    (reference) => !input.ownChildTables.includes(reference.table_name)
+  )
+  if (counted.length === 0) return 0
+
+  // Identifiers come from the catalog above, never from input.
+  const quote = (identifier: string) => `"${identifier.replace(/"/g, '""')}"`
+  const sql = counted
+    .map(
+      (reference) =>
+        `SELECT count(*)::int AS n FROM ${quote(reference.table_name)} WHERE ${quote(reference.column_name)} = ANY ($1::uuid[])`
+    )
+    .join(" UNION ALL ")
+  const rows = await tx.$queryRawUnsafe<Array<{ n: number }>>(
+    `SELECT coalesce(sum(n), 0)::int AS total FROM (${sql}) counts`,
+    input.ids
+  )
+  return Number(
+    (rows[0] as unknown as { total: number } | undefined)?.total ?? 0
+  )
+}
+
+/**
+ * Undoes an added member or workplace import while nothing else depends on
+ * what it created. Refused when the file also changed existing records (those
+ * changes can't be put back), or when any created record has since gained
+ * anything: a sign-in, a payment, a loan, a member in a workplace, any row in
+ * any table that points at it. All or nothing; the batch becomes "undone" and
+ * the same file can be added again.
+ */
+export async function undoImportBatch(
+  input: { actorUserId: string; batchId: string; tenantId: string },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+  // Same window as adding a file: only while member records can be imported.
+  await assertMemberRecordImportsOpen(input.tenantId, prisma)
+
+  return prisma.$transaction(
+    async (transaction) => {
+      const tx = transaction as unknown as PrismaClient
+      const batch = await tx.importBatch.findFirst({
+        select: {
+          existingMatchCount: true,
+          id: true,
+          importType: true,
+          status: true,
+        },
+        where: { id: input.batchId, tenantId: input.tenantId },
+      })
+      if (!batch) throw ExpectedQueryError.notFound("Import batch not found")
+      if (!isUndoableImportKind(batch.importType)) {
+        throw ExpectedQueryError.precondition(
+          "Only member and workplace imports can be undone."
+        )
+      }
+      if (batch.existingMatchCount > 0) {
+        throw ExpectedQueryError.precondition(
+          "This file also changed records that were already in Halaalvest, so it can't be undone."
+        )
+      }
+
+      // Claim the batch: a second undo (or a race) finds it no longer added.
+      const claim = await tx.importBatch.updateMany({
+        data: { status: "undone" },
+        where: { id: batch.id, status: "applied", tenantId: input.tenantId },
+      })
+      if (claim.count !== 1) {
+        throw ExpectedQueryError.conflict(
+          "Only an added import can be undone. Refresh and check its status."
+        )
+      }
+
+      const target = undoTargets[batch.importType]
+      const rows = await tx.importBatchRow.findMany({
+        select: { payload: true },
+        where: { importBatchId: batch.id, tenantId: input.tenantId },
+      })
+      const keys = [
+        ...new Set(
+          rows
+            .map(
+              (row) =>
+                (row.payload as Record<string, unknown> | null)?.[
+                  target.payloadKey
+                ]
+            )
+            .filter((value): value is string => typeof value === "string")
+        ),
+      ]
+
+      const records =
+        batch.importType === "members"
+          ? await tx.member.findMany({
+              select: { id: true, userId: true },
+              where: { memberNumber: { in: keys }, tenantId: input.tenantId },
+            })
+          : (
+              await tx.deductionSource.findMany({
+                select: { id: true },
+                where: { name: { in: keys }, tenantId: input.tenantId },
+              })
+            ).map((source) => ({ ...source, userId: null }))
+
+      if (records.length !== keys.length) {
+        throw ExpectedQueryError.precondition(
+          "Some records from this file were changed or removed since it was added, so it can't be undone."
+        )
+      }
+      if (records.some((record) => record.userId)) {
+        throw ExpectedQueryError.precondition(
+          "Some members from this file can already sign in, so it can't be undone."
+        )
+      }
+
+      const ids = records.map((record) => record.id).sort()
+      // Lock the records: a row being added that points at one waits, then
+      // fails once they are gone.
+      await tx.$queryRawUnsafe(
+        `SELECT id FROM "${target.table}" WHERE id = ANY ($1::uuid[]) ORDER BY id FOR UPDATE`,
+        ids
+      )
+      // The commitment plans the import wrote are deleted with the members,
+      // so nothing may point at them either.
+      const planIds =
+        batch.importType === "members"
+          ? (
+              await tx.contributionPlan.findMany({
+                select: { id: true },
+                where: { memberId: { in: ids }, tenantId: input.tenantId },
+              })
+            ).map((plan) => plan.id)
+          : []
+      const references =
+        (await countReferencingRows(tx, {
+          ids,
+          ownChildTables: target.ownChildTables,
+          table: target.table,
+        })) +
+        (planIds.length > 0
+          ? await countReferencingRows(tx, {
+              ids: planIds,
+              ownChildTables: [],
+              table: "contribution_plans",
+            })
+          : 0)
+      if (references > 0) {
+        throw ExpectedQueryError.precondition(
+          batch.importType === "members"
+            ? "Some members from this file already have records (payments, loans, requests or other details), so it can't be undone."
+            : "Some workplaces from this file are already in use, so it can't be undone."
+        )
+      }
+
+      if (batch.importType === "members") {
+        await tx.contributionPlan.deleteMany({
+          where: { memberId: { in: ids }, tenantId: input.tenantId },
+        })
+        await tx.memberAmountLog.deleteMany({
+          where: { memberId: { in: ids }, tenantId: input.tenantId },
+        })
+        await tx.member.deleteMany({
+          where: { id: { in: ids }, tenantId: input.tenantId },
+        })
+      } else {
+        await tx.deductionSource.deleteMany({
+          where: { id: { in: ids }, tenantId: input.tenantId },
+        })
+      }
+
+      await createAuditLogEntry(
+        {
+          action: "import_batch.undone",
+          actorType: "user",
+          actorUserId: input.actorUserId,
+          entityId: batch.id,
+          entityType: "ImportBatch",
+          metadata: { importType: batch.importType, removed: ids.length },
+          tenantId: input.tenantId,
+        },
+        tx
+      )
+
+      return { importType: batch.importType, removed: ids.length }
+    },
+    { maxWait: 10_000, timeout: 60_000 }
+  )
+}

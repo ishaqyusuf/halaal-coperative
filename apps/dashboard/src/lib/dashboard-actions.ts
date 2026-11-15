@@ -866,6 +866,10 @@ export async function applyImportBatchAction(formData: FormData) {
   return callDashboardFormAction("applyImportBatchAction", formData)
 }
 
+export async function undoImportBatchAction(formData: FormData) {
+  return callDashboardFormAction("undoImportBatchAction", formData)
+}
+
 export async function queueBackfillDraftAction(formData: FormData) {
   return callDashboardFormAction("queueBackfillDraftAction", formData)
 }

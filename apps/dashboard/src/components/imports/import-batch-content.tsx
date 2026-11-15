@@ -16,7 +16,10 @@ import type {
   ImportAvailability,
   ImportBatchDetail,
 } from "@/components/imports/import-types"
-import { applyImportBatchAction } from "@/lib/dashboard-actions"
+import {
+  applyImportBatchAction,
+  undoImportBatchAction,
+} from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
 import type { DashboardImportKind } from "@/lib/import-csv"
 import { describeImportRow } from "@/lib/imports/import-rows"
@@ -30,7 +33,8 @@ import { formatDayMonthYear } from "@/utils/format"
 
 /**
  * One import batch: what was in the file and what happened to it. A batch
- * saved earlier (or one that stopped) can be added from here.
+ * saved earlier (or one that stopped) can be added from here, and an added
+ * member or workplace file can be undone while nothing depends on it.
  */
 export function ImportBatchContent({
   availability,
@@ -47,6 +51,8 @@ export function ImportBatchContent({
   const { showError, showSuccess } = useNotifications()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [isAdding, startAdding] = useTransition()
+  const [undoOpen, setUndoOpen] = useState(false)
+  const [isUndoing, startUndoing] = useTransition()
   const kind = batch.importType as DashboardImportKind
   const words = importKindWords[kind]
   const count = importCount(kind, batch.totalRows)
@@ -55,6 +61,31 @@ export function ImportBatchContent({
   const canAdd =
     (batch.status === "draft" || batch.status === "failed") &&
     Boolean(availability?.isAvailable)
+  // Only kinds that move no money; the server re-checks everything.
+  const canUndo =
+    batch.status === "applied" &&
+    (kind === "members" || kind === "deduction_sources") &&
+    batch.existingMatchCount === 0 &&
+    Boolean(availability?.isAvailable)
+  const hasAction = canAdd || canUndo
+
+  function undo() {
+    startUndoing(async () => {
+      try {
+        await undoImportBatchAction(objectToFormData({ batchId: batch.id }))
+        await queryClient.invalidateQueries(trpc.imports.pathFilter())
+        router.refresh()
+        setUndoOpen(false)
+        showSuccess("Undone", `${count} removed.`)
+      } catch (error) {
+        setUndoOpen(false)
+        showError(
+          "Nothing was undone",
+          error instanceof Error ? error.message : "Please try again."
+        )
+      }
+    })
+  }
 
   function add() {
     startAdding(async () => {
@@ -172,13 +203,24 @@ export function ImportBatchContent({
 
       <div className="grid grid-cols-2 gap-3 border-t border-border/70 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:justify-end sm:px-6">
         <Button
-          className={canAdd ? "h-11 text-base" : "col-span-2 h-11 text-base"}
+          className={hasAction ? "h-11 text-base" : "col-span-2 h-11 text-base"}
           onClick={onClose}
           type="button"
-          variant={canAdd ? "ghost" : "outline"}
+          variant={hasAction ? "ghost" : "outline"}
         >
           Close
         </Button>
+        {canUndo ? (
+          <Button
+            className="h-11 text-base"
+            disabled={isUndoing}
+            onClick={() => setUndoOpen(true)}
+            type="button"
+            variant="outline"
+          >
+            {isUndoing ? "Undoing…" : "Undo import"}
+          </Button>
+        ) : null}
         {canAdd ? (
           <Button
             className="h-11 text-base"
@@ -190,6 +232,23 @@ export function ImportBatchContent({
           </Button>
         ) : null}
       </div>
+
+      {canUndo ? (
+        <ConfirmActionDialog
+          actionLabel="Undo import"
+          description={
+            kind === "members"
+              ? `The ${count} this file added are removed, with their monthly commitments. This only works while none of them has a payment, loan, request or sign-in.`
+              : `The ${count} this file added are removed. This only works while no member belongs to them.`
+          }
+          destructive
+          onCancel={() => setUndoOpen(false)}
+          onConfirm={undo}
+          open={undoOpen}
+          pending={isUndoing}
+          title="Undo this import?"
+        />
+      ) : null}
 
       {words.postsMoney ? (
         <ConfirmActionDialog
@@ -223,6 +282,13 @@ function BatchStatusNotice({
           {count}
           {total ? ` (${total})` : ""} added on{" "}
           {formatDayMonthYear(batch.appliedAt ?? batch.createdAt)}.
+        </p>
+      )
+    case "undone":
+      return (
+        <p className="rounded-lg border border-border bg-muted/40 p-4 text-base">
+          This file was added, then undone. What it added was removed, and it
+          can be added again.
         </p>
       )
     case "applying":

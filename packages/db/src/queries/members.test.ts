@@ -1576,6 +1576,90 @@ describe("member statement dividend allocations", () => {
     expect(observed.shares.where.effectiveDate.lte).toBeInstanceOf(Date)
   })
 
+  test("reads one member's summary in one SQL statement with the list formulas", async () => {
+    const queries: unknown[][] = []
+    const prisma = {
+      $queryRaw: async (...args: unknown[]) => {
+        queries.push(args)
+        return [
+          {
+            activeProcurementCount: 1,
+            contributionAmount: "25000",
+            contributionCommittedAmount: "20000",
+            contributionCount: 3,
+            contributionExtraSavingsAmount: "5000",
+            deductionSourceName: "Payroll",
+            dividendAmount: "7500",
+            dividendCount: 1,
+            email: null,
+            exitedAt: null,
+            foodPurchaseApprovedAmount: "50000",
+            foodPurchaseCount: 1,
+            foodPurchasePaidAmount: "25000",
+            fullName: "Aisha Bello",
+            id: "member-1",
+            joinedAt: new Date("2026-01-01T00:00:00.000Z"),
+            lastContributionAt: new Date("2026-03-01T00:00:00.000Z"),
+            lastDividendAllocatedAt: new Date("2026-04-10T00:00:00.000Z"),
+            lastRepaymentAt: null,
+            loanCount: 1,
+            loanEstimatedMonthlyServicing: "5000",
+            loanExtraMonthlySavingsAmount: "1000",
+            loanOutstandingPrincipal: "15000",
+            loanPrincipalAmount: "30000",
+            memberNumber: "M-001",
+            memberType: "regular",
+            openingSpecialSavingsBalance: "200000",
+            planAmount: "10000",
+            planStartsAt: new Date("2026-01-01T00:00:00.000Z"),
+            procurementScheduledAmount: "500000",
+            procurementScheduledPaidAmount: null,
+            repaymentAmount: null,
+            shareLedgerAmount: "10000",
+            specialSavingsWithdrawalAmount: "1000",
+            status: "active",
+            totalSavingsSnapshot: "30000",
+            userEmail: "aisha@example.test",
+          },
+        ]
+      },
+    }
+
+    const summary = await getMemberStatementSummary(
+      "tenant-1",
+      "member-1",
+      prisma as never
+    )
+
+    expect(queries).toHaveLength(1)
+    expect(queries[0]).toEqual(expect.arrayContaining(["tenant-1", "member-1"]))
+    expect(summary).toMatchObject({
+      activeCommitmentAmount: 10000,
+      activeLoanCount: 1,
+      contributionsCount: 3,
+      deductionSourceName: "Payroll",
+      email: "aisha@example.test",
+      foodPurchaseOutstanding: 25000,
+      lastRepaymentAt: null,
+      procurementOutstanding: 500000,
+      shareCapitalBalance: 10000,
+      // Same figures as the grouped read above.
+      specialSavingsBalance: 204000,
+      totalDividendAllocations: 7500,
+      totalObligationsOutstanding: 540000,
+      totalRepaymentsPosted: 0,
+      totalSavingsSnapshot: 30000,
+    })
+  })
+
+  test("returns null when the SQL read finds no member in the tenant", async () => {
+    const summary = await getMemberStatementSummary("tenant-1", "member-x", {
+      $queryRaw: async () => [],
+    } as never)
+
+    expect(summary).toBeNull()
+  })
+
   test("reports zero opening balances when optional records are absent", async () => {
     const summary = await getMemberStatementSummary(
       "tenant-1",

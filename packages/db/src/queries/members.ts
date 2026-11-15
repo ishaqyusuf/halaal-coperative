@@ -1670,108 +1670,356 @@ export async function listMemberStatementSummaries(
     const repaymentTotal = repaymentMap.get(member.id)
     const loanTotal = loanMap.get(member.id)
     const dividendTotal = dividendMap.get(member.id)
-    const totalOutstandingPrincipal = Number(
-      loanTotal?._sum.outstandingPrincipal ?? 0
-    )
-    const openingSpecialSavingsBalance = sumOf(
-      openingSpecialMap,
-      member.id,
-      "specialSavingsBalance"
-    )
-    const specialSavingsWithdrawals = sumOf(
-      specialWithdrawalMap,
-      member.id,
-      "amount"
-    )
-    const specialSavingsBalance = roundStatementMoney(
-      openingSpecialSavingsBalance +
-        Number(contributionTotal?._sum.extraSavingsAmount ?? 0) -
-        specialSavingsWithdrawals
-    )
-    const procurementOutstanding = Math.max(
-      0,
-      roundStatementMoney(
-        sumOf(procurementScheduleMap, member.id, "amount") -
-          sumOf(procurementScheduleMap, member.id, "paidAmount")
-      )
-    )
-    const foodPurchaseOutstanding = Math.max(
-      0,
-      roundStatementMoney(
-        sumOf(foodPurchaseMap, member.id, "approvedAmount") -
-          sumOf(foodPurchaseMap, member.id, "paidAmount")
-      )
-    )
 
-    return {
-      memberId: member.id,
-      memberNumber: member.memberNumber,
-      fullName: member.fullName,
-      memberType: member.memberType,
-      status: member.status,
-      joinedAt: member.joinedAt,
-      exitedAt: member.exitedAt,
-      email: member.email ?? member.user?.email ?? null,
-      deductionSourceName: member.deductionSource?.name ?? null,
-      activeCommitmentAmount: Number(activePlan?.amount ?? 0),
-      activeCommitmentStartsAt: activePlan?.startsAt ?? null,
-      totalSavingsSnapshot: Number(member.totalSavingsSnapshot),
-      totalContributions: Number(contributionTotal?._sum.amount ?? 0),
-      totalCommittedContributions: Number(
-        contributionTotal?._sum.committedAmount ?? 0
-      ),
-      totalExtraSavingsContributions: Number(
-        contributionTotal?._sum.extraSavingsAmount ?? 0
-      ),
-      contributionsCount: contributionTotal?._count._all ?? 0,
-      lastContributionAt: contributionTotal?._max.postedAt ?? null,
-      totalLoanPrincipal: Number(loanTotal?._sum.principalAmount ?? 0),
-      totalOutstandingPrincipal,
-      activeLoanCount: loanTotal?._count._all ?? 0,
-      totalEstimatedMonthlyServicing: Number(
-        loanTotal?._sum.estimatedMonthlyServicing ?? 0
-      ),
-      totalLoanExtraSavingsAmount: Number(
-        loanTotal?._sum.extraMonthlySavingsAmount ?? 0
-      ),
-      totalRepaymentsPosted: Number(repaymentTotal?._sum.amount ?? 0),
-      lastRepaymentAt: repaymentTotal?._max.paidAt ?? null,
-      totalDividendAllocations: Number(
-        dividendTotal?._sum.allocationAmount ?? 0
-      ),
-      dividendAllocationCount: dividendTotal?._count._all ?? 0,
-      lastDividendAllocatedAt: dividendTotal?._max.createdAt ?? null,
-      openingSpecialSavingsBalance,
-      specialSavingsWithdrawals,
-      specialSavingsBalance,
-      shareCapitalBalance: roundStatementMoney(
-        sumOf(shareLedgerMap, member.id, "amount")
-      ),
-      procurementOutstanding,
-      activeProcurementCount: countOf(activeProcurementMap, member.id),
-      foodPurchaseOutstanding,
-      activeFoodPurchaseCount: countOf(foodPurchaseMap, member.id),
-      totalObligationsOutstanding: roundStatementMoney(
-        totalOutstandingPrincipal +
-          procurementOutstanding +
-          foodPurchaseOutstanding
-      ),
-    }
+    return buildMemberStatementSummary(
+      {
+        deductionSourceName: member.deductionSource?.name ?? null,
+        email: member.email,
+        exitedAt: member.exitedAt,
+        fullName: member.fullName,
+        id: member.id,
+        joinedAt: member.joinedAt,
+        memberNumber: member.memberNumber,
+        memberType: member.memberType,
+        planAmount: activePlan?.amount ?? null,
+        planStartsAt: activePlan?.startsAt ?? null,
+        status: member.status,
+        totalSavingsSnapshot: member.totalSavingsSnapshot,
+        userEmail: member.user?.email ?? null,
+      },
+      {
+        activeProcurementCount: countOf(activeProcurementMap, member.id),
+        contributionAmount: contributionTotal?._sum.amount,
+        contributionCommittedAmount: contributionTotal?._sum.committedAmount,
+        contributionCount: contributionTotal?._count._all ?? 0,
+        contributionExtraSavingsAmount:
+          contributionTotal?._sum.extraSavingsAmount,
+        dividendAmount: dividendTotal?._sum.allocationAmount,
+        dividendCount: dividendTotal?._count._all ?? 0,
+        foodPurchaseApprovedAmount: sumOf(
+          foodPurchaseMap,
+          member.id,
+          "approvedAmount"
+        ),
+        foodPurchaseCount: countOf(foodPurchaseMap, member.id),
+        foodPurchasePaidAmount: sumOf(foodPurchaseMap, member.id, "paidAmount"),
+        lastContributionAt: contributionTotal?._max.postedAt ?? null,
+        lastDividendAllocatedAt: dividendTotal?._max.createdAt ?? null,
+        lastRepaymentAt: repaymentTotal?._max.paidAt ?? null,
+        loanCount: loanTotal?._count._all ?? 0,
+        loanEstimatedMonthlyServicing:
+          loanTotal?._sum.estimatedMonthlyServicing,
+        loanExtraMonthlySavingsAmount:
+          loanTotal?._sum.extraMonthlySavingsAmount,
+        loanOutstandingPrincipal: loanTotal?._sum.outstandingPrincipal,
+        loanPrincipalAmount: loanTotal?._sum.principalAmount,
+        openingSpecialSavingsBalance: sumOf(
+          openingSpecialMap,
+          member.id,
+          "specialSavingsBalance"
+        ),
+        procurementScheduledAmount: sumOf(
+          procurementScheduleMap,
+          member.id,
+          "amount"
+        ),
+        procurementScheduledPaidAmount: sumOf(
+          procurementScheduleMap,
+          member.id,
+          "paidAmount"
+        ),
+        repaymentAmount: repaymentTotal?._sum.amount,
+        shareLedgerAmount: sumOf(shareLedgerMap, member.id, "amount"),
+        specialSavingsWithdrawalAmount: sumOf(
+          specialWithdrawalMap,
+          member.id,
+          "amount"
+        ),
+      }
+    )
   })
 }
 
+/** The member fields a statement summary shows. */
+type StatementMemberRow = {
+  deductionSourceName: string | null
+  email: string | null
+  exitedAt: Date | null
+  fullName: string
+  id: string
+  joinedAt: Date
+  memberNumber: string
+  memberType: MemberType
+  planAmount: unknown
+  planStartsAt: Date | null
+  status: MemberStatus
+  totalSavingsSnapshot: unknown
+  userEmail: string | null
+}
+
+/** One member's raw totals; missing sums count as zero. */
+type StatementMemberTotals = {
+  activeProcurementCount: number
+  contributionAmount: unknown
+  contributionCommittedAmount: unknown
+  contributionCount: number
+  contributionExtraSavingsAmount: unknown
+  dividendAmount: unknown
+  dividendCount: number
+  foodPurchaseApprovedAmount: unknown
+  foodPurchaseCount: number
+  foodPurchasePaidAmount: unknown
+  lastContributionAt: Date | null
+  lastDividendAllocatedAt: Date | null
+  lastRepaymentAt: Date | null
+  loanCount: number
+  loanEstimatedMonthlyServicing: unknown
+  loanExtraMonthlySavingsAmount: unknown
+  loanOutstandingPrincipal: unknown
+  loanPrincipalAmount: unknown
+  openingSpecialSavingsBalance: unknown
+  procurementScheduledAmount: unknown
+  procurementScheduledPaidAmount: unknown
+  repaymentAmount: unknown
+  shareLedgerAmount: unknown
+  specialSavingsWithdrawalAmount: unknown
+}
+
+/**
+ * The statement summary formulas, shared by the grouped list read and the
+ * one-statement single-member read so both return identical figures.
+ */
+function buildMemberStatementSummary(
+  member: StatementMemberRow,
+  totals: StatementMemberTotals
+): MemberStatementSummary {
+  const amount = (value: unknown) => Number(value ?? 0)
+  const totalOutstandingPrincipal = amount(totals.loanOutstandingPrincipal)
+  const openingSpecialSavingsBalance = amount(
+    totals.openingSpecialSavingsBalance
+  )
+  const specialSavingsWithdrawals = amount(
+    totals.specialSavingsWithdrawalAmount
+  )
+  const specialSavingsBalance = roundStatementMoney(
+    openingSpecialSavingsBalance +
+      amount(totals.contributionExtraSavingsAmount) -
+      specialSavingsWithdrawals
+  )
+  const procurementOutstanding = Math.max(
+    0,
+    roundStatementMoney(
+      amount(totals.procurementScheduledAmount) -
+        amount(totals.procurementScheduledPaidAmount)
+    )
+  )
+  const foodPurchaseOutstanding = Math.max(
+    0,
+    roundStatementMoney(
+      amount(totals.foodPurchaseApprovedAmount) -
+        amount(totals.foodPurchasePaidAmount)
+    )
+  )
+
+  return {
+    memberId: member.id,
+    memberNumber: member.memberNumber,
+    fullName: member.fullName,
+    memberType: member.memberType,
+    status: member.status,
+    joinedAt: member.joinedAt,
+    exitedAt: member.exitedAt,
+    email: member.email ?? member.userEmail ?? null,
+    deductionSourceName: member.deductionSourceName,
+    activeCommitmentAmount: amount(member.planAmount),
+    activeCommitmentStartsAt: member.planStartsAt,
+    totalSavingsSnapshot: Number(member.totalSavingsSnapshot),
+    totalContributions: amount(totals.contributionAmount),
+    totalCommittedContributions: amount(totals.contributionCommittedAmount),
+    totalExtraSavingsContributions: amount(
+      totals.contributionExtraSavingsAmount
+    ),
+    contributionsCount: totals.contributionCount,
+    lastContributionAt: totals.lastContributionAt,
+    totalLoanPrincipal: amount(totals.loanPrincipalAmount),
+    totalOutstandingPrincipal,
+    activeLoanCount: totals.loanCount,
+    totalEstimatedMonthlyServicing: amount(
+      totals.loanEstimatedMonthlyServicing
+    ),
+    totalLoanExtraSavingsAmount: amount(totals.loanExtraMonthlySavingsAmount),
+    totalRepaymentsPosted: amount(totals.repaymentAmount),
+    lastRepaymentAt: totals.lastRepaymentAt,
+    totalDividendAllocations: amount(totals.dividendAmount),
+    dividendAllocationCount: totals.dividendCount,
+    lastDividendAllocatedAt: totals.lastDividendAllocatedAt,
+    openingSpecialSavingsBalance,
+    specialSavingsWithdrawals,
+    specialSavingsBalance,
+    shareCapitalBalance: roundStatementMoney(amount(totals.shareLedgerAmount)),
+    procurementOutstanding,
+    activeProcurementCount: totals.activeProcurementCount,
+    foodPurchaseOutstanding,
+    activeFoodPurchaseCount: totals.foodPurchaseCount,
+    totalObligationsOutstanding: roundStatementMoney(
+      totalOutstandingPrincipal +
+        procurementOutstanding +
+        foodPurchaseOutstanding
+    ),
+  }
+}
+
+type StatementSummarySqlRow = StatementMemberRow & StatementMemberTotals
+
+/**
+ * One member's statement summary in a single SQL statement (the grouped list
+ * read takes 14). Same filters as `listMemberStatementSummaries`.
+ */
+async function readMemberStatementSummaryRow(
+  prisma: PrismaClient,
+  tenantId: string,
+  memberId: string
+): Promise<StatementSummarySqlRow | null> {
+  const payableStatuses = [...statementPayableScheduleStatuses]
+  const activeProcurementStatuses = [...statementActiveProcurementStatuses]
+  const loanStatuses = ["approved", "disbursed", "active", "defaulted"]
+  const asOf = new Date()
+  const rows = (await prisma.$queryRaw`
+    SELECT
+      m.id::text AS "id",
+      m.member_number AS "memberNumber",
+      m.full_name AS "fullName",
+      m.member_type::text AS "memberType",
+      m.status::text AS "status",
+      m.joined_at AS "joinedAt",
+      m.exited_at AS "exitedAt",
+      m.email AS "email",
+      m.total_savings_snapshot AS "totalSavingsSnapshot",
+      ds.name AS "deductionSourceName",
+      u.email AS "userEmail",
+      plan.amount AS "planAmount",
+      plan.starts_at AS "planStartsAt",
+      c.count AS "contributionCount",
+      c.amount AS "contributionAmount",
+      c.committed AS "contributionCommittedAmount",
+      c.extra AS "contributionExtraSavingsAmount",
+      c.last_at AS "lastContributionAt",
+      r.amount AS "repaymentAmount",
+      r.last_at AS "lastRepaymentAt",
+      l.count AS "loanCount",
+      l.principal AS "loanPrincipalAmount",
+      l.outstanding AS "loanOutstandingPrincipal",
+      l.servicing AS "loanEstimatedMonthlyServicing",
+      l.extra AS "loanExtraMonthlySavingsAmount",
+      d.count AS "dividendCount",
+      d.amount AS "dividendAmount",
+      d.last_at AS "lastDividendAllocatedAt",
+      (SELECT SUM(special_savings_balance) FROM member_opening_balances
+        WHERE tenant_id = m.tenant_id AND member_id = m.id
+          AND status = 'applied') AS "openingSpecialSavingsBalance",
+      (SELECT SUM(amount) FROM member_special_savings_withdrawals
+        WHERE tenant_id = m.tenant_id AND member_id = m.id
+      ) AS "specialSavingsWithdrawalAmount",
+      (SELECT SUM(amount) FROM member_share_ledger_entries
+        WHERE tenant_id = m.tenant_id AND member_id = m.id
+          AND effective_date <= ${asOf}) AS "shareLedgerAmount",
+      ps.amount AS "procurementScheduledAmount",
+      ps.paid AS "procurementScheduledPaidAmount",
+      (SELECT count(*)::int FROM procurement_requests
+        WHERE tenant_id = m.tenant_id AND member_id = m.id
+          AND status::text = ANY(${activeProcurementStatuses}::text[])
+      ) AS "activeProcurementCount",
+      fp.count AS "foodPurchaseCount",
+      fp.approved AS "foodPurchaseApprovedAmount",
+      fp.paid AS "foodPurchasePaidAmount"
+    FROM members m
+    LEFT JOIN deduction_sources ds ON ds.id = m.deduction_source_id
+    LEFT JOIN users u ON u.id = m.user_id
+    LEFT JOIN LATERAL (
+      SELECT amount, starts_at FROM contribution_plans
+      WHERE member_id = m.id AND is_active
+      ORDER BY starts_at DESC
+      LIMIT 1
+    ) plan ON TRUE
+    CROSS JOIN LATERAL (
+      SELECT count(*)::int AS count, SUM(amount) AS amount,
+        SUM(committed_amount) AS committed,
+        SUM(extra_savings_amount) AS extra, MAX(posted_at) AS last_at
+      FROM contributions
+      WHERE tenant_id = m.tenant_id AND member_id = m.id AND status = 'posted'
+    ) c
+    CROSS JOIN LATERAL (
+      SELECT SUM(amount) AS amount, MAX(paid_at) AS last_at
+      FROM repayments
+      WHERE tenant_id = m.tenant_id AND member_id = m.id AND status = 'posted'
+    ) r
+    CROSS JOIN LATERAL (
+      SELECT count(*)::int AS count, SUM(principal_amount) AS principal,
+        SUM(outstanding_principal) AS outstanding,
+        SUM(estimated_monthly_servicing) AS servicing,
+        SUM(extra_monthly_savings_amount) AS extra
+      FROM loans
+      WHERE tenant_id = m.tenant_id AND member_id = m.id
+        AND status::text = ANY(${loanStatuses}::text[])
+    ) l
+    CROSS JOIN LATERAL (
+      SELECT count(*)::int AS count, SUM(a.allocation_amount) AS amount,
+        MAX(a.created_at) AS last_at
+      FROM dividend_allocations a
+      JOIN dividend_periods p ON p.id = a.dividend_period_id
+      WHERE a.tenant_id = m.tenant_id AND a.member_id = m.id
+        AND p.status = 'published'
+    ) d
+    CROSS JOIN LATERAL (
+      SELECT SUM(i.amount) AS amount, SUM(i.paid_amount) AS paid
+      FROM procurement_repayment_schedule_items i
+      JOIN procurement_requests q ON q.id = i.procurement_request_id
+      WHERE i.tenant_id = m.tenant_id AND i.member_id = m.id
+        AND i.status::text = ANY(${payableStatuses}::text[])
+        AND q.status::text = ANY(${activeProcurementStatuses}::text[])
+    ) ps
+    CROSS JOIN LATERAL (
+      SELECT count(*)::int AS count, SUM(approved_amount) AS approved,
+        SUM(paid_amount) AS paid
+      FROM food_purchase_applications
+      WHERE tenant_id = m.tenant_id AND member_id = m.id
+        AND approved_amount IS NOT NULL AND status = 'approved'
+    ) fp
+    WHERE m.tenant_id = ${tenantId}::uuid AND m.id = ${memberId}::uuid
+  `) as StatementSummarySqlRow[]
+
+  return rows[0] ?? null
+}
+
+/**
+ * One member's statement summary: the shared balance source for the member
+ * page, member home, mobile and the assistant. One SQL statement; clients
+ * without `$queryRaw` (narrow test doubles) use the grouped list read.
+ */
 export async function getMemberStatementSummary(
   tenantId: string,
   memberId: string,
   prismaOverride?: PrismaClient
 ): Promise<MemberStatementSummary | null> {
-  const summaries = await listMemberStatementSummaries(
-    tenantId,
-    prismaOverride,
-    memberId
-  )
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
 
-  return summaries[0] ?? null
+  if (
+    typeof (prisma as unknown as { $queryRaw?: unknown }).$queryRaw !==
+    "function"
+  ) {
+    const summaries = await listMemberStatementSummaries(
+      tenantId,
+      prisma,
+      memberId
+    )
+
+    return summaries[0] ?? null
+  }
+
+  const row = await readMemberStatementSummaryRow(prisma, tenantId, memberId)
+
+  return row ? buildMemberStatementSummary(row, row) : null
 }
 
 export async function getMemberStatementDetail(

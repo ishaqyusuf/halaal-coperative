@@ -229,6 +229,29 @@ memberships and tenant data cascade with the tenant.
 Status: scaffold. The guards, naming and cleanup work. The eight browser stages
 (sign-up through go-live) still need writing, so `run` writes nothing and exits 3.
 
+## Release-candidate gate: `bun run qa:candidate`
+
+```bash
+mkdir -p .scratch/qa-smoke && cp scripts/fixtures/qa-smoke.candidate.example.json .scratch/qa-smoke/candidate.json
+bun run qa:candidate            # on a clean checkout of the commit to release
+bun run qa:candidate status     # exit 0 when HEAD has a fresh passed receipt
+```
+
+Modelled on EwaTrade's `qa:candidate`. For the committed HEAD it runs every
+`test:quick` suite, then `qa:smoke` with the candidate config, and records
+`.scratch/qa-candidate/candidate-<sha>.json`. It refuses a dirty checkout: other
+sessions' uncommitted work would be tested instead of the candidate. The smoke
+receipt must be for the same commit with no uncommitted paths, and must pass
+every journey: the main admin pages, the three Quick Fill forms, the
+getting-started gate, the member-ready member's three requests and receipt form,
+and Record payment. A passed receipt is reused for 24 hours; `status` only reads
+it, so a release step can require it.
+
+The local dashboard must be serving that same commit, so run it where no other
+session is editing (a quiet checkout). Not included: EwaTrade's Preview-bound
+smoke and its `release` wrapper (Halaalvest QA sign-in on Preview waits for
+Oversight's policy activation), and Maestro/Android smoke.
+
 ## Codes and emails: use `123456`, nothing is emailed
 
 Outside production Halaalvest sends no email at all, QA `.test` addresses

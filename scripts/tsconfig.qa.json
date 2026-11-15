@@ -27,6 +27,8 @@
     "qa-write-smoke.ts",
     "qa-write-smoke.test.ts",
     "qa-web-smoke.mjs",
+    "qa-candidate.ts",
+    "qa-candidate.test.ts",
     "agent-chat.ts",
     "agent-chat.test.ts",
     "../apps/mobile/scripts/android-adb-cli.mjs",

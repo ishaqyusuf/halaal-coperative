@@ -215,6 +215,8 @@ export const receiptSubmissionFieldsSchema = z.object({
   ),
   /** Private evidence upload id, when the private upload path is enabled. */
   evidenceUploadId: z.string().nullable(),
+  /** File name shown in the review; set together with evidenceUploadId. */
+  evidenceName: z.string().max(160).nullable().optional(),
 })
 
 export const paymentRequestFieldsSchema = z.object({
@@ -346,6 +348,61 @@ export const proposalEditInputSchema = z
   })
   .strict()
 export type ProposalEditInput = z.infer<typeof proposalEditInputSchema>
+
+// ---------------------------------------------------------------------------
+// Saved-answer and draft links
+// ---------------------------------------------------------------------------
+
+/** App paths for an exact saved answer or draft. Opening one runs nothing. */
+export const assistantHrefs = {
+  message: (messageId: string) => `/assistant/m/${encodeURIComponent(messageId)}`,
+  proposal: (proposalId: string) => `/assistant/review/${encodeURIComponent(proposalId)}`,
+} as const
+
+export const assistantLinkTargetSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("message"), id: z.string().min(1).max(128) }).strict(),
+  z.object({ kind: z.literal("proposal"), id: z.string().min(1).max(128) }).strict(),
+])
+export type AssistantLinkTarget = z.infer<typeof assistantLinkTargetSchema>
+
+/**
+ * Re-authorized on every open: same user, cooperative and membership as the
+ * chat. Anything else is "unavailable" (no hint whether it exists).
+ */
+export const assistantLinkResolutionSchema = z.discriminatedUnion("status", [
+  z.object({
+    status: z.literal("ok"),
+    conversationId: z.string(),
+    channel: z.enum(["web", "native", "whatsapp", "telegram"]),
+    messageId: z.string().nullable(),
+    proposalId: z.string().nullable(),
+  }),
+  z.object({ status: z.literal("unavailable") }),
+])
+export type AssistantLinkResolution = z.infer<typeof assistantLinkResolutionSchema>
+
+// ---------------------------------------------------------------------------
+// Streamed turn (POST /api/assistant/turn, newline-delimited JSON)
+// ---------------------------------------------------------------------------
+
+export const assistantStreamStageSchema = z.enum([
+  "received",
+  "thinking",
+  "reading",
+  "drafting",
+])
+export type AssistantStreamStage = z.infer<typeof assistantStreamStageSchema>
+
+export const assistantStreamEventSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("status"), stage: assistantStreamStageSchema }),
+  z.object({ type: z.literal("done"), output: assistantTurnOutputSchema }),
+  z.object({
+    type: z.literal("error"),
+    code: z.enum(["unauthorized", "forbidden", "invalid", "busy", "failed"]),
+    message: z.string().max(300),
+  }),
+])
+export type AssistantStreamEvent = z.infer<typeof assistantStreamEventSchema>
 
 export type AssistantConversationSummary = {
   id: string

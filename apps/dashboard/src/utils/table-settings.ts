@@ -8,10 +8,6 @@ import type {
 export type TableId =
   | "members"
   | "contributions"
-  | "charges"
-  | "shares"
-  | "business"
-  | "shareApplications"
   | "procurement"
   | "foodPurchase"
   | "projectFinancing"
@@ -19,14 +15,12 @@ export type TableId =
   | "repaymentHistory"
   | "support"
   | "paymentReceipts"
-  | "chargeLibrary"
   | "imports"
   | "loanPortfolio"
   | "loanRequests"
   | "membershipApprovals"
   | "monthlyRecords"
   | "notifications"
-  | "audit"
 
 export interface TableSettings {
   columns: VisibilityState
@@ -57,10 +51,6 @@ export function writeTableSettingsCookie(settings: AllTableSettings) {
 export const defaultHiddenColumns: Record<TableId, string[]> = {
   members: [],
   contributions: [],
-  charges: ["versions"],
-  shares: ["notes"],
-  business: [],
-  shareApplications: ["reviewNotes"],
   procurement: ["vendor"],
   foodPurchase: ["item"],
   projectFinancing: ["disbursed"],
@@ -68,7 +58,6 @@ export const defaultHiddenColumns: Record<TableId, string[]> = {
   repaymentHistory: ["reference"],
   support: ["linkedRecord"],
   paymentReceipts: ["reference"],
-  chargeLibrary: [],
   imports: [],
   loanPortfolio: [],
   loanRequests: [],
@@ -83,7 +72,6 @@ export const defaultHiddenColumns: Record<TableId, string[]> = {
     "finalIncome",
   ],
   notifications: [],
-  audit: [],
 }
 
 export function getDefaultColumnVisibility(tableId: TableId): VisibilityState {

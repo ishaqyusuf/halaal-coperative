@@ -2592,157 +2592,195 @@ export async function postRepayment(
 
   return runSerializableTransactionWithRetry(
     prisma,
-    async (tx) => {
-      const loan = await tx.loan.findFirst({
-        where: { id: input.loanId, tenantId: input.tenantId },
-      })
-      if (!loan) throw ExpectedQueryError.notFound("Loan not found")
-      if (input.expectedStatus && loan.status !== input.expectedStatus) {
-        throw ExpectedQueryError.conflict(
-          `Financing changed from ${input.expectedStatus} to ${loan.status}. Refresh before posting.`
-        )
-      }
-      if (!["disbursed", "active"].includes(loan.status)) {
-        throw ExpectedQueryError.conflict(
-          "Repayments can only be posted to disbursed or active loans."
-        )
-      }
-      const previousOutstandingPrincipal = Number(loan.outstandingPrincipal)
-      if (
-        input.expectedOutstandingPrincipal != null &&
-        Math.round(input.expectedOutstandingPrincipal * 100) !==
-          Math.round(previousOutstandingPrincipal * 100)
-      ) {
-        throw ExpectedQueryError.conflict(
-          "The outstanding balance changed. Refresh before posting this repayment."
-        )
-      }
-      const nextOutstandingPrincipal = previousOutstandingPrincipal - amount
-      const repaymentClearsLoan = nextOutstandingPrincipal <= 0
-      const postedAt = input.paidAt ?? new Date()
-      if (Number.isNaN(postedAt.getTime())) {
-        throw ExpectedQueryError.validation("Repayment date is invalid.")
-      }
-
-      if (amount > previousOutstandingPrincipal) {
-        throw ExpectedQueryError.validation(
-          "Repayment amount exceeds the outstanding loan balance."
-        )
-      }
-
-      await tx.loan.update({
-        where: { id: loan.id },
-        data: {
-          outstandingPrincipal: {
-            decrement: amount,
+    (tx) =>
+      postRepaymentInTransaction(
+        {
+          ...input,
+          amount,
+          accounts: {
+            cash: cashAccount,
+            loanReceivable: loanReceivableAccount,
           },
-          status: repaymentClearsLoan ? "completed" : "active",
-          ...(repaymentClearsLoan ? { closedAt: postedAt } : {}),
         },
-      })
+        tx
+      ),
+    "Could not safely post repayment"
+  )
+}
 
-      const allocation = await allocateRepaymentAcrossScheduleItems({
-        amount,
+/**
+ * The repayment posting itself, inside the caller's transaction (serializable
+ * for live posts). Imports post a whole file this way in one transaction, so
+ * either every repayment is added or none is.
+ */
+export async function postRepaymentInTransaction(
+  input: {
+    accounts: {
+      cash: { id: string }
+      loanReceivable: { id: string }
+    }
+    actorUserId: string
+    amount: number
+    expectedOutstandingPrincipal?: number
+    expectedStatus?: string
+    loanId: string
+    paidAt?: Date
+    reference?: string
+    sourceType?: "import"
+    tenantId: string
+  },
+  tx: PrismaClient
+) {
+  const amount = normalizePositiveMoney(input.amount, "Repayment amount")
+  const cashAccount = input.accounts.cash
+  const loanReceivableAccount = input.accounts.loanReceivable
+  const loan = await tx.loan.findFirst({
+    where: { id: input.loanId, tenantId: input.tenantId },
+  })
+  if (!loan) throw ExpectedQueryError.notFound("Loan not found")
+  if (input.expectedStatus && loan.status !== input.expectedStatus) {
+    throw ExpectedQueryError.conflict(
+      `Financing changed from ${input.expectedStatus} to ${loan.status}. Refresh before posting.`
+    )
+  }
+  if (!["disbursed", "active"].includes(loan.status)) {
+    throw ExpectedQueryError.conflict(
+      "Repayments can only be posted to disbursed or active loans."
+    )
+  }
+  const previousOutstandingPrincipal = Number(loan.outstandingPrincipal)
+  if (
+    input.expectedOutstandingPrincipal != null &&
+    Math.round(input.expectedOutstandingPrincipal * 100) !==
+      Math.round(previousOutstandingPrincipal * 100)
+  ) {
+    throw ExpectedQueryError.conflict(
+      "The outstanding balance changed. Refresh before posting this repayment."
+    )
+  }
+  const nextOutstandingPrincipal = previousOutstandingPrincipal - amount
+  const repaymentClearsLoan = nextOutstandingPrincipal <= 0
+  const postedAt = input.paidAt ?? new Date()
+  if (Number.isNaN(postedAt.getTime())) {
+    throw ExpectedQueryError.validation("Repayment date is invalid.")
+  }
+
+  if (amount > previousOutstandingPrincipal) {
+    throw ExpectedQueryError.validation(
+      "Repayment amount exceeds the outstanding loan balance."
+    )
+  }
+
+  await tx.loan.update({
+    where: { id: loan.id },
+    data: {
+      outstandingPrincipal: {
+        decrement: amount,
+      },
+      status: repaymentClearsLoan ? "completed" : "active",
+      ...(repaymentClearsLoan ? { closedAt: postedAt } : {}),
+    },
+  })
+
+  const allocation = await allocateRepaymentAcrossScheduleItems({
+    amount,
+    loanId: loan.id,
+    tenantId: input.tenantId,
+    tx: tx as unknown as PrismaClient,
+  })
+
+  const repayment = await tx.repayment.create({
+    data: {
+      tenantId: input.tenantId,
+      memberId: loan.memberId,
+      loanId: loan.id,
+      // Direct repayment servicing is always earliest-unpaid first. Do not
+      // persist a client-selected schedule id that might not receive money.
+      repaymentScheduleItemId: allocation.firstAllocatedScheduleItemId,
+      receivedByUserId: input.actorUserId,
+      paidAt: postedAt,
+      amount,
+      status: "posted",
+      reference: input.reference,
+    },
+  })
+
+  const settlement = repaymentClearsLoan
+    ? await stopRemainingScheduleForClearedLoan({
         loanId: loan.id,
         tenantId: input.tenantId,
         tx: tx as unknown as PrismaClient,
       })
+    : null
 
-      const repayment = await tx.repayment.create({
-        data: {
-          tenantId: input.tenantId,
-          memberId: loan.memberId,
-          loanId: loan.id,
-          // Direct repayment servicing is always earliest-unpaid first. Do not
-          // persist a client-selected schedule id that might not receive money.
-          repaymentScheduleItemId: allocation.firstAllocatedScheduleItemId,
-          receivedByUserId: input.actorUserId,
-          paidAt: postedAt,
-          amount,
-          status: "posted",
-          reference: input.reference,
-        },
-      })
-
-      const settlement = repaymentClearsLoan
-        ? await stopRemainingScheduleForClearedLoan({
-            loanId: loan.id,
-            tenantId: input.tenantId,
-            tx: tx as unknown as PrismaClient,
-          })
-        : null
-
-      await postLedgerTransaction(
+  await postLedgerTransaction(
+    {
+      tenantId: input.tenantId,
+      transactionType: "loan_repayment",
+      postedAt: repayment.paidAt,
+      memberId: loan.memberId,
+      loanId: loan.id,
+      repaymentId: repayment.id,
+      reference: input.reference,
+      narration: "Loan repayment received",
+      sourceType: input.sourceType,
+      entries: [
         {
-          tenantId: input.tenantId,
-          transactionType: "loan_repayment",
-          postedAt: repayment.paidAt,
-          memberId: loan.memberId,
+          ledgerAccountId: cashAccount.id,
+          direction: "debit",
+          amount,
+        },
+        {
+          ledgerAccountId: loanReceivableAccount.id,
+          direction: "credit",
+          amount,
+        },
+      ],
+    },
+    tx as unknown as PrismaClient
+  )
+
+  await tx.auditLog.create({
+    data: {
+      tenantId: input.tenantId,
+      actorUserId: input.actorUserId,
+      actorType: "user",
+      action: "repayment.posted",
+      entityType: "Repayment",
+      entityId: repayment.id,
+      metadata: {
+        amount,
+        loanId: loan.id,
+        repaymentScheduleItemId: allocation.firstAllocatedScheduleItemId,
+      },
+      occurredAt: new Date(),
+    },
+  })
+
+  if (repaymentClearsLoan) {
+    await tx.auditLog.create({
+      data: {
+        tenantId: input.tenantId,
+        actorUserId: input.actorUserId,
+        actorType: "user",
+        action: "loan.early_settled",
+        entityType: "Loan",
+        entityId: loan.id,
+        metadata: {
           loanId: loan.id,
           repaymentId: repayment.id,
-          reference: input.reference,
-          narration: "Loan repayment received",
-          sourceType: input.sourceType,
-          entries: [
-            {
-              ledgerAccountId: cashAccount.id,
-              direction: "debit",
-              amount,
-            },
-            {
-              ledgerAccountId: loanReceivableAccount.id,
-              direction: "credit",
-              amount,
-            },
-          ],
+          repaymentAmount: amount,
+          previousOutstandingPrincipal,
+          closedAt: postedAt.toISOString(),
+          waivedScheduleItemCount: settlement?.waivedScheduleItemCount ?? 0,
+          waivedScheduleItemIds: settlement?.waivedScheduleItemIds ?? [],
+          waivedScheduleOutstandingAmount:
+            settlement?.waivedOutstandingAmount ?? 0,
         },
-        tx as unknown as PrismaClient
-      )
+        occurredAt: postedAt,
+      },
+    })
+  }
 
-      await tx.auditLog.create({
-        data: {
-          tenantId: input.tenantId,
-          actorUserId: input.actorUserId,
-          actorType: "user",
-          action: "repayment.posted",
-          entityType: "Repayment",
-          entityId: repayment.id,
-          metadata: {
-            amount,
-            loanId: loan.id,
-            repaymentScheduleItemId: allocation.firstAllocatedScheduleItemId,
-          },
-          occurredAt: new Date(),
-        },
-      })
-
-      if (repaymentClearsLoan) {
-        await tx.auditLog.create({
-          data: {
-            tenantId: input.tenantId,
-            actorUserId: input.actorUserId,
-            actorType: "user",
-            action: "loan.early_settled",
-            entityType: "Loan",
-            entityId: loan.id,
-            metadata: {
-              loanId: loan.id,
-              repaymentId: repayment.id,
-              repaymentAmount: amount,
-              previousOutstandingPrincipal,
-              closedAt: postedAt.toISOString(),
-              waivedScheduleItemCount: settlement?.waivedScheduleItemCount ?? 0,
-              waivedScheduleItemIds: settlement?.waivedScheduleItemIds ?? [],
-              waivedScheduleOutstandingAmount:
-                settlement?.waivedOutstandingAmount ?? 0,
-            },
-            occurredAt: postedAt,
-          },
-        })
-      }
-
-      return repayment
-    },
-    "Could not safely post repayment"
-  )
+  return repayment
 }

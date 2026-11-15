@@ -304,6 +304,58 @@ runIntegration("import actions", () => {
     expect(schedule).toBe(12)
   })
 
+  test("a repayment file is added whole or not at all", async () => {
+    const caller = await callerFor(admin)
+    const header = "memberNumber,loanProductName,amount,reference"
+    const outstanding = async () =>
+      Number(
+        (
+          await prisma!.loan.findFirstOrThrow({
+            select: { outstandingPrincipal: true },
+            where: { member: { memberNumber: "IMP-0002" }, tenantId },
+          })
+        ).outstandingPrincipal
+      )
+    const repayments = () => prisma!.repayment.count({ where: { tenantId } })
+
+    await expect(
+      caller.dashboardActions.importFileAction(
+        fields({
+          csvText: [
+            header,
+            "IMP-0002,Standard Loan,10000,REP-1",
+            "IMP-0002,Standard Loan,5000,REP-2",
+          ].join("\n"),
+          importKind: "repayment_migrations",
+        })
+      )
+    ).resolves.toMatchObject({ data: { processed: 2 } })
+    expect(await outstanding()).toBe(65000)
+
+    // The second row overpays the loan: the first row is not kept either,
+    // and the batch is "failed" (can be fixed and added), never "partial".
+    const before = await repayments()
+    await expect(
+      caller.dashboardActions.importFileAction(
+        fields({
+          csvText: [
+            header,
+            "IMP-0002,Standard Loan,1000,REP-3",
+            "IMP-0002,Standard Loan,900000,REP-4",
+          ].join("\n"),
+          importKind: "repayment_migrations",
+        })
+      )
+    ).rejects.toThrow()
+    expect(await outstanding()).toBe(65000)
+    expect(await repayments()).toBe(before)
+    const latest = await prisma!.importBatch.findFirstOrThrow({
+      orderBy: { createdAt: "desc" },
+      where: { importType: "repayment_migrations", tenantId },
+    })
+    expect(latest.status).toBe("failed")
+  })
+
   test("a file with an unknown member adds nothing", async () => {
     const caller = await callerFor(admin)
 

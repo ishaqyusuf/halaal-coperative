@@ -17,7 +17,8 @@ import {
   postImportedMembers,
   resolveImportedRepaymentLoans,
 } from "./import-posting"
-import { postRepayment } from "./loans"
+import { getLedgerAccountByCode } from "./ledger"
+import { postRepaymentInTransaction } from "./loans"
 
 type ImportResult = {
   processed: number
@@ -605,11 +606,6 @@ export function reviveImportDates(payload: Prisma.JsonValue): Prisma.JsonValue {
   return row as Prisma.JsonValue
 }
 
-/** Kinds whose writers run inside one transaction (all or nothing). */
-function isAtomicImportKind(kind: ImportKind) {
-  return kind !== "repayment_migrations"
-}
-
 function importFailureMessage(error: unknown) {
   return error instanceof ExpectedQueryError
     ? error.message
@@ -644,6 +640,8 @@ export async function applyImportBatch(
       "This import batch has already been applied."
     )
   }
+  // Repayment files are all or nothing now; "partial" survives only on
+  // batches written by the old row-by-row writer.
   if (batch.status === "partial") {
     throw ExpectedQueryError.precondition(
       "Part of this file was added before it stopped. Check the records before adding anything again."
@@ -653,9 +651,9 @@ export async function applyImportBatch(
   const kind = batch.importType as ImportKind
   await assertMemberRecordImportsOpen(input.tenantId, prisma)
 
-  // Claim the batch so two clicks (or two people) cannot both add it. An
-  // all-or-nothing batch left "applying" by a crash wrote nothing, so it can be
-  // claimed again after ten minutes.
+  // Claim the batch so two clicks (or two people) cannot both add it. Every
+  // kind is written in one transaction, so a batch left "applying" by a crash
+  // wrote nothing and can be claimed again after ten minutes.
   const staleBefore = new Date(Date.now() - 10 * 60 * 1000)
   const claim = await prisma.importBatch.updateMany({
     data: { errorMessage: null, status: "applying" },
@@ -664,9 +662,7 @@ export async function applyImportBatch(
       tenantId: input.tenantId,
       OR: [
         { status: { in: ["draft", "failed"] } },
-        ...(isAtomicImportKind(kind)
-          ? [{ status: "applying", updatedAt: { lt: staleBefore } }]
-          : []),
+        { status: "applying", updatedAt: { lt: staleBefore } },
       ],
     },
   })
@@ -684,16 +680,6 @@ export async function applyImportBatch(
       where: { importBatchId: batch.id, tenantId: input.tenantId },
     })
   ).map((row) => reviveImportDates(row.payload))
-
-  if (!isAtomicImportKind(kind)) {
-    return applyRepaymentImportBatch({
-      actorUserId: input.actorUserId,
-      batchId: batch.id,
-      prisma,
-      rows,
-      tenantId: input.tenantId,
-    })
-  }
 
   try {
     return await prisma.$transaction(
@@ -733,7 +719,15 @@ export async function applyImportBatch(
 
         return result
       },
-      { maxWait: 10_000, timeout: 120_000 }
+      {
+        // Repayments allocate across schedule items as live posts do, so
+        // they need the same serializable isolation.
+        ...(kind === "repayment_migrations"
+          ? { isolationLevel: "Serializable" as const }
+          : {}),
+        maxWait: 10_000,
+        timeout: 120_000,
+      }
     )
   } catch (error) {
     await prisma.importBatch.updateMany({
@@ -743,72 +737,6 @@ export async function applyImportBatch(
 
     throw error
   }
-}
-
-/**
- * Repayments post through the live repayment path (allocation to schedule
- * items in its own serialisable transaction), so they are added one by one.
- * The whole file is checked first; if a row still fails after some were
- * added, the batch is marked "partial" and is never applied again.
- */
-async function applyRepaymentImportBatch(input: {
-  actorUserId: string
-  batchId: string
-  prisma: PrismaClient
-  rows: Prisma.JsonValue[]
-  tenantId: string
-}) {
-  const rows = castImportRows("repayment_migrations", input.rows) as Parameters<
-    typeof importRepaymentMigrations
-  >[0]["rows"]
-  let processed = 0
-
-  try {
-    processed = (
-      await importRepaymentMigrations(
-        {
-          actorUserId: input.actorUserId,
-          onRowPosted: () => {
-            processed += 1
-          },
-          rows,
-          tenantId: input.tenantId,
-        },
-        input.prisma
-      )
-    ).processed
-  } catch (error) {
-    await input.prisma.importBatch.updateMany({
-      data: {
-        errorMessage:
-          processed > 0
-            ? `${processed} of ${rows.length} repayments were added before this stopped: ${importFailureMessage(error)}`
-            : importFailureMessage(error),
-        status: processed > 0 ? "partial" : "failed",
-      },
-      where: { id: input.batchId, tenantId: input.tenantId },
-    })
-    throw error
-  }
-
-  await input.prisma.importBatch.update({
-    data: { appliedAt: new Date(), errorMessage: null, status: "applied" },
-    where: { id: input.batchId },
-  })
-  await createAuditLogEntry(
-    {
-      action: "import_batch.applied",
-      actorType: "user",
-      actorUserId: input.actorUserId,
-      entityId: input.batchId,
-      entityType: "ImportBatch",
-      metadata: { importType: "repayment_migrations", processed },
-      tenantId: input.tenantId,
-    },
-    input.prisma
-  )
-
-  return { processed }
 }
 
 export async function getImportReferenceData(
@@ -1435,8 +1363,6 @@ export async function importLoanMigrations(
 export async function importRepaymentMigrations(
   input: {
     actorUserId: string
-    /** Called after each repayment is written, so a caller can count progress. */
-    onRowPosted?: () => void
     rows: Array<{
       amount: number
       loanProductName: string
@@ -1453,11 +1379,23 @@ export async function importRepaymentMigrations(
   await assertMemberRecordImportsOpen(input.tenantId, prisma)
 
   const loanIds = await resolveImportedRepaymentLoans(prisma, input)
+  const [cash, loanReceivable] = await Promise.all([
+    getLedgerAccountByCode(input.tenantId, "2000", prisma),
+    getLedgerAccountByCode(input.tenantId, "1100", prisma),
+  ])
+  if (!cash || !loanReceivable) {
+    throw new QueryInfrastructureError(
+      "Ledger accounts not initialized for this cooperative"
+    )
+  }
   let processed = 0
 
+  // Runs in the import batch's transaction (applyImportBatch): one failing
+  // row rolls back every repayment in the file.
   for (const [index, row] of input.rows.entries()) {
-    await postRepayment(
+    await postRepaymentInTransaction(
       {
+        accounts: { cash, loanReceivable },
         actorUserId: input.actorUserId,
         amount: row.amount,
         loanId: loanIds[index]!,
@@ -1469,7 +1407,6 @@ export async function importRepaymentMigrations(
     )
 
     processed += 1
-    input.onRowPosted?.()
   }
 
   await createAuditLogEntry(

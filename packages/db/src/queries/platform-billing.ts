@@ -694,7 +694,7 @@ async function postBillAccounting(
             transactionType: "adjustment",
             postedAt: bill.paidAt,
             reference: bill.paymentReference,
-            narration: `Halaalvest bill for ${label} paid, ${fundingNarration(bill)}`,
+            narration: `Halaalvest bill for ${label}, ${fundingNarration(bill)}`,
             idempotencyKey: paymentReferenceIdempotencyKey(
               bill.paymentReference
             ),
@@ -1020,7 +1020,7 @@ export async function getPlatformBillingOverview(
   const db = requireDb(override)
   const now = input.now ?? new Date()
   const period = platformBillingPeriod(now)
-  const [settings, seats, usage, terms, currentBill] = await Promise.all([
+  const [settings, seats, usage, terms, currentBill, tenant] = await Promise.all([
     readSettings(input.tenantId, db),
     db.member.count({ where: { tenantId: input.tenantId, status: "active" } }),
     db.platformAssistantUsage.findUnique({
@@ -1042,6 +1042,10 @@ export async function getPlatformBillingOverview(
       where: { tenantId_period: { tenantId: input.tenantId, period } },
       select: { id: true },
     }),
+    db.tenant.findUnique({
+      where: { id: input.tenantId },
+      select: { dataClassification: true },
+    }),
   ])
   const estimate = estimatePlatformBill({
     seats,
@@ -1052,6 +1056,7 @@ export async function getPlatformBillingOverview(
     period,
     periodLabel: formatPlatformBillingPeriod(period),
     currentBillId: currentBill?.id ?? null,
+    qaTenant: tenant?.dataClassification === "qa",
     settings,
     prices: platformBillingPrices,
     seats,

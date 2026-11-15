@@ -22,7 +22,6 @@ import {
 } from "@/components/mobile-access/access-page-state"
 import { formatAccessAmount, plural } from "@/components/mobile-access/format"
 import { DashboardStateQuickFill } from "@/components/dashboard-quick-fill"
-import { useQaQuickFill } from "@/components/qa-quick-fill-provider"
 import { useBillingParams } from "@/hooks/use-billing-params"
 import { useTRPC } from "@/trpc/client"
 import { BillList } from "./bill-list"
@@ -87,7 +86,7 @@ export function BillingView({ canManageSettings }: { canManageSettings: boolean 
             onOpen={(bill) => void setParams({ billId: bill.id, paystackReturn: null })}
           />
         ) : null}
-        {overview.data && canManageSettings && !overview.data.currentBillId ? (
+        {overview.data?.qaBillAvailable && !overview.data.currentBillId ? (
           <QaIssueBill />
         ) : null}
       </section>
@@ -354,9 +353,8 @@ function BillingSettings({
   )
 }
 
-/** QA sessions only (the server refuses others): bill this month now. */
+/** QA cooperatives outside production only: bill this month now. */
 function QaIssueBill() {
-  const quickFill = useQaQuickFill()
   const trpc = useTRPC()
   const queryClient = useQueryClient()
   const { setParams } = useBillingParams()
@@ -371,8 +369,6 @@ function QaIssueBill() {
       },
     })
   )
-  if (!quickFill.enabled) return null
-
   return (
     <div className="space-y-2 rounded-md border border-dashed border-border p-3">
       <p className="text-sm text-muted-foreground">

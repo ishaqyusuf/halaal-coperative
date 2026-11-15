@@ -82,21 +82,31 @@ const billingOperator = platformOwnerProcedure.use(({ ctx, next }) => {
   requireWebBilling(ctx)
   return next()
 })
-const qaBillIssuer = settingsManager.use(({ ctx, next }) => {
-  if (isProductionBillingRuntime() || !ctx.auth.session.qaAuthorizationId)
+/** Outside production only; the query also requires a QA cooperative. */
+const qaBillIssuer = settingsManager.use(({ next }) => {
+  if (isProductionBillingRuntime())
     throw new TRPCError({
       code: "FORBIDDEN",
-      message: "Issuing a bill on demand is only for QA sessions outside production.",
+      message: "Issuing a bill on demand is only for QA cooperatives outside production.",
     })
-  return next({ ctx })
+  return next()
 })
 
 const billInput = z.object({ billId: z.uuid() })
 
 export const platformBillingRouter = createTRPCRouter({
-  overview: billReader.query(({ ctx }) =>
-    getPlatformBillingOverview({ tenantId: ctx.tenant.current.id })
-  ),
+  overview: billReader.query(async ({ ctx }) => {
+    const overview = await getPlatformBillingOverview({
+      tenantId: ctx.tenant.current.id,
+    })
+    return {
+      ...overview,
+      qaBillAvailable:
+        overview.qaTenant &&
+        !isProductionBillingRuntime() &&
+        roleCan(ctx.auth.activeMembership.role, "manage_subscription"),
+    }
+  }),
   listBills: billReader.query(({ ctx }) =>
     listPlatformBills(ctx.tenant.current.id)
   ),

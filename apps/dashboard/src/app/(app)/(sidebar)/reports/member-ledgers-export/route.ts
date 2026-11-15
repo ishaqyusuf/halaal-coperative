@@ -1,10 +1,11 @@
 import { listLedgerTransactions } from "@halaalvest/db"
 import {
-  createCsvResponse,
+  createCsvStreamResponse,
   getReportsDateFilters,
+  lastIdCursor,
+  mapExportBatches,
+  readExportBatches,
   requireReportsExportContext,
-  toCsv,
-  EXPORT_ROW_LIMIT,
 } from "../export-utils"
 
 export async function GET(request: Request) {
@@ -18,13 +19,20 @@ export async function GET(request: Request) {
   const filters = getReportsDateFilters(
     Object.fromEntries(searchParams.entries())
   )
-  const transactions = await listLedgerTransactions(context.tenant.id, {
-    fromDate: filters.fromDate,
-    limit: EXPORT_ROW_LIMIT,
-    toDate: filters.toDate,
+  const tenantId = context.tenant.id
+  const batches = readExportBatches(async ({ cursor, limit }) => {
+    const rows = await listLedgerTransactions(tenantId, {
+      cursor,
+      fromDate: filters.fromDate,
+      limit,
+      toDate: filters.toDate,
+    })
+
+    return { nextCursor: lastIdCursor(rows, limit), rows }
   })
 
-  const csv = toCsv(
+  return createCsvStreamResponse(
+    `${context.tenant.slug}-member-ledgers-report.csv`,
     [
       "Posted At",
       "Member",
@@ -36,23 +44,20 @@ export async function GET(request: Request) {
       "Direction",
       "Amount",
     ],
-    transactions.flatMap((transaction) =>
-      transaction.entries.map((entry) => [
-        transaction.postedAt.toISOString(),
-        transaction.member?.fullName ?? "",
-        transaction.member?.memberNumber ?? "",
-        transaction.transactionType,
-        transaction.narration ?? "",
-        transaction.reference ?? "",
-        entry.ledgerAccount.name,
-        entry.direction,
-        Number(entry.amount),
-      ])
+    mapExportBatches(batches, (transactions) =>
+      transactions.flatMap((transaction) =>
+        transaction.entries.map((entry) => [
+          transaction.postedAt.toISOString(),
+          transaction.member?.fullName ?? "",
+          transaction.member?.memberNumber ?? "",
+          transaction.transactionType,
+          transaction.narration ?? "",
+          transaction.reference ?? "",
+          entry.ledgerAccount.name,
+          entry.direction,
+          Number(entry.amount),
+        ])
+      )
     )
-  )
-
-  return createCsvResponse(
-    `${context.tenant.slug}-member-ledgers-report.csv`,
-    csv
   )
 }

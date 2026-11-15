@@ -1,10 +1,11 @@
 import { listChargeApplications } from "@halaalvest/db"
 import {
-  createCsvResponse,
+  createCsvStreamResponse,
   getReportsDateFilters,
+  lastIdCursor,
+  mapExportBatches,
+  readExportBatches,
   requireReportsExportContext,
-  toCsv,
-  EXPORT_ROW_LIMIT,
 } from "../export-utils"
 
 function formatChargeSource(
@@ -42,13 +43,20 @@ export async function GET(request: Request) {
   const filters = getReportsDateFilters(
     Object.fromEntries(searchParams.entries())
   )
-  const charges = await listChargeApplications(context.tenant.id, {
-    fromDate: filters.fromDate,
-    limit: EXPORT_ROW_LIMIT,
-    toDate: filters.toDate,
+  const tenantId = context.tenant.id
+  const batches = readExportBatches(async ({ cursor, limit }) => {
+    const rows = await listChargeApplications(tenantId, {
+      cursor,
+      fromDate: filters.fromDate,
+      limit,
+      toDate: filters.toDate,
+    })
+
+    return { nextCursor: lastIdCursor(rows, limit), rows }
   })
 
-  const csv = toCsv(
+  return createCsvStreamResponse(
+    `${context.tenant.slug}-charges-report.csv`,
     [
       "Assessed At",
       "Member",
@@ -61,19 +69,19 @@ export async function GET(request: Request) {
       "Source",
       "Notes",
     ],
-    charges.map((charge: any) => [
-      charge.assessedAt.toISOString(),
-      charge.member.fullName,
-      charge.member.memberNumber,
-      charge.chargeDefinition.name,
-      charge.chargeDefinition.code,
-      Number(charge.amount),
-      charge.status,
-      charge.collectionMode,
-      formatChargeSource(charge),
-      charge.notes ?? "",
-    ])
+    mapExportBatches(batches, (charges) =>
+      charges.map((charge: any) => [
+        charge.assessedAt.toISOString(),
+        charge.member.fullName,
+        charge.member.memberNumber,
+        charge.chargeDefinition.name,
+        charge.chargeDefinition.code,
+        Number(charge.amount),
+        charge.status,
+        charge.collectionMode,
+        formatChargeSource(charge),
+        charge.notes ?? "",
+      ])
+    )
   )
-
-  return createCsvResponse(`${context.tenant.slug}-charges-report.csv`, csv)
 }

@@ -1,13 +1,52 @@
 import { resolveDateFilter } from "@halaalvest/utils"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
-export { toCsv } from "@/lib/reports/csv"
+import { type CsvCell, readCursorBatches, toCsvStream } from "@/lib/reports/csv"
+export { lastIdCursor, toCsv } from "@/lib/reports/csv"
 
 /**
  * Most rows one CSV download holds. Downloads used to stop silently at 500
  * rows; this keeps a ceiling for safety but covers a whole cooperative.
  */
 export const EXPORT_ROW_LIMIT = 20_000
+/** Rows read per database statement while a download streams. */
+export const EXPORT_BATCH_SIZE = 1_000
+
+/**
+ * Reads an export's rows in cursor batches of `EXPORT_BATCH_SIZE`, up to
+ * `EXPORT_ROW_LIMIT`, so the server never holds the whole download.
+ */
+export function readExportBatches<T>(
+  readBatch: Parameters<typeof readCursorBatches<T>>[0]
+) {
+  return readCursorBatches(readBatch, {
+    batchSize: EXPORT_BATCH_SIZE,
+    maxRows: EXPORT_ROW_LIMIT,
+  })
+}
+
+/** Streams a CSV download built batch by batch (see `readExportBatches`). */
+export async function createCsvStreamResponse(
+  filename: string,
+  headers: string[],
+  batches: AsyncIterable<CsvCell[][]>
+) {
+  return new Response(await toCsvStream(headers, batches), {
+    headers: {
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Type": "text/csv; charset=utf-8",
+      "Cache-Control": "no-store",
+    },
+  })
+}
+
+/** Maps each batch of rows to CSV cells. */
+export async function* mapExportBatches<T>(
+  batches: AsyncIterable<T[]>,
+  toRows: (batch: T[]) => CsvCell[][]
+): AsyncGenerator<CsvCell[][]> {
+  for await (const batch of batches) yield toRows(batch)
+}
 
 type ReportsExportContext = Awaited<
   ReturnType<typeof getDashboardServerContext>

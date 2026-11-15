@@ -513,6 +513,8 @@ export async function listChargeDefinitions(
 export async function listChargeApplications(
   tenantId: string,
   input?: {
+    /** Id of the last row already read; rows after it come next. */
+    cursor?: string
     fromDate?: Date
     limit?: number
     memberId?: string
@@ -611,7 +613,8 @@ export async function listChargeApplications(
         },
       },
     },
-    orderBy: { assessedAt: "desc" },
+    ...(input?.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+    orderBy: [{ assessedAt: "desc" }, { id: "desc" }],
     take: input?.limit ?? 100,
   })
 }

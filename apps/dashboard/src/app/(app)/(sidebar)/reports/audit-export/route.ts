@@ -1,10 +1,11 @@
 import { listActivityReportEvents } from "@halaalvest/db"
 import {
-  createCsvResponse,
+  createCsvStreamResponse,
   getReportsDateFilters,
+  lastIdCursor,
+  mapExportBatches,
+  readExportBatches,
   requireReportsExportContext,
-  toCsv,
-  EXPORT_ROW_LIMIT,
 } from "../export-utils"
 
 export async function GET(request: Request) {
@@ -18,12 +19,20 @@ export async function GET(request: Request) {
   const filters = getReportsDateFilters(
     Object.fromEntries(searchParams.entries())
   )
-  const logs = await listActivityReportEvents(context.tenant.id, {
-    fromDate: filters.fromDate,
-    limit: EXPORT_ROW_LIMIT,
-    toDate: filters.toDate,
+  const tenantId = context.tenant.id
+  const batches = readExportBatches(async ({ cursor, limit }) => {
+    const rows = await listActivityReportEvents(tenantId, {
+      cursor,
+      fromDate: filters.fromDate,
+      limit,
+      toDate: filters.toDate,
+    })
+
+    return { nextCursor: lastIdCursor(rows, limit), rows }
   })
-  const csv = toCsv(
+
+  return createCsvStreamResponse(
+    `${context.tenant.slug}-audit-report.csv`,
     [
       "When",
       "What happened",
@@ -33,16 +42,16 @@ export async function GET(request: Request) {
       "Approved or checked by",
       "Details",
     ],
-    logs.map((log) => [
-      log.occurredAt.toISOString(),
-      log.actionLabel,
-      log.actorLabel,
-      log.entityLabel,
-      log.entityId ?? "",
-      log.authorizerUserId ? log.authorizerLabel : "",
-      log.metadataSummary.join("; "),
-    ])
+    mapExportBatches(batches, (logs) =>
+      logs.map((log) => [
+        log.occurredAt.toISOString(),
+        log.actionLabel,
+        log.actorLabel,
+        log.entityLabel,
+        log.entityId ?? "",
+        log.authorizerUserId ? log.authorizerLabel : "",
+        log.metadataSummary.join("; "),
+      ])
+    )
   )
-
-  return createCsvResponse(`${context.tenant.slug}-audit-report.csv`, csv)
 }

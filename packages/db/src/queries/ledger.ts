@@ -273,6 +273,8 @@ export async function getMemberTransactions(
 export async function listLedgerTransactions(
   tenantId: string,
   input?: {
+    /** Id of the last row already read; rows after it come next. */
+    cursor?: string
     fromDate?: Date
     limit?: number
     memberId?: string
@@ -323,7 +325,8 @@ export async function listLedgerTransactions(
         },
       },
     },
-    orderBy: { postedAt: "desc" },
+    ...(input?.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+    orderBy: [{ postedAt: "desc" }, { id: "desc" }],
     take: input?.limit ?? 100,
   })
 }

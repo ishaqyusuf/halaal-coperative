@@ -1,10 +1,10 @@
 import { listContributions } from "@halaalvest/db"
 import {
-  createCsvResponse,
+  createCsvStreamResponse,
   getReportsDateFilters,
+  mapExportBatches,
+  readExportBatches,
   requireReportsExportContext,
-  toCsv,
-  EXPORT_ROW_LIMIT,
 } from "../export-utils"
 
 export async function GET(request: Request) {
@@ -21,22 +21,30 @@ export async function GET(request: Request) {
   const channel = searchParams.get("channel") ?? undefined
   const memberId = searchParams.get("memberId") ?? undefined
   const search = searchParams.get("search") ?? undefined
-  const contributions = await listContributions(context.tenant.id, {
-    channel:
-      channel === "payroll" ||
-      channel === "transfer" ||
-      channel === "cash" ||
-      channel === "manual"
-        ? channel
-        : undefined,
-    fromDate: filters.fromDate,
-    memberId: memberId || undefined,
-    page: 1,
-    pageSize: EXPORT_ROW_LIMIT,
-    search: search || undefined,
-    toDate: filters.toDate,
+  const tenantId = context.tenant.id
+  const batches = readExportBatches(async ({ cursor, limit }) => {
+    const result = await listContributions(tenantId, {
+      channel:
+        channel === "payroll" ||
+        channel === "transfer" ||
+        channel === "cash" ||
+        channel === "manual"
+          ? channel
+          : undefined,
+      cursor,
+      fromDate: filters.fromDate,
+      includeTotal: false,
+      memberId: memberId || undefined,
+      pageSize: limit,
+      search: search || undefined,
+      toDate: filters.toDate,
+    })
+
+    return { nextCursor: result.nextCursor, rows: result.items }
   })
-  const csv = toCsv(
+
+  return createCsvStreamResponse(
+    `${context.tenant.slug}-contributions-report.csv`,
     [
       "Posted At",
       "Member",
@@ -49,22 +57,21 @@ export async function GET(request: Request) {
       "Period Label",
       "Reference",
     ],
-    contributions.items.map((contribution) => [
-      contribution.postedAt.toISOString(),
-      contribution.member?.fullName ?? "",
-      contribution.member?.memberNumber ?? "",
-      Number(contribution.amount),
-      contribution.committedAmount ? Number(contribution.committedAmount) : "",
-      Number(contribution.extraSavingsAmount ?? 0),
-      contribution.channel,
-      contribution.status,
-      contribution.periodLabel ?? "",
-      contribution.reference ?? "",
-    ])
-  )
-
-  return createCsvResponse(
-    `${context.tenant.slug}-contributions-report.csv`,
-    csv
+    mapExportBatches(batches, (contributions) =>
+      contributions.map((contribution) => [
+        contribution.postedAt.toISOString(),
+        contribution.member?.fullName ?? "",
+        contribution.member?.memberNumber ?? "",
+        Number(contribution.amount),
+        contribution.committedAmount
+          ? Number(contribution.committedAmount)
+          : "",
+        Number(contribution.extraSavingsAmount ?? 0),
+        contribution.channel,
+        contribution.status,
+        contribution.periodLabel ?? "",
+        contribution.reference ?? "",
+      ])
+    )
   )
 }

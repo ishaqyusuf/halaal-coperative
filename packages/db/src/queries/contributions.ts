@@ -107,6 +107,11 @@ export type ListContributionsFilters = {
   channel?: ContributionChannel
   contributionPlanId?: string
   cursor?: string | null
+  /**
+   * Skip the total count (export batches page by cursor and need none);
+   * `total` is then 0.
+   */
+  includeTotal?: boolean
   search?: string
   memberId?: string
   specialSavingsOnly?: boolean
@@ -307,7 +312,9 @@ export async function listContributions(
         contributionPlan: true,
       },
     }),
-    prisma.contribution.count({ where: baseWhere }),
+    filters?.includeTotal === false
+      ? null
+      : prisma.contribution.count({ where: baseWhere }),
   ])
 
   const hasNextPage = rows.length > pageSize
@@ -330,7 +337,7 @@ export async function listContributions(
         })
       : null
 
-  return { items, nextCursor, total, page, pageSize }
+  return { items, nextCursor, total: total ?? 0, page, pageSize }
 }
 
 export async function listContributionPlans(

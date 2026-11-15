@@ -21,3 +21,16 @@ Recorded on 2026-08-11 before the feature/runtime migration began.
 | `bun test apps/api/src/routers/mobile-auth.route.test.ts apps/api/src/routers/mobile.route.test.ts packages/db/src/queries/operation-profile.test.ts` | 88 passed, 0 failed |
 
 Emulator/simulator screenshots are collected per feature slice and at the dedicated native/device tickets; this architecture ticket changes contracts and keyboard scroll behavior but does not claim the full device matrix.
+
+## 15 November 2026: fully-drawn marker from a config plugin
+
+`check:contract` had been red since a prebuild regenerated `android/` without the hand-edited `reportFullyDrawn()` marker in `MainActivity.kt` (the directory is git-ignored). `plugins/with-fully-drawn-marker.cjs` now draws the one-shot `CONTENT_APPEARED → reportFullyDrawn()` listener into every variant's `MainActivity`. The smoke guard asserts the plugin and its registration in `app.config.ts`, and checks a local `android/` only when one exists (it fails a prebuild that predates the plugin).
+
+| Check | Result |
+| --- | --- |
+| `bun --cwd apps/mobile check:contract` | Passed: 32 routes, 33 visual screens, 5 viewports, 19 flows |
+| `plugins/with-fully-drawn-marker.test.ts` | Production and dev packages, idempotent re-run |
+| Dev-variant `expo prebuild --platform android` (in place) | Only `MainActivity.kt` changed, with the marker |
+
+This is a native change: the fingerprint changes and a new native build is needed. The 639 ms fully-drawn median still needs re-measuring on a new build.
+

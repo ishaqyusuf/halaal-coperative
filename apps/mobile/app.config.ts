@@ -200,6 +200,7 @@ const config: ExpoConfig = {
   },
   plugins: [
     "./plugins/with-app-update.cjs",
+    "./plugins/with-fully-drawn-marker.cjs",
     ...sentryPlugins,
     "expo-router",
     "./plugins/with-ios-pod-deployment-target",

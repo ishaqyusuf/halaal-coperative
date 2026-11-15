@@ -217,14 +217,29 @@ assertIncludes("src/features/app-lock/hooks/use-app-lock.tsx", [
   "shouldRelockApp",
 ])
 
-assertIncludes(
-  "android/app/src/main/java/com/halaalvest/mobile/MainActivity.kt",
-  [
-    "ReactMarkerConstants.CONTENT_APPEARED",
-    "reportFullyDrawn()",
-    "unregisterFullyDrawnMarker()",
-  ]
-)
+// Android fully drawn (cold-start timing): the config plugin is the source of
+// truth; android/ is generated and git-ignored.
+const fullyDrawnMarkers = [
+  "ReactMarkerConstants.CONTENT_APPEARED",
+  "reportFullyDrawn()",
+  "unregisterFullyDrawnMarker()",
+]
+assertIncludes("plugins/with-fully-drawn-marker.cjs", [
+  ...fullyDrawnMarkers,
+  "withMainActivity",
+])
+assertIncludes("app.config.ts", ['"./plugins/with-fully-drawn-marker.cjs"'])
+// A local prebuild, when present, must be current: check MainActivity under
+// whichever variant package it was generated for.
+for (const variantPath of ["", "/dev", "/preview"]) {
+  const generated = `android/app/src/main/java/com/halaalvest/mobile${variantPath}/MainActivity.kt`
+  if (!existsSync(join(root, generated))) continue
+  assert(
+    read(generated).includes("@generated begin with-fully-drawn-marker"),
+    `${generated} predates the fully-drawn plugin; run expo prebuild for this variant.`
+  )
+  assertIncludes(generated, fullyDrawnMarkers)
+}
 
 for (const controller of [
   "src/features/member-core/routes/member-commitments-route-controller.tsx",

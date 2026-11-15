@@ -510,6 +510,47 @@ export async function listChargeDefinitions(
   })
 }
 
+const chargeDefinitionIdPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * One manual-chargeable definition with the version in effect on `asOf`
+ * (latest `effectiveFrom` on or before it), for checking a single charge
+ * without reading every definition. Null for an unknown or malformed id.
+ */
+export async function getChargeDefinitionOnDate(
+  tenantId: string,
+  chargeDefinitionId: string,
+  asOf: Date,
+  prismaOverride?: PrismaClient
+) {
+  if (!chargeDefinitionIdPattern.test(chargeDefinitionId)) return null
+
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  return prisma.chargeDefinition.findFirst({
+    select: {
+      amount: true,
+      chargeValueType: true,
+      id: true,
+      isActive: true,
+      kind: true,
+      versions: {
+        orderBy: { effectiveFrom: "desc" },
+        select: { amount: true, effectiveFrom: true },
+        take: 1,
+        where: { effectiveFrom: { lte: asOf } },
+      },
+    },
+    where: {
+      code: { not: mobileAccessChargeCode },
+      id: chargeDefinitionId,
+      tenantId,
+    },
+  })
+}
+
 export async function listChargeApplications(
   tenantId: string,
   input?: {

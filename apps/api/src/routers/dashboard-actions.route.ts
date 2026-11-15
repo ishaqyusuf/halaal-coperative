@@ -61,7 +61,7 @@ import {
   getSupportCase,
   getInitialMigrationMemberReview,
   getTenantOperationProfile,
-  listChargeDefinitions,
+  getChargeDefinitionOnDate,
   generateHistoricalBackfillShareProfitAllocations,
   markTenantBusinessProfitPoolsReviewed,
   markTenantLegacyLoansReviewed,
@@ -3720,9 +3720,10 @@ export async function applyChargeAction(formData: FormData) {
   requireDateOnOrAfterTenantStartDate(actor, assessedAt, "Charge date")
 
   const assessedDate = new Date(`${assessedAt}T00:00:00.000Z`)
-  const definitions = await listChargeDefinitions(actor.tenant.id)
-  const definition = definitions.find(
-    (item: any) => item.id === getRequiredString(formData, "chargeDefinitionId")
+  const definition = await getChargeDefinitionOnDate(
+    actor.tenant.id,
+    getRequiredString(formData, "chargeDefinitionId"),
+    assessedDate
   )
 
   if (!definition || !definition.isActive) {
@@ -3740,16 +3741,7 @@ export async function applyChargeAction(formData: FormData) {
     )
   }
 
-  const effectiveVersion = [...(definition.versions ?? [])]
-    .filter(
-      (version: any) =>
-        new Date(version.effectiveFrom).getTime() <= assessedDate.getTime()
-    )
-    .sort(
-      (left: any, right: any) =>
-        new Date(right.effectiveFrom).getTime() -
-        new Date(left.effectiveFrom).getTime()
-    )[0]
+  const effectiveVersion = definition.versions[0]
   const amount = Number(effectiveVersion?.amount ?? definition.amount)
   if (!Number.isFinite(amount) || amount <= 0) {
     throw new DashboardActionExpectedError(

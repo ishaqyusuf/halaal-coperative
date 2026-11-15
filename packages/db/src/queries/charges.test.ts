@@ -6,6 +6,7 @@ import {
   countRecentPostedChargeApplications,
   createChargeDefinition,
   getApplicableChargeQuoteHash,
+  getChargeDefinitionOnDate,
   reverseChargeApplication,
   settleChargeApplication,
   updateChargeDefinition,
@@ -1225,5 +1226,60 @@ describe("recent posted charge count", () => {
         },
       },
     ])
+  })
+})
+
+describe("single charge definition read", () => {
+  test("reads one definition with the version in effect on the date", async () => {
+    const reads: any[] = []
+    const prisma = {
+      chargeDefinition: {
+        findFirst: async (args: any) => {
+          reads.push(args)
+          return { id: "0f7c2b8e-1d2a-4b3c-9d4e-5f6a7b8c9d0e", versions: [] }
+        },
+      },
+    }
+    const asOf = new Date("2026-11-15T00:00:00.000Z")
+
+    await getChargeDefinitionOnDate(
+      "tenant-1",
+      "0f7c2b8e-1d2a-4b3c-9d4e-5f6a7b8c9d0e",
+      asOf,
+      prisma as never
+    )
+
+    expect(reads).toHaveLength(1)
+    expect(reads[0].where).toMatchObject({
+      id: "0f7c2b8e-1d2a-4b3c-9d4e-5f6a7b8c9d0e",
+      tenantId: "tenant-1",
+    })
+    expect(reads[0].select.versions).toMatchObject({
+      orderBy: { effectiveFrom: "desc" },
+      take: 1,
+      where: { effectiveFrom: { lte: asOf } },
+    })
+  })
+
+  test("returns null for a malformed id without reading", async () => {
+    let reads = 0
+    const prisma = {
+      chargeDefinition: {
+        findFirst: async () => {
+          reads += 1
+          return null
+        },
+      },
+    }
+
+    expect(
+      await getChargeDefinitionOnDate(
+        "tenant-1",
+        "not-an-id",
+        new Date(),
+        prisma as never
+      )
+    ).toBeNull()
+    expect(reads).toBe(0)
   })
 })

@@ -4,7 +4,6 @@ import {
   getMemberFilterMetadata,
   getMembershipApprovalFilterMetadata,
   getRepaymentFilterMetadata,
-  getReportsFilterMetadata,
 } from "@halaalvest/db"
 import {
   createTRPCRouter,
@@ -29,8 +28,5 @@ export const filtersRouter = createTRPCRouter({
   // Lists borrowers and staff: the repayments page's own finance roles only.
   repayments: minRoleProcedure("finance_officer").query(({ ctx }) => {
     return getRepaymentFilterMetadata(ctx.tenant.current.id)
-  }),
-  reports: tenantProcedure.query(() => {
-    return getReportsFilterMetadata()
   }),
 })

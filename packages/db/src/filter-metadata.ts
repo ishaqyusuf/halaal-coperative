@@ -115,10 +115,6 @@ export async function getAuditFilterMetadata(): Promise<PageFilterData[]> {
   ]
 }
 
-export async function getReportsFilterMetadata(): Promise<PageFilterData[]> {
-  return [dateRangeFilter("dateRange", "Reporting period")]
-}
-
 export async function getMembershipApprovalFilterMetadata(): Promise<
   PageFilterData[]
 > {

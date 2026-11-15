@@ -35,7 +35,7 @@ const decisionPrompts: Record<Page, string> = {
   "delete-account":
     "Approve identity and scope checks, administration handover, eligible-record erasure, restricted retention, processor and backup outcomes, processing timeline and completion contact. Current access revocation is not complete erasure.",
   "billing-policy":
-    "Verify individual Apple/Google six-month and annual products at the owner-selected US$0.99/US$1.99 USD base prices and store-returned localized prices, storefront availability and tax; approve renewal, cancellation, refunds, failed payment, grace and account-closure handling for every mobile role.",
+    "Confirm the ₦35 seat fee and member-charge option, the 500-message assistant allowance and ₦15 overage under the cooperative cap, ₦1,000 per 12-month mobile term, and Paystack or bank-transfer payment; approve late payment, refunds, disputed bills, tax and price-change notice.",
   "cooperative-disclosures":
     "Confirm operator and cooperative roles, funds flow, complete financing costs and guarantor duties, Halaal review claims, launch countries and any required financial-service authorisations.",
 }

@@ -54,7 +54,7 @@ export type PublicPolicy = {
 }
 
 // Review drafts are deliberately not contract-acceptance versions.
-export const publicPolicyRevision = "2026-11-12-draft-7"
+export const publicPolicyRevision = "2026-11-15-draft-8"
 export const publicPolicyStatus = "draft" as const
 
 export const publicPolicies = {
@@ -182,19 +182,31 @@ export const publicPolicies = {
   "billing-policy": {
     title: "Software billing policy",
     introduction:
-      "Members can request mobile access from their cooperative. HalaalVest invoices each participating cooperative for the mobile access terms due that month.",
+      "HalaalVest sends each cooperative one bill a month. It covers seats, website assistant messages above the free allowance and mobile access terms due that month. Amounts are in Nigerian naira. HalaalVest takes no percentage of member savings, financing, repayments or profits.",
     sections: [
       {
-        title: "Member charge and renewal",
-        body: "Before requesting access, a member sees the applicable annual charge and when it will be due. Access begins when the cooperative approves the request. The cooperative posts the charge to the member account when due through its normal charge process. A new term requires a new request and approval.",
+        title: "Seat fee",
+        body: "Each member whose membership is active when the month closes counts as one seat, at ₦35 per seat for that month. The cooperative chooses who pays. Either the cooperative pays the seat fee itself, or it charges ₦35 to each counted member, taken from that member’s savings. HalaalVest bills the cooperative for every seat either way.",
       },
       {
-        title: "Cooperative invoices",
-        body: "At month-end, HalaalVest invoices the cooperative for the terms billable for the month. The cooperative pays HalaalVest directly and handles the member’s charge separately. Member payment status does not determine app access or the cooperative’s invoice.",
+        title: "Website assistant",
+        body: "Cooperative staff share 500 website assistant messages each month at no charge. Member messages and the mobile app are not counted. More messages are available only if the cooperative turns on assistant billing and sets a monthly naira cap. Each message above 500 then costs ₦15, up to that cap. With assistant billing off, or once the cap is reached, the assistant stops answering staff until the next month or until an administrator raises the cap. Lowering the cap stops further billable messages; messages already sent stay on the bill.",
+      },
+      {
+        title: "Mobile access",
+        body: "Members can request mobile access from their cooperative. Before requesting, a member sees the charge, ₦1,000 for 12 months, and when it is due. Access begins when the cooperative approves the request, and a new term requires a new request and approval. HalaalVest bills the cooperative for each approved term due that month. The cooperative posts the member’s charge to the member account through its normal charge process.",
+      },
+      {
+        title: "The monthly bill",
+        body: "After each month closes, HalaalVest issues the cooperative one bill listing seats, assistant messages above the allowance and mobile access terms. A month with nothing owed closes without a charge. Cooperative administrators and finance officers pay the bill from Billing in the dashboard, and record which of the cooperative’s funds paid it. Payment is made through Paystack, or by bank transfer that a HalaalVest platform owner marks paid once received. The cooperative pays HalaalVest directly; whether members have paid their own charges does not change the bill or members’ app access.",
       },
       {
         title: "Questions about a charge",
-        body: "Ask your cooperative about the amount, due date or a disputed charge on your member account. Mobile access charges are recorded separately from savings contributions, share capital and financing repayments.",
+        body: "Members should ask their cooperative about the amount, due date or a disputed charge on their member account. Seat fee and mobile access charges appear as their own entries on the member account, separate from savings contributions, share capital and financing repayments. Cooperatives can raise questions about a bill through HalaalVest support.",
+      },
+      {
+        title: "Review before launch",
+        body: "Late payment, refunds, disputed bills and notice of price changes require owner and legal review. This draft does not set those terms.",
       },
     ],
   },

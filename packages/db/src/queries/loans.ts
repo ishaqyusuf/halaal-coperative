@@ -20,6 +20,7 @@ import {
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
 import { excludeBroughtForwardLoanProductWhere } from "./loan-product-rules"
 import { getTenantMigrationWriteAccess } from "./migration"
+import { lateScheduleItemWhere } from "./repayments"
 
 async function assertLiveFinancialWritesOpen(
   tenantId: string,
@@ -915,7 +916,13 @@ export async function listRepaymentScheduleItems(
   return prisma.repaymentScheduleItem.findMany({
     where: {
       tenantId,
-      ...(input?.status ? { status: input.status } : {}),
+      // "overdue" means late: unpaid and due before today, read from the due
+      // date (ADR-20261114), not the retired stored status.
+      ...(input?.status === "overdue"
+        ? lateScheduleItemWhere()
+        : input?.status
+          ? { status: input.status }
+          : {}),
       ...(input?.assignedToUserId
         ? {
             collectionFollowUps: {

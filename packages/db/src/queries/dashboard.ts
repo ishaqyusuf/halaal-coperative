@@ -11,6 +11,7 @@ import {
   getCommitmentCollection,
 } from "./contribution-health"
 import { getTenantOperationProfile } from "./operation-profile"
+import { lateScheduleItemWhere } from "./repayments"
 
 const activeFinancingStatuses = ["disbursed", "active"] as const
 const pendingFinancingRequestStatuses = ["submitted", "under_review"] as const
@@ -196,11 +197,12 @@ export async function getDashboardMetrics(
   // reserve − billing); approved holds are subtracted by the caller.
   const availablePool = deployableFunds.availablePoolAmount
 
-  // Delinquency: loans with overdue schedule items / total active loans
+  // Delinquency: late schedule items (unpaid, due before today; read from
+  // the due date, not a stored status) / all schedule items, active loans.
   const overdueScheduleCount = await prisma.repaymentScheduleItem.count({
     where: {
       tenantId,
-      status: "overdue",
+      ...lateScheduleItemWhere(),
       loan: { status: { in: [...activeFinancingStatuses] } },
     },
   })
@@ -393,7 +395,7 @@ export async function getOverviewSummary(
       },
       where: {
         loan: { status: { in: [...activeFinancingStatuses] } },
-        status: "overdue",
+        ...lateScheduleItemWhere(),
         tenantId,
       },
     }),

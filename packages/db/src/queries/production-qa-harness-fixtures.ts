@@ -16,7 +16,6 @@ import {
 } from "./financing-cycles"
 import {
   disburseLoan,
-  refreshCollectionsStatuses,
   reviewLoanRequest,
   submitLoanRequest,
 } from "./loans"
@@ -26,6 +25,7 @@ import {
   generateShareProfitAllocations,
 } from "./tenant-finance"
 import { createProcurementRequest } from "./procurement"
+import { unpaidScheduleStatuses } from "./repayments"
 import { createProjectFinancingRequest } from "./project-financing"
 
 const PENDING_REVIEW_REFERENCE_PREFIX = "QA-T30-STANDARD-REVIEW"
@@ -738,9 +738,12 @@ export async function ensureProductionQaHarnessOverdueFixture(input: {
     })
 
   let request = await loadRequest()
-  const existingOverdue = request?.loan?.repaymentScheduleItems.find(
-    ({ dueAt, status }) => status === "overdue" && dueAt < input.now
-  )
+  // Late is read from the due date (ADR-20261114): an unpaid installment due
+  // before now is the overdue record; no stored status is needed.
+  const isLate = ({ dueAt, status }: { dueAt: Date; status: string }) =>
+    dueAt < input.now &&
+    (unpaidScheduleStatuses as readonly string[]).includes(status)
+  const existingOverdue = request?.loan?.repaymentScheduleItems.find(isLate)
   if (existingOverdue) {
     return {
       recordId: existingOverdue.id,
@@ -966,26 +969,9 @@ export async function ensureProductionQaHarnessOverdueFixture(input: {
     )
   }
 
-  const pastDueSchedule = request.loan.repaymentScheduleItems.find(
-    ({ dueAt, status }) =>
-      dueAt < input.now && ["due", "overdue", "partially_paid"].includes(status)
-  )
-  if (!pastDueSchedule) {
-    throw new QueryInfrastructureError("Overdue QA harness repayment schedule is missing.")
-  }
-  if (pastDueSchedule.status !== "overdue") {
-    await refreshCollectionsStatuses(
-      { actorUserId: financeUser.id, asOf: input.now, tenantId: tenant.id },
-      input.prisma
-    )
-    request = await loadRequest()
-  }
-
-  const overdueSchedule = request?.loan?.repaymentScheduleItems.find(
-    ({ dueAt, status }) => status === "overdue" && dueAt < input.now
-  )
+  const overdueSchedule = request.loan.repaymentScheduleItems.find(isLate)
   if (!overdueSchedule) {
-    throw new QueryInfrastructureError("Overdue QA harness collection refresh did not complete.")
+    throw new QueryInfrastructureError("Overdue QA harness repayment schedule is missing.")
   }
 
   return {

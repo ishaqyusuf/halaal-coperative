@@ -121,9 +121,16 @@ export async function readFinancingStatus(
       stage: requestStage(request.status, request.guarantorApprovals),
     })),
     active: loans.map((loan) => {
+      // The earliest unpaid installment; late when due before today (UTC).
       const next = loan.repaymentScheduleItems[0]
+      const now = deps.now()
+      const today = Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate()
+      )
       const status =
-        loan.status === "defaulted" || next?.status === "overdue"
+        loan.status === "defaulted" || (next && next.dueAt.getTime() < today)
           ? ("overdue" as const)
           : loan.status === "approved"
             ? ("approved" as const)

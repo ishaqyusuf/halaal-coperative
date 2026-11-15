@@ -510,7 +510,7 @@ export function SignupForm({
             later, so pick something short your members will recognise.
           </p>
         }
-        eyebrow="Sign up · the web workspace is free"
+        eyebrow="Sign up · one monthly bill, no cut of member funds"
         lede="This is where your team and members will sign in. It takes about a minute."
         primary={
           <Button

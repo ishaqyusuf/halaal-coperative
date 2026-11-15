@@ -1,7 +1,11 @@
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import { ArrowRightIcon } from "lucide-react"
 import Link from "next/link"
-import { pricingFeePrinciples, publicPriceList } from "./pricing-data"
+import {
+  pricingFeePrinciples,
+  publicPriceList,
+  publicPricingSummary,
+} from "./pricing-data"
 
 export function PricingSection({ signupHref }: { signupHref: string }) {
   return (
@@ -17,9 +21,9 @@ export function PricingSection({ signupHref }: { signupHref: string }) {
               Software fees stay separate from member money.
             </h2>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-[#0B1F36]/62">
-              The web workspace is free. Members can request mobile access from
-              their cooperative. Halaalvest does not take a percentage of
-              cooperative funds or financing activity.
+              {publicPricingSummary} It all comes on one monthly bill, and
+              Halaalvest never takes a percentage of cooperative funds or
+              financing activity.
             </p>
           </div>
         </div>
@@ -56,12 +60,10 @@ export function PricingSection({ signupHref }: { signupHref: string }) {
 
         <div className="mt-4 grid overflow-hidden rounded-2xl border border-[#0B1F36]/10 bg-[#F7FAF7] lg:grid-cols-[0.7fr_1.3fr]">
           <div className="border-b border-[#0B1F36]/10 p-6 lg:border-r lg:border-b-0 lg:p-7">
-            <p className="text-sm font-semibold">
-              Mobile access through your cooperative
-            </p>
+            <p className="text-sm font-semibold">One bill a month</p>
             <p className="mt-2 text-sm leading-6 text-[#0B1F36]/58">
-              Your cooperative explains the applicable charge before you request
-              access.
+              Seats, assistant messages and mobile access arrive on one bill
+              your cooperative pays from the dashboard.
             </p>
             <Link
               className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#1F7A3D] hover:text-[#176331]"

@@ -7,9 +7,10 @@ import type {
   MarketingSignupMode,
 } from "../marketing-experience-contract"
 import {
-  mobileAppAccessTerms,
+  monthlyBillTerms,
   pricingFeePrinciples,
   publicPriceList,
+  publicPricingSummary,
 } from "../pricing-data"
 import {
   OnePlaceBrand,
@@ -52,7 +53,7 @@ const navLinks: readonly OnePlaceNavLink[] = [
 ]
 
 const heroPoints = [
-  "Free on the web for admins, finance officers and members",
+  "One monthly bill, priced per active member",
   "Financing with no interest, and charges on their own line",
   "We never take a percentage of member funds",
 ]
@@ -102,7 +103,7 @@ const setupSteps = [
     title: "Set up how you run",
   },
   {
-    body: "Add each member's balances or history, then go live. Members can sign in on the web for free.",
+    body: "Add each member's balances or history, then go live. Members sign in on the web.",
     title: "Bring your members across",
   },
 ]
@@ -186,10 +187,10 @@ const trustControls: {
 const faqs: { answer: string[]; question: string }[] = [
   {
     answer: [
-      "The web workspace is free for admins, finance officers and members. Mobile app access is arranged through your cooperative, and Halaalvest bills the cooperative for it.",
-      "Provider costs such as SMS, KYC and payment gateways are passed through. Setup and migration help are quoted separately.",
+      publicPricingSummary,
+      "Halaalvest sends your cooperative one bill a month, and your cooperative chooses whether it pays the seat fee or charges members. Provider costs such as SMS, KYC and payment gateways are passed through. Setup and migration help are quoted separately.",
     ],
-    question: "Is Halaalvest really free?",
+    question: "What does Halaalvest cost?",
   },
   {
     answer: [
@@ -337,9 +338,9 @@ export function OnePlaceV4Landing({
                 ))}
               </ul>
               <p className="note">
-                <b>Free on the web.</b> Members who want the mobile app request
-                it from their cooperative, which reviews the request and shares
-                the charge first.
+                <b>Mobile access is optional.</b> Members who want the app
+                request it from their cooperative, which reviews the request and
+                shares the charge first.
               </p>
             </div>
             <MemberPhone />
@@ -461,7 +462,7 @@ export function OnePlaceV4Landing({
           <div className="wrap">
             <div className="head">
               <h2 id="op4-pricing-title">
-                Free on the web, and never a share of member funds
+                One monthly bill, and never a share of member funds
               </h2>
               <p>Every fee is listed here before you sign up.</p>
             </div>
@@ -481,9 +482,9 @@ export function OnePlaceV4Landing({
             </dl>
             <div className="price-notes">
               <div>
-                <h3>How mobile app access works</h3>
+                <h3>How billing works</h3>
                 <ul>
-                  {mobileAppAccessTerms.map((term) => (
+                  {monthlyBillTerms.map((term) => (
                     <PriceNote key={term}>{term}</PriceNote>
                   ))}
                 </ul>
@@ -492,7 +493,7 @@ export function OnePlaceV4Landing({
                 <h3>Other costs</h3>
                 <ul>
                   {/* The first principle (no share of member funds) is the
-                      third price row above. */}
+                      last price row above. */}
                   {pricingFeePrinciples.slice(1).map((principle) => (
                     <PriceNote key={principle}>{principle}</PriceNote>
                   ))}
@@ -628,7 +629,7 @@ export function OnePlaceV4Landing({
 
 function priceClassName(price: (typeof publicPriceList)[number]) {
   const classes = [
-    // Long labels such as "Through your cooperative" use the smaller size.
+    // Long labels use the smaller size.
     price.price.length > 12 ? "mid" : "",
     price.highlight ? "g" : "",
   ].filter(Boolean)

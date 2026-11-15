@@ -2,7 +2,7 @@ import { buttonVariants } from "@halaalvest/ui/components/button"
 import { ArrowRightIcon, CheckIcon } from "lucide-react"
 import Link from "next/link"
 import {
-  mobileAppAccessTerms,
+  monthlyBillTerms,
   pricingFeePrinciples,
   publicPriceList,
 } from "./pricing-data"
@@ -20,12 +20,13 @@ export function PricingComparison({
         <div className="mx-auto w-full max-w-[90rem]">
           <div className="marketing-eyebrow">Pricing</div>
           <h1 className="marketing-serif mt-7 max-w-5xl text-5xl leading-[0.98] tracking-[-0.045em] sm:text-6xl lg:text-7xl">
-            Free on the web. No cut of member money.
+            One monthly bill. No cut of member money.
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-[#0B1F36]/64">
-            Run your cooperative in the web workspace at no cost. Members can
-            request mobile access through their cooperative. Provider costs and
-            one-time implementation work are disclosed separately.
+            Pay per active member, with website assistant messages included and
+            optional mobile access. Halaalvest bills your cooperative once a
+            month. Provider costs and one-time implementation work are disclosed
+            separately.
           </p>
 
           <dl className="mt-14 overflow-hidden rounded-[1.5rem] border border-[#0B1F36]/10 bg-white">
@@ -60,9 +61,9 @@ export function PricingComparison({
 
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div className="rounded-[1.5rem] border border-[#0B1F36] bg-[#0B1F36] p-6 text-white sm:p-8">
-              <h2 className="text-xl font-semibold">Mobile app access</h2>
+              <h2 className="text-xl font-semibold">How billing works</h2>
               <ul className="mt-6 space-y-3">
-                {mobileAppAccessTerms.map((term) => (
+                {monthlyBillTerms.map((term) => (
                   <li className="flex items-start gap-2 text-sm" key={term}>
                     <CheckIcon
                       aria-hidden="true"

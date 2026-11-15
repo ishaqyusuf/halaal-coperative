@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { NotificationsProvider } from "@halaalvest/notifications-react"
 import type { MarketingSignupMode } from "../marketing-experience-contract"
 import {
-  mobileAppAccessTerms,
+  monthlyBillTerms,
   pricingFeePrinciples,
   publicPriceList,
 } from "../pricing-data"
@@ -104,7 +104,7 @@ describe("One Place marketing experience", () => {
     }
 
     for (const line of [
-      ...mobileAppAccessTerms,
+      ...monthlyBillTerms,
       ...pricingFeePrinciples.slice(1),
     ]) {
       expect(pricing).toContain(escapeHtml(line))

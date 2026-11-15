@@ -21,7 +21,7 @@ import {
 import Link from "next/link"
 import { EarlyAccessForm } from "../early-access-form"
 import type { MarketingExperienceProps } from "../marketing-experience-contract"
-import { publicPriceList } from "../pricing-data"
+import { publicPriceList, publicPricingSummary } from "../pricing-data"
 
 const operatingAreas = [
   "Contributions",
@@ -606,17 +606,17 @@ function PricingSection({ signupHref }: { signupHref: string }) {
             </h2>
           </div>
           <p className="max-w-xl text-lg leading-8 text-black/58 lg:justify-self-end">
-            The web workspace is free. Members can request mobile access from
-            their cooperative. Halaalvest does not take a percentage of
-            cooperative funds or financing activity.
+            {publicPricingSummary} It all comes on one monthly bill, and
+            Halaalvest never takes a percentage of cooperative funds or
+            financing activity.
           </p>
         </div>
 
-        <div className="mt-14 grid gap-4 lg:grid-cols-3">
+        <div className="mt-14 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {publicPriceList.map((price) => (
             <PriceCard
               body={price.detail}
-              featured={price.item === "Mobile app access"}
+              featured={price.item === "Seat fee"}
               features={price.note ? [price.note] : []}
               key={price.item}
               name={price.item}

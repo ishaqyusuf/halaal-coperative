@@ -13,9 +13,7 @@ describe("dashboard home Midday conformance", () => {
     const states = read("../components/dashboard-home-page-states.tsx")
 
     expect(route).toContain('title: "Home | Halaalvest"')
-    expect(route).toContain(
-      "prefetch(trpc.overview.summary.queryOptions())"
-    )
+    expect(route).toContain("prefetch(trpc.overview.summary.queryOptions())")
     expect(route).toContain("<HydrateClient>")
     expect(route).toContain("fallback={<OverviewSkeleton />}")
     expect(route).toContain("fallback={<DashboardHomeSkeleton />}")
@@ -37,6 +35,24 @@ describe("dashboard home Midday conformance", () => {
     expect(loader).toContain("getMemberOperationalReadiness")
   })
 
+  test("passes the sidebar layout's shell props (WP16)", () => {
+    const route = read("../app/(home)/page.tsx")
+    const loader = read("./dashboard/load-tenant-home-page.ts")
+    const layout = read("../app/(app)/(sidebar)/layout.tsx")
+
+    // Both shells (staff overview and member home) get the setup link and
+    // the legal reminder, computed by the same helpers as the layout.
+    expect(route.match(/showSetupNav=\{data\.showSetupNav\}/g)).toHaveLength(2)
+    expect(
+      route.match(/showLegalReminder=\{data\.showLegalReminder\}/g)
+    ).toHaveLength(2)
+    expect(loader).toContain("loadShowLegalReminder(")
+    expect(layout).toContain("loadShowLegalReminder(")
+    expect(loader).toContain(
+      "setupGate.isWorkspaceAdmin && !setupGate.canUseLiveWorkspace"
+    )
+  })
+
   test("keeps the member home lean and phone friendly", () => {
     const overview = read("../components/member-portal-overview.tsx")
     const loader = read("./dashboard/load-tenant-home-page.ts")
@@ -46,11 +62,11 @@ describe("dashboard home Midday conformance", () => {
     expect(loader).toContain("getMemberHomeSnapshot")
     expect(loader).not.toContain("getMemberStatementDetail")
     // One column of numbers on phones, no nested <main>.
-    expect(overview).toContain("grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4")
+    expect(overview).toContain(
+      "grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+    )
     expect(overview).not.toContain("DashboardPageFrame")
-    expect(
-      overview.match(/href="\/member-statement-export"/g)?.length
-    ).toBe(1)
+    expect(overview.match(/href="\/member-statement-export"/g)?.length).toBe(1)
     expect(overview).toContain("min-h-14")
     expect(skeleton).toContain("SummaryCardSkeleton")
   })

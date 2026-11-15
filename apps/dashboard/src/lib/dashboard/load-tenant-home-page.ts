@@ -14,6 +14,7 @@ import {
   hasVerifiedDashboardSession,
 } from "@/lib/server-context"
 import { resolveInitialMigrationSetupGate } from "@/lib/setup-gate"
+import { loadShowLegalReminder } from "./legal-reminder"
 
 export async function loadTenantHomePageData() {
   // Anonymous traffic needs only the tenant-aware login redirect. Login
@@ -29,16 +30,9 @@ export async function loadTenantHomePageData() {
     const tenantName = context.tenant?.name ?? "Platform Demo Workspace"
     const userName = context.auth.user?.fullName ?? "Anonymous Workspace User"
     const runtime = createDbRuntime()
-    const shell = {
-      hiddenNavPaths: await getOperationProfileHiddenNavPaths({
-        role,
-        tenantId: context.tenant?.id,
-        userId: context.auth.user?.id,
-      }),
-      role,
-      tenantName,
-      userName,
-    }
+    // Admins keep a Getting started link until the cooperative goes live,
+    // as on every sidebar page.
+    let showSetupNav = false
 
     if (context.tenant && runtime.status === "database-configured") {
       const setupGate = await resolveInitialMigrationSetupGate({
@@ -52,6 +46,31 @@ export async function loadTenantHomePageData() {
           href: "/getting-started",
         }
       }
+
+      showSetupNav =
+        setupGate.isWorkspaceAdmin && !setupGate.canUseLiveWorkspace
+    }
+
+    // The same shell props the sidebar layout passes.
+    const [hiddenNavPaths, showLegalReminder] = await Promise.all([
+      getOperationProfileHiddenNavPaths({
+        role,
+        tenantId: context.tenant?.id,
+        userId: context.auth.user?.id,
+      }),
+      loadShowLegalReminder({
+        hasMembership: true,
+        tenantId: context.tenant?.id,
+        userId: context.auth.user?.id,
+      }),
+    ])
+    const shell = {
+      hiddenNavPaths,
+      role,
+      showLegalReminder,
+      showSetupNav,
+      tenantName,
+      userName,
     }
 
     if (context.auth.membership.role !== "member") {

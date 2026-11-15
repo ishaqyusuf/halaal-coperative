@@ -1,9 +1,4 @@
 import { normalizeRole } from "@halaalvest/auth/roles"
-import {
-  getPublishedLegalBundle,
-  listOwnLegalAcceptances,
-} from "@halaalvest/db"
-import { needsLegalReviewReminder } from "@halaalvest/domain/legal-reminder"
 import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
 import {
   TenantUrlProvider,
@@ -12,6 +7,7 @@ import {
 import { headers } from "next/headers"
 import { DashboardShellClient } from "@/components/dashboard-shell"
 import { normalizeDashboardRedirectPath } from "@/lib/auth-redirect"
+import { loadShowLegalReminder } from "@/lib/dashboard/legal-reminder"
 import { canAccessDashboardPath } from "@/lib/navigation/lib"
 import { getOperationProfileHiddenNavPaths } from "@/lib/navigation/operation-profile"
 import { getDashboardServerContext } from "@/lib/server-context"
@@ -123,18 +119,11 @@ export default async function SidebarLayout({
 
   const tenantName = context.tenant?.name ?? "Platform Demo Workspace"
   const userName = context.auth.user?.fullName ?? "Anonymous Workspace User"
-  const legalBundle = getPublishedLegalBundle()
-  const legalRecords =
-    legalBundle.available &&
-    context.tenant &&
-    context.auth.user &&
-    context.auth.membership
-      ? await listOwnLegalAcceptances({
-          tenantId: context.tenant.id,
-          userId: context.auth.user.id,
-        }).catch(() => null)
-      : null
-  const showLegalReminder = needsLegalReviewReminder(legalBundle, legalRecords)
+  const showLegalReminder = await loadShowLegalReminder({
+    hasMembership: Boolean(context.auth.membership),
+    tenantId: context.tenant?.id,
+    userId: context.auth.user?.id,
+  })
 
   return (
     <TenantUrlProvider config={tenantUrlConfig} context={tenantUrlContext}>

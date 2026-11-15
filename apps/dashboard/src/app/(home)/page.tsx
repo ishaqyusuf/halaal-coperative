@@ -84,6 +84,8 @@ async function TenantHomePageContent({
         <DashboardShellClient
           hiddenNavPaths={data.hiddenNavPaths}
           role={data.role}
+          showLegalReminder={data.showLegalReminder}
+          showSetupNav={data.showSetupNav}
           tenantName={data.tenantName}
           userName={data.userName}
         >
@@ -113,6 +115,8 @@ async function TenantHomePageContent({
       <DashboardShellClient
         hiddenNavPaths={data.hiddenNavPaths}
         role={data.role}
+        showLegalReminder={data.showLegalReminder}
+        showSetupNav={data.showSetupNav}
         tenantName={data.tenantName}
         userName={data.userName}
       >

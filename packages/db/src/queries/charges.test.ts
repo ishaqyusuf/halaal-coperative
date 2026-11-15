@@ -324,13 +324,51 @@ function createLoanRequestChargePrismaStub(
   }
 }
 
+// Delegates the live-operations write guard reads (share ledger writes).
+function liveTenantDelegates() {
+  return {
+    appliedBackfillMonth: { findMany: async () => [] },
+    auditLog: { count: async () => 0 },
+    backfillBatch: { count: async () => 0, findMany: async () => [] },
+    chargeDefinitionVersion: { count: async () => 1 },
+    legacyLoanMigrationDraft: { count: async () => 0 },
+    loan: { count: async () => 0 },
+    shareBusinessProfitEntry: { count: async () => 1 },
+    tenant: {
+      findUnique: async () => ({
+        id: "tenant-1",
+        initialMigrationStatus: "live_operations",
+        migrationEmergencyUnlockUntil: null,
+        migrationFinalizedAt: new Date("2026-07-01T00:00:00.000Z"),
+        startDate: new Date("2026-01-01T00:00:00.000Z"),
+      }),
+    },
+    tenantPolicy: {
+      findUnique: async () => ({ shareConfigurationMode: "unit_based" }),
+    },
+    tenantShareStructureVersion: { count: async () => 1 },
+  }
+}
+
 function createChargeLifecyclePrismaStub(input: {
   collectionMode: "deduct_from_savings" | "pay_separately"
   isMonthlyLevy?: boolean
   purpose?: string
+  /** A share ledger entry already posted for this application. */
+  shareEntryPosted?: boolean
   status: "pending" | "posted"
 }) {
   const ledgerTransactions: any[] = []
+  const shareLedgerEntries: any[] = input.shareEntryPosted
+    ? [
+        {
+          amount: 12_000,
+          id: "share-entry-0",
+          sourceId: "charge-application-1",
+          sourceType: "monthly_share_charge",
+        },
+      ]
+    : []
   const memberUpdates: any[] = []
   const auditLogs: any[] = []
   const application = {
@@ -347,11 +385,29 @@ function createChargeLifecyclePrismaStub(input: {
     status: input.status,
   }
   const tx = {
+    ...liveTenantDelegates(),
     auditLog: {
+      count: async () => 0,
       create: async (value: any) => {
         auditLogs.push(value)
         return value
       },
+    },
+    memberShareLedgerEntry: {
+      create: async (value: any) => {
+        const entry = {
+          id: `share-entry-${shareLedgerEntries.length + 1}`,
+          ...value.data,
+        }
+        shareLedgerEntries.push(entry)
+        return entry
+      },
+      findFirst: async (value: any) =>
+        shareLedgerEntries.find(
+          (entry) =>
+            entry.sourceId === value.where.sourceId &&
+            entry.sourceType === value.where.sourceType
+        ) ?? null,
     },
     chargeApplication: {
       findFirst: async () => ({ ...application }),
@@ -391,11 +447,13 @@ function createChargeLifecyclePrismaStub(input: {
     },
   }
   return {
+    ...liveTenantDelegates(),
     $transaction: async (callback: (value: typeof tx) => Promise<unknown>) =>
       callback(tx),
     auditLogs,
     ledgerTransactions,
     memberUpdates,
+    shareLedgerEntries,
   }
 }
 
@@ -940,6 +998,96 @@ describe("charge migration guards", () => {
       },
     })
     expect(prisma.memberUpdates).toHaveLength(0)
+  })
+
+  test("settles a separately paid share charge into Member Share Capital and the share ledger", async () => {
+    const prisma = createChargeLifecyclePrismaStub({
+      collectionMode: "pay_separately",
+      purpose: "member_share",
+      status: "pending",
+    })
+    const settle = () =>
+      settleChargeApplication(
+        {
+          actorUserId: "finance-user",
+          chargeApplicationId: "charge-application-1",
+          paidAt: new Date("2026-08-30T00:00:00.000Z"),
+          reference: "BANK-SHARE-001",
+          tenantId: "tenant-1",
+        },
+        prisma as never
+      )
+
+    await settle()
+
+    expect(prisma.ledgerTransactions).toHaveLength(1)
+    expect(prisma.ledgerTransactions[0].data.entries.create).toMatchObject([
+      { amount: 12_000, direction: "debit", ledgerAccountId: "account-2000" },
+      { amount: 12_000, direction: "credit", ledgerAccountId: "account-3200" },
+    ])
+    expect(prisma.shareLedgerEntries).toEqual([
+      expect.objectContaining({
+        amount: 12_000,
+        memberId: "member-1",
+        sourceId: "charge-application-1",
+        sourceType: "monthly_share_charge",
+        tenantId: "tenant-1",
+      }),
+    ])
+    // Settling again finds the application already posted: nothing is added.
+    await expect(settle()).rejects.toThrow("Only pending separate-payment")
+    expect(prisma.ledgerTransactions).toHaveLength(1)
+    expect(prisma.shareLedgerEntries).toHaveLength(1)
+  })
+
+  test("reversing a settled share charge takes it out of the share ledger too", async () => {
+    const prisma = createChargeLifecyclePrismaStub({
+      collectionMode: "pay_separately",
+      purpose: "member_share",
+      shareEntryPosted: true,
+      status: "posted",
+    })
+
+    await reverseChargeApplication(
+      {
+        actorUserId: "finance-user",
+        chargeApplicationId: "charge-application-1",
+        reason: "The bank returned the share payment.",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(prisma.ledgerTransactions[0].data.entries.create).toMatchObject([
+      { direction: "debit", ledgerAccountId: "account-3200" },
+      { direction: "credit", ledgerAccountId: "account-2000" },
+    ])
+    expect(prisma.shareLedgerEntries.at(-1)).toMatchObject({
+      amount: -12_000,
+      sourceId: "charge-application-1",
+      sourceType: "reversal",
+    })
+  })
+
+  test("reversing a share charge settled before share ledger posting adds no share entry", async () => {
+    const prisma = createChargeLifecyclePrismaStub({
+      collectionMode: "pay_separately",
+      purpose: "member_share",
+      status: "posted",
+    })
+
+    await reverseChargeApplication(
+      {
+        actorUserId: "finance-user",
+        chargeApplicationId: "charge-application-1",
+        reason: "The bank returned the share payment.",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(prisma.ledgerTransactions).toHaveLength(1)
+    expect(prisma.shareLedgerEntries).toHaveLength(0)
   })
 
   test("waives a posted savings charge with an opposite ledger entry and savings restoration", async () => {

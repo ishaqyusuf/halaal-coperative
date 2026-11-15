@@ -10,6 +10,7 @@ import { createPrismaClient } from "../prisma"
 import { claimDashboardEvidenceUploadLink } from "./dashboard-evidence-uploads"
 import { ExpectedQueryError } from "../query-error"
 import { recordMemberPaymentMutation } from "./contributions"
+import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
 import { getTenantMigrationWriteAccess } from "./migration"
 import { createMemberShareLedgerEntry } from "./tenant-finance"
 
@@ -874,6 +875,19 @@ async function approveReceiptAllocations(input: {
     }
   }
 
+  const shareAccounts =
+    shareAllocations.length > 0
+      ? await Promise.all([
+          getLedgerAccountByCode(input.tenantId, "2000", input.tx),
+          getLedgerAccountByCode(input.tenantId, "3200", input.tx),
+        ])
+      : null
+  if (shareAccounts && (!shareAccounts[0] || !shareAccounts[1])) {
+    throw new QueryInfrastructureError(
+      "Ledger accounts not initialized for this cooperative"
+    )
+  }
+
   for (const allocation of shareAllocations) {
     const ledgerEntry = await createMemberShareLedgerEntry(
       {
@@ -893,6 +907,35 @@ async function approveReceiptAllocations(input: {
         sourceId: allocation.id,
         sourceType: "payment_receipt",
         tenantId: input.tenantId,
+      },
+      input.tx
+    )
+
+    // Share capital received: Dr Cash / Bank (2000), Cr Member Share Capital
+    // (3200), once per allocation (the key rejects a second posting).
+    await postLedgerTransaction(
+      {
+        entries: [
+          {
+            amount: allocation.amount,
+            direction: "debit",
+            ledgerAccountId: shareAccounts![0]!.id,
+          },
+          {
+            amount: allocation.amount,
+            direction: "credit",
+            ledgerAccountId: shareAccounts![1]!.id,
+          },
+        ],
+        idempotencyKey: `payment-receipt-share:${allocation.id}`,
+        memberId: input.memberId,
+        // The share ledger write above checked live financial writes.
+        migrationWriteGuardValidated: true,
+        narration: "Share capital received by payment receipt",
+        postedAt: input.paidAt,
+        reference: input.paymentReference ?? undefined,
+        tenantId: input.tenantId,
+        transactionType: "contribution",
       },
       input.tx
     )

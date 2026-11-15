@@ -1661,6 +1661,7 @@ describe("member payment receipt queries", () => {
 
   test("approves share receipt allocations through the member share ledger", async () => {
     const shareLedgerCreates: Record<string, unknown>[] = []
+    const ledgerTransactionCreates: any[] = []
     const allocationUpdates: Record<string, unknown>[] = []
     const auditCreates: Record<string, unknown>[] = []
     const receiptClaims: Record<string, unknown>[] = []
@@ -1724,6 +1725,18 @@ describe("member payment receipt queries", () => {
         create: async (input: Record<string, unknown>) => {
           shareLedgerCreates.push(input)
           return { id: "share-ledger-1", ...input }
+        },
+      },
+      ledgerAccount: {
+        findUnique: async (input: any) => ({
+          code: input.where.tenantId_code.code,
+          id: `account-${input.where.tenantId_code.code}`,
+        }),
+      },
+      ledgerTransaction: {
+        create: async (input: any) => {
+          ledgerTransactionCreates.push(input)
+          return { id: "ledger-transaction-1", ...input.data }
         },
       },
     }
@@ -1795,6 +1808,28 @@ describe("member payment receipt queries", () => {
         where: { id: "allocation-share-1" },
       },
     ])
+    // Share capital moves in the general ledger too: Dr Cash / Bank (2000),
+    // Cr Member Share Capital (3200), keyed to the allocation.
+    expect(ledgerTransactionCreates).toHaveLength(1)
+    expect(ledgerTransactionCreates[0].data).toMatchObject({
+      idempotencyKey: "payment-receipt-share:allocation-share-1",
+      memberId: "member-1",
+      tenantId: "tenant-1",
+      entries: {
+        create: [
+          {
+            amount: 10000,
+            direction: "debit",
+            ledgerAccountId: "account-2000",
+          },
+          {
+            amount: 10000,
+            direction: "credit",
+            ledgerAccountId: "account-3200",
+          },
+        ],
+      },
+    })
     expect(
       auditCreates.some(
         (entry) =>

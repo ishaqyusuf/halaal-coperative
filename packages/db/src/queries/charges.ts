@@ -1884,7 +1884,20 @@ async function postChargeCorrection(input: {
     })
   }
 
-  if (input.collectionMode === "deduct_from_savings" && input.isShareCharge) {
+  // Undo the member's share balance wherever the charge added to it: always
+  // for savings deductions, and for separate payments settled since share
+  // settlements write the share ledger (older settlements have no entry).
+  const postedShareEntry = input.isShareCharge
+    ? await input.tx.memberShareLedgerEntry.findFirst({
+        select: { id: true },
+        where: {
+          sourceId: input.applicationId,
+          sourceType: "monthly_share_charge",
+          tenantId: input.tenantId,
+        },
+      })
+    : null
+  if (postedShareEntry) {
     await createMemberShareLedgerEntry(
       {
         tenantId: input.tenantId,
@@ -2030,6 +2043,25 @@ export async function settleChargeApplication(
 
       throw error
     })
+
+    // A share charge paid separately is share capital: the member's share
+    // ledger moves with Member Share Capital (3200). The pending -> posted
+    // claim above makes this run once per application.
+    if ((application.chargeDefinition as any).purpose === "member_share") {
+      await createMemberShareLedgerEntry(
+        {
+          amount: Number(application.amount),
+          createdByUserId: input.actorUserId,
+          effectiveDate: input.paidAt,
+          memberId: application.memberId,
+          notes: `${application.chargeDefinition.name} paid separately (${reference})`,
+          sourceId: application.id,
+          sourceType: "monthly_share_charge",
+          tenantId: input.tenantId,
+        },
+        tx as unknown as PrismaClient
+      )
+    }
 
     const updated = await tx.chargeApplication.update({
       data: {

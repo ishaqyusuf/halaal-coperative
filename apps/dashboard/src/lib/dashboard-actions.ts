@@ -751,6 +751,10 @@ export async function setFoodPurchaseIntakeAction(formData: FormData) {
   return callDashboardFormAction("setFoodPurchaseIntakeAction", formData)
 }
 
+export async function completeFoodPurchaseCycleAction(formData: FormData) {
+  return callDashboardFormAction("completeFoodPurchaseCycleAction", formData)
+}
+
 export async function reviewFoodPurchaseAccountingAction(formData: FormData) {
   return callDashboardFormAction("reviewFoodPurchaseAccountingAction", formData)
 }

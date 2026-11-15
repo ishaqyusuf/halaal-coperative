@@ -81,6 +81,19 @@ function useFoodPurchaseCharges(trigger: "approval" | "submission") {
   return data ?? []
 }
 
+/** The tenant's longest payback, read only while a form that shows it is open. */
+function useFoodPurchaseMaximumMonths() {
+  const trpc = useTRPC()
+  const { data } = useQuery(
+    trpc.foodPurchase.requestLimits.queryOptions(undefined, {
+      retry: 1,
+      staleTime: 5 * 60_000,
+    })
+  )
+
+  return data?.maximumPaybackMonths ?? null
+}
+
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong."
 }
@@ -115,6 +128,7 @@ export function FoodPurchaseApplicationForm({
 }) {
   const refreshFoodPurchase = useRefreshFoodPurchase()
   const chargeOptions = useFoodPurchaseCharges("submission")
+  const maximumMonths = useFoodPurchaseMaximumMonths()
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -128,9 +142,11 @@ export function FoodPurchaseApplicationForm({
   const selectedCycle = openCycles.find((cycle) => cycle.id === cycleId)
   const amount = Number(requestedAmount)
   const months = Number(requestedPaybackMonths)
+  const overMaximum = maximumMonths !== null && months > maximumMonths
   const canSubmit =
     (selfService || Boolean(memberId)) &&
     Boolean(selectedCycle) &&
+    !overMaximum &&
     monthlyAmount(amount, months) !== null
 
   function submitApplication() {
@@ -234,9 +250,15 @@ export function FoodPurchaseApplicationForm({
         <RequestField
           hint={(() => {
             const monthly = monthlyAmount(amount, months)
-            return monthly && months > 1
-              ? `About ${formatCurrency(monthly)} a month`
-              : undefined
+            const limit =
+              maximumMonths !== null
+                ? `Up to ${formatMonths(maximumMonths)}`
+                : undefined
+            return monthly && months > 1 && !overMaximum
+              ? [limit, `about ${formatCurrency(monthly)} a month`]
+                  .filter(Boolean)
+                  .join(", ")
+              : limit
           })()}
           label="Pay back over (months)"
         >

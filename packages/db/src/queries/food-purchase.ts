@@ -585,6 +585,27 @@ export async function getActiveFoodPurchaseObligationCount(
   }).length
 }
 
+/**
+ * The tenant's foodstuff request limits, for "Up to N months" on the request
+ * forms before the server refuses. One statement; defaults match the writers.
+ */
+export async function getFoodPurchaseRequestLimits(
+  input: { tenantId: string },
+  prismaOverride?: PrismaClient
+): Promise<{ maximumPaybackMonths: number }> {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+
+  const policy = await prisma.tenantPolicy.findUnique({
+    select: { foodPurchaseMaximumPaybackMonths: true },
+    where: { tenantId: input.tenantId },
+  })
+
+  return {
+    maximumPaybackMonths: Number(policy?.foodPurchaseMaximumPaybackMonths ?? 1),
+  }
+}
+
 export async function listFoodPurchaseCycles(
   input: {
     limit?: number

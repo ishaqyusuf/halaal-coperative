@@ -2,6 +2,7 @@ import { z } from "zod"
 import type { FoodPurchaseApplicationRow } from "@halaalvest/db"
 import {
   findFoodPurchaseApplication,
+  getFoodPurchaseRequestLimits,
   listFoodPurchaseApplicationPage,
 } from "@halaalvest/db"
 import { listFoodPurchaseApplicationsSchema } from "../schemas/food-purchase"
@@ -55,6 +56,11 @@ export const foodPurchaseRouter = createTRPCRouter({
         workflow: "food_purchase_application",
       })
     ),
+
+  // "Up to N months" on the request and approval forms.
+  requestLimits: tenantProcedure.query(({ ctx }) =>
+    getFoodPurchaseRequestLimits({ tenantId: ctx.tenant.current.id })
+  ),
 
   get: tenantProcedure
     .input(z.object({ foodPurchaseApplicationId: z.string().uuid() }))

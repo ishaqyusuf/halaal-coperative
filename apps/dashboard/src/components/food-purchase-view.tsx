@@ -23,7 +23,10 @@ import { FoodPurchaseDataView } from "@/components/tables/food-purchase/data-vie
 import { useFoodPurchaseFilterParams } from "@/hooks/use-food-purchase-filter-params"
 import { useFoodPurchaseParams } from "@/hooks/use-food-purchase-params"
 import { useSortParams } from "@/hooks/use-sort-params"
-import { setFoodPurchaseIntakeAction } from "@/lib/dashboard-actions"
+import {
+  completeFoodPurchaseCycleAction,
+  setFoodPurchaseIntakeAction,
+} from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
 import { memberStateToneClassNames } from "@/lib/members/member-status-words"
 import {
@@ -304,7 +307,7 @@ function FoodPurchaseCycleCard({
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const [confirm, setConfirm] = useState<
-    "close_intake" | "reopen_intake" | null
+    "close_intake" | "complete" | "reopen_intake" | null
   >(null)
   const state = getFoodCycleState(cycle.status)
   const month = formatMonthYear(cycle.periodMonth)
@@ -316,6 +319,9 @@ function FoodPurchaseCycleCard({
     canReviewAccounting && cycle.status === "accounting_submitted"
   const canClose = canManageIntake && cycle.status === "open"
   const canReopen = canManageIntake && cycle.status === "intake_closed"
+  // Accepted figures close the month on mobile; the same step here.
+  const canComplete =
+    canReviewAccounting && cycle.status === "accounting_approved"
 
   function open(type: "accounting" | "accounting-review") {
     void setParams({
@@ -342,6 +348,24 @@ function FoodPurchaseCycleCard({
       } catch (error) {
         showError(
           "Could not change the month",
+          error instanceof Error ? error.message : "Something went wrong."
+        )
+      }
+    })
+  }
+
+  function complete() {
+    startTransition(async () => {
+      try {
+        await completeFoodPurchaseCycleAction(
+          objectToFormData({ cycleId: cycle.id })
+        )
+        setConfirm(null)
+        showSuccess("Month done", month)
+        router.refresh()
+      } catch (error) {
+        showError(
+          "Could not mark the month done",
           error instanceof Error ? error.message : "Something went wrong."
         )
       }
@@ -376,8 +400,17 @@ function FoodPurchaseCycleCard({
           {cycle.accountingNotes}
         </p>
       ) : null}
-      {canRecord || canReview || canClose || canReopen ? (
+      {canRecord || canReview || canClose || canReopen || canComplete ? (
         <div className="grid gap-3 sm:flex sm:flex-wrap [&_button]:h-12 [&_button]:w-full sm:[&_button]:w-auto">
+          {canComplete ? (
+            <Button
+              disabled={isPending}
+              onClick={() => setConfirm("complete")}
+              type="button"
+            >
+              Mark done
+            </Button>
+          ) : null}
           {canReview ? (
             <Button onClick={() => open("accounting-review")} type="button">
               Check figures
@@ -425,6 +458,15 @@ function FoodPurchaseCycleCard({
         open={confirm === "close_intake"}
         pending={isPending}
         title={`Stop taking requests for ${month}?`}
+      />
+      <RequestConfirmDialog
+        confirmLabel="Mark done"
+        description="The figures are accepted. Nothing more can be added or changed for this month."
+        onConfirm={complete}
+        onOpenChange={(next) => setConfirm(next ? "complete" : null)}
+        open={confirm === "complete"}
+        pending={isPending}
+        title={`Mark ${month} as done?`}
       />
       <RequestConfirmDialog
         confirmLabel="Take requests"

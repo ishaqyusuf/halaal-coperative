@@ -6384,6 +6384,24 @@ export async function setFoodPurchaseIntakeAction(formData: FormData) {
   revalidatePath("/food-purchase")
 }
 
+// After the figures are accepted, finance marks the month Done (as on mobile).
+export async function completeFoodPurchaseCycleAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  await requireLiveFinancialWritesOpen(actor)
+
+  await transitionFoodPurchaseCycle({
+    actorUserId: actor.user.id,
+    cycleId: getRequiredString(formData, "cycleId"),
+    expectedStatus: "accounting_approved",
+    notes: getOptionalTrimmedString(formData, "notes"),
+    tenantId: actor.tenant.id,
+    transition: "complete",
+  })
+
+  revalidatePath("/")
+  revalidatePath("/food-purchase")
+}
+
 export async function reviewFoodPurchaseAccountingAction(formData: FormData) {
   const actor = await requireDashboardActor(financeManagementRoles)
   await requireLiveFinancialWritesOpen(actor)
@@ -7216,6 +7234,7 @@ const dashboardActionHandlers = {
   reviewFoodPurchaseApplicationAction,
   recordFoodPurchaseAccountingAction,
   setFoodPurchaseIntakeAction,
+  completeFoodPurchaseCycleAction,
   reviewFoodPurchaseAccountingAction,
   createProcurementRequestAction,
   createOwnProcurementRequestAction,
@@ -7589,6 +7608,9 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   setFoodPurchaseIntakeAction: formAction(
     dashboardActionHandlers.setFoodPurchaseIntakeAction
+  ),
+  completeFoodPurchaseCycleAction: formAction(
+    dashboardActionHandlers.completeFoodPurchaseCycleAction
   ),
   reviewFoodPurchaseAccountingAction: formAction(
     dashboardActionHandlers.reviewFoodPurchaseAccountingAction

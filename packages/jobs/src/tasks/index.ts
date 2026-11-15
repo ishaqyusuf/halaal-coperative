@@ -1,3 +1,7 @@
+export {
+  assistantChannelDeliveryTask,
+  assistantChannelTurnTask,
+} from "./assistant-channels.task"
 export { backfillInitializeTask } from "./backfill-initialize.task"
 export { backfillApplyTask } from "./backfill-apply.task"
 export { cooperativeMobileBillingTask } from "./cooperative-mobile-billing.task"

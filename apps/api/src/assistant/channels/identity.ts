@@ -29,6 +29,17 @@ export function providerAccountDigest(
     .digest("hex")
 }
 
+/**
+ * Job concurrency key for one chat: a digest, so Trigger.dev never sees a
+ * phone number or chat ID.
+ */
+export function chatQueueKey(provider: ChannelProvider, chatId: string) {
+  const digest = createHash("sha256")
+    .update(`assistant-chat:v1:${provider}:${chatId}`)
+    .digest("hex")
+  return `${provider}-${digest.slice(0, 32)}`
+}
+
 /** Shown in the app at confirmation, e.g. "Telegram ID ••••6789". */
 export function maskProviderAccount(
   provider: ChannelProvider,

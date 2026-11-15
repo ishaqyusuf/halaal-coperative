@@ -14,6 +14,7 @@ import {
   providerLabel,
 } from "./config"
 import {
+  chatQueueKey,
   createLinkNonce,
   isLinkNonce,
   linkNonceDigest,
@@ -41,6 +42,8 @@ export const LINK_TTL_MS = 10 * 60_000
 export const MAX_INBOX_ATTEMPTS = 3
 export const MAX_SEND_ATTEMPTS = 3
 const MAX_DRAIN_PER_CHAT = 20
+/** One delivery job sends at most this many replies; later jobs continue. */
+export const MAX_DELIVERIES_PER_JOB = 10
 
 export class AssistantChannelError extends Error {
   constructor(
@@ -51,6 +54,31 @@ export class AssistantChannelError extends Error {
     this.name = "AssistantChannelError"
   }
 }
+
+/**
+ * Hands work to durable jobs (Trigger.dev). Without it, work runs in process
+ * after the webhook answers (local API and tests). Jobs carry row IDs and a
+ * chat digest only.
+ */
+export type AssistantChannelDispatch = {
+  turn(job: { inboxId: string; chatKey: string }): Promise<void>
+  delivery(job: { outboxId: string; chatKey: string }): Promise<void>
+}
+
+export type AssistantTurnJobStatus =
+  | "done"
+  | "retry"
+  | "skipped"
+  | "idle"
+  | "disabled"
+export type AssistantDeliveryJobStatus =
+  | "sent"
+  | "failed"
+  | "unknown"
+  | "retry"
+  | "idle"
+  | "skipped"
+  | "disabled"
 
 export type AssistantChannelRuntimeDeps = {
   store: AssistantChannelStore
@@ -64,6 +92,7 @@ export type AssistantChannelRuntimeDeps = {
   now?: () => Date
   /** Runs work after the webhook acknowledges. Tests await `idle()`. */
   schedule?: (task: () => Promise<void>) => void
+  dispatch?: AssistantChannelDispatch
   log?: (event: string, detail?: Record<string, unknown>) => void
 }
 
@@ -362,7 +391,17 @@ export function createAssistantChannelRuntime(
       linkId: null,
       payload,
     })
-    if (admitted.status === "admitted")
+    if (deps.dispatch) {
+      // A duplicate still waiting (its first dispatch may have failed) is
+      // dispatched again; the job's idempotency key keeps it to one run.
+      // A dispatch failure throws, so the webhook answers 503 and the
+      // provider retries.
+      if (admitted.state === "received")
+        await deps.dispatch.turn({
+          inboxId: admitted.id,
+          chatKey: chatQueueKey(event.provider, event.chatId),
+        })
+    } else if (admitted.status === "admitted")
       schedule(() => drainChat(event.provider, event.chatId))
     return admitted
   }
@@ -405,7 +444,7 @@ export function createAssistantChannelRuntime(
     const recorded = await deps.store.listOutbox({ inboxId: row.id })
     if (recorded.length) {
       await deps.store.finishInbox(row.id, { state: "done" })
-      await deliver(recorded)
+      await deliverRows(recorded)
       return "done"
     }
     let reply: Reply
@@ -450,7 +489,7 @@ export function createAssistantChannelRuntime(
       state: reply.state ?? "done",
       linkId: reply.linkId,
     })
-    await deliver(rows)
+    await deliverRows(rows)
     return "done"
   }
 
@@ -619,8 +658,31 @@ export function createAssistantChannelRuntime(
           payload: message,
         }))
       )
-      schedule(() => deliver(rows.filter((row) => row.state === "pending")))
+      if (!deps.dispatch) {
+        schedule(() => deliver(rows.filter((row) => row.state === "pending")))
+        continue
+      }
+      // Saved before dispatch: if the job can't be queued now, the reply
+      // stays pending and the chat's next delivery job sends it first.
+      await deliverRows(rows).catch((error: unknown) =>
+        log("channel_dispatch_failed", {
+          name: error instanceof Error ? error.name : "unknown",
+        })
+      )
     }
+  }
+
+  /** In process, or one delivery job for the chat's oldest pending reply. */
+  async function deliverRows(rows: AssistantChannelOutboxRow[]) {
+    if (!deps.dispatch) return deliver(rows)
+    const first = [...rows]
+      .sort((a, b) => a.sequence - b.sequence)
+      .find((row) => row.state === "pending")
+    if (first)
+      await deps.dispatch.delivery({
+        outboxId: first.id,
+        chatKey: chatQueueKey(first.provider, first.providerChatId),
+      })
   }
 
   /** Sends in order; stops a chat's sequence at the first unsent message. */
@@ -634,7 +696,7 @@ export function createAssistantChannelRuntime(
 
   async function deliverOne(
     outboxId: string
-  ): Promise<"sent" | "failed" | "unknown" | "skipped"> {
+  ): Promise<"sent" | "failed" | "retry" | "unknown" | "skipped"> {
     const config = deps.config()
     const begun = await deps.store.beginSend(outboxId)
     if (begun.status !== "started") return "skipped"
@@ -664,12 +726,13 @@ export function createAssistantChannelRuntime(
       return "sent"
     } catch (error) {
       if (error instanceof ChannelSendError && error.outcome === "rejected") {
-        await finish({
+        const saved = await finish({
           kind: "rejected",
           errorCode: error.code,
           retryable: error.retryable,
         })
-        return "failed"
+        // Retryable and attempts left: the row is pending again.
+        return saved?.state === "pending" ? "retry" : "failed"
       }
       // Possibly delivered: record `unknown`, never resend blindly.
       await finish({
@@ -679,6 +742,63 @@ export function createAssistantChannelRuntime(
       })
       return "unknown"
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Job steps (Trigger.dev, through the channel worker route)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Turn job: processes the oldest received row in this row's chat. Jobs run
+   * one at a time per chat (concurrency key), so a row still `processing`
+   * belongs to a worker that died; it goes back to `received` and replays by
+   * request id (the saved reply, never a second action).
+   */
+  async function runTurnJob(
+    inboxId: string
+  ): Promise<{ status: AssistantTurnJobStatus }> {
+    const row = await deps.store.getInbox(inboxId)
+    if (!row) return { status: "skipped" }
+    if (!providerEnabled(deps.config(), row.provider))
+      return { status: "disabled" }
+    const chat = { provider: row.provider, providerChatId: row.providerChatId }
+    await deps.store.reclaimInterruptedInbox(chat)
+    const next = await deps.store.nextReceivedInbox(chat)
+    if (!next) {
+      // Already answered: hand its saved replies to delivery again in case
+      // the earlier dispatch was lost. Delivery skips anything already sent.
+      await deliverRows(await deps.store.listOutbox({ inboxId: row.id }))
+      return { status: "idle" }
+    }
+    return { status: await processInbox(next.id) }
+  }
+
+  /**
+   * Delivery job: sends the chat's pending replies oldest first. A reply left
+   * `sending` was cut off mid-send and may have arrived, so it becomes
+   * `unknown` and is never resent. A retryable rejection (429) stops the run
+   * with `retry` so the job backs off; later replies wait behind it.
+   */
+  async function runDeliveryJob(
+    outboxId: string
+  ): Promise<{ status: AssistantDeliveryJobStatus }> {
+    const row = await deps.store.getOutbox(outboxId)
+    if (!row) return { status: "skipped" }
+    if (!providerEnabled(deps.config(), row.provider))
+      return { status: "disabled" }
+    const chat = { provider: row.provider, providerChatId: row.providerChatId }
+    const outcomes = new Set<string>()
+    if (await deps.store.reconcileInterruptedSends(chat)) outcomes.add("unknown")
+    for (let index = 0; index < MAX_DELIVERIES_PER_JOB; index += 1) {
+      const next = await deps.store.nextPendingOutbox(chat)
+      if (!next) break
+      const outcome = await deliverOne(next.id)
+      if (outcome === "retry") return { status: "retry" }
+      outcomes.add(outcome)
+    }
+    for (const status of ["unknown", "failed", "sent"] as const)
+      if (outcomes.has(status)) return { status }
+    return { status: "idle" }
   }
 
   /** Retries pending outbox rows for an inbox without rerunning its turn. */
@@ -703,7 +823,12 @@ export function createAssistantChannelRuntime(
       rows.map((row) => [`${row.provider}:${row.providerChatId}`, row])
     )
     for (const row of chats.values())
-      await drainChat(row.provider, row.providerChatId)
+      if (deps.dispatch)
+        await deps.dispatch.turn({
+          inboxId: row.id,
+          chatKey: chatQueueKey(row.provider, row.providerChatId),
+        })
+      else await drainChat(row.provider, row.providerChatId)
     return { chats: chats.size }
   }
 
@@ -726,6 +851,8 @@ export function createAssistantChannelRuntime(
     acknowledgeCallback,
     drainChat,
     processInbox,
+    runTurnJob,
+    runDeliveryJob,
     retryDelivery,
     recover,
     config: deps.config,

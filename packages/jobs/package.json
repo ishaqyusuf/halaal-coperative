@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./assistant-channels": "./src/assistant-channels.ts",
     "./tasks": "./src/tasks/index.ts"
   },
   "scripts": {

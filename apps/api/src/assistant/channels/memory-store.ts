@@ -216,7 +216,8 @@ export function createMemoryAssistantChannelStore(
           row.endpointId === input.endpointId &&
           row.eventId === input.eventId
       )
-      if (existing) return { status: "duplicate", id: existing.id }
+      if (existing)
+        return { status: "duplicate", id: existing.id, state: existing.state }
       const row = {
         id: randomUUID(),
         environment: input.environment,
@@ -232,7 +233,11 @@ export function createMemoryAssistantChannelStore(
         createdAt: new Date(now().getTime() + clock++),
       }
       inbox.push(row)
-      return { status: "admitted", id: row.id }
+      return { status: "admitted", id: row.id, state: row.state }
+    },
+    async getInbox(id) {
+      const row = inbox.find((item) => item.id === id)
+      return row ? { ...row } : null
     },
     async nextReceivedInbox(input) {
       return (
@@ -263,6 +268,22 @@ export function createMemoryAssistantChannelStore(
       }
       Object.assign(row, { state: "processing", attempts: row.attempts + 1 })
       return { ...row }
+    },
+    async reclaimInterruptedInbox(input) {
+      let count = 0
+      for (const row of inbox)
+        if (
+          row.provider === input.provider &&
+          row.providerChatId === input.providerChatId &&
+          row.state === "processing"
+        ) {
+          Object.assign(row, {
+            state: "received",
+            errorCode: "TURN_INTERRUPTED",
+          })
+          count += 1
+        }
+      return count
     },
     async finishInbox(id, outcome) {
       const row = inbox.find(
@@ -310,6 +331,34 @@ export function createMemoryAssistantChannelStore(
         saved.push({ ...row })
       }
       return saved
+    },
+    async getOutbox(id) {
+      const row = outbox.find((item) => item.id === id)
+      return row ? { ...row } : null
+    },
+    async nextPendingOutbox(input) {
+      const row = outbox
+        .filter(
+          (item) =>
+            item.provider === input.provider &&
+            item.providerChatId === input.providerChatId &&
+            item.state === "pending"
+        )
+        .sort((a, b) => a.createdAt - b.createdAt || a.sequence - b.sequence)[0]
+      return row ? { ...row } : null
+    },
+    async reconcileInterruptedSends(input) {
+      let count = 0
+      for (const row of outbox)
+        if (
+          row.provider === input.provider &&
+          row.providerChatId === input.providerChatId &&
+          row.state === "sending"
+        ) {
+          Object.assign(row, { state: "unknown", errorCode: "SEND_INTERRUPTED" })
+          count += 1
+        }
+      return count
     },
     async beginSend(id) {
       const row = outbox.find((item) => item.id === id)

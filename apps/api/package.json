@@ -23,7 +23,8 @@
     "./trpc/routers/dashboard-actions": "./src/routers/dashboard-actions.route.ts",
     "./app-update": "./src/app-update/handler.ts",
     "./qa-accelerator-config": "./src/qa-accelerator-config.ts",
-    "./cooperative-paystack-webhook": "./src/billing/cooperative-paystack-webhook.ts"
+    "./cooperative-paystack-webhook": "./src/billing/cooperative-paystack-webhook.ts",
+    "./assistant-channels": "./src/assistant/channels/next-routes.ts"
   },
   "dependencies": {
     "@ai-sdk/deepseek": "2.0.26",

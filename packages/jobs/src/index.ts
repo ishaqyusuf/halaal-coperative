@@ -1,5 +1,6 @@
 export * from "./queue"
 export * from "./trigger"
+export * from "./assistant-channels"
 export * from "./tasks"
 export * from "./handlers/backfill-initialize"
 export * from "./handlers/backfill-apply"

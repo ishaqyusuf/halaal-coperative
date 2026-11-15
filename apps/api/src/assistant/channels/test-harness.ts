@@ -11,7 +11,10 @@ import type { AssistantPrincipal } from "../principal"
 import { readAssistantChannelConfig } from "./config"
 import { createMemoryAssistantChannelStore } from "./memory-store"
 import { registerAssistantChannelWebhooks } from "./routes"
-import { createAssistantChannelRuntime } from "./runtime"
+import {
+  type AssistantChannelDispatch,
+  createAssistantChannelRuntime,
+} from "./runtime"
 import {
   type ChannelMessage,
   ChannelSendError,
@@ -106,9 +109,17 @@ export async function fixtureTurn(
   return output(input, [answer(fixtureAnswers.financingStatus)])
 }
 
-export function createChannelHarness(env: Record<string, string> = fixtureEnv) {
+export function createChannelHarness(
+  env: Record<string, string> = fixtureEnv,
+  options: { dispatch?: AssistantChannelDispatch } = {}
+) {
   let current = new Date("2026-11-14T10:00:00.000Z")
-  const memory = createMemoryAssistantChannelStore(memberships, () => current)
+  // Per harness, so a test can change a role or delete a user in isolation.
+  const liveMemberships = structuredClone(memberships)
+  const memory = createMemoryAssistantChannelStore(
+    liveMemberships,
+    () => current
+  )
   const sent: { provider: string; chatId: string; message: ChannelMessage }[] =
     []
   const sendFailures: ChannelSendError[] = []
@@ -141,6 +152,7 @@ export function createChannelHarness(env: Record<string, string> = fixtureEnv) {
       return fixtureTurn(principal, input)
     },
     now: () => current,
+    dispatch: options.dispatch,
   })
   const app = new Hono()
   registerAssistantChannelWebhooks(app, { runtime })
@@ -149,6 +161,7 @@ export function createChannelHarness(env: Record<string, string> = fixtureEnv) {
     app,
     runtime,
     memory,
+    memberships: liveMemberships,
     sent,
     turns,
     config,

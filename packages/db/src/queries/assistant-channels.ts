@@ -182,9 +182,13 @@ export interface AssistantChannelStore {
   createConversation(
     owner: AssistantChannelOwner & { channel: AssistantChannelProvider }
   ): Promise<{ id: string }>
-  admitInbox(
-    input: AdmitInboxInput
-  ): Promise<{ status: "admitted" | "duplicate"; id: string }>
+  /** A duplicate reports the stored row's state, so a lost dispatch can retry. */
+  admitInbox(input: AdmitInboxInput): Promise<{
+    status: "admitted" | "duplicate"
+    id: string
+    state: AssistantChannelInboxRow["state"]
+  }>
+  getInbox(id: string): Promise<AssistantChannelInboxRow | null>
   nextReceivedInbox(input: {
     provider: AssistantChannelProvider
     providerChatId: string
@@ -197,6 +201,15 @@ export interface AssistantChannelStore {
     id: string,
     options: { maxAttempts: number }
   ): Promise<AssistantChannelInboxRow | null>
+  /**
+   * `processing` → `received` for one chat. Only the serialized job worker
+   * calls this: with one run per chat, a row still `processing` belongs to a
+   * worker that died. The turn replays by request id, so nothing runs twice.
+   */
+  reclaimInterruptedInbox(input: {
+    provider: AssistantChannelProvider
+    providerChatId: string
+  }): Promise<number>
   finishInbox(
     id: string,
     outcome: {
@@ -209,6 +222,20 @@ export interface AssistantChannelStore {
   enqueueOutbox(
     rows: EnqueueOutboxInput[]
   ): Promise<AssistantChannelOutboxRow[]>
+  getOutbox(id: string): Promise<AssistantChannelOutboxRow | null>
+  /** Oldest pending reply for one chat (creation order, then sequence). */
+  nextPendingOutbox(input: {
+    provider: AssistantChannelProvider
+    providerChatId: string
+  }): Promise<AssistantChannelOutboxRow | null>
+  /**
+   * `sending` → `unknown` (`SEND_INTERRUPTED`) for one chat. A send that was
+   * cut off may have reached the provider, so it is never resent.
+   */
+  reconcileInterruptedSends(input: {
+    provider: AssistantChannelProvider
+    providerChatId: string
+  }): Promise<number>
   beginSend(id: string): Promise<BeginSendResult>
   finishSend(
     id: string,
@@ -602,7 +629,7 @@ export function createPrismaAssistantChannelStore(
           data: input,
           select: { id: true },
         })
-        return { status: "admitted", id: row.id }
+        return { status: "admitted", id: row.id, state: "received" }
       } catch (error) {
         if (!isUniqueViolation(error)) throw error
         const existing = await prisma.assistantChannelInbox.findUniqueOrThrow({
@@ -614,10 +641,21 @@ export function createPrismaAssistantChannelStore(
               eventId: input.eventId,
             },
           },
-          select: { id: true },
+          select: { id: true, state: true },
         })
-        return { status: "duplicate", id: existing.id }
+        return {
+          status: "duplicate",
+          id: existing.id,
+          state: existing.state as AssistantChannelInboxRow["state"],
+        }
       }
+    },
+
+    async getInbox(id) {
+      const row = await client().assistantChannelInbox.findUnique({
+        where: { id },
+      })
+      return row ? inboxRow(row) : null
     },
 
     async nextReceivedInbox(input) {
@@ -671,6 +709,18 @@ export function createPrismaAssistantChannelStore(
       return row ? inboxRow(row) : null
     },
 
+    async reclaimInterruptedInbox(input) {
+      const reclaimed = await client().assistantChannelInbox.updateMany({
+        where: {
+          provider: input.provider,
+          providerChatId: input.providerChatId,
+          state: "processing",
+        },
+        data: { state: "received", errorCode: "TURN_INTERRUPTED" },
+      })
+      return reclaimed.count
+    },
+
     async finishInbox(id, outcome) {
       await client().assistantChannelInbox.updateMany({
         where: { id, state: "processing" },
@@ -713,6 +763,37 @@ export function createPrismaAssistantChannelStore(
         orderBy: [{ createdAt: "asc" }, { sequence: "asc" }],
       })
       return saved.map(outboxRow)
+    },
+
+    async getOutbox(id) {
+      const row = await client().assistantChannelOutbox.findUnique({
+        where: { id },
+      })
+      return row ? outboxRow(row) : null
+    },
+
+    async nextPendingOutbox(input) {
+      const row = await client().assistantChannelOutbox.findFirst({
+        where: {
+          provider: input.provider,
+          providerChatId: input.providerChatId,
+          state: "pending",
+        },
+        orderBy: [{ createdAt: "asc" }, { sequence: "asc" }],
+      })
+      return row ? outboxRow(row) : null
+    },
+
+    async reconcileInterruptedSends(input) {
+      const reconciled = await client().assistantChannelOutbox.updateMany({
+        where: {
+          provider: input.provider,
+          providerChatId: input.providerChatId,
+          state: "sending",
+        },
+        data: { state: "unknown", errorCode: "SEND_INTERRUPTED" },
+      })
+      return reconciled.count
     },
 
     async beginSend(id) {

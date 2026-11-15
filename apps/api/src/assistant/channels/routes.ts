@@ -1,6 +1,7 @@
 import { createPrismaAssistantChannelStore } from "@halaalvest/db"
 import type { Hono } from "hono"
 import { readAssistantChannelConfig } from "./config"
+import { createAssistantChannelJobDispatch } from "./dispatch"
 import { safeEqual, verifyMetaSignature } from "./identity"
 import {
   type AssistantChannelRuntime,
@@ -23,7 +24,10 @@ const WHATSAPP_MAX_BYTES = 1024 * 1024
 let turnRunner: AssistantTurnRunner | undefined
 let defaultRuntime: AssistantChannelRuntime | null = null
 
-/** Process-wide runtime backed by Prisma and the real provider senders. */
+/**
+ * Process-wide runtime backed by Prisma and the real provider senders. Built
+ * on the first channel request, so other routes never pay for it.
+ */
 export function getAssistantChannelRuntime() {
   defaultRuntime ??= createAssistantChannelRuntime({
     store: createPrismaAssistantChannelStore(),
@@ -36,9 +40,14 @@ export function getAssistantChannelRuntime() {
         : config.whatsapp
           ? createWhatsAppSender(config.whatsapp)
           : null,
-    get runTurn() {
-      return turnRunner
-    },
+    // The turn module loads on first use, so the webhook stays small.
+    runTurn: async (principal, input) =>
+      (turnRunner ?? (await import("../turn")).runAssistantTurn)(
+        principal,
+        input
+      ),
+    // Trigger.dev when configured; otherwise in process (local API).
+    dispatch: createAssistantChannelJobDispatch(),
     log: (event, detail) =>
       console.warn(`[assistant-channels] ${event}`, detail ?? {}),
   })
@@ -88,10 +97,103 @@ function parseJson(bytes: Uint8Array) {
   }
 }
 
+const noStore = { "Cache-Control": "no-store" }
+
+function json(body: unknown, status: number) {
+  return Response.json(body, { status, headers: noStore })
+}
+
+function text(body: string, status: number) {
+  return new Response(body, {
+    status,
+    headers: { ...noStore, "Content-Type": "text/plain; charset=UTF-8" },
+  })
+}
+
 /**
- * Mounts the Telegram and WhatsApp webhooks. Both answer 404 while their flag
- * is off. An event is acknowledged only after it is durably admitted; a store
- * failure answers 503 so the provider retries, and retries dedupe.
+ * Telegram webhook. 404 while the flag is off; the secret header is checked
+ * before the body is read. An event is acknowledged only after it is durably
+ * admitted (and, with jobs, dispatched); a failure answers 503 so Telegram
+ * retries, and retries dedupe.
+ */
+export async function handleTelegramWebhook(
+  request: Request,
+  runtime: AssistantChannelRuntime
+) {
+  const telegram = runtime.config().telegram
+  if (!telegram) return json({ code: "NOT_FOUND" }, 404)
+  if (
+    !safeEqual(
+      request.headers.get("x-telegram-bot-api-secret-token"),
+      telegram.webhookSecret
+    )
+  )
+    return json({ code: "UNAUTHORIZED" }, 401)
+  const bytes = await readBoundedBytes(request, TELEGRAM_MAX_BYTES)
+  if (!bytes) return json({ code: "PAYLOAD_TOO_LARGE" }, 413)
+  const body = parseJson(bytes)
+  if (!body.ok) return json({ code: "BAD_REQUEST" }, 400)
+  const event = parseTelegramUpdate(body.value, telegram.botUsername)
+  if (!event) return json({ ok: true }, 200)
+  try {
+    await runtime.admit(event)
+  } catch {
+    return json({ code: "CHANNEL_UNAVAILABLE" }, 503)
+  }
+  await runtime.acknowledgeCallback(event)
+  return json({ ok: true }, 200)
+}
+
+/** WhatsApp verify handshake (`hub.mode=subscribe` + verify token). */
+export function handleWhatsAppVerification(
+  request: Request,
+  runtime: AssistantChannelRuntime
+) {
+  const whatsapp = runtime.config().whatsapp
+  if (!whatsapp) return text("Not found", 404)
+  const challenge = verifyWhatsAppChallenge(
+    new URL(request.url).searchParams,
+    whatsapp.verifyToken
+  )
+  return challenge ? text(challenge, 200) : text("Unauthorized", 401)
+}
+
+/**
+ * WhatsApp webhook. 404 while the flag is off. `X-Hub-Signature-256` is
+ * verified over the exact raw bytes before anything is parsed.
+ */
+export async function handleWhatsAppWebhook(
+  request: Request,
+  runtime: AssistantChannelRuntime
+) {
+  const whatsapp = runtime.config().whatsapp
+  if (!whatsapp) return text("Not found", 404)
+  const bytes = await readBoundedBytes(request, WHATSAPP_MAX_BYTES)
+  if (!bytes) return text("Event too large", 413)
+  if (
+    !verifyMetaSignature({
+      appSecret: whatsapp.appSecret,
+      rawBody: bytes,
+      signature: request.headers.get("x-hub-signature-256"),
+    })
+  )
+    return text("Unauthorized", 401)
+  const body = parseJson(bytes)
+  if (!body.ok) return text("Invalid event", 400)
+  const events = parseWhatsAppEvents(body.value, whatsapp.phoneNumberId)
+  if (events.length > WHATSAPP_MAX_EVENTS)
+    return text("Too many events", 413)
+  try {
+    for (const event of events) await runtime.admit(event)
+  } catch {
+    return text("Temporarily unavailable", 503)
+  }
+  return text("OK", 200)
+}
+
+/**
+ * Mounts the webhooks on the local Hono API. The deployed dashboard serves
+ * the same handlers as Next.js routes (`next-routes.ts`).
  */
 export function registerAssistantChannelWebhooks(
   app: Hono,
@@ -102,70 +204,14 @@ export function registerAssistantChannelWebhooks(
 ) {
   if (options.runTurn) turnRunner = options.runTurn
   const runtime = () => options.runtime ?? getAssistantChannelRuntime()
-  const noStore = { "Cache-Control": "no-store" }
 
-  app.post(TELEGRAM_WEBHOOK_PATH, async (c) => {
-    const current = runtime()
-    const telegram = current.config().telegram
-    if (!telegram) return c.json({ code: "NOT_FOUND" }, 404, noStore)
-    if (
-      !safeEqual(
-        c.req.header("x-telegram-bot-api-secret-token"),
-        telegram.webhookSecret
-      )
-    )
-      return c.json({ code: "UNAUTHORIZED" }, 401, noStore)
-    const bytes = await readBoundedBytes(c.req.raw, TELEGRAM_MAX_BYTES)
-    if (!bytes) return c.json({ code: "PAYLOAD_TOO_LARGE" }, 413, noStore)
-    const body = parseJson(bytes)
-    if (!body.ok) return c.json({ code: "BAD_REQUEST" }, 400, noStore)
-    const event = parseTelegramUpdate(body.value, telegram.botUsername)
-    if (!event) return c.json({ ok: true }, 200, noStore)
-    try {
-      await current.admit(event)
-    } catch {
-      return c.json({ code: "CHANNEL_UNAVAILABLE" }, 503, noStore)
-    }
-    await current.acknowledgeCallback(event)
-    return c.json({ ok: true }, 200, noStore)
-  })
-
-  app.get(WHATSAPP_WEBHOOK_PATH, (c) => {
-    const whatsapp = runtime().config().whatsapp
-    if (!whatsapp) return c.text("Not found", 404, noStore)
-    const challenge = verifyWhatsAppChallenge(
-      new URL(c.req.url).searchParams,
-      whatsapp.verifyToken
-    )
-    return challenge
-      ? c.text(challenge, 200, noStore)
-      : c.text("Unauthorized", 401, noStore)
-  })
-
-  app.post(WHATSAPP_WEBHOOK_PATH, async (c) => {
-    const current = runtime()
-    const whatsapp = current.config().whatsapp
-    if (!whatsapp) return c.text("Not found", 404, noStore)
-    const bytes = await readBoundedBytes(c.req.raw, WHATSAPP_MAX_BYTES)
-    if (!bytes) return c.text("Event too large", 413, noStore)
-    if (
-      !verifyMetaSignature({
-        appSecret: whatsapp.appSecret,
-        rawBody: bytes,
-        signature: c.req.header("x-hub-signature-256") ?? null,
-      })
-    )
-      return c.text("Unauthorized", 401, noStore)
-    const body = parseJson(bytes)
-    if (!body.ok) return c.text("Invalid event", 400, noStore)
-    const events = parseWhatsAppEvents(body.value, whatsapp.phoneNumberId)
-    if (events.length > WHATSAPP_MAX_EVENTS)
-      return c.text("Too many events", 413, noStore)
-    try {
-      for (const event of events) await current.admit(event)
-    } catch {
-      return c.text("Temporarily unavailable", 503, noStore)
-    }
-    return c.text("OK", 200, noStore)
-  })
+  app.post(TELEGRAM_WEBHOOK_PATH, (c) =>
+    handleTelegramWebhook(c.req.raw, runtime())
+  )
+  app.get(WHATSAPP_WEBHOOK_PATH, (c) =>
+    handleWhatsAppVerification(c.req.raw, runtime())
+  )
+  app.post(WHATSAPP_WEBHOOK_PATH, (c) =>
+    handleWhatsAppWebhook(c.req.raw, runtime())
+  )
 }

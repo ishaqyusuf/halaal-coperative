@@ -139,3 +139,80 @@ describe("qa:smoke:write naming and cleanup scope", () => {
     expect(writeStages.map((stage) => stage.key)).toContain("go-live")
   })
 })
+
+describe("qa:smoke:write browser driver", () => {
+  test("every stage is written, in the One Path order", () => {
+    expect(writeStages.every((stage) => stage.implemented)).toBe(true)
+    expect(writeStages.map((stage) => stage.key)).toEqual([
+      "signup",
+      "verify-email",
+      "onboarding",
+      "handoff",
+      "setup",
+      "members",
+      "go-live",
+      "verify-live",
+    ])
+  })
+
+  test("only the named local hosts are reachable, reads included", async () => {
+    const { writeRequestPolicy } = await import("./qa-write-smoke-driver.mjs")
+    for (const url of [
+      "https://halaalvest.localhost/api/signup",
+      "https://qa-smoke-0a1b2c3d.halaalvest-dash.localhost/auth/handoff",
+      "https://api.halaalvest.localhost/trpc/x",
+    ])
+      expect(writeRequestPolicy({ url })).toBe("allow")
+    for (const url of [
+      "https://dashboard.halaalvest.com/",
+      "https://halaalvest.localhost.evil.com/",
+      "https://fonts.googleapis.com/css",
+    ])
+      expect(writeRequestPolicy({ url })).toBe("block")
+  })
+
+  test("stops at the first failed stage and never retries a write", async () => {
+    const { runStages } = await import("./qa-write-smoke-driver.mjs")
+    const ran: string[] = []
+    const failures: string[] = []
+    const stderr = spyOn(process.stderr, "write").mockImplementation(() => true)
+    try {
+      const results = await runStages(
+        [
+          { key: "a", run: async () => (ran.push("a"), "ok") },
+          {
+            key: "b",
+            run: async () => {
+              ran.push("b")
+              throw new Error("refused")
+            },
+          },
+          { key: "c", run: async () => (ran.push("c"), "ok") },
+        ],
+        async (key: string) => {
+          failures.push(key)
+        }
+      )
+      expect(ran).toEqual(["a", "b"])
+      expect(failures).toEqual(["b"])
+      expect(
+        results.map(({ key, status }: { key: string; status: string }) => [
+          key,
+          status,
+        ])
+      ).toEqual([
+        ["a", "pass"],
+        ["b", "fail"],
+        ["c", "skipped"],
+      ])
+    } finally {
+      stderr.mockRestore()
+    }
+  })
+
+  test("picks the calendar's 1st of this month in en-US form", async () => {
+    const { firstOfMonthDataDay } = await import("./qa-write-smoke-driver.mjs")
+    expect(firstOfMonthDataDay(new Date(2026, 10, 15))).toBe("11/1/2026")
+    expect(firstOfMonthDataDay(new Date(2027, 0, 31))).toBe("1/1/2027")
+  })
+})

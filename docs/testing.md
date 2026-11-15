@@ -226,8 +226,40 @@ mode, a non-production `APP_ENV` and `NODE_ENV`, a loopback
 refuses any tenant that isn't this run's `qa`-classified tenant. Users,
 memberships and tenant data cascade with the tenant.
 
-Status: scaffold. The guards, naming and cleanup work. The eight browser stages
-(sign-up through go-live) still need writing, so `run` writes nothing and exits 3.
+The browser stages are in `scripts/qa-write-smoke-driver.mjs` (Node,
+Playwright). They stop at the first failure and never retry a write; any request
+to a host other than the three local ones is aborted. Then cleanup runs (unless
+`--keep`), also after a crash, and a receipt goes to `.scratch/qa-smoke/write/`.
+
+1. **signup:** opens `/signup?approvalToken=…`. Early access is on locally, so
+   the run mints the approval token the owner's approval email would carry,
+   with the marketing app's own code and the local secret (never printed or
+   stored). It waits for the approved-request prefill (hydration) before typing.
+2. **verify-email:** opens the local verification link from the `/api/signup`
+   answer (development only).
+3. **onboarding:** fills cooperative details by hand (marketing Quick fill needs
+   a QA authorization the reserved domain doesn't have), with the start date on
+   the 1st of this month, then the password and legal checkbox, and "Create
+   workspace".
+4. **handoff:** the session handoff lands signed in on One Path.
+5. **setup:** steps 5-9 by hand, since dashboard Quick fill is hidden before
+   go-live (the handoff session has no QA authorization): "Rebuild our full
+   history", default services, a 500 monthly levy on commitment savings, "We
+   have no business history", then "Next: add members".
+6. **members:** the owner is the only member. A start this month means no
+   closed months to back-fill; KYC goes to Pending review, then Verified. Needs
+   "1 of 1" ready.
+7. **go-live:** ticks the balances confirmation and presses Go live; expects
+   `/?live=1` and the live banner.
+8. **verify-live:** `/getting-started` redirects home.
+
+Status (15 November 2026): stages 1-2 passed live (run `90f69337`). Stages 3-8
+are written but not yet proven live. Local sign-up now answers 412 "Approved
+platform terms and privacy notice are not yet available": `.env` has
+`MARKETING_STAGE=launch`, which requires published legal documents, and they
+are still drafts. Onboarding has the same gate. Env files win over the process
+environment for this profile, so `MARKETING_STAGE=prelaunch bun run
+dev:marketing` doesn't help either.
 
 ## Release-candidate gate: `bun run qa:candidate`
 

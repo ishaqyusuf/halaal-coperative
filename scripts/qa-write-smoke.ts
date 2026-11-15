@@ -1,16 +1,18 @@
 #!/usr/bin/env bun
 
+import { spawnSync } from "node:child_process"
 import { randomBytes } from "node:crypto"
-import { mkdirSync, writeFileSync } from "node:fs"
+import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { localOrigins } from "./lib/local-dev-targets"
 import { envForMode, localDatabasePort } from "./local-infra-command"
+import { browserEnvironment } from "./qa-smoke"
 
 // Opt-in One Path write smoke: sign up a throwaway QA cooperative, finish
 // setup and go live, then delete it. Never part of `qa:smoke`. It fails closed
 // unless every target is local: the named local hosts, a loopback database,
 // a reserved `.qa.test` domain and an explicit --confirm-local-write flag.
-// Browser stages are scaffolded; run/cleanup guards and naming are final.
+// The browser stages live in scripts/qa-write-smoke-driver.mjs.
 
 export type WriteSmokeOptions = {
   command: "plan" | "run" | "cleanup"
@@ -97,41 +99,41 @@ export function planWriteSmoke(runId: string, qaDomain: string) {
 }
 
 export const writeStages = [
-  { key: "signup", label: "Marketing sign-up (step 1)", implemented: false },
+  { key: "signup", label: "Marketing sign-up (step 1)", implemented: true },
   {
     key: "verify-email",
     label: "Open the console/QA verification link (step 2)",
-    implemented: false,
+    implemented: true,
   },
   {
     key: "onboarding",
     label: "Onboarding details, password, legal (steps 3-4)",
-    implemented: false,
+    implemented: true,
   },
   {
     key: "handoff",
     label: "Automatic sign-in via /auth/handoff",
-    implemented: false,
+    implemented: true,
   },
   {
     key: "setup",
     label: "Dashboard setup steps 5-9 with Quick Fill",
-    implemented: false,
+    implemented: true,
   },
   {
     key: "members",
     label: "Members checklist to Ready (step 10)",
-    implemented: false,
+    implemented: true,
   },
   {
     key: "go-live",
     label: "Tick the confirmation and go live (step 11)",
-    implemented: false,
+    implemented: true,
   },
   {
     key: "verify-live",
     label: "Tenant is live; /getting-started redirects home",
-    implemented: false,
+    implemented: true,
   },
 ] as const
 
@@ -285,22 +287,180 @@ export async function runWriteSmoke(
     )
     return 0
   }
+  // Cleanup runs even when the driver crashes part-way through a sign-up.
+  const result = await runBrowserStages(plan, root, env, directory).catch(
+    (error) => ({
+      stages: [
+        {
+          key: "driver",
+          status: "fail" as const,
+          ms: 0,
+          detail: error instanceof Error ? error.message : "driver failed",
+        },
+      ],
+      blocked: [] as string[],
+      artifacts: resolve(directory, "artifacts", runId),
+    })
+  )
   const pending = plan.stages.filter((stage) => !stage.implemented)
+  let cleanupResult: { tenantDeleted: boolean } | { error: string } = {
+    tenantDeleted: false,
+  }
+  if (!options.keep)
+    cleanupResult = await cleanup(plan).catch((error) => ({
+      error: error instanceof Error ? error.message : "cleanup failed",
+    }))
+  const passed =
+    result.stages.length > 0 &&
+    result.stages.every((stage) => stage.status === "pass") &&
+    pending.length === 0
   const receipt = {
     runId,
-    plan: { ...plan, stages: undefined },
-    status: "not-implemented",
-    pending: pending.map((s) => s.key),
+    plan: {
+      ...plan,
+      stages: undefined,
+    },
+    status: passed
+      ? "passed"
+      : result.stages.some((s) => s.status === "fail")
+        ? "failed"
+        : "partial",
+    stages: result.stages,
+    pending: pending.map((stage) => stage.key),
+    blocked: result.blocked,
+    kept: options.keep,
+    cleanup: cleanupResult,
+    artifacts: result.artifacts,
   }
+  const receiptFile = resolve(directory, `receipt-${runId}.json`)
+  writeFileSync(receiptFile, `${JSON.stringify(receipt, null, 2)}\n`, {
+    mode: 0o600,
+  })
+  for (const stage of result.stages)
+    console.log(
+      `${stage.status.toUpperCase()} ${stage.key} (${(stage.ms / 1000).toFixed(1)}s)${stage.detail ? `: ${stage.detail}` : ""}`
+    )
+  if (pending.length)
+    console.log(
+      `Not written yet: ${pending.map((stage) => stage.key).join(", ")}`
+    )
+  if (result.blocked.length)
+    console.log(`Blocked non-local requests: ${result.blocked.join(", ")}`)
+  console.log(
+    options.keep
+      ? `Kept ${plan.slug}; delete it with: bun run qa:smoke:write cleanup --confirm-local-write --run ${runId}`
+      : "error" in cleanupResult
+        ? `Cleanup failed: ${cleanupResult.error}. Retry: bun run qa:smoke:write cleanup --confirm-local-write --run ${runId}`
+        : `Cleanup: ${plan.slug} ${cleanupResult.tenantDeleted ? "deleted" : "not created"}.`
+  )
+  console.log(`Receipt: ${receiptFile}`)
+  if (passed && !("error" in cleanupResult)) return 0
+  return pending.length && !result.stages.some((s) => s.status === "fail")
+    ? 3
+    : 1
+}
+
+// Local stand-in for the owner's early-access approval: the same signed token
+// the approval email carries, minted with the marketing app's own code and
+// the local profile's secret. Never printed or stored in the receipt.
+export function mintApprovalToken(
+  plan: ReturnType<typeof planWriteSmoke>,
+  root: string,
+  env: NodeJS.ProcessEnv
+) {
+  const result = spawnSync(
+    "bun",
+    [
+      "-e",
+      `import { createSignedSignupApprovalToken, createSignupApprovalPayload } from "./src/lib/early-access"
+process.stdout.write(createSignedSignupApprovalToken(createSignupApprovalPayload(JSON.parse(process.env.QA_WRITE_SMOKE_APPROVAL ?? "{}"))))`,
+    ],
+    {
+      cwd: resolve(root, "apps/marketing"),
+      encoding: "utf8",
+      env: {
+        ...env,
+        NODE_ENV: "development",
+        QA_WRITE_SMOKE_APPROVAL: JSON.stringify({
+          cooperativeName: plan.cooperativeName,
+          primaryContactEmail: plan.ownerEmail,
+          primaryContactFullName: plan.ownerName,
+        }),
+      },
+      timeout: 60_000,
+    }
+  )
+  const token = result.stdout.trim()
+  if (result.status !== 0 || !/^[\w-]+\.[\w-]+$/.test(token))
+    throw new Error("Could not mint the local early-access approval.")
+  return token
+}
+
+type StageResult = {
+  key: string
+  status: "pass" | "fail" | "skipped"
+  ms: number
+  detail: string
+}
+
+async function runBrowserStages(
+  plan: ReturnType<typeof planWriteSmoke>,
+  root: string,
+  env: NodeJS.ProcessEnv,
+  directory: string
+) {
+  const artifacts = resolve(directory, "artifacts", plan.runId)
+  mkdirSync(artifacts, { recursive: true })
+  const planFile = resolve(directory, `plan-${plan.runId}.json`)
   writeFileSync(
-    resolve(directory, `receipt-${runId}.json`),
-    `${JSON.stringify(receipt, null, 2)}\n`,
+    planFile,
+    JSON.stringify({
+      ...plan,
+      stages: undefined,
+      approvalToken: mintApprovalToken(plan, root, env),
+      ownerPassword: `Qa-${randomBytes(9).toString("base64url")}9`,
+      marketingOrigin: localOrigins.marketing,
+      dashboardHost: new URL(localOrigins.dashboard).hostname,
+    }),
     { mode: 0o600 }
   )
-  console.error(
-    `Write journey stages are not implemented yet (${pending.length} pending); nothing was written.`
-  )
-  return 3
+  try {
+    const driver = Bun.spawn(
+      [
+        "node",
+        resolve(root, "scripts/qa-write-smoke-driver.mjs"),
+        planFile,
+        artifacts,
+      ],
+      {
+        cwd: root,
+        env: browserEnvironment(),
+        stdin: "ignore",
+        stdout: "pipe",
+        stderr: "inherit",
+      }
+    )
+    const timeout = setTimeout(() => driver.kill(), 15 * 60_000)
+    const stdout = await new Response(driver.stdout).text()
+    await driver.exited
+    clearTimeout(timeout)
+    const line = stdout
+      .split("\n")
+      .reverse()
+      .find((entry) => entry.startsWith("{"))
+    if (!line)
+      throw new Error(
+        "The write smoke driver failed before reporting; see the output above (bun run qa:smoke:install-browser if Chromium is missing)."
+      )
+    const parsed = JSON.parse(line) as {
+      stages: StageResult[]
+      blocked: string[]
+    }
+    return { ...parsed, artifacts }
+  } finally {
+    // The plan holds the run's password and approval token.
+    rmSync(planFile, { force: true })
+  }
 }
 
 if (import.meta.main) {

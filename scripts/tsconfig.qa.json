@@ -26,6 +26,7 @@
     "qa-smoke.test.ts",
     "qa-write-smoke.ts",
     "qa-write-smoke.test.ts",
+    "qa-write-smoke-driver.mjs",
     "qa-web-smoke.mjs",
     "qa-candidate.ts",
     "qa-candidate.test.ts",

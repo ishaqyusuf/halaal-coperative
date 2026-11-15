@@ -91,9 +91,10 @@ export const providerLabel: Record<ChannelProvider, string> = {
   whatsapp: "WhatsApp",
 }
 
-/** Signed-in app paths the channel links open. */
+/**
+ * Signed-in app paths the channel links open. Saved answers and drafts use
+ * `assistantHrefs.message` / `assistantHrefs.proposal` from `@halaalvest/assistant`.
+ */
 export const assistantChannelPaths = {
   connect: "/assistant/channels",
-  conversation: (conversationId: string) =>
-    `/assistant?chat=${encodeURIComponent(conversationId)}`,
 } as const

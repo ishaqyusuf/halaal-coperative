@@ -189,16 +189,26 @@ describe("WhatsApp adapter contract (fixture traffic)", () => {
     await post(harness, message("What's my loan status?"))
     const financing = harness.sent.at(-1)!.message
     expect(financing.text).toBe("Financing status is ready in Halaalvest.")
+    // Link mode opens the exact saved answer; the URL carries only its ID.
     expect(financing.buttons).toEqual([
       {
         kind: "url",
-        label: "Open in Halaalvest",
-        url: "https://app.halaalvest.test/loans",
+        label: "See the full answer",
+        url: expect.stringMatching(
+          /^https:\/\/app\.halaalvest\.test\/assistant\/m\/a-whatsapp-[0-9a-f-]{36}$/
+        ),
       },
     ])
 
     await post(harness, message("Here's proof I paid"))
     expect(harness.lastText()).toContain("review and confirm it in Halaalvest")
+    expect(harness.sent.at(-1)!.message.buttons).toEqual([
+      {
+        kind: "url",
+        label: "Review in Halaalvest",
+        url: "https://app.halaalvest.test/assistant/review/pr_1",
+      },
+    ])
   })
 
   test("outbox retry never reruns the turn; unknown outcome is not resent; revoke stops delivery", async () => {

@@ -4,6 +4,7 @@ import {
   type AssistantRole,
   type AssistantTurnOutput,
   type CapabilityId,
+  assistantHrefs,
   capabilitiesFor,
   capabilityAllowed,
   capabilityMode,
@@ -11,11 +12,7 @@ import {
   formatMoney,
   getAssistantCapability,
 } from "@halaalvest/assistant"
-import {
-  type ChannelProvider,
-  assistantChannelPaths,
-  providerLabel,
-} from "./config"
+import { type ChannelProvider, providerLabel } from "./config"
 import type { ChannelButton, ChannelMessage } from "./types"
 
 export type ChannelRenderOptions = {
@@ -28,6 +25,8 @@ export type ChannelRenderOptions = {
    * (plan §3). Only a reviewed policy change may turn this on.
    */
   showAmounts?: boolean
+  /** The saved reply, for "See the full answer" links. Set per turn. */
+  messageId?: string
 }
 
 const answerCapability: Record<AssistantAnswer["kind"], CapabilityId> = {
@@ -43,8 +42,13 @@ const answerCapability: Record<AssistantAnswer["kind"], CapabilityId> = {
 }
 
 const MAX_ITEMS = 5
+const MAX_MESSAGES = 4
+const MAX_TEXT = 3500
 
-/** A protected link: the app asks the person to sign in. No token, no amount. */
+/**
+ * A protected link: the app asks the person to sign in. No token, no amount:
+ * hrefs carry only app paths and record IDs, and opening one runs nothing.
+ */
 export function protectedLink(
   appUrl: string,
   link: AssistantLink | { label: string; href: string }
@@ -54,6 +58,16 @@ export function protectedLink(
     label: link.label.slice(0, 40),
     url: `${appUrl}${link.href.startsWith("/") ? link.href : "/"}`,
   }
+}
+
+/** The exact saved reply in the signed-in app (re-authorized on open). */
+function fullAnswerLink(options: ChannelRenderOptions): ChannelButton | null {
+  return options.messageId
+    ? protectedLink(options.appUrl, {
+        label: "See the full answer",
+        href: assistantHrefs.message(options.messageId),
+      })
+    : null
 }
 
 function date(iso: string) {
@@ -85,8 +99,11 @@ function botAnswer(
   answer: AssistantAnswer,
   options: ChannelRenderOptions
 ): ChannelMessage {
-  const open = (link: AssistantLink | null) =>
-    link ? [protectedLink(options.appUrl, link)] : []
+  const open = (link: AssistantLink | null, truncated = false) => {
+    const full = truncated ? fullAnswerLink(options) : null
+    if (full) return [full]
+    return link ? [protectedLink(options.appUrl, link)] : []
+  }
   switch (answer.kind) {
     case "financing-status": {
       const lines = [
@@ -109,7 +126,7 @@ function botAnswer(
               ...more(lines.length),
             ].join("\n")
           : "You have no financing requests or active financing.",
-        buttons: open(answer.link),
+        buttons: open(answer.link, lines.length > MAX_ITEMS),
       }
     }
     case "investments":
@@ -139,7 +156,7 @@ function botAnswer(
               ...more(answer.items.length),
             ].join("\n")
           : "You have no receipts yet.",
-        buttons: open(answer.link),
+        buttons: open(answer.link, answer.items.length > MAX_ITEMS),
       }
     case "receipt-queue":
       return {
@@ -153,7 +170,7 @@ function botAnswer(
             ),
           ...more(answer.items.length),
         ].join("\n"),
-        buttons: open(answer.link),
+        buttons: open(answer.link, answer.items.length > MAX_ITEMS),
       }
     case "help":
       return {
@@ -197,10 +214,11 @@ function linkAnswer(
   return {
     text: `${capability?.title ?? "Your answer"} is ready in Halaalvest.`,
     buttons: [
-      protectedLink(options.appUrl, {
-        label: "Open in Halaalvest",
-        href: link.href,
-      }),
+      fullAnswerLink(options) ??
+        protectedLink(options.appUrl, {
+          label: "Open in Halaalvest",
+          href: link.href,
+        }),
     ],
   }
 }
@@ -250,12 +268,19 @@ export function renderAnswer(
  */
 export function renderTurnForChannel(
   output: AssistantTurnOutput,
-  options: ChannelRenderOptions
+  turnOptions: ChannelRenderOptions
 ): ChannelMessage[] {
+  const options = { ...turnOptions, messageId: output.reply.id }
   const messages: ChannelMessage[] = []
   for (const part of output.reply.parts) {
     if (part.type === "text") {
-      if (part.text.trim()) messages.push({ text: part.text.slice(0, 3500) })
+      if (!part.text.trim()) continue
+      const cut = part.text.length > MAX_TEXT
+      const full = cut ? fullAnswerLink(options) : null
+      messages.push({
+        text: cut ? `${part.text.slice(0, MAX_TEXT)}…` : part.text,
+        ...(full ? { buttons: [full] } : {}),
+      })
       continue
     }
     if (part.type === "answer") {
@@ -283,7 +308,7 @@ export function renderTurnForChannel(
         buttons: [
           protectedLink(options.appUrl, {
             label: "Review in Halaalvest",
-            href: assistantChannelPaths.conversation(output.conversationId),
+            href: assistantHrefs.proposal(part.proposalId),
           }),
         ],
       })
@@ -302,9 +327,19 @@ export function renderTurnForChannel(
           : [],
       })
   }
-  return messages.length
-    ? messages.slice(0, 4)
-    : [{ text: "I couldn't answer that here. Try again, or open Halaalvest." }]
+  if (!messages.length)
+    return [
+      { text: "I couldn't answer that here. Try again, or open Halaalvest." },
+    ]
+  if (messages.length <= MAX_MESSAGES) return messages
+  const full = fullAnswerLink(options)
+  return [
+    ...messages.slice(0, MAX_MESSAGES - 1),
+    {
+      text: "There's more in this answer.",
+      ...(full ? { buttons: [full] } : {}),
+    },
+  ]
 }
 
 /** `/help`: only what this role can use on this channel. */

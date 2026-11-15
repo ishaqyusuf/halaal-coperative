@@ -53,6 +53,7 @@ model User {
   mobilePushRegistrations                    MobilePushRegistration[]
   mobileUserNotificationPreferences          MobileUserNotificationPreference[]
   revokedMobileDeviceSessions                MobileDeviceSession[]               @relation("MobileDeviceSessionRevokedBy")
+  acceptedCooperativeMobileAccessTerms       CooperativeMobileAccessTerm[]       @relation("CooperativeMobileAccessAcceptedBy")
 
   privacyRequests AccountPrivacyRequest[] @relation("AccountPrivacyRequester")
   legalAcceptances LegalAcceptance[] @relation("LegalAcceptanceUser")

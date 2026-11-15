@@ -11,6 +11,12 @@ import {
   QueryInfrastructureError,
 } from "../query-error"
 import { lockCooperativeMobileBilling } from "./cooperative-mobile-billing-lock"
+import {
+  decideMemberAccept,
+  decideMemberTurnOff,
+  isWithinTerm,
+  memberAccessActions,
+} from "./cooperative-mobile-access-policy"
 
 type Actor = { tenantId: string; userId: string; membershipId: string }
 
@@ -53,6 +59,7 @@ function findMembership(db: Prisma.TransactionClient, input: Actor) {
         select: {
           cooperativeCodePrefix: true,
           cooperativeMobileAccessEnabled: true,
+          cooperativeMobileSelfServiceEnabled: true,
           currencyCode: true,
         },
       },
@@ -93,12 +100,6 @@ function latestTerm(
   })
 }
 
-function isWithinTerm(term: CooperativeMobileAccessTerm, now: Date) {
-  return Boolean(
-    term.startsAt && term.startsAt <= now && term.endsAt && now < term.endsAt
-  )
-}
-
 function statusAt(term: CooperativeMobileAccessTerm, now: Date) {
   if (term.status === "approved") {
     return isWithinTerm(term, now) ? ("active" as const) : ("expired" as const)
@@ -120,11 +121,8 @@ function presentTerm(term: CooperativeMobileAccessTerm, now: Date) {
     chargeDueAt: term.chargeDueAt,
     reviewNote: term.reviewNote,
     revokedAt: term.revokedAt,
+    acceptedAt: term.acceptedAt,
   }
-}
-
-function blocksNewTerm(term: CooperativeMobileAccessTerm, now: Date) {
-  return term.status === "pending" || isWithinTerm(term, now)
 }
 
 const lagosOffsetMs = 60 * 60 * 1000
@@ -215,7 +213,7 @@ export async function getCooperativeMobileAccessSnapshot(input: Actor) {
 
 /**
  * The signed-in member's own mobile access. The router has already checked the
- * member role from the request context, so this reads only the tenant flag.
+ * member role from the request context, so this reads only the tenant flags.
  */
 export async function getCooperativeMobileMemberStatus(
   input: Pick<Actor, "tenantId" | "userId">
@@ -224,14 +222,23 @@ export async function getCooperativeMobileMemberStatus(
   const [tenant, member] = await Promise.all([
     db.tenant.findUnique({
       where: { id: input.tenantId },
-      select: { cooperativeMobileAccessEnabled: true },
+      select: {
+        cooperativeMobileAccessEnabled: true,
+        cooperativeMobileSelfServiceEnabled: true,
+        cooperativeCodePrefix: true,
+      },
     }),
     db.member.findFirst({
       where: activeMemberForUser(input.tenantId, input.userId),
       select: {
         id: true,
         fullName: true,
-        user: { select: { cooperativeAccessCode: true } },
+        user: {
+          select: {
+            cooperativeAccessCode: true,
+            passwordHash: true,
+          },
+        },
       },
     }),
   ])
@@ -254,12 +261,29 @@ export async function getCooperativeMobileMemberStatus(
   const charge = item?.chargeApplication
   const now = new Date()
   const enabled = tenant?.cooperativeMobileAccessEnabled === true
+  const selfService = tenant?.cooperativeMobileSelfServiceEnabled === true
+  const actions = member
+    ? memberAccessActions(term, now, { enabled, selfService })
+    : null
+  // Turning access on needs a password login and a cooperative number. Say so
+  // up front rather than failing after the member agrees.
+  const blockedReason = !actions?.acceptTurnsOn
+    ? null
+    : !member?.user?.passwordHash
+      ? ("no_password" as const)
+      : !member.user.cooperativeAccessCode && !tenant?.cooperativeCodePrefix
+        ? ("no_cooperative_number" as const)
+        : null
   return {
     ...terms,
     enabled,
-    canRequest: Boolean(
-      enabled && member && (!term || !blocksNewTerm(term, now))
-    ),
+    selfService,
+    canRequest: Boolean(actions?.canAccept && !blockedReason),
+    acceptTurnsOn: actions?.acceptTurnsOn ?? false,
+    canTurnOff: actions?.canTurnOff ?? false,
+    canTurnBackOn: actions?.canTurnBackOn ?? false,
+    turnedOffBy: actions?.turnedOffBy ?? null,
+    blockedReason,
     memberName: member?.fullName ?? null,
     term: term
       ? {
@@ -288,59 +312,223 @@ export async function getCooperativeMobileMemberStatus(
   }
 }
 
-export async function requestCooperativeMobileAccess(
+async function requireOwnMember(db: Prisma.TransactionClient, input: Actor) {
+  const membership = await findMembership(db, input)
+  if (membership?.role !== "member") {
+    throw ExpectedQueryError.permission("Member access is required.")
+  }
+  // Only the member linked to the signed-in user; no input names a member.
+  const member = await db.member.findFirst({
+    where: activeMemberForUser(input.tenantId, input.userId),
+    select: { ...credentialMemberSelect, id: true },
+  })
+  if (!member) {
+    throw ExpectedQueryError.permission("An active member profile is required.")
+  }
+  return { tenant: membership.tenant, member }
+}
+
+const cooperativeTurnedOffMessage =
+  "Your cooperative turned off your mobile access. Ask them to turn it back on."
+
+/**
+ * The member agrees to the disclosed charge. With self-service on, access
+ * starts now and is billed like an approved request; otherwise the agreement
+ * waits for an administrator. The acceptance (who, when, which terms) is kept
+ * on the term and in the audit log.
+ */
+export async function acceptCooperativeMobileAccess(
   input: Actor & { termsVersion: string }
 ) {
   return changeAccess(async (db) => {
-    const membership = await findMembership(db, input)
-    if (membership?.role !== "member") {
-      throw ExpectedQueryError.permission("Member access is required.")
-    }
-    if (!membership.tenant.cooperativeMobileAccessEnabled) {
-      throw ExpectedQueryError.precondition(
-        "This cooperative is not accepting mobile access requests."
-      )
-    }
+    // Turning access on creates a billable term; hold the billing lock first,
+    // as an administrator approval does.
+    await lockCooperativeMobileBilling(db, input.tenantId)
+    const { tenant, member } = await requireOwnMember(db, input)
     if (input.termsVersion !== terms.termsVersion) {
       throw ExpectedQueryError.conflict(
         "Mobile access terms changed. Review the current terms and try again."
       )
     }
-    const member = await db.member.findFirst({
-      where: activeMemberForUser(input.tenantId, input.userId),
-      select: { id: true },
-    })
-    if (!member)
-      throw ExpectedQueryError.permission(
-        "An active member profile is required."
-      )
     const now = new Date()
     const previous = await latestTerm(db, input.tenantId, member.id)
-    if (previous && blocksNewTerm(previous, now)) {
-      if (previous.status === "pending") return presentTerm(previous, now)
-      throw ExpectedQueryError.conflict(
-        "There is already a mobile access term for this member."
-      )
-    }
-    const term = await db.cooperativeMobileAccessTerm.create({
-      data: {
-        ...terms,
-        tenantId: input.tenantId,
-        memberId: member.id,
-        requestedAt: now,
-      },
+    const decision = decideMemberAccept(previous, now, {
+      enabled: tenant.cooperativeMobileAccessEnabled,
+      selfService: tenant.cooperativeMobileSelfServiceEnabled,
     })
+    if (decision.kind === "blocked") {
+      throw decision.reason === "not_enabled"
+        ? ExpectedQueryError.precondition(
+            "This cooperative is not giving out the mobile app right now."
+          )
+        : ExpectedQueryError.conflict(cooperativeTurnedOffMessage)
+    }
+    if (decision.kind === "unchanged" && previous) {
+      return presentTerm(previous, now)
+    }
+    if (decision.kind === "reinstate" && previous) {
+      return reinstateOwnTerm(db, input, previous, now)
+    }
+    const turnsOn =
+      decision.kind === "approve_pending" ||
+      (decision.kind === "create" && decision.status === "approved")
+    if (turnsOn) {
+      await assignMobileCredential(db, member, tenant.cooperativeCodePrefix)
+    }
+    const acceptance = {
+      acceptedAt: now,
+      acceptedByUserId: input.userId,
+      acceptanceSource: turnsOn
+        ? ("member_self_service" as const)
+        : ("member_request" as const),
+    }
+    const term =
+      decision.kind === "approve_pending" && previous
+        ? await db.cooperativeMobileAccessTerm.update({
+            where: { id: previous.id, tenantId: input.tenantId },
+            // Today's agreement replaces the request's, at today's terms.
+            data: {
+              ...terms,
+              ...acceptance,
+              status: "approved",
+              reviewedAt: now,
+              reviewNote: "Turned on by the member.",
+              ...approvalDates(now, terms.termMonths),
+            },
+          })
+        : await db.cooperativeMobileAccessTerm.create({
+            data: {
+              ...terms,
+              ...acceptance,
+              tenantId: input.tenantId,
+              memberId: member.id,
+              requestedAt: now,
+              ...(turnsOn && {
+                status: "approved" as const,
+                reviewedAt: now,
+                reviewNote: "Turned on by the member.",
+                ...approvalDates(now, terms.termMonths),
+              }),
+            },
+          })
     await auditAccess(db, input, {
-      action: "requested",
+      action: turnsOn ? "self_enabled" : "requested",
       termId: term.id,
       metadata: {
+        source: acceptance.acceptanceSource,
+        approvedPendingRequest: decision.kind === "approve_pending",
         termsVersion: terms.termsVersion,
         amount: terms.amount,
         currencyCode: terms.currencyCode,
+        termMonths: terms.termMonths,
       },
       occurredAt: now,
     })
     return presentTerm(term, now)
+  })
+}
+
+async function reinstateOwnTerm(
+  db: Prisma.TransactionClient,
+  input: Actor,
+  term: CooperativeMobileAccessTerm,
+  now: Date
+) {
+  const updated = await db.cooperativeMobileAccessTerm.update({
+    where: { id: term.id, tenantId: input.tenantId },
+    data: {
+      status: "approved",
+      revokedAt: null,
+      revokedByMember: false,
+      reviewedAt: now,
+      reviewNote: "Turned back on by the member.",
+    },
+  })
+  await auditAccess(db, input, {
+    action: "member_reinstated",
+    termId: term.id,
+    occurredAt: now,
+  })
+  return presentTerm(updated, now)
+}
+
+/**
+ * The member turns their own access back on after turning it off this term.
+ * No new charge: the term was already billed when it started.
+ */
+export async function turnOwnCooperativeMobileAccessBackOn(input: Actor) {
+  return changeAccess(async (db) => {
+    const { member } = await requireOwnMember(db, input)
+    const now = new Date()
+    const term = await latestTerm(db, input.tenantId, member.id)
+    if (term && term.status === "approved" && isWithinTerm(term, now)) {
+      return presentTerm(term, now)
+    }
+    if (!term || term.status !== "revoked" || !isWithinTerm(term, now)) {
+      throw ExpectedQueryError.conflict(
+        "There is no mobile access to turn back on. Refresh and try again."
+      )
+    }
+    if (!term.revokedByMember) {
+      throw ExpectedQueryError.conflict(cooperativeTurnedOffMessage)
+    }
+    return reinstateOwnTerm(db, input, term, now)
+  })
+}
+
+/**
+ * The member turns their own access off. Sign-in on the app stops at the next
+ * request; the term's charge stays (no refund).
+ */
+export async function turnOffOwnCooperativeMobileAccess(input: Actor) {
+  return changeAccess(async (db) => {
+    const { member } = await requireOwnMember(db, input)
+    const now = new Date()
+    const term = await latestTerm(db, input.tenantId, member.id)
+    const decision = decideMemberTurnOff(term, now)
+    if (decision.kind === "blocked" || !term) {
+      throw ExpectedQueryError.conflict(
+        "Your mobile access is not on. Refresh and try again."
+      )
+    }
+    if (decision.kind === "unchanged") return presentTerm(term, now)
+    const updated = await db.cooperativeMobileAccessTerm.update({
+      where: { id: term.id, tenantId: input.tenantId },
+      data: {
+        status: "revoked",
+        revokedAt: now,
+        revokedByMember: true,
+        reviewedAt: now,
+        reviewNote: "Turned off by the member.",
+      },
+    })
+    await auditAccess(db, input, {
+      action: "member_turned_off",
+      termId: term.id,
+      occurredAt: now,
+    })
+    return presentTerm(updated, now)
+  })
+}
+
+/** An administrator chooses whether members turn the app on themselves. */
+export async function setCooperativeMobileSelfServiceEnabled(
+  input: Actor & { enabled: boolean }
+) {
+  return changeAccess(async (db) => {
+    const tenant = await requireAdmin(db, input)
+    if (tenant.cooperativeMobileSelfServiceEnabled === input.enabled) {
+      return { selfService: input.enabled }
+    }
+    await db.tenant.update({
+      where: { id: input.tenantId },
+      data: { cooperativeMobileSelfServiceEnabled: input.enabled },
+    })
+    await auditAccess(db, input, {
+      action: input.enabled ? "self_service_enabled" : "self_service_disabled",
+      occurredAt: new Date(),
+    })
+    return { selfService: input.enabled }
   })
 }
 
@@ -397,6 +585,7 @@ export async function getCooperativeMobileAccessSummary(input: {
   const [row] = await database().$queryRaw<
     {
       enabled: boolean
+      self_service: boolean
       pending: number
       active: number
       off: number
@@ -406,6 +595,7 @@ export async function getCooperativeMobileAccessSummary(input: {
   >(Prisma.sql`
     select
       t.cooperative_mobile_access_enabled as enabled,
+      t.cooperative_mobile_self_service_enabled as self_service,
       (count(s.id) filter (where s.status = 'pending'))::int as pending,
       (count(s.id) filter (where s.status = 'approved' and s.ends_at > now()))::int as active,
       (count(s.id) filter (where s.status = 'revoked' and s.ends_at > now()))::int as off,
@@ -419,6 +609,7 @@ export async function getCooperativeMobileAccessSummary(input: {
   return {
     ...terms,
     enabled: row?.enabled === true,
+    selfService: row?.self_service === true,
     counts: {
       pending: row?.pending ?? 0,
       active: row?.active ?? 0,
@@ -672,8 +863,14 @@ export async function reviewCooperativeMobileAccess(
         reviewNote: input.note ?? null,
         ...(input.decision === "approve" &&
           approvalDates(now, term.termMonths)),
-        ...(input.decision === "revoke" && { revokedAt: now }),
-        ...(input.decision === "reinstate" && { revokedAt: null }),
+        ...(input.decision === "revoke" && {
+          revokedAt: now,
+          revokedByMember: false,
+        }),
+        ...(input.decision === "reinstate" && {
+          revokedAt: null,
+          revokedByMember: false,
+        }),
       },
     })
     await auditAccess(db, input, {
@@ -816,6 +1013,13 @@ async function grantMemberAccess(
     }
     await assignMobileCredential(db, member, tenant.cooperativeCodePrefix)
     const reviewNote = input.note ?? "Enabled by a cooperative administrator."
+    // The administrator confirms the member agreed. A waiting request keeps
+    // the member's own agreement.
+    const adminAcceptance = {
+      acceptedAt: now,
+      acceptedByUserId: input.userId,
+      acceptanceSource: "admin_confirmed" as const,
+    }
     const term =
       previous?.status === "pending"
         ? await db.cooperativeMobileAccessTerm.update({
@@ -824,6 +1028,7 @@ async function grantMemberAccess(
               status: "approved",
               reviewedAt: now,
               reviewNote,
+              ...(!previous.acceptedAt && adminAcceptance),
               ...approvalDates(now, previous.termMonths),
             },
           })
@@ -836,6 +1041,7 @@ async function grantMemberAccess(
               requestedAt: now,
               reviewedAt: now,
               reviewNote,
+              ...adminAcceptance,
               ...approvalDates(now, terms.termMonths),
             },
           })

@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test"
+import { cooperativeMobileAccessTerms } from "@halaalvest/domain/cooperative-mobile-access"
 
 import { createCallerFactory } from "../lib.trpc"
 import { appRouter } from "./_app"
+import { acceptInput } from "./cooperative-mobile-access.route"
 
 const createCaller = createCallerFactory(appRouter)
 
@@ -59,5 +61,44 @@ describe("cooperative mobile access role guards", () => {
     await expect(
       caller.cooperativeMobileAccess.members({ cursor: "short", limit: 5 })
     ).rejects.toMatchObject(badRequest)
+  })
+})
+
+describe("member self-service guards", () => {
+  const { termsVersion } = cooperativeMobileAccessTerms
+
+  test("only members accept, turn off or turn back on", async () => {
+    for (const role of ["tenant_admin", "finance_officer"]) {
+      const caller = callerFor(role)
+      await expect(
+        caller.cooperativeMobileAccess.accept({ termsVersion, accepted: true })
+      ).rejects.toMatchObject(forbidden)
+      await expect(
+        caller.cooperativeMobileAccess.turnOff()
+      ).rejects.toMatchObject(forbidden)
+      await expect(
+        caller.cooperativeMobileAccess.turnBackOn()
+      ).rejects.toMatchObject(forbidden)
+    }
+  })
+
+  test("accept needs explicit agreement to the current terms", () => {
+    expect(acceptInput.safeParse({ termsVersion, accepted: true }).success).toBe(
+      true
+    )
+    expect(acceptInput.safeParse({ termsVersion, accepted: false }).success).toBe(
+      false
+    )
+    expect(acceptInput.safeParse({ accepted: true }).success).toBe(false)
+  })
+
+  test("accept cannot name another member or term", () => {
+    expect(
+      acceptInput.safeParse({
+        termsVersion,
+        accepted: true,
+        memberId: "00000000-0000-4000-8000-000000000000",
+      }).success
+    ).toBe(false)
   })
 })

@@ -5,6 +5,13 @@ enum CooperativeMobileAccessTermStatus {
   revoked
 }
 
+/// How the member's agreement to the mobile access charge was given.
+enum CooperativeMobileAccessAcceptanceSource {
+  member_self_service
+  member_request
+  admin_confirmed
+}
+
 model CooperativeMobileAccessTerm {
   id            String                            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId      String                            @map("tenant_id") @db.Uuid
@@ -22,9 +29,17 @@ model CooperativeMobileAccessTerm {
   chargeDueAt   DateTime?                         @map("charge_due_at") @db.Date
   revokedAt     DateTime?                         @map("revoked_at") @db.Timestamptz(6)
   reviewNote    String?                           @map("review_note")
+  /// When the member (or an admin for them) agreed to the charge.
+  acceptedAt       DateTime?                                @map("accepted_at") @db.Timestamptz(6)
+  /// The account that agreed: the member's own, or the confirming admin's.
+  acceptedByUserId String?                                  @map("accepted_by_user_id") @db.Uuid
+  acceptanceSource CooperativeMobileAccessAcceptanceSource? @map("acceptance_source")
+  /// True when the member turned their own access off, so they may turn it back on.
+  revokedByMember  Boolean                                  @default(false) @map("revoked_by_member")
 
   tenant      Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   member      Member                        @relation(fields: [memberId], references: [id], onDelete: NoAction)
+  acceptedBy  User?                         @relation("CooperativeMobileAccessAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
   billingItem CooperativeMobileInvoiceItem?
 
   @@index([tenantId, memberId, requestedAt, id], map: "coop_mobile_access_member_terms_idx")

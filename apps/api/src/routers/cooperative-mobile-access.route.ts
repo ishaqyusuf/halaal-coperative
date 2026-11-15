@@ -1,13 +1,16 @@
 import {
+  acceptCooperativeMobileAccess,
   getCooperativeMobileAccessSnapshot,
   getCooperativeMobileAccessSummary,
   getCooperativeMobileMemberStatus,
   grantCooperativeMobileAccess,
   listCooperativeMobileAccessMembers,
   listCooperativeMobileAccessTerms,
-  requestCooperativeMobileAccess,
   reviewCooperativeMobileAccess,
   setCooperativeMobileAccessEnabled,
+  setCooperativeMobileSelfServiceEnabled,
+  turnOffOwnCooperativeMobileAccess,
+  turnOwnCooperativeMobileAccessBackOn,
 } from "@halaalvest/db"
 import { TRPCError } from "@trpc/server"
 import { z } from "zod"
@@ -62,6 +65,10 @@ function actor(ctx: {
 const requiredNote = z.string().trim().min(1).max(500)
 const termsVersion = z.string().trim().min(1).max(100)
 
+export const acceptInput = z
+  .object({ termsVersion, accepted: z.literal(true) })
+  .strict()
+
 export const cooperativeMobileAccessRouter = createTRPCRouter({
   snapshot: tenantProcedure.query(({ ctx }) =>
     getCooperativeMobileAccessSnapshot(actor(ctx))
@@ -72,14 +79,25 @@ export const cooperativeMobileAccessRouter = createTRPCRouter({
       userId: ctx.auth.session.user.id,
     })
   ),
-  request: webProcedure
-    .input(z.object({ termsVersion, accepted: z.literal(true) }).strict())
+  /**
+   * The member agrees to the charge. With self-service on, access starts now;
+   * otherwise the agreement waits for an administrator.
+   */
+  accept: memberProcedure
+    .input(acceptInput)
     .mutation(({ ctx, input }) =>
-      requestCooperativeMobileAccess({
+      acceptCooperativeMobileAccess({
         ...actor(ctx),
         termsVersion: input.termsVersion,
       })
     ),
+  /** The member's own access only; no input names a member or term. */
+  turnOff: memberProcedure.mutation(({ ctx }) =>
+    turnOffOwnCooperativeMobileAccess(actor(ctx))
+  ),
+  turnBackOn: memberProcedure.mutation(({ ctx }) =>
+    turnOwnCooperativeMobileAccessBackOn(actor(ctx))
+  ),
   summary: accessAdminProcedure.query(({ ctx }) =>
     getCooperativeMobileAccessSummary({ tenantId: ctx.tenant.current.id })
   ),
@@ -131,6 +149,11 @@ export const cooperativeMobileAccessRouter = createTRPCRouter({
         termsVersion: input.termsVersion,
         note: input.note,
       })
+    ),
+  setSelfService: webProcedure
+    .input(z.object({ enabled: z.boolean() }).strict())
+    .mutation(({ ctx, input }) =>
+      setCooperativeMobileSelfServiceEnabled({ ...actor(ctx), ...input })
     ),
   setEnabled: webProcedure
     .input(z.object({ enabled: z.boolean(), termsVersion }).strict())

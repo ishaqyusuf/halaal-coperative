@@ -26,6 +26,7 @@ model Tenant {
   migrationEmergencyUnlockReason     String?                @map("migration_emergency_unlock_reason")
   isDirectDeductionEnabled           Boolean                @default(false) @map("is_direct_deduction_enabled")
   cooperativeMobileAccessEnabled     Boolean                @default(false) @map("cooperative_mobile_access_enabled")
+  cooperativeMobileSelfServiceEnabled Boolean               @default(true) @map("cooperative_mobile_self_service_enabled")
   trustLegalTermsUrl                 String?                @map("trust_legal_terms_url")
   trustPrivacyPolicyUrl              String?                @map("trust_privacy_policy_url")
   trustDataProcessingUrl             String?                @map("trust_data_processing_url")

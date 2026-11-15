@@ -66,6 +66,7 @@ type Decision =
       endsAt?: Date | string | null
     }
   | { kind: "enrollment"; enabled: boolean }
+  | { kind: "selfService"; enabled: boolean }
 
 export function AdminAccessView() {
   const trpc = useTRPC()
@@ -114,7 +115,10 @@ export function AdminAccessView() {
   const enrollment = useMutation(
     trpc.cooperativeMobileAccess.setEnabled.mutationOptions(done)
   )
-  const mutations = [review, revoke, reinstate, enrollment]
+  const selfService = useMutation(
+    trpc.cooperativeMobileAccess.setSelfService.mutationOptions(done)
+  )
+  const mutations = [review, revoke, reinstate, enrollment, selfService]
   const pending = mutations.some((mutation) => mutation.isPending)
   const error = mutations.find((mutation) => mutation.error)?.error?.message
 
@@ -168,6 +172,8 @@ export function AdminAccessView() {
           enabled: decision.enabled,
           termsVersion: settings.termsVersion,
         })
+      case "selfService":
+        return selfService.mutate({ enabled: decision.enabled })
     }
   }
 
@@ -188,6 +194,13 @@ export function AdminAccessView() {
               ? `${counts.active} ${counts.active === 1 ? "member has" : "members have"} the app. ${cost}`
               : `Turn it on to let members use the app. ${cost}`}
           </p>
+          {settings.enabled ? (
+            <p className="text-base text-muted-foreground">
+              {settings.selfService
+                ? "Members turn it on themselves after agreeing to the charge."
+                : "Members ask for it, and you approve each one."}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-3">
           {settings.enabled ? (
@@ -198,6 +211,18 @@ export function AdminAccessView() {
                 type="button"
               >
                 Give access
+              </Button>
+              <Button
+                className="h-11 text-base"
+                onClick={() =>
+                  open({ kind: "selfService", enabled: !settings.selfService })
+                }
+                type="button"
+                variant="outline"
+              >
+                {settings.selfService
+                  ? "Approve each member"
+                  : "Let members turn it on"}
               </Button>
               <Button
                 className="h-11 text-base"
@@ -395,7 +420,11 @@ export function AdminAccessView() {
         <AccessConfirmDialog
           confirmation={confirmationFor(decision, price, settings.termMonths)}
           error={error}
-          key={decision.kind === "enrollment" ? "enrollment" : decision.termId}
+          key={
+            decision.kind === "enrollment" || decision.kind === "selfService"
+              ? decision.kind
+              : decision.termId
+          }
           onClose={() => setDecision(undefined)}
           onConfirm={confirm}
           pending={pending}
@@ -470,7 +499,7 @@ function confirmationFor(
       return decision.enabled
         ? {
             title: "Turn on the mobile app?",
-            description: `Your cooperative pays Halaalvest ${price} for each member you approve, for ${termMonths} months. You get one bill at the end of each month.`,
+            description: `Your cooperative pays Halaalvest ${price} for each member who gets the app, for ${termMonths} months. Members can turn it on themselves after agreeing to the charge. You get one bill at the end of each month.`,
             actionLabel: "Turn on",
           }
         : {
@@ -479,6 +508,19 @@ function confirmationFor(
               "No one new can get the app, and staff can't use it. Members who have it keep it, and their charges still stand.",
             actionLabel: "Pause",
             destructive: true,
+          }
+    case "selfService":
+      return decision.enabled
+        ? {
+            title: "Let members turn the app on themselves?",
+            description: `A member who agrees to pay ${price} for ${termMonths} months gets the app straight away. Anyone already waiting can turn it on too. You can still turn anyone off.`,
+            actionLabel: "Let members turn it on",
+          }
+        : {
+            title: "Approve each member yourself?",
+            description:
+              "Members ask for the app and wait for you to approve them. Members who have it keep it.",
+            actionLabel: "Approve each member",
           }
   }
 }

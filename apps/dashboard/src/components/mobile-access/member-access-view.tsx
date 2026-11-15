@@ -6,6 +6,7 @@ import { Label } from "@halaalvest/ui/components/label"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState, type FormEvent } from "react"
 import { useTRPC } from "@/trpc/client"
+import { AccessConfirmDialog } from "./access-confirm-dialog"
 import { MobileAccessLoadError, MobileAccessLoading } from "./access-page-state"
 import {
   formatAccessAmount,
@@ -14,7 +15,17 @@ import {
   memberAccessStatusLabel,
 } from "./format"
 
-/** A member's own mobile app access: what they have, or how to ask for it. */
+const blockedReasonText = {
+  no_password:
+    "You need a password to use the app. Set one from the sign-in page with “Forgot password”, then come back.",
+  no_cooperative_number:
+    "Your cooperative has not set up cooperative numbers yet. Ask them to finish mobile app setup.",
+} as const
+
+/**
+ * A member's own mobile app access: turn it on after agreeing to the charge
+ * (or ask, when the cooperative reviews requests), turn it off and back on.
+ */
 export function MemberAccessView() {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
@@ -22,14 +33,28 @@ export function MemberAccessView() {
     trpc.cooperativeMobileAccess.memberStatus.queryOptions()
   )
   const [acceptedVersion, setAcceptedVersion] = useState<string>()
-  const request = useMutation(
-    trpc.cooperativeMobileAccess.request.mutationOptions({
+  const [confirmingOff, setConfirmingOff] = useState(false)
+  const refresh = () =>
+    queryClient.invalidateQueries(
+      trpc.cooperativeMobileAccess.memberStatus.queryFilter()
+    )
+  const accept = useMutation(
+    trpc.cooperativeMobileAccess.accept.mutationOptions({
       onSettled: async () => {
         setAcceptedVersion(undefined)
-        await queryClient.invalidateQueries(
-          trpc.cooperativeMobileAccess.memberStatus.queryFilter()
-        )
+        await refresh()
       },
+    })
+  )
+  const turnOff = useMutation(
+    trpc.cooperativeMobileAccess.turnOff.mutationOptions({
+      onSuccess: () => setConfirmingOff(false),
+      onSettled: refresh,
+    })
+  )
+  const turnBackOn = useMutation(
+    trpc.cooperativeMobileAccess.turnBackOn.mutationOptions({
+      onSettled: refresh,
     })
   )
 
@@ -49,6 +74,11 @@ export function MemberAccessView() {
   const {
     term,
     canRequest,
+    acceptTurnsOn,
+    canTurnOff,
+    canTurnBackOn,
+    turnedOffBy,
+    blockedReason,
     cooperativeNumber,
     enabled,
     amount,
@@ -58,13 +88,19 @@ export function MemberAccessView() {
   } = status.data
   const price = formatAccessAmount(amount, currencyCode)
   const hasAccepted = acceptedVersion === termsVersion
-  const askLabel = term ? "Ask again" : "Ask for the app"
+  const acceptLabel = acceptTurnsOn
+    ? "Turn on the app"
+    : term
+      ? "Ask again"
+      : "Ask for the app"
   const paidAt = term?.payment?.status === "posted" ? term.payment.paidAt : null
+  const mutationError =
+    accept.error?.message ?? turnBackOn.error?.message ?? null
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (canRequest && hasAccepted && !request.isPending && !status.isError) {
-      request.mutate({ termsVersion, accepted: true })
+    if (canRequest && hasAccepted && !accept.isPending && !status.isError) {
+      accept.mutate({ termsVersion, accepted: true })
     }
   }
 
@@ -131,8 +167,22 @@ export function MemberAccessView() {
             </p>
           ) : null}
 
+          {turnedOffBy === "member" && term.endsAt ? (
+            <p className="text-base">
+              You turned the app off. You can turn it back on until{" "}
+              {formatAccessDate(term.endsAt)} without paying again.
+            </p>
+          ) : null}
+
+          {turnedOffBy === "cooperative" ? (
+            <p className="text-base">
+              Your cooperative turned the app off. Ask them to turn it back on.
+            </p>
+          ) : null}
+
           {term.reviewNote &&
-          (term.status === "rejected" || term.status === "revoked") ? (
+          (term.status === "rejected" ||
+            (term.status === "revoked" && turnedOffBy === "cooperative")) ? (
             <p className="text-base break-words">Reason: {term.reviewNote}</p>
           ) : null}
 
@@ -143,26 +193,59 @@ export function MemberAccessView() {
                 : `${formatAccessAmount(term.amount, term.currencyCode)} is due on ${formatAccessDay(term.chargeDueAt)}.`}
             </p>
           ) : null}
+
+          {canTurnOff ? (
+            <Button
+              className="h-11 text-base"
+              onClick={() => {
+                turnOff.reset()
+                setConfirmingOff(true)
+              }}
+              type="button"
+              variant="outline"
+            >
+              Turn off the app
+            </Button>
+          ) : null}
+
+          {canTurnBackOn ? (
+            <Button
+              className="h-11 px-5 text-base"
+              disabled={turnBackOn.isPending}
+              onClick={() => turnBackOn.mutate()}
+              type="button"
+            >
+              {turnBackOn.isPending ? "Turning on…" : "Turn the app back on"}
+            </Button>
+          ) : null}
         </section>
       ) : null}
 
-      {!enabled && term?.status !== "active" ? (
+      {!enabled && term?.status !== "active" && !canTurnBackOn ? (
         <p className="text-base">
           Your cooperative is not giving out the app right now. Ask them about
           it.
         </p>
       ) : null}
 
-      {enabled && !term && !canRequest && !status.isError ? (
+      {blockedReason ? (
+        <p className="text-base">{blockedReasonText[blockedReason]}</p>
+      ) : null}
+
+      {enabled &&
+      !term &&
+      !canRequest &&
+      !blockedReason &&
+      !status.isError ? (
         <p className="text-base">
-          You can&apos;t ask for the app yet. Ask your cooperative to check your
+          You can&apos;t get the app yet. Ask your cooperative to check your
           membership.
         </p>
       ) : null}
 
       {status.isError ? (
         <MobileAccessLoadError
-          message="We couldn't check your access. Try again before asking."
+          message="We couldn't check your access. Try again before turning it on."
           retry={() => void status.refetch()}
         />
       ) : null}
@@ -173,17 +256,30 @@ export function MemberAccessView() {
           className="space-y-4"
           onSubmit={submit}
         >
-          <div className="space-y-1">
+          <div className="space-y-2">
             <h2
               className="font-heading text-xl font-semibold"
               id="mobile-access-ask"
             >
               Get the mobile app
             </h2>
-            <p className="text-base text-muted-foreground">
-              {price} for {termMonths} months. It is added to your account after
-              your cooperative says yes.
+            <p className="text-base">
+              The Halaalvest app shows your savings, shares and loans on your
+              phone.
             </p>
+            <ul className="list-disc space-y-1 pl-5 text-base text-muted-foreground">
+              <li>
+                It costs {price} for {termMonths} months.
+              </li>
+              <li>
+                {acceptTurnsOn
+                  ? "The charge goes on your account this month, like your other cooperative charges."
+                  : "The charge goes on your account after your cooperative says yes."}
+              </li>
+              <li>
+                If you turn the app off later, the charge is not refunded.
+              </li>
+            </ul>
           </div>
           <Label
             className="flex min-h-11 cursor-pointer items-center gap-3 text-base font-normal"
@@ -192,7 +288,7 @@ export function MemberAccessView() {
             <Checkbox
               checked={hasAccepted}
               className="size-6"
-              disabled={request.isPending}
+              disabled={accept.isPending}
               id="accept-mobile-access-charge"
               onCheckedChange={(checked) =>
                 setAcceptedVersion(checked ? termsVersion : undefined)
@@ -202,17 +298,39 @@ export function MemberAccessView() {
           </Label>
           <Button
             className="h-11 px-5 text-base"
-            disabled={!hasAccepted || request.isPending}
+            disabled={!hasAccepted || accept.isPending}
             type="submit"
           >
-            {request.isPending ? "Sending…" : askLabel}
+            {accept.isPending
+              ? acceptTurnsOn
+                ? "Turning on…"
+                : "Sending…"
+              : acceptLabel}
           </Button>
         </form>
       ) : null}
-      {request.isError ? (
+
+      {mutationError ? (
         <p className="text-base text-destructive" role="alert">
-          {request.error.message}
+          {mutationError}
         </p>
+      ) : null}
+
+      {confirmingOff ? (
+        <AccessConfirmDialog
+          confirmation={{
+            title: "Turn off the app?",
+            description: term?.endsAt
+              ? `You will be signed out of the app. The charge is not refunded. You can turn it back on until ${formatAccessDate(term.endsAt)} without paying again.`
+              : "You will be signed out of the app. The charge is not refunded.",
+            actionLabel: "Turn off",
+            destructive: true,
+          }}
+          error={turnOff.error?.message}
+          onClose={() => setConfirmingOff(false)}
+          onConfirm={() => turnOff.mutate()}
+          pending={turnOff.isPending}
+        />
       ) : null}
     </div>
   )

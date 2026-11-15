@@ -101,3 +101,20 @@ export async function resolveWorkspaceSignInSlug(
 export function buildWorkspaceLoginUrl(dashboardUrl: string) {
   return new URL("/login", dashboardUrl).toString()
 }
+
+/** The normalized member code (ABC-0001) when the input is one, else null. */
+export function getMemberCodeFromSignInInput(input: string | null | undefined) {
+  const match = ACCESS_CODE_PATTERN.exec((input ?? "").trim())
+
+  return match?.[1] && match[2]
+    ? `${match[1].toUpperCase()}-${match[2].toUpperCase()}`
+    : null
+}
+
+/**
+ * The tenant host's prefill endpoint. Marketing top-level POSTs the member
+ * code there (never in a URL); it redirects to /login with the code filled in.
+ */
+export function buildLoginPrefillAction(loginUrl: string) {
+  return new URL("/auth/login-prefill", loginUrl).toString()
+}

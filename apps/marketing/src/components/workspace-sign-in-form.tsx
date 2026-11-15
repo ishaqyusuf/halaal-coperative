@@ -17,6 +17,10 @@ import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { ArrowRightIcon } from "lucide-react"
 import { z } from "zod"
 import { getMarketingErrorMessage } from "@/lib/error-response"
+import {
+  buildLoginPrefillAction,
+  getMemberCodeFromSignInInput,
+} from "@/lib/workspace-sign-in"
 
 const workspaceSignInSchema = z.object({
   workspace: z
@@ -62,7 +66,26 @@ export function WorkspaceSignInForm({
         return
       }
 
-      window.location.assign(payload.loginUrl)
+      const memberCode = getMemberCodeFromSignInInput(values.workspace)
+
+      if (!memberCode) {
+        window.location.assign(payload.loginUrl)
+        return
+      }
+
+      // Top-level POST so the code reaches the tenant's /login without
+      // appearing in any URL.
+      const prefillForm = document.createElement("form")
+      prefillForm.action = buildLoginPrefillAction(payload.loginUrl)
+      prefillForm.method = "post"
+      prefillForm.hidden = true
+      const identifier = document.createElement("input")
+      identifier.name = "identifier"
+      identifier.type = "hidden"
+      identifier.value = memberCode
+      prefillForm.append(identifier)
+      document.body.append(prefillForm)
+      prefillForm.submit()
     } catch {
       form.setError("workspace", {
         message:

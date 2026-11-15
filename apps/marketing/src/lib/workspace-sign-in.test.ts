@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import {
+  buildLoginPrefillAction,
   buildWorkspaceLoginUrl,
+  getMemberCodeFromSignInInput,
   getWorkspaceSignInCandidates,
   resolveWorkspaceSignInSlug,
   type WorkspaceSignInLookups,
@@ -103,5 +105,25 @@ describe("buildWorkspaceLoginUrl", () => {
     expect(buildWorkspaceLoginUrl("https://amana-story.halaalvest.com")).toBe(
       "https://amana-story.halaalvest.com/login"
     )
+  })
+})
+
+describe("member code prefill", () => {
+  test("extracts a normalized member code, and nothing else", () => {
+    expect(getMemberCodeFromSignInInput(" ams-0001 ")).toBe("AMS-0001")
+    expect(getMemberCodeFromSignInInput("ams 12")).toBe("AMS-12")
+    expect(getMemberCodeFromSignInInput("amana-story")).toBeNull()
+    expect(
+      getMemberCodeFromSignInInput("amana-story.halaalvest.com")
+    ).toBeNull()
+    expect(getMemberCodeFromSignInInput("AMS")).toBeNull()
+  })
+
+  test("posts to the tenant host's prefill route", () => {
+    expect(
+      buildLoginPrefillAction(
+        "https://amana-story.halaalvest-dash.localhost/login"
+      )
+    ).toBe("https://amana-story.halaalvest-dash.localhost/auth/login-prefill")
   })
 })

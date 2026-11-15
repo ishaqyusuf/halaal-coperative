@@ -9,15 +9,17 @@ import { PublicAuthField } from "@/components/public-auth-forms"
 export function LoginForm({
   action,
   codeExample,
+  defaultIdentifier = "",
   nextPath,
   resetPasswordHref,
 }: {
   action: string
   codeExample: string | null
+  defaultIdentifier?: string
   nextPath: string
   resetPasswordHref: string
 }) {
-  const [identifier, setIdentifier] = useState("")
+  const [identifier, setIdentifier] = useState(defaultIdentifier)
   const [password, setPassword] = useState("")
 
   return (
@@ -57,6 +59,7 @@ export function LoginForm({
       >
         <PasswordInput
           autoComplete="current-password"
+          autoFocus={Boolean(defaultIdentifier)}
           id="password"
           name="password"
           onChange={(event) => setPassword(event.target.value)}

@@ -16,6 +16,7 @@ import {
   normalizeDashboardRedirectPath,
 } from "@/lib/auth-redirect"
 import { setDashboardSessionCookies } from "@/lib/auth-session-cookies"
+import { clearLoginPrefillCookie } from "@/lib/login-prefill"
 import { verifyPassword } from "@/lib/password"
 import { getPublicRequestHost } from "@/lib/request-host"
 import { resolveInitialMigrationSetupGate } from "@/lib/setup-gate"
@@ -102,8 +103,8 @@ export async function POST(request: NextRequest) {
     : setupGate?.shouldRedirectAdminToSuccess
       ? "/onboarding-success"
       : nextPath
-  const response = NextResponse.redirect(
-    buildDashboardRedirectUrl(request, redirectPath)
+  const response = clearLoginPrefillCookie(
+    NextResponse.redirect(buildDashboardRedirectUrl(request, redirectPath))
   )
   const sessionToken = await createSignedSessionToken({
     scope,

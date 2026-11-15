@@ -1,4 +1,4 @@
-import { headers } from "next/headers"
+import { cookies, headers } from "next/headers"
 import { getTenantMemberSignupSettings } from "@halaalvest/db"
 import { buildTenantHref } from "@halaalvest/tenant-url"
 import { resolveTenantUrlContextFromHeaders } from "@halaalvest/tenant-url/next/server"
@@ -10,6 +10,10 @@ import {
   publicAuthLinkClassName,
 } from "@/components/public-auth-notice"
 import { normalizeDashboardRedirectPath } from "@/lib/auth-redirect"
+import {
+  LOGIN_PREFILL_COOKIE,
+  normalizeLoginPrefillCode,
+} from "@/lib/login-prefill"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { resolveInitialMigrationSetupGate } from "@/lib/setup-gate"
 import { tenantRedirect } from "@/utils/tenant-redirect"
@@ -53,6 +57,13 @@ export default async function LoginPage({
     await tenantRedirect(nextPath)
   }
 
+  // Set by /auth/login-prefill when marketing "Sign in" found this
+  // cooperative from a member code.
+  const prefillIdentifier =
+    normalizeLoginPrefillCode(
+      (await cookies()).get(LOGIN_PREFILL_COOKIE)?.value,
+      context.tenant?.cooperativeCodePrefix
+    ) ?? ""
   const memberSignupSettings = context.tenant
     ? await getTenantMemberSignupSettings(context.tenant.id)
     : null
@@ -111,6 +122,7 @@ export default async function LoginPage({
 
         <LoginForm
           action={loginAction}
+          defaultIdentifier={prefillIdentifier}
           codeExample={
             context.tenant?.memberNumberPrefix
               ? `${context.tenant.memberNumberPrefix}0042`

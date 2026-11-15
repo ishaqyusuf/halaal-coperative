@@ -103,7 +103,7 @@ export function proposalLines(fields: AssistantProposalFields): ReviewLine[] {
       })
   }
   if (fields.kind === "receipt-submission" && fields.evidenceUploadId) {
-    lines.push({ label: "Proof", value: "Attached" })
+    lines.push({ label: "Proof", value: fields.evidenceName || "Attached" })
   }
   if (fields.kind === "payment-request" && fields.note) {
     lines.push({ label: "Note", value: fields.note })

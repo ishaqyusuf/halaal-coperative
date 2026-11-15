@@ -5,6 +5,7 @@ import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
 import { useLocalSearchParams } from "expo-router"
 import { useState } from "react"
 import { assistantScope, getAssistantApi } from "../api/assistant-client"
+import { assistantIdParam } from "../model/assistant-saved-link"
 import { AskAssistantScreen } from "../screens/ask-assistant-screen"
 
 function param(value: string | string[] | undefined, max = 160) {
@@ -27,6 +28,9 @@ export function AskAssistantRouteController() {
     draft?: string
     focus?: string
     send?: string
+    conversationId?: string
+    messageId?: string
+    proposalId?: string
   }>()
   const [origin] = useState(() => (profile ? assistantScope(profile) : null))
   const current = profile ? assistantScope(profile) : null
@@ -54,6 +58,17 @@ export function AskAssistantRouteController() {
         focus: params.focus === "1",
         send: param(params.send),
       }}
+      // Set only by a resolved saved-answer or draft link: open that chat at
+      // that answer or live draft. Nothing is sent or confirmed for it.
+      target={
+        assistantIdParam(params.conversationId)
+          ? {
+              conversationId: assistantIdParam(params.conversationId)!,
+              messageId: assistantIdParam(params.messageId),
+              proposalId: assistantIdParam(params.proposalId),
+            }
+          : undefined
+      }
     />
   )
 }

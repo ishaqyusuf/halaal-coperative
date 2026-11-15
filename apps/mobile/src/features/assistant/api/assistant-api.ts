@@ -1,6 +1,9 @@
 import type {
   AssistantActionResult,
   AssistantConversationSummary,
+  AssistantLinkResolution,
+  AssistantLinkTarget,
+  AssistantStreamStage,
   AssistantMessage,
   AssistantProposal,
   AssistantTurnInput,
@@ -23,6 +26,8 @@ export type AssistantBootstrap = {
   cooperativeName: string
   suggestions: { capabilityId: string; label: string }[]
   help: { capabilityId: string; title: string; suggestion: string }[]
+  /** Optional until every server sends it; missing means no upload here. */
+  uploads?: { receiptProof: boolean }
 }
 
 export type AssistantConversationDetail = {
@@ -41,6 +46,17 @@ export type AssistantApi = {
   getConversation: (id: string) => Promise<AssistantConversationDetail>
   archiveConversation: (id: string) => Promise<{ ok: true }>
   send: (input: AssistantTurnInput) => Promise<AssistantTurnOutput>
+  /**
+   * The same turn over `POST /api/assistant/turn`, reporting progress. Throws
+   * `AssistantStreamError`; `fallback` says whether `send` with the same
+   * `requestId` may follow.
+   */
+  sendStreamed: (
+    input: AssistantTurnInput,
+    onStage: (stage: AssistantStreamStage) => void
+  ) => Promise<AssistantTurnOutput>
+  /** Re-authorizes a saved-answer or draft link. Never runs anything. */
+  resolveLink: (target: AssistantLinkTarget) => Promise<AssistantLinkResolution>
   getProposal: (proposalId: string) => Promise<AssistantProposal>
   editProposal: (input: ProposalEditInput) => Promise<AssistantProposal>
   confirmProposal: (input: ProposalConfirmInput) => Promise<AssistantActionResult>

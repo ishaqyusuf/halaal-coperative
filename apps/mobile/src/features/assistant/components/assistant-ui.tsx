@@ -302,14 +302,19 @@ export function AssistantComposer({
   )
 }
 
-export function AssistantThinking() {
+export function AssistantThinking({ label = "Thinking…" }: { label?: string }) {
   const colors = useColors()
   return (
     // Replies sit open at the thread's edge, so this lines up with them.
-    <View className="flex-row items-center gap-2">
+    <View
+      accessibilityLiveRegion="polite"
+      accessibilityRole="progressbar"
+      accessibilityLabel={label}
+      className="flex-row items-center gap-2"
+    >
       <ActivityIndicator color={colors.mutedForeground} />
       <Text className="text-base leading-[22px] text-muted-foreground">
-        Thinking…
+        {label}
       </Text>
     </View>
   )

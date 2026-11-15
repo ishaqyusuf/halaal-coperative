@@ -1,5 +1,6 @@
 import { FloatingBottomSheet } from "@/components/floating-bottom-sheet"
 import { Button } from "@/components/ui/button"
+import { Icon } from "@/components/ui/icon"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
 import type {
@@ -13,6 +14,7 @@ import { FlatList, type NativeScrollEvent, type TextInput, View } from "react-na
 import { KeyboardAvoidingView } from "react-native-keyboard-controller"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import type { AssistantApi } from "../api/assistant-api"
+import { shareAssistantLink } from "../api/assistant-share"
 import {
   type AnswerActions,
   AssistantAnswerCard,
@@ -29,6 +31,7 @@ import {
   AssistantThinking,
 } from "../components/assistant-ui"
 import { assistantNativeRoute } from "../model/assistant-link-route"
+import { assistantStageLabel } from "../model/assistant-stream"
 import { proposalTitle } from "../model/proposal-model"
 import { useGeneralAssistant } from "../model/use-general-assistant"
 
@@ -41,6 +44,8 @@ type ScreenProps = {
   locked: boolean
   noAccess: string | null
   starter: { draft?: string; focus: boolean; send?: string }
+  /** From a resolved saved-answer or draft link: open here, run nothing. */
+  target?: { conversationId: string; messageId?: string; proposalId?: string }
 }
 
 const nearEnd = (n: NativeScrollEvent) =>
@@ -88,14 +93,21 @@ function AskAssistantLive({
   offline,
   locked,
   starter,
+  target,
 }: ScreenProps & { api: AssistantApi }) {
   const blocked = offline || locked
-  const vm = useGeneralAssistant({ api, scope, blocked })
+  const vm = useGeneralAssistant({
+    api,
+    scope,
+    blocked,
+    initialConversationId: target?.conversationId ?? null,
+  })
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const list = useRef<FlatList<AssistantMessage>>(null)
   const input = useRef<TextInput>(null)
-  const atBottom = useRef(true)
+  // A link opens at its answer or draft, not at the end of the chat.
+  const atBottom = useRef(!target)
   const [chatsOpen, setChatsOpen] = useState(false)
   const [editing, setEditing] = useState<AssistantProposal | null>(null)
   const [saveFailed, setSaveFailed] = useState<string | null>(null)
@@ -120,6 +132,12 @@ function AskAssistantLive({
   useEffect(() => {
     if (blocked) setEditing(null)
   }, [blocked])
+
+  const share = async (kind: "message" | "proposal", id: string) => {
+    setLinkNotice(null)
+    if (!(await shareAssistantLink({ kind, id })))
+      setLinkNotice("Couldn't open sharing. Try again.")
+  }
 
   const openLink = (link: AssistantLink) => {
     if (!role || blocked) return
@@ -159,6 +177,29 @@ function AskAssistantLive({
       )
     )
   )
+  // The message a link points at: the answer itself, or the message that
+  // shows the linked draft. A draft no message shows is pinned at the top.
+  const focusId = target
+    ? (target.messageId ??
+      (target.proposalId ? placed.get(target.proposalId) : undefined))
+    : undefined
+  const pinnedProposal =
+    target?.proposalId &&
+    !placed.has(target.proposalId) &&
+    proposals.has(target.proposalId)
+      ? target.proposalId
+      : null
+  const focused = useRef(false)
+  useEffect(() => {
+    if (focused.current || !focusId || target?.conversationId !== vm.conversationId)
+      return
+    const index = messages.findIndex((message) => message.id === focusId)
+    if (index < 0) return
+    focused.current = true
+    requestAnimationFrame(() =>
+      list.current?.scrollToIndex({ index, animated: false, viewPosition: 0.1 })
+    )
+  }, [focusId, messages, target?.conversationId, vm.conversationId])
   const chats = vm.conversations.data?.items ?? []
   const home =
     !messages.length &&
@@ -198,6 +239,14 @@ function AskAssistantLive({
           setSaveFailed(null)
           setEditing(proposal)
         }}
+        onShare={() => void share("proposal", proposal.id)}
+        highlighted={target?.proposalId === proposalId}
+        // No private upload on native: the Receipts screen takes the proof.
+        onAddProof={
+          proposal.fields.kind === "receipt-submission" && role === "member"
+            ? () => router.push("/(member)/receipts" as never)
+            : undefined
+        }
       />
     )
   }
@@ -243,6 +292,21 @@ function AskAssistantLive({
           className="flex-1"
           data={messages}
           keyExtractor={(item) => item.id}
+          onScrollToIndexFailed={({ index, averageItemLength }) => {
+            list.current?.scrollToOffset({
+              offset: averageItemLength * index,
+              animated: false,
+            })
+            setTimeout(
+              () =>
+                list.current?.scrollToIndex({
+                  index,
+                  animated: false,
+                  viewPosition: 0.1,
+                }),
+              120
+            )
+          }}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
           contentContainerClassName="gap-3.5 p-[18px] pb-[30px]"
@@ -307,6 +371,7 @@ function AskAssistantLive({
                   </Button>
                 </>
               ) : null}
+              {pinnedProposal ? proposalCard(pinnedProposal) : null}
               {home ? (
                 <AssistantHome
                   name={name}
@@ -345,7 +410,18 @@ function AskAssistantLive({
                 {item.role === "user" ? (
                   <AssistantBubble user text={text} />
                 ) : (
-                  <View className="min-w-0 gap-4">
+                  <View
+                    accessibilityLabel={
+                      item.id === target?.messageId
+                        ? "Saved answer from your link"
+                        : undefined
+                    }
+                    className={
+                      item.id === target?.messageId
+                        ? "-mx-2 min-w-0 gap-4 rounded-[18px] border border-brand-warm p-2"
+                        : "min-w-0 gap-4"
+                    }
+                  >
                     {item.parts.map((part, partIndex) => {
                       const key = `${item.id}:${partIndex}`
                       if (part.type === "text")
@@ -371,6 +447,21 @@ function AskAssistantLive({
                         </Text>
                       ) : null
                     })}
+                    {item.parts.some((part) => part.type === "answer") ? (
+                      <Button
+                        accessibilityLabel="Share a link to this answer"
+                        className="min-h-11 self-start px-2"
+                        size="sm"
+                        variant="ghost"
+                        onPress={() => void share("message", item.id)}
+                      >
+                        <Icon
+                          name="Share"
+                          className="size-[16px] text-muted-foreground"
+                        />
+                        <Text className="text-muted-foreground">Share link</Text>
+                      </Button>
+                    ) : null}
                   </View>
                 )}
               </View>
@@ -385,7 +476,11 @@ function AskAssistantLive({
                   text={vm.pendingText ?? vm.failedText ?? ""}
                 />
               ) : null}
-              {vm.busy ? <AssistantThinking /> : null}
+              {vm.busy ? (
+                <AssistantThinking
+                  label={vm.stage ? assistantStageLabel[vm.stage] : undefined}
+                />
+              ) : null}
               {vm.notice ? (
                 <Banner title="Check your chat" message={vm.notice} />
               ) : null}

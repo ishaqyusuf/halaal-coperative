@@ -412,6 +412,36 @@
       "controller": "@/features/assistant/routes/ask-assistant-route-controller"
     },
     {
+      "file": "src/app/assistant/m/[messageId].tsx",
+      "path": "/assistant/m/[messageId]",
+      "feature": "assistant",
+      "controller": "@/features/assistant/routes/assistant-saved-link-route-controller",
+      "roles": [
+        "public",
+        "member",
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Neutral saved-answer/draft link landing on the website's path. The id is untrusted: it waits for auth hydration, app lock and app access, then assistant.links.resolve re-authorizes it for the active user, tenant and membership (anything else is a plain 'unavailable'). It only opens the chat at that answer or live draft; it never confirms, edits or sends."
+    },
+    {
+      "file": "src/app/assistant/review/[proposalId].tsx",
+      "path": "/assistant/review/[proposalId]",
+      "feature": "assistant",
+      "controller": "@/features/assistant/routes/assistant-saved-link-route-controller",
+      "roles": [
+        "public",
+        "member",
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Neutral saved-answer/draft link landing on the website's path. The id is untrusted: it waits for auth hydration, app lock and app access, then assistant.links.resolve re-authorizes it for the active user, tenant and membership (anything else is a plain 'unavailable'). It only opens the chat at that answer or live draft; it never confirms, edits or sends."
+    },
+    {
       "file": "src/app/updates.tsx",
       "path": "/updates",
       "feature": "updates",

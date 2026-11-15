@@ -223,6 +223,10 @@ function RoleProtectedStack() {
       <Stack.Screen name="index" />
       {/* Neutral launcher-shortcut resolver; it defers to every gate below. */}
       <Stack.Screen name="cooperative-shortcut/[shortcutId]" />
+      {/* Neutral saved-answer and draft link landings (website paths); each
+          waits for auth, app lock and app access, then re-authorizes. */}
+      <Stack.Screen name="assistant/m/[messageId]" />
+      <Stack.Screen name="assistant/review/[proposalId]" />
       <Stack.Protected guard={role === null}>
         <Stack.Screen name="(auth)" />
       </Stack.Protected>

@@ -13,6 +13,26 @@ function getTrpcUrl() {
   return `${getBaseUrl()}/api/trpc`
 }
 
+/**
+ * The signed session and device headers every mobile request sends. Plain
+ * HTTP endpoints on the same origin (the assistant's streamed turn) reuse it
+ * so they authenticate exactly like the tRPC client.
+ */
+export function mobileRequestHeaders(): Record<string, string> {
+  const token = getToken()
+  const device = getMobileDeviceMetadata()
+
+  return {
+    ...(token ? { authorization: `Bearer ${token}` } : {}),
+    "x-mobile-app-version": device.appVersion,
+    "x-mobile-build-variant": device.buildVariant,
+    "x-mobile-device-id": device.deviceId,
+    "x-mobile-device-label": device.deviceLabel,
+    "x-mobile-platform": device.platform,
+    "x-trpc-source": "mobile",
+  }
+}
+
 export function createMobileTrpcClient() {
   return createTRPCClient<AppRouter>({
     links: [
@@ -34,20 +54,7 @@ export function createMobileTrpcClient() {
 
           return response
         },
-        headers: () => {
-          const token = getToken()
-          const device = getMobileDeviceMetadata()
-
-          return {
-            ...(token ? { authorization: `Bearer ${token}` } : {}),
-            "x-mobile-app-version": device.appVersion,
-            "x-mobile-build-variant": device.buildVariant,
-            "x-mobile-device-id": device.deviceId,
-            "x-mobile-device-label": device.deviceLabel,
-            "x-mobile-platform": device.platform,
-            "x-trpc-source": "mobile",
-          }
-        },
+        headers: () => mobileRequestHeaders(),
         transformer: superjson,
         url: getTrpcUrl(),
       }),

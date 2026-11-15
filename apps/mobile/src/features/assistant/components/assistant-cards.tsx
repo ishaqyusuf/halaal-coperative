@@ -572,6 +572,9 @@ export function ProposalCard({
   onConfirm,
   onEdit,
   onCancel,
+  onShare,
+  onAddProof,
+  highlighted,
 }: {
   proposal: AssistantProposal
   disabled: boolean
@@ -581,6 +584,12 @@ export function ProposalCard({
   onConfirm: () => void
   onEdit: () => void
   onCancel: () => void
+  /** Share the draft's website link. Works offline; it sends nothing. */
+  onShare?: () => void
+  /** Receipt drafts: proof is added on the Receipts screen (no upload here). */
+  onAddProof?: () => void
+  /** Opened from a draft link. */
+  highlighted?: boolean
 }) {
   const large = useLargeTextLayout()
   const actionClass = large ? "w-full min-h-11" : "min-h-11 px-3"
@@ -596,10 +605,13 @@ export function ProposalCard({
   const busy = disabled || working
   return (
     <View
-      accessibilityLabel={proposalTitle[kind]}
+      accessibilityLabel={
+        highlighted ? `${proposalTitle[kind]}, from your link` : proposalTitle[kind]
+      }
       className={cn(
         "gap-3 rounded-[18px] border bg-card p-3",
-        open ? "border-brand-warm" : "border-border"
+        open ? "border-brand-warm" : "border-border",
+        highlighted && "border-2"
       )}
     >
       <View className="flex-row flex-wrap items-center justify-between gap-2">
@@ -659,6 +671,25 @@ export function ProposalCard({
               <Text>Cancel draft</Text>
             </Button>
           </View>
+          {onAddProof &&
+          proposal.fields.kind === "receipt-submission" &&
+          !proposal.fields.evidenceUploadId ? (
+            <View className="gap-2 rounded-[14px] bg-muted/60 p-3">
+              <Text className={cn(base, "text-foreground")}>
+                Need to attach payment proof? Submit this receipt from the
+                Receipts screen instead; this draft stays here until you
+                confirm or cancel it.
+              </Text>
+              <Button
+                className={cn(actionClass, "self-start")}
+                variant="outline"
+                onPress={onAddProof}
+              >
+                <Icon name="ReceiptText" className="size-[16px] text-foreground" />
+                <Text>Open Receipts</Text>
+              </Button>
+            </View>
+          ) : null}
         </>
       ) : (
         <Text className={cn(base, "text-muted-foreground")}>
@@ -671,6 +702,18 @@ export function ProposalCard({
                 : "Nothing was saved."}
         </Text>
       )}
+      {onShare ? (
+        <Button
+          accessibilityLabel="Share a link to this draft"
+          className="min-h-11 self-start px-2"
+          size="sm"
+          variant="ghost"
+          onPress={onShare}
+        >
+          <Icon name="Share" className="size-[16px] text-muted-foreground" />
+          <Text className="text-muted-foreground">Share link</Text>
+        </Button>
+      ) : null}
     </View>
   )
 }

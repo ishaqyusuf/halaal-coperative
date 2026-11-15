@@ -3,6 +3,9 @@ import type {
   AssistantMessage,
   AssistantProposal,
   AssistantProposalFields,
+  AssistantStreamStage,
+  AssistantTurnInput,
+  AssistantTurnOutput,
 } from "@halaalvest/assistant/contracts"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useRef, useState } from "react"
@@ -12,6 +15,7 @@ import {
   assistantKeys,
   newAssistantKey,
 } from "../api/assistant-api"
+import { AssistantStreamError } from "./assistant-stream"
 
 type Choice = { proposalId: string | null; value: string }
 
@@ -30,10 +34,12 @@ const errorText = (error: unknown, fallback: string) =>
 
 /**
  * The native assistant's state (ported from the website VM): bootstrap, saved chats, the open chat, the
- * composer draft, and proposal review. Sends are non-streaming; a failed send
- * is only retried when the person taps "Try again", with the same
+ * composer draft, and proposal review. A send streams over
+ * `POST /api/assistant/turn` and shows each stage; if the stream can't start
+ * or breaks, the same turn goes once through `assistant.send` with the SAME
  * `requestId`, so the server returns the saved reply instead of answering
- * twice. Confirmations reuse one key per proposal revision for the same
+ * twice. A failed send is only retried when the person taps "Try again",
+ * with that key again. Confirmations reuse one key per proposal revision for the same
  * reason, and never run on their own.
  */
 export function useGeneralAssistant({
@@ -60,6 +66,7 @@ export function useGeneralAssistant({
   const [draft, setDraft] = useState("")
   const [busy, setBusy] = useState(false)
   const [pendingText, setPendingText] = useState<string | null>(null)
+  const [stage, setStage] = useState<AssistantStreamStage | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [failed, setFailed] = useState<FailedSend | null>(null)
   const [working, setWorking] = useState<ReadonlySet<string>>(new Set())
@@ -128,13 +135,24 @@ export function useGeneralAssistant({
       setBusy(true)
       setNotice(null)
       setPendingText(attempt.text)
+      setStage(null)
       try {
-        const output = await api.send({
+        const input: AssistantTurnInput = {
           conversationId: attempt.conversationId,
           requestId: attempt.requestId,
           text: attempt.text,
           ...(attempt.choice ? { choice: attempt.choice } : {}),
-        })
+        }
+        let output: AssistantTurnOutput
+        try {
+          output = await api.sendStreamed(input, setStage)
+        } catch (error) {
+          if (error instanceof AssistantStreamError && !error.fallback)
+            throw error
+          // Same requestId: a turn the stream already saved comes back as is.
+          setStage("thinking")
+          output = await api.send(input)
+        }
         writeDetail(attempt.conversationId, (current) => {
           const base = current ?? {
             conversation: {
@@ -181,6 +199,7 @@ export function useGeneralAssistant({
         sending.current = false
         setBusy(false)
         setPendingText(null)
+        setStage(null)
       }
     },
     [api, queryClient, scope, writeDetail]
@@ -366,6 +385,7 @@ export function useGeneralAssistant({
     draft,
     setDraft,
     busy,
+    stage,
     pendingText,
     notice,
     failed: !!failed,

@@ -1,11 +1,90 @@
-import { createMobileTrpcClient } from "@/lib/mobile-trpc-client"
-import type { MobileProfile } from "@/lib/session-store"
+import { getBaseUrl } from "@/lib/base-url"
+import {
+  notifyMobileSessionUnauthorized,
+  shouldInvalidateUnauthorizedMobileSession,
+} from "@/lib/mobile-session-invalidation"
+import {
+  createMobileTrpcClient,
+  mobileRequestHeaders,
+} from "@/lib/mobile-trpc-client"
+import { getToken, type MobileProfile } from "@/lib/session-store"
+import { fetch as expoFetch } from "expo/fetch"
 import type {
   AssistantConversationSummary,
   AssistantMessage,
   AssistantProposal,
 } from "@halaalvest/assistant/contracts"
+import { AssistantStreamError, readAssistantStream } from "../model/assistant-stream"
 import type { AssistantApi } from "./assistant-api"
+
+/** One streamed turn may take a while (model + reads), but not forever. */
+const STREAM_TIMEOUT_MS = 90_000
+
+async function* textChunks(body: ReadableStream<Uint8Array>) {
+  const reader = body.getReader()
+  const decoder = new TextDecoder()
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      yield decoder.decode(value, { stream: true })
+    }
+    const rest = decoder.decode()
+    if (rest) yield rest
+  } finally {
+    reader.releaseLock()
+  }
+}
+
+/**
+ * `POST <api origin>/api/assistant/turn` with the tRPC client's base URL and
+ * headers (same session, same device). `expo/fetch` exposes the body as a
+ * stream on native, so stages show as they arrive.
+ */
+const sendStreamed: AssistantApi["sendStreamed"] = async (input, onStage) => {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS)
+  const requestToken = getToken()
+  try {
+    let response: Awaited<ReturnType<typeof expoFetch>>
+    try {
+      response = await expoFetch(`${getBaseUrl()}/api/assistant/turn`, {
+        method: "POST",
+        headers: {
+          ...mobileRequestHeaders(),
+          accept: "application/x-ndjson",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ ...input, channel: CHANNEL }),
+        signal: controller.signal,
+      })
+    } catch {
+      throw new AssistantStreamError("The reply stream could not start.", true)
+    }
+    if (
+      shouldInvalidateUnauthorizedMobileSession({
+        currentToken: getToken(),
+        requestToken,
+        responseStatus: response.status,
+      })
+    ) {
+      notifyMobileSessionUnauthorized()
+      throw new AssistantStreamError("Sign in again.", false, "unauthorized")
+    }
+    if (!response.ok || !response.body)
+      throw new AssistantStreamError(
+        `The reply stream answered ${response.status}.`,
+        response.status !== 403 && response.status !== 400,
+        response.status === 403 ? "forbidden" : "transport"
+      )
+    return await readAssistantStream(textChunks(response.body), onStage)
+  } catch (error) {
+    if (error instanceof AssistantStreamError) throw error
+    throw new AssistantStreamError("The reply stream was interrupted.", true)
+  } finally {
+    clearTimeout(timer)
+  }
+}
 
 const CHANNEL = "native" as const
 const channels = new Set(["web", "native", "whatsapp", "telegram"])
@@ -69,6 +148,8 @@ export function getAssistantApi(profile: MobileProfile): AssistantApi {
     },
     archiveConversation: (id) => assistant.conversations.archive.mutate({ id }),
     send: (input) => assistant.send.mutate({ ...input, channel: CHANNEL }),
+    sendStreamed,
+    resolveLink: (target) => assistant.links.resolve.query({ target }),
     getProposal: (proposalId) => assistant.proposals.get.query({ proposalId }),
     editProposal: (input) =>
       assistant.proposals.edit.mutate({ ...input, channel: CHANNEL }),

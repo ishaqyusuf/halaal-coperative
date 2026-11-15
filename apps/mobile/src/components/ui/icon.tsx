@@ -115,6 +115,7 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   RotateCw: require("lucide-react-native/dist/esm/icons/rotate-cw").default,
   Search: require("lucide-react-native/dist/esm/icons/search").default,
   Send: require("lucide-react-native/dist/esm/icons/send").default,
+  Share: require("lucide-react-native/dist/esm/icons/share").default,
   Settings: require("lucide-react-native/dist/esm/icons/settings").default,
   Share2: require("lucide-react-native/dist/esm/icons/share-2").default,
   Shield: require("lucide-react-native/dist/esm/icons/shield").default,

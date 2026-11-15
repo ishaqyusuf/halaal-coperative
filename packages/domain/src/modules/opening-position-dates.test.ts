@@ -37,10 +37,39 @@ describe("opening position dates", () => {
     expect(issues.map((issue) => issue.field)).toEqual([
       "activeFinancingOpenedAt",
       "openingDate",
+      "procurementOpenedAt",
     ])
     expect(issues[1]?.message).toBe(
       "Opening date (3 Nov 2025) is before this member joined on 1 Aug 2026."
     )
+  })
+
+  test("flags the rerun QA case: financing that started after the opening date", () => {
+    const issues = findOpeningPositionDateIssues({
+      dates: {
+        activeFinancingOpenedAt: "2026-08-03",
+        foodPurchaseOpenedAt: "2012-09-11",
+        openingDate: "2012-09-11",
+      },
+      joinedAt: "2012-09-11",
+    })
+
+    expect(issues).toEqual([
+      {
+        field: "activeFinancingOpenedAt",
+        message:
+          "Financing start date (3 Aug 2026) is after the opening date (11 Sep 2012). Use an opening date on or after it.",
+      },
+    ])
+  })
+
+  test("checks start dates against the opening date when the joined date is unknown", () => {
+    expect(
+      findOpeningPositionDateIssues({
+        dates: { openingDate: "2026-11-15", procurementOpenedAt: "2026-12-01" },
+        joinedAt: null,
+      }).map((issue) => issue.field)
+    ).toEqual(["procurementOpenedAt"])
   })
 
   test("accepts dates on or after the joined date and blank optional dates", () => {

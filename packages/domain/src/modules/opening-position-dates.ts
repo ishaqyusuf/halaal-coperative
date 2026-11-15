@@ -72,7 +72,13 @@ export function getDefaultOpeningPositionDate({
   return latest(toIsoDate(tenantStartDate), toIsoDate(joinedAt)) ?? ""
 }
 
-/** Lists every opening-position date that falls before the member joined. */
+/**
+ * Lists every opening-position date that falls before the member joined, and
+ * every financing, procurement or food start date after the opening date: an
+ * obligation that began after the opening date is not brought forward, and
+ * its remaining instalments would be scheduled from the earlier opening date.
+ * At most one issue per field.
+ */
 export function findOpeningPositionDateIssues({
   dates,
   joinedAt,
@@ -81,11 +87,7 @@ export function findOpeningPositionDateIssues({
   joinedAt: string | null | undefined
 }): OpeningPositionDateIssue[] {
   const joined = toIsoDate(joinedAt)
-
-  if (!joined) {
-    return []
-  }
-
+  const opening = toIsoDate(dates.openingDate)
   const issues: OpeningPositionDateIssue[] = []
 
   for (const field of Object.keys(
@@ -93,10 +95,19 @@ export function findOpeningPositionDateIssues({
   ) as OpeningPositionDateField[]) {
     const value = toIsoDate(dates[field])
 
-    if (value && value < joined) {
+    if (!value) {
+      continue
+    }
+
+    if (joined && value < joined) {
       issues.push({
         field,
         message: `${openingPositionDateLabels[field]} (${formatIsoDate(value)}) is before this member joined on ${formatIsoDate(joined)}.`,
+      })
+    } else if (field !== "openingDate" && opening && value > opening) {
+      issues.push({
+        field,
+        message: `${openingPositionDateLabels[field]} (${formatIsoDate(value)}) is after the opening date (${formatIsoDate(opening)}). Use an opening date on or after it.`,
       })
     }
   }

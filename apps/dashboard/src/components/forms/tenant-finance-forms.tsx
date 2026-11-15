@@ -99,10 +99,13 @@ export function DeleteInlineRowButton({
   disabled,
   label,
   onDelete,
+  wordsOnPhones,
 }: {
   disabled?: boolean
   label: string
   onDelete: () => void
+  /** Show this word beside the bin below `xl`, where a lone icon is unclear. */
+  wordsOnPhones?: string
 }) {
   const [open, setOpen] = useState(false)
 
@@ -112,15 +115,22 @@ export function DeleteInlineRowButton({
         render={
           <Button
             aria-label={`Delete ${label}`}
-            className="size-11"
+            className={
+              wordsOnPhones
+                ? "h-11 gap-2 px-3 text-base xl:size-11 xl:px-0"
+                : "size-11"
+            }
             disabled={disabled}
-            size="icon-sm"
+            size={wordsOnPhones ? "default" : "icon-sm"}
             type="button"
             variant="ghost"
           />
         }
       >
-        <Trash2Icon className="size-5" />
+        <Trash2Icon aria-hidden="true" className="size-5" />
+        {wordsOnPhones ? (
+          <span className="xl:hidden">{wordsOnPhones}</span>
+        ) : null}
       </AlertDialogTrigger>
       <AlertDialogContent size="sm">
         <AlertDialogHeader>
@@ -737,20 +747,14 @@ export function ShareStructureVersionForm({
         return
       }
 
-      showError(
-        "Add an amount",
-        "Add at least one date and amount."
-      )
+      showError("Add an amount", "Add at least one date and amount.")
       return
     }
 
     startTransition(async () => {
       try {
         await persistShareHistoryRows(sortedHistoryRows, values.notes)
-        showSuccess(
-          "Saved",
-          "The share amount is updated."
-        )
+        showSuccess("Saved", "The share amount is updated.")
         form.reset({
           notes: "",
         })
@@ -820,7 +824,9 @@ export function ShareStructureVersionForm({
       >
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <h3 className="shrink-0 text-sm font-medium">Share amount over time</h3>
+            <h3 className="shrink-0 text-sm font-medium">
+              Share amount over time
+            </h3>
             <div className="min-w-10 flex-1 border-t border-border/70" />
             <QuickFill
               args={{
@@ -1955,10 +1961,7 @@ export function ChargeDefinitionForm({
     startTransition(async () => {
       try {
         await saveCharges()
-        showSuccess(
-          "Charges saved",
-          "Each charge and its amounts are saved."
-        )
+        showSuccess("Charges saved", "Each charge and its amounts are saved.")
         setChargeRows(buildChargeDefinitionRows(initialDefinitions))
         onSuccess?.()
         if (redirectTo) {
@@ -3605,9 +3608,10 @@ function ShareBusinessProfitHistoryTableForm({
             </div>
             <div className="grid gap-4">
               {businessRows.map((businessRow) => (
+                // One card per business, so its profits read as its own.
                 <div
                   className={cn(
-                    "grid gap-4 border-t border-border/70 pt-4 transition-colors duration-700",
+                    "grid gap-4 rounded-xl border border-border bg-card p-4 transition-colors duration-700 sm:p-5",
                     flashBusinessRowId === businessRow.id && "bg-muted/70"
                   )}
                   key={businessRow.id}
@@ -3723,8 +3727,10 @@ function ShareBusinessProfitHistoryTableForm({
                       return (
                         <div
                           className={cn(
+                            // Below xl each profit is its own boxed group with a
+                            // worded Remove; at xl it is one table-like row.
                             // Phones: two short fields a row; the reason takes a full row.
-                            "grid grid-flow-row-dense grid-cols-2 gap-3 md:grid-flow-row xl:items-start",
+                            "grid grid-flow-row-dense grid-cols-2 gap-3 rounded-lg border border-border/70 p-3 md:grid-flow-row xl:items-start xl:rounded-none xl:border-0 xl:p-0",
                             isBroughtForwardSetup
                               ? "xl:grid-cols-[9.5rem_9rem_9rem_8.5rem_minmax(0,1fr)_9rem_2.75rem]"
                               : "xl:grid-cols-[9.5rem_9rem_9rem_minmax(0,1fr)_9rem_2.75rem]"
@@ -3858,6 +3864,7 @@ function ShareBusinessProfitHistoryTableForm({
                                   profitRow.id
                                 )
                               }
+                              wordsOnPhones="Remove this profit"
                             />
                           </div>
                         </div>
@@ -4976,4 +4983,3 @@ export function ShareBusinessProfitEntryForm({
     </Form>
   )
 }
-

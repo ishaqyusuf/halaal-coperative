@@ -273,9 +273,9 @@ export function PrivacyProcessingCountList({
         <p role="alert" className="text-destructive">
           Post-revocation access artifacts remain in these selected counts.
           Investigate the challenges, mobile sessions, push registrations,
-          notification preferences and assistant chats or linked channels
-          before relying on access revocation. The
-          counts do not establish whether a session or provider copy is usable.
+          notification preferences and assistant chats or linked channels before
+          relying on access revocation. The counts do not establish whether a
+          session or provider copy is usable.
         </p>
       ) : null}
       {countGroups.map((group) => (

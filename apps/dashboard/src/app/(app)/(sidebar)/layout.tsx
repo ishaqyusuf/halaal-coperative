@@ -94,6 +94,7 @@ export default async function SidebarLayout({
         <TenantUrlProvider config={tenantUrlConfig} context={tenantUrlContext}>
           <DashboardShellClient
             hiddenNavPaths={hiddenNavPaths}
+            isPlatformOwner={Boolean(context.auth.user?.isPlatformOwner)}
             role={role}
             tenantName={tenantName}
             userName={userName}
@@ -129,6 +130,7 @@ export default async function SidebarLayout({
     <TenantUrlProvider config={tenantUrlConfig} context={tenantUrlContext}>
       <DashboardShellClient
         hiddenNavPaths={hiddenNavPaths}
+        isPlatformOwner={Boolean(context.auth.user?.isPlatformOwner)}
         role={role}
         shouldRedirectAdminToSetup={shouldRedirectAdminToSetup}
         showLegalReminder={showLegalReminder}

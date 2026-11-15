@@ -25,4 +25,22 @@ describe("dashboard topbar policy", () => {
     expect(menu).toContain("Sign out")
     expect(menu).toContain("setTheme")
   })
+
+  test("gives platform operators, and only them, a Platform admin link", async () => {
+    const menu = await Bun.file(
+      new URL("../components/dashboard/user-menu.tsx", import.meta.url)
+    ).text()
+    const layout = await Bun.file(
+      new URL("../app/(app)/(sidebar)/layout.tsx", import.meta.url)
+    ).text()
+
+    expect(menu).toMatch(
+      /\{isPlatformOwner \? \([\s\S]*href="\/platform\/privacy-requests"[\s\S]*Platform admin[\s\S]*\) : null\}/
+    )
+    expect(
+      layout.match(
+        /isPlatformOwner=\{Boolean\(context\.auth\.user\?\.isPlatformOwner\)\}/g
+      )
+    ).toHaveLength(2)
+  })
 })

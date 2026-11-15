@@ -83,6 +83,7 @@ async function TenantHomePageContent({
       <TenantUrlProvider config={tenantUrlConfig} context={tenantUrlContext}>
         <DashboardShellClient
           hiddenNavPaths={data.hiddenNavPaths}
+          isPlatformOwner={data.isPlatformOwner}
           role={data.role}
           showLegalReminder={data.showLegalReminder}
           showSetupNav={data.showSetupNav}
@@ -114,6 +115,7 @@ async function TenantHomePageContent({
     <TenantUrlProvider config={tenantUrlConfig} context={tenantUrlContext}>
       <DashboardShellClient
         hiddenNavPaths={data.hiddenNavPaths}
+        isPlatformOwner={data.isPlatformOwner}
         role={data.role}
         showLegalReminder={data.showLegalReminder}
         showSetupNav={data.showSetupNav}

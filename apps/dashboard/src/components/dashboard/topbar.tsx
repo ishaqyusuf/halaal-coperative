@@ -7,6 +7,7 @@ import { DashboardUserMenu } from "./user-menu"
 export function DashboardTopbar({
   assistant,
   currentModuleSubtitle,
+  isPlatformOwner = false,
   onOpenMobileNav,
   roleLabel,
   title,
@@ -15,6 +16,7 @@ export function DashboardTopbar({
   /** The quick assistant launcher, when this role can use the assistant. */
   assistant?: ReactNode
   currentModuleSubtitle?: string | null
+  isPlatformOwner?: boolean
   onOpenMobileNav?: () => void
   roleLabel: string
   title: string
@@ -48,7 +50,11 @@ export function DashboardTopbar({
           </h1>
         </div>
         {assistant}
-        <DashboardUserMenu roleLabel={roleLabel} userName={userName} />
+        <DashboardUserMenu
+          isPlatformOwner={isPlatformOwner}
+          roleLabel={roleLabel}
+          userName={userName}
+        />
       </header>
     </div>
   )

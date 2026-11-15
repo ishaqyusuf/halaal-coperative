@@ -23,6 +23,7 @@ import { DashboardTopbar } from "./dashboard/topbar"
 export function DashboardShellClient({
   children,
   hiddenNavPaths = [],
+  isPlatformOwner = false,
   role,
   shouldRedirectAdminToSetup = false,
   showLegalReminder = false,
@@ -32,6 +33,8 @@ export function DashboardShellClient({
 }: {
   children: React.ReactNode
   hiddenNavPaths?: string[]
+  /** Platform operators get a "Platform admin" link in the account menu. */
+  isPlatformOwner?: boolean
   role: CooperativeRole | null
   /** Setup-gate flag from the layout; locks destinations it would redirect. */
   shouldRedirectAdminToSetup?: boolean
@@ -79,6 +82,7 @@ export function DashboardShellClient({
             ) : null
           }
           currentModuleSubtitle={pageSubtitle}
+          isPlatformOwner={isPlatformOwner}
           onOpenMobileNav={() => setMobileSidebarOpen(true)}
           roleLabel={roleLabel}
           title={pageTitle}

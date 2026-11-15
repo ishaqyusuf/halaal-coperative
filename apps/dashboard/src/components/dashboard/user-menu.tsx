@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@halaalvest/ui/components/dropdown-menu"
 import { cn } from "@halaalvest/ui/lib/utils"
-import { ChevronDown, LogOut, Moon, Sun } from "lucide-react"
+import { ChevronDown, LogOut, Moon, ShieldCheck, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useSyncExternalStore } from "react"
 
@@ -28,11 +28,17 @@ export function getUserInitials(name: string) {
 
 const subscribeToNothing = () => () => {}
 
-/** Account menu in the top bar: who is signed in, theme and sign out. */
+/**
+ * Account menu in the top bar: who is signed in, theme and sign out.
+ * Platform operators also get "Platform admin": the sidebar is per
+ * cooperative, so this is their way to the /platform pages from anywhere.
+ */
 export function DashboardUserMenu({
+  isPlatformOwner = false,
   roleLabel,
   userName,
 }: {
+  isPlatformOwner?: boolean
   roleLabel: string
   userName: string
 }) {
@@ -89,6 +95,15 @@ export function DashboardUserMenu({
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
+        {isPlatformOwner ? (
+          <DropdownMenuItem
+            className="min-h-11 px-3 text-base"
+            render={<Link href="/platform/privacy-requests" />}
+          >
+            <ShieldCheck aria-hidden="true" className="size-5" />
+            Platform admin
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem
           className="min-h-11 px-3 text-base"
           onClick={() => setTheme(isDark ? "light" : "dark")}

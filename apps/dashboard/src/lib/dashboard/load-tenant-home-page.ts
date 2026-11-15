@@ -66,6 +66,7 @@ export async function loadTenantHomePageData() {
     ])
     const shell = {
       hiddenNavPaths,
+      isPlatformOwner: Boolean(context.auth.user?.isPlatformOwner),
       role,
       showLegalReminder,
       showSetupNav,

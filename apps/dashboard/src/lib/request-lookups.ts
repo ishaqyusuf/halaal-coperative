@@ -3,6 +3,7 @@ import {
   findMembershipsForUserAsync,
   findUserByIdAsync,
   getActiveQaAuthorization,
+  getMemberByUserId,
   resolveTenantAsync,
 } from "@halaalvest/db"
 import { cache } from "react"
@@ -27,6 +28,21 @@ export const findRequestMemberships = cache((userId: string | null) =>
   findMembershipsForUserAsync(userId)
 )
 
+/**
+ * The signed-in member's profile, shared by a member page's loader and the
+ * tRPC procedures it prefetches (`getScopedMemberId`).
+ */
+const findRequestMemberByUserIdKey = cache((tenantId: string, userId: string) =>
+  getMemberByUserId({ tenantId, userId })
+)
+
+export function findRequestMemberByUserId(input: {
+  tenantId: string
+  userId: string
+}) {
+  return findRequestMemberByUserIdKey(input.tenantId, input.userId)
+}
+
 // Primitive arguments, so equal inputs share one cache entry.
 const resolveRequestTenantByKey = cache(
   (
@@ -49,6 +65,7 @@ export function resolveRequestTenant(input: {
 }
 
 export const requestContextLookups: RequestContextLookups = {
+  findMemberByUserId: findRequestMemberByUserId,
   findMembershipsForUser: (userId) => findRequestMemberships(userId ?? null),
   findUserById: (userId) => findRequestUser(userId ?? null),
   isQaAuthorizationActive: async (qaAuthorizationId) =>

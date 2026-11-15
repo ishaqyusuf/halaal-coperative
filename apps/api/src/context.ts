@@ -74,6 +74,14 @@ export function getRequestOrigin(headers: Headers) {
  */
 export type RequestContextLookups = {
   findMembershipsForUser: typeof findMembershipsForUserAsync
+  /**
+   * The signed-in member's profile, for member-scoped procedures
+   * (`getScopedMemberId`). Optional: without it they read it themselves.
+   */
+  findMemberByUserId?: (input: {
+    tenantId: string
+    userId: string
+  }) => Promise<{ id: string } | null>
   findUserById: typeof findUserByIdAsync
   isQaAuthorizationActive: typeof isQaAuthorizationActive
   resolveTenant: typeof resolveTenantAsync
@@ -216,6 +224,7 @@ export async function buildRequestContext(
       ? cookieSessionToken
       : null
   return {
+    lookups: { findMemberByUserId: lookups.findMemberByUserId },
     auth: {
       activeMembership: membership,
       session:

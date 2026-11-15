@@ -1,11 +1,11 @@
 import {
   createDbRuntime,
-  getMemberByUserId,
   getSupportCaseSummary,
   listTenantUsersWithRoles,
   type SupportCaseCategory,
 } from "@halaalvest/db"
 import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
+import { findRequestMemberByUserId } from "@/lib/request-lookups"
 import { getDashboardServerContext } from "@/lib/server-context"
 import {
   allStaffRoles,
@@ -78,7 +78,8 @@ export async function loadSupportPageData(
       return { state: "member-sign-in-required" as const }
     }
 
-    const member = await getMemberByUserId({
+    // Request-cached: the tRPC prefetch reuses this lookup.
+    const member = await findRequestMemberByUserId({
       tenantId: context.tenant.id,
       userId: context.auth.user.id,
     })

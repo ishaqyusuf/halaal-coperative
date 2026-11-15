@@ -10,6 +10,13 @@ type MemberScopeContext = {
     activeMembership: { role: string }
     session: { user: { id: string } }
   }
+  /** A request-cached member lookup shared with the caller's page render. */
+  lookups?: {
+    findMemberByUserId?: (input: {
+      tenantId: string
+      userId: string
+    }) => Promise<{ id: string } | null>
+  }
   tenant: { current: { id: string } }
 }
 
@@ -22,7 +29,8 @@ export async function getScopedMemberId(ctx: MemberScopeContext) {
     return undefined
   }
 
-  const member = await getMemberByUserId({
+  const findMember = ctx.lookups?.findMemberByUserId ?? getMemberByUserId
+  const member = await findMember({
     tenantId: ctx.tenant.current.id,
     userId: ctx.auth.session.user.id,
   })

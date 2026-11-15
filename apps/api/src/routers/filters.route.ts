@@ -3,7 +3,6 @@ import {
   getContributionFilterMetadata,
   getMemberFilterMetadata,
   getMembershipApprovalFilterMetadata,
-  getNotificationFilterMetadata,
   getRepaymentFilterMetadata,
   getReportsFilterMetadata,
 } from "@halaalvest/db"
@@ -26,9 +25,6 @@ export const filtersRouter = createTRPCRouter({
   }),
   membershipApprovals: tenantProcedure.query(() => {
     return getMembershipApprovalFilterMetadata()
-  }),
-  notifications: tenantProcedure.query(({ ctx }) => {
-    return getNotificationFilterMetadata(ctx.tenant.current.id)
   }),
   // Lists borrowers and staff: the repayments page's own finance roles only.
   repayments: minRoleProcedure("finance_officer").query(({ ctx }) => {

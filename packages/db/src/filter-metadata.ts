@@ -8,7 +8,6 @@ import {
 import { createDbRuntime } from "./runtime"
 import { listTenantUsersWithRoles } from "./queries/auth"
 import { activityAreaLabels, activityAreas } from "./queries/activity-words"
-import { listAuditLogs } from "./queries/audit"
 import { listMembers } from "./queries/members"
 import { listLoanBorrowerOptions } from "./queries/loan-views"
 
@@ -54,16 +53,6 @@ function enumOption(value: string) {
   }
 }
 
-function getMetadataString(metadata: unknown, key: string) {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
-    return null
-  }
-
-  const value = (metadata as Record<string, unknown>)[key]
-
-  return typeof value === "string" ? value : null
-}
-
 export async function getMemberFilterMetadata(): Promise<PageFilterData[]> {
   return [
     inputFilter("q", "Search"),
@@ -107,33 +96,6 @@ export async function getContributionFilterMetadata(
       "manual",
     ]),
     dateRangeFilter("dateRange", "Contribution date"),
-  ]
-}
-
-export async function getNotificationFilterMetadata(
-  tenantId: string
-): Promise<PageFilterData[]> {
-  const runtime = createDbRuntime()
-  const logs =
-    runtime.status === "database-configured"
-      ? await listAuditLogs(tenantId, {
-          action: "notification.email",
-          limit: 100,
-        })
-      : []
-
-  const types = Array.from(
-    new Set(
-      logs
-        .map((log) => getMetadataString(log.metadata, "notificationType"))
-        .filter((value): value is string => Boolean(value))
-    )
-  ).sort()
-
-  return [
-    inputFilter("search", "Search"),
-    optionFilter("status", "Status", ["queued", "sent", "failed"]),
-    optionFilter("type", "Type", types),
   ]
 }
 

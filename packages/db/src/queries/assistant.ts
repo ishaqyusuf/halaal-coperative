@@ -14,6 +14,20 @@ export type AssistantOwnerScope = {
   membershipId: string
 }
 
+export const DEFAULT_CONVERSATION_TITLE = "New chat"
+
+/** First text part, whitespace collapsed, at most 60 characters. */
+function titleFromParts(parts: unknown[]): string | null {
+  const part = parts.find(
+    (item): item is { type: "text"; text: string } =>
+      typeof item === "object" && item !== null && (item as { type?: unknown }).type === "text" &&
+      typeof (item as { text?: unknown }).text === "string"
+  )
+  const text = part?.text.replace(/\s+/g, " ").trim()
+  if (!text) return null
+  return text.length > 60 ? `${text.slice(0, 59).trimEnd()}…` : text
+}
+
 export type AssistantChannelValue = "web" | "native" | "whatsapp" | "telegram"
 
 function db(prismaOverride?: PrismaClient) {
@@ -246,6 +260,13 @@ export async function beginAssistantTurn(
         ...(input.title ? { title: input.title } : {}),
       },
     })
+    // An untitled chat takes its first question as its title.
+    const firstText = input.title ? null : titleFromParts(input.userParts)
+    if (firstText)
+      await tx.assistantConversation.updateMany({
+        where: { id: input.conversationId, title: DEFAULT_CONVERSATION_TITLE },
+        data: { title: firstText },
+      })
     return { kind: "started", turnId: turn.id, userMessage }
   })
 }

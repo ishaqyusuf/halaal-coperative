@@ -268,4 +268,32 @@ run("assistant persistence boundary", () => {
       })
     ).toBeNull()
   })
+  it("titles an untitled chat from its first question, once", async () => {
+    const conversation = await createAssistantConversation({ ...owner, channel: "web" })
+    const turn = (requestId: string, text: string) =>
+      beginAssistantTurn({
+        ...owner,
+        conversationId: conversation.id,
+        requestId,
+        userParts: [{ type: "text", text }],
+        title: null,
+      })
+    const first = await turn("req-title-0001", "  What   are my total investments?  ")
+    if (first.kind !== "started") throw new Error("expected a new turn")
+    await completeAssistantTurn({
+      turnId: first.turnId,
+      tenantId: owner.tenantId,
+      conversationId: conversation.id,
+      status: "completed",
+      replyParts: [{ type: "text", text: "ok" }],
+      capabilityId: null,
+      provider: "deterministic",
+      model: null,
+      errorCode: null,
+      durationMs: 1,
+    })
+    await turn("req-title-0002", "And my loan?")
+    const read = await readAssistantConversation({ ...owner, conversationId: conversation.id })
+    expect(read?.title).toBe("What are my total investments?")
+  })
 })

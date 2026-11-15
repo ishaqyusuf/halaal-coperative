@@ -131,8 +131,10 @@ export function resolveMemberOperationalReadiness(
 export async function listMigrationFinalizedMemberIds(
   tenantId: string,
   prismaOverride?: PrismaClient,
-  asOf = new Date()
+  asOf = new Date(),
+  options: { memberId?: string } = {}
 ): Promise<string[]> {
+  const memberId = options.memberId ?? null
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
@@ -171,6 +173,7 @@ export async function listMigrationFinalizedMemberIds(
       FROM members m
       CROSS JOIN settings s
       WHERE m.tenant_id = ${tenantId}::uuid
+        AND (${memberId}::uuid IS NULL OR m.id = ${memberId}::uuid)
     ),
     measured AS (
       SELECT scoped.*,
@@ -200,6 +203,34 @@ export async function listMigrationFinalizedMemberIds(
   `
 
   return rows.map((row) => row.id)
+}
+
+/**
+ * Whether one member may use member services: the `isReady` flag of
+ * `getMemberOperationalReadiness` without its issue list. Status and KYC come
+ * from the member row the caller already has; migration completeness is one
+ * SQL statement (`listMigrationFinalizedMemberIds`, same rules), skipped when
+ * status or KYC already says no. The full read takes 6 statements.
+ */
+export async function isMemberOperationallyReady(
+  input: {
+    member: { id: string; kycStatus: KycStatus; status: MemberStatus }
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient,
+  asOf = new Date()
+): Promise<boolean> {
+  if (input.member.status !== "active" || input.member.kycStatus !== "verified")
+    return false
+
+  const finalized = await listMigrationFinalizedMemberIds(
+    input.tenantId,
+    prismaOverride,
+    asOf,
+    { memberId: input.member.id }
+  )
+
+  return finalized.includes(input.member.id)
 }
 
 export async function getMembersOperationalReadiness(

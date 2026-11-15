@@ -1,10 +1,10 @@
 import {
   createDbRuntime,
   getMemberByUserId,
-  getMemberOperationalReadiness,
   getMemberShareSummary,
   getTenantSharePolicy,
   getTenantShareSummary,
+  isMemberOperationallyReady,
   listMemberShareApplicationPage,
 } from "@halaalvest/db"
 import { getDashboardServerContext } from "@/lib/server-context"
@@ -51,11 +51,9 @@ export async function loadSharesPageData() {
 
   const policy = await getTenantSharePolicy(tenantId)
   const isUnitBased = policy.configurationMode === "unit_based"
-  const [summary, readiness, requests] = await Promise.all([
+  const [summary, isReady, requests] = await Promise.all([
     getMemberShareSummary({ memberId: member.id, policy, tenantId }),
-    isUnitBased
-      ? getMemberOperationalReadiness({ memberId: member.id, tenantId })
-      : null,
+    isUnitBased ? isMemberOperationallyReady({ member, tenantId }) : null,
     isUnitBased
       ? listMemberShareApplicationPage({
           memberId: member.id,
@@ -67,7 +65,7 @@ export async function loadSharesPageData() {
 
   return {
     policy,
-    requestBlocked: isUnitBased && !readiness?.isReady,
+    requestBlocked: isUnitBased && !isReady,
     requests: requests?.data ?? [],
     state: "member" as const,
     summary,

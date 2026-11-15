@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import {
   isMemberMigrationFinalized,
+  isMemberOperationallyReady,
   resolveMemberOperationalReadiness,
 } from "./member-readiness"
 
@@ -121,5 +122,64 @@ describe("member operational readiness", () => {
       issues: ["member_inactive", "kyc_unverified"],
       status: "action_required",
     })
+  })
+})
+
+describe("lighter member readiness flag", () => {
+  function sqlStub(finalizedIds: string[]) {
+    const calls: unknown[][] = []
+    return {
+      calls,
+      prisma: {
+        $queryRaw: async (...args: unknown[]) => {
+          calls.push(args)
+          return finalizedIds.map((id) => ({ id }))
+        },
+      },
+    }
+  }
+
+  test("an inactive or unverified member is not ready, with no read", async () => {
+    const { calls, prisma } = sqlStub(["member-1"])
+
+    for (const member of [
+      { id: "member-1", kycStatus: "verified", status: "inactive" },
+      { id: "member-1", kycStatus: "pending", status: "active" },
+    ] as const) {
+      expect(
+        await isMemberOperationallyReady(
+          { member: member as never, tenantId: "tenant-1" },
+          prisma as never
+        )
+      ).toBe(false)
+    }
+    expect(calls).toHaveLength(0)
+  })
+
+  test("an active verified member is ready once migration is finalized, in one statement", async () => {
+    const member = {
+      id: "member-1",
+      kycStatus: "verified",
+      status: "active",
+    } as const
+    const finalized = sqlStub(["member-1"])
+    const unfinished = sqlStub([])
+
+    expect(
+      await isMemberOperationallyReady(
+        { member: member as never, tenantId: "tenant-1" },
+        finalized.prisma as never
+      )
+    ).toBe(true)
+    expect(
+      await isMemberOperationallyReady(
+        { member: member as never, tenantId: "tenant-1" },
+        unfinished.prisma as never
+      )
+    ).toBe(false)
+    expect(finalized.calls).toHaveLength(1)
+    expect(finalized.calls[0]).toEqual(
+      expect.arrayContaining(["tenant-1", "member-1"])
+    )
   })
 })

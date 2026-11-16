@@ -21,7 +21,17 @@ import {
 } from "@/features/notifications/api/notification-center-api"
 import { resolveNotificationDestination } from "@/features/notifications/model/notification-destination-registry"
 import { toNotificationPlatformColor } from "@/features/notifications/platform/notification-platform-color"
+import {
+  planPushRegistration,
+  pushRegistrationScope,
+} from "@/features/notifications/model/push-registration-policy"
+import {
+  readPushRegistrationRecord,
+  writePushRegistrationRecord,
+} from "@/features/notifications/platform/push-registration-store"
 import { useAuthContext } from "@/hooks/use-auth"
+import { getToken } from "@/lib/session-store"
+import { createBackgroundResumeTracker } from "@/runtime/app-resume"
 import { captureMobileError } from "@/lib/sentry"
 import { THEME } from "@/lib/theme"
 
@@ -147,62 +157,102 @@ export function NotificationRuntimeProvider({
     }
   }, [])
 
-  const synchronizeRegistration = useCallback(async () => {
-    if (!auth.profile) {
-      setRegistration("idle")
-      return
-    }
-    const status = await refreshPermission()
-    if (status !== "granted") {
-      setRegistration("idle")
-      if (status !== "unavailable") {
-        await disableNotificationPush(status).catch(() => undefined)
-      }
-      return
-    }
+  const userId = auth.profile?.user.id ?? null
+  const tenantId = auth.profile?.tenant.id ?? null
+  const membershipId = auth.profile?.activeMembershipId ?? null
 
-    setRegistration("registering")
-    try {
-      const expoProjectId = projectId()
-      const providerToken = isMobileDevFixtureSession()
-        ? "ExponentPushToken[halaalvest-dev-fixture]"
-        : expoProjectId
-          ? (
-              await Notifications.getExpoPushTokenAsync({
-                projectId: expoProjectId,
-              })
-            ).data
-          : null
-      if (!providerToken) {
-        setRegistration("failed")
+  const synchronizeRegistration = useCallback(
+    async (options: { force?: boolean } = {}) => {
+      if (!userId || !tenantId || !membershipId) {
+        setRegistration("idle")
         return
       }
-      await registerNotificationPush({
-        permissionStatus: "granted",
-        platform: Platform.OS,
-        projectId: expoProjectId,
-        providerToken,
+      const scope = pushRegistrationScope({
+        membershipId,
+        sessionToken: getToken(),
+        tenantId,
+        userId,
       })
-      setRegistration("registered")
-    } catch (error) {
-      captureMobileError(error, "mobile.notifications.registration")
-      setRegistration("failed")
-    }
-  }, [auth.profile, refreshPermission])
+      const status = await refreshPermission()
+      const record = readPushRegistrationRecord()
+      const plan = planPushRegistration({
+        force: options.force,
+        now: Date.now(),
+        permission: status,
+        record,
+        scope,
+      })
+
+      if (status !== "granted") {
+        setRegistration("idle")
+        if (plan === "disable" && status !== "unavailable") {
+          await disableNotificationPush(status)
+            .then(() =>
+              writePushRegistrationRecord({
+                permission: status,
+                scope,
+                syncedAt: Date.now(),
+              })
+            )
+            .catch(() => undefined)
+        }
+        return
+      }
+      if (plan === "skip") {
+        setRegistration("registered")
+        return
+      }
+
+      setRegistration("registering")
+      try {
+        const expoProjectId = projectId()
+        const providerToken = isMobileDevFixtureSession()
+          ? "ExponentPushToken[halaalvest-dev-fixture]"
+          : expoProjectId
+            ? (
+                await Notifications.getExpoPushTokenAsync({
+                  projectId: expoProjectId,
+                })
+              ).data
+            : null
+        if (!providerToken) {
+          setRegistration("failed")
+          return
+        }
+        await registerNotificationPush({
+          permissionStatus: "granted",
+          platform: Platform.OS,
+          projectId: expoProjectId,
+          providerToken,
+        })
+        writePushRegistrationRecord({
+          permission: "granted",
+          scope,
+          syncedAt: Date.now(),
+        })
+        setRegistration("registered")
+      } catch (error) {
+        captureMobileError(error, "mobile.notifications.registration")
+        setRegistration("failed")
+      }
+    },
+    [membershipId, refreshPermission, tenantId, userId]
+  )
 
   const requestPermission = useCallback(async () => {
     const current = await refreshPermission()
     if (current === "denied" || current === "unavailable") return current
     if (current === "granted") {
-      await synchronizeRegistration()
+      await synchronizeRegistration({ force: true })
       return current
     }
     try {
       const response = await Notifications.requestPermissionsAsync()
       const next = permissionState(response.status)
       setPermission(next)
-      if (next === "granted") await synchronizeRegistration()
-      else await disableNotificationPush(next).catch(() => undefined)
+      // A declined prompt only needs the server told when a granted
+      // registration exists; the planner decides that.
+      await synchronizeRegistration({ force: next === "granted" })
       return next
     } catch (error) {
       captureMobileError(error, "mobile.notifications.permission_request")
@@ -234,10 +284,8 @@ export function NotificationRuntimeProvider({
   )
 
   useEffect(() => {
-    void refreshPermission().then((status) => {
-      if (status === "granted") void synchronizeRegistration()
-    })
-  }, [auth.profile?.activeMembershipId, refreshPermission, synchronizeRegistration])
+    void synchronizeRegistration()
+  }, [synchronizeRegistration])
 
   useEffect(() => {
     const responseSubscription =
@@ -245,16 +293,15 @@ export function NotificationRuntimeProvider({
         void processResponse(response)
       })
     const tokenSubscription = Notifications.addPushTokenListener(() => {
-      void synchronizeRegistration()
+      void synchronizeRegistration({ force: true })
     })
+    const isResume = createBackgroundResumeTracker(AppState.currentState)
     const appStateSubscription = AppState.addEventListener(
       "change",
       (nextState) => {
-        if (nextState === "active") {
-          void refreshPermission().then((status) => {
-            if (status === "granted") void synchronizeRegistration()
-          })
-        }
+        // Permission is read locally; the server is called only when the
+        // planner sees a change or a day-old registration.
+        if (isResume(nextState)) void synchronizeRegistration()
       }
     )
     void Notifications.getLastNotificationResponseAsync().then((response) => {
@@ -268,7 +315,7 @@ export function NotificationRuntimeProvider({
       tokenSubscription.remove()
       appStateSubscription.remove()
     }
-  }, [processResponse, refreshPermission, synchronizeRegistration])
+  }, [processResponse, synchronizeRegistration])
 
   const value = useMemo<NotificationRuntimeContextValue>(
     () => ({
@@ -281,7 +328,7 @@ export function NotificationRuntimeProvider({
       refreshPermission,
       registrationState: registration,
       requestPermission,
-      retryRegistration: synchronizeRegistration,
+      retryRegistration: () => synchronizeRegistration({ force: true }),
     }),
     [
       destinationError,

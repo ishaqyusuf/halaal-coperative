@@ -31,6 +31,7 @@ import { clearPrivateReportFiles } from "@/platform/private-report-file"
 import { persistMobileSessionAtomically } from "@/lib/mobile-session-persistence"
 import { transitionMobileContext } from "@/lib/mobile-context-transition"
 import { isUnauthorizedMobileSessionError } from "@/runtime/mobile-runtime-state"
+import { createBackgroundResumeTracker } from "@/runtime/app-resume"
 import {
   createContext,
   useCallback,
@@ -241,8 +242,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 
   useEffect(() => {
+    // Only a background -> active return; refreshSession itself calls the
+    // server only when the stored session is close to expiry.
+    const isResume = createBackgroundResumeTracker(AppState.currentState)
     const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState === "active") void refreshSession()
+      if (isResume(nextState)) void refreshSession()
     })
     return () => subscription.remove()
   }, [refreshSession])

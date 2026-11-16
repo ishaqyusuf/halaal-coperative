@@ -56,9 +56,19 @@ checkMarkers("src/runtime/mobile-runtime-provider.tsx", [
   "AppState.addEventListener",
   "focusManager.setFocused",
   "onlineManager.setOnline",
-  'refetchQueries({ type: "active" })',
+  'refetchQueries({ stale: true, type: "active" })',
+  "createBackgroundResumeTracker",
   "queryClient.clear()",
 ])
+// M2: resume fan-out stays cheap and deduplicated.
+checkMarkers("src/runtime/mobile-app-access-provider.ts", [
+  "createBackgroundResumeTracker",
+  "shouldRefreshAccessOnResume",
+])
+checkMarkers(
+  "src/features/notifications/platform/notification-runtime-provider.tsx",
+  ["createBackgroundResumeTracker", "planPushRegistration"]
+)
 checkMarkers("src/runtime/mobile-runtime-banner.tsx", [
   "SafeAreaView",
   'edges={["top"]}',

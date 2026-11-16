@@ -25,6 +25,7 @@ import {
   useRef,
 } from "react"
 import { AppState, type AppStateStatus } from "react-native"
+import { createBackgroundResumeTracker } from "@/runtime/app-resume"
 
 type MobileRuntimeContextValue = {
   runOnlineOperation: <T>(
@@ -59,7 +60,8 @@ export function MobileRuntimeProvider({
     const now = Date.now()
     if (now - lastRefreshAtRef.current < 1_000) return
     lastRefreshAtRef.current = now
-    await queryClient.refetchQueries({ type: "active" })
+    // Only active queries past their staleTime; fresh ones stay as they are.
+    await queryClient.refetchQueries({ stale: true, type: "active" })
   }, [queryClient])
 
   useEffect(() => {
@@ -116,6 +118,7 @@ export function MobileRuntimeProvider({
   }, [refreshActiveReads])
 
   useEffect(() => {
+    const isResume = createBackgroundResumeTracker(AppState.currentState)
     const handleAppState = (nextState: AppStateStatus) => {
       const lifecycle =
         nextState === "active"
@@ -127,7 +130,7 @@ export function MobileRuntimeProvider({
       dispatch({ lifecycle, type: "lifecycle" })
       if (
         shouldRefreshMobileReads({
-          becameActive: lifecycle === "active",
+          becameActive: isResume(nextState),
           online: previousOnlineRef.current === true,
           reconnected: false,
         })

@@ -1,4 +1,8 @@
 import { useAuthContext } from "@/hooks/use-auth"
+import {
+  createBackgroundResumeTracker,
+  shouldRefreshAccessOnResume,
+} from "@/runtime/app-resume"
 import { getToken } from "@/lib/session-store"
 import { AppState } from "react-native"
 import {
@@ -52,9 +56,11 @@ export function MobileAppAccessProvider({
   const [now, setNow] = useState(Date.now())
   const request = useRef(0)
   const active = useRef(true)
+  const lastCheckedAt = useRef<number | null>(null)
   const refresh = useCallback(async () => {
     if (!scope || !role) return false
     const id = ++request.current
+    lastCheckedAt.current = Date.now()
     setState((previous) => ({
       scope,
       snapshot: previous.scope === scope ? previous.snapshot : null,
@@ -96,14 +102,35 @@ export function MobileAppAccessProvider({
       request.current++
     }
   }, [refresh, role, scope])
+  const current = state.scope === scope ? state : null
+  const snapshot = current?.snapshot ?? null
+  const resumeInputs = useRef<{
+    accessEndsAt: Date | string | null
+    failed: boolean
+  }>({ accessEndsAt: null, failed: false })
+  resumeInputs.current = {
+    accessEndsAt: snapshot?.accessEndsAt ?? null,
+    failed: current?.error ?? false,
+  }
   useEffect(() => {
+    if (!scope || !role) return
+    // Only a background -> active return, and only when the snapshot is
+    // older than the window, failed, or its access end passed meanwhile.
+    const isResume = createBackgroundResumeTracker(AppState.currentState)
     const subscription = AppState.addEventListener("change", (next) => {
-      if (next === "active" && scope && role) void refresh()
+      if (!isResume(next)) return
+      if (
+        shouldRefreshAccessOnResume({
+          ...resumeInputs.current,
+          lastCheckedAt: lastCheckedAt.current,
+          now: Date.now(),
+        })
+      ) {
+        void refresh()
+      }
     })
     return () => subscription.remove()
   }, [refresh, role, scope])
-  const current = state.scope === scope ? state : null
-  const snapshot = current?.snapshot ?? null
   useEffect(() => {
     const ends = snapshot?.accessEndsAt
     if (!ends) return

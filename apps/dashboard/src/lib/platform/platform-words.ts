@@ -4,13 +4,14 @@ export type PlatformWord = { label: string; tone: MemberStateTone }
 
 /**
  * Where a privacy (delete my account) request stands, in plain words.
- * The steps are: check who asked → end their access → write down what was
- * removed or kept.
+ * The steps are: check who asked → end their access → write down what
+ * outside services did → finish (erase, tell them, mark done).
  */
 export function getPrivacyRequestWord(request: {
   accessRevokedAt?: Date | string | null
   status: string
 }): PlatformWord {
+  if (request.status === "completed") return { label: "Done", tone: "good" }
   if (request.accessRevokedAt || request.status === "processing")
     return { label: "Access ended", tone: "muted" }
 
@@ -37,8 +38,9 @@ export function getPrivacyNextStep(request: {
   accessRevokedAt?: Date | string | null
   status: string
 }) {
+  if (request.status === "completed") return null
   if (request.accessRevokedAt || request.status === "processing")
-    return "Write down what was removed and what must be kept."
+    return "Write down what outside services did, then finish the request."
   if (request.status === "verified") return "End their access."
   if (
     request.status === "submitted" ||

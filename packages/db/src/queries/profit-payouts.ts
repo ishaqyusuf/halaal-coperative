@@ -121,10 +121,13 @@ type RecognisableEntry = {
  * Bring a closed season's business profit into the books: one posting per
  * profit entry, Dr Cash / Bank (2000) / Cr Business Profit (3400) for the
  * amount to share, dated at the profit date (ADR-016's accounting boundary).
- * Only live (`manual`) entries of ordinary businesses: Halaalvest's own
- * "Procurement and foodstuff sales" business (`systemKey` set) already earned
- * its profit in Purchase Profit (3300), and brought-in history was settled
- * outside Halaalvest. Keyed per entry, so calling it again posts nothing.
+ * Only live (`manual`) entries of ordinary businesses, dated on or after
+ * go-live: Halaalvest's own "Procurement and foodstuff sales" business
+ * (`systemKey` set) already earned its profit in Purchase Profit (3300),
+ * brought-in history was settled outside Halaalvest, and profit dated before
+ * go-live is in the opening cash. No other flow puts business cash in 2000
+ * (business capital is not posted; receipts have no business category).
+ * Keyed per entry, so calling it again posts nothing.
  * Runs inside the caller's transaction.
  */
 export async function recognizeSeasonBusinessProfit(
@@ -147,8 +150,28 @@ export async function recognizeSeasonBusinessProfit(
         tenantId: input.tenantId,
       },
     })
-  const toPost = entries.filter(
+  const withProfit = entries.filter(
     (entry) => money(entry.allocatableProfitAmount) > 0
+  )
+  if (withProfit.length === 0) return { created: 0, total: 0 }
+
+  // Profit dated before go-live was already in the bank then: it is in the
+  // opening cash figure (Dr 2000 / Cr 4000, triage 1.9), so posting it again
+  // would count that cash twice. Sharing it still draws on 4000.
+  const tenant: { migrationFinalizedAt: Date | null } | null =
+    await tx.tenant.findUnique({
+      select: { migrationFinalizedAt: true },
+      where: { id: input.tenantId },
+    })
+  const goLiveDay = tenant?.migrationFinalizedAt
+    ? Date.UTC(
+        tenant.migrationFinalizedAt.getUTCFullYear(),
+        tenant.migrationFinalizedAt.getUTCMonth(),
+        tenant.migrationFinalizedAt.getUTCDate()
+      )
+    : null
+  const toPost = withProfit.filter(
+    (entry) => goLiveDay === null || entry.profitDate.getTime() >= goLiveDay
   )
   if (toPost.length === 0) return { created: 0, total: 0 }
 

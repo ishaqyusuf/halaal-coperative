@@ -58,6 +58,11 @@ describe("closeProfitSeason", () => {
           { code: "3400", id: "acct-3400" },
         ],
       },
+      tenant: {
+        findUnique: async () => ({
+          migrationFinalizedAt: new Date("2026-01-15T10:00:00.000Z"),
+        }),
+      },
       ledgerEntry: {
         createMany: async ({ data }: { data: typeof lines }) => {
           lines.push(...data)

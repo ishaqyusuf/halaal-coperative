@@ -42,7 +42,7 @@ function uniqueError() {
 }
 
 function createDb(
-  options: { liveProfit?: boolean; seasonStatus?: string } = {}
+  options: { goLive?: Date; liveProfit?: boolean; seasonStatus?: string } = {}
 ) {
   let state = {
     auditLogs: [] as Row[],
@@ -296,6 +296,8 @@ function createDb(
       findUnique: async () => ({
         initialMigrationStatus: "live_operations",
         migrationEmergencyUnlockUntil: null,
+        migrationFinalizedAt:
+          options.goLive ?? new Date("2026-07-01T09:30:00.000Z"),
       }),
     },
   }
@@ -374,6 +376,23 @@ describe("profit owed on approval", () => {
     expect(db.state.ledgerAccounts.some((row) => row.code === "2300")).toBe(
       true
     )
+  })
+
+  test("does not post profit dated before go-live (it is in the opening cash)", async () => {
+    const db = createDb({ goLive: new Date("2026-08-10T00:00:00.000Z") })
+
+    await recordProfitOwedForSeason(
+      { actorUserId, seasonId, tenantId },
+      db.prisma
+    )
+
+    expect(
+      db.state.ledgerTransactions.some((row) =>
+        row.idempotencyKey.startsWith("business-profit:")
+      )
+    ).toBe(false)
+    // Members are still owed their share, drawn from opening equity (4000).
+    expect(db.balance("2300")).toBe(-1000)
   })
 
   test("records nothing before the season is shared", async () => {

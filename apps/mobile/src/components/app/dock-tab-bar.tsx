@@ -20,7 +20,7 @@ import {
   useMemo,
   useState,
 } from "react"
-import { StyleSheet, View } from "react-native"
+import { Platform, StyleSheet, View } from "react-native"
 import Animated, {
   interpolate,
   useAnimatedStyle,
@@ -47,7 +47,7 @@ export function DockTabBar({
   const { colorScheme } = useColorScheme()
   const reduceMotion = useReducedMotion()
   const scrolledAway = useDockVisibilityStore((store) => store.hidden)
-  const geometry = resolveDockGeometry(insets.bottom)
+  const geometry = resolveDockGeometry(insets.bottom, Platform.OS)
   const shouldHide = formOpen || scrolledAway
   const progress = useSharedValue(shouldHide ? 1 : 0)
   const travel = geometry.bottom + geometry.height + 24
@@ -168,7 +168,7 @@ export function DockScene({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets()
   const colors = useColors()
   const [claims, setClaims] = useState(0)
-  const contentInset = resolveDockGeometry(insets.bottom).contentInset
+  const contentInset = resolveDockGeometry(insets.bottom, Platform.OS).contentInset
   const claimDockInset = useCallback(() => {
     setClaims((count) => count + 1)
     let released = false

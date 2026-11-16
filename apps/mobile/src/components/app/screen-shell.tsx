@@ -19,11 +19,12 @@ import {
   useState,
 } from "react"
 import {
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
+  Platform,
   RefreshControl,
   ScrollView,
   View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from "react-native"
 import Animated, {
   Easing,
@@ -250,8 +251,8 @@ export function useScreenChrome({ hero }: { hero: boolean }) {
     contentBottomInset: inDockScene ? contentInset : insets.bottom + 24,
     /** Lift for a bottom search footer so it floats just above the dock. */
     dockLift: inDockScene
-      ? resolveDockGeometry(insets.bottom).bottom +
-        resolveDockGeometry(insets.bottom).height -
+      ? resolveDockGeometry(insets.bottom, Platform.OS).bottom +
+        resolveDockGeometry(insets.bottom, Platform.OS).height -
         insets.bottom
       : 0,
     inDockScene,

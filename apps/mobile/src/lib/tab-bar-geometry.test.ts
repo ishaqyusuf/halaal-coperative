@@ -33,4 +33,13 @@ describe("floating dock geometry", () => {
     expect(resolveDockGeometry(0).bottom).toBe(12)
     expect(resolveDockGeometry(Number.NaN).bottom).toBe(12)
   })
+
+  it("floats above the whole Android gesture inset", async () => {
+    const { resolveDockGeometry } = await import("./tab-bar-geometry")
+    expect(resolveDockGeometry(24, "android").bottom).toBe(32)
+    expect(resolveDockGeometry(48, "android").bottom).toBe(56)
+    expect(resolveDockGeometry(0, "android").bottom).toBe(16)
+    // iOS is unchanged.
+    expect(resolveDockGeometry(34, "ios").bottom).toBe(24)
+  })
 })

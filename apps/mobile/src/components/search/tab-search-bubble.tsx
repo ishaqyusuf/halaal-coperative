@@ -14,6 +14,7 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { Platform } from "react-native"
 
 type TabSearchBubbleProps = {
   accessibilityLabel: string
@@ -33,7 +34,7 @@ type TabSearchBubbleProps = {
 function bubbleBottom(bottomInset: number, dockHidden: boolean) {
   return dockHidden
     ? Math.max(bottomInset + 16, 24)
-    : resolveDockGeometry(bottomInset).fabBottom
+    : resolveDockGeometry(bottomInset, Platform.OS).fabBottom
 }
 
 /**

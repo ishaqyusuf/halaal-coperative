@@ -15,9 +15,14 @@ export function resolveTabBarGeometry(bottomInset: number) {
  * padding a screen needs so its last row clears the dock; `fabBottom` seats
  * a FAB or the tab search bubble just above it.
  */
-export function resolveDockGeometry(bottomInset: number) {
+export function resolveDockGeometry(bottomInset: number, platform?: string) {
   const inset = Number.isFinite(bottomInset) ? Math.max(0, bottomInset) : 0
-  const bottom = Math.max(inset - 10, 12)
+  // iOS: the home indicator sits low in its 34pt inset, so the dock may dip
+  // 10pt into it. Android (edge-to-edge): the gesture handle sits mid-inset,
+  // so the dock floats above the whole inset (T03: the handle crossed the
+  // dock labels on the emulator).
+  const bottom =
+    platform === "android" ? Math.max(inset + 8, 16) : Math.max(inset - 10, 12)
   const height = 64
   return {
     bottom,

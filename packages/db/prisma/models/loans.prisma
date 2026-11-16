@@ -243,6 +243,8 @@ model Repayment {
   paymentReceiptAllocations MemberPaymentReceiptAllocation[]
 
   @@index([tenantId, loanId, paidAt], map: "repayments_tenant_loan_paid_at_idx")
+  // The home overview reads the latest posted repayments.
+  @@index([tenantId, status, paidAt], map: "repayments_tenant_status_paid_at_idx")
   @@index([loanId], map: "repayments_loan_id_idx")
   @@map("repayments")
 }

@@ -47,7 +47,8 @@ model Contribution {
   collectionSourceBatchRows CollectionSourceContributionBatchRow[]
 
   @@index([tenantId, memberId, postedAt], map: "contributions_tenant_member_posted_at_idx")
-  @@index([tenantId, status], map: "contributions_tenant_status_idx")
+  // Status lookups use the prefix; the home overview reads the latest posted.
+  @@index([tenantId, status, postedAt], map: "contributions_tenant_status_posted_at_idx")
   @@index([contributionPlanId], map: "contributions_contribution_plan_id_idx")
   @@map("contributions")
 }

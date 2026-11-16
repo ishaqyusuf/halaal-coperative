@@ -34,6 +34,7 @@ import {
   type ProcurementRequestRow,
 } from "./procurement"
 import { financingBlockingLoanStatuses } from "./loan-statuses"
+import { isLateScheduleItem, startOfUtcDay } from "./repayments"
 import {
   createProjectFinancingRequest,
   findProjectFinancingRequest,
@@ -64,6 +65,27 @@ type MobileCooperativeServiceState =
   | "available"
   | "database_unavailable"
   | "member_profile_missing"
+
+/**
+ * Late is read, not stored (ADR-20261114, Phase 1.4): an installment is late
+ * when it is unpaid and its due date is before today, whatever status was
+ * saved on it.
+ */
+export function countLateProcurementScheduleItems(
+  requests: ReadonlyArray<{
+    scheduleItems: ReadonlyArray<{ dueDate: Date | string; status: string }>
+  }>,
+  asOf = startOfUtcDay()
+) {
+  return requests.reduce(
+    (total, request) =>
+      total +
+      request.scheduleItems.filter((entry) =>
+        isLateScheduleItem({ dueAt: entry.dueDate, status: entry.status }, asOf)
+      ).length,
+    0
+  )
+}
 
 function toMobileProcurementRequest(row: ProcurementRequestRow) {
   return {
@@ -238,13 +260,7 @@ async function getMobileMemberProcurement(input: {
         (total, item) => total + item.outstandingAmount,
         0
       ),
-      overdueScheduleItems: rows.reduce(
-        (total, item) =>
-          total +
-          item.scheduleItems.filter((entry) => entry.status === "overdue")
-            .length,
-        0
-      ),
+      overdueScheduleItems: countLateProcurementScheduleItems(rows),
       pendingRequests: rows.filter((item) =>
         ["submitted", "under_review"].includes(item.status)
       ).length,

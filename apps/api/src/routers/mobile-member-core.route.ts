@@ -84,6 +84,7 @@ export const mobileMemberCoreProcedures = {
 
     return getMobileMemberCoreHome({
       tenantId: ctx.tenant.current.id,
+      userEmail: ctx.auth.session.user.email,
       userId: ctx.auth.session.user.id,
     })
   }),

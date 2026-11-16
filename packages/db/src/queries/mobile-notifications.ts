@@ -243,6 +243,30 @@ async function readNotificationSummaryCounts(
   }
 }
 
+/**
+ * The bell badge on mobile home: the notification center's unread total
+ * (same recipient rule and read markers), in one statement.
+ */
+export async function getMobileNotificationUnreadCount(
+  input: {
+    role: MembershipRole
+    tenantId: string
+    userEmail: string
+    userId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<number> {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) return 0
+  const counts = await readNotificationSummaryCounts(prisma, {
+    emails: recipientEmailVariants(input.userEmail),
+    role: input.role,
+    tenantId: input.tenantId,
+    userId: input.userId,
+  })
+  return counts?.unread ?? 0
+}
+
 export async function getMobileNotificationCenter(
   input: NotificationCenterInput & {
     /** The last delivery id of the previous page. */

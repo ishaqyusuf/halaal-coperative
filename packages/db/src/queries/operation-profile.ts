@@ -161,6 +161,26 @@ function buildDefaultServices(): Record<
   )
 }
 
+/**
+ * Service capabilities from stored access modes, defaults for missing rows.
+ * Read-only: unlike getTenantOperationProfile it never writes the defaults,
+ * so hot member reads (mobile home) can take the modes from a joined query.
+ */
+export function resolveTenantServiceCapabilities(
+  modes: Partial<Record<string, unknown>>
+): Record<TenantServiceKey, TenantServiceCapability> {
+  const services = buildDefaultServices()
+  for (const [serviceKey, accessMode] of Object.entries(modes)) {
+    if (
+      isTenantServiceKey(serviceKey) &&
+      isTenantServiceAccessMode(accessMode)
+    ) {
+      services[serviceKey] = buildServiceCapability(serviceKey, accessMode)
+    }
+  }
+  return services
+}
+
 function buildOperationProfileReadModel(input: {
   policy: Record<string, unknown> | null | undefined
   profile: {

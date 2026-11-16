@@ -79,6 +79,42 @@ describe("mobile member core home", () => {
     )
   })
 
+  test("never pairs a savings balance with 'no entries' and reports the unread badge", () => {
+    const base = {
+      foodPurchaseRecords: 0,
+      member: {
+        fullName: "Amina Member",
+        id: "member-1",
+        kycStatus: "verified",
+        memberNumber: "MEM-001",
+        status: "active",
+      },
+      operationProfile: null,
+      procurementRecords: 0,
+      receiptRecords: 0,
+      shareCapital: 0,
+      supportRecords: 0,
+    }
+    const opening = buildMobileMemberCoreHome({
+      ...base,
+      summary: { ...summary, activeLoanCount: 1, contributionsCount: 0 },
+      unreadNotifications: 3,
+    })
+    expect(metric(opening, "savings")?.detail).toBe("Savings balance on record")
+    expect(metric(opening, "financing")?.detail).toBe("1 active financing record")
+    expect(opening.notifications.unread).toBe(3)
+
+    const empty = buildMobileMemberCoreHome({
+      ...base,
+      summary: { ...summary, contributionsCount: 0, totalSavingsSnapshot: 0 },
+    })
+    expect(metric(empty, "savings")?.detail).toBe("No contributions posted yet")
+    expect(empty.notifications.unread).toBe(0)
+    expect(metric(buildMobileMemberCoreHome({ ...base, summary }), "savings")?.detail).toBe(
+      "8 contributions posted"
+    )
+  })
+
   test("preserves existing records in navigation when a service is hidden", () => {
     const home = buildMobileMemberCoreHome({
       foodPurchaseRecords: 1,

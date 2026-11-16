@@ -152,14 +152,29 @@ export const mobileAuthRouter = createTRPCRouter({
       tenantId: tenant.id,
     })
 
-    const memberships = await findMembershipsForUserAsync(session.user.id)
-    const member = await getLinkedMobileMember({
-      runtimeStatus: ctx.runtime.status,
-      tenantId: tenant.id,
-      userId: session.user.id,
-    })
+    // One read wave: memberships, the linked member and the app-access
+    // snapshot are independent. Returning the snapshot saves the app's cold
+    // start a second authenticated request (cooperativeMobileAccess.snapshot)
+    // before it can open the workspace (T03).
+    const [memberships, member, accessSnapshot] = await Promise.all([
+      findMembershipsForUserAsync(session.user.id),
+      getLinkedMobileMember({
+        runtimeStatus: ctx.runtime.status,
+        tenantId: tenant.id,
+        userId: session.user.id,
+      }),
+      ctx.request.mobileAuthenticated
+        ? readSignInAccessSnapshot({
+            membershipId: membership.id,
+            runtimeStatus: ctx.runtime.status,
+            tenantId: tenant.id,
+            userId: session.user.id,
+          })
+        : Promise.resolve(undefined),
+    ])
 
     return {
+      accessSnapshot,
       profile: buildMobileProfile({
         membership,
         memberships: memberships.length > 0 ? memberships : [membership],

@@ -27,7 +27,10 @@ export type MobileRecoveryCompleteInput = {
   password: string
 }
 
-/** Sign-in and recovery return the new session's app-access snapshot too. */
+/**
+ * Sign-in, recovery and the cold-start profile read (`auth.mobile.me`) return
+ * the session's app-access snapshot too.
+ */
 export type MobileSignInResponse = {
   accessSnapshot?: MobileAppAccessSnapshot
   profile: MobileProfile
@@ -48,7 +51,7 @@ export async function signInWithMobileAuth(input: MobileSignInCredentials) {
 export async function getCurrentMobileProfile() {
   const client = createMobileTrpcClient()
 
-  return client.auth.mobile.me.query() as Promise<MobileSessionResponse>
+  return client.auth.mobile.me.query() as Promise<MobileSignInResponse>
 }
 
 export async function switchMobileRole(input: MobileSwitchRoleInput) {

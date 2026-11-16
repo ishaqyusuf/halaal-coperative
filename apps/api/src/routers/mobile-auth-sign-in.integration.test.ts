@@ -134,6 +134,41 @@ runIntegration("mobile sign-in", () => {
     expect(session?.membershipId).toBe(memberMembershipId)
   })
 
+  test("the cold-start profile read returns the app-access snapshot too", async () => {
+    signal += 1
+    const device = `sign-in-test-${tag}-${signal}`
+    const base = {
+      host: "api.halaalvest.localhost",
+      "x-forwarded-for": `10.77.${signal}.1`,
+      "x-mobile-device-id": device,
+      "x-mobile-platform": "ios",
+    }
+    const signedIn = await createCaller(
+      await buildRequestContext(new Headers(base))
+    ).auth.mobile.signIn({
+      cooperativeAccessCode: `${prefix}-0001`,
+      password,
+    })
+    const me = await createCaller(
+      await buildRequestContext(
+        new Headers({
+          ...base,
+          authorization: `Bearer ${signedIn.profile.token}`,
+          "x-trpc-source": "mobile",
+        })
+      )
+    ).auth.mobile.me()
+
+    expect(me.profile.user.id).toBe(memberUserId)
+    expect(me.accessSnapshot).toMatchObject({
+      accessAllowed: true,
+      membershipId: memberMembershipId,
+      status: "active",
+      tenantId,
+      userBinding: memberUserId,
+    })
+  })
+
   test("wrong passwords and unknown numbers fail identically", async () => {
     const wrongPassword = await (await caller()).auth.mobile
       .signIn({

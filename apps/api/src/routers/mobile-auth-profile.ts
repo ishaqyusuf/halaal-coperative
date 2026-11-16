@@ -219,11 +219,11 @@ export async function issueMobileProfile(input: {
 }
 
 /**
- * The mobile app-access snapshot for a session that sign-in is about to
- * issue, returned with the profile so the app does not need a second
- * authenticated round trip before it can open the workspace. It is the same
- * read `cooperativeMobileAccess.snapshot` serves. A failure here never fails
- * sign-in: the app falls back to reading the snapshot itself.
+ * The mobile app-access snapshot returned with a profile (sign-in, recovery
+ * and the cold-start `auth.mobile.me` read), so the app does not need a
+ * second authenticated round trip before it can open the workspace. It is the
+ * same read `cooperativeMobileAccess.snapshot` serves. A failure here never
+ * fails the profile: the app falls back to reading the snapshot itself.
  */
 export async function readSignInAccessSnapshot(input: {
   membershipId: string

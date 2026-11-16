@@ -176,9 +176,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hydrateSession = useCallback(async () => {
     setInitializing(true)
     setHydrationError(null)
-    await clearPrivateReportFiles()
+    // Report-file cleanup is local and independent of the profile read, so it
+    // runs alongside it instead of delaying the cold-start request (T03).
+    const cleanup = clearPrivateReportFiles()
     const token = getToken()
     const cachedProfile = getSessionProfile()
+
+    if (!token || (canUseDevelopmentMockSession && isMockSessionToken(token))) {
+      await cleanup
+    }
 
     if (!token) {
       if (cachedProfile) await clearSession()
@@ -203,7 +209,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const response = await getCurrentMobileProfile()
+      const [response] = await Promise.all([getCurrentMobileProfile(), cleanup])
       const nextProfile = shouldRefreshMobileDeviceSession(
         response.profile.sessionExpiresAt,
         Date.now(),
@@ -218,6 +224,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         persistToken: setToken,
         profile: nextProfile,
       })
+      // Cold start: the profile read carries the app-access snapshot, so the
+      // access gate opens the workspace without a second request. A refreshed
+      // session has a new token, so the gate reads the snapshot itself.
+      if (nextProfile.token === response.profile.token) {
+        primeMobileAppAccessSnapshot(nextProfile.token, response.accessSnapshot)
+      }
       setProfile(nextProfile)
     } catch (error) {
       if (isUnauthorizedMobileSessionError(error)) {

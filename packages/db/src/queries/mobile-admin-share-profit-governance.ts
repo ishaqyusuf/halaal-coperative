@@ -106,7 +106,7 @@ function serializeProfitEntry(
 
   let blocker: string | null = null
   if (entry.status === "reviewed" && allocations.count === 0) {
-    blocker = "Build member allocations on the web workspace before approval."
+    blocker = "Work out shares on the web dashboard before approval."
   } else if (entry.status === "reviewed" && !allocationsReconcile) {
     blocker = "Allocation totals do not reconcile with distributable profit."
   } else if (
@@ -582,7 +582,7 @@ export function approveMobileAdminProfitEntry(input: {
         }
         if (entry.allocations.length === 0) {
           throw ExpectedQueryError.precondition(
-            "Build member allocations on the web workspace before approval."
+            "Work out shares on the web dashboard before approval."
           )
         }
         const allocatedAmount = entry.allocations.reduce(

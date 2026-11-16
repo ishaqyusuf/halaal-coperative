@@ -9,6 +9,7 @@ import { Text } from "@/components/ui/text"
 import { canUseMobileFeatureData } from "@/dev/mobile-dev-session"
 import { HomeAskBar } from "@/features/assistant/public/home-ask-bar"
 import { useAuthContext } from "@/hooks/use-auth"
+import { useColors } from "@/hooks/use-color"
 import { useEffect, useState } from "react"
 import { ScrollView, View } from "react-native"
 import { getAdminLifecycleOverview } from "../api/admin-member-lifecycle-api"
@@ -40,6 +41,7 @@ export function AdminOverviewScreen({
   qaState?: MobileAdminLifecycleQaState | null
 }) {
   const { profile } = useAuthContext()
+  const colors = useColors()
   const [overview, setOverview] = useState<MobileAdminOverview | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -99,7 +101,10 @@ export function AdminOverviewScreen({
     : null
 
   return (
-    <SafeArea className="bg-brand-surface">
+    // The status bar is transparent (T03): the brand surface must be painted
+    // by the view under it. SafeArea always passes `style`, which drops a
+    // className background, so the colour goes in `style`.
+    <SafeArea style={{ backgroundColor: colors.brandSurface }}>
       <ScreenStatusBar tone="brand" />
       <ScrollView
         className="bg-background"

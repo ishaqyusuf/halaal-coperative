@@ -7,6 +7,9 @@ import { useLargeTextLayout } from "@/hooks/use-large-text-layout"
 import { cn } from "@/lib/utils"
 import { useWindowDimensions, View } from "react-native"
 
+export const SIGN_OUT_CONFIRM_DESCRIPTION =
+  "You’ll need to sign in again on this phone. Drafts you haven’t sent are removed from this phone."
+
 type ConfirmationSheetProps = {
   cancelLabel?: string
   confirmLabel: string
@@ -79,7 +82,12 @@ export function ConfirmationSheet({
   return (
     <FloatingBottomSheet
       accessibilityLabel={title}
-      dismissible={!isConfirming}
+      // A consequential confirm never closes on a backdrop tap or swipe
+      // (ADR-20261105-mobile-overlay-presentation); Back acts as Cancel.
+      dismissible={false}
+      onBackPress={() => {
+        if (!isConfirming) onClose()
+      }}
       onClose={onClose}
       presentation="compact"
       scrollable="auto"

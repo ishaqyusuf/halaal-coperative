@@ -16,6 +16,7 @@ export function CompactFormSheet({
   footer,
   isSubmitting = false,
   onClose,
+  onConfirmBack,
   onDismissed,
   overlay,
   overlayActive = false,
@@ -27,6 +28,12 @@ export function CompactFormSheet({
   footer?: ReactNode
   isSubmitting?: boolean
   onClose: () => void
+  /**
+   * Set while the sheet shows a consequential confirm step: the sheet stops
+   * closing on a backdrop tap or swipe, and Back runs this (usually "Review
+   * again") instead of closing.
+   */
+  onConfirmBack?: () => void
   onDismissed?: () => void
   overlay?: ReactNode
   overlayActive?: boolean
@@ -67,13 +74,24 @@ export function CompactFormSheet({
           keepEditing()
           return true
         }
+        if (onConfirmBack) {
+          if (!isSubmitting) onConfirmBack()
+          return true
+        }
         requestClose()
         return true
       }
     )
 
     return () => subscription.remove()
-  }, [isDiscardConfirmationVisible, overlayActive, requestClose, visible])
+  }, [
+    isDiscardConfirmationVisible,
+    isSubmitting,
+    onConfirmBack,
+    overlayActive,
+    requestClose,
+    visible,
+  ])
 
   return (
     <FloatingBottomSheet
@@ -82,6 +100,7 @@ export function CompactFormSheet({
       }
       dismissible={
         !isDiscardConfirmationVisible &&
+        !onConfirmBack &&
         !dirty &&
         !isSubmitting &&
         !overlayActive

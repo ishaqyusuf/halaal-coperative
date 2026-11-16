@@ -1,3 +1,7 @@
+import {
+  ConfirmationSheet,
+  SIGN_OUT_CONFIRM_DESCRIPTION,
+} from "@/components/app/confirmation-sheet"
 import { LegalLinks } from "@/components/app/legal-links"
 import { ScreenHeader } from "@/components/app/screen-header"
 import { SafeArea } from "@/components/safe-area"
@@ -7,12 +11,14 @@ import { QaAccessPanel } from "@/features/auth/public/qa-access"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useMobileAppAccess } from "@/runtime/mobile-app-access-provider"
 import { Redirect, useRouter } from "expo-router"
+import { useState } from "react"
 import { ScrollView, View } from "react-native"
 
 export function MobileAppAccessRouteController() {
   const { profile, role, signOut } = useAuthContext()
   const router = useRouter()
   const access = useMobileAppAccess()
+  const [isSignOutConfirmVisible, setIsSignOutConfirmVisible] = useState(false)
 
   if (!profile || !role) return <Redirect href="/(auth)/sign-in" />
   if (access.accessAllowed) return <Redirect href="/" />
@@ -50,13 +56,27 @@ export function MobileAppAccessRouteController() {
           >
             <Text>Cooperatives & shortcuts</Text>
           </Button>
-          <Button onPress={() => void signOut()} variant="ghost">
+          <Button
+            onPress={() => setIsSignOutConfirmVisible(true)}
+            variant="ghost"
+          >
             <Text>Sign out</Text>
           </Button>
         </View>
         <QaAccessPanel inline />
         <LegalLinks />
       </ScrollView>
+      <ConfirmationSheet
+        confirmLabel="Sign out"
+        description={SIGN_OUT_CONFIRM_DESCRIPTION}
+        onClose={() => setIsSignOutConfirmVisible(false)}
+        onConfirm={() => {
+          setIsSignOutConfirmVisible(false)
+          void signOut()
+        }}
+        title="Sign out?"
+        visible={isSignOutConfirmVisible}
+      />
     </SafeArea>
   )
 }

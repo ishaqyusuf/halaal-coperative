@@ -50,7 +50,12 @@ export function SubmissionReviewSheet({
   return (
     <FloatingBottomSheet
       accessibilityLabel={title}
-      dismissible={!isSubmitting}
+      // A consequential confirm never closes on a backdrop tap or swipe
+      // (ADR-20261105-mobile-overlay-presentation); Back acts as Cancel.
+      dismissible={false}
+      onBackPress={() => {
+        if (!isSubmitting) onClose()
+      }}
       maxDynamicContentSize={
         largeTextLayout
           ? Math.max(420, height * 0.74)

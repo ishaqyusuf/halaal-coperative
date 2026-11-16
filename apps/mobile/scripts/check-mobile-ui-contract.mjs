@@ -225,6 +225,14 @@ function checkPopupPrimitives() {
     'pressBehavior={dismissible ? "close" : "none"}',
   ])
   checkSourceMarkers("src/components/ui/modal.tsx", ["AppBottomSheetBackdrop"])
+  // M3: consequential confirms never close on a backdrop tap or swipe, and
+  // Android Back acts as Cancel.
+  for (const confirm of [
+    "src/components/app/confirmation-sheet.tsx",
+    "src/components/app/submission-review-sheet.tsx",
+  ]) {
+    checkSourceMarkers(confirm, ["dismissible={false}", "onBackPress={"])
+  }
   checkForbiddenSourceMarkers("src/components/floating-bottom-sheet.tsx", [
     "scrollToEnd(",
   ])

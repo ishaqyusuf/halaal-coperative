@@ -1733,6 +1733,7 @@ export function AdminChargeOperationsScreen({
           setCorrectionMode(null)
           if (detail) setDetailVisible(true)
         }}
+        onConfirmBack={correctionReview ? () => setReview(null) : undefined}
         onDismissed={() => {
           if (
             queuedSuccessHostRef.current !== "correction" ||

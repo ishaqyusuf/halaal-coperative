@@ -1,6 +1,10 @@
 import { QaAccessPanel } from "@/features/auth/public/qa-access"
 import { LegalLinks } from "@/components/app/legal-links"
 import { CachedReadBanner } from "@/components/app/cached-read-banner"
+import {
+  ConfirmationSheet,
+  SIGN_OUT_CONFIRM_DESCRIPTION,
+} from "@/components/app/confirmation-sheet"
 import { DevQuickFill } from "@/components/app/dev-quick-fill"
 import { EmptyState } from "@/components/app/empty-state"
 import { FormStateBanner } from "@/components/app/form-state-banner"
@@ -183,6 +187,7 @@ export function MoreScreen({
   const router = useRouter()
   const scrollRef = useRef<MoreContentListHandle>(null)
   const [accessSectionY, setAccessSectionY] = useState(0)
+  const [isSignOutConfirmVisible, setIsSignOutConfirmVisible] = useState(false)
   const [inviteFullName, setInviteFullName] = useState("")
   const [inviteEmail, setInviteEmail] = useState("")
   const [inviteRole, setInviteRole] =
@@ -341,12 +346,23 @@ export function MoreScreen({
             <Button
               className="h-12 border-t border-border"
               disabled={isSigningOut}
-              onPress={onSignOut}
+              onPress={() => setIsSignOutConfirmVisible(true)}
               variant="ghost"
             >
               <Icon name="LogOut" className="size-base text-foreground" />
               <Text>{isSigningOut ? "Signing out" : "Sign out"}</Text>
             </Button>
+            <ConfirmationSheet
+              confirmLabel="Sign out"
+              description={SIGN_OUT_CONFIRM_DESCRIPTION}
+              onClose={() => setIsSignOutConfirmVisible(false)}
+              onConfirm={() => {
+                setIsSignOutConfirmVisible(false)
+                onSignOut()
+              }}
+              title="Sign out?"
+              visible={isSignOutConfirmVisible}
+            />
           </>
         }
         onOpenDeviceAccess={handleOpenManagedDeviceAccess}

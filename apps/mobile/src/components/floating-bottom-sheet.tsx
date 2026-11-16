@@ -102,6 +102,12 @@ export type FloatingBottomSheetProps = {
   overlayActive?: boolean
   accessibilityLabel?: string
   dismissible?: boolean
+  /**
+   * Android Back for a non-dismissible sheet (a consequential confirm): it
+   * runs this instead of closing, typically Cancel. Without it Back closes
+   * only a dismissible sheet.
+   */
+  onBackPress?: () => void
   footer?: ReactNode
   header?: ReactNode
   keyboardExpandable?: boolean
@@ -126,6 +132,7 @@ export function FloatingBottomSheet({
   overlayActive = false,
   accessibilityLabel,
   dismissible = true,
+  onBackPress,
   footer,
   header,
   keyboardExpandable = false,
@@ -351,13 +358,14 @@ export function FloatingBottomSheet({
     const subscription = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
-        if (dismissible) onClose()
+        if (onBackPress) onBackPress()
+        else if (dismissible) onClose()
         return true
       }
     )
 
     return () => subscription.remove()
-  }, [dismissible, onClose, overlayActive, visible])
+  }, [dismissible, onBackPress, onClose, overlayActive, visible])
 
   const handleContentHeight = useCallback((contentHeight: number) => {
     const roundedHeight = Math.ceil(contentHeight)

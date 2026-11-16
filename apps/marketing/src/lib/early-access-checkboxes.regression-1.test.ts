@@ -13,10 +13,10 @@ describe("early access setup options", () => {
       source.indexOf('name="message"')
     )
 
-    expect(setupOptions).toContain('id={`setup-need-${option.value}`}')
+    expect(setupOptions).toContain("id={`setup-need-${option.value}`}")
     expect(setupOptions).not.toContain("<FormControl>")
     expect(setupOptions).toContain(
-      'aria-label={`${option.label}. ${option.description}`}'
+      "aria-label={`${option.label}. ${option.description}`}"
     )
   })
 })

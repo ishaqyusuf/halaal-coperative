@@ -376,7 +376,12 @@ export function onePathStages(page, plan, artifacts, state) {
           .getByRole("textbox", { name: "Charge" })
           .first()
           .fill("Monthly levy")
-        await page.getByRole("textbox", { name: "Amount" }).first().fill("500")
+        // "Amount" alone also matches the share amount field above.
+        await page
+          .getByPlaceholder("Amount", { exact: true })
+          .filter({ visible: true })
+          .first()
+          .fill("500")
         const from = page.getByRole("button", { name: /^From\b/ })
         if (
           await from

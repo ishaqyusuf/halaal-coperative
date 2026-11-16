@@ -8,6 +8,7 @@ import { Button, buttonVariants } from "@halaalvest/ui/components/button"
 import { formatCurrency } from "@halaalvest/utils"
 import { ContributionsHeader } from "@/components/contributions-header"
 import { ContributionsMobileToolbar } from "@/components/contributions-mobile-toolbar"
+import { MemberCombobox } from "@/components/member-combobox"
 import {
   OpenContributionBatchPostSheet,
   OpenContributionBatchRowCollectedSheet,
@@ -50,9 +51,14 @@ const blockerNotes: Record<string, string> = {
 }
 
 // Why a row was held, skipped or blocked, in plain words.
-function rowNote(row: { blocker: string | null; exceptionReason: string | null }) {
+function rowNote(row: {
+  blocker: string | null
+  exceptionReason: string | null
+}) {
   if (row.exceptionReason) return row.exceptionReason
-  return row.blocker ? (blockerNotes[row.blocker] ?? sentence(row.blocker)) : null
+  return row.blocker
+    ? (blockerNotes[row.blocker] ?? sentence(row.blocker))
+    : null
 }
 
 function sentence(value: string) {
@@ -205,6 +211,7 @@ export function ContributionsPageView({
               activeCommitmentPlans={activeCommitmentPlans}
               canRecordContributions={canRecordContributions}
               members={members.items}
+              paymentOrderTotal={members.total}
             />
           ) : null}
 
@@ -244,11 +251,15 @@ function CommitmentsView({
   activeCommitmentPlans,
   canRecordContributions,
   members,
+  paymentOrderTotal,
 }: {
   activeCommitmentPlans: ContributionsPageData["commitmentPlans"]
   canRecordContributions: boolean
   members: ContributionsPageData["members"]["items"]
+  paymentOrderTotal: number
 }) {
+  const { setParams } = useContributionParams()
+
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 md:px-5">
@@ -308,36 +319,72 @@ function CommitmentsView({
         aria-labelledby="payment-presets-heading"
         className="px-4 md:px-5"
       >
-        <div className="border-b border-border py-6">
-          <h3
-            className="text-sm font-medium text-foreground"
-            id="payment-presets-heading"
-          >
-            Payment order
-          </h3>
-          <p className="text-muted-foreground">
-            What an extra payment goes to first.
-          </p>
-        </div>
-        <div>
-          {members.map((member) => (
-            <div
-              className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-4"
-              key={member.id}
+        <div className="grid gap-3 border-b border-border py-6">
+          <div>
+            <h3
+              className="text-sm font-medium text-foreground"
+              id="payment-presets-heading"
             >
-              <div>
-                <p className="font-medium text-foreground">{member.fullName}</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {member.memberNumber} ·{" "}
-                  {sentence(member.paymentAllocationPreference)}
-                </p>
-              </div>
-              {canRecordContributions ? (
-                <OpenMemberPaymentPreferenceSheet memberId={member.id} />
-              ) : null}
+              Payment order
+            </h3>
+            <p className="text-muted-foreground">
+              What an extra payment goes to first. Members not listed use Manual
+              split.
+            </p>
+          </div>
+          {canRecordContributions ? (
+            // Any member, not just those listed: search, then the dialog.
+            <div className="w-full sm:max-w-sm">
+              <MemberCombobox
+                onValueChange={(memberId) => {
+                  if (!memberId) return
+                  void setParams({
+                    contributionSheetType: "preference",
+                    selectedCollectionBatchId: null,
+                    selectedCollectionRowId: null,
+                    selectedContributionMemberId: memberId,
+                    selectedContributionPlanId: null,
+                  })
+                }}
+                placeholder="Find a member to change"
+                value=""
+              />
             </div>
-          ))}
+          ) : null}
         </div>
+        {members.length ? (
+          <div>
+            {members.map((member) => (
+              <div
+                className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-4"
+                key={member.id}
+              >
+                <div>
+                  <p className="font-medium text-foreground">
+                    {member.fullName}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {member.memberNumber} ·{" "}
+                    {sentence(member.paymentAllocationPreference)}
+                  </p>
+                </div>
+                {canRecordContributions ? (
+                  <OpenMemberPaymentPreferenceSheet memberId={member.id} />
+                ) : null}
+              </div>
+            ))}
+            {paymentOrderTotal > members.length ? (
+              <p className="py-4 text-sm text-muted-foreground">
+                Showing {members.length} of {paymentOrderTotal}. Search to find
+                the others.
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="border-b border-border py-8 text-sm text-muted-foreground">
+            Every member uses Manual split.
+          </p>
+        )}
       </section>
     </div>
   )
@@ -392,9 +439,7 @@ function CollectionsView({
               </Link>
             ))
           ) : (
-            <p className="text-sm text-muted-foreground">
-              No batches yet.
-            </p>
+            <p className="text-sm text-muted-foreground">No batches yet.</p>
           )}
         </div>
 

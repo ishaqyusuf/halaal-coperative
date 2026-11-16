@@ -14,6 +14,7 @@ import {
   updateMemberDocumentReview,
   updateMemberKyc,
   updateMemberStatus,
+  listMembersWithPaymentOrder,
   listRecentMemberOptions,
   searchMemberOptions,
   tenantHasMembers,
@@ -1808,5 +1809,43 @@ describe("member picker options", () => {
       args: { select: { id: true }, where: { tenantId: "tenant-1" } },
       method: "findFirst",
     })
+  })
+
+  test("lists only members with a set payment order, bounded, with a total", async () => {
+    const { calls, prisma } = createOptionsPrisma()
+    const counted: any[] = []
+    const withCount = {
+      member: {
+        ...prisma.member,
+        count: async (args: any) => {
+          counted.push(args)
+          return 1
+        },
+      },
+    }
+
+    const result = await listMembersWithPaymentOrder(
+      "tenant-1",
+      {},
+      withCount as never
+    )
+
+    const where = {
+      paymentAllocationPreference: { not: "manual_split" },
+      tenantId: "tenant-1",
+    }
+    expect(calls[0]?.args).toEqual({
+      orderBy: [{ fullName: "asc" }, { memberNumber: "asc" }],
+      select: {
+        fullName: true,
+        id: true,
+        memberNumber: true,
+        paymentAllocationPreference: true,
+      },
+      take: 200,
+      where,
+    })
+    expect(counted).toEqual([{ where }])
+    expect(result.total).toBe(1)
   })
 })

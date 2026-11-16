@@ -41,4 +41,19 @@ describe("table residue (WP15)", () => {
     expect(sheet).toContain("useContributionsQuery()")
     expect(sheet).not.toMatch(/trpc\.contributions\.(get|ledger)\.queryOptions/)
   })
+
+  test("Commitments lists only set payment orders and finds anyone by search", () => {
+    const loader = read("./contributions/load-contributions-page.ts")
+    const view = read("../components/contributions-page-view.tsx")
+    const content = read("../components/contribution-content.tsx")
+
+    // No first-100-members cap: a bounded list of non-default orders.
+    expect(loader).toContain("listMembersWithPaymentOrder(context.tenant.id)")
+    expect(loader).not.toContain("pageSize: 100")
+    expect(view).toContain('placeholder="Find a member to change"')
+    expect(view).toContain("Search to")
+    // A searched member outside that list uses the default order.
+    expect(content).toContain("<SearchedMemberPaymentPreference")
+    expect(content).toContain('preference: "manual_split"')
+  })
 })

@@ -249,6 +249,42 @@ export async function listRecentMemberOptions(
   })
 }
 
+/**
+ * Members whose payment order is not the default (`manual_split`), for the
+ * Contributions Commitments tab. Everyone else uses the default, so the tab
+ * lists only these and finds anyone else by search. Bounded, with the total
+ * so the page can say when the list is cut short.
+ */
+export async function listMembersWithPaymentOrder(
+  tenantId: string,
+  input: { limit?: number } = {},
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const where = {
+    paymentAllocationPreference: { not: "manual_split" as const },
+    tenantId,
+  }
+  const [items, total] = await Promise.all([
+    prisma.member.findMany({
+      orderBy: [{ fullName: "asc" }, { memberNumber: "asc" }],
+      select: {
+        fullName: true,
+        id: true,
+        memberNumber: true,
+        paymentAllocationPreference: true,
+      },
+      take: input.limit ?? 200,
+      where,
+    }),
+    prisma.member.count({ where }),
+  ])
+
+  return { items, total }
+}
+
 /** Whether the tenant has any member, for "create" buttons on picker pages. */
 export async function tenantHasMembers(
   tenantId: string,

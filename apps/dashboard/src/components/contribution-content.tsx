@@ -3,7 +3,7 @@
 import { toast } from "@halaalvest/ui/components/use-toast"
 import { DashboardNativeQuickFill } from "@/components/dashboard-quick-fill"
 import { useRouter } from "next/navigation"
-import { useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
 import { Textarea } from "@halaalvest/ui/components/textarea"
@@ -186,7 +186,14 @@ export function ContributionContent({
 
   if (contributionSheetType === "preference") {
     if (!selectedMember) {
-      return (
+      // Found by search on the Commitments tab: not in the list of members
+      // with a set order, so they use the default (Manual split).
+      return selectedContributionMemberId ? (
+        <SearchedMemberPaymentPreference
+          memberId={selectedContributionMemberId}
+          onSuccess={completeContributionWorkflow}
+        />
+      ) : (
         <div className="text-sm text-muted-foreground">
           Select a member before changing payment preference.
         </div>
@@ -490,5 +497,40 @@ export function ContributionContent({
         Start with a commitment
       </Button>
     </div>
+  )
+}
+
+function SearchedMemberPaymentPreference({
+  memberId,
+  onSuccess,
+}: {
+  memberId: string
+  onSuccess: () => Promise<void> | void
+}) {
+  const trpc = useTRPC()
+  // One id lookup for the name (the same lean picker read as the search).
+  const { data, isPending } = useQuery(
+    trpc.members.options.queryOptions({ ids: [memberId] })
+  )
+  const member = data?.[0]
+
+  if (isPending) {
+    return <div className="text-sm text-muted-foreground">Loading member…</div>
+  }
+
+  if (!member) {
+    return (
+      <div className="text-sm text-muted-foreground">
+        This member could not be found.
+      </div>
+    )
+  }
+
+  return (
+    <MemberPaymentPreferenceForm
+      defaultValues={{ memberId: member.id, preference: "manual_split" }}
+      onSuccess={onSuccess}
+      title={`${member.fullName} (${member.memberNumber})`}
+    />
   )
 }

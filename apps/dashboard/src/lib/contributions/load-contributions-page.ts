@@ -6,7 +6,7 @@ import {
   listCollectionSourceContributionBatches,
   listActiveDeductionSources,
   listLoanOptions,
-  listMembers,
+  listMembersWithPaymentOrder,
 } from "@halaalvest/db"
 import type { CollectionSourceBatchView } from "@halaalvest/db"
 import type { ContributionsFilterParams } from "@/hooks/use-contributions-filter-params"
@@ -70,6 +70,8 @@ export type ContributionsPageData =
       loans: ContributionLoanRow[]
       members: {
         items: ContributionMemberRow[]
+        /** Members with a set payment order; `items` may stop short. */
+        total: number
       }
       quickFillEnabled: boolean
       selectedCollectionSourceBatch: CollectionSourceBatchView | null
@@ -112,11 +114,12 @@ export async function loadContributionsPageData(
     collectionSourceOptions,
     collectionSourceBatches,
   ] = await Promise.all([
-    // Only the Commitments tab lists members (with their payment
-    // preference); the forms search members on demand (MemberCombobox).
+    // Only the Commitments tab lists members: those whose payment order is
+    // not the default (bounded, with a total). Anyone else is found by
+    // search, like the forms (MemberCombobox).
     filters.view === "commitments"
-      ? listMembers(context.tenant.id, { page: 1, pageSize: 100 })
-      : Promise.resolve({ items: [] }),
+      ? listMembersWithPaymentOrder(context.tenant.id)
+      : Promise.resolve({ items: [], total: 0 }),
     listContributionPlans(context.tenant.id),
     listLoanOptions(context.tenant.id),
     canUseCollectionSourceBatches
@@ -167,6 +170,7 @@ export async function loadContributionsPageData(
         memberNumber: member.memberNumber,
         paymentAllocationPreference: member.paymentAllocationPreference,
       })),
+      total: members.total,
     },
     quickFillEnabled,
     selectedCollectionSourceBatch,

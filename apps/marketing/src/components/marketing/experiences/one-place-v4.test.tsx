@@ -2,7 +2,6 @@ import { describe, expect, mock, test } from "bun:test"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { NotificationsProvider } from "@halaalvest/notifications-react"
-import type { MarketingSignupMode } from "../marketing-experience-contract"
 import {
   monthlyBillTerms,
   pricingFeePrinciples,
@@ -16,6 +15,7 @@ import {
   statementMonthKeys,
   statementMonths,
 } from "./one-place-v4-statement-data"
+import type { OnePlaceSignupMode } from "./one-place-v4"
 
 mock.module("next/font/google", () => {
   const font = (name: string) => () => ({
@@ -24,13 +24,9 @@ mock.module("next/font/google", () => {
     variable: `${name}-variable`,
   })
 
-  // bun shares module mocks across test files in one run, so also cover the
-  // fonts the Passbook experience loads.
   return {
-    IBM_Plex_Mono: font("ibm-plex-mono"),
     Inter: font("inter"),
     Inter_Tight: font("inter-tight"),
-    Schibsted_Grotesk: font("schibsted-grotesk"),
   }
 })
 
@@ -38,7 +34,7 @@ const { OnePlaceV4Landing } = await import("./one-place-v4")
 
 const directSignupHref = "http://halaalvest.localhost:1440/signup"
 
-function renderLanding(signupMode: MarketingSignupMode) {
+function renderLanding(signupMode: OnePlaceSignupMode) {
   return renderToStaticMarkup(
     createElement(
       NotificationsProvider,
@@ -49,7 +45,6 @@ function renderLanding(signupMode: MarketingSignupMode) {
         signupHref:
           signupMode === "direct" ? directSignupHref : "#early-access",
         signupMode,
-        workspaceUrlSuffix: ".halaalvest.com",
       })
     )
   )

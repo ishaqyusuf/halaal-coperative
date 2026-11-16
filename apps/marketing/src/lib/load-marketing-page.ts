@@ -2,15 +2,14 @@ import { getQaAcceleratorEnvCapability } from "@halaalvest/api/qa-accelerator-co
 import { listTenants } from "@halaalvest/db"
 import type { MarketingConfig } from "@halaalvest/domain"
 import { resolveQaQuickFillContext } from "@halaalvest/utils"
-import type { MarketingExperienceProps } from "@/components/marketing/marketing-experience-contract"
+import type { OnePlaceLandingProps } from "@/components/marketing/experiences/one-place-v4"
 import { getMarketingQaQuickFillContext } from "./qa-form-access.server"
 import { getSignupHref } from "./runtime-url"
-import { getWorkspaceUrlSuffix } from "./workspace-url-suffix"
 
 export async function loadMarketingPageData(
   marketing: MarketingConfig
 ): Promise<{
-  experienceProps: MarketingExperienceProps
+  landingProps: OnePlaceLandingProps
   showDevTenantFab: boolean
   tenants: {
     id: string
@@ -38,12 +37,11 @@ export async function loadMarketingPageData(
       })
 
   return {
-    experienceProps: {
+    landingProps: {
       isLaunchReady: marketing.isLaunchReady,
       quickFill,
       signupHref,
       signupMode: marketing.earlyAccessModeEnabled ? "early-access" : "direct",
-      workspaceUrlSuffix: getWorkspaceUrlSuffix(),
     },
     showDevTenantFab,
     tenants: tenants.map((tenant) => ({

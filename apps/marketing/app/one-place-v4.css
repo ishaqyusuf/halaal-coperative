@@ -1,7 +1,6 @@
 /*
- * One Place homepage (marketing experience `one-place-v4`).
- * Every rule is scoped under `.op4` so other experiences, /pricing and the
- * embedded early-access form keep their own styles. Headings are excluded
+ * One Place homepage.
+ * Rules are scoped under `.op4` so /pricing keeps its styles. Headings are excluded
  * from the embedded form with `:not(.marketing-form *)`.
  */
 

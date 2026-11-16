@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation"
-import { MarketingPageView } from "@/components/marketing/marketing-page-view"
-import { getMarketingConfig } from "@/lib/marketing-config"
-import { resolveActiveMarketingExperienceId } from "@/lib/marketing-experience-policy"
+import { DevTenantFab } from "@/components/marketing/dev-tenant-fab"
+import { OnePlaceV4Landing } from "@/components/marketing/experiences/one-place-v4"
 import { loadMarketingPageData } from "@/lib/load-marketing-page"
+import { getMarketingConfig } from "@/lib/marketing-config"
 
 export default async function Page() {
   const marketing = getMarketingConfig()
@@ -11,11 +11,13 @@ export default async function Page() {
     redirect("/signup")
   }
 
-  const pageData = await loadMarketingPageData(marketing)
-  const experienceId = resolveActiveMarketingExperienceId({
-    isProduction: process.env.NODE_ENV === "production",
-    requestedExperienceId: marketing.experience,
-  })
+  const { landingProps, showDevTenantFab, tenants } =
+    await loadMarketingPageData(marketing)
 
-  return <MarketingPageView experienceId={experienceId} {...pageData} />
+  return (
+    <>
+      <OnePlaceV4Landing {...landingProps} />
+      {showDevTenantFab ? <DevTenantFab tenants={tenants} /> : null}
+    </>
+  )
 }

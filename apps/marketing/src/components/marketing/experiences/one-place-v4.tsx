@@ -1,11 +1,8 @@
 import { Inter, Inter_Tight } from "next/font/google"
+import type { QaQuickFillContext } from "@halaalvest/utils"
 import Link from "next/link"
 import type { ReactNode } from "react"
 import { EarlyAccessForm } from "../early-access-form"
-import type {
-  MarketingExperienceProps,
-  MarketingSignupMode,
-} from "../marketing-experience-contract"
 import {
   monthlyBillTerms,
   pricingFeePrinciples,
@@ -35,6 +32,15 @@ const onePlaceDisplay = Inter_Tight({
   fallback: ["system-ui", "Arial"],
 })
 
+export type OnePlaceSignupMode = "direct" | "early-access"
+
+export type OnePlaceLandingProps = {
+  isLaunchReady: boolean
+  quickFill: QaQuickFillContext
+  signupHref: string
+  signupMode: OnePlaceSignupMode
+}
+
 const signupCopy = {
   direct: {
     cta: "Create your workspace",
@@ -44,7 +50,7 @@ const signupCopy = {
     cta: "Request access",
     headerCta: "Request access",
   },
-} satisfies Record<MarketingSignupMode, { cta: string; headerCta: string }>
+} satisfies Record<OnePlaceSignupMode, { cta: string; headerCta: string }>
 
 const navLinks: readonly OnePlaceNavLink[] = [
   ["#product", "Product"],
@@ -254,7 +260,7 @@ export function OnePlaceV4Landing({
   quickFill,
   signupHref,
   signupMode,
-}: MarketingExperienceProps) {
+}: OnePlaceLandingProps) {
   const signup = signupCopy[signupMode]
 
   return (

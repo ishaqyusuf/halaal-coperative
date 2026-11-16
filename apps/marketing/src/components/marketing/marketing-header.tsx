@@ -3,23 +3,17 @@ import { buttonVariants } from "@halaalvest/ui/components/button"
 import { ArrowUpRightIcon } from "lucide-react"
 import Link from "next/link"
 
-export type MarketingHeaderLink = readonly [href: string, label: string]
-
-const organicTrustLinks: readonly MarketingHeaderLink[] = [
+const links = [
   ["/#product", "Product"],
-  ["/#workflow", "How it works"],
-  ["/#migration", "Migration"],
+  ["/#how-it-works", "How it works"],
   ["/pricing", "Pricing"],
-  ["/#trust", "Trust"],
-]
+] as const
 
 export function MarketingHeader({
-  ctaLabel = "Request guided setup",
-  links = organicTrustLinks,
+  ctaLabel,
   signupHref,
 }: {
-  ctaLabel?: string
-  links?: readonly MarketingHeaderLink[]
+  ctaLabel: string
   signupHref: string
 }) {
   return (

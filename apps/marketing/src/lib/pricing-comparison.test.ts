@@ -10,10 +10,7 @@ import {
 
 const pricingSurfaces = [
   "../components/marketing/pricing-data.ts",
-  "../components/marketing/pricing-section.tsx",
   "../components/marketing/pricing-comparison.tsx",
-  "../components/marketing/experiences/passbook-v3.tsx",
-  "../components/marketing/experiences/ramp-v2.tsx",
   "../components/marketing/experiences/one-place-v4.tsx",
   "../components/signup/signup-form.tsx",
 ]

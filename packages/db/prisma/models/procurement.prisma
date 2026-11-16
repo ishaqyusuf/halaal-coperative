@@ -10,6 +10,8 @@ model ProcurementRequest {
   vendorName                             String?                  @map("vendor_name")
   requestedCost                          Decimal                  @map("requested_cost") @db.Decimal(18, 2)
   approvedCost                           Decimal?                 @map("approved_cost") @db.Decimal(18, 2)
+  // The cooperative's added profit; the member owes approvedCost + this.
+  approvedMarkup                         Decimal                  @default(0) @map("approved_markup") @db.Decimal(18, 2)
   requestedRepaymentMonths               Int                      @map("requested_repayment_months")
   approvedRepaymentMonths                Int?                     @map("approved_repayment_months")
   policyMaximumPaybackMonths             Int                      @default(12) @map("policy_maximum_payback_months")

@@ -878,18 +878,25 @@ describe("member payment receipt queries", () => {
       memberPaymentReceiptAllocation: {
         findMany: async () => [procurementAllocation],
       },
+      // Schedule items are read once and written in one set-based UPDATE.
+      $executeRaw: async (sql: TemplateStringsArray, ...values: unknown[]) => {
+        expect(sql.join("?")).toContain(
+          "UPDATE procurement_repayment_schedule_items"
+        )
+        scheduleUpdates.push(...JSON.parse(String(values[1])))
+        return 1
+      },
       procurementRepaymentScheduleItem: {
-        count: async () => 0,
-        findFirst: async () => ({
-          amount: 10000,
-          id: "procurement-schedule-1",
-          paidAmount: 4000,
-          procurementRequestId: "procurement-request-1",
-        }),
-        update: async (input: Record<string, unknown>) => {
-          scheduleUpdates.push(input)
-          return input
-        },
+        findMany: async () => [
+          {
+            amount: 10000,
+            id: "procurement-schedule-1",
+            paidAmount: 4000,
+            procurementRequestId: "procurement-request-1",
+          },
+        ],
+        // No schedule item of the request is still outstanding.
+        groupBy: async () => [],
       },
       procurementRequest: {
         updateMany: async (input: Record<string, unknown>) => {
@@ -947,19 +954,13 @@ describe("member payment receipt queries", () => {
 
     expect(receipt.status).toBe("approved")
     expect(scheduleUpdates).toEqual([
-      {
-        data: {
-          paidAmount: 10000,
-          status: "paid",
-        },
-        where: { id: "procurement-schedule-1" },
-      },
+      { id: "procurement-schedule-1", paid_amount: 10000, status: "paid" },
     ])
     expect(requestUpdates).toEqual([
       {
         data: { status: "completed" },
         where: {
-          id: "procurement-request-1",
+          id: { in: ["procurement-request-1"] },
           status: "active",
           tenantId: "tenant-1",
         },
@@ -1009,11 +1010,13 @@ describe("member payment receipt queries", () => {
         findFirst: async () => null,
       },
       foodPurchaseApplication: {
-        findFirst: async () => ({
-          approvedAmount: 50000,
-          id: "food-application-1",
-          paidAmount: 20000,
-        }),
+        findMany: async () => [
+          {
+            approvedAmount: 50000,
+            id: "food-application-1",
+            paidAmount: 20000,
+          },
+        ],
         update: async (input: Record<string, unknown>) => {
           foodPurchaseApplicationUpdates.push(input)
           return input
@@ -1158,11 +1161,13 @@ describe("member payment receipt queries", () => {
         findMany: async () => [projectFinancingAllocation],
       },
       projectFinancingRequest: {
-        findFirst: async () => ({
-          approvedAmount: 750000,
-          id: "project-financing-1",
-          paidAmount: currentPaidAmount,
-        }),
+        findMany: async () => [
+          {
+            approvedAmount: 750000,
+            id: "project-financing-1",
+            paidAmount: currentPaidAmount,
+          },
+        ],
         update: async (input: Record<string, unknown>) => {
           projectFinancingUpdates.push(input)
           currentPaidAmount = (input as any).data.paidAmount
@@ -1276,38 +1281,60 @@ describe("member payment receipt queries", () => {
   })
 
   test("approves supported receipt allocations through member payment posting", async () => {
-    const contributions: Record<string, unknown>[] = []
-    const ledgerTransactions: Record<string, unknown>[] = []
-    const allocationUpdates: Record<string, unknown>[] = []
-    const auditCreates: Record<string, unknown>[] = []
+    const contributions: any[] = []
+    const ledgerTransactions: any[] = []
+    const ledgerEntries: any[] = []
+    const allocationUpdates: any[] = []
+    const auditCreates: any[] = []
+    const memberUpdates: any[] = []
 
     const tx = {
       ...liveMigrationDelegates(),
+      // Savings groups link their allocations in one set-based UPDATE.
+      $executeRaw: async (sql: TemplateStringsArray, ...values: unknown[]) => {
+        expect(sql.join("?")).toContain(
+          "UPDATE member_payment_receipt_allocations"
+        )
+        allocationUpdates.push(...JSON.parse(String(values[1])))
+        return 2
+      },
       auditLog: {
         count: async () => 0,
         create: async (input: Record<string, unknown>) => {
           auditCreates.push(input)
           return input
         },
+        createMany: async (input: any) => {
+          auditCreates.push(...input.data.map((data: unknown) => ({ data })))
+          return { count: input.data.length }
+        },
       },
       contribution: {
-        create: async (input: Record<string, unknown>) => {
-          contributions.push(input)
-          return { id: "contribution-1", ...input }
+        createMany: async (input: any) => {
+          contributions.push(...input.data)
+          return { count: input.data.length }
         },
       },
       contributionPlan: {
         findFirst: async () => ({ id: "plan-1" }),
       },
       ledgerAccount: {
-        findUnique: async (input: any) => ({
-          id: `account-${input.where.tenantId_code.code}`,
-        }),
+        findMany: async () =>
+          ["1000", "1100", "2000"].map((code) => ({
+            code,
+            id: `account-${code}`,
+          })),
+      },
+      ledgerEntry: {
+        createMany: async (input: any) => {
+          ledgerEntries.push(...input.data)
+          return { count: input.data.length }
+        },
       },
       ledgerTransaction: {
-        create: async (input: Record<string, unknown>) => {
-          ledgerTransactions.push(input)
-          return input
+        createMany: async (input: any) => {
+          ledgerTransactions.push(...input.data)
+          return { count: input.data.length }
         },
       },
       loan: {
@@ -1318,7 +1345,10 @@ describe("member payment receipt queries", () => {
           paymentAllocationPreference: "manual_split",
         }),
         findMany: async () => [],
-        update: async (input: unknown) => input,
+        update: async (input: unknown) => {
+          memberUpdates.push(input)
+          return input
+        },
       },
       memberPaymentReceipt: {
         update: async (input: any) =>
@@ -1408,28 +1438,65 @@ describe("member payment receipt queries", () => {
     expect(receipt.status).toBe("approved")
     expect(contributions).toHaveLength(2)
     expect(contributions[0]).toMatchObject({
-      data: {
-        amount: 10000,
-        committedAmount: 10000,
-        contributionPlanId: "plan-1",
-        extraSavingsAmount: 0,
-        periodLabel: "July 2026 (current)",
-      },
+      amount: 10000,
+      committedAmount: 10000,
+      contributionPlanId: "plan-1",
+      extraSavingsAmount: 0,
+      periodLabel: "July 2026 (current)",
+      reference: "BANK-001",
+      status: "posted",
     })
     expect(contributions[1]).toMatchObject({
-      data: {
-        amount: 5000,
-        committedAmount: null,
-        contributionPlanId: "plan-1",
-        extraSavingsAmount: 5000,
-        periodLabel: "August 2026 (future)",
+      amount: 5000,
+      committedAmount: null,
+      contributionPlanId: "plan-1",
+      extraSavingsAmount: 5000,
+      notes: "Includes voluntary extra savings.",
+      periodLabel: "August 2026 (future)",
+    })
+    // Each contribution gets its own balanced cash/savings posting.
+    expect(ledgerTransactions).toEqual([
+      expect.objectContaining({
+        contributionId: contributions[0].id,
+        narration: "Member savings payment for July 2026 (current)",
+        transactionType: "contribution",
+      }),
+      expect.objectContaining({
+        contributionId: contributions[1].id,
+        narration: "Member savings payment for August 2026 (future)",
+      }),
+    ])
+    expect(ledgerEntries).toHaveLength(4)
+    expect(ledgerEntries.slice(0, 2)).toEqual([
+      expect.objectContaining({
+        amount: 10000,
+        direction: "debit",
+        ledgerAccountId: "account-2000",
+        ledgerTransactionId: ledgerTransactions[0].id,
+      }),
+      expect.objectContaining({
+        amount: 10000,
+        direction: "credit",
+        ledgerAccountId: "account-1000",
+        ledgerTransactionId: ledgerTransactions[0].id,
+      }),
+    ])
+    expect(allocationUpdates).toEqual([
+      { contribution_id: contributions[0].id, id: "allocation-1" },
+      { contribution_id: contributions[1].id, id: "allocation-2" },
+    ])
+    // One snapshot update for both groups.
+    expect(memberUpdates).toEqual([
+      {
+        data: { totalSavingsSnapshot: { increment: 15000 } },
+        where: { id: "member-1", tenantId: "tenant-1" },
       },
-    })
-    expect(ledgerTransactions).toHaveLength(2)
-    expect(allocationUpdates).toHaveLength(2)
-    expect(allocationUpdates[0]).toMatchObject({
-      data: { postedContributionId: "contribution-1" },
-    })
+    ])
+    expect(
+      auditCreates.filter(
+        (entry) => entry.data.action === "member_payment.recorded"
+      )
+    ).toHaveLength(2)
     expect(
       auditCreates.some(
         (entry) =>

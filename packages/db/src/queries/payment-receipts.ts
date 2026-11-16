@@ -9,7 +9,11 @@ import type {
 import { createPrismaClient } from "../prisma"
 import { claimDashboardEvidenceUploadLink } from "./dashboard-evidence-uploads"
 import { ExpectedQueryError } from "../query-error"
-import { recordMemberPaymentMutation } from "./contributions"
+import { randomUUID } from "node:crypto"
+import {
+  recordMemberPaymentMutation,
+  resolveMemberPaymentAllocation,
+} from "./contributions"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
 import { getTenantMigrationWriteAccess } from "./migration"
 import { createMemberShareLedgerEntry } from "./tenant-finance"
@@ -793,43 +797,36 @@ async function approveReceiptAllocations(input: {
     }
   }
 
-  for (const group of contributionGroups.values()) {
-    const first = group[0]
-    if (!first) continue
-
-    const committedSavingsAmount = group
-      .filter((allocation) => allocation.category === "commitment")
-      .reduce((sum, allocation) => sum + allocation.amount, 0)
-    const extraSavingsAmount = group
-      .filter((allocation) => allocation.category === "special_savings")
-      .reduce((sum, allocation) => sum + allocation.amount, 0)
-    const totalAmount = committedSavingsAmount + extraSavingsAmount
-    const contributionPlanId = first.contributionPlanId ?? activePlan?.id
-
-    const result = await recordMemberPaymentMutation(
-      {
-        actorUserId: input.actorUserId,
-        channel: input.channel,
-        committedSavingsAmount,
-        contributionPlanId,
-        extraSavingsAmount,
-        memberId: input.memberId,
-        periodLabel: periodLabel(first.targetPeriodStart, first.periodIntent),
-        postedAt: input.paidAt,
-        reference: input.paymentReference ?? undefined,
-        tenantId: input.tenantId,
-        totalAmount,
-      },
-      input.tx
-    )
-
-    if (result.contributionId) {
-      await input.tx.memberPaymentReceiptAllocation.updateMany({
-        data: { postedContributionId: result.contributionId },
-        where: { id: { in: group.map((allocation) => allocation.id) } },
-      })
-    }
-  }
+  // Savings groups are posted together (audit L7); see postReceiptSavingsGroups.
+  await postReceiptSavingsGroups({
+    actorUserId: input.actorUserId,
+    channel: input.channel,
+    groups: Array.from(contributionGroups.values()).flatMap((group) => {
+      const first = group[0]
+      if (!first) return []
+      const committedSavingsAmount = group
+        .filter((allocation) => allocation.category === "commitment")
+        .reduce((sum, allocation) => sum + allocation.amount, 0)
+      const extraSavingsAmount = group
+        .filter((allocation) => allocation.category === "special_savings")
+        .reduce((sum, allocation) => sum + allocation.amount, 0)
+      return [
+        {
+          allocationIds: group.map((allocation) => allocation.id),
+          committedSavingsAmount,
+          contributionPlanId: first.contributionPlanId ?? activePlan?.id,
+          extraSavingsAmount,
+          periodLabel: periodLabel(first.targetPeriodStart, first.periodIntent),
+          totalAmount: committedSavingsAmount + extraSavingsAmount,
+        },
+      ]
+    }),
+    memberId: input.memberId,
+    paidAt: input.paidAt,
+    paymentReference: input.paymentReference,
+    tenantId: input.tenantId,
+    tx: input.tx,
+  })
 
   for (const group of loanGroups.values()) {
     const first = group[0]
@@ -946,196 +943,482 @@ async function approveReceiptAllocations(input: {
     })
   }
 
-  for (const allocation of foodPurchaseAllocations) {
+  await payReceiptTargets({
+    foodPurchaseAllocations,
+    memberId: input.memberId,
+    paidAt: input.paidAt,
+    procurementAllocations,
+    projectFinancingAllocations,
+    tenantId: input.tenantId,
+    tx: input.tx,
+  })
+}
+
+/**
+ * Posts an approved receipt's savings groups (one per period and plan) with
+ * one createMany per table instead of one `recordMemberPaymentMutation` per
+ * group (audit L7: 13 statements a group). Each group writes what that
+ * call's savings path wrote: the contribution, its cash/savings ledger
+ * posting, the `member_payment.recorded` audit entry, the snapshot increment
+ * (summed into one update) and the allocations' `postedContributionId`.
+ * Checks run in the same order, so the first failing group throws the same
+ * error; nothing is written until every group has passed.
+ */
+async function postReceiptSavingsGroups(input: {
+  actorUserId: string
+  channel: ContributionChannel
+  groups: Array<{
+    allocationIds: string[]
+    committedSavingsAmount: number
+    contributionPlanId?: string
+    extraSavingsAmount: number
+    periodLabel?: string
+    totalAmount: number
+  }>
+  memberId: string
+  paidAt: Date
+  paymentReference: string | null
+  tenantId: string
+  tx: PrismaClient
+}) {
+  if (!input.groups.length) return
+
+  const { memberId, tenantId, tx } = input
+  const reference = input.paymentReference ?? undefined
+  const [member, accounts, writeAccess] = await Promise.all([
+    tx.member.findFirst({
+      select: { paymentAllocationPreference: true },
+      where: { id: memberId, tenantId },
+    }),
+    tx.ledgerAccount.findMany({
+      select: { code: true, id: true },
+      where: { code: { in: ["1000", "1100", "2000"] }, tenantId },
+    }),
+    getTenantMigrationWriteAccess(tenantId, tx),
+  ])
+  const accountId = new Map(accounts.map(({ code, id }) => [code, id]))
+  const cashAccountId = accountId.get("2000")
+  const savingsAccountId = accountId.get("1000")
+
+  const contributions: Array<Record<string, unknown>> = []
+  const transactions: Array<Record<string, unknown>> = []
+  const entries: Array<Record<string, unknown>> = []
+  const audits: Array<Record<string, unknown>> = []
+  const allocationLinks: Array<{ contribution_id: string; id: string }> = []
+  let incrementKobo = 0
+
+  for (const group of input.groups) {
+    if (!member) throw ExpectedQueryError.notFound("Member not found.")
+
+    const {
+      committedSavingsAmount,
+      explicitTotal,
+      extraLoanPaymentAmount,
+      extraSavingsAmount,
+      scheduledLoanServicingAmount,
+      totalLoanAmount,
+      totalSavingsAmount,
+    } = resolveMemberPaymentAllocation({
+      committedSavingsAmount: group.committedSavingsAmount,
+      extraSavingsAmount: group.extraSavingsAmount,
+      hasLoanTarget: false,
+      paymentAllocationPreference: member.paymentAllocationPreference,
+      totalAmount: group.totalAmount,
+    })
+
+    if (totalSavingsAmount <= 0 && totalLoanAmount <= 0) {
+      throw ExpectedQueryError.validation(
+        "Enter a savings or loan amount to record this payment."
+      )
+    }
+    if (!cashAccountId || !savingsAccountId || !accountId.get("1100")) {
+      throw new QueryInfrastructureError(
+        "Ledger accounts not initialized for this cooperative"
+      )
+    }
+
+    let contributionId: string | null = null
+    if (totalSavingsAmount > 0) {
+      if (!writeAccess.canUseLiveFinancialWrites) {
+        throw ExpectedQueryError.precondition(
+          "Ledger transaction writes are locked until initial migration is finalized."
+        )
+      }
+      contributionId = randomUUID()
+      contributions.push({
+        amount: totalSavingsAmount,
+        channel: input.channel,
+        committedAmount:
+          committedSavingsAmount > 0 ? committedSavingsAmount : null,
+        contributionPlanId: group.contributionPlanId,
+        extraSavingsAmount,
+        id: contributionId,
+        memberId,
+        notes:
+          extraSavingsAmount > 0
+            ? "Includes voluntary extra savings."
+            : undefined,
+        periodLabel: group.periodLabel,
+        postedAt: input.paidAt,
+        reference,
+        status: "posted",
+        tenantId,
+      })
+      const transactionId = randomUUID()
+      transactions.push({
+        contributionId,
+        id: transactionId,
+        memberId,
+        narration: `Member savings payment${group.periodLabel ? ` for ${group.periodLabel}` : ""}`,
+        postedAt: input.paidAt,
+        reference,
+        tenantId,
+        transactionType: "contribution",
+      })
+      entries.push(
+        {
+          amount: totalSavingsAmount,
+          direction: "debit",
+          ledgerAccountId: cashAccountId,
+          ledgerTransactionId: transactionId,
+          tenantId,
+        },
+        {
+          amount: totalSavingsAmount,
+          direction: "credit",
+          ledgerAccountId: savingsAccountId,
+          ledgerTransactionId: transactionId,
+          tenantId,
+        }
+      )
+      incrementKobo += Math.round(totalSavingsAmount * 100)
+      for (const id of group.allocationIds) {
+        allocationLinks.push({ contribution_id: contributionId, id })
+      }
+    }
+
+    if (totalLoanAmount > 0) {
+      throw ExpectedQueryError.validation(
+        "A loan must be selected when allocating payment to loan servicing."
+      )
+    }
+
+    audits.push({
+      action: "member_payment.recorded",
+      actorType: "user",
+      actorUserId: input.actorUserId,
+      entityType: "MemberPayment",
+      metadata: {
+        committedSavingsAmount,
+        contributionId,
+        contributionPlanId: group.contributionPlanId ?? null,
+        extraLoanPaymentAmount,
+        extraSavingsAmount,
+        loanId: null,
+        memberId,
+        paymentAllocationPreference: member.paymentAllocationPreference,
+        repaymentId: null,
+        scheduledLoanServicingAmount,
+        totalAmount: group.totalAmount ?? explicitTotal,
+      },
+      occurredAt: new Date(),
+      tenantId,
+    })
+  }
+
+  if (contributions.length) {
+    await tx.contribution.createMany({ data: contributions as never })
+    await tx.ledgerTransaction.createMany({ data: transactions as never })
+    await tx.ledgerEntry.createMany({ data: entries as never })
+    await tx.member.update({
+      data: { totalSavingsSnapshot: { increment: incrementKobo / 100 } },
+      where: { id: memberId, tenantId },
+    })
+  }
+  await tx.auditLog.createMany({ data: audits as never })
+  if (allocationLinks.length) {
+    await tx.$executeRaw`
+      UPDATE member_payment_receipt_allocations AS a SET
+        posted_contribution_id = v.contribution_id,
+        updated_at = ${new Date().toISOString()}::timestamptz
+      FROM jsonb_to_recordset(${JSON.stringify(allocationLinks)}::jsonb)
+        AS v(id uuid, contribution_id uuid)
+      WHERE a.id = v.id AND a.tenant_id = ${tenantId}::uuid
+    `
+  }
+}
+
+/**
+ * Pays an approved receipt's Foodstuff Purchase, project financing and
+ * procurement allocations (audit L7). Each kind's targets are read with one
+ * query instead of one per allocation, then the allocations are applied in
+ * order against that state, so a second allocation to the same target sees
+ * the first one's payment exactly as the per-row reads did, and fails with
+ * the same error. Each target is written once with its final amount.
+ */
+async function payReceiptTargets(input: {
+  foodPurchaseAllocations: MemberPaymentReceiptAllocationRow[]
+  memberId: string
+  paidAt: Date
+  procurementAllocations: MemberPaymentReceiptAllocationRow[]
+  projectFinancingAllocations: MemberPaymentReceiptAllocationRow[]
+  tenantId: string
+  tx: PrismaClient
+}) {
+  const { memberId, tenantId, tx } = input
+  const idsOf = (
+    allocations: MemberPaymentReceiptAllocationRow[],
+    key:
+      | "foodPurchaseApplicationId"
+      | "procurementRepaymentScheduleItemId"
+      | "projectFinancingRequestId"
+  ) =>
+    Array.from(
+      new Set(
+        allocations
+          .map((allocation) => allocation[key])
+          .filter((id): id is string => Boolean(id))
+      )
+    )
+  const foodIds = idsOf(
+    input.foodPurchaseAllocations,
+    "foodPurchaseApplicationId"
+  )
+  const financingIds = idsOf(
+    input.projectFinancingAllocations,
+    "projectFinancingRequestId"
+  )
+  const scheduleIds = idsOf(
+    input.procurementAllocations,
+    "procurementRepaymentScheduleItemId"
+  )
+  const [applications, requests, scheduleItems] = await Promise.all([
+    foodIds.length
+      ? tx.foodPurchaseApplication.findMany({
+          select: { approvedAmount: true, id: true, paidAmount: true },
+          where: {
+            id: { in: foodIds },
+            memberId,
+            status: "approved",
+            tenantId,
+          },
+        })
+      : [],
+    financingIds.length
+      ? tx.projectFinancingRequest.findMany({
+          select: { approvedAmount: true, id: true, paidAmount: true },
+          where: {
+            approvedStructure: "repayable_facility",
+            id: { in: financingIds },
+            memberId,
+            status: { in: ["approved", "active"] },
+            tenantId,
+          },
+        })
+      : [],
+    scheduleIds.length
+      ? tx.procurementRepaymentScheduleItem.findMany({
+          select: {
+            amount: true,
+            id: true,
+            paidAmount: true,
+            procurementRequestId: true,
+          },
+          where: {
+            id: { in: scheduleIds },
+            memberId,
+            status: { in: [...payableProcurementScheduleStatuses] },
+            tenantId,
+          },
+        })
+      : [],
+  ])
+
+  const foodPaid = new Map(
+    applications.map((application) => [
+      application.id,
+      {
+        approvedAmount: Number(application.approvedAmount ?? 0),
+        paidAmount: Number(application.paidAmount ?? 0),
+      },
+    ])
+  )
+  const foodWrites = new Map<
+    string,
+    { paidAmount: number; paidAt: Date | null }
+  >()
+  for (const allocation of input.foodPurchaseAllocations) {
     if (!allocation.foodPurchaseApplicationId) {
       throw ExpectedQueryError.precondition(
         "Foodstuff Purchase allocations need a selected application before approval."
       )
     }
-
-    const application = await input.tx.foodPurchaseApplication.findFirst({
-      select: {
-        approvedAmount: true,
-        id: true,
-        paidAmount: true,
-      },
-      where: {
-        id: allocation.foodPurchaseApplicationId,
-        memberId: input.memberId,
-        status: "approved",
-        tenantId: input.tenantId,
-      },
-    })
-
+    const application = foodPaid.get(allocation.foodPurchaseApplicationId)
     if (!application) {
       throw ExpectedQueryError.notFound(
         "Foodstuff Purchase application was not found or is no longer payable."
       )
     }
-
-    const approvedAmount = Number(application.approvedAmount ?? 0)
-    const paidAmount = Number(application.paidAmount ?? 0)
+    const { approvedAmount, paidAmount } = application
     const remainingAmount = roundMoney(approvedAmount - paidAmount)
-
     if (approvedAmount <= 0 || remainingAmount <= 0) {
       throw ExpectedQueryError.precondition(
         "Foodstuff Purchase application has no payable approved amount."
       )
     }
-
     if (allocation.amount - remainingAmount > 0.005) {
       throw ExpectedQueryError.validation(
         "Foodstuff Purchase allocation exceeds the remaining approved application amount."
       )
     }
-
     const nextPaidAmount = roundMoney(paidAmount + allocation.amount)
-
-    await input.tx.foodPurchaseApplication.update({
-      data: {
-        paidAmount: nextPaidAmount,
-        paidAt: moneyEquals(nextPaidAmount, approvedAmount)
-          ? input.paidAt
-          : null,
-      },
-      where: { id: application.id },
+    application.paidAmount = nextPaidAmount
+    foodWrites.set(allocation.foodPurchaseApplicationId, {
+      paidAmount: nextPaidAmount,
+      paidAt: moneyEquals(nextPaidAmount, approvedAmount) ? input.paidAt : null,
     })
   }
 
-  for (const allocation of projectFinancingAllocations) {
+  // A completed request leaves the payable statuses, as the per-row read did.
+  const financing = new Map(
+    requests.map((request) => [
+      request.id,
+      {
+        approvedAmount: Number(request.approvedAmount ?? 0),
+        completed: false,
+        paidAmount: Number(request.paidAmount ?? 0),
+      },
+    ])
+  )
+  const financingWrites = new Map<
+    string,
+    { paidAmount: number; paidAt: Date | null; status: "active" | "completed" }
+  >()
+  for (const allocation of input.projectFinancingAllocations) {
     if (!allocation.projectFinancingRequestId) {
       throw ExpectedQueryError.precondition(
         "Project financing allocations need a selected request before approval."
       )
     }
-
-    const request = await input.tx.projectFinancingRequest.findFirst({
-      select: {
-        approvedAmount: true,
-        id: true,
-        paidAmount: true,
-      },
-      where: {
-        approvedStructure: "repayable_facility",
-        id: allocation.projectFinancingRequestId,
-        memberId: input.memberId,
-        status: { in: ["approved", "active"] },
-        tenantId: input.tenantId,
-      },
-    })
-
-    if (!request) {
+    const request = financing.get(allocation.projectFinancingRequestId)
+    if (!request || request.completed) {
       throw ExpectedQueryError.notFound(
         "Project financing request was not found or is no longer payable."
       )
     }
-
-    const approvedAmount = Number(request.approvedAmount ?? 0)
-    const paidAmount = Number(request.paidAmount ?? 0)
+    const { approvedAmount, paidAmount } = request
     const remainingAmount = roundMoney(approvedAmount - paidAmount)
-
     if (approvedAmount <= 0 || remainingAmount <= 0) {
       throw ExpectedQueryError.precondition(
         "Project financing request has no payable approved amount."
       )
     }
-
     if (allocation.amount - remainingAmount > 0.005) {
       throw ExpectedQueryError.validation(
         "Project financing allocation exceeds the remaining approved request amount."
       )
     }
-
     const nextPaidAmount = roundMoney(paidAmount + allocation.amount)
     const isCompleted = moneyEquals(nextPaidAmount, approvedAmount)
-
-    await input.tx.projectFinancingRequest.update({
-      data: {
-        paidAmount: nextPaidAmount,
-        paidAt: isCompleted ? input.paidAt : null,
-        status: isCompleted ? "completed" : "active",
-      },
-      where: { id: request.id },
+    request.paidAmount = nextPaidAmount
+    request.completed = isCompleted
+    financingWrites.set(allocation.projectFinancingRequestId, {
+      paidAmount: nextPaidAmount,
+      paidAt: isCompleted ? input.paidAt : null,
+      status: isCompleted ? "completed" : "active",
     })
   }
 
+  // A paid schedule item leaves the payable statuses, as the per-row read did.
+  const schedule = new Map(
+    scheduleItems.map((item) => [
+      item.id,
+      {
+        amount: Number(item.amount),
+        paid: false,
+        paidAmount: Number(item.paidAmount ?? 0),
+        procurementRequestId: item.procurementRequestId,
+      },
+    ])
+  )
+  const scheduleWrites = new Map<
+    string,
+    { paid_amount: number; status: "paid" | "partially_paid" }
+  >()
   const completedProcurementRequestIds = new Set<string>()
-
-  for (const allocation of procurementAllocations) {
+  for (const allocation of input.procurementAllocations) {
     if (!allocation.procurementRepaymentScheduleItemId) {
       throw ExpectedQueryError.precondition(
         "Procurement allocations need a selected schedule item before approval."
       )
     }
-
-    const scheduleItem =
-      await input.tx.procurementRepaymentScheduleItem.findFirst({
-        select: {
-          amount: true,
-          id: true,
-          paidAmount: true,
-          procurementRequestId: true,
-        },
-        where: {
-          id: allocation.procurementRepaymentScheduleItemId,
-          memberId: input.memberId,
-          status: { in: [...payableProcurementScheduleStatuses] },
-          tenantId: input.tenantId,
-        },
-      })
-
-    if (!scheduleItem) {
+    const item = schedule.get(allocation.procurementRepaymentScheduleItemId)
+    if (!item || item.paid) {
       throw ExpectedQueryError.notFound(
         "Procurement schedule item was not found or is no longer payable."
       )
     }
-
-    const scheduleAmount = Number(scheduleItem.amount)
-    const paidAmount = Number(scheduleItem.paidAmount ?? 0)
-    const remainingAmount = roundMoney(scheduleAmount - paidAmount)
-
+    const remainingAmount = roundMoney(item.amount - item.paidAmount)
     if (allocation.amount - remainingAmount > 0.005) {
       throw ExpectedQueryError.validation(
         "Procurement allocation exceeds the remaining schedule item amount."
       )
     }
-
-    const nextPaidAmount = roundMoney(paidAmount + allocation.amount)
-    const nextStatus = moneyEquals(nextPaidAmount, scheduleAmount)
+    const nextPaidAmount = roundMoney(item.paidAmount + allocation.amount)
+    const nextStatus = moneyEquals(nextPaidAmount, item.amount)
       ? "paid"
       : "partially_paid"
-
-    await input.tx.procurementRepaymentScheduleItem.update({
-      data: {
-        paidAmount: nextPaidAmount,
-        status: nextStatus,
-      },
-      where: { id: scheduleItem.id },
+    item.paidAmount = nextPaidAmount
+    item.paid = nextStatus === "paid"
+    scheduleWrites.set(allocation.procurementRepaymentScheduleItemId, {
+      paid_amount: nextPaidAmount,
+      status: nextStatus,
     })
-
     if (nextStatus === "paid") {
-      completedProcurementRequestIds.add(scheduleItem.procurementRequestId)
+      completedProcurementRequestIds.add(item.procurementRequestId)
     }
   }
 
-  for (const procurementRequestId of completedProcurementRequestIds) {
-    const outstandingScheduleItems =
-      await input.tx.procurementRepaymentScheduleItem.count({
-        where: {
-          procurementRequestId,
-          status: { notIn: ["paid", "waived"] },
-          tenantId: input.tenantId,
-        },
-      })
+  for (const [id, data] of foodWrites) {
+    await tx.foodPurchaseApplication.update({ data, where: { id } })
+  }
+  for (const [id, data] of financingWrites) {
+    await tx.projectFinancingRequest.update({ data, where: { id } })
+  }
+  if (scheduleWrites.size) {
+    const payload = Array.from(scheduleWrites, ([id, write]) => ({
+      id,
+      ...write,
+    }))
+    await tx.$executeRaw`
+      UPDATE procurement_repayment_schedule_items AS i SET
+        paid_amount = v.paid_amount,
+        status = v.status::"RepaymentScheduleStatus",
+        updated_at = ${new Date().toISOString()}::timestamptz
+      FROM jsonb_to_recordset(${JSON.stringify(payload)}::jsonb)
+        AS v(id uuid, paid_amount numeric, status text)
+      WHERE i.id = v.id AND i.tenant_id = ${tenantId}::uuid
+    `
+  }
 
-    if (outstandingScheduleItems === 0) {
-      await input.tx.procurementRequest.updateMany({
+  if (completedProcurementRequestIds.size) {
+    const requestIds = Array.from(completedProcurementRequestIds)
+    const outstanding = await tx.procurementRepaymentScheduleItem.groupBy({
+      by: ["procurementRequestId"],
+      where: {
+        procurementRequestId: { in: requestIds },
+        status: { notIn: ["paid", "waived"] },
+        tenantId,
+      },
+    })
+    const stillOpen = new Set(
+      outstanding.map((row) => row.procurementRequestId)
+    )
+    const completed = requestIds.filter((id) => !stillOpen.has(id))
+    if (completed.length) {
+      await tx.procurementRequest.updateMany({
         data: { status: "completed" },
-        where: {
-          id: procurementRequestId,
-          status: "active",
-          tenantId: input.tenantId,
-        },
+        where: { id: { in: completed }, status: "active", tenantId },
       })
     }
   }

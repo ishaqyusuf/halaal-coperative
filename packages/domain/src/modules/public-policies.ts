@@ -54,7 +54,7 @@ export type PublicPolicy = {
 }
 
 // Review drafts are deliberately not contract-acceptance versions.
-export const publicPolicyRevision = "2026-11-15-draft-8"
+export const publicPolicyRevision = "2026-11-16-draft-9"
 export const publicPolicyStatus = "draft" as const
 
 export const publicPolicies = {
@@ -84,8 +84,8 @@ export const publicPolicies = {
         body: "Cooperatives and authorised users may provide member documents, receipt evidence and support content. The final terms must identify who may submit this material, what rights or authority they must have, and the limited permission HalaalVest needs to store, display and process it for the service. Complaint, correction, removal and retention steps also require owner and legal approval. This draft does not establish that permission or settle ownership of the material.",
       },
       {
-        title: "Mobile access and account closure",
-        body: "Members can request mobile access from their cooperative. The cooperative approves access and discloses any applicable charge before the member requests it. The cooperative applies that charge through its normal account process when due. HalaalVest invoices the cooperative for mobile access. Account closure does not settle charges already due under the cooperative’s rules.",
+        title: "Fees, mobile access and account closure",
+        body: "HalaalVest bills the cooperative, not individual members. The cooperative receives one bill a month for seats, website assistant messages above the free allowance and mobile access terms, as set out in the software billing policy. A cooperative may pass the seat fee to the members counted on its bill by charging their savings. Members can request mobile access from their cooperative. The cooperative approves access and discloses the charge before the member requests it, then applies that charge through its normal account process when due. Account closure does not settle charges already due under the cooperative’s rules.",
       },
       {
         title: "Review before launch",

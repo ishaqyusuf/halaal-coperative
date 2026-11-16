@@ -63,6 +63,15 @@ describe("public billing policy", () => {
     expect(text).toContain("bank transfer")
   })
 
+  test("platform terms point to the monthly bill", () => {
+    const fees = publicPolicies.terms.sections.find(
+      (section) => section.title === "Fees, mobile access and account closure"
+    )
+    expect(fees?.body).toContain("one bill a month for seats")
+    expect(fees?.body).toContain("software billing policy")
+    expect(fees?.body).toContain("Account closure does not settle charges")
+  })
+
   test("stays a draft until owner and legal approval", () => {
     expect(policyPublications["billing-policy"]).toEqual({
       status: "draft",

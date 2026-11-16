@@ -6,24 +6,12 @@ import {
   verifySignedSessionToken,
 } from "@halaalvest/auth"
 import {
-  createDbRuntime,
-  getDashboardMetrics,
   getPendingMemberOnboardingForUser,
-  getTenantOnboardingState,
-  listChargeDefinitions,
-  listContributions,
-  listMembers,
-  type resolveTenantAsync,
   selectActiveMembership,
   type MembershipRecord,
   type TenantResolution,
   type UserRecord,
 } from "@halaalvest/db"
-import {
-  buildDashboardSnapshot,
-  defaultTenantPolicy,
-  productAreas,
-} from "@halaalvest/domain"
 import { getServerQaEmailDomains } from "@halaalvest/notifications/server"
 import {
   resolveQaQuickFillContext,
@@ -38,32 +26,6 @@ import {
   getRequestQaAuthorization,
   resolveRequestTenant,
 } from "@/lib/request-lookups"
-
-type DashboardMemberRow = {
-  id: string
-  fullName: string
-  memberNumber: string
-  memberType: string
-  status: string
-}
-
-type DashboardContributionRow = {
-  id: string
-  memberName: string
-  amount: number
-  channel: string
-  status: string
-  postedAt: string
-}
-
-type DashboardChargeDefinitionRow = {
-  id: string
-  name: string
-  code: string
-  kind: string
-  isActive: boolean
-  amount: number
-}
 
 type DashboardServerContext = {
   auth: {
@@ -82,38 +44,6 @@ type DashboardServerContext = {
   }
   tenant: TenantResolution["tenant"]
   tenantResolution: TenantResolution
-}
-
-type DashboardPageData = {
-  dashboard: ReturnType<typeof buildDashboardSnapshot>
-  hasSession: boolean
-  membership: MembershipRecord | null
-  onboarding: Awaited<ReturnType<typeof getTenantOnboardingState>> | null
-  productAreas: typeof productAreas
-  runtime: ReturnType<typeof createDbRuntime>
-  tenant: {
-    id: string
-    slug: string
-    name: string
-    memberNumberPrefix?: string | null
-    currentSize?: number | null
-    officeAddress?: string | null
-    city?: string | null
-    state?: string | null
-    country?: string | null
-    startDate?: string | null
-    region: string | null
-    currencyCode: string
-    timezone: string
-    status: "pending" | "active" | "suspended" | "archived"
-    memberCount: number
-  }
-  tenantResolution: Awaited<ReturnType<typeof resolveTenantAsync>>
-  workspaceModules: {
-    chargeDefinitions: DashboardChargeDefinitionRow[]
-    contributions: DashboardContributionRow[]
-    members: DashboardMemberRow[]
-  }
 }
 
 export function canShowQuickFill(context: {
@@ -253,124 +183,6 @@ export const getDashboardServerContext = cache(
       },
       tenant: tenantResolution.tenant,
       tenantResolution,
-    }
-  }
-)
-
-async function loadWorkspaceModules(
-  tenantId: string
-): Promise<DashboardPageData["workspaceModules"]> {
-  return Promise.all([
-    listMembers(tenantId, {
-      page: 1,
-      pageSize: 5,
-    }),
-    listContributions(tenantId, {
-      page: 1,
-      pageSize: 5,
-    }),
-    listChargeDefinitions(tenantId),
-  ]).then(([members, contributions, chargeDefinitions]) => ({
-    chargeDefinitions: chargeDefinitions.slice(0, 6).map((charge: any) => ({
-      id: charge.id,
-      name: charge.name,
-      code: charge.code,
-      kind: charge.kind,
-      isActive: charge.isActive,
-      amount: Number(charge.amount),
-    })),
-    contributions: contributions.items.map((contribution) => ({
-      id: contribution.id,
-      memberName: contribution.member?.fullName ?? "Unknown member",
-      amount: Number(contribution.amount),
-      channel: contribution.channel,
-      status: contribution.status,
-      postedAt: contribution.postedAt.toISOString(),
-    })),
-    members: members.items.map((member) => ({
-      id: member.id,
-      fullName: member.fullName,
-      memberNumber: member.memberNumber,
-      memberType: member.memberType,
-      status: member.status,
-    })),
-  }))
-}
-
-export const getDashboardPageData = cache(
-  async (): Promise<DashboardPageData> => {
-    const context = await getDashboardServerContext()
-    const runtime = createDbRuntime()
-    const tenant =
-      context.tenant ??
-      ({
-        id: "platform-demo",
-        slug: "platform",
-        name: "Platform Demo Workspace",
-        memberNumberPrefix: null,
-        currentSize: null,
-        officeAddress: null,
-        city: null,
-        state: null,
-        country: null,
-        startDate: null,
-        region: null,
-        currencyCode: "NGN",
-        timezone: "Africa/Lagos",
-        status: "active",
-        memberCount: 0,
-      } as const)
-
-    const hasDatabase = runtime.status === "database-configured"
-    const [onboarding, dashboardMetrics, workspaceModules] = await Promise.all([
-      context.tenant ? getTenantOnboardingState(context.tenant.id) : null,
-      context.tenant && hasDatabase
-        ? getDashboardMetrics(context.tenant.id)
-        : null,
-      context.tenant && hasDatabase
-        ? loadWorkspaceModules(context.tenant.id)
-        : {
-            chargeDefinitions: [],
-            contributions: [],
-            members: [],
-          },
-    ])
-
-    return {
-      dashboard: buildDashboardSnapshot({
-        tenant: dashboardMetrics
-          ? {
-              ...tenant,
-              memberCount: dashboardMetrics.memberCount,
-            }
-          : tenant,
-        policy: {
-          reserveBuffer:
-            dashboardMetrics?.reserveBuffer ??
-            defaultTenantPolicy.reserveBuffer,
-        },
-        metrics: dashboardMetrics
-          ? {
-              activeLoans: dashboardMetrics.activeLoanCount,
-              availablePool: dashboardMetrics.availablePool,
-              collectionCoverage:
-                dashboardMetrics.totalContributions > 0
-                  ? dashboardMetrics.availablePool /
-                    dashboardMetrics.totalContributions
-                  : 0,
-              delinquencyRate: dashboardMetrics.delinquencyRate,
-              monthlyContributionTarget: dashboardMetrics.totalContributions,
-            }
-          : undefined,
-      }),
-      hasSession: Boolean(context.auth.sessionToken && context.auth.user),
-      membership: context.auth.membership,
-      onboarding,
-      productAreas,
-      runtime,
-      tenant,
-      tenantResolution: context.tenantResolution,
-      workspaceModules,
     }
   }
 )

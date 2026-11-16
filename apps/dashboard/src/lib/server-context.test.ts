@@ -86,14 +86,7 @@ function createCountingPrisma() {
     },
     memberOnboardingRequest: { findFirst: () => null },
     tenant: {
-      findUnique: () => ({
-        ...tenantRow,
-        chargeDefinitions: [],
-        domains: [],
-        ledgerAccounts: [],
-        memberships: [],
-        users: [],
-      }),
+      findUnique: () => tenantRow,
     },
     user: {
       findFirst: () => ({
@@ -184,22 +177,18 @@ describe("dashboard server context", () => {
   })
 
   test("resolves the context once per request across every caller", async () => {
-    const {
-      getDashboardPageData,
-      getDashboardServerContext,
-      getRequestQaQuickFillContext,
-    } = await import("./server-context")
+    const { getDashboardServerContext, getRequestQaQuickFillContext } =
+      await import("./server-context")
     const token = await createSignedSessionToken({ scope, userId })
     const cookieHeader = `${getScopedAuthSessionCookieName(scope)}=${token}`
 
     const contexts = await runRequest(cookieHeader, async () => {
-      // Root layout, sidebar layout, page, loader and page data in parallel.
+      // Root layout, sidebar layout, page and loader in parallel.
       const [, ...resolved] = await Promise.all([
         getRequestQaQuickFillContext(),
         getDashboardServerContext(),
         getDashboardServerContext(),
         getDashboardServerContext(),
-        getDashboardPageData().then(() => getDashboardServerContext()),
       ])
       return resolved
     })
@@ -209,8 +198,6 @@ describe("dashboard server context", () => {
     expect(contexts[0]?.auth.membership?.role).toBe("finance_officer")
     expect(contexts[0]?.tenant?.memberCount).toBe(12)
     expect(countBy(counting.calls, "user", "findFirst")).toBe(1)
-    // Page data also reads the tenant for onboarding; the context lookup
-    // is the slug lookup.
     const tenantSlugLookups = counting.calls.filter(
       (call) =>
         call.model === "tenant" &&

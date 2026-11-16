@@ -269,7 +269,10 @@ export function onePathStages(page, plan, artifacts, state) {
         await page.getByRole("option").first().click()
         await pickFirstOfThisMonth(
           page,
-          page.getByRole("button", { name: "Select start date" })
+          page.getByRole("button", {
+            // The trigger is named by its field label, not the placeholder.
+            name: /When did the cooperative start\?|Select start date/,
+          })
         )
         await page
           .locator(

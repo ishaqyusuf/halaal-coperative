@@ -1386,6 +1386,62 @@ export async function getTenantFinanceSetup(
   }
 }
 
+/**
+ * One Path setup progress: the `getTenantFinanceSetup` fields that Getting
+ * started's progress rules read (business policy, share policy, migration
+ * setup, and each profit season's end with its entries' statuses). Three
+ * statements: the two policy rows and two columns per profit entry. It skips
+ * the tenant row, businesses and dividend periods (6 statements). The seasons
+ * come from the same builder, so the progress answer is the same.
+ */
+export async function getTenantSetupProgress(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+
+  if (!prisma) {
+    return {
+      businessPolicy: defaultTenantBusinessProfitPolicy,
+      businessProfitSeasons: [] as BusinessProfitSeasonReviewRow[],
+      migrationSetup: defaultTenantMigrationSetup,
+      sharePolicy: defaultTenantSharePolicy,
+    }
+  }
+
+  const [sharePolicy, businessPolicy, profitEntries] = await Promise.all([
+    readOptionalTenantPolicy(prisma, (tenantPolicy) =>
+      tenantPolicy.findUnique({
+        where: { tenantId },
+      })
+    ),
+    readOptionalTenantBusinessPolicy(prisma, (tenantBusinessPolicy) =>
+      tenantBusinessPolicy.findUnique({
+        where: { tenantId },
+      })
+    ),
+    prisma.shareBusinessProfitEntry.findMany({
+      select: { id: true, profitDate: true, status: true },
+      where: { tenantId },
+    }) as Promise<BusinessProfitSeasonProfitEntry[]>,
+  ])
+  const normalizedBusinessPolicy =
+    normalizeTenantBusinessProfitPolicy(businessPolicy)
+
+  return {
+    businessPolicy: normalizedBusinessPolicy,
+    // Progress reads only `periodEnd` and entry statuses; amounts and
+    // labels from dividend periods are not needed here.
+    businessProfitSeasons: buildBusinessProfitSeasonReviewRows({
+      dividendPeriods: [],
+      entries: profitEntries,
+      policy: normalizedBusinessPolicy,
+    }),
+    migrationSetup: normalizeTenantMigrationSetup(sharePolicy),
+    sharePolicy: normalizeTenantSharePolicy(sharePolicy),
+  }
+}
+
 export async function getTenantSharePolicy(
   tenantId: string,
   prismaOverride?: PrismaClient

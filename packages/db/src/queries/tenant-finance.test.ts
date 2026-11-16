@@ -7,6 +7,8 @@ import {
   createTenantShareStructureVersion,
   getResolvedShareAmountForMonth,
   generateHistoricalBackfillShareProfitAllocations,
+  getTenantFinanceSetup,
+  getTenantSetupProgress,
   getTenantMigrationSetup,
   getMemberUnitSharePosition,
   getTenantSharePolicy,
@@ -2478,5 +2480,148 @@ describe("tenant finance queries", () => {
         } as never
       )
     ).rejects.toThrow("Only approved profit entries can be published")
+  })
+})
+
+describe("getTenantSetupProgress", () => {
+  // Quarterly seasons: Q1 and Q2 2026 have entries; Q2 has a pending one.
+  const profitEntries = [
+    { id: "entry-1", profitDate: new Date("2026-02-10"), status: "published" },
+    { id: "entry-2", profitDate: new Date("2026-05-03"), status: "pending" },
+    { id: "entry-3", profitDate: new Date("2026-04-20"), status: "draft" },
+  ]
+  const calls: string[] = []
+  const prisma = {
+    dividendPeriod: {
+      findMany: async () => {
+        calls.push("dividendPeriod")
+        return [
+          {
+            deductionAmount: 0,
+            distributableAmount: 100,
+            id: "period-q1",
+            name: "Q1 2026",
+            periodEnd: new Date("2026-03-31"),
+            periodStart: new Date("2026-01-01"),
+            status: "closed",
+            totalProfitAmount: 100,
+          },
+        ]
+      },
+    },
+    shareBusiness: {
+      findMany: async () => {
+        calls.push("shareBusiness")
+        return [
+          {
+            id: "business-1",
+            name: "Farm",
+            profitEntries: profitEntries.map((entry) => ({
+              ...entry,
+              expenseAmount: 0,
+              profitAmount: 50,
+            })),
+          },
+        ]
+      },
+    },
+    shareBusinessProfitEntry: {
+      findMany: async (input: Record<string, unknown>) => {
+        calls.push("shareBusinessProfitEntry")
+        expect(input).toMatchObject({
+          select: { id: true, profitDate: true, status: true },
+          where: { tenantId: "tenant-1" },
+        })
+        return profitEntries
+      },
+    },
+    tenant: {
+      findUnique: async () => {
+        calls.push("tenant")
+        return { id: "tenant-1", name: "Coop", startDate: new Date("2025-01-01") }
+      },
+    },
+    tenantBusinessPolicy: {
+      findUnique: async () => ({
+        defaultDistributablePercentage: 100,
+        financialYearStartMonth: 1,
+        id: "business-policy-1",
+        profitDistributionFrequency: "quarterly",
+      }),
+    },
+    tenantPolicy: {
+      findUnique: async () => ({
+        id: "policy-1",
+        migrationSetupConfirmedAt: new Date("2026-06-01T10:00:00.000Z"),
+        migrationSetupMode: "brought_forward",
+        sharePolicyConfirmedAt: new Date("2026-06-02T10:00:00.000Z"),
+      }),
+    },
+  }
+
+  // The fields Getting started's progress rules read
+  // (`toGettingStartedProgressInput` in the dashboard).
+  function progressFields(setup: {
+    businessPolicy: { id: string | null }
+    businessProfitSeasons: Array<{
+      periodEnd: Date
+      profitEntries: Array<{ status: string }>
+    }>
+    migrationSetup: { confirmedAt: string | null; mode: string }
+    sharePolicy: { confirmedAt: string | null }
+  }) {
+    return {
+      businessPolicyId: setup.businessPolicy.id,
+      migrationSetup: {
+        confirmedAt: setup.migrationSetup.confirmedAt,
+        mode: setup.migrationSetup.mode,
+      },
+      seasons: setup.businessProfitSeasons.map((season) => ({
+        periodEnd: season.periodEnd.toISOString().slice(0, 10),
+        statuses: season.profitEntries.map((entry) => entry.status).sort(),
+      })),
+      sharePolicyConfirmedAt: setup.sharePolicy.confirmedAt,
+    }
+  }
+
+  test("gives the same progress answer as getTenantFinanceSetup", async () => {
+    const full = await getTenantFinanceSetup("tenant-1", prisma as never, {
+      parts: [],
+    })
+    calls.length = 0
+    const lean = await getTenantSetupProgress("tenant-1", prisma as never)
+
+    expect(progressFields(lean)).toEqual(progressFields(full))
+    expect(progressFields(lean)).toEqual({
+      businessPolicyId: "business-policy-1",
+      migrationSetup: {
+        confirmedAt: "2026-06-01T10:00:00.000Z",
+        mode: "brought_forward",
+      },
+      seasons: [
+        { periodEnd: "2026-03-31", statuses: ["published"] },
+        { periodEnd: "2026-06-30", statuses: ["draft", "pending"] },
+      ],
+      sharePolicyConfirmedAt: "2026-06-02T10:00:00.000Z",
+    })
+    // No tenant row, businesses or dividend periods.
+    expect(calls).toEqual(["shareBusinessProfitEntry"])
+  })
+
+  test("returns defaults when the tenant has no policies or profit", async () => {
+    const empty = {
+      shareBusinessProfitEntry: { findMany: async () => [] },
+      tenantBusinessPolicy: { findUnique: async () => null },
+      tenantPolicy: { findUnique: async () => null },
+    }
+    const lean = await getTenantSetupProgress("tenant-1", empty as never)
+
+    expect(lean.businessPolicy.id).toBeNull()
+    expect(lean.businessProfitSeasons).toEqual([])
+    expect(lean.migrationSetup).toMatchObject({
+      confirmedAt: null,
+      mode: "historical_backfill",
+    })
+    expect(lean.sharePolicy.confirmedAt).toBeNull()
   })
 })

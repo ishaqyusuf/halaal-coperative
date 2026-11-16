@@ -1,7 +1,7 @@
 import {
   getGoLiveOwnerMember,
   getMemberRegistrySummary,
-  getTenantFinanceSetup,
+  getTenantSetupProgress,
 } from "@halaalvest/db"
 import { MembersChecklistView } from "@/components/members-checklist-view"
 import {
@@ -51,9 +51,9 @@ export default async function OnboardingSuccessPage() {
 
   const user = context.auth.user
   const [financeSetup, adminMember, registrySummary] = await Promise.all([
-    // Only setup progress and mode are needed: no charges, share versions or
-    // business detail (6 statements, not 13).
-    getTenantFinanceSetup(tenant.id, undefined, { parts: [] }),
+    // Only setup progress and mode are needed: the lean progress read
+    // (3 statements, two columns per profit entry).
+    getTenantSetupProgress(tenant.id),
     // The admin's own member record: one indexed lookup by user, then email.
     user
       ? getGoLiveOwnerMember({

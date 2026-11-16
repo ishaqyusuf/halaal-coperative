@@ -81,8 +81,8 @@ assertIncludes("src/app/index.tsx", [
 
 assertIncludes("src/features/bootstrap/screens/bootstrap-screen.tsx", [
   'mode = "loading"',
-  'mode === "loading"',
-  "<BootstrapError",
+  'mode !== "loading"',
+  "<ProgressDots",
   'accessibilityRole="progressbar"',
   "presentation.note",
 ])
@@ -211,7 +211,7 @@ assertIncludes("src/features/app-lock/screens/app-lock-screen.tsx", [
   'variant="form"',
   "<ConfirmSheet",
   "AppLockPinPad",
-  "After leaving the app",
+  "Relock after leaving the app",
   "Privacy protection is active",
 ])
 

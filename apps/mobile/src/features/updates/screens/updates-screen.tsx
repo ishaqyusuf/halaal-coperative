@@ -1,9 +1,15 @@
 import { AppSheet } from "@/components/app/app-sheet"
-import { HeroProgress, HeroStatusCard } from "@/components/app/hero-status-card"
+import {
+  CenteredStatus,
+  GateStatusBadge,
+  type GateStatusTone,
+} from "@/components/app/gate-status"
+import { GroupedRow, GroupedSection } from "@/components/app/grouped-section"
 import { ScreenShell } from "@/components/app/screen-shell"
-import { SettingsRow } from "@/components/app/settings-row"
-import { ListCard } from "@/components/ui/list-card"
+import { Button } from "@/components/ui/button"
+import { Icon } from "@/components/ui/icon"
 import { Text } from "@/components/ui/text"
+import { useColors } from "@/hooks/use-color"
 import type { UpdatePrimaryAction } from "@/features/updates/model/update-screen-state"
 import { useState } from "react"
 import { View } from "react-native"
@@ -107,10 +113,46 @@ type UpdatesScreenProps = {
   updatesEnabled: boolean
 }
 
+/** Download progress: 6pt track, primary fill, "NN% downloaded". */
+function DownloadProgress({ value }: { value: number }) {
+  const colors = useColors()
+  const clamped = Math.max(0, Math.min(100, Math.round(value)))
+  return (
+    <View
+      accessibilityLabel={`Download progress, ${clamped}%`}
+      accessibilityRole="progressbar"
+      accessibilityValue={{ max: 100, min: 0, now: clamped }}
+      accessible
+      className="mt-[8px] w-full gap-[6px]"
+    >
+      <View className="flex-row justify-between">
+        <Text className="text-muted-foreground" variant="caption">
+          Download progress
+        </Text>
+        <Text className="text-muted-foreground" variant="caption">
+          {clamped}% downloaded
+        </Text>
+      </View>
+      <View className="h-[6px] overflow-hidden rounded-full bg-surface-raised">
+        {/* Style-only: a measured width cannot share an element with className. */}
+        <View
+          style={{
+            backgroundColor: colors.primary,
+            borderRadius: 999,
+            height: 6,
+            width: `${clamped}%`,
+          }}
+        />
+      </View>
+    </View>
+  )
+}
+
 /**
- * App updates (T03, 02 Brand hero): ScreenShell title, the hero status card
- * (status, message, download progress and the one primary action), then the
- * update settings rows. Build details open in a floating auto sheet.
+ * App updates (T03, owner pick 03 Docked action): ScreenShell title, a
+ * centred status (badge, title, message, version line, download progress),
+ * the update settings group, and the one primary action docked at the bottom.
+ * Build details open in a floating auto sheet.
  */
 export function UpdatesScreen({
   buildDetails,
@@ -128,75 +170,90 @@ export function UpdatesScreen({
   statusIsError,
   updatesEnabled,
 }: UpdatesScreenProps) {
+  const colors = useColors()
   const [showBuildDetails, setShowBuildDetails] = useState(false)
+  const tone: GateStatusTone = statusIsError
+    ? "danger"
+    : statusIsCurrent
+      ? "ok"
+      : updatesEnabled
+        ? "brand"
+        : "neutral"
+  const badgeIcon = statusIsError
+    ? "AlertCircle"
+    : statusIsCurrent
+      ? "Check"
+      : updatesEnabled
+        ? primaryIcon
+        : "CloudOff"
 
   return (
     <>
-      <ScreenShell back={onBack} testID="updates-screen" title="App updates">
-        <HeroStatusCard
-          action={
-            primaryAction
-              ? {
-                  disabled: primaryAction.disabled,
-                  icon: primaryIcon,
-                  label: primaryAction.label,
-                  onPress: onPrimaryAction,
-                }
-              : undefined
-          }
-          busy={isBusy}
-          icon={
-            statusIsError
-              ? "AlertCircle"
-              : statusIsCurrent
-                ? "Check"
-                : updatesEnabled
-                  ? primaryIcon
-                  : "CloudOff"
-          }
-          message={message}
-          meta={`Version ${buildDetails.appVersion} · ${
-            lastCheckAt ? `Checked ${formatTime(lastCheckAt)}` : "Not checked"
-          }`}
+      <ScreenShell
+        back={onBack}
+        contentClassName="gap-[22px]"
+        footer={
+          primaryAction ? (
+            <Button
+              accessibilityLabel={primaryAction.label}
+              disabled={primaryAction.disabled}
+              loading={isBusy}
+              onPress={onPrimaryAction}
+            >
+              {isBusy ? null : (
+                <Icon
+                  className="size-base"
+                  color={colors.primaryForeground}
+                  name={primaryIcon}
+                />
+              )}
+              <Text>{primaryAction.label}</Text>
+            </Button>
+          ) : undefined
+        }
+        testID="updates-screen"
+        title="App updates"
+      >
+        <CenteredStatus
+          badge={<GateStatusBadge icon={badgeIcon} size={76} tone={tone} />}
+          body={message}
           title={status}
-          tone={statusIsError ? "error" : "default"}
         >
+          <Text className="text-foreground" variant="caption">
+            Version {buildDetails.appVersion} ·{" "}
+            {lastCheckAt ? `Checked ${formatTime(lastCheckAt)}` : "Not checked"}
+          </Text>
           {isDownloading ? (
-            <HeroProgress
-              label="Download progress"
-              value={downloadProgressPercent}
-            />
+            <DownloadProgress value={downloadProgressPercent} />
           ) : null}
-        </HeroStatusCard>
+        </CenteredStatus>
 
-        <Text accessibilityRole="header" variant="section">
-          Update settings
-        </Text>
-        <ListCard>
-          <SettingsRow
-            detail="Installed preview and release builds check after opening or returning to the app."
-            icon="RefreshCw"
-            title="Automatic checking"
-            value={updatesEnabled ? "Available" : "Off"}
-          />
-          <SettingsRow
-            accessibilityLabel="Open app update build details"
-            chevron
-            detail="Version, update channel, runtime and release identifier."
-            icon="Info"
-            onPress={() => setShowBuildDetails(true)}
-            title="Build details"
-            tone="sky"
-          />
-        </ListCard>
-        <ListCard>
-          <SettingsRow
-            detail="HalaalVest only applies an update when its channel and runtime match this installed build. Native changes still need a new app build."
-            icon="ShieldCheck"
-            title="Updates are safely matched"
-            tone="success"
-          />
-        </ListCard>
+        <View className="gap-[16px]">
+          <GroupedSection caption="Update settings">
+            <GroupedRow
+              detail="Installed preview and release builds check after opening or returning to the app."
+              icon="RefreshCw"
+              title="Automatic checking"
+              value={updatesEnabled ? "Available" : "Off"}
+            />
+            <GroupedRow
+              accessibilityLabel="Open app update build details"
+              chevron
+              detail="Version, update channel, runtime and release identifier."
+              icon="Info"
+              onPress={() => setShowBuildDetails(true)}
+              title="Build details"
+              tone="sky"
+            />
+          </GroupedSection>
+          <GroupedSection>
+            <GroupedRow
+              detail="HalaalVest only applies an update when its channel and runtime match this installed build. Native changes still need a new app build."
+              icon="ShieldCheck"
+              title="Updates are safely matched"
+            />
+          </GroupedSection>
+        </View>
       </ScreenShell>
 
       <BuildDetailsSheet

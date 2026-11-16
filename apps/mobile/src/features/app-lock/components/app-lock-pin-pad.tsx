@@ -1,7 +1,7 @@
 import { Icon } from "@/components/ui/icon"
 import { Text } from "@/components/ui/text"
 import { APP_LOCK_CODE_LENGTH } from "@/features/app-lock/model/app-lock-types"
-import { useColors, useColorScheme } from "@/hooks/use-color"
+import { useColors } from "@/hooks/use-color"
 import * as Haptics from "expo-haptics"
 import { memo, useCallback, useEffect, useRef } from "react"
 import {
@@ -26,12 +26,12 @@ const PIN_ROWS = [
   ["7", "8", "9"],
 ] as const
 
-/** Below this window height the keys shrink from 58 to 48pt. */
+/** Below this window height the keys shrink from 76 to 62pt. */
 const COMPACT_WINDOW_HEIGHT = 700
 
-function useKeyHeight() {
+function useKeySize() {
   const { height } = useWindowDimensions()
-  return height < COMPACT_WINDOW_HEIGHT ? 48 : 58
+  return height < COMPACT_WINDOW_HEIGHT ? 62 : 76
 }
 
 /**
@@ -117,12 +117,12 @@ type AppLockPinPadProps = {
 }
 
 /**
- * Native 3×4 PIN pad (02 Brand hero, workshop 03): full width inside the
- * gutter, 10pt gaps, 58pt keys (48 on small phones) with radius 18. Light keys
- * are cards with a hairline shadow, dark keys the raised surface; a pressed
- * key turns tint and scales to .94. Biometric (bottom left, only when on) and
- * delete (bottom right) are transparent. Press styles come from Pressable's
- * own state, not className `active:` (T02: it stuck after disabled toggles).
+ * Native 3×4 PIN pad (owner pick 01 Calm title, workshop 03): centred round
+ * keys, 76pt (62 on small phones), 24pt between columns and 14 between rows,
+ * on the raised surface; a pressed key darkens and scales to .94. Biometric
+ * (bottom left, only when on) and delete (bottom right) are transparent.
+ * Press styles come from Pressable's own state, not className `active:`
+ * (T02: it stuck after disabled toggles).
  */
 export const AppLockPinPad = memo(function AppLockPinPad({
   biometricLabel = "biometrics",
@@ -132,6 +132,7 @@ export const AppLockPinPad = memo(function AppLockPinPad({
   showBiometric = false,
   value,
 }: AppLockPinPadProps) {
+  const keySize = useKeySize()
   // Fast taps can land before the parent re-renders with the new value, so
   // each key builds on the latest value it produced, not the last render's
   // (otherwise two quick taps overwrite each other and digits go missing).
@@ -154,9 +155,19 @@ export const AppLockPinPad = memo(function AppLockPinPad({
   }, [disabled, onChange])
 
   return (
-    <View style={{ gap: 10, opacity: disabled ? 0.38 : 1, width: "100%" }}>
+    <View
+      style={{
+        alignItems: "center",
+        gap: keySize === 76 ? 14 : 9,
+        opacity: disabled ? 0.38 : 1,
+        width: "100%",
+      }}
+    >
       {PIN_ROWS.map((row) => (
-        <View key={row.join("-")} style={{ flexDirection: "row", gap: 10 }}>
+        <View
+          key={row.join("-")}
+          style={{ flexDirection: "row", gap: keySize === 76 ? 24 : 20 }}
+        >
           {row.map((digit) => (
             <PinKey
               accessibilityLabel={`Enter digit ${digit}`}
@@ -164,14 +175,16 @@ export const AppLockPinPad = memo(function AppLockPinPad({
               key={digit}
               onPress={() => appendDigit(digit)}
             >
-              <Text className="text-[26px] font-bold text-foreground" tabular>
+              <Text className="text-[30px] font-medium text-foreground" tabular>
                 {digit}
               </Text>
             </PinKey>
           ))}
         </View>
       ))}
-      <View style={{ flexDirection: "row", gap: 10 }}>
+      <View
+        style={{ flexDirection: "row", gap: keySize === 76 ? 24 : 20 }}
+      >
         {showBiometric && onBiometricPress ? (
           <PinKey
             accessibilityLabel={`Unlock with ${biometricLabel}`}
@@ -185,14 +198,14 @@ export const AppLockPinPad = memo(function AppLockPinPad({
             />
           </PinKey>
         ) : (
-          <View style={{ flex: 1 }} />
+          <View style={{ height: keySize, width: keySize }} />
         )}
         <PinKey
           accessibilityLabel="Enter digit 0"
           disabled={disabled}
           onPress={() => appendDigit("0")}
         >
-          <Text className="text-[26px] font-bold text-foreground" tabular>
+          <Text className="text-[30px] font-medium text-foreground" tabular>
             0
           </Text>
         </PinKey>
@@ -224,44 +237,29 @@ function PinKey({
   plain?: boolean
 }) {
   const colors = useColors()
-  const { colorScheme } = useColorScheme()
   const reduceMotion = useReducedMotion()
-  const height = useKeyHeight()
-  const dark = colorScheme === "dark"
+  const size = useKeySize()
 
   const style = useCallback(
     ({ pressed }: PressableStateCallbackType): StyleProp<ViewStyle> => {
       const active = pressed && !disabled
       return {
         alignItems: "center",
-        backgroundColor: active
-          ? colors.accent
-          : plain
-            ? "transparent"
-            : dark
-              ? colors.surfaceRaised
-              : colors.card,
-        borderRadius: 18,
-        flex: 1,
-        height,
+        backgroundColor: plain
+          ? "transparent"
+          : active
+            ? colors.border
+            : colors.surfaceRaised,
+        borderRadius: size / 2,
+        height: size,
         justifyContent: "center",
+        width: size,
         // Always an array: switching transform to undefined crashes the
         // native style diff ("forEach of null") on release of a press.
         transform: [{ scale: active && !reduceMotion ? 0.94 : 1 }],
-        ...(plain || dark
-          ? null
-          : {
-              borderBottomColor: colors.border,
-              borderBottomWidth: 1,
-              elevation: 1,
-              shadowColor: colors.foreground,
-              shadowOffset: { height: 1, width: 0 },
-              shadowOpacity: 0.06,
-              shadowRadius: 2,
-            }),
       }
     },
-    [colors, dark, disabled, height, plain, reduceMotion]
+    [colors, disabled, plain, reduceMotion, size]
   )
 
   return (

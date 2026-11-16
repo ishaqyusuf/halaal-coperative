@@ -1,10 +1,10 @@
 import { AppSheet } from "@/components/app/app-sheet"
 import { ConfirmSheet } from "@/components/app/confirm-sheet"
-import { HeroStatusCard } from "@/components/app/hero-status-card"
+import { CenteredStatus, GateStatusBadge } from "@/components/app/gate-status"
+import { GroupedRow, GroupedSection } from "@/components/app/grouped-section"
 import { ScreenShell } from "@/components/app/screen-shell"
-import { SettingsRow } from "@/components/app/settings-row"
 import { Icon } from "@/components/ui/icon"
-import { ListCard } from "@/components/ui/list-card"
+import { Button } from "@/components/ui/button"
 import { SegmentedControl } from "@/components/ui/segmented-control"
 import { Text } from "@/components/ui/text"
 import {
@@ -255,7 +255,28 @@ export function AppLockScreen({
 
   return (
     <>
-      <ScreenShell back={onBack} testID="app-lock-screen" title="App lock">
+      <ScreenShell
+        back={onBack}
+        contentClassName="gap-[22px]"
+        footer={
+          config ? (
+            <Button onPress={onLockNow}>
+              <Icon className="size-base text-primary-foreground" name="LockKeyhole" />
+              <Text>Lock now</Text>
+            </Button>
+          ) : (
+            <Button
+              disabled={!isHydrated}
+              onPress={() => beginFlow("setup-create")}
+            >
+              <Icon className="size-base text-primary-foreground" name="LockKeyhole" />
+              <Text>Set up app lock</Text>
+            </Button>
+          )
+        }
+        testID="app-lock-screen"
+        title="App lock"
+      >
         {notice ? (
           <View
             accessibilityLiveRegion="polite"
@@ -287,34 +308,31 @@ export function AppLockScreen({
           </View>
         ) : null}
 
-        <HeroStatusCard
-          action={
-            config
-              ? { icon: "LockKeyhole", label: "Lock now", onPress: onLockNow }
-              : {
-                  disabled: !isHydrated,
-                  icon: "LockKeyhole",
-                  label: "Set up app lock",
-                  onPress: () => beginFlow("setup-create"),
-                }
+        <CenteredStatus
+          badge={
+            <GateStatusBadge
+              icon={config ? "ShieldCheck" : "LockKeyhole"}
+              size={76}
+              tone={config ? "ok" : "neutral"}
+            />
           }
-          icon={config ? "ShieldCheck" : "LockKeyhole"}
-          message={
+          body={
             config
               ? "Your PIN protects this signed-in phone when HalaalVest relocks."
               : "Create a six-digit PIN before adding biometric unlock."
           }
-          pill={config ? "Protected" : "Not set up"}
+          pill={
+            config
+              ? { label: "Protected", tone: "ok" }
+              : { label: "Not set up", tone: "neutral" }
+          }
           title={config ? "Protection is on" : "Protect this phone"}
         />
 
         {config ? (
-          <>
-            <Text accessibilityRole="header" variant="section">
-              Unlock methods
-            </Text>
-            <ListCard>
-              <SettingsRow
+          <View className="gap-[16px]">
+            <GroupedSection caption="Unlock methods">
+              <GroupedRow
                 accessibilityLabel="App PIN, change"
                 chevron
                 detail="Six digits stored securely on this phone"
@@ -323,7 +341,7 @@ export function AppLockScreen({
                 title="App PIN"
                 value="Change"
               />
-              <SettingsRow
+              <GroupedRow
                 detail={
                   biometricsStatus.isAvailable
                     ? `Use ${biometricsStatus.label} after app lock appears`
@@ -346,71 +364,67 @@ export function AppLockScreen({
                   />
                 }
               />
-            </ListCard>
+            </GroupedSection>
 
-            <View className="flex-row items-end justify-between gap-[12px]">
-              <Text accessibilityRole="header" variant="section">
-                Relock
-              </Text>
-              <Text className="text-muted-foreground" variant="caption">
-                After leaving the app
-              </Text>
-            </View>
-            <SegmentedControl
-              accessibilityLabel="Relock after leaving the app"
-              onChange={(value) =>
-                void handleRelockChange(Number(value) as AppLockRelockAfterMs)
-              }
-              options={RELOCK_OPTIONS.map((option) => ({
-                label: option.compactLabel,
-                value: String(option.value),
-              }))}
-              value={String(config.relockAfterMs)}
-            />
-            <Text className="-mt-[6px] text-muted-foreground" variant="small">
-              {selectedRelockOption?.description}
-            </Text>
+            <GroupedSection
+              caption="Relock after leaving the app"
+              footnote={selectedRelockOption?.description}
+            >
+              <View className="px-[12px] py-[10px]">
+                <SegmentedControl
+                  accessibilityLabel="Relock after leaving the app"
+                  onChange={(value) =>
+                    void handleRelockChange(Number(value) as AppLockRelockAfterMs)
+                  }
+                  options={RELOCK_OPTIONS.map((option) => ({
+                    label: option.compactLabel,
+                    value: String(option.value),
+                  }))}
+                  value={String(config.relockAfterMs)}
+                />
+              </View>
+            </GroupedSection>
 
-            <ListCard>
-              <SettingsRow
+            <GroupedSection>
+              <GroupedRow
                 detail="HalaalVest hides financial screens in the app switcher and blocks screen capture where the phone supports it."
                 icon="ShieldCheck"
                 title="Privacy protection is active"
-                tone="success"
               />
-              <SettingsRow
+              <GroupedRow
                 detail={`${cooperativeName} · ${userName}`}
                 icon="Smartphone"
                 title="This phone"
+                tone="neutral"
                 value="Local only"
               />
-            </ListCard>
+            </GroupedSection>
 
-            <ListCard>
-              <SettingsRow
+            <GroupedSection>
+              <GroupedRow
                 destructive
                 detail="Removes the PIN and biometric unlock from this phone"
                 icon="LockKeyhole"
                 onPress={() => beginFlow("disable-verify")}
                 title="Remove app lock"
               />
-            </ListCard>
-          </>
+            </GroupedSection>
+          </View>
         ) : (
-          <ListCard>
-            <SettingsRow
+          <GroupedSection caption="This phone">
+            <GroupedRow
               detail={`${cooperativeName} · ${userName}`}
               icon="Smartphone"
               title="This phone"
+              tone="neutral"
               value="Local only"
             />
-            <SettingsRow
+            <GroupedRow
               detail="The PIN protects only this signed-in phone. Signing out or revoking this device removes its local app lock."
               icon="ShieldCheck"
               title="Separate from your account password"
-              tone="success"
             />
-          </ListCard>
+          </GroupedSection>
         )}
       </ScreenShell>
 
@@ -439,7 +453,6 @@ export function AppLockScreen({
               setCode(value)
               setError(null)
             }}
-            secondStep={flow === "setup-confirm" || flow === "change-confirm"}
           />
         ) : null}
       </AppSheet>
@@ -460,7 +473,7 @@ export function AppLockScreen({
   )
 }
 
-/** One PIN step: progress bars, copy, dots and helper, pad at the bottom. */
+/** One PIN step (01 Calm title): centred copy, dots and helper, round pad. */
 function PinStep({
   body,
   code,
@@ -468,7 +481,6 @@ function PinStep({
   errorKey,
   isSubmitting,
   onChange,
-  secondStep,
 }: {
   body: string
   code: string
@@ -476,7 +488,6 @@ function PinStep({
   errorKey: number
   isSubmitting: boolean
   onChange: (value: string) => void
-  secondStep: boolean
 }) {
   const insets = useSafeAreaInsets()
   const { height } = useWindowDimensions()
@@ -489,20 +500,9 @@ function PinStep({
 
   return (
     <View style={{ gap: 16, justifyContent: "space-between", minHeight }}>
-      <View className="gap-[12px]">
-        <View className="flex-row gap-[8px]">
-          <View className="h-[4px] flex-1 rounded-full bg-primary" />
-          <View
-            className={cn(
-              "h-[4px] flex-1 rounded-full",
-              secondStep ? "bg-primary" : "bg-muted"
-            )}
-          />
-        </View>
-        <Text className="text-foreground-soft" variant="body">
-          {body}
-        </Text>
-      </View>
+      <Text className="px-[10px] text-center text-foreground-soft" variant="body">
+        {body}
+      </Text>
       <View className="items-center gap-[14px]">
         <AppLockPinDots error={Boolean(error)} errorKey={errorKey} value={code} />
         <Text

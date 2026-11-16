@@ -1,6 +1,7 @@
-import { GateHero, GateHeroSurface, GateMark } from "@/components/app/gate-hero"
+import { GateMark } from "@/components/app/gate-hero"
 import { OverlayStatusBar } from "@/components/app/screen-status-bar"
 import { Button } from "@/components/ui/button"
+import { Elevated } from "@/components/ui/list-card"
 import { Icon } from "@/components/ui/icon"
 import { Text } from "@/components/ui/text"
 import {
@@ -8,9 +9,8 @@ import {
   type BootstrapScreenMode,
 } from "@/features/bootstrap/model/bootstrap-presentation"
 import { useColors } from "@/hooks/use-color"
-import { resolveDockedFooterInset } from "@/lib/docked-footer-inset"
 import { useEffect } from "react"
-import { Platform, ScrollView, View } from "react-native"
+import { View } from "react-native"
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -27,10 +27,11 @@ type BootstrapScreenProps = {
 }
 
 /**
- * Splash and bootstrap gate (T03, 02 Brand hero). Loading is the full-bleed
- * brand gradient continuing the native splash; a failed verification or an
- * offline start shows the gate hero with a docked Try again. It renders above
- * the navigator (root runtime gate), so it owns an overlay status bar.
+ * Splash and bootstrap gate (T03, owner pick 01 Calm title). Loading is the
+ * canvas with the HalaalVest tile, title and progress dots; a failed
+ * verification or an offline start shows a small tinted tile, the message and
+ * an inline Try again. A shield note sits at the foot. It renders above the
+ * navigator (root runtime gate), so it owns an overlay status bar.
  */
 export function BootstrapScreen({
   mode = "loading",
@@ -38,55 +39,95 @@ export function BootstrapScreen({
   retrying = false,
 }: BootstrapScreenProps) {
   const presentation = projectBootstrapPresentation({ mode, retrying })
-  if (mode === "loading" || !presentation.chip) {
-    return <BootstrapSplash presentation={presentation} />
-  }
-  return (
-    <BootstrapError
-      chip={presentation.chip}
-      onRetry={onRetry}
-      presentation={presentation}
-      retrying={retrying}
-    />
-  )
-}
+  const insets = useSafeAreaInsets()
+  const failed = mode !== "loading" && presentation.chip
 
-type Presentation = ReturnType<typeof projectBootstrapPresentation>
-
-function BootstrapSplash({ presentation }: { presentation: Presentation }) {
   return (
-    <View className="flex-1" testID="bootstrap-loading">
-      <OverlayStatusBar tone="hero" />
-      <GateHeroSurface fill>
-        <View className="flex-1 items-center justify-center gap-[14px] px-[12px]">
-          <GateMark identity={{ kind: "brand" }} size={72} />
+    <View
+      className="flex-1 bg-background"
+      testID={failed ? "bootstrap-error" : "bootstrap-loading"}
+    >
+      <OverlayStatusBar />
+      {/* Style-only: padding follows the runtime safe-area insets. */}
+      <View
+        style={{
+          flex: 1,
+          paddingBottom: Math.max(insets.bottom, 16) + 14,
+          paddingHorizontal: 28,
+          paddingTop: insets.top + 24,
+        }}
+      >
+        <View className="flex-1 items-center justify-center gap-[12px]">
+          {failed && presentation.chip ? (
+            <View
+              className={
+                presentation.chip.tone === "danger"
+                  ? "size-[44px] items-center justify-center rounded-[14px] bg-tint-danger"
+                  : "size-[44px] items-center justify-center rounded-[14px] bg-tint-warm"
+              }
+            >
+              <Icon
+                className={
+                  presentation.chip.tone === "danger"
+                    ? "size-[22px] text-tint-danger-foreground"
+                    : "size-[22px] text-tint-warm-foreground"
+                }
+                name={presentation.chip.icon}
+              />
+            </View>
+          ) : (
+            <Elevated className="rounded-[20px] bg-card" radius={20}>
+              <View className="size-[64px] items-center justify-center">
+                <GateMark identity={{ kind: "brand" }} size={44} />
+              </View>
+            </Elevated>
+          )}
           <Text
             accessibilityRole="header"
-            className="text-center text-hero-foreground"
-            variant="hero"
+            className="mt-[6px] max-w-[320px] text-center"
+            variant="screenTitle"
           >
             {presentation.title}
           </Text>
           <Text
-            className="max-w-[300px] text-center text-hero-foreground/80"
+            accessibilityLiveRegion="polite"
+            className="max-w-[320px] text-center text-foreground-soft"
             variant="body"
           >
             {presentation.description}
           </Text>
-          <ProgressDots />
+          {failed ? (
+            onRetry ? (
+              <View className="mt-[14px] w-full">
+                <Button
+                  accessibilityLabel={presentation.actionLabel ?? undefined}
+                  loading={retrying}
+                  onPress={onRetry}
+                >
+                  <Icon
+                    className="size-base text-primary-foreground"
+                    name="RefreshCw"
+                  />
+                  <Text>{presentation.actionLabel}</Text>
+                </Button>
+              </View>
+            ) : null
+          ) : (
+            <ProgressDots />
+          )}
         </View>
-        <View className="flex-row items-start gap-[10px]">
-          <Icon className="size-sm text-hero-foreground/80" name="ShieldCheck" />
-          <Text className="flex-1 text-hero-foreground/80" variant="small">
+        <View className="flex-row items-start gap-[10px] border-t border-border pt-[16px]">
+          <Icon className="size-sm text-success" name="ShieldCheck" />
+          <Text className="flex-1 text-muted-foreground" variant="small">
             {presentation.note}
           </Text>
         </View>
-      </GateHeroSurface>
+      </View>
     </View>
   )
 }
 
-/** Three dots; the first pulses wide (off under reduce motion). */
+/** Three brand dots; the first pulses wide (off under reduce motion). */
 function ProgressDots() {
   const colors = useColors()
   const reduceMotion = useReducedMotion()
@@ -97,10 +138,10 @@ function ProgressDots() {
   }, [reduceMotion, width])
   const lead = useAnimatedStyle(() => ({ width: width.get() }))
   const dot = {
-    backgroundColor: colors.heroForeground,
+    backgroundColor: colors.brand,
     borderRadius: 3,
     height: 6,
-    opacity: 0.4,
+    opacity: 0.3,
     width: 6,
   }
   return (
@@ -111,79 +152,10 @@ function ProgressDots() {
       style={{ flexDirection: "row", gap: 6, marginTop: 8 }}
     >
       <Animated.View
-        style={[
-          { backgroundColor: colors.heroForeground, borderRadius: 3, height: 6 },
-          lead,
-        ]}
+        style={[{ backgroundColor: colors.brand, borderRadius: 3, height: 6 }, lead]}
       />
       <View style={dot} />
       <View style={dot} />
-    </View>
-  )
-}
-
-function BootstrapError({
-  chip,
-  onRetry,
-  presentation,
-  retrying,
-}: {
-  chip: NonNullable<Presentation["chip"]>
-  onRetry?: () => void
-  presentation: Presentation
-  retrying: boolean
-}) {
-  const colors = useColors()
-  const insets = useSafeAreaInsets()
-  return (
-    <View className="flex-1 bg-background" testID="bootstrap-error">
-      <OverlayStatusBar tone="hero" />
-      <ScrollView
-        bounces={false}
-        contentContainerStyle={{ flexGrow: 1 }}
-        contentInsetAdjustmentBehavior="never"
-      >
-        <GateHero
-          chip={chip}
-          identity={{ kind: "brand" }}
-          minHeightRatio={0.4}
-          title={presentation.title}
-        />
-        <View className="gap-[14px] px-[18px] pt-[22px]">
-          <Text className="text-foreground-soft" variant="body">
-            {presentation.description}
-          </Text>
-          <View className="flex-row items-start gap-[10px]">
-            <Icon className="size-sm text-success" name="ShieldCheck" />
-            <Text className="flex-1 text-muted-foreground" variant="small">
-              {presentation.note}
-            </Text>
-          </View>
-        </View>
-      </ScrollView>
-      {onRetry ? (
-        <View
-          style={{
-            backgroundColor: colors.card,
-            borderTopColor: colors.border,
-            borderTopWidth: 1,
-            paddingBottom: resolveDockedFooterInset(insets.bottom, Platform.OS),
-            paddingHorizontal: 18,
-            paddingTop: 12,
-          }}
-        >
-          <Button
-            accessibilityLabel={presentation.actionLabel ?? undefined}
-            loading={retrying}
-            onPress={onRetry}
-          >
-            <Icon className="size-base text-primary-foreground" name="RefreshCw" />
-            <Text accessibilityLiveRegion="polite">
-              {presentation.actionLabel}
-            </Text>
-          </Button>
-        </View>
-      ) : null}
     </View>
   )
 }

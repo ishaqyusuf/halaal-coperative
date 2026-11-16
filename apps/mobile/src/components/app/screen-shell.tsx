@@ -1,4 +1,5 @@
 import { useDockContentInset } from "@/components/app/dock-tab-bar"
+import { DockedFooter } from "@/components/app/docked-footer"
 import { ScreenStatusBar } from "@/components/app/screen-status-bar"
 import { Icon } from "@/components/ui/icon"
 import { useCardShadow } from "@/components/ui/list-card"
@@ -278,6 +279,8 @@ export type ScreenShellProps = {
   refreshing?: boolean
   /** Overlays pinned to the screen, e.g. BottomSearchFooter or a FAB. */
   overlay?: ReactNode
+  /** Actions docked under the scroll view (DockedFooter), e.g. Lock now. */
+  footer?: ReactNode
   contentClassName?: string
   /** For screens that scroll programmatically (e.g. useLaneTabsAnchor). */
   scrollRef?: RefObject<ScrollView | null>
@@ -295,6 +298,7 @@ export function ScreenShell({
   back,
   children,
   contentClassName,
+  footer,
   header,
   headerActions,
   hero,
@@ -313,7 +317,9 @@ export function ScreenShell({
     <View className="flex-1 bg-background" testID={testID}>
       {chrome.chrome}
       <ScrollView
-        contentContainerStyle={{ paddingBottom: chrome.contentBottomInset }}
+        contentContainerStyle={{
+          paddingBottom: footer ? 24 : chrome.contentBottomInset,
+        }}
         contentInsetAdjustmentBehavior="never"
         keyboardShouldPersistTaps="handled"
         onScroll={(event) => {
@@ -358,6 +364,7 @@ export function ScreenShell({
           {children}
         </View>
       </ScrollView>
+      {footer ? <DockedFooter>{footer}</DockedFooter> : null}
       {overlay}
     </View>
   )

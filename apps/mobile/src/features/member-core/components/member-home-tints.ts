@@ -14,6 +14,7 @@ export const homeTintClasses: Record<HomeTint, { icon: string; surface: string }
 }
 
 const statTints: Record<string, { icon: string; tint: HomeTint }> = {
+  "approved-not-paid-out": { icon: "Clock", tint: "sky" },
   commitment: { icon: "Wallet", tint: "success" },
   financing: { icon: "HandCoins", tint: "sky" },
   savings: { icon: "WalletCards", tint: "success" },

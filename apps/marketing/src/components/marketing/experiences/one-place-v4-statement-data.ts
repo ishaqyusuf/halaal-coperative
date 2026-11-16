@@ -79,7 +79,9 @@ export const statementMonths = Object.fromEntries(
 
 export const defaultStatementMonthKey: StatementMonthKey = "oct"
 
-export const sampleBatchOfficer = "A. Danjuma"
+export const sampleMemberName = "Amina Suleiman"
+export const sampleGuarantors = ["Maryam Lawal", "Musa Bello"] as const
+export const sampleBatchOfficer = "Ali Danjuma"
 
 const nairaAmountFormat = new Intl.NumberFormat("en-NG", {
   maximumFractionDigits: 2,

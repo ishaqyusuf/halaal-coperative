@@ -8,6 +8,7 @@ import {
   interpolateStatementBalances,
   sampleBatchOfficer,
   sampleFinancing,
+  sampleMemberName,
   type StatementBalances,
   type StatementMonthKey,
   statementMonthKeys,
@@ -145,7 +146,7 @@ export function OnePlaceStatement() {
     <section aria-labelledby="op4-statement-title" className="statement">
       <div className="st-head">
         <div>
-          <h2 id="op4-statement-title">Chidinma Okafor</h2>
+          <h2 id="op4-statement-title">{sampleMemberName}</h2>
           <p>
             <span className="nw">UNI-0418</span> · Unity Staff Cooperative
             Society

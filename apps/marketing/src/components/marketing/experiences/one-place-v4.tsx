@@ -15,6 +15,11 @@ import {
   type OnePlaceNavLink,
 } from "./one-place-v4-header"
 import { OnePlaceStatement } from "./one-place-v4-statement"
+import {
+  sampleBatchOfficer,
+  sampleGuarantors,
+  sampleMemberName,
+} from "./one-place-v4-statement-data"
 
 const onePlaceSans = Inter({
   subsets: ["latin"],
@@ -744,7 +749,7 @@ function PayrollTile() {
         </ul>
       </div>
       <div
-        aria-label="Sample payroll batch PD-2610 for October: 412 of 431 lines matched and 19 held for review. Chidinma Okafor's ₦55,000 deduction is split into ₦25,000 savings and ₦30,000 repayment on FN-0192."
+        aria-label={`Sample payroll batch PD-2610 for October: 412 of 431 lines matched and 19 held for review. ${sampleMemberName}'s ₦55,000 deduction is split into ₦25,000 savings and ₦30,000 repayment on FN-0192.`}
         className="card num"
         role="img"
       >
@@ -772,7 +777,7 @@ function PayrollTile() {
             </span>
           </div>
           <div className="split">
-            <h3>Chidinma Okafor · UNI-0418</h3>
+            <h3>{sampleMemberName} · UNI-0418</h3>
             <dl>
               <div>
                 <dt>Savings contribution</dt>
@@ -809,7 +814,7 @@ function FinancingTile() {
         </ul>
       </div>
       <div
-        aria-label="Sample financing request FN-0192: ₦540,000 over 18 months, ₦30,000 a month, interest ₦0. Guarantors Funke Adeyemi and Musa Bello approved; committee approved two of two on 12 July 2026."
+        aria-label={`Sample financing request FN-0192: ₦540,000 over 18 months, ₦30,000 a month, interest ₦0. Guarantors ${sampleGuarantors.join(" and ")} approved; committee approved two of two on 12 July 2026.`}
         className="card num"
         role="img"
       >
@@ -819,7 +824,7 @@ function FinancingTile() {
               <b>
                 Financing request <span className="nw">FN-0192</span>
               </b>
-              <span className="s">Chidinma Okafor · 18 months</span>
+              <span className="s">{sampleMemberName} · 18 months</span>
             </div>
             <span className="chip chip-green">Approved</span>
           </div>
@@ -850,7 +855,7 @@ function FinancingTile() {
               <StepCheck />
               <div>
                 <b>Guarantors approved</b>
-                <small>Funke Adeyemi, Musa Bello</small>
+                <small>{sampleGuarantors.join(", ")}</small>
               </div>
               <em>6 Jul</em>
             </li>
@@ -884,7 +889,7 @@ function CorrectionsTile() {
         </ul>
       </div>
       <div
-        aria-label="Sample entries: receipt RC-2231 for ₦25,000 posted 20 October, then reversed on 21 October by A. Danjuma with the note 'Entered twice'. The original entry is kept."
+        aria-label={`Sample entries: receipt RC-2231 for ₦25,000 posted 20 October, then reversed on 21 October by ${sampleBatchOfficer} with the note 'Entered twice'. The original entry is kept.`}
         className="card num"
         role="img"
       >
@@ -909,7 +914,9 @@ function CorrectionsTile() {
             <div className="entry rev">
               <b>Reversal of RC-2232</b>
               <span className="amt">−₦25,000</span>
-              <small>21 Oct · A. Danjuma · Note: “Entered twice”</small>
+              <small>
+                21 Oct · {sampleBatchOfficer} · Note: “Entered twice”
+              </small>
               <span className="c">
                 <span className="chip chip-green">Original entry kept</span>
               </span>
@@ -967,7 +974,7 @@ function MemberPhone() {
   return (
     <div className="phone-field">
       <div
-        aria-label="Sample member home screen for Chidinma Okafor: savings ₦437,000, with links to download a statement, request financing, one guarantor request waiting, and receipts."
+        aria-label={`Sample member home screen for ${sampleMemberName}: savings ₦437,000, with links to download a statement, request financing, one guarantor request waiting, and receipts.`}
         className="phone"
         role="img"
       >
@@ -978,7 +985,7 @@ function MemberPhone() {
               <span>My account</span>
             </div>
             <small>Unity Staff Cooperative · sample</small>
-            <b>Chidinma Okafor</b>
+            <b>{sampleMemberName}</b>
             <strong>₦437,000.00</strong>
             <small>Savings balance</small>
           </div>
@@ -1001,7 +1008,7 @@ function MemberPhone() {
               trailing={<span className="badge">1</span>}
             >
               <b>Guarantor requests</b>
-              <small>Musa Bello is waiting</small>
+              <small>{sampleGuarantors[1]} is waiting</small>
             </PhoneRow>
             <PhoneRow
               icon={

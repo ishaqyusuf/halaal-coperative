@@ -59,6 +59,10 @@ describe("One Place marketing experience", () => {
     const html = renderLanding("direct")
 
     expect(html).toContain("Run your cooperative in one place")
+    expect(html).toContain('id="op4-statement-title">Amina Suleiman</h2>')
+    expect(html).toContain("Sample member home screen for Amina Suleiman")
+    expect(html).toContain("Guarantors Maryam Lawal and Musa Bello approved")
+    expect(html).toContain("reversed on 21 October by Ali Danjuma")
     expect(html).toContain('role="radiogroup"')
     expect(html).toContain("437,000.00")
     expect(html).toContain("450,000.00")

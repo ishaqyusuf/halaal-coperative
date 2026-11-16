@@ -9,14 +9,14 @@
     "./tasks": "./src/tasks/index.ts"
   },
   "scripts": {
-    "deploy": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest --mode prod -- sh -c 'node --max-old-space-size=4096 ../../packages/db/node_modules/.bin/prisma generate --config ../../packages/db/prisma.config.ts && APP_ENV=production bun --env-file=/dev/null ../../scripts/with-trigger-profile.mjs -- trigger deploy'",
+    "deploy": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest --mode prod -- sh -c '(cd ../db && NODE_OPTIONS=--max-old-space-size=4096 bun --env-file=/dev/null run db:generate) && APP_ENV=production bun --env-file=/dev/null ../../scripts/with-trigger-profile.mjs -- trigger deploy'",
     "dev": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest -- bun --env-file=/dev/null ../../scripts/with-trigger-profile.mjs -- trigger dev",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "with-env": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest --",
     "with-env:prod": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest --mode prod --",
-    "deploy:preview": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest --mode preview -- sh -c 'node --max-old-space-size=4096 ../../packages/db/node_modules/.bin/prisma generate --config ../../packages/db/prisma.config.ts && APP_ENV=preview bun --env-file=/dev/null ../../scripts/with-trigger-profile.mjs -- trigger deploy'"
+    "deploy:preview": "bun --env-file=/dev/null ../../../local-infra-kit/bin/with-env.ts --profile halaalvest --mode preview -- sh -c '(cd ../db && NODE_OPTIONS=--max-old-space-size=4096 bun --env-file=/dev/null run db:generate) && APP_ENV=preview bun --env-file=/dev/null ../../scripts/with-trigger-profile.mjs -- trigger deploy'"
   },
   "dependencies": {
     "@halaalvest/backfill": "workspace:*",

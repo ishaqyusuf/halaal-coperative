@@ -457,6 +457,10 @@ export const mobileQaNonFormFieldSources = [
     source: "src/components/ui/phone-field.tsx",
   },
   {
+    reason: "Shared floating search pill (T01); a search query is not a form draft.",
+    source: "src/components/search/floating-search-field.tsx",
+  },
+  {
     reason: "Shared auth field; the parent form owns coverage.",
     source: feature("auth/components/auth-field.tsx"),
   },

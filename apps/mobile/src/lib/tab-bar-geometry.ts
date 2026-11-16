@@ -8,3 +8,22 @@ export function resolveTabBarGeometry(bottomInset: number) {
     paddingTop: 4,
   }
 }
+
+/**
+ * The 02 floating dock: a 64pt pill inset 14 from the sides, floating 24pt
+ * above the bottom on a home-indicator phone. `contentInset` is the scroll
+ * padding a screen needs so its last row clears the dock; `fabBottom` seats
+ * a FAB or the tab search bubble just above it.
+ */
+export function resolveDockGeometry(bottomInset: number) {
+  const inset = Number.isFinite(bottomInset) ? Math.max(0, bottomInset) : 0
+  const bottom = Math.max(inset - 10, 12)
+  const height = 64
+  return {
+    bottom,
+    contentInset: bottom + height + 24,
+    fabBottom: bottom + height + 14,
+    height,
+    side: 14,
+  }
+}

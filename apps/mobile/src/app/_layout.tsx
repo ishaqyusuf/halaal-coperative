@@ -11,12 +11,12 @@ import {
   ModalAccessibilityProvider,
 } from "@/components/app/modal-accessibility-isolation"
 import { BootstrapScreen } from "@/components/app/bootstrap-screen"
+import { OverlayStatusBar } from "@/components/app/screen-status-bar"
 import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
 import { AuthProvider, useAuthContext } from "@/hooks/use-auth"
 import {
   applyThemeOverride,
-  useColors,
   useColorScheme,
 } from "@/hooks/use-color"
 import { nativewindThemeVars } from "@/lib/nativewind-theme-vars"
@@ -47,7 +47,6 @@ import { useFonts } from "expo-font"
 import { Stack } from "expo-router"
 import type { ErrorBoundaryProps } from "expo-router"
 import * as SplashScreen from "expo-splash-screen"
-import { StatusBar } from "expo-status-bar"
 import { useEffect, useMemo, useState } from "react"
 import { VariableContextProvider } from "nativewind"
 import FlashMessage from "react-native-flash-message"
@@ -130,7 +129,6 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
-  const colors = useColors()
   const { colorScheme } = useColorScheme()
   const navigationTheme =
     colorScheme === "dark" ? NAV_THEME.dark : NAV_THEME.light
@@ -162,14 +160,7 @@ function RootLayoutNav() {
                                       <MobileRuntimeBanner />
                                       <AppAutoUpdateModal />
                                       <AppBuildUpdate />
-                                      <StatusBar
-                                        backgroundColor={colors.background}
-                                        style={
-                                          colorScheme === "dark"
-                                            ? "light"
-                                            : "dark"
-                                        }
-                                      />
+                                      <OverlayStatusBar />
                                       <RoleProtectedStack />
                                     </CooperativeShortcutRuntime>
                                   </MobileRuntimeGate>

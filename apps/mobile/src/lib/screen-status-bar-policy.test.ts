@@ -71,3 +71,41 @@ describe("focused screen status bar", () => {
     ).toEqual({ backgroundColor: "brand-token", style: "light" })
   })
 })
+
+describe("hero and scrolled surface tones", () => {
+  test("a hero keeps light icons in both themes and on Android 15+", () => {
+    for (const colorScheme of ["light", "dark"] as const) {
+      expect(
+        resolveScreenStatusBar({
+          ...colors,
+          androidApiLevel: 36,
+          colorScheme,
+          focused: true,
+          heroStart: "hero-token",
+          tone: "hero",
+        })
+      ).toEqual({ backgroundColor: "hero-token", style: "light" })
+    }
+  })
+
+  test("a scrolled hero switches to the surface with theme icons", () => {
+    expect(
+      resolveScreenStatusBar({
+        ...colors,
+        colorScheme: "light",
+        focused: true,
+        surface: "card-token",
+        tone: "surface",
+      })
+    ).toEqual({ backgroundColor: "card-token", style: "dark" })
+    expect(
+      resolveScreenStatusBar({
+        ...colors,
+        colorScheme: "dark",
+        focused: true,
+        surface: "card-token",
+        tone: "surface",
+      })
+    ).toEqual({ backgroundColor: "card-token", style: "light" })
+  })
+})

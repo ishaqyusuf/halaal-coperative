@@ -7,8 +7,8 @@ import { AppLockPinPad } from "@/features/app-lock/components/app-lock-pin-pad"
 import { useAppLockContext } from "@/features/app-lock/hooks/use-app-lock"
 import { APP_LOCK_CODE_LENGTH } from "@/features/app-lock/model/app-lock-types"
 import { useAuthContext } from "@/hooks/use-auth"
-import { useColorScheme, useColors } from "@/hooks/use-color"
-import { StatusBar } from "expo-status-bar"
+import { useColors } from "@/hooks/use-color"
+import { OverlayStatusBar } from "@/components/app/screen-status-bar"
 import {
   type ReactNode,
   useCallback,
@@ -111,7 +111,6 @@ function AppLockUnlockScreen() {
   const auth = useAuthContext()
   const appLock = useAppLockContext()
   const colors = useColors()
-  const { colorScheme } = useColorScheme()
   const [code, setCode] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -229,10 +228,7 @@ function AppLockUnlockScreen() {
       className="bg-background"
       style={{ backgroundColor: colors.background }}
     >
-      <StatusBar
-        backgroundColor={colors.background}
-        style={colorScheme === "dark" ? "light" : "dark"}
-      />
+      <OverlayStatusBar />
       <View className="flex-1 justify-between px-7 pt-8 pb-5">
         <View className="items-center gap-3">
           <View className="bg-brand size-16 items-center justify-center rounded-full">

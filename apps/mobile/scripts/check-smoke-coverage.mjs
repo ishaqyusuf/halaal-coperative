@@ -167,7 +167,7 @@ assertIncludes(
 
 assertIncludes("src/components/app/screen-status-bar.tsx", [
   "useIsFocused()",
-  "return appearance ? <StatusBar {...appearance} /> : null",
+  "return appearance ? <StatusBar animated {...appearance} /> : null",
 ])
 
 assertIncludes(

@@ -24,6 +24,8 @@ checkScreenHeaders()
 checkSeparatedDataEntrySurfaces()
 checkPopupPrimitives()
 checkAccessibilityIsolation()
+checkStatusBarOwnership()
+checkFoundationPrimitives()
 
 for (const filePath of scanFiles) scanFile(filePath)
 
@@ -611,6 +613,50 @@ function readOpeningTagEnd(source, start) {
 
 function allows(exception, category) {
   return exception?.allow.includes(category) ?? false
+}
+
+// T01 (ADR-20261116 §3): no screen renders a raw status bar. Only the
+// policy-backed ScreenStatusBar/OverlayStatusBar module may import it.
+function checkStatusBarOwnership() {
+  const owner = "src/components/app/screen-status-bar.tsx"
+  for (const filePath of scanFiles) {
+    const file = toMobilePath(filePath)
+    if (file === owner) continue
+    const source = readFileSync(filePath, "utf8")
+    if (
+      /from\s+["']expo-status-bar["']/.test(source) ||
+      /import\s*\{[^}]*\bStatusBar\b[^}]*\}\s*from\s*["']react-native["']/.test(
+        source
+      )
+    ) {
+      failures.push(
+        `${file} renders a raw status bar; use ScreenStatusBar, OverlayStatusBar or ScreenShell`
+      )
+    }
+  }
+  checkSourceMarkers(owner, [
+    "resolveScreenStatusBar",
+    "export function ScreenStatusBar",
+    "export function OverlayStatusBar",
+  ])
+}
+
+// T01 foundation contract: one sheet API, the ported EWA search, the
+// floating dock and the native list stay wired the way screen threads expect.
+function checkFoundationPrimitives() {
+  checkSourceMarkers("src/components/app/app-sheet.tsx", [
+    "resolveAppSheetPresentation",
+    "<FloatingBottomSheet",
+    "<FullScreenFormSheet",
+  ])
+  checkSourceMarkers("src/components/search/bottom-search-footer.tsx", [
+    "KeyboardStickyView",
+    "shouldShowListSearch(totalCount)",
+    "animateDock(",
+  ])
+  checkSourceMarkers("src/lib/list-search.ts", [
+    "LIST_SEARCH_THRESHOLD = 10",
+  ])
 }
 
 function checkSourceMarkers(file, markers) {

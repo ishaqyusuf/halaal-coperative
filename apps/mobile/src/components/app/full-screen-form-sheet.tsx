@@ -9,7 +9,8 @@ import { useColorScheme } from "@/hooks/use-color"
 import { useLargeTextLayout } from "@/hooks/use-large-text-layout"
 import { THEME } from "@/lib/theme"
 import { Portal } from "@gorhom/portal"
-import { StatusBar } from "expo-status-bar"
+import { OverlayStatusBar } from "@/components/app/screen-status-bar"
+import { useCardShadow } from "@/components/ui/list-card"
 import {
   type ReactNode,
   useCallback,
@@ -55,6 +56,8 @@ export function FullScreenFormSheet({
   isSubmitting = false,
   onClose,
   onDismissed,
+  headerTrailing,
+  onBack,
   overlay,
   overlayActive = false,
   title,
@@ -63,7 +66,11 @@ export function FullScreenFormSheet({
   children: ReactNode
   dirty?: boolean
   footer?: ReactNode
+  /** Small right-aligned header text, e.g. a step "1 of 2". */
+  headerTrailing?: ReactNode
   isSubmitting?: boolean
+  /** Shows a back chevron instead of X (a later step returning to the form). */
+  onBack?: () => void
   onClose: () => void
   onDismissed?: () => void
   overlay?: ReactNode
@@ -74,6 +81,7 @@ export function FullScreenFormSheet({
 }) {
   const { colorScheme } = useColorScheme()
   const largeTextLayout = useLargeTextLayout()
+  const cardShadow = useCardShadow()
   const { registerVisibleForm } = useFullScreenFormVisibility()
   const colors = THEME[colorScheme]
   const insets = useSafeAreaInsets()
@@ -92,15 +100,39 @@ export function FullScreenFormSheet({
   const onDismissedRef = useRef(onDismissed)
   // Callers can clear the form's intent and fields as soon as they close it.
   // Keep the last displayed form intact while the surface slides away.
-  const lastForm = useRef({ children, footer, overlayActive, title })
+  const lastForm = useRef({
+    children,
+    footer,
+    headerTrailing,
+    onBack,
+    overlayActive,
+    title,
+  })
   const form = visible
-    ? { children, footer, overlayActive, title }
+    ? { children, footer, headerTrailing, onBack, overlayActive, title }
     : lastForm.current
 
   useLayoutEffect(() => {
     onDismissedRef.current = onDismissed
-    if (visible) lastForm.current = { children, footer, overlayActive, title }
-  }, [children, footer, onDismissed, overlayActive, title, visible])
+    if (visible)
+      lastForm.current = {
+        children,
+        footer,
+        headerTrailing,
+        onBack,
+        overlayActive,
+        title,
+      }
+  }, [
+    children,
+    footer,
+    headerTrailing,
+    onBack,
+    onDismissed,
+    overlayActive,
+    title,
+    visible,
+  ])
 
   const finishClose = useCallback((id: number) => {
     if (transition.current !== id) return
@@ -191,31 +223,41 @@ export function FullScreenFormSheet({
         >
           <View className="flex-1">
             <SafeAreaView style={{ backgroundColor: colors.background, flex: 1 }}>
-              <StatusBar
-                animated
-                backgroundColor={colors.background}
-                style={colorScheme === "dark" ? "light" : "dark"}
-              />
-              <View className="flex-row items-start gap-3 border-b border-border px-5 pt-4 pb-4">
-                <View className="min-w-0 flex-1">
-                  <Text
-                    accessibilityRole="header"
-                    className="text-2xl font-extrabold tracking-tight text-foreground"
-                    maxFontSizeMultiplier={1.5}
-                    numberOfLines={2}
-                  >
-                    {form.title}
-                  </Text>
-                </View>
+              <OverlayStatusBar />
+              <View className="min-h-14 flex-row items-center gap-2 px-[14px] pt-1 pb-2">
                 <Button
-                  accessibilityLabel={`Close ${form.title}`}
+                  accessibilityLabel={
+                    form.onBack ? "Back" : `Close ${form.title}`
+                  }
+                  className="bg-card"
                   disabled={isSubmitting}
-                  onPress={requestClose}
+                  onPress={form.onBack ?? requestClose}
                   size="icon"
+                  style={cardShadow}
                   variant="ghost"
                 >
-                  <Icon className="size-base text-foreground" name="X" />
+                  <Icon
+                    className="size-md text-foreground"
+                    name={form.onBack ? "ChevronLeft" : "X"}
+                  />
                 </Button>
+                <Text
+                  accessibilityRole="header"
+                  className="min-w-0 flex-1 text-center text-base font-extrabold text-foreground"
+                  maxFontSizeMultiplier={1.5}
+                  numberOfLines={largeTextLayout ? 2 : 1}
+                >
+                  {form.title}
+                </Text>
+                <View className="min-w-11 items-end">
+                  {typeof form.headerTrailing === "string" ? (
+                    <Text className="text-muted-foreground" variant="label">
+                      {form.headerTrailing}
+                    </Text>
+                  ) : (
+                    form.headerTrailing
+                  )}
+                </View>
               </View>
               <View className="flex-1 overflow-hidden">
                 <AppKeyboardAwareScrollView

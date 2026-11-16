@@ -39,6 +39,10 @@ const command = {
 describe("closeProfitSeason", () => {
   test("closes an open season once and fixes its totals", async () => {
     const updates: unknown[] = []
+    const postings: Array<{ idempotencyKey: string; postedAt: Date }> = []
+    const lines: Array<{ amount: number; direction: string; ledgerAccountId: string }> = []
+    const recognitionWheres: unknown[] = []
+    const profitDate = new Date("2026-07-31T00:00:00.000Z")
     const { prisma } = mockPrisma({
       auditLog: { create: async () => ({}) },
       dividendPeriod: {
@@ -47,11 +51,34 @@ describe("closeProfitSeason", () => {
           return { count: 1 }
         },
       },
-      shareBusinessProfitEntry: {
+      ledgerAccount: {
+        createMany: async () => ({ count: 1 }),
         findMany: async () => [
-          { allocatableProfitAmount: 90, expenseAmount: 10, id: "e1", profitAmount: 100 },
-          { allocatableProfitAmount: 50, expenseAmount: 0, id: "e2", profitAmount: 50 },
+          { code: "2000", id: "acct-2000" },
+          { code: "3400", id: "acct-3400" },
         ],
+      },
+      ledgerEntry: {
+        createMany: async ({ data }: { data: typeof lines }) => {
+          lines.push(...data)
+          return { count: data.length }
+        },
+      },
+      ledgerTransaction: {
+        createMany: async ({ data }: { data: typeof postings }) => {
+          postings.push(...data)
+          return { count: data.length }
+        },
+        findMany: async () => [{ idempotencyKey: "business-profit:e2" }],
+      },
+      shareBusinessProfitEntry: {
+        findMany: async (args: { where: { shareBusiness?: unknown } }) => {
+          if (args.where.shareBusiness) recognitionWheres.push(args.where)
+          return [
+            { allocatableProfitAmount: 90, expenseAmount: 10, id: "e1", profitAmount: 100, profitDate, shareBusiness: { name: "Farm" } },
+            { allocatableProfitAmount: 50, expenseAmount: 0, id: "e2", profitAmount: 50, profitDate, shareBusiness: { name: "Shop" } },
+          ]
+        },
         updateMany: async () => ({ count: 2 }),
       },
     })
@@ -66,6 +93,22 @@ describe("closeProfitSeason", () => {
       data: { distributableAmount: 140, status: "approved", totalProfitAmount: 150 },
       where: { id: seasonId, status: "draft", tenantId },
     })
+    // Profit comes into the books once per entry (e2 already did), never
+    // for Halaalvest's own purchases business or brought-in history.
+    expect(recognitionWheres[0]).toMatchObject({
+      shareBusiness: { systemKey: null },
+      sourceType: "manual",
+    })
+    expect(postings).toEqual([
+      expect.objectContaining({
+        idempotencyKey: "business-profit:e1",
+        postedAt: profitDate,
+      }),
+    ])
+    expect(lines).toEqual([
+      expect.objectContaining({ amount: 90, direction: "debit", ledgerAccountId: "acct-2000" }),
+      expect.objectContaining({ amount: 90, direction: "credit", ledgerAccountId: "acct-3400" }),
+    ])
   })
 
   test("refuses a season that is no longer open", async () => {
@@ -214,8 +257,10 @@ describe("shareProfitSeason", () => {
       },
       shareBusinessProfitEntry: {
         count: async () => 1,
-        findMany: async (args: { include?: unknown }) =>
-          args.include
+        findMany: async (args: { include?: unknown; where?: { shareBusiness?: unknown } }) =>
+          args.where?.shareBusiness
+            ? [] // profit already in the books (covered by closeProfitSeason)
+            : args.include
             ? [
                 {
                   allocations: [

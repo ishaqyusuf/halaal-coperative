@@ -29,7 +29,9 @@ function matches(row: Row, where: Row = {}): boolean {
       !Array.isArray(condition)
     ) {
       if ("in" in condition) return condition.in.includes(value)
+      if ("notIn" in condition) return !condition.notIn.includes(value)
       if ("not" in condition) return value !== condition.not
+      return matches(value ?? {}, condition)
     }
     return value === condition
   })
@@ -86,6 +88,38 @@ function createDb(
     publishedAt: new Date("2026-07-01T00:00:00.000Z"),
     status: options.seasonStatus ?? "published",
   }
+  // One ordinary business's profit (₦1,100 made, ₦100 costs) and the
+  // automatic "Procurement and foodstuff sales" entry, whose profit is
+  // already in Purchase Profit (3300).
+  const profitEntries: Row[] = [
+    {
+      allocatableProfitAmount: 1000,
+      expenseAmount: 100,
+      id: "entry-logistics",
+      linkedDividendPeriodId: seasonId,
+      profitAmount: 1100,
+      profitDate: new Date("2026-07-31T00:00:00.000Z"),
+      shareBusiness: { name: "Logistics Service", systemKey: null },
+      sourceType: options.liveProfit === false ? "backfill" : "manual",
+      status: "completed",
+      tenantId,
+    },
+    {
+      allocatableProfitAmount: 250,
+      expenseAmount: 0,
+      id: "entry-purchases",
+      linkedDividendPeriodId: seasonId,
+      profitAmount: 250,
+      profitDate: new Date("2026-08-15T00:00:00.000Z"),
+      shareBusiness: {
+        name: "Procurement and foodstuff sales",
+        systemKey: "member_purchase_sales",
+      },
+      sourceType: "manual",
+      status: "completed",
+      tenantId,
+    },
+  ]
   const memberOf = (memberId: string) => ({
     fullName: state.members[memberId]?.fullName,
   })
@@ -255,6 +289,8 @@ function createDb(
     },
     shareBusinessProfitEntry: {
       count: async () => (options.liveProfit === false ? 0 : 1),
+      findMany: async ({ where }: { where: Row }) =>
+        profitEntries.filter((row) => matches(row, where)),
     },
     tenant: {
       findUnique: async () => ({
@@ -308,13 +344,32 @@ describe("profit owed on approval", () => {
     expect(first).toEqual({ created: 2, total: 1000 })
     expect(second).toEqual({ created: 0, total: 0 })
     expect(
-      db.state.ledgerTransactions.map((row) => row.idempotencyKey)
+      db.state.ledgerTransactions
+        .map((row) => row.idempotencyKey)
+        .filter((key) => key.startsWith("profit-owed:"))
     ).toEqual([
       profitOwedIdempotencyKey(seasonId, aisha),
       profitOwedIdempotencyKey(seasonId, bilal),
     ])
     // Dr Cooperative Equity / Cr Profit Owed To Members.
     expect(db.balance("4000")).toBe(1000)
+    // The ordinary business's profit came into the books once, at its profit
+    // date; the automatic purchases entry did not (it is already in 3300).
+    expect(db.balance("2000")).toBe(1000)
+    expect(db.balance("3400")).toBe(-1000)
+    expect(
+      db.state.ledgerTransactions.find(
+        (row) => row.idempotencyKey === "business-profit:entry-logistics"
+      )
+    ).toMatchObject({
+      narration: "Profit to share from Logistics Service",
+      postedAt: new Date("2026-07-31T00:00:00.000Z"),
+    })
+    expect(
+      db.state.ledgerTransactions.some(
+        (row) => row.idempotencyKey === "business-profit:entry-purchases"
+      )
+    ).toBe(false)
     expect(db.balance("2300")).toBe(-1000)
     expect(db.state.ledgerAccounts.some((row) => row.code === "2300")).toBe(
       true
@@ -382,7 +437,8 @@ describe("payOutProfit", () => {
       db.prisma
     )
 
-    expect(db.balance("2000")).toBe(-400)
+    // ₦1,000 of business profit came in; ₦400 went out by transfer.
+    expect(db.balance("2000")).toBe(600)
     expect(db.balance("1000")).toBe(-600)
     expect(db.state.contributions.map((row) => row.memberId)).toEqual([aisha])
     expect(

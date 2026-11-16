@@ -3,7 +3,10 @@ import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
 import { getTenantMigrationWriteAccess } from "./migration"
 import { runMobileAdminCommand } from "./mobile-admin-finance-support"
-import { recordProfitOwedForSeason } from "./profit-payouts"
+import {
+  recognizeSeasonBusinessProfit,
+  recordProfitOwedForSeason,
+} from "./profit-payouts"
 import {
   generateShareProfitAllocations,
   rebuildDividendPeriodAllocationsFromPublishedProfit,
@@ -735,6 +738,15 @@ export async function closeProfitSeason(
                 tenantId: input.tenantId,
               },
             })
+            // The season's profit is fixed: bring it into the books (1.1).
+            const recognised = await recognizeSeasonBusinessProfit(
+              {
+                actorUserId: input.actorUserId,
+                seasonId: input.seasonId,
+                tenantId: input.tenantId,
+              },
+              tx
+            )
             await tx.auditLog.create({
               data: {
                 action: "business.profit_season.closed",
@@ -746,6 +758,7 @@ export async function closeProfitSeason(
                   costs: sum("expenseAmount"),
                   profit: sum("profitAmount"),
                   profitEntryCount: entries.length,
+                  profitPostedToBooks: recognised.total,
                   toShare: sum("allocatableProfitAmount"),
                 },
                 occurredAt: new Date(),

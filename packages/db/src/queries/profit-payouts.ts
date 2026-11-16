@@ -25,6 +25,13 @@ export const profitPayoutDestinations: ProfitPayoutDestination[] = [
   "bank_transfer",
 ]
 
+export const BUSINESS_PROFIT_ACCOUNT = {
+  accountType: "income" as const,
+  code: "3400",
+  isSystem: true,
+  name: "Business Profit",
+}
+
 export const PROFIT_OWED_ACCOUNT = {
   accountType: "liability" as const,
   code: "2300",
@@ -50,6 +57,10 @@ function getPrisma(prismaOverride?: PrismaClient) {
 
 export function profitOwedIdempotencyKey(seasonId: string, memberId: string) {
   return `profit-owed:${seasonId}:${memberId}`
+}
+
+export function businessProfitIdempotencyKey(profitEntryId: string) {
+  return `business-profit:${profitEntryId}`
 }
 
 export function profitPayoutIdempotencyKey(payoutId: string, payCount: number) {
@@ -99,6 +110,137 @@ async function getPayoutAccounts(tx: any, tenantId: string) {
   return { cash, equity, owed, savings }
 }
 
+type RecognisableEntry = {
+  allocatableProfitAmount: unknown
+  id: string
+  profitDate: Date
+  shareBusiness: { name: string }
+}
+
+/**
+ * Bring a closed season's business profit into the books: one posting per
+ * profit entry, Dr Cash / Bank (2000) / Cr Business Profit (3400) for the
+ * amount to share, dated at the profit date (ADR-016's accounting boundary).
+ * Only live (`manual`) entries of ordinary businesses: Halaalvest's own
+ * "Procurement and foodstuff sales" business (`systemKey` set) already earned
+ * its profit in Purchase Profit (3300), and brought-in history was settled
+ * outside Halaalvest. Keyed per entry, so calling it again posts nothing.
+ * Runs inside the caller's transaction.
+ */
+export async function recognizeSeasonBusinessProfit(
+  input: { actorUserId?: string | null; seasonId: string; tenantId: string },
+  tx: any
+) {
+  const entries: RecognisableEntry[] =
+    await tx.shareBusinessProfitEntry.findMany({
+      select: {
+        allocatableProfitAmount: true,
+        id: true,
+        profitDate: true,
+        shareBusiness: { select: { name: true } },
+      },
+      where: {
+        linkedDividendPeriodId: input.seasonId,
+        shareBusiness: { systemKey: null },
+        sourceType: "manual",
+        status: { notIn: ["archived", "draft", "pending"] },
+        tenantId: input.tenantId,
+      },
+    })
+  const toPost = entries.filter(
+    (entry) => money(entry.allocatableProfitAmount) > 0
+  )
+  if (toPost.length === 0) return { created: 0, total: 0 }
+
+  const existing: Array<{ idempotencyKey: string | null }> =
+    await tx.ledgerTransaction.findMany({
+      select: { idempotencyKey: true },
+      where: {
+        idempotencyKey: {
+          in: toPost.map((entry) => businessProfitIdempotencyKey(entry.id)),
+        },
+        tenantId: input.tenantId,
+      },
+    })
+  const done = new Set(existing.map((row) => row.idempotencyKey))
+  const missing = toPost.filter(
+    (entry) => !done.has(businessProfitIdempotencyKey(entry.id))
+  )
+  if (missing.length === 0) return { created: 0, total: 0 }
+
+  await tx.ledgerAccount.createMany({
+    data: [{ ...BUSINESS_PROFIT_ACCOUNT, tenantId: input.tenantId }],
+    skipDuplicates: true,
+  })
+  const rows: Array<{ code: string; id: string }> =
+    await tx.ledgerAccount.findMany({
+      select: { code: true, id: true },
+      where: { code: { in: ["2000", "3400"] }, tenantId: input.tenantId },
+    })
+  const cash = rows.find((row) => row.code === "2000")?.id
+  const income = rows.find((row) => row.code === "3400")?.id
+  if (!cash || !income) {
+    throw ExpectedQueryError.precondition(
+      "The cooperative's books are not set up yet. Finish setup first."
+    )
+  }
+
+  const transactions: unknown[] = []
+  const ledgerEntries: unknown[] = []
+  let total = 0
+
+  for (const entry of missing) {
+    const amount = money(entry.allocatableProfitAmount)
+    const id = randomUUID()
+    total += amount
+    transactions.push({
+      id,
+      idempotencyKey: businessProfitIdempotencyKey(entry.id),
+      narration: `Profit to share from ${entry.shareBusiness.name}`,
+      postedAt: entry.profitDate,
+      reference: entry.shareBusiness.name,
+      tenantId: input.tenantId,
+      transactionType: "dividend",
+    })
+    ledgerEntries.push(
+      {
+        amount,
+        direction: "debit",
+        ledgerAccountId: cash,
+        ledgerTransactionId: id,
+        tenantId: input.tenantId,
+      },
+      {
+        amount,
+        direction: "credit",
+        ledgerAccountId: income,
+        ledgerTransactionId: id,
+        tenantId: input.tenantId,
+      }
+    )
+  }
+
+  await tx.ledgerTransaction.createMany({ data: transactions })
+  await tx.ledgerEntry.createMany({ data: ledgerEntries })
+  await tx.auditLog.create({
+    data: {
+      action: "business.profit_season.profit_recognised",
+      actorType: input.actorUserId ? "user" : "system",
+      actorUserId: input.actorUserId ?? null,
+      entityId: input.seasonId,
+      entityType: "DividendPeriod",
+      metadata: {
+        profitEntryIds: missing.map((entry) => entry.id),
+        total: money(total),
+      },
+      occurredAt: new Date(),
+      tenantId: input.tenantId,
+    },
+  })
+
+  return { created: missing.length, total: money(total) }
+}
+
 /**
  * Record "profit owed to members" for a shared season: one posting per
  * member, keyed by season and member, so calling it again posts nothing.
@@ -125,6 +267,9 @@ export async function recordProfitOwedForSeason(
     },
   })
   if (liveEntryCount === 0) return { created: 0, total: 0 }
+
+  // Seasons closed before profit was posted at close catch up here.
+  await recognizeSeasonBusinessProfit(input, tx)
 
   const allocations: Array<{ allocationAmount: unknown; memberId: string }> =
     await tx.dividendAllocation.findMany({

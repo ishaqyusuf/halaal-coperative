@@ -1,82 +1,142 @@
-import {
-  ConfirmationSheet,
-  SIGN_OUT_CONFIRM_DESCRIPTION,
-} from "@/components/app/confirmation-sheet"
+import { ConfirmSheet } from "@/components/app/confirm-sheet"
+import { SIGN_OUT_CONFIRM_DESCRIPTION } from "@/components/app/confirmation-sheet"
+import { DockedHeroScreen } from "@/components/app/docked-hero-screen"
+import { GateHero, gateIdentityFor } from "@/components/app/gate-hero"
 import { LegalLinks } from "@/components/app/legal-links"
-import { ScreenHeader } from "@/components/app/screen-header"
-import { SafeArea } from "@/components/safe-area"
+import { SettingsRow } from "@/components/app/settings-row"
 import { Button } from "@/components/ui/button"
+import { Icon } from "@/components/ui/icon"
+import { ListCard } from "@/components/ui/list-card"
 import { Text } from "@/components/ui/text"
+import { isMobileDevelopmentBuild } from "@/dev/mobile-dev-session"
 import { QaAccessPanel } from "@/features/auth/public/qa-access"
+import {
+  projectAccessGate,
+  resolveAccessGatePreview,
+  resolveAccessGateState,
+} from "@/features/mobile-app-access/model/access-gate-presentation"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useMobileAppAccess } from "@/runtime/mobile-app-access-provider"
-import { Redirect, useRouter } from "expo-router"
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
-import { ScrollView, View } from "react-native"
+import { View } from "react-native"
 
+/**
+ * The app-access gate (T03, 02 Brand hero): signed in, but this membership
+ * may not use the app. The hero names the cooperative and the status; the
+ * body says where access is turned on (the web dashboard — never a price or
+ * payment link in the app); Refresh access is docked. Development builds
+ * accept `?preview=<state>` for device QA of every status.
+ */
 export function MobileAppAccessRouteController() {
   const { profile, role, signOut } = useAuthContext()
   const router = useRouter()
   const access = useMobileAppAccess()
+  const { preview } = useLocalSearchParams<{ preview?: string | string[] }>()
+  const previewState = resolveAccessGatePreview(
+    preview,
+    isMobileDevelopmentBuild
+  )
   const [isSignOutConfirmVisible, setIsSignOutConfirmVisible] = useState(false)
+  const [isSigningOut, setIsSigningOut] = useState(false)
 
   if (!profile || !role) return <Redirect href="/(auth)/sign-in" />
-  if (access.accessAllowed) return <Redirect href="/" />
+  if (access.accessAllowed && !previewState) return <Redirect href="/" />
 
-  const message = access.error
-    ? "We couldn’t check your access. Try again when you’re online."
-    : access.snapshot?.status === "pending"
-      ? "Your cooperative is reviewing your request."
-      : "Contact your cooperative to request mobile access."
+  const cooperativeName = profile.tenant.name
+  const state =
+    previewState ??
+    resolveAccessGateState({
+      checking: access.checking,
+      error: access.error,
+      role,
+      status: access.snapshot?.status ?? null,
+    })
+  const gate = projectAccessGate(state, cooperativeName)
+  const refreshing = access.checking && state !== "checking"
 
   return (
-    <SafeArea className="bg-background">
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="gap-5 px-5 py-6"
+    <>
+      <DockedHeroScreen
+        footer={
+          <>
+            <Button
+              accessibilityHint="Asks your cooperative's server again"
+              loading={access.checking}
+              onPress={() => void access.refresh()}
+            >
+              <Icon className="size-base text-primary-foreground" name="RefreshCw" />
+              <Text>{refreshing ? "Checking…" : "Refresh access"}</Text>
+            </Button>
+            <Button
+              onPress={() => setIsSignOutConfirmVisible(true)}
+              size="sm"
+              variant="ghost"
+            >
+              <Text>Sign out</Text>
+            </Button>
+          </>
+        }
+        hero={
+          <GateHero
+            chip={gate.chip}
+            identity={gateIdentityFor(profile)}
+            title={gate.title}
+          />
+        }
+        testID="mobile-access-screen"
       >
-        <ScreenHeader title="Mobile access" />
         <Text
           accessibilityLiveRegion="polite"
-          className="text-muted-foreground"
+          className="text-foreground-soft"
+          variant="body"
         >
-          {access.checking ? "Checking your access…" : message}
+          {gate.body}
         </Text>
-        <View className="gap-2">
-          <Button
-            disabled={access.checking}
-            onPress={() => void access.refresh()}
-            variant="outline"
-          >
-            <Text>Refresh access</Text>
-          </Button>
-          <Button
+        {gate.web ? (
+          <View className="flex-row items-center gap-[12px] rounded-[18px] border border-border bg-card p-[14px]">
+            <View className="size-[40px] items-center justify-center rounded-[12px] bg-tint-sky">
+              <Icon className="size-base text-tint-sky-foreground" name="Globe" />
+            </View>
+            <View className="min-w-0 flex-1 gap-[2px]">
+              <Text className="font-bold" variant="body">
+                {gate.web.title}
+              </Text>
+              <Text className="text-foreground-soft" variant="small">
+                {gate.web.path}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+        <ListCard>
+          <SettingsRow
+            chevron
+            detail="Switch cooperative or open a shortcut"
+            icon="Users"
             onPress={() => router.push("/cooperative-shortcuts")}
-            variant="ghost"
-          >
-            <Text>Cooperatives & shortcuts</Text>
-          </Button>
-          <Button
-            onPress={() => setIsSignOutConfirmVisible(true)}
-            variant="ghost"
-          >
-            <Text>Sign out</Text>
-          </Button>
-        </View>
+            title="Cooperatives & shortcuts"
+          />
+        </ListCard>
         <QaAccessPanel inline />
-        <LegalLinks />
-      </ScrollView>
-      <ConfirmationSheet
+        <LegalLinks variant="card" />
+      </DockedHeroScreen>
+      <ConfirmSheet
         confirmLabel="Sign out"
         description={SIGN_OUT_CONFIRM_DESCRIPTION}
-        onClose={() => setIsSignOutConfirmVisible(false)}
+        icon="LogOut"
+        isConfirming={isSigningOut}
+        onCancel={() => setIsSignOutConfirmVisible(false)}
         onConfirm={() => {
-          setIsSignOutConfirmVisible(false)
-          void signOut()
+          setIsSigningOut(true)
+          void signOut().finally(() => {
+            setIsSigningOut(false)
+            setIsSignOutConfirmVisible(false)
+          })
         }}
         title="Sign out?"
+        tone="destructive"
         visible={isSignOutConfirmVisible}
       />
-    </SafeArea>
+    </>
   )
 }

@@ -81,13 +81,14 @@ assertIncludes("src/app/index.tsx", [
 
 assertIncludes("src/features/bootstrap/screens/bootstrap-screen.tsx", [
   'mode = "loading"',
-  'mode === "fatal"',
+  'mode === "loading"',
+  "<BootstrapError",
   'accessibilityRole="progressbar"',
   "presentation.note",
 ])
 
 assertIncludes("src/features/auth/screens/sign-in-screen.tsx", [
-  "<AuthScreenShell",
+  "<DockedHeroScreen",
   "<SignInHero",
   "<QaAccessPanel bottomInset={dockHeight} />",
   "<SignInForm",
@@ -118,7 +119,7 @@ assertIncludes("src/features/auth/components/qa-profile-chooser.tsx", [
 ])
 
 assertIncludes("src/features/auth/screens/recovery-screen.tsx", [
-  "AuthScreenShell",
+  "DockedHeroScreen",
   "Quick fill recovery",
   "<RecoveryRequestStep",
   "<RecoveryCodeStep",
@@ -133,7 +134,7 @@ assertIncludes("src/features/auth/components/recovery-step-content.tsx", [
   "<PasswordRules",
 ])
 
-assertIncludes("src/features/auth/components/auth-screen-shell.tsx", [
+assertIncludes("src/components/app/docked-hero-screen.tsx", [
   "AppKeyboardAwareScrollView",
   "<KeyboardStickyView",
   "useScreenChrome",
@@ -206,8 +207,9 @@ assertIncludes(
 )
 
 assertIncludes("src/features/app-lock/screens/app-lock-screen.tsx", [
-  "FullScreenFormSheet",
-  "ConfirmationSheet",
+  "<AppSheet",
+  'variant="form"',
+  "<ConfirmSheet",
   "AppLockPinPad",
   "After leaving the app",
   "Privacy protection is active",
@@ -446,7 +448,7 @@ console.log(
 assertIncludes(
   "src/features/mobile-app-access/routes/mobile-app-access-route-controller.tsx",
   [
-    "Contact your cooperative to request mobile access.",
+    "projectAccessGate(",
     "access.refresh()",
     "LegalLinks",
   ]

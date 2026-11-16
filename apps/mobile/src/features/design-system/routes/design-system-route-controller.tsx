@@ -15,6 +15,9 @@ const VIEWS = new Set<GalleryView>([
   "success",
   "error",
   "submitting",
+  "boot-loading",
+  "boot-fatal",
+  "boot-offline",
 ])
 const SHEETS = new Set<GallerySheet>([
   "floating",

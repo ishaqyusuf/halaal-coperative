@@ -114,6 +114,34 @@
         "native-inline-style"
       ],
       "reason": "T02: the floating QA button's position uses runtime safe-area insets on a style-only wrapper (ADR-20261116 style composition: className and style never share an element); the 52pt button and badge keep semantic classes."
+    },
+    {
+      "file": "src/features/app-lock/components/app-lock-pin-pad.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "PIN keys style from Pressable's pressed state (react-native-css left className :active stuck after disabled toggles, T02), with a window-measured key height; the dots row is a Reanimated shake and each dot's fill/ring follows runtime PIN state (T03)."
+    },
+    {
+      "file": "src/features/app-lock/components/app-lock-gate.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "Unlock gate footers pad by the runtime safe-area inset (resolveDockedFooterInset) under the PIN pad (T03)."
+    },
+    {
+      "file": "src/features/app-lock/screens/app-lock-screen.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "The PIN step sizes itself to the visible sheet height (window minus insets) so the pad sits at the bottom of the scrolling form body (T03)."
+    },
+    {
+      "file": "src/features/bootstrap/screens/bootstrap-screen.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "Splash progress dots are a Reanimated width pulse with token colours; the error footer pads by the runtime safe-area inset (T03)."
     }
   ]
 }

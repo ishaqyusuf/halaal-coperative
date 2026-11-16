@@ -454,7 +454,11 @@ function checkScreenHeaders() {
     const source = readFileSync(join(MOBILE_DIR, screen), "utf8")
     if (
       !source.includes("<ScreenHeader") &&
-      !source.includes("<ProfileHeader")
+      !source.includes("<ProfileHeader") &&
+      // T01/T03 shells own the header: large title, hero or gate hero.
+      !source.includes("<ScreenShell") &&
+      !source.includes("<AppList") &&
+      !source.includes("<DockedHeroScreen")
     ) {
       failures.push(`${screen} must compose ScreenHeader or ProfileHeader`)
     }

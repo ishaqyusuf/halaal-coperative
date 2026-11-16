@@ -1,13 +1,20 @@
-import { SafeArea } from "@/components/safe-area"
+import {
+  GateHeroSurface,
+  GateMark,
+  gateIdentityFor,
+} from "@/components/app/gate-hero"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
 import { Pressable } from "@/components/ui/pressable"
 import { Text } from "@/components/ui/text"
-import { AppLockPinPad } from "@/features/app-lock/components/app-lock-pin-pad"
+import {
+  AppLockPinDots,
+  AppLockPinPad,
+} from "@/features/app-lock/components/app-lock-pin-pad"
 import { useAppLockContext } from "@/features/app-lock/hooks/use-app-lock"
 import { APP_LOCK_CODE_LENGTH } from "@/features/app-lock/model/app-lock-types"
 import { useAuthContext } from "@/hooks/use-auth"
-import { useColors } from "@/hooks/use-color"
+import { resolveDockedFooterInset } from "@/lib/docked-footer-inset"
 import { OverlayStatusBar } from "@/components/app/screen-status-bar"
 import {
   type ReactNode,
@@ -17,7 +24,8 @@ import {
   useRef,
   useState,
 } from "react"
-import { StyleSheet, View } from "react-native"
+import { Platform, StyleSheet, View } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 function formatLockout(value?: string | null) {
   if (!value) return "Try again in a few seconds."
@@ -25,15 +33,6 @@ function formatLockout(value?: string | null) {
   if (!Number.isFinite(remaining) || remaining <= 0) return "Try again now."
   const seconds = Math.max(1, Math.ceil(remaining / 1_000))
   return `Too many attempts. Try again in ${seconds} second${seconds === 1 ? "" : "s"}.`
-}
-
-function initials(value: string) {
-  return value
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join("")
 }
 
 function useAppLockCover() {
@@ -90,28 +89,34 @@ export function AppLockGate() {
   )
 }
 
+/** App-switcher curtain (02 Brand hero): full gradient, shield, one line. */
 function PrivacyCurtain() {
-  const colors = useColors()
   return (
-    <SafeArea
-      className="items-center justify-center bg-background px-8"
-      style={{ backgroundColor: colors.background }}
-    >
-      <View className="size-16 items-center justify-center rounded-full bg-accent">
-        <Icon className="size-xl text-accent-foreground" name="ShieldCheck" />
-      </View>
-      <Text className="mt-5 text-center text-2xl font-extrabold tracking-tight text-foreground">
-        HalaalVest is private
-      </Text>
-    </SafeArea>
+    <View className="flex-1">
+      <OverlayStatusBar tone="hero" />
+      <GateHeroSurface fill>
+        <View className="flex-1 items-center justify-center gap-[18px]">
+          <View className="size-[72px] items-center justify-center rounded-[24px] bg-hero-foreground/15">
+            <Icon className="size-xl text-hero-foreground" name="ShieldCheck" />
+          </View>
+          <Text
+            className="text-center text-hero-foreground"
+            variant="screenTitle"
+          >
+            HalaalVest is private
+          </Text>
+        </View>
+      </GateHeroSurface>
+    </View>
   )
 }
 
 function AppLockUnlockScreen() {
   const auth = useAuthContext()
   const appLock = useAppLockContext()
-  const colors = useColors()
+  const insets = useSafeAreaInsets()
   const [code, setCode] = useState("")
+  const [errorKey, setErrorKey] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [lockedUntil, setLockedUntil] = useState<string | null>(null)
@@ -149,6 +154,7 @@ function AppLockUnlockScreen() {
       setLockedUntil(null)
       return
     }
+    setErrorKey((value) => value + 1)
     if (result.reason === "locked") {
       setLockedUntil(result.lockedUntil ?? null)
       setMessage(formatLockout(result.lockedUntil))
@@ -223,92 +229,117 @@ function AppLockUnlockScreen() {
     message,
   ])
 
+  const identity = gateIdentityFor(auth.profile)
+  const hasError = Boolean(message) || isTemporarilyLocked
+
   return (
-    <SafeArea
-      className="bg-background"
-      style={{ backgroundColor: colors.background }}
-    >
-      <OverlayStatusBar />
-      <View className="flex-1 justify-between px-7 pt-8 pb-5">
-        <View className="items-center gap-3">
-          <View className="bg-brand size-16 items-center justify-center rounded-full">
-            <Text className="text-brand-foreground text-lg font-extrabold">
-              {initials(auth.profile?.tenant.name ?? "HalaalVest")}
+    <View className="flex-1 bg-background" testID="app-lock-unlock">
+      <OverlayStatusBar tone="hero" />
+      <GateHeroSurface minHeightRatio={0.3}>
+        <View />
+        <View className="gap-[12px]">
+          <GateMark identity={identity} size={56} />
+          <View className="gap-[4px]">
+            <Text
+              accessibilityRole="header"
+              className="text-hero-foreground"
+              variant="screenTitle"
+            >
+              {appLock.hydrationError
+                ? "App lock needs attention"
+                : "Unlock HalaalVest"}
+            </Text>
+            <Text
+              className="text-hero-foreground/80"
+              numberOfLines={2}
+              variant="small"
+            >
+              {[auth.profile?.tenant.name, auth.profile?.user.name]
+                .filter(Boolean)
+                .join(" · ")}
             </Text>
           </View>
-          <Text
-            accessibilityRole="header"
-            className="mt-2 text-center text-[28px] leading-8 font-extrabold tracking-tight text-foreground"
-          >
-            {appLock.hydrationError
-              ? "App lock needs attention"
-              : "Unlock HalaalVest"}
-          </Text>
-          <Text className="max-w-[290px] text-center text-xs leading-5 text-muted-foreground">
-            {auth.profile?.tenant.name}
-            {auth.profile?.user.name ? ` · ${auth.profile.user.name}` : ""}
-          </Text>
         </View>
+      </GateHeroSurface>
 
-        {appLock.hydrationError ? (
-          <View className="gap-5 border-y border-border py-6">
-            <View className="items-center gap-3">
-              <Icon className="size-xl text-destructive" name="ShieldAlert" />
-              <Text className="text-center text-sm leading-5 text-muted-foreground">
-                {helperMessage}
-              </Text>
-            </View>
-            <Button onPress={() => void signOutSecurely()} size="lg">
+      {appLock.hydrationError ? (
+        <View className="flex-1 justify-between px-[18px] pt-[28px]">
+          <View className="items-center gap-[14px]">
+            <View className="size-[64px] items-center justify-center rounded-full bg-tint-danger">
               <Icon
-                className="size-base text-primary-foreground"
-                name="LogOut"
+                className="size-xl text-tint-danger-foreground"
+                name="ShieldAlert"
               />
+            </View>
+            <Text
+              accessibilityLiveRegion="polite"
+              className="max-w-[320px] text-center text-foreground-soft"
+              variant="body"
+            >
+              {helperMessage}
+            </Text>
+          </View>
+          <View
+            style={{
+              paddingBottom: resolveDockedFooterInset(insets.bottom, Platform.OS),
+            }}
+          >
+            <Button onPress={() => void signOutSecurely()}>
+              <Icon className="size-base text-primary-foreground" name="LogOut" />
               <Text>Sign out securely</Text>
             </Button>
           </View>
-        ) : (
-          <View className="items-center gap-5">
-            <AppLockPinPad
-              biometricLabel={appLock.biometricsStatus.label}
-              disabled={
-                !appLock.isHydrated || isSubmitting || isTemporarilyLocked
-              }
-              onBiometricPress={() => void runBiometricUnlock()}
-              onChange={(value) => {
-                setCode(value)
-                setMessage(null)
-              }}
-              showBiometric={canUseBiometrics}
+        </View>
+      ) : (
+        <View className="flex-1 px-[18px]">
+          <View className="flex-1 items-center justify-center gap-[14px] py-[16px]">
+            <AppLockPinDots
+              error={hasError}
+              errorKey={errorKey}
               value={code}
             />
             <Text
               accessibilityLiveRegion="polite"
               className={
-                message
-                  ? "min-h-10 max-w-[300px] text-center text-xs leading-5 font-semibold text-destructive"
-                  : "min-h-10 max-w-[300px] text-center text-xs leading-5 text-muted-foreground"
+                hasError
+                  ? "min-h-[40px] max-w-[320px] text-center font-semibold text-destructive"
+                  : "min-h-[40px] max-w-[320px] text-center text-muted-foreground"
               }
+              variant="small"
             >
               {helperMessage}
             </Text>
           </View>
-        )}
-
-        {appLock.hydrationError ? (
-          <View className="min-h-11" />
-        ) : (
-          <Pressable
-            accessibilityLabel="Forgot PIN? Sign out securely"
-            accessibilityRole="button"
-            className="min-h-11 items-center justify-center px-4"
-            onPress={() => void signOutSecurely()}
+          <AppLockPinPad
+            biometricLabel={appLock.biometricsStatus.label}
+            disabled={!appLock.isHydrated || isSubmitting || isTemporarilyLocked}
+            onBiometricPress={() => void runBiometricUnlock()}
+            onChange={(value) => {
+              setCode(value)
+              setMessage(null)
+            }}
+            showBiometric={canUseBiometrics}
+            value={code}
+          />
+          <View
+            style={{
+              paddingBottom: Math.max(insets.bottom, 12),
+              paddingTop: 6,
+            }}
           >
-            <Text className="text-center text-xs font-semibold text-muted-foreground">
-              Forgot PIN? Sign out securely
-            </Text>
-          </Pressable>
-        )}
-      </View>
-    </SafeArea>
+            <Pressable
+              accessibilityLabel="Forgot PIN? Sign out securely"
+              accessibilityRole="button"
+              className="min-h-[44px] items-center justify-center px-[16px]"
+              onPress={() => void signOutSecurely()}
+            >
+              <Text className="text-center text-foreground-soft" variant="label">
+                Forgot PIN? Sign out securely
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+    </View>
   )
 }

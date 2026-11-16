@@ -1,5 +1,6 @@
 import { AppList } from "@/components/app/app-list"
 import { AppSheet } from "@/components/app/app-sheet"
+import { BootstrapScreen } from "@/components/app/bootstrap-screen"
 import { ConfirmSheet } from "@/components/app/confirm-sheet"
 import { EmptyState } from "@/components/app/empty-state"
 import {
@@ -48,6 +49,9 @@ export type GalleryView =
   | "success"
   | "error"
   | "submitting"
+  | "boot-loading"
+  | "boot-fatal"
+  | "boot-offline"
 export type GalleryPose = "swipe" | "tap"
 export type GallerySheet = "floating" | "auto-long" | "form" | "confirm" | "date" | "select"
 
@@ -706,6 +710,16 @@ export function DesignSystemGalleryScreen({
   if (view === "lanes") return <LanesView pose={pose} />
   if (view === "hero") return <HeroView />
   if (view === "submitting") return <SubmittingState />
+  // T03 bootstrap states (the real splash only flashes on a fast start).
+  if (view === "boot-loading") return <BootstrapScreen />
+  if (view === "boot-fatal" || view === "boot-offline") {
+    return (
+      <BootstrapScreen
+        mode={view === "boot-fatal" ? "fatal" : "offline"}
+        onRetry={() => undefined}
+      />
+    )
+  }
   if (view === "success" || view === "error") {
     return (
       <ResultScreen

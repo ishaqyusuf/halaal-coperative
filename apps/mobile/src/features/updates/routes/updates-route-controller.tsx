@@ -269,7 +269,9 @@ export function UpdatesRouteController() {
       isDownloading={effectiveIsDownloading || action === "downloading"}
       lastCheckAt={lastCheckForUpdateTimeSinceRestart}
       message={qaMessage ?? message}
-      onBack={() => router.back()}
+      onBack={() =>
+        router.canGoBack() ? router.back() : router.replace("/")
+      }
       onPrimaryAction={runPrimaryAction}
       primaryAction={primaryAction}
       primaryIcon={primaryIcon}

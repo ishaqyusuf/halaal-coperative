@@ -2,7 +2,9 @@ import { useRouter } from "expo-router"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useState } from "react"
 import { Linking, View } from "react-native"
+import { SettingsRow } from "@/components/app/settings-row"
 import { Button } from "@/components/ui/button"
+import { ListCard } from "@/components/ui/list-card"
 import { Pressable } from "@/components/ui/pressable"
 import { Text } from "@/components/ui/text"
 import {
@@ -48,8 +50,11 @@ const INLINE_LEGAL_LINKS: readonly (readonly [MobileLegalLinkSlug, string])[] = 
 export function LegalLinks({
   variant = "list",
 }: {
-  /** `inline`: one centred caption row for sign-in and recovery. */
-  variant?: "list" | "inline"
+  /**
+   * `inline`: one centred caption row for sign-in and recovery.
+   * `card`: an "Account and privacy" ListCard of settings rows (T03 gates).
+   */
+  variant?: "list" | "inline" | "card"
 } = {}) {
   const router = useRouter()
   const { profile } = useAuthContext()
@@ -118,6 +123,65 @@ export function LegalLinks({
           <Text
             accessibilityLiveRegion="polite"
             className="text-center text-destructive"
+            variant="small"
+          >
+            {error}
+          </Text>
+        ) : null}
+      </View>
+    )
+  }
+
+  if (variant === "card") {
+    const inApp = (slug: MobileLegalLinkSlug) =>
+      Boolean(profile) &&
+      (slug === "delete-account" || slug === "legal-agreements")
+    return (
+      <View className="gap-[10px]">
+        <Text accessibilityRole="header" variant="section">
+          Account and privacy
+        </Text>
+        <ListCard>
+          {mobileLegalLinks.map(([slug, label]) => {
+            const available = inApp(slug) || Boolean(legalOrigin)
+            return (
+              <SettingsRow
+                accessibilityLabel={
+                  inApp(slug)
+                    ? label
+                    : available
+                      ? `${label}, opens browser`
+                      : `${label}, unavailable`
+                }
+                chevron={available && inApp(slug)}
+                destructive={slug === "delete-account"}
+                disabled={!available}
+                icon={
+                  slug === "delete-account"
+                    ? "Trash2"
+                    : slug === "legal-agreements"
+                      ? "FileText"
+                      : "ExternalLink"
+                }
+                key={slug}
+                onPress={() => void open(slug)}
+                title={label}
+                tone={slug === "legal-agreements" ? "sky" : "accent"}
+                value={available ? undefined : "Unavailable"}
+              />
+            )
+          })}
+        </ListCard>
+        {!legalOrigin ? (
+          <Text className="text-muted-foreground" variant="small">
+            Public legal and support pages are not available for this build
+            yet.
+          </Text>
+        ) : null}
+        {error ? (
+          <Text
+            accessibilityLiveRegion="polite"
+            className="text-destructive"
             variant="small"
           >
             {error}

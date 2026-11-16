@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
 import { mobileDevQuickFill } from "@/dev/mobile-dev-quick-fill"
 import { RecoveryHero } from "@/features/auth/components/auth-hero"
-import { AuthScreenShell } from "@/features/auth/components/auth-screen-shell"
+import { DockedHeroScreen } from "@/components/app/docked-hero-screen"
 import {
   RecoveryCodeStep,
   RecoveryPasswordStep,
@@ -88,7 +88,7 @@ export function RecoveryScreen() {
 
   return (
     <View className="flex-1">
-      <AuthScreenShell
+      <DockedHeroScreen
         footer={
           <Button
             accessibilityLabel={presentation.actionLabel}
@@ -151,7 +151,7 @@ export function RecoveryScreen() {
             password={recovery.password}
           />
         ) : null}
-      </AuthScreenShell>
+      </DockedHeroScreen>
       {recovery.step === "request" ? (
         <DevQuickFill
           bottomOffset={dockHeight}

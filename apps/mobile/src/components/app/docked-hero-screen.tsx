@@ -7,13 +7,15 @@ import { KeyboardStickyView } from "react-native-keyboard-controller"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 /**
- * 02 "Docked action" auth shell (T02, workshop 02-auth rev a9a85dc7): the
- * hero runs under the status bar, fields sit on the canvas, and the primary
- * action is docked at the bottom and rides the keyboard, so it is always in
- * view. Scrolling past the hero turns the status strip to the card colour
- * (ScreenShell chrome). Banners and errors grow the page, never the dock.
+ * Hero + docked action screen (T02 auth, workshop 02-auth rev a9a85dc7;
+ * shared since T03 for the system gates: splash error, mobile access, not
+ * found). The hero runs under the status bar, content sits on the canvas,
+ * and the primary action is docked at the bottom and rides the keyboard, so
+ * it is always in view. Scrolling past the hero turns the status strip to the
+ * card colour (ScreenShell chrome). Banners and errors grow the page, never
+ * the dock.
  */
-export function AuthScreenShell({
+export function DockedHeroScreen({
   children,
   footer,
   hero,

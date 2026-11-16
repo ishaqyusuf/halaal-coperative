@@ -23,13 +23,18 @@ export function MobileRuntimeGate({ children }: { children: React.ReactNode }) {
   }
 
   const mode: BootstrapScreenMode =
-    previewMode ?? (state.session === "fatal" ? "fatal" : "loading")
+    previewMode ??
+    (state.session === "fatal"
+      ? state.connectivity === "offline"
+        ? "offline"
+        : "fatal"
+      : "loading")
   const isRetrying = state.recovery === "retrying"
 
   return (
     <BootstrapScreen
       mode={mode}
-      onRetry={mode === "fatal" ? () => void retry() : undefined}
+      onRetry={mode === "loading" ? undefined : () => void retry()}
       retrying={isRetrying}
     />
   )

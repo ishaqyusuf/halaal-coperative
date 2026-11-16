@@ -61,13 +61,13 @@ checkForbiddenMarkers("src/components/app/full-screen-form-sheet.tsx", [
 ])
 // Auth (T02, 02 Docked action): one keyboard-aware shell whose primary
 // action rides the keyboard; fields move focus with Next and submit with Go.
-checkMarkers("src/features/auth/components/auth-screen-shell.tsx", [
+checkMarkers("src/components/app/docked-hero-screen.tsx", [
   "AppKeyboardAwareScrollView",
   "<KeyboardStickyView",
   "bottomOffset={footerHeight + 24}",
 ])
 checkMarkers("src/features/auth/screens/sign-in-screen.tsx", [
-  "<AuthScreenShell",
+  "<DockedHeroScreen",
   "<QaAccessPanel bottomInset={dockHeight} />",
   "<SignInForm",
 ])
@@ -103,7 +103,7 @@ checkMarkers("src/features/auth/components/qa-profile-chooser.tsx", [
   "qaChooserLayout(props.profiles.length)",
 ])
 checkMarkers("src/features/auth/screens/recovery-screen.tsx", [
-  "<AuthScreenShell",
+  "<DockedHeroScreen",
   "<RecoveryRequestStep",
   "<RecoveryCodeStep",
   "<RecoveryPasswordStep",
@@ -142,7 +142,7 @@ for (const filePath of findTsxFiles(join(SOURCE_DIR, "features"))) {
   if (!/<(?:Input|Textarea)\b/.test(source)) continue
 
   const authShellSource = readFileSync(
-    join(SOURCE_DIR, "features/auth/components/auth-screen-shell.tsx"),
+    join(SOURCE_DIR, "components/app/docked-hero-screen.tsx"),
     "utf8"
   )
   const isGuardedLeafInput =
@@ -154,7 +154,7 @@ for (const filePath of findTsxFiles(join(SOURCE_DIR, "features"))) {
     ((toMobilePath(filePath) ===
       "src/features/auth/components/sign-in-form.tsx" &&
       source.includes("export function SignInForm") &&
-      signInScreenSource.includes("<AuthScreenShell")) ||
+      signInScreenSource.includes("<DockedHeroScreen")) ||
       (toMobilePath(filePath) ===
         "src/features/auth/components/recovery-step-content.tsx" &&
         source.includes("export function RecoveryRequestStep"))) &&

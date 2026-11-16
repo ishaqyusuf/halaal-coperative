@@ -38,6 +38,10 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
     .default,
   ChartNoAxesCombined:
     require("lucide-react-native/dist/esm/icons/chart-no-axes-combined").default,
+  Compass: require("lucide-react-native/dist/esm/icons/compass").default,
+  CloudOff: require("lucide-react-native/dist/esm/icons/cloud-off").default,
+  Globe: require("lucide-react-native/dist/esm/icons/globe").default,
+  ScanFace: require("lucide-react-native/dist/esm/icons/scan-face").default,
   Check: require("lucide-react-native/dist/esm/icons/check").default,
   ChevronLeft: require("lucide-react-native/dist/esm/icons/chevron-left")
     .default,

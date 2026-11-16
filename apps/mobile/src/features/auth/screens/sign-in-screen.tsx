@@ -2,7 +2,7 @@ import { LegalLinks } from "@/components/app/legal-links"
 import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
 import { SignInHero } from "@/features/auth/components/auth-hero"
-import { AuthScreenShell } from "@/features/auth/components/auth-screen-shell"
+import { DockedHeroScreen } from "@/components/app/docked-hero-screen"
 import { QaAccessPanel } from "@/features/auth/components/qa-access-panel"
 import { SignInForm } from "@/features/auth/components/sign-in-form"
 import { useSignInController } from "@/features/auth/hooks/use-sign-in-controller"
@@ -20,7 +20,7 @@ export function SignInScreen() {
 
   return (
     <View className="flex-1">
-      <AuthScreenShell
+      <DockedHeroScreen
         footer={
           <>
             <Button
@@ -64,7 +64,7 @@ export function SignInScreen() {
           onSubmit={() => void signIn.submit()}
           password={signIn.password}
         />
-      </AuthScreenShell>
+      </DockedHeroScreen>
       <QaAccessPanel bottomInset={dockHeight} />
     </View>
   )

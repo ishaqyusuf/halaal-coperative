@@ -8,6 +8,9 @@ model ContributionPlan {
   startsAt  DateTime                 @map("starts_at") @db.Timestamptz(6)
   endsAt    DateTime?                @map("ends_at") @db.Timestamptz(6)
   isActive  Boolean                  @default(true) @map("is_active")
+  /// Entered during setup: starts on the first day of the go-live month
+  /// (going live moves `startsAt` there). Triage 1.8.
+  startsAtGoLive Boolean            @default(false) @map("starts_at_go_live")
   createdAt DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
 

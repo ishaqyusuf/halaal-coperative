@@ -525,17 +525,24 @@ export async function readyCooperativeJourney(
     await staff.step("charge record payment dialog", async () => {
       await staff.open("/charges?view=applications")
       const page = staff.page()
-      await page
+      const actions = page
         .getByRole("button", {
           name: new RegExp(
             `^Actions for ${escapeRegex(readyCharges.separate)} for `
           ),
         })
         .first()
-        .click()
-      await page
-        .getByRole("menuitem", { name: "Record payment", exact: true })
-        .click()
+      const recordPayment = page.getByRole("menuitem", {
+        name: "Record payment",
+        exact: true,
+      })
+      await actions.click()
+      const menuOpened = await recordPayment
+        .waitFor({ state: "visible", timeout: 5_000 })
+        .then(() => true, () => false)
+      // If hydration swallowed the first click, retry on the loaded page.
+      if (!menuOpened) await actions.click()
+      await recordPayment.click()
       const dialog = page.getByRole("dialog").last()
       await dialog
         .getByText(readyCharges.separate)

@@ -14,6 +14,7 @@
     "check:nativewind-ui": "node ./scripts/check-mobile-ui-contract.mjs",
     "check:runtime": "node ./scripts/check-mobile-runtime.mjs",
     "check:nativewind-theme-vars": "node ./scripts/check-nativewind-theme-vars.mjs",
+    "sync:theme-css": "node ./scripts/sync-theme-css.mjs",
     "check:smoke": "node ./scripts/check-smoke-coverage.mjs",
     "dev": "bun run with-env node ./scripts/run-expo-cli.cjs start --port ${EXPO_PORT:-1443}",
     "eas-build:dev": "bun --env-file=/dev/null ../../scripts/eas-account-runner.ts build --dev",

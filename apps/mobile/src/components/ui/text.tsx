@@ -42,8 +42,17 @@ const textVariants = cva(
         ),
         lead: "text-xl text-muted-foreground",
         large: "text-lg font-semibold",
-        small: "text-sm leading-none font-medium",
         muted: "text-sm text-muted-foreground",
+        // 02 Brand native type scale (lib/design-tokens.ts typeScale).
+        hero: "text-[36px] leading-[42px] font-extrabold tracking-tight",
+        screenTitle: "text-[26px] leading-[32px] font-extrabold tracking-tight",
+        title: "text-xl leading-[26px] font-extrabold tracking-tight",
+        section: "text-base leading-[22px] font-extrabold",
+        body: "text-base leading-[22px] font-medium",
+        small: "text-sm leading-5 font-medium",
+        label: "text-[13px] leading-[18px] font-bold",
+        caption: "text-xs leading-4 font-bold",
+        money: "text-base leading-[22px] font-extrabold",
       },
     },
     defaultVariants: {
@@ -57,7 +66,12 @@ type TextVariantProps = VariantProps<typeof textVariants>
 
 type TextVariant = NonNullable<TextVariantProps["variant"]>
 
+/** Money and hero figures line their digits up in columns. */
+const TABULAR_VARIANTS = new Set<TextVariant>(["hero", "money"])
+const TABULAR_STYLE = { fontVariant: ["tabular-nums" as const] }
+
 const ROLE: Partial<Record<TextVariant, Role>> = {
+  screenTitle: "heading",
   h1: "heading",
   h2: "heading",
   h3: "heading",
@@ -80,6 +94,7 @@ function Text({
   asChild = false,
   variant = "default",
   color,
+  style,
   ...props
 }: React.ComponentProps<typeof RNText> &
   TextVariantProps &
@@ -93,6 +108,9 @@ function Text({
       className={cn(textVariants({ variant, color }), textClass, className)}
       role={variant ? ROLE[variant] : undefined}
       aria-level={variant ? ARIA_LEVEL[variant] : undefined}
+      style={
+        variant && TABULAR_VARIANTS.has(variant) ? [TABULAR_STYLE, style] : style
+      }
       {...props}
     />
   )

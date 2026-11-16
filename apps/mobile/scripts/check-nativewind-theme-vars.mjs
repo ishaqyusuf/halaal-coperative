@@ -4,6 +4,10 @@ import tailwind from "@tailwindcss/postcss"
 import { existsSync, readFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
+import {
+  DESIGN_TOKENS_FILE,
+  readPalette,
+} from "./lib/design-tokens-source.mjs"
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 
@@ -79,41 +83,6 @@ function assert(condition, message) {
 
 function assertFile(relativePath) {
   assert(existsSync(join(root, relativePath)), `Missing ${relativePath}`)
-}
-
-function extractObjectBody(source, propertyName, fromIndex = 0) {
-  const propertyPattern = new RegExp(`\\b${propertyName}\\s*:\\s*\\{`, "g")
-  propertyPattern.lastIndex = fromIndex
-  const match = propertyPattern.exec(source)
-
-  assert(match, `Could not find ${propertyName} theme object.`)
-
-  const openingBrace = source.indexOf("{", match.index)
-  let depth = 0
-
-  for (let index = openingBrace; index < source.length; index += 1) {
-    if (source[index] === "{") depth += 1
-    if (source[index] === "}") depth -= 1
-
-    if (depth === 0) {
-      return source.slice(openingBrace + 1, index)
-    }
-  }
-
-  throw new Error(`Theme object ${propertyName} is not closed.`)
-}
-
-function parseThemeObject(source, propertyName, fromIndex = 0) {
-  const body = extractObjectBody(source, propertyName, fromIndex)
-  const values = new Map()
-
-  for (const match of body.matchAll(
-    /^\s*([a-zA-Z][a-zA-Z0-9]*):\s*"([^"]+)",?$/gm
-  )) {
-    values.set(match[1], match[2])
-  }
-
-  return values
 }
 
 function themeKeyToCssVariable(key) {
@@ -201,11 +170,17 @@ assert(
   "nativewindThemeVars must include Tailwind palette variables for bg-red-500/text-red-500 runtime resolution."
 )
 
+assert(
+  themeVars.includes("...paletteToCssVariables(colorScheme)"),
+  "nativewindThemeVars must derive semantic variables from the design-token palette."
+)
+assert(
+  themeSource.includes('import { palette } from "@/lib/design-tokens"') &&
+    themeSource.includes("export const THEME = palette"),
+  "src/lib/theme.ts must derive THEME from src/lib/design-tokens.ts (single token source)."
+)
+
 for (const token of requiredSemanticTokens) {
-  assert(
-    themeVars.includes(`"--${token}"`),
-    `nativewindThemeVars is missing --${token}.`
-  )
   assert(globalCss.includes(`--${token}:`), `global.css is missing --${token}.`)
   assert(
     tailwindConfig.includes(`var(--${token})`),
@@ -220,19 +195,20 @@ for (const token of requiredPaletteTokens) {
   )
 }
 
-const themeObjectStart = themeSource.indexOf("export const THEME")
-assert(themeObjectStart >= 0, "src/lib/theme.ts must export THEME.")
-
-const themeValues = {
-  light: parseThemeObject(themeSource, "light", themeObjectStart),
-  dark: parseThemeObject(themeSource, "dark", themeObjectStart),
+const themeValues = readPalette(root)
+for (const token of requiredSemanticTokens) {
+  const key = token.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())
+  assert(
+    themeValues.light.has(key) && themeValues.dark.has(key),
+    `${DESIGN_TOKENS_FILE} is missing ${key} in light or dark.`
+  )
 }
 const cssThemeValues = parseCssThemeValues(globalCss)
 
 for (const scheme of ["light", "dark"]) {
   assert(
     themeValues[scheme].size > 0,
-    `No ${scheme} runtime theme tokens were parsed from src/lib/theme.ts.`
+    `No ${scheme} palette tokens were parsed from ${DESIGN_TOKENS_FILE}.`
   )
 
   for (const [themeKey, expectedValue] of themeValues[scheme]) {
@@ -243,7 +219,19 @@ for (const scheme of ["light", "dark"]) {
 
     assert(
       actualValue === expectedValue,
-      `${scheme} theme drift for --${cssVariable}: theme.ts is ${expectedValue}, global.css is ${actualValue ?? "missing"}.`
+      `${scheme} theme drift for --${cssVariable}: design-tokens.ts is ${expectedValue}, global.css is ${actualValue ?? "missing"}. Run bun run sync:theme-css.`
+    )
+  }
+}
+
+for (const scheme of ["light", "dark"]) {
+  const known = new Set(
+    [...themeValues[scheme].keys()].map((key) => themeKeyToCssVariable(key))
+  )
+  for (const cssVariable of cssThemeValues[scheme].keys()) {
+    assert(
+      known.has(cssVariable),
+      `global.css defines --${cssVariable} (${scheme}) but ${DESIGN_TOKENS_FILE} does not; edit the palette and run bun run sync:theme-css.`
     )
   }
 }

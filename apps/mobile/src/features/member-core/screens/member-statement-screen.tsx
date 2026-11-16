@@ -37,6 +37,7 @@ import {
   View,
   type TextStyle,
 } from "react-native"
+import { currencySymbol as formatCurrencySymbol } from "@/lib/money"
 
 function scaledTextStyle(
   accessibilityScale: number,
@@ -77,13 +78,7 @@ function formatSupportingMetric(
     return formatMobileMetricValue(metric, currencyCode)
   }
 
-  const currencySymbol =
-    new Intl.NumberFormat("en-NG", {
-      currency: currencyCode,
-      style: "currency",
-    })
-      .formatToParts(0)
-      .find((part) => part.type === "currency")?.value ?? currencyCode
+  const currencySymbol = formatCurrencySymbol(currencyCode)
   const absoluteValue = Math.abs(metric.value)
   const compactValue =
     absoluteValue >= 1_000_000

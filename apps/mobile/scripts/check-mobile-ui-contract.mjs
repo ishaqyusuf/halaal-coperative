@@ -58,7 +58,7 @@ function validateExceptions() {
 }
 
 function checkSemanticTheme() {
-  const theme = readFileSync(join(SOURCE_DIR, "lib/theme.ts"), "utf8")
+  const theme = readFileSync(join(SOURCE_DIR, "lib/design-tokens.ts"), "utf8")
   const css = readFileSync(join(SOURCE_DIR, "styles/global.css"), "utf8")
   const tokens = [
     "background",
@@ -78,7 +78,7 @@ function checkSemanticTheme() {
 
   for (const token of tokens) {
     if (!theme.includes(`${token}:`))
-      failures.push(`theme.ts is missing ${token}`)
+      failures.push(`design-tokens.ts is missing ${token}`)
     if (!css.includes(`--${token}:`))
       failures.push(`global.css is missing --${token}`)
   }

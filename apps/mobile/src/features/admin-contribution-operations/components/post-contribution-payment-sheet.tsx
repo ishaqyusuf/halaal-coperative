@@ -13,6 +13,7 @@ import { View } from "react-native"
 
 import { formatCurrency } from "../lib/admin-contribution-presentation"
 import type { ContributionMemberWorkspace } from "../model/admin-contribution-operations-types"
+import { currencySymbol as formatCurrencySymbol } from "@/lib/money"
 
 function FieldLabel({ children }: { children: string }) {
   return (
@@ -141,13 +142,7 @@ export function PostContributionPaymentSheet({
   visible: boolean
 }) {
   const largeTextLayout = useLargeTextLayout()
-  const currencySymbol =
-    new Intl.NumberFormat("en-NG", {
-      currency: currencyCode,
-      style: "currency",
-    })
-      .formatToParts(0)
-      .find((part) => part.type === "currency")?.value ?? currencyCode
+  const currencySymbol = formatCurrencySymbol(currencyCode)
 
   return (
     <FullScreenFormSheet

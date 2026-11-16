@@ -250,41 +250,31 @@ const TAILWIND_COLOR_VARIABLES = {
   "--color-rose-950": "#4d0218",
 } as const satisfies ThemeVariables
 
-export function nativewindThemeVars(colorScheme: ColorScheme) {
-  const colors = colorScheme === "dark" ? THEME.dark : THEME.light
+/** "brandSurfaceForeground" -> "--brand-surface-foreground", "chart1" -> "--chart-1". */
+export function paletteKeyToCssVariable(key: string): `--${string}` {
+  return `--${key
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .replace(/([a-zA-Z])(\d+)/g, "$1-$2")
+    .toLowerCase()}`
+}
 
+/**
+ * Every semantic token from the palette, keyed by its CSS variable. Derived,
+ * never hand-copied: lib/design-tokens.ts is the single source.
+ */
+export function paletteToCssVariables(colorScheme: ColorScheme) {
+  const colors = colorScheme === "dark" ? THEME.dark : THEME.light
+  const variables: ThemeVariables = {}
+  for (const [key, value] of Object.entries(colors)) {
+    if (key === "radius") continue
+    variables[paletteKeyToCssVariable(key)] = value
+  }
+  return variables
+}
+
+export function nativewindThemeVars(colorScheme: ColorScheme) {
   return {
     ...TAILWIND_COLOR_VARIABLES,
-    "--accent": colors.accent,
-    "--accent-foreground": colors.accentForeground,
-    "--background": colors.background,
-    "--border": colors.border,
-    "--brand": colors.brand,
-    "--brand-contrast": colors.brandContrast,
-    "--brand-foreground": colors.brandForeground,
-    "--brand-surface": colors.brandSurface,
-    "--brand-surface-foreground": colors.brandSurfaceForeground,
-    "--brand-vivid": colors.brandVivid,
-    "--brand-warm": colors.brandWarm,
-    "--card": colors.card,
-    "--card-foreground": colors.cardForeground,
-    "--destructive": colors.destructive,
-    "--destructive-foreground": colors.destructiveForeground,
-    "--foreground": colors.foreground,
-    "--input": colors.input,
-    "--muted": colors.muted,
-    "--muted-foreground": colors.mutedForeground,
-    "--overlay": colors.overlay,
-    "--popover": colors.popover,
-    "--popover-foreground": colors.popoverForeground,
-    "--primary": colors.primary,
-    "--primary-foreground": colors.primaryForeground,
-    "--ring": colors.ring,
-    "--secondary": colors.secondary,
-    "--secondary-foreground": colors.secondaryForeground,
-    "--success": colors.success,
-    "--success-foreground": colors.successForeground,
-    "--warn": colors.warn,
-    "--warn-foreground": colors.warnForeground,
+    ...paletteToCssVariables(colorScheme),
   } satisfies ThemeVariables
 }

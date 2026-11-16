@@ -155,6 +155,17 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
     .default,
   WifiOff: require("lucide-react-native/dist/esm/icons/wifi-off").default,
   X: require("lucide-react-native/dist/esm/icons/x").default,
+  Ban: require("lucide-react-native/dist/esm/icons/ban").default,
+  CalendarDays: require("lucide-react-native/dist/esm/icons/calendar-days").default,
+  ChevronDown: require("lucide-react-native/dist/esm/icons/chevron-down").default,
+  ChevronUp: require("lucide-react-native/dist/esm/icons/chevron-up").default,
+  CircleCheckBig: require("lucide-react-native/dist/esm/icons/circle-check-big").default,
+  Clock: require("lucide-react-native/dist/esm/icons/clock").default,
+  Inbox: require("lucide-react-native/dist/esm/icons/inbox").default,
+  ListFilter: require("lucide-react-native/dist/esm/icons/list-filter").default,
+  Phone: require("lucide-react-native/dist/esm/icons/phone").default,
+  SearchX: require("lucide-react-native/dist/esm/icons/search-x").default,
+  Sparkles: require("lucide-react-native/dist/esm/icons/sparkles").default,
   Zap: require("lucide-react-native/dist/esm/icons/zap").default,
 }
 

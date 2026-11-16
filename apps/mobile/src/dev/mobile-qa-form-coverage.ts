@@ -449,6 +449,14 @@ export const mobileQaNonFormFieldSources = [
     source: "src/components/app/calendar-date-field.tsx",
   },
   {
+    reason: "Shared money primitive (T01); the parent form owns coverage.",
+    source: "src/components/ui/money-field.tsx",
+  },
+  {
+    reason: "Shared phone primitive (T01); the parent form owns coverage.",
+    source: "src/components/ui/phone-field.tsx",
+  },
+  {
     reason: "Shared auth field; the parent form owns coverage.",
     source: feature("auth/components/auth-field.tsx"),
   },

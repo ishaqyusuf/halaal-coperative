@@ -51,6 +51,33 @@ export function mobileAccessPathAllowed(path: string | undefined) {
   )
 }
 
+type AppAccessSnapshot = Awaited<
+  ReturnType<typeof getCooperativeMobileAccessSnapshot>
+>
+
+/**
+ * One app-access read per HTTP request. The context is built once per request
+ * (identity, tenant and membership come from the verified session), and a
+ * batched request runs every procedure with it, so they share this read
+ * instead of repeating it. Nothing outlives the request: the next call reads
+ * the term again, so turning access off still stops the app at once.
+ */
+const requestAppAccess = new WeakMap<object, Promise<AppAccessSnapshot>>()
+
+export function readRequestAppAccess(
+  requestKey: object,
+  actor: Parameters<typeof getCooperativeMobileAccessSnapshot>[0],
+  read: typeof getCooperativeMobileAccessSnapshot = getCooperativeMobileAccessSnapshot
+) {
+  const cached = requestAppAccess.get(requestKey)
+  if (cached) return cached
+  const pending = read(actor)
+  requestAppAccess.set(requestKey, pending)
+  // A failed read is not reused by a later procedure in the same batch.
+  pending.catch(() => requestAppAccess.delete(requestKey))
+  return pending
+}
+
 const withErrorContract = t.middleware(async (opts) => {
   if (
     opts.ctx.request.mobileAuthenticated &&
@@ -61,7 +88,7 @@ const withErrorContract = t.middleware(async (opts) => {
     const membership = opts.ctx.auth.activeMembership
     if (!session || !tenant || !membership)
       throw new TRPCError({ code: "UNAUTHORIZED", message: "Sign in again." })
-    const access = await getCooperativeMobileAccessSnapshot({
+    const access = await readRequestAppAccess(opts.ctx.request, {
       userId: session.user.id,
       tenantId: tenant.id,
       membershipId: membership.id,

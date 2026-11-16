@@ -29,7 +29,10 @@ export type MemberAcceptDecision =
   | { kind: "reinstate" }
   | { kind: "blocked"; reason: "not_enabled" | "cooperative_turned_off" }
 
-export function isWithinTerm(term: MemberTermLike, now: Date) {
+export function isWithinTerm(
+  term: Pick<MemberTermLike, "startsAt" | "endsAt">,
+  now: Date
+) {
   return Boolean(
     term.startsAt && term.startsAt <= now && term.endsAt && now < term.endsAt
   )

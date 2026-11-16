@@ -100,7 +100,10 @@ function latestTerm(
   })
 }
 
-function statusAt(term: CooperativeMobileAccessTerm, now: Date) {
+function statusAt(
+  term: Pick<CooperativeMobileAccessTerm, "status" | "startsAt" | "endsAt">,
+  now: Date
+) {
   if (term.status === "approved") {
     return isWithinTerm(term, now) ? ("active" as const) : ("expired" as const)
   }
@@ -177,6 +180,56 @@ async function auditAccess(
   })
 }
 
+type AccessGateRow = {
+  role: string
+  accessEnabled: boolean
+  termStatus: CooperativeMobileAccessTerm["status"] | null
+  termStartsAt: Date | null
+  termEndsAt: Date | null
+}
+
+/**
+ * The app-access gate's read: the membership (with the same user and tenant
+ * checks as findMembership) and, for members, their latest term, in ONE
+ * round trip. Every signed-mobile tRPC call runs it (lib.trpc.ts), so the
+ * two-step Prisma read (membership + tenant, then term: 3 queries) mattered.
+ * The term is read only for the member role, exactly as before.
+ */
+async function readAccessGate(
+  db: NonNullable<ReturnType<typeof createPrismaClient>>,
+  input: Actor
+): Promise<AccessGateRow | null> {
+  const rows = await db.$queryRaw<AccessGateRow[]>`
+    SELECT m.role::text AS "role",
+           t.cooperative_mobile_access_enabled AS "accessEnabled",
+           term.status::text AS "termStatus",
+           term.starts_at AS "termStartsAt",
+           term.ends_at AS "termEndsAt"
+    FROM memberships m
+    JOIN users u ON u.id = m.user_id AND u.deleted_at IS NULL
+    JOIN tenants t
+      ON t.id = m.tenant_id
+     AND t.status = 'active'
+     AND t.qa_purge_started_at IS NULL
+    LEFT JOIN LATERAL (
+      SELECT c.status, c.starts_at, c.ends_at
+      FROM cooperative_mobile_access_terms c
+      JOIN members mem ON mem.id = c.member_id
+      WHERE c.tenant_id = m.tenant_id
+        AND mem.tenant_id = m.tenant_id
+        AND mem.user_id = m.user_id
+        AND mem.status = 'active'
+      ORDER BY c.requested_at DESC, c.id DESC
+      LIMIT 1
+    ) term ON m.role = 'member'
+    WHERE m.id = ${input.membershipId}::uuid
+      AND m.tenant_id = ${input.tenantId}::uuid
+      AND m.user_id = ${input.userId}::uuid
+    LIMIT 1
+  `
+  return rows[0] ?? null
+}
+
 export async function getCooperativeMobileAccessSnapshot(input: Actor) {
   const db = createPrismaClient()
   const scope = {
@@ -184,9 +237,9 @@ export async function getCooperativeMobileAccessSnapshot(input: Actor) {
     tenantId: input.tenantId,
     membershipId: input.membershipId,
   }
-  const membership = db ? await findMembership(db, input) : null
-  if (!db || membership?.role !== "member") {
-    const allowed = membership?.tenant.cooperativeMobileAccessEnabled === true
+  const gate = db ? await readAccessGate(db, input) : null
+  if (!gate || gate.role !== "member") {
+    const allowed = gate?.accessEnabled === true
     return {
       ...scope,
       accessAllowed: allowed,
@@ -195,13 +248,13 @@ export async function getCooperativeMobileAccessSnapshot(input: Actor) {
     }
   }
 
-  const term = await db.cooperativeMobileAccessTerm.findFirst({
-    where: {
-      tenantId: input.tenantId,
-      member: activeMemberForUser(input.tenantId, input.userId),
-    },
-    orderBy: [{ requestedAt: "desc" }, { id: "desc" }],
-  })
+  const term = gate.termStatus
+    ? {
+        status: gate.termStatus,
+        startsAt: gate.termStartsAt,
+        endsAt: gate.termEndsAt,
+      }
+    : null
   const status = term ? statusAt(term, new Date()) : "not_requested"
   return {
     ...scope,

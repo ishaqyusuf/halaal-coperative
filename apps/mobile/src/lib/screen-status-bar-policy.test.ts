@@ -1,111 +1,44 @@
 import { describe, expect, test } from "bun:test"
 import { resolveScreenStatusBar } from "./screen-status-bar-policy"
 
-const colors = { background: "neutral-token", brandSurface: "brand-token" }
-
 describe("focused screen status bar", () => {
-  test("inactive screens relinquish both background and icon style", () => {
-    for (const tone of ["background", "brand"] as const) {
+  test("inactive screens relinquish the bar", () => {
+    for (const tone of ["background", "brand", "hero", "surface"] as const) {
       expect(
-        resolveScreenStatusBar({
-          ...colors,
-          colorScheme: "light",
-          focused: false,
-          tone,
-        })
+        resolveScreenStatusBar({ colorScheme: "light", focused: false, tone })
       ).toBeNull()
     }
   })
 
-  test("neutral screens follow their theme", () => {
-    expect(
-      resolveScreenStatusBar({
-        ...colors,
-        colorScheme: "light",
-        focused: true,
-        tone: "background",
-      })
-    ).toEqual({ backgroundColor: "neutral-token", style: "dark" })
-    expect(
-      resolveScreenStatusBar({
-        ...colors,
-        colorScheme: "dark",
-        focused: true,
-        tone: "background",
-      })
-    ).toEqual({ backgroundColor: "neutral-token", style: "light" })
-  })
-
-  test("brand headers retain inverse system icons in either theme", () => {
-    for (const colorScheme of ["light", "dark"] as const) {
+  test("canvas and scrolled-surface screens follow their theme", () => {
+    for (const tone of ["background", "surface"] as const) {
       expect(
-        resolveScreenStatusBar({
-          ...colors,
-          androidApiLevel: 34,
-          colorScheme,
-          focused: true,
-          tone: "brand",
-        })
-      ).toEqual({ backgroundColor: "brand-token", style: "light" })
+        resolveScreenStatusBar({ colorScheme: "light", focused: true, tone })
+      ).toEqual({ style: "dark" })
+      expect(
+        resolveScreenStatusBar({ colorScheme: "dark", focused: true, tone })
+      ).toEqual({ style: "light" })
     }
   })
 
-  test("Android 15+ keeps icons legible on the effective theme-colored system bar", () => {
-    expect(
-      resolveScreenStatusBar({
-        ...colors,
-        androidApiLevel: 36,
-        colorScheme: "light",
-        focused: true,
-        tone: "brand",
-      })
-    ).toEqual({ backgroundColor: "brand-token", style: "dark" })
-    expect(
-      resolveScreenStatusBar({
-        ...colors,
-        androidApiLevel: 36,
-        colorScheme: "dark",
-        focused: true,
-        tone: "brand",
-      })
-    ).toEqual({ backgroundColor: "brand-token", style: "light" })
-  })
-})
-
-describe("hero and scrolled surface tones", () => {
-  test("a hero keeps light icons in both themes and on Android 15+", () => {
-    for (const colorScheme of ["light", "dark"] as const) {
-      expect(
-        resolveScreenStatusBar({
-          ...colors,
-          androidApiLevel: 36,
-          colorScheme,
-          focused: true,
-          heroStart: "hero-token",
-          tone: "hero",
-        })
-      ).toEqual({ backgroundColor: "hero-token", style: "light" })
+  test("brand headers and heroes keep light icons in either theme", () => {
+    for (const tone of ["brand", "hero"] as const) {
+      for (const colorScheme of ["light", "dark"] as const) {
+        expect(
+          resolveScreenStatusBar({ colorScheme, focused: true, tone })
+        ).toEqual({ style: "light" })
+      }
     }
   })
 
-  test("a scrolled hero switches to the surface with theme icons", () => {
-    expect(
-      resolveScreenStatusBar({
-        ...colors,
+  test("never paints a bar colour (edge-to-edge; the app draws under it)", () => {
+    for (const tone of ["background", "brand", "hero", "surface"] as const) {
+      const appearance = resolveScreenStatusBar({
         colorScheme: "light",
         focused: true,
-        surface: "card-token",
-        tone: "surface",
+        tone,
       })
-    ).toEqual({ backgroundColor: "card-token", style: "dark" })
-    expect(
-      resolveScreenStatusBar({
-        ...colors,
-        colorScheme: "dark",
-        focused: true,
-        surface: "card-token",
-        tone: "surface",
-      })
-    ).toEqual({ backgroundColor: "card-token", style: "light" })
+      expect(appearance && "backgroundColor" in appearance).toBe(false)
+    }
   })
 })

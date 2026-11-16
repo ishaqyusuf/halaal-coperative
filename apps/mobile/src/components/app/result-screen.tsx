@@ -4,7 +4,14 @@ import { Elevated } from "@/components/ui/list-card"
 import { Text } from "@/components/ui/text"
 import { cn } from "@/lib/utils"
 import type { ReactNode } from "react"
-import { ActivityIndicator, Pressable, ScrollView, View } from "react-native"
+import { resolveDockedFooterInset } from "@/lib/docked-footer-inset"
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+} from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useColors } from "@/hooks/use-color"
 import { Children, isValidElement } from "react"
@@ -106,7 +113,7 @@ function ResultActions({
     <View
       style={{
         gap: 12,
-        paddingBottom: Math.max(insets.bottom, 16),
+        paddingBottom: resolveDockedFooterInset(insets.bottom, Platform.OS),
         paddingHorizontal: 18,
         paddingTop: 12,
       }}

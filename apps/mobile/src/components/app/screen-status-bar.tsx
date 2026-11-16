@@ -1,15 +1,16 @@
-import { useColors, useColorScheme } from "@/hooks/use-color"
+import { useColorScheme } from "@/hooks/use-color"
 import {
   resolveScreenStatusBar,
   type ScreenStatusBarTone,
 } from "@/lib/screen-status-bar-policy"
 import { useIsFocused } from "@react-navigation/native"
 import { StatusBar } from "expo-status-bar"
-import { Platform } from "react-native"
 
 /**
  * The only module that renders expo-status-bar (enforced by
  * check:nativewind-ui). Everything resolves through screen-status-bar-policy.
+ * No backgroundColor is ever passed: the bar stays transparent (expo-status-bar
+ * defaults to translucent + transparent) and screens draw under it.
  */
 function PolicyStatusBar({
   focused,
@@ -18,19 +19,8 @@ function PolicyStatusBar({
   focused: boolean
   tone: ScreenStatusBarTone
 }) {
-  const colors = useColors()
   const { colorScheme } = useColorScheme()
-  const appearance = resolveScreenStatusBar({
-    androidApiLevel:
-      Platform.OS === "android" ? Number(Platform.Version) : undefined,
-    background: colors.background,
-    brandSurface: colors.brandSurface,
-    colorScheme,
-    focused,
-    heroStart: colors.heroStart,
-    surface: colors.card,
-    tone,
-  })
+  const appearance = resolveScreenStatusBar({ colorScheme, focused, tone })
 
   return appearance ? <StatusBar animated {...appearance} /> : null
 }

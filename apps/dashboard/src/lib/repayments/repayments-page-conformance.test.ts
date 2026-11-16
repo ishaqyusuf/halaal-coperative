@@ -13,11 +13,15 @@ describe("repayments workspace Midday conformance", () => {
 
     expect(dataView).toContain('id="repayments-active-view"')
     expect(dataView).toContain("aria-labelledby={`repayments-${view}-tab`}")
-    expect(tabs).toContain('role="tablist"')
-    expect(tabs).toContain('role="tab"')
+    // The shared ViewTabs gives role="tablist"/"tab" and the
+    // `${idPrefix}-${value}-tab` ids the panel's aria-labelledby uses.
+    expect(tabs).toContain("<ViewTabs")
+    expect(tabs).toContain('idPrefix="repayments"')
     expect(tabs).toContain("await setSortParams({ sort: null })")
     expect(tabs).toContain("await setFilters(filtersByView, { shallow: false })")
-    expect(tabs).toContain("id={`repayments-${view.value}-tab`}")
+    expect(read("components/view-tabs.tsx")).toContain(
+      "id={`${idPrefix}-${item.value}-tab`}"
+    )
   })
 
   test("uses flat mobile sorting and settles URL state before closing", () => {

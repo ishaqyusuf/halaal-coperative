@@ -27,9 +27,10 @@ describe("loans workspace Midday conformance", () => {
     expect(dataView).toContain('view === "requests" ?')
     expect(dataView).toContain("<ResponsiveDataView")
     expect(dataView).toContain('id="loans-active-view"')
-    expect(tabs).toContain('role="tablist"')
-    expect(tabs).toContain('role="tab"')
-    expect(tabs).toContain("border-b-2 border-transparent")
+    // The shared ViewTabs (Tabs primitive) gives role="tablist"/"tab".
+    expect(tabs).toContain("<ViewTabs")
+    expect(tabs).toContain('idPrefix="loans"')
+    expect(tabs).toContain('look="tall"')
     expect(tabs).toContain("portfolioStatus: null")
     expect(tabs).toContain("requestStatus: null")
     expect(tabs).toContain("setSortParams({ sort: null })")

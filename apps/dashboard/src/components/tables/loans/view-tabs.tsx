@@ -1,8 +1,8 @@
 "use client"
 
-import { Button } from "@halaalvest/ui/components/button"
 import { useLoanFilterParams } from "@/hooks/use-loan-filter-params"
 import { useSortParams } from "@/hooks/use-sort-params"
+import { ViewTabs } from "@/components/view-tabs"
 
 export type LoanView = "portfolio" | "requests"
 
@@ -34,31 +34,18 @@ export function LoanViewTabs({
   }
 
   return (
-    <div
-      aria-label="Loan workspace view"
-      className="flex min-w-0 gap-1 overflow-x-auto border-b border-border"
-      role="tablist"
-    >
-      {views.map((view) => {
-        const selected = view.value === activeView
-
-        return (
-          <Button
-            aria-controls="loans-active-view"
-            aria-selected={selected}
-            className="h-12 shrink-0 rounded-none border-x-0 border-t-0 border-b-2 border-transparent px-4 text-base data-[active=true]:border-primary data-[active=true]:bg-transparent data-[active=true]:font-semibold"
-            data-active={selected}
-            id={`loans-${view.value}-tab`}
-            key={view.value}
-            onClick={() => void selectView(view.value)}
-            role="tab"
-            type="button"
-            variant="ghost"
-          >
-            {isMemberView ? view.memberLabel : view.label}
-          </Button>
-        )
-      })}
-    </div>
+    <ViewTabs
+      ariaLabel="Loan workspace view"
+      className="overflow-x-auto border-b border-border"
+      idPrefix="loans"
+      items={views.map((view) => ({
+        label: isMemberView ? view.memberLabel : view.label,
+        value: view.value,
+      }))}
+      look="tall"
+      onValueChange={(view) => void selectView(view)}
+      panelId="loans-active-view"
+      value={activeView}
+    />
   )
 }

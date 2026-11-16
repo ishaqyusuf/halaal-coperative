@@ -3,6 +3,10 @@
 import type { TenantBusinessProfitPolicySettings } from "@halaalvest/db"
 import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@halaalvest/ui/components/native-select"
 import { formatCurrency } from "@halaalvest/utils"
 import { useState } from "react"
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog"
@@ -95,8 +99,9 @@ export function ProfitRulesForm({
           (option) => option.value === policy.historicalProfitMigrationMode
         )?.label ?? "",
       label: "Profit from before Halaalvest",
-      to: pastProfitOptions.find((option) => option.value === pastProfit)
-        ?.label ?? "",
+      to:
+        pastProfitOptions.find((option) => option.value === pastProfit)
+          ?.label ?? "",
     },
   ].filter((change): change is { from: string; label: string; to: string } =>
     Boolean(change)
@@ -141,17 +146,17 @@ export function ProfitRulesForm({
         value={frequency}
       />
       <RequestField label="Financial year starts in">
-        <select
-          className="h-12 rounded-(--ui-radius-control) border border-input bg-background px-3 text-lg"
+        <NativeSelect
+          className="[&_select]:h-12 [&_select]:text-lg"
           onChange={(event) => setStartMonth(Number(event.target.value))}
           value={startMonth}
         >
           {Array.from({ length: 12 }, (_, index) => (
-            <option key={index + 1} value={index + 1}>
+            <NativeSelectOption key={index + 1} value={index + 1}>
               {getMonthName(index + 1)}
-            </option>
+            </NativeSelectOption>
           ))}
-        </select>
+        </NativeSelect>
       </RequestField>
       <p className="-mt-3 text-base text-muted-foreground">
         Seasons: {getProfitSeasonPattern(frequency, startMonth)}

@@ -55,4 +55,20 @@ describe("shared primitives (WP18)", () => {
 
     expect(copies).toEqual([])
   })
+
+  test("page view tabs use ViewTabs on the Tabs primitive", () => {
+    const handRolled = sourceFiles(srcDir).filter((path) =>
+      readFileSync(path, "utf8").includes('role="tablist"')
+    )
+
+    expect(handRolled).toEqual([])
+  })
+
+  test("form selects use NativeSelect", () => {
+    const rawSelects = sourceFiles(srcDir).filter((path) =>
+      /<select\b/.test(readFileSync(path, "utf8"))
+    )
+
+    expect(rawSelects).toEqual([])
+  })
 })

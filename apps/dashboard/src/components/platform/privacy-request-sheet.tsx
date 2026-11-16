@@ -8,6 +8,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@halaalvest/ui/components/sheet"
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@halaalvest/ui/components/native-select"
 import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
@@ -468,8 +472,9 @@ function RecordsStillHeld({ requestId }: { requestId: string }) {
           <label className="text-base font-medium" htmlFor="privacy-note-kind">
             About
           </label>
-          <select
-            className="h-12 w-full rounded-md border border-input bg-background px-3 text-base"
+          {/* NativeSelect sizes its wrapper; the select inside stays 48px. */}
+          <NativeSelect
+            className="w-full [&_select]:h-12 [&_select]:text-base"
             id="privacy-note-kind"
             onChange={(event) =>
               setCategory(event.target.value as PrivacyNoteCategory)
@@ -477,11 +482,11 @@ function RecordsStillHeld({ requestId }: { requestId: string }) {
             value={category}
           >
             {Object.entries(privacyNoteCategoryWords).map(([value, label]) => (
-              <option key={value} value={value}>
+              <NativeSelectOption key={value} value={value}>
                 {label}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
+          </NativeSelect>
         </div>
         <NoteField
           hint="Say what was removed or kept, where, and why. Don't write passwords or ID numbers."

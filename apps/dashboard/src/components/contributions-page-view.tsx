@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import type { PageFilterData } from "@halaalvest/utils"
 import { Badge } from "@halaalvest/ui/components/badge"
-import { Button, buttonVariants } from "@halaalvest/ui/components/button"
+import { buttonVariants } from "@halaalvest/ui/components/button"
 import { formatCurrency } from "@halaalvest/utils"
 import { ContributionsHeader } from "@/components/contributions-header"
 import { ContributionsMobileToolbar } from "@/components/contributions-mobile-toolbar"
@@ -29,6 +29,7 @@ import { useScrollHeader } from "@/hooks/use-scroll-header"
 import { useSortParams } from "@/hooks/use-sort-params"
 import { loadContributionsPageData } from "@/lib/contributions"
 import type { TableSettings } from "@/utils/table-settings"
+import { ViewTabs } from "@/components/view-tabs"
 
 type ContributionsPageData = Extract<
   Awaited<ReturnType<typeof loadContributionsPageData>>,
@@ -159,33 +160,17 @@ export function ContributionsPageView({
       {activeView === "ledger" ? null : <ContributionPageScrollHeader />}
       <section className="overflow-hidden border-b border-border md:border-y">
         <div className="border-b border-border px-4 md:px-5">
-          <div className="flex gap-1 overflow-x-auto" role="tablist">
-            {views.map((view) => {
-              const isActive = activeView === view
-
-              return (
-                <Button
-                  size="touch"
-                  aria-controls="contributions-active-view"
-                  aria-selected={isActive}
-                  className="shrink-0 rounded-none border-b-2 px-3 text-sm shadow-none"
-                  id={`contributions-${view}-tab`}
-                  key={view}
-                  onClick={() => void selectView(view)}
-                  role="tab"
-                  type="button"
-                  variant="ghost"
-                  style={{
-                    borderBottomColor: isActive
-                      ? "currentColor"
-                      : "transparent",
-                  }}
-                >
-                  {viewLabels[view]}
-                </Button>
-              )
-            })}
-          </div>
+          <ViewTabs
+            className="overflow-x-auto"
+            idPrefix="contributions"
+            items={views.map((view) => ({
+              label: viewLabels[view],
+              value: view,
+            }))}
+            onValueChange={(view) => void selectView(view)}
+            panelId="contributions-active-view"
+            value={activeView}
+          />
         </div>
 
         <div

@@ -22,7 +22,8 @@ describe("charges page", () => {
     const view = read("components/charges-page-view.tsx")
     const tabs = read("components/charge-view-tabs.tsx")
 
-    expect(tabs).toContain('role="tablist"')
+    expect(tabs).toContain("<ViewTabs")
+    expect(tabs).toContain('panelId="charges-active-view"')
     expect(tabs).toContain("{ shallow: false }")
     expect(view).toContain('id="charges-active-view"')
     expect(view).not.toContain("<h1")

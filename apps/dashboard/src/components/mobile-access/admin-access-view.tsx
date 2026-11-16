@@ -1,7 +1,6 @@
 "use client"
 
 import { Button } from "@halaalvest/ui/components/button"
-import { cn } from "@halaalvest/ui/lib/utils"
 import {
   useInfiniteQuery,
   useMutation,
@@ -22,6 +21,7 @@ import {
 } from "./access-confirm-dialog"
 import { MobileAccessLoadError, MobileAccessLoading } from "./access-page-state"
 import { formatAccessAmount, formatAccessDate } from "./format"
+import { ViewTabs } from "@/components/view-tabs"
 
 const GiveAccessSheet = dynamic(() =>
   import("./give-access-sheet").then((module) => module.GiveAccessSheet)
@@ -250,39 +250,25 @@ export function AdminAccessView() {
       </div>
 
       <div className="space-y-3">
-        <div
-          aria-label="Members"
-          className="flex flex-wrap gap-x-1 border-b border-border"
-          role="tablist"
-        >
-          {tabs.map((tab) => {
-            const selected = tab.status === activeTab.status
-            return (
-              <Button
-                size="touch"
-                aria-controls="mobile-access-list"
-                aria-selected={selected}
-                className={cn(
-                  "shrink-0 rounded-none border-b-2 px-3 text-base shadow-none",
-                  selected
-                    ? "border-b-foreground font-semibold text-foreground"
-                    : "border-transparent text-muted-foreground"
-                )}
-                id={`mobile-access-${tab.status}-tab`}
-                key={tab.status}
-                onClick={() => void setFilter({ accessList: tab.status })}
-                role="tab"
-                type="button"
-                variant="ghost"
-              >
+        <ViewTabs
+          ariaLabel="Members"
+          className="flex-wrap border-b border-border"
+          idPrefix="mobile-access"
+          items={tabs.map((tab) => ({
+            label: (
+              <>
                 {tab.label}
                 <span className="ml-1.5 tabular-nums">
                   {counts[tab.status]}
                 </span>
-              </Button>
-            )
-          })}
-        </div>
+              </>
+            ),
+            value: tab.status,
+          }))}
+          onValueChange={(status) => void setFilter({ accessList: status })}
+          panelId="mobile-access-list"
+          value={activeTab.status}
+        />
 
         <div
           aria-labelledby={`mobile-access-${activeTab.status}-tab`}

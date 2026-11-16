@@ -1,10 +1,10 @@
 "use client"
 
+import { Button } from "@halaalvest/ui/components/button"
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Badge } from "@halaalvest/ui/components/badge"
-import { Button } from "@halaalvest/ui/components/button"
 import { formatCurrency } from "@halaalvest/utils"
 import type { FoodPurchaseCycleRow } from "@halaalvest/db"
 import { FoodPurchaseHeader } from "@/components/food-purchase-header"
@@ -35,6 +35,7 @@ import {
 } from "@/lib/requests/request-status-words"
 import type { TableSettings } from "@/utils/table-settings"
 import { formatDayMonthYear } from "@/utils/format"
+import { ViewTabs } from "@/components/view-tabs"
 
 type FoodPurchaseViewName = "applications" | "cycles"
 
@@ -60,32 +61,16 @@ function FoodPurchaseViewTabs({
   ] as const
 
   return (
-    <div
-      aria-label="Foodstuff view"
-      className="flex min-w-0 gap-1 border-b border-border"
-      role="tablist"
-    >
-      {views.map((view) => {
-        const selected = view.value === activeView
-
-        return (
-          <Button
-            aria-controls={`food-purchase-${view.value}-view`}
-            aria-selected={selected}
-            className="h-12 shrink-0 rounded-none border-x-0 border-t-0 border-b-2 border-transparent px-4 text-base data-[active=true]:border-primary data-[active=true]:bg-transparent data-[active=true]:font-semibold"
-            data-active={selected}
-            id={`food-purchase-${view.value}-tab`}
-            key={view.value}
-            onClick={() => onSelect(view.value)}
-            role="tab"
-            type="button"
-            variant="ghost"
-          >
-            {view.label}
-          </Button>
-        )
-      })}
-    </div>
+    <ViewTabs
+      ariaLabel="Foodstuff view"
+      className="border-b border-border"
+      idPrefix="food-purchase"
+      items={views}
+      look="tall"
+      onValueChange={onSelect}
+      panelId={(view) => `food-purchase-${view}-view`}
+      value={activeView}
+    />
   )
 }
 

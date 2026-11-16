@@ -1,9 +1,9 @@
 "use client"
 
-import { Button } from "@halaalvest/ui/components/button"
 import { useRepaymentsFilterParams } from "@/hooks/use-repayments-filter-params"
 import { useSortParams } from "@/hooks/use-sort-params"
 import type { RepaymentView } from "./types"
+import { ViewTabs } from "@/components/view-tabs"
 
 const views: Array<{ label: string; value: RepaymentView }> = [
   { label: "Late", value: "collections" },
@@ -49,31 +49,15 @@ export function RepaymentViewTabs({
   }
 
   return (
-    <div
-      aria-label="Repayment workspace view"
-      className="flex min-w-0 gap-1 overflow-x-auto border-b border-border"
-      role="tablist"
-    >
-      {views.map((view) => {
-        const selected = view.value === activeView
-
-        return (
-          <Button
-            aria-controls="repayments-active-view"
-            aria-selected={selected}
-            className="h-12 shrink-0 rounded-none border-x-0 border-t-0 border-b-2 border-transparent px-4 text-base data-[active=true]:border-primary data-[active=true]:bg-transparent data-[active=true]:font-semibold"
-            data-active={selected}
-            id={`repayments-${view.value}-tab`}
-            key={view.value}
-            onClick={() => void selectView(view.value)}
-            role="tab"
-            type="button"
-            variant="ghost"
-          >
-            {view.label}
-          </Button>
-        )
-      })}
-    </div>
+    <ViewTabs
+      ariaLabel="Repayment workspace view"
+      className="overflow-x-auto border-b border-border"
+      idPrefix="repayments"
+      items={views}
+      look="tall"
+      onValueChange={(view) => void selectView(view)}
+      panelId="repayments-active-view"
+      value={activeView}
+    />
   )
 }

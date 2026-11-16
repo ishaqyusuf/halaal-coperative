@@ -24,6 +24,7 @@ import {
   getShareRequestStatusWord,
 } from "@/lib/shares/share-words"
 import { formatDayMonthYear } from "@/utils/format"
+import { ViewTabs } from "@/components/view-tabs"
 
 const tabs: Array<{ label: string; value: ShareRequestsTab }> = [
   { label: "Waiting", value: "waiting" },
@@ -148,37 +149,17 @@ export function StaffShareRequestsView({
       {isUnitBased ? (
         <div className="grid gap-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div
-              aria-label="Share requests"
-              className="flex gap-x-1 border-b border-border"
-              role="tablist"
-            >
-              {tabs.map((tab) => {
-                const selected = tab.value === shareRequests
-
-                return (
-                  <Button
-                    size="touch"
-                    aria-controls="share-requests-list"
-                    aria-selected={selected}
-                    className={cn(
-                      "shrink-0 rounded-none border-b-2 px-3 text-base shadow-none",
-                      selected
-                        ? "border-b-foreground font-semibold text-foreground"
-                        : "border-transparent text-muted-foreground"
-                    )}
-                    id={`share-requests-${tab.value}-tab`}
-                    key={tab.value}
-                    onClick={() => void setParams({ shareRequests: tab.value })}
-                    role="tab"
-                    type="button"
-                    variant="ghost"
-                  >
-                    {tab.label}
-                  </Button>
-                )
-              })}
-            </div>
+            <ViewTabs
+              ariaLabel="Share requests"
+              className="w-auto border-b border-border"
+              idPrefix="share-requests"
+              items={tabs}
+              onValueChange={(value) =>
+                void setParams({ shareRequests: value })
+              }
+              panelId="share-requests-list"
+              value={shareRequests}
+            />
             <Button
               size="touch"
               className="w-full text-base sm:w-auto"

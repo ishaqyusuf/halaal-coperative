@@ -12,7 +12,7 @@ describe("Foodstuff Purchase workspace Midday conformance", () => {
     const params = read("hooks/use-food-purchase-filter-params.ts")
 
     expect(params).toContain('parseAsStringEnum(["applications", "cycles"])')
-    expect(view).toContain('role="tablist"')
+    expect(view).toContain("<ViewTabs")
     expect(view).toContain('role="tabpanel"')
     expect(view).toContain('activeView === "cycles"')
     expect(view).toContain("await setSortParams({ sort: null })")

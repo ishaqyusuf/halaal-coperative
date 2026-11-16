@@ -4,6 +4,7 @@ import { createLoader, parseAsString, parseAsStringEnum } from "nuqs/server"
 export const contributionParamsSchema = {
   batchId: parseAsString,
   contributionSheetType: parseAsStringEnum([
+    "details",
     "plan",
     "payment",
     "preference",
@@ -16,6 +17,8 @@ export const contributionParamsSchema = {
   ]),
   selectedCollectionBatchId: parseAsString,
   selectedCollectionRowId: parseAsString,
+  // The ledger entry the "details" sheet shows (WP15 row click).
+  selectedContributionId: parseAsString,
   selectedContributionMemberId: parseAsString,
   selectedContributionPlanId: parseAsString,
 }

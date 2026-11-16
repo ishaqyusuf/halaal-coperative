@@ -50,6 +50,8 @@ export const workflowPresentations = {
     waive: alertDialog(),
   },
   contribution: {
+    // A ledger entry opened from its row (WP15): read-only, a right sheet.
+    details: sheet(),
     editPlan: sheet(),
     markBatchRowCollected: dialog("compact"),
     markBatchRowException: dialog("form"),

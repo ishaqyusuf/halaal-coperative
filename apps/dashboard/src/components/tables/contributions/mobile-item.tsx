@@ -1,3 +1,5 @@
+"use client"
+
 import {
   Item,
   ItemContent,
@@ -6,6 +8,7 @@ import {
   ItemTitle,
 } from "@halaalvest/ui/components/item"
 import { formatCurrency } from "@halaalvest/utils"
+import { useContributionParams } from "@/hooks/use-contribution-params"
 import type { ContributionLedgerRow } from "./columns"
 
 function formatPostedDate(date: Date) {
@@ -16,13 +19,30 @@ function formatPostedDate(date: Date) {
   }).format(new Date(date))
 }
 
+/** One ledger entry on a phone: tap anywhere to open its details (WP15). */
 export function ContributionMobileItem({
   item,
 }: {
   item: ContributionLedgerRow
 }) {
+  const { setParams } = useContributionParams()
+
   return (
-    <Item className="gap-3 border-0 bg-transparent px-0 py-4">
+    <Item
+      className="w-full gap-3 border-0 bg-transparent px-0 py-4 text-left focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
+      render={
+        <button
+          aria-label={`Open payment from ${item.member?.fullName ?? "unknown member"}`}
+          onClick={() =>
+            void setParams({
+              contributionSheetType: "details",
+              selectedContributionId: item.id,
+            })
+          }
+          type="button"
+        />
+      }
+    >
       <ItemHeader>
         <ItemContent className="min-w-0">
           <ItemTitle className="truncate text-sm">

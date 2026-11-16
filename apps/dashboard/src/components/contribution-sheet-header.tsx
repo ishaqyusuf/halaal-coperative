@@ -8,6 +8,7 @@ import {
 import { useContributionParams } from "@/hooks/use-contribution-params"
 
 const sheetTitles = {
+  details: "Payment details",
   editPlan: "Change monthly amount",
   markBatchRowCollected: "Mark as paid",
   markBatchRowException: "Hold for review",
@@ -20,6 +21,7 @@ const sheetTitles = {
 } as const
 
 const sheetDescriptions = {
+  details: "One payment in the contributions ledger.",
   editPlan: "Update or end this member's monthly amount.",
   markBatchRowCollected: "Enter what the workplace paid for this member.",
   markBatchRowException: "This member is kept out of posting.",

@@ -12,6 +12,7 @@ import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
 import { LoaderCircle } from "lucide-react"
 import { useEffect, useRef } from "react"
 import { VirtualRow } from "@/components/tables/core"
+import { useContributionParams } from "@/hooks/use-contribution-params"
 import { useDataTable } from "@/hooks/use-data-table"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useScrollHeader } from "@/hooks/use-scroll-header"
@@ -35,7 +36,14 @@ export function ContributionsDataTable({
   initialSettings?: Partial<TableSettings>
 }) {
   const query = useContributionsQuery()
+  const { setParams } = useContributionParams()
   const parentRef = useRef<HTMLDivElement>(null)
+  // Row ids are ledger entry ids (`getRowId`).
+  const openEntry = (rowId: string) =>
+    void setParams({
+      contributionSheetType: "details",
+      selectedContributionId: rowId,
+    })
   const { setColumns } = useContributionsTableStore()
   const {
     columnOrder,
@@ -141,6 +149,7 @@ export function ContributionsDataTable({
                       getStickyClassName={getStickyClassName}
                       getStickyStyle={getStickyStyle}
                       key={row.id}
+                      onCellClick={openEntry}
                       row={row}
                       rowHeight={rowHeight}
                       virtualStart={virtualRow.start}

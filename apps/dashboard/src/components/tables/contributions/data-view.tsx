@@ -1,6 +1,7 @@
 "use client"
 
 import { Suspense } from "react"
+import { ContributionDetailSheet } from "@/components/sheets/contribution-detail-sheet"
 import { ResponsiveDataView } from "@/components/tables/core/responsive-data-view"
 import type { TableSettings } from "@/utils/table-settings"
 import { ContributionsDataTable } from "./data-table"
@@ -35,6 +36,8 @@ export function ContributionsDataView({
           fallback={<ContributionsLoading />}
           mobile={<ContributionsMobileList />}
         />
+        {/* Reads the loaded ledger rows, so it lives inside this Suspense. */}
+        <ContributionDetailSheet />
       </Suspense>
     </ContributionsDataErrorBoundary>
   )

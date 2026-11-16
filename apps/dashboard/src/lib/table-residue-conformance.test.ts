@@ -25,4 +25,20 @@ describe("table residue (WP15)", () => {
     expect(toolbar).toContain("onFilterClick={() => setMobileFilterOpen(true)}")
     expect(toolbar).not.toContain("<InputGroup")
   })
+
+  test("a contributions row opens its details sheet without a new read", () => {
+    const table = read("../components/tables/contributions/data-table.tsx")
+    const mobile = read("../components/tables/contributions/mobile-item.tsx")
+    const view = read("../components/tables/contributions/data-view.tsx")
+    const sheet = read("../components/sheets/contribution-detail-sheet.tsx")
+    const registry = read("./workflow-presentations.ts")
+
+    expect(table).toContain("onCellClick={openEntry}")
+    expect(mobile).toContain('contributionSheetType: "details"')
+    expect(view).toContain("<ContributionDetailSheet />")
+    expect(registry).toContain("details: sheet(),\n    editPlan: sheet(),")
+    // The sheet reads the rows the ledger query already loaded.
+    expect(sheet).toContain("useContributionsQuery()")
+    expect(sheet).not.toMatch(/trpc\.contributions\.(get|ledger)\.queryOptions/)
+  })
 })

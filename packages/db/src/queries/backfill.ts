@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import {
   buildBackfillDraft,
   type BackfillDraft,
@@ -11,14 +12,13 @@ import {
 import type { PrismaClient, TenantBusinessPolicy } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
-import { applyCharge, applyLoanRequestChargesInTransaction } from "./charges"
-import { recordContribution } from "./contributions"
+import { applyLoanRequestChargesInTransaction } from "./charges"
 import { createAuditLogEntry } from "./audit"
+import { prepareBackfillPostings } from "./backfill-postings"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
 import { getTenantMigrationWriteAccess } from "./migration"
 import { readOptionalTenantBusinessPolicy } from "./tenant-business-policy"
 import {
-  createMemberShareLedgerEntry,
   getTenantSharePolicy,
   getResolvedShareAmountForMonth,
 } from "./tenant-finance"
@@ -1808,88 +1808,95 @@ export async function saveBackfillDraft(
       },
     })
 
+    // One createMany per table instead of a create per month (audit L7).
+    // Ids are made here so each activity can point at its month row.
+    const monthRows: any[] = []
+    const activities: any[] = []
     for (const row of finalDraft.rows) {
-      const monthRow = await tx.backfillMonthRow.create({
-        data: {
-          tenantId: input.tenantId,
-          batchId: batch.id,
-          year: Number(row.month.slice(0, 4)),
-          month: Number(row.month.slice(5, 7)),
-          rowStatus: row.status,
-          amount: row.amount,
-          charge: Object.values(row.chargeValues).reduce<number>(
-            (sum, value) => sum + Number(value),
+      const monthRowId = randomUUID()
+      monthRows.push({
+        id: monthRowId,
+        tenantId: input.tenantId,
+        batchId: batch.id,
+        year: Number(row.month.slice(0, 4)),
+        month: Number(row.month.slice(5, 7)),
+        rowStatus: row.status,
+        amount: row.amount,
+        charge: Object.values(row.chargeValues).reduce<number>(
+          (sum, value) => sum + Number(value),
+          0
+        ),
+        chargeBreakdown: row.chargeValues,
+        dividend: row.dividend,
+        loanCollected: row.loanService,
+        loanServiceAmount: row.loanService,
+        monthlyTopup: row.loanEvent?.topUp ?? 0,
+        pendingLoanPayment: row.pendingLoanPayment,
+        share: row.share,
+        totalShare: finalDraft.rows
+          .filter((candidate: any) => candidate.month <= row.month)
+          .reduce<number>(
+            (sum, candidate: any) => sum + Number(candidate.share),
             0
           ),
-          chargeBreakdown: row.chargeValues,
-          dividend: row.dividend,
-          loanCollected: row.loanService,
-          loanServiceAmount: row.loanService,
-          monthlyTopup: row.loanEvent?.topUp ?? 0,
-          pendingLoanPayment: row.pendingLoanPayment,
-          share: row.share,
-          totalShare: finalDraft.rows
-            .filter((candidate: any) => candidate.month <= row.month)
-            .reduce<number>(
-              (sum, candidate: any) => sum + Number(candidate.share),
-              0
-            ),
-          total: row.netDeposit,
-          metadata: {
-            dividendLabel: row.dividendLabel ?? null,
-            dividendProfitEntryId: row.dividendProfitEntryId ?? null,
-            dividendSharePercentage: row.dividendSharePercentage ?? null,
-            existingHistoryImpacts: row.existingHistoryImpacts,
-            loanEvent: row.loanEvent ?? null,
-            monthLabel: row.monthLabel,
-            statusReason: row.statusReason ?? null,
-          },
-          isGenerated: true,
-          isEdited: row.isEdited,
+        total: row.netDeposit,
+        metadata: {
+          dividendLabel: row.dividendLabel ?? null,
+          dividendProfitEntryId: row.dividendProfitEntryId ?? null,
+          dividendSharePercentage: row.dividendSharePercentage ?? null,
+          existingHistoryImpacts: row.existingHistoryImpacts,
+          loanEvent: row.loanEvent ?? null,
+          monthLabel: row.monthLabel,
+          statusReason: row.statusReason ?? null,
         },
+        isGenerated: true,
+        isEdited: row.isEdited,
       })
 
       if (row.loanEvent) {
-        await tx.backfillActivity.create({
-          data: {
-            tenantId: input.tenantId,
-            batchId: batch.id,
-            monthRowId: monthRow.id,
-            activityType: "loan_taken",
-            activityDate: monthDateFromKey(row.month),
-            amount: row.loanEvent.loanAmount,
-            direction: "debit",
-            metadata: {
-              durationMonths: row.loanEvent.durationMonths,
-              monthlyLoanServiceAmount: row.loanEvent.monthlyLoanServiceAmount,
-              startMonth: row.loanEvent.startMonth,
-              status: row.loanEvent.status ?? null,
-              topUp: row.loanEvent.topUp,
-            },
-            createdByUserId: input.actorUserId,
+        activities.push({
+          tenantId: input.tenantId,
+          batchId: batch.id,
+          monthRowId,
+          activityType: "loan_taken",
+          activityDate: monthDateFromKey(row.month),
+          amount: row.loanEvent.loanAmount,
+          direction: "debit",
+          metadata: {
+            durationMonths: row.loanEvent.durationMonths,
+            monthlyLoanServiceAmount: row.loanEvent.monthlyLoanServiceAmount,
+            startMonth: row.loanEvent.startMonth,
+            status: row.loanEvent.status ?? null,
+            topUp: row.loanEvent.topUp,
           },
+          createdByUserId: input.actorUserId,
         })
       }
 
       if (row.dividend > 0) {
-        await tx.backfillActivity.create({
-          data: {
-            tenantId: input.tenantId,
-            batchId: batch.id,
-            monthRowId: monthRow.id,
-            activityType: "profit_dividend",
-            activityDate: monthDateFromKey(row.month),
-            amount: row.dividend,
-            direction: "credit",
-            metadata: {
-              profitEntryId: row.dividendProfitEntryId ?? null,
-              sharePercentage: row.dividendSharePercentage ?? null,
-            },
-            notes: row.dividendLabel ?? "Dividend context",
-            createdByUserId: input.actorUserId,
+        activities.push({
+          tenantId: input.tenantId,
+          batchId: batch.id,
+          monthRowId,
+          activityType: "profit_dividend",
+          activityDate: monthDateFromKey(row.month),
+          amount: row.dividend,
+          direction: "credit",
+          metadata: {
+            profitEntryId: row.dividendProfitEntryId ?? null,
+            sharePercentage: row.dividendSharePercentage ?? null,
           },
+          notes: row.dividendLabel ?? "Dividend context",
+          createdByUserId: input.actorUserId,
         })
       }
+    }
+
+    if (monthRows.length) {
+      await tx.backfillMonthRow.createMany({ data: monthRows })
+    }
+    if (activities.length) {
+      await tx.backfillActivity.createMany({ data: activities })
     }
 
     return tx.backfillBatch.findFirst({
@@ -2173,6 +2180,24 @@ export async function applyBackfillBatch(
       orderBy: { createdAt: "asc" },
     })
 
+    // Contributions, share entries and charges are checked month by month as
+    // before, then written together after the loop (audit L7).
+    const postings = await prepareBackfillPostings({
+      actorUserId: input.actorUserId,
+      batchId: batch.id,
+      memberId: input.memberId,
+      needsLedger: batch.monthRows.some(
+        (row: any) =>
+          !isSkippedBackfillRow(row.rowStatus) &&
+          (Number(row.share) > 0 ||
+            Object.values(row.chargeBreakdown ?? {}).some(
+              (amount: any) => amount && amount > 0
+            ))
+      ),
+      tenantId: input.tenantId,
+      tx: tx as PrismaClient,
+    })
+
     for (const row of batch.monthRows) {
       const rowMonth = new Date(Date.UTC(row.year, row.month - 1, 1))
       const metadata = (row.metadata ?? {}) as Record<string, any>
@@ -2182,38 +2207,17 @@ export async function applyBackfillBatch(
       >
 
       if (!isSkippedBackfillRow(row.rowStatus) && Number(row.share) > 0) {
-        await recordContribution(
-          {
-            actorUserId: input.actorUserId,
-            amount: Number(row.share),
-            channel: "manual",
-            committedAmount: Number(row.amount),
-            extraSavingsAmount: Math.max(
-              0,
-              Number(row.total) - Number(row.share)
-            ),
-            memberId: input.memberId,
-            notes: "Posted from backfill apply",
-            periodLabel: monthKeyFromDate(rowMonth),
-            postedAt: rowMonth,
-            sourceType: "backfill",
-            tenantId: input.tenantId,
-          },
-          tx as PrismaClient
-        )
-        await createMemberShareLedgerEntry(
-          {
-            tenantId: input.tenantId,
-            memberId: input.memberId,
-            amount: Number(row.share),
-            effectiveDate: rowMonth,
-            sourceType: "backfill",
-            sourceId: row.id,
-            notes: `Share posted from backfill ${batch.id}`,
-            createdByUserId: input.actorUserId,
-          },
-          tx as PrismaClient
-        )
+        postings.addContribution({
+          amount: Number(row.share),
+          committedAmount: Number(row.amount),
+          extraSavingsAmount: Math.max(
+            0,
+            Number(row.total) - Number(row.share)
+          ),
+          monthRowId: row.id,
+          periodLabel: monthKeyFromDate(rowMonth),
+          postedAt: rowMonth,
+        })
       }
 
       for (const [chargeCode, chargeAmount] of Object.entries(
@@ -2231,19 +2235,12 @@ export async function applyBackfillBatch(
         )
         if (!definition) continue
 
-        await applyCharge(
-          {
-            actorUserId: input.actorUserId,
-            amount: Number(chargeAmount),
-            assessedAt: rowMonth,
-            chargeDefinitionId: definition.id,
-            memberId: input.memberId,
-            notes: "Posted from backfill apply",
-            sourceType: "backfill",
-            tenantId: input.tenantId,
-          },
-          tx as PrismaClient
-        )
+        await postings.addCharge({
+          amount: Number(chargeAmount),
+          assessedAt: rowMonth,
+          definition,
+          notes: "Posted from backfill apply",
+        })
       }
 
       if (
@@ -2315,6 +2312,8 @@ export async function applyBackfillBatch(
         })
       }
     }
+
+    await postings.flush()
 
     await recalculateMemberSavingsSnapshot({
       tenantId: input.tenantId,

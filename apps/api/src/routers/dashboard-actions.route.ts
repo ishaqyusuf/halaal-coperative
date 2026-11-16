@@ -6419,6 +6419,7 @@ export async function reviewFoodPurchaseApplicationAction(formData: FormData) {
     actorUserId: actor.user.id,
     applicationId: getRequiredString(formData, "applicationId"),
     approvedAmount: getOptionalNumber(formData, "approvedAmount"),
+    approvedMarkup: getOptionalNumber(formData, "approvedMarkup"),
     approvedPaybackMonths: getOptionalNumber(formData, "approvedPaybackMonths"),
     notes: getOptionalTrimmedString(formData, "notes"),
     status: status as "approved" | "rejected" | "under_review",
@@ -6571,6 +6572,7 @@ export async function reviewProcurementRequestAction(formData: FormData) {
   const request = await reviewProcurementRequest({
     actorUserId: actor.user.id,
     approvedCost: getOptionalNumber(formData, "approvedCost"),
+    approvedMarkup: getOptionalNumber(formData, "approvedMarkup"),
     approvedRepaymentMonths: getOptionalNumber(
       formData,
       "approvedRepaymentMonths"

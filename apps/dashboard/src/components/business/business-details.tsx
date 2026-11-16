@@ -43,6 +43,9 @@ export function BusinessDetails({
           >
             {status.label}
           </Badge>
+          {business.isAutomatic ? (
+            <Badge variant="outline">Added automatically</Badge>
+          ) : null}
           <span className="text-base text-muted-foreground">
             {formatBusinessDates(business.startDate, business.endDate)}
           </span>
@@ -75,36 +78,43 @@ export function BusinessDetails({
         ]}
       />
 
-      <RequestFormActions>
-        <Button
-          // Open even when the season is closed: the form says why.
-          disabled={isLocked}
-          onClick={() =>
-            void setParams({
-              businessId: business.id,
-              businessType: "profit",
-              profitEntryId: null,
-            })
-          }
-          type="button"
-        >
-          Record profit
-        </Button>
-        <Button
-          disabled={isLocked}
-          onClick={() =>
-            void setParams({
-              businessId: business.id,
-              businessType: "edit",
-              profitEntryId: null,
-            })
-          }
-          type="button"
-          variant="outline"
-        >
-          Edit business
-        </Button>
-      </RequestFormActions>
+      {business.isAutomatic ? (
+        <p className="text-base text-muted-foreground">
+          Halaalvest keeps this business up to date as members pay back
+          procurement and foodstuff. It can&apos;t be changed by hand.
+        </p>
+      ) : (
+        <RequestFormActions>
+          <Button
+            // Open even when the season is closed: the form says why.
+            disabled={isLocked}
+            onClick={() =>
+              void setParams({
+                businessId: business.id,
+                businessType: "profit",
+                profitEntryId: null,
+              })
+            }
+            type="button"
+          >
+            Record profit
+          </Button>
+          <Button
+            disabled={isLocked}
+            onClick={() =>
+              void setParams({
+                businessId: business.id,
+                businessType: "edit",
+                profitEntryId: null,
+              })
+            }
+            type="button"
+            variant="outline"
+          >
+            Edit business
+          </Button>
+        </RequestFormActions>
+      )}
 
       <RequestSection title="Profit">
         {business.profitEntries.length ? (
@@ -112,6 +122,7 @@ export function BusinessDetails({
             {business.profitEntries.map((entry) => {
               const word = getProfitEntryWord(entry)
               const canChange =
+                !business.isAutomatic &&
                 !isLocked &&
                 canRecordProfit &&
                 !entry.isShared &&

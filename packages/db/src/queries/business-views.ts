@@ -73,6 +73,7 @@ export async function listBusinessRows(
       notes: true,
       startDate: true,
       status: true,
+      systemKey: true,
     },
     skip,
     take: pageSize + 1,
@@ -107,6 +108,8 @@ export async function listBusinessRows(
         capitalAmount: money(row.capitalAmount),
         endDate: dateOnly(row.endDate),
         id: row.id,
+        /** Kept by Halaalvest (procurement and foodstuff profit); read-only. */
+        isAutomatic: Boolean(row.systemKey),
         lastProfitDate: dateOnly(total?.last_profit_date),
         name: row.name,
         notes: row.notes,
@@ -225,6 +228,7 @@ export async function getBusinessDetail(
       },
       startDate: true,
       status: true,
+      systemKey: true,
     },
     where: { id: input.businessId, tenantId: input.tenantId },
   })
@@ -249,6 +253,7 @@ export async function getBusinessDetail(
     capitalAmount: money(business.capitalAmount),
     endDate: dateOnly(business.endDate),
     id: business.id,
+    isAutomatic: Boolean(business.systemKey),
     linkedDividendPeriodId: business.linkedDividendPeriodId,
     name: business.name,
     notes: business.notes,

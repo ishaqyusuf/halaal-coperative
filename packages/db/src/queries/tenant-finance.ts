@@ -987,7 +987,7 @@ export async function getCurrentBusinessProfitSeason(
   })
 }
 
-async function ensureWritableBusinessProfitSeason(
+export async function ensureWritableBusinessProfitSeason(
   input: {
     profitDate: Date
     referenceDate?: Date
@@ -3769,6 +3769,11 @@ export async function updateShareBusiness(
   if (!existing) {
     throw ExpectedQueryError.notFound("Share business not found")
   }
+  if (existing.systemKey) {
+    throw ExpectedQueryError.precondition(
+      "Halaalvest keeps this business automatically from procurement and foodstuff repayments, so it can't be changed by hand."
+    )
+  }
 
   const nextEndDate = input.endDate ?? null
   const nextLinkedDividendPeriodId = input.linkedDividendPeriodId ?? null
@@ -4174,6 +4179,7 @@ export async function createShareBusinessProfitEntry(
       select: {
         endDate: true,
         startDate: true,
+        systemKey: true,
       },
       where: {
         id: input.shareBusinessId,
@@ -4183,6 +4189,11 @@ export async function createShareBusinessProfitEntry(
 
     if (!business) {
       throw ExpectedQueryError.notFound("Share business not found")
+    }
+    if (business.systemKey) {
+      throw ExpectedQueryError.precondition(
+        "Halaalvest keeps this business automatically from procurement and foodstuff repayments, so it can't be changed by hand."
+      )
     }
 
     assertProfitDateWithinBusiness({
@@ -4299,6 +4310,7 @@ export async function updateShareBusinessProfitEntry(
           select: {
             endDate: true,
             startDate: true,
+            systemKey: true,
           },
         },
       },
@@ -4306,6 +4318,11 @@ export async function updateShareBusinessProfitEntry(
 
     if (!existing) {
       throw ExpectedQueryError.notFound("Business profit entry not found")
+    }
+    if (existing.shareBusiness?.systemKey) {
+      throw ExpectedQueryError.precondition(
+        "Halaalvest keeps this profit automatically from procurement and foodstuff repayments, so it can't be changed by hand."
+      )
     }
 
     const sourceType = isHistoricalBusinessProfitSource(existing.sourceType)

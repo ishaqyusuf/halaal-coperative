@@ -3,6 +3,7 @@ import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError, isUniqueConstraintError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
+import { releaseFoodPurchaseGoods } from "./member-purchase-postings"
 import { applyApplicableWorkflowChargesInTransaction } from "./charges"
 import { assertMemberOperationalReadiness } from "./member-readiness"
 import { getTenantMigrationWriteAccess } from "./migration"
@@ -81,6 +82,8 @@ export type FoodPurchaseCycleRow = {
 
 export type FoodPurchaseApplicationRow = {
   approvedAmount: number | null
+  /** The cooperative's added profit inside approvedAmount (the member's price). */
+  approvedMarkup: number
   approvedPaybackMonths: number | null
   allowsCommitmentReductionDuringPayback: boolean
   cycle: {
@@ -91,6 +94,8 @@ export type FoodPurchaseApplicationRow = {
   }
   cycleId: string
   createdAt: Date
+  /** When the goods were given out and the receivable posted. */
+  goodsReleasedAt: Date | null
   id: string
   itemDescription: string | null
   member: {
@@ -332,6 +337,7 @@ function normalizeFoodPurchaseApplication(
       application.approvedAmount === undefined
         ? null
         : Number(application.approvedAmount),
+    approvedMarkup: Number(application.approvedMarkup ?? 0),
     approvedPaybackMonths: application.approvedPaybackMonths ?? null,
     allowsCommitmentReductionDuringPayback:
       application.allowsCommitmentReductionDuringPayback ?? false,
@@ -343,6 +349,7 @@ function normalizeFoodPurchaseApplication(
     },
     cycleId: application.cycleId,
     createdAt: application.createdAt,
+    goodsReleasedAt: application.goodsReleasedAt ?? null,
     id: application.id,
     itemDescription: application.itemDescription ?? null,
     member: {
@@ -826,6 +833,20 @@ export async function transitionFoodPurchaseCycle(
         `${pendingApplications} Foodstuff Purchase application${pendingApplications === 1 ? " is" : "s are"} still awaiting a decision.`
       )
     }
+    if (input.transition === "cancel") {
+      const releasedApplications = await tx.foodPurchaseApplication.count({
+        where: {
+          cycleId: input.cycleId,
+          goodsReleasedAt: { not: null },
+          tenantId: input.tenantId,
+        },
+      })
+      if (releasedApplications > 0) {
+        throw ExpectedQueryError.precondition(
+          "Foodstuff has already been given out for this month, so it can't be cancelled."
+        )
+      }
+    }
 
     const claimed = await tx.foodPurchaseCycle.updateMany({
       data: { status: contract.to },
@@ -839,6 +860,33 @@ export async function transitionFoodPurchaseCycle(
       throw ExpectedQueryError.conflict(
         "This Foodstuff Purchase cycle was already changed by another request."
       )
+    }
+
+    if (input.transition === "close_intake") {
+      // The month's goods are released to the members it approved: each
+      // request posts its receivable once (reopening and closing again
+      // releases only requests approved since).
+      const approved = await tx.foodPurchaseApplication.findMany({
+        select: { id: true },
+        where: {
+          cycleId: input.cycleId,
+          goodsReleasedAt: null,
+          status: "approved",
+          tenantId: input.tenantId,
+        },
+      })
+      const releasedAt = new Date()
+      for (const application of approved) {
+        await releaseFoodPurchaseGoods(
+          {
+            applicationId: application.id,
+            releasedAt,
+            releasedByUserId: input.actorUserId,
+            tenantId: input.tenantId,
+          },
+          tx
+        )
+      }
     }
 
     const cycle = await tx.foodPurchaseCycle.findFirst({
@@ -1541,6 +1589,8 @@ export async function reviewFoodPurchaseApplication(
     actorUserId: string
     applicationId: string
     approvedAmount?: number | null
+    /** Part of the approved amount that is the cooperative's added profit. */
+    approvedMarkup?: number | null
     approvedPaybackMonths?: number | null
     expectedStatus?: FoodPurchaseApplicationStatus
     notes?: string | null
@@ -1611,8 +1661,22 @@ export async function reviewFoodPurchaseApplication(
         ? (input.approvedPaybackMonths ??
           existingApplication.requestedPaybackMonths)
         : null
+    const approvedMarkup =
+      input.status === "approved"
+        ? Math.round((input.approvedMarkup ?? 0) * 100) / 100
+        : null
 
     if (input.status === "approved") {
+      if (
+        !Number.isFinite(approvedMarkup) ||
+        (approvedMarkup ?? 0) < 0 ||
+        (approvedMarkup ?? 0) >=
+          (approvedAmount ?? Number(existingApplication.requestedAmount))
+      ) {
+        throw ExpectedQueryError.validation(
+          "Added profit must be zero or more, and less than the approved amount."
+        )
+      }
       const approvedApplicationAmount =
         approvedAmount ?? Number(existingApplication.requestedAmount)
       const approvedApplicationPaybackMonths =
@@ -1701,6 +1765,7 @@ export async function reviewFoodPurchaseApplication(
       where: { id: existingApplication.id },
       data: {
         approvedAmount,
+        approvedMarkup: approvedMarkup ?? 0,
         approvedPaybackMonths,
         allowsCommitmentReductionDuringPayback:
           input.status === "approved"
@@ -1728,6 +1793,7 @@ export async function reviewFoodPurchaseApplication(
         entityType: "FoodPurchaseApplication",
         metadata: {
           approvedAmount,
+          approvedMarkup,
           approvedPaybackMonths,
           allowsCommitmentReductionDuringPayback:
             input.status === "approved"

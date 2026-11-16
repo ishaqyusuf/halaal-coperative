@@ -540,6 +540,7 @@ describe("account privacy safeguards", () => {
         ["foodPurchaseCycle", "accountingSubmittedByUserId"],
         ["foodPurchaseApplication", "submittedByUserId"],
         ["foodPurchaseApplication", "reviewedByUserId"],
+        ["foodPurchaseApplication", "goodsReleasedByUserId"],
         ["procurementRequest", "createdByUserId"],
         ["procurementRequest", "reviewedByUserId"],
         ["procurementRequest", "purchasedByUserId"],
@@ -637,7 +638,7 @@ describe("account privacy safeguards", () => {
         prisma
       )
     ).rejects.toThrow("not ready")
-    expect(calls).toHaveLength(94)
+    expect(calls).toHaveLength(95)
     operator = false
     await expect(
       getPrivacyProcessingInventory(

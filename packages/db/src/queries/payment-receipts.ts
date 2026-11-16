@@ -17,6 +17,10 @@ import {
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
 import { getTenantMigrationWriteAccess } from "./migration"
 import { createMemberShareLedgerEntry } from "./tenant-finance"
+import {
+  type MemberPurchaseReceiptRepayment,
+  postMemberPurchaseReceiptAllocations,
+} from "./member-purchase-receipts"
 
 export type { MemberPaymentReceiptStatus }
 
@@ -943,7 +947,7 @@ async function approveReceiptAllocations(input: {
     })
   }
 
-  await payReceiptTargets({
+  const purchaseRepayments = await payReceiptTargets({
     foodPurchaseAllocations,
     memberId: input.memberId,
     paidAt: input.paidAt,
@@ -952,6 +956,20 @@ async function approveReceiptAllocations(input: {
     tenantId: input.tenantId,
     tx: input.tx,
   })
+
+  // Procurement and foodstuff repayments reach the general ledger (ADR
+  // member purchase receivable): cash in, receivable down, markup earned.
+  await postMemberPurchaseReceiptAllocations(
+    {
+      actorUserId: input.actorUserId,
+      memberId: input.memberId,
+      paidAt: input.paidAt,
+      reference: input.paymentReference,
+      repayments: purchaseRepayments,
+      tenantId: input.tenantId,
+    },
+    input.tx
+  )
 }
 
 /**
@@ -1243,6 +1261,7 @@ async function payReceiptTargets(input: {
       },
     ])
   )
+  const purchaseRepayments: MemberPurchaseReceiptRepayment[] = []
   const foodWrites = new Map<
     string,
     { paidAmount: number; paidAt: Date | null }
@@ -1266,6 +1285,13 @@ async function payReceiptTargets(input: {
         "Foodstuff Purchase application has no payable approved amount."
       )
     }
+    purchaseRepayments.push({
+      allocationId: allocation.id,
+      amount: allocation.amount,
+      paidBefore: paidAmount,
+      source: "food_purchase",
+      sourceId: allocation.foodPurchaseApplicationId,
+    })
     if (allocation.amount - remainingAmount > 0.005) {
       throw ExpectedQueryError.validation(
         "Foodstuff Purchase allocation exceeds the remaining approved application amount."
@@ -1345,6 +1371,25 @@ async function payReceiptTargets(input: {
     string,
     { paid_amount: number; status: "paid" | "partially_paid" }
   >()
+  const procurementRequestIds = Array.from(
+    new Set(scheduleItems.map((item) => item.procurementRequestId))
+  )
+  const requestPaid = new Map(
+    (procurementRequestIds.length
+      ? await tx.procurementRepaymentScheduleItem.groupBy({
+          _sum: { paidAmount: true },
+          by: ["procurementRequestId"],
+          where: {
+            procurementRequestId: { in: procurementRequestIds },
+            tenantId,
+          },
+        })
+      : []
+    ).map((row) => [
+      row.procurementRequestId,
+      Number(row._sum.paidAmount ?? 0),
+    ])
+  )
   const completedProcurementRequestIds = new Set<string>()
   for (const allocation of input.procurementAllocations) {
     if (!allocation.procurementRepaymentScheduleItemId) {
@@ -1364,6 +1409,18 @@ async function payReceiptTargets(input: {
         "Procurement allocation exceeds the remaining schedule item amount."
       )
     }
+    const requestPaidBefore = requestPaid.get(item.procurementRequestId) ?? 0
+    purchaseRepayments.push({
+      allocationId: allocation.id,
+      amount: allocation.amount,
+      paidBefore: requestPaidBefore,
+      source: "procurement",
+      sourceId: item.procurementRequestId,
+    })
+    requestPaid.set(
+      item.procurementRequestId,
+      roundMoney(requestPaidBefore + allocation.amount)
+    )
     const nextPaidAmount = roundMoney(item.paidAmount + allocation.amount)
     const nextStatus = moneyEquals(nextPaidAmount, item.amount)
       ? "paid"
@@ -1422,6 +1479,8 @@ async function payReceiptTargets(input: {
       })
     }
   }
+
+  return purchaseRepayments
 }
 
 export async function listMemberPaymentReceipts(

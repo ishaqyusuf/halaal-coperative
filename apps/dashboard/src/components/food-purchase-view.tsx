@@ -437,7 +437,7 @@ function FoodPurchaseCycleCard({
 
       <RequestConfirmDialog
         confirmLabel="Stop requests"
-        description="Members can't ask for this month any more. Then add the month-end figures."
+        description="Members can't ask for this month any more. The food for approved requests counts as given out, so each member now owes their amount. Then add the month-end figures."
         onConfirm={() => setIntake("close_intake")}
         onOpenChange={(next) => setConfirm(next ? "close_intake" : null)}
         open={confirm === "close_intake"}

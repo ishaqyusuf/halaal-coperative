@@ -334,10 +334,17 @@ export function ProcurementRequestDetails({
             label: "Approved",
             value: approved
               ? costLine(
-                  request.approvedCost ?? 0,
+                  (request.approvedCost ?? 0) + request.approvedMarkup,
                   request.approvedRepaymentMonths
                 )
               : null,
+          },
+          {
+            label: "Cooperative's profit",
+            value:
+              approved && request.approvedMarkup > 0
+                ? `${formatCurrency(request.approvedMarkup)} on top of the ${formatCurrency(request.approvedCost ?? 0)} cost`
+                : null,
           },
           {
             label: "Still owed",
@@ -434,9 +441,12 @@ function ProcurementDecision({
   const [approvedMonths, setApprovedMonths] = useState(
     String(request.requestedRepaymentMonths)
   )
+  const [approvedMarkup, setApprovedMarkup] = useState("")
   const cost = Number(approvedCost)
   const months = Number(approvedMonths)
-  const canApprove = monthlyAmount(cost, months) !== null
+  const markup = approvedMarkup.trim() ? Number(approvedMarkup) : 0
+  const markupValid = Number.isFinite(markup) && markup >= 0
+  const canApprove = markupValid && monthlyAmount(cost, months) !== null
 
   async function decide(
     status: "approved" | "rejected" | "under_review",
@@ -446,6 +456,7 @@ function ProcurementDecision({
       await reviewProcurementRequestAction(
         objectToFormData({
           approvedCost: status === "approved" ? approvedCost : "",
+          approvedMarkup: status === "approved" ? String(markup) : "",
           approvedRepaymentMonths: status === "approved" ? approvedMonths : "",
           notes,
           procurementRequestId: request.id,
@@ -480,7 +491,12 @@ function ProcurementDecision({
       approveFacts={[
         { label: "Item", value: request.itemName },
         { label: "Member", value: request.member.fullName },
-        { label: "Amount", value: costLine(cost, months) },
+        { label: "Item cost", value: formatCurrency(cost || 0) },
+        {
+          label: "Cooperative's profit",
+          value: markup > 0 ? formatCurrency(markup) : null,
+        },
+        { label: "Member pays back", value: costLine(cost + markup, months) },
       ]}
       canApprove={canApprove}
       onApprove={() => decide("approved")}
@@ -492,15 +508,17 @@ function ProcurementDecision({
       }
     >
       <DashboardStateQuickFill
-        draft={{ approvedCost, approvedMonths }}
+        draft={{ approvedCost, approvedMarkup, approvedMonths }}
         enabled
         isDirty={false}
         onFill={() => {
           setApprovedCost(String(request.requestedCost))
+          setApprovedMarkup(String(Math.round(request.requestedCost * 0.1)))
           setApprovedMonths(String(request.requestedRepaymentMonths))
         }}
         restore={(draft) => {
           setApprovedCost(draft.approvedCost)
+          setApprovedMarkup(draft.approvedMarkup)
           setApprovedMonths(draft.approvedMonths)
         }}
       />
@@ -522,7 +540,24 @@ function ProcurementDecision({
             value={approvedMonths}
           />
         </RequestField>
+        <RequestField
+          hint="Added to the cost. The member pays back both."
+          label="Cooperative's profit (₦)"
+          optional
+        >
+          <Input
+            inputMode="decimal"
+            onChange={(event) => setApprovedMarkup(event.target.value)}
+            placeholder="0"
+            value={approvedMarkup}
+          />
+        </RequestField>
       </div>
+      {markup > 0 && cost > 0 ? (
+        <p className="text-base">
+          Member pays back {costLine(cost + markup, months)}
+        </p>
+      ) : null}
       <WorkflowChargeSummary
         basisAmount={cost || request.requestedCost}
         charges={chargeOptions}
@@ -551,7 +586,8 @@ export function ProcurementPurchaseContent({
   const [purchaseReference, setPurchaseReference] = useState("")
   const [purchaseNotes, setPurchaseNotes] = useState("")
   const months = request.approvedRepaymentMonths ?? 0
-  const cost = request.approvedCost ?? 0
+  // What the member pays back: the cost plus the cooperative's profit.
+  const cost = (request.approvedCost ?? 0) + request.approvedMarkup
 
   function recordPurchase() {
     startTransition(async () => {

@@ -3,6 +3,10 @@ import { AppError } from "@halaalvest/errors"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError, isUniqueConstraintError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
+import {
+  postMemberPurchaseRelease,
+  procurementReleaseInput,
+} from "./member-purchase-postings"
 import { applyApplicableWorkflowChargesInTransaction } from "./charges"
 import { getTenantInitialMigrationState } from "./migration"
 import { getTenantOperationProfile } from "./operation-profile"
@@ -19,6 +23,8 @@ export type ProcurementRequestStatus =
 
 export type ProcurementRequestRow = {
   approvedCost: number | null
+  /** The cooperative's added profit; the member owes approvedCost + this. */
+  approvedMarkup: number
   approvedMonthlyRepayment: number | null
   approvedRepaymentMonths: number | null
   allowsCommitmentReductionDuringPayback: boolean
@@ -301,6 +307,7 @@ function normalizeProcurementRequest(
       request.approvedCost === null || request.approvedCost === undefined
         ? null
         : Number(request.approvedCost),
+    approvedMarkup: Number(request.approvedMarkup ?? 0),
     approvedMonthlyRepayment:
       request.approvedMonthlyRepayment === null ||
       request.approvedMonthlyRepayment === undefined
@@ -1149,6 +1156,8 @@ export async function reviewProcurementRequest(
   input: {
     actorUserId: string
     approvedCost?: number | null
+    /** The cooperative's added profit on top of the cost (default 0). */
+    approvedMarkup?: number | null
     approvedRepaymentMonths?: number | null
     expectedStatus?: ProcurementRequestStatus
     notes?: string | null
@@ -1201,9 +1210,17 @@ export async function reviewProcurementRequest(
         ? (input.approvedRepaymentMonths ??
           existingRequest.requestedRepaymentMonths)
         : null
+    const approvedMarkup =
+      input.status === "approved" ? roundMoney(input.approvedMarkup ?? 0) : null
     let approvedMonthlyRepayment: number | null = null
 
     if (input.status === "approved") {
+      if (!Number.isFinite(approvedMarkup) || (approvedMarkup ?? 0) < 0) {
+        throw new AppError({
+          code: "VALIDATION_FAILED",
+          publicMessage: "Added profit cannot be negative.",
+        })
+      }
       const approvedRequestCost =
         approvedCost ?? Number(existingRequest.requestedCost)
       const approvedRequestRepaymentMonths =
@@ -1222,8 +1239,9 @@ export async function reviewProcurementRequest(
         })
       }
 
+      // The member pays back the cost plus the cooperative's added profit.
       approvedMonthlyRepayment = calculateMonthlyRepayment(
-        approvedRequestCost,
+        roundMoney(approvedRequestCost + (approvedMarkup ?? 0)),
         approvedRequestRepaymentMonths
       )
     }
@@ -1236,6 +1254,7 @@ export async function reviewProcurementRequest(
       },
       data: {
         approvedCost,
+        approvedMarkup: approvedMarkup ?? 0,
         approvedMonthlyRepayment,
         approvedRepaymentMonths,
         allowsCommitmentReductionDuringPayback:
@@ -1277,6 +1296,7 @@ export async function reviewProcurementRequest(
         entityType: "ProcurementRequest",
         metadata: {
           approvedCost,
+          approvedMarkup,
           approvedRepaymentMonths,
           allowsCommitmentReductionDuringPayback:
             input.status === "approved"
@@ -1405,8 +1425,10 @@ export async function recordProcurementPurchase(
       })
     }
 
+    const approvedMarkup = Number(existingRequest.approvedMarkup ?? 0)
+    // What the member owes: the cost plus the cooperative's added profit.
     const scheduleAmounts = buildScheduleAmounts(
-      approvedCost,
+      roundMoney(approvedCost + approvedMarkup),
       approvedRepaymentMonths
     )
 
@@ -1452,6 +1474,7 @@ export async function recordProcurementPurchase(
         entityType: "ProcurementRequest",
         metadata: {
           approvedCost,
+          approvedMarkup,
           approvedRepaymentMonths,
           firstDueDate: firstDueDate.toISOString(),
           memberId: existingRequest.memberId,
@@ -1464,6 +1487,16 @@ export async function recordProcurementPurchase(
         },
         tenantId: input.tenantId,
       },
+      tx
+    )
+
+    // Goods released: the member owes cost + markup, cash goes down by the
+    // cost and the markup waits as unearned profit. Posts once per request.
+    await postMemberPurchaseRelease(
+      await procurementReleaseInput(
+        { procurementRequestId: existingRequest.id, tenantId: input.tenantId },
+        tx
+      ),
       tx
     )
 

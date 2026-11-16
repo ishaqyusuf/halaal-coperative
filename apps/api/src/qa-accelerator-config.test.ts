@@ -9,6 +9,8 @@ import {
 
 const keys = [
   "HALAALVEST_ENV",
+  "HALAALVEST_ENV_MODE",
+  "DEPLOYMENT_ENVIRONMENT",
   "VERCEL_ENV",
   "APP_ENV",
   "NODE_ENV",
@@ -91,3 +93,66 @@ test("the env-only check reads no policy and never opens production", () =>
       expect(getQaAcceleratorEnvCapability({ clientKind: "web", contractVersion: 1 }).available).toBe(false)
     }
   ))
+
+const policyUrl = "https://oversight.example.test/api/qa-policy/v1/halaalvest"
+const policyBody = {
+  projectId: "halaalvest",
+  revision: 1,
+  environments: { development: true, preview: true },
+  entries: [
+    {
+      id: "0b9c1f43-6a57-4a1d-9f2e-3f5d7a0c2b11",
+      qa: "team.qa.test",
+      email: "tester@example.com",
+      phone: null,
+      accountId: null,
+      active: true,
+    },
+  ],
+}
+
+// `apps/api`'s own dev script runs Bun under the launcher, which sets
+// HALAALVEST_ENV_MODE but no APP_ENV or NODE_ENV. The dashboard runs the same
+// router under next dev (NODE_ENV=development) and always had QA.
+test("the standalone API started by its own dev script gets QA like the dashboard", () =>
+  withEnv(
+    {
+      HALAALVEST_ENV_MODE: "local",
+      QA_ACCELERATOR_SECRET: secret,
+      QA_POLICY_URL: policyUrl,
+      QA_POLICY_READ_KEY: "s".repeat(40),
+    },
+    async () => {
+      const originalFetch = globalThis.fetch
+      globalThis.fetch = Object.assign(async () => Response.json(policyBody), {
+        preconnect: originalFetch.preconnect,
+      }) as typeof fetch
+      try {
+        const gate = await resolveQaPolicyGate()
+        expect(gate).toMatchObject({ managed: true, enabled: true })
+        expect(
+          await getQaAcceleratorCapability({ clientKind: "web", contractVersion: 1 }, gate)
+        ).toMatchObject({ available: true, environment: "local" })
+        expect(await isConfiguredQaEntryDomain("team.qa.test", gate)).toBe(true)
+      } finally {
+        globalThis.fetch = originalFetch
+      }
+    }
+  ))
+
+test("APP_ENV=production or the launcher's prod mode never opens QA, even with local routes", async () => {
+  for (const runtime of [{ APP_ENV: "production" }, { HALAALVEST_ENV_MODE: "prod" }, { APP_ENV: "local", HALAALVEST_ENV_MODE: "prod" }]) {
+    await withEnv(
+      {
+        ...runtime,
+        QA_ACCELERATOR_SECRET: secret,
+        QA_ACCELERATOR_ENABLED: "true",
+        EMAIL_QA_DOMAIN_ROUTES: '{"team.qa.test":"tester@example.com"}',
+      },
+      async () => {
+        expect((await getQaAcceleratorCapability({ clientKind: "web", contractVersion: 1 })).available).toBe(false)
+        expect(getQaAcceleratorEnvCapability({ clientKind: "mobile", contractVersion: 1 }).available).toBe(false)
+      }
+    )
+  }
+})

@@ -1,5 +1,9 @@
 import { parseQaDomainRoutes } from "@halaalvest/notifications"
-import { getQaPolicy, qaPolicyTarget } from "@halaalvest/utils/qa-policy-server"
+import {
+  getQaPolicy,
+  isQaForbiddenRuntime,
+  qaPolicyTarget,
+} from "@halaalvest/utils/qa-policy-server"
 import {
   normalizeQaAcceleratorEnvironment,
   resolveQaAcceleratorCapability,
@@ -7,8 +11,10 @@ import {
 } from "@halaalvest/domain"
 
 function getEnvironment() {
+  // The same production signals the policy gate refuses (APP_ENV, VERCEL_ENV,
+  // the launcher's prod mode, NODE_ENV), so the two never disagree.
   if (
-    process.env.VERCEL_ENV === "production" ||
+    isQaForbiddenRuntime(process.env) ||
     process.env.DEPLOYMENT_ENVIRONMENT === "production"
   )
     return "production"

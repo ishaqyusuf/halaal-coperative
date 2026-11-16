@@ -14,6 +14,8 @@ model AuditLog {
   actorUser User?  @relation("AuditActorUser", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, occurredAt], map: "audit_logs_tenant_occurred_at_idx")
+  // Email delivery totals and status-filtered lists (notifications summary).
+  @@index([tenantId, action, occurredAt], map: "audit_logs_tenant_action_occurred_at_idx")
   @@index([tenantId, entityType, entityId], map: "audit_logs_tenant_entity_idx")
   @@map("audit_logs")
 }

@@ -15,13 +15,24 @@ afterEach(() => {
 })
 
 describe("public policy page approval marker", () => {
-  test("does not expose a snapshot hash for the draft terms", () => {
+  test("does not expose a snapshot hash for a draft policy", () => {
     const html = renderToStaticMarkup(
-      createElement(PublicPolicyPage, { policy: "terms" })
+      createElement(PublicPolicyPage, { policy: "billing-policy" })
     )
 
     expect(html).toContain("Draft for review")
     expect(html).not.toContain("data-policy-approval-hash")
+  })
+
+  test("the published terms show their effective date and approval hash", () => {
+    const html = renderToStaticMarkup(
+      createElement(PublicPolicyPage, { policy: "terms" })
+    )
+
+    expect(html).toContain("Effective 2026-11-16T08:11:00.000Z")
+    expect(html).toContain(
+      'data-policy-approval-hash="fd10deedaf03e9f8e69cf68f163522a33bdbeddbc4d1bc326468555ee0c8e448"'
+    )
   })
 
   test("renders the exact approved snapshot hash only when effective", () => {

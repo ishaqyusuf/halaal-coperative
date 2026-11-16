@@ -65,7 +65,11 @@ export const publicPolicies = {
     sections: [
       {
         title: "Who provides the service",
-        body: "HalaalVest is operated by ZEROES AND ONE TECH HUB NIG LIMITED. Company registration number: RC 9264386. The 1 February 2026 CAC status extract listed 10, Old Jebba Road, Ilorin, Kwara State, Nigeria as the registered address; confirm the current address before these terms take effect. Governing law and dispute provisions also require review.",
+        body: "HalaalVest is operated by ZEROES AND ONE TECH HUB NIG LIMITED, a company registered in Nigeria with registration number RC 9264386, whose registered address is 10, Old Jebba Road, Ilorin, Kwara State, Nigeria. In these terms, “we” means that company and “you” means the person using a HalaalVest account. You can contact us at hello@halaalvest.com.",
+      },
+      {
+        title: "Who can use HalaalVest",
+        body: "You must be at least 18 years old, or the age of legal majority where you live if that is higher, and you must have been given access by a cooperative that uses HalaalVest. A cooperative that signs up for HalaalVest must be represented by a person with authority to act for it, and that person accepts these terms for the cooperative as well as for themselves.",
       },
       {
         title: "Your account and authority",
@@ -80,16 +84,28 @@ export const publicPolicies = {
         body: "Do not access another cooperative’s records, misrepresent transactions, upload unlawful material, interfere with service security or use the service for unauthorised financial activity. Access restrictions and account closure must preserve other members’ rights and legitimate financial records.",
       },
       {
-        title: "Documents and content rights — review before launch",
-        body: "Cooperatives and authorised users may provide member documents, receipt evidence and support content. The final terms must identify who may submit this material, what rights or authority they must have, and the limited permission HalaalVest needs to store, display and process it for the service. Complaint, correction, removal and retention steps also require owner and legal approval. This draft does not establish that permission or settle ownership of the material.",
+        title: "Documents and other content",
+        body: "Cooperatives and their authorised users may upload member documents, receipt evidence and support messages. Upload only material you have the right or the cooperative’s authority to share. You and your cooperative keep ownership of that material. You give us a limited permission to store, display, copy and process it only as needed to provide, secure and support the service for your cooperative. To correct or remove material, ask your cooperative administrator or contact us; records the cooperative must keep for its accounts or audit may be restricted rather than removed.",
       },
       {
         title: "Fees, mobile access and account closure",
         body: "HalaalVest bills the cooperative, not individual members. The cooperative receives one bill a month for seats, website assistant messages above the free allowance and mobile access terms, as set out in the software billing policy. A cooperative may pass the seat fee to the members counted on its bill by charging their savings. Members can request mobile access from their cooperative. The cooperative approves access and discloses the charge before the member requests it, then applies that charge through its normal account process when due. Account closure does not settle charges already due under the cooperative’s rules.",
       },
       {
-        title: "Review before launch",
-        body: "Service commitments, liability provisions, suspension notice, export arrangements, eligibility and age requirements, termination effects and dispute terms require owner and legal review. This draft does not create an uptime guarantee or waive any statutory right.",
+        title: "Availability, suspension and closure",
+        body: "We work to keep HalaalVest available and secure, but we do not guarantee uninterrupted service, and maintenance or events outside our control can cause interruptions. We may suspend an account or workspace to protect the service, other users or cooperative records, or where these terms are seriously broken; where it is safe and lawful we will tell the affected cooperative first and explain how to resolve the issue. A cooperative may close its workspace at any time. Before closure, or within 30 days after it, a cooperative administrator can ask us for an export of the cooperative’s records.",
+      },
+      {
+        title: "Responsibility and liability",
+        body: "The cooperative, not HalaalVest, decides on membership, contributions, financing, profit sharing and withdrawals, and is responsible for those decisions. HalaalVest provides the software as it is, and we are not responsible for losses caused by a cooperative’s decisions, by information entered into the service, or by misuse of an account. To the extent the law allows, our total liability to a cooperative for any claim is limited to the fees that cooperative paid us in the 12 months before the claim. Nothing in these terms limits liability that cannot be limited by law, or any right you have under consumer protection law.",
+      },
+      {
+        title: "Changes to these terms",
+        body: "We may update these terms as the service changes. We will publish the new version with its effective date and, for changes that materially affect your rights, tell you in the service or by email before they take effect. Where an update needs your acceptance, we will ask for it the next time you use the service.",
+      },
+      {
+        title: "Governing law and disputes",
+        body: "These terms are governed by the laws of the Federal Republic of Nigeria. If you have a complaint, contact us first at hello@halaalvest.com so we can try to resolve it. If we cannot resolve it, the courts of Nigeria will have jurisdiction, without removing any right you have to bring a claim where you live.",
       },
     ],
   },
@@ -100,7 +116,7 @@ export const publicPolicies = {
     sections: [
       {
         title: "Responsibility and contact",
-        body: "The platform operator is ZEROES AND ONE TECH HUB NIG LIMITED. Company registration number: RC 9264386. The 1 February 2026 CAC status extract listed 10, Old Jebba Road, Ilorin, Kwara State, Nigeria as the registered address; confirm the current address before this notice takes effect. The monitored privacy contact and allocation of controller and processor responsibilities with cooperatives are awaiting confirmation. The existing product contact is hello@halaalvest.com; monitoring and escalation arrangements must be verified before launch.",
+        body: "HalaalVest is operated by ZEROES AND ONE TECH HUB NIG LIMITED (RC 9264386), 10, Old Jebba Road, Ilorin, Kwara State, Nigeria. Your cooperative decides why and how its member records are kept, and is the controller of those records; we process them on the cooperative’s instructions to provide the service. We are the controller of the information we use to run HalaalVest itself, such as account sign-in, security, billing and service diagnostics. For any privacy question or request, contact us at hello@halaalvest.com.",
       },
       {
         title: "Information used by the service",
@@ -108,11 +124,11 @@ export const publicPolicies = {
       },
       {
         title: "Why information is used",
-        body: "The service uses information to authenticate users, restrict access to the correct cooperative, maintain requested financial records, administer requests and approvals, deliver notifications, handle support and investigate operational problems. The legal bases for each purpose, and any additional consent required for optional processing, must be confirmed by the responsible operator and cooperative.",
+        body: "We use information to sign you in, keep each cooperative’s records separate, maintain the financial records your cooperative asks us to keep, handle requests and approvals, send notifications, provide support and investigate problems. We rely on the following legal bases under the Nigeria Data Protection Act 2023 and similar laws: providing the service under these terms and the cooperative’s agreement with us; complying with legal obligations, such as keeping financial and audit records; our legitimate interest in keeping the service secure and reliable; and your consent for optional features such as push notifications, which you can withdraw at any time.",
       },
       {
         title: "Providers and diagnostics",
-        body: "Hosting, database, email, notification and any enabled payment or storage providers process data needed for their functions. Enabled Sentry diagnostics are filtered to remove member identity and financial content. Logly receives bounded usage events; minimised analytics do not mean the service collects no data. The production processor list, locations and international-transfer safeguards require operator review.",
+        body: "We use service providers for hosting, database, email, notifications, file storage and payments, and they process only the data needed for their function under contracts that require them to protect it. Sentry diagnostics are filtered to remove member identity and financial content. Logly receives limited usage events. Some providers process data outside Nigeria; where they do, we rely on the transfer safeguards that the Nigeria Data Protection Act 2023 allows, such as contractual protections. We do not sell personal data.",
       },
       {
         title: "Device permissions",
@@ -120,11 +136,11 @@ export const publicPolicies = {
       },
       {
         title: "Retention and deletion",
-        body: "Deletion must distinguish login access, cooperative membership and shared financial records. Financial, audit or dispute records may require restricted retention for a documented obligation; that does not justify retaining unrelated personal information indefinitely. Category-specific periods, backup expiry and processor deletion procedures are not yet approved, and no deletion deadline is promised by this draft.",
+        body: "We keep account information while your account is active. Financial, audit and dispute records belong to the cooperative’s books and are kept for as long as the cooperative or the law requires, with access restricted to people who need them. Other personal information is deleted or anonymised once it is no longer needed. When you ask us to delete your account, we remove your access, then delete or anonymise the information we are not required to keep, and tell you what we kept and why. Backups expire on a rolling schedule, so deleted information can remain in a backup for a short time before it is overwritten.",
       },
       {
-        title: "Your requests",
-        body: "You can request access, correction or deletion and raise a privacy concern through the account-deletion and support pages. Identity and authority must be verified before records are disclosed or changed. The operator must confirm applicable response periods and the appropriate data-protection complaint authority for each launch country.",
+        title: "Your rights and requests",
+        body: "You can ask to access, correct or delete your personal information, to restrict or object to how it is used, to receive a copy of it, or to withdraw consent you gave. Send requests to hello@halaalvest.com or use the account-deletion page. We will check your identity first, and where your cooperative controls the record we will pass the request to it or act on its instructions. We aim to respond within 30 days. If you are not satisfied with our response, you can complain to the Nigeria Data Protection Commission or to the data protection authority where you live.",
       },
     ],
   },
@@ -250,10 +266,33 @@ export type PolicyPublication =
 export const policyPublications: Record<
   keyof typeof publicPolicies,
   PolicyPublication
-> = Object.fromEntries(
-  Object.keys(publicPolicies).map((key) => [
-    key,
-    { status: "draft", version: publicPolicyRevision },
-  ])
-) as Record<keyof typeof publicPolicies, PolicyPublication>
+> = {
+  ...(Object.fromEntries(
+    Object.keys(publicPolicies).map((key) => [
+      key,
+      { status: "draft", version: publicPolicyRevision },
+    ])
+  ) as Record<keyof typeof publicPolicies, PolicyPublication>),
+  // Owner approved the exact terms and privacy wording in chat on
+  // 16 November 2026. The hash binds that text: any wording change stops the
+  // publication from being effective until it is re-approved and re-hashed.
+  terms: {
+    status: "published",
+    version: "2026-11-16",
+    approvedAt: "2026-11-16T08:11:00.000Z",
+    effectiveAt: "2026-11-16T08:11:00.000Z",
+    approvalReference: "Owner approval in chat, 2026-11-16",
+    approvedSnapshotHash:
+      "fd10deedaf03e9f8e69cf68f163522a33bdbeddbc4d1bc326468555ee0c8e448",
+  },
+  privacy: {
+    status: "published",
+    version: "2026-11-16",
+    approvedAt: "2026-11-16T08:11:00.000Z",
+    effectiveAt: "2026-11-16T08:11:00.000Z",
+    approvalReference: "Owner approval in chat, 2026-11-16",
+    approvedSnapshotHash:
+      "57bfc2f9f5b38537f58a9dea67fbbd23f1fa3a89c29d280bee1e9732c6109bbe",
+  },
+}
 export const requiredPlatformPolicyTypes = ["terms", "privacy"] as const

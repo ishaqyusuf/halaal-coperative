@@ -202,19 +202,20 @@ describe("approved legal publication", () => {
       ).toBe(false)
     }
   })
-  it("does not expose current review drafts for acceptance", () => {
-    expect(getPublishedLegalBundle({ launchReady: false })).toEqual({
-      available: false,
-      acceptanceRequired: false,
-      documents: [],
-    })
-    expect(getPublishedLegalBundle({ launchReady: true })).toEqual({
-      available: false,
+  it("requires acceptance of the published bundle and never offers drafts", () => {
+    expect(getPublishedLegalBundle({ launchReady: false })).toMatchObject({
+      available: true,
       acceptanceRequired: true,
-      documents: [],
     })
     expect(() =>
       validateLegalAcknowledgement({ confirmed: true, documents: [] })
+    ).toThrow("Review the current")
+    const draft = { status: "draft", version: "draft" } as const
+    expect(
+      buildPublishedLegalDocuments({ terms: draft, privacy: draft })
+    ).toEqual([])
+    expect(() =>
+      validateLegalAcknowledgement({ confirmed: true, documents: [] }, [])
     ).toThrow("not yet available")
   })
   it("requires both documents and effective dated approval evidence", () => {
@@ -326,5 +327,19 @@ describe("approved legal publication", () => {
     )
     expect(reapproved).toHaveLength(2)
     expect(reapproved[0]!.contentHash).not.toBe(original[0]!.contentHash)
+  })
+})
+
+describe("source publication", () => {
+  it("terms and privacy are published with hashes that match their exact text", () => {
+    const bundle = getPublishedLegalBundle({ launchReady: true })
+    expect(bundle.available).toBe(true)
+    expect(bundle.documents.map((document) => document.documentType)).toEqual([
+      "terms",
+      "privacy",
+    ])
+    expect(
+      bundle.documents.every((document) => document.documentVersion === "2026-11-16")
+    ).toBe(true)
   })
 })

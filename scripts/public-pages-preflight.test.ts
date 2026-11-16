@@ -284,8 +284,14 @@ describe("public pages preflight", () => {
     }
   })
 
-  test("blocks current draft source even if remote HTML looks published", async () => {
-    const result = await inspectPublicPages(origin, fixtureFetch())
+  test("blocks draft source even if remote HTML looks published", async () => {
+    const drafts = Object.fromEntries(
+      Object.keys(publicPolicies).map((page) => [
+        page,
+        { status: "draft", version: "draft" },
+      ])
+    ) as Record<keyof typeof publicPolicies, PolicyPublication>
+    const result = await inspectPublicPages(origin, fixtureFetch(), drafts)
     expect(result.ready).toBe(false)
     expect(
       result.checks.every(

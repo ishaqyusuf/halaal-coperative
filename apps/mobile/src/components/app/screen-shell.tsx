@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 import { useRouter } from "expo-router"
 import {
   type ReactNode,
+  type RefObject,
   useCallback,
   useEffect,
   useState,
@@ -277,6 +278,10 @@ export type ScreenShellProps = {
   /** Overlays pinned to the screen, e.g. BottomSearchFooter or a FAB. */
   overlay?: ReactNode
   contentClassName?: string
+  /** For screens that scroll programmatically (e.g. useLaneTabsAnchor). */
+  scrollRef?: RefObject<ScrollView | null>
+  /** Extra scroll listener; the shell's chrome still runs. */
+  onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void
   testID?: string
 }
 
@@ -293,8 +298,10 @@ export function ScreenShell({
   headerActions,
   hero,
   onRefresh,
+  onScroll,
   overlay,
   refreshing = false,
+  scrollRef,
   testID,
   title,
 }: ScreenShellProps) {
@@ -308,7 +315,11 @@ export function ScreenShell({
         contentContainerStyle={{ paddingBottom: chrome.contentBottomInset }}
         contentInsetAdjustmentBehavior="never"
         keyboardShouldPersistTaps="handled"
-        onScroll={chrome.onScroll}
+        onScroll={(event) => {
+          chrome.onScroll(event)
+          onScroll?.(event)
+        }}
+        ref={scrollRef}
         refreshControl={
           onRefresh ? (
             <RefreshControl

@@ -4,10 +4,23 @@ import {
   PAGER_GAP,
   PAGER_TAP_DURATION,
   pagerDragPosition,
+  pagerGestureDecision,
   pagerReleaseIndex,
 } from "@/lib/segmented-pager-motion"
-import { type ReactNode, useEffect, useRef, useState } from "react"
-import { View } from "react-native"
+import {
+  type ReactNode,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react"
+import {
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  type ScrollView,
+  View,
+} from "react-native"
 import { Gesture, GestureDetector } from "react-native-gesture-handler"
 import Animated, {
   Easing,
@@ -15,8 +28,10 @@ import Animated, {
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withSpring,
   withTiming,
 } from "react-native-reanimated"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { scheduleOnRN } from "react-native-worklets"
 
 const EASING = Easing.bezier(...motion.sheet.bezier)
@@ -27,6 +42,42 @@ export function usePagerPosition(initialIndex: number) {
 }
 
 /**
+ * Brings the segmented tabs back into view when a tap switches lanes while
+ * the screen is scrolled past them (02 v3). Pass `scrollRef`/`onScroll` to
+ * ScreenShell, `anchorRef` to a View around the SegmentedControl, and
+ * `revealTabs` to SegmentedPager's `onTapTransition`.
+ */
+export function useLaneTabsAnchor() {
+  const insets = useSafeAreaInsets()
+  const reduceMotion = useReducedMotion()
+  const scrollRef = useRef<ScrollView | null>(null)
+  const anchorRef = useRef<View | null>(null)
+  const offset = useRef(0)
+  const onScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      offset.current = event.nativeEvent.contentOffset.y
+    },
+    []
+  )
+  const revealTabs = useCallback(() => {
+    anchorRef.current?.measureInWindow((_x, y) => {
+      const top = insets.top + 8
+      if (y >= top) return
+      scrollRef.current?.scrollTo({
+        animated: !reduceMotion,
+        y: Math.max(0, offset.current - (top - y)),
+      })
+    })
+  }, [insets.top, reduceMotion])
+  return { anchorRef, onScroll, revealTabs, scrollRef } as {
+    anchorRef: RefObject<View | null>
+    onScroll: typeof onScroll
+    revealTabs: () => void
+    scrollRef: RefObject<ScrollView | null>
+  }
+}
+
+/**
  * Lane carousel (02 v3): pages sit side by side 24pt apart. Changing
  * `index` (a segment tap) slides in the tap direction over 340ms; a
  * horizontal swipe follows the finger, commits past 22% and calls
@@ -34,13 +85,19 @@ export function usePagerPosition(initialIndex: number) {
  * takes the height of the current page.
  */
 export function SegmentedPager({
+  eager = false,
   index,
   onIndexChange,
+  onTapTransition,
   pages,
   position,
 }: {
+  /** Mount every lane up front (dev gallery poses); default is lazy. */
+  eager?: boolean
   index: number
   onIndexChange: (index: number) => void
+  /** Runs when a tab tap (not a swipe) starts a transition. */
+  onTapTransition?: () => void
   /** One render function per segment, in segment order. */
   pages: readonly (() => ReactNode)[]
   position: SharedValue<number>
@@ -48,7 +105,12 @@ export function SegmentedPager({
   const reduceMotion = useReducedMotion()
   const [width, setWidth] = useState(0)
   const [heights, setHeights] = useState<number[]>([])
-  const [visited, setVisited] = useState(() => new Set([index]))
+  const [visited, setVisited] = useState(
+    () => new Set(eager ? pages.map((_, page) => page) : [index])
+  )
+  const onTapTransitionRef = useRef(onTapTransition)
+  onTapTransitionRef.current = onTapTransition
+  const firstRun = useRef(true)
   const fromGesture = useRef(false)
   const count = pages.length
   const startIndex = useSharedValue(index)
@@ -61,6 +123,8 @@ export function SegmentedPager({
       fromGesture.current = false
       return
     }
+    if (!firstRun.current) onTapTransitionRef.current?.()
+    firstRun.current = false
     position.set(
       reduceMotion
         ? index
@@ -82,9 +146,34 @@ export function SegmentedPager({
     if (next !== index) onIndexChange(next)
   }
 
+  const touchStart = useSharedValue({ x: 0, y: 0 })
   const pan = Gesture.Pan()
-    .activeOffsetX([-14, 14])
-    .failOffsetY([-12, 12])
+    // Horizontal lock: |dx| > 1.2·|dy|, so vertical scroll and
+    // pull-to-refresh are never captured by the lane swipe.
+    .manualActivation(true)
+    .onTouchesDown((event) => {
+      const touch = event.allTouches[0]
+      if (touch) touchStart.set({ x: touch.absoluteX, y: touch.absoluteY })
+    })
+    .onTouchesMove((event, manager) => {
+      const touch = event.allTouches[0]
+      if (!touch) return
+      const start = touchStart.get()
+      const decision = pagerGestureDecision(
+        touch.absoluteX - start.x,
+        touch.absoluteY - start.y
+      )
+      if (decision === "activate") manager.activate()
+      else if (decision === "fail") manager.fail()
+    })
+    // Manual activation must always resolve, or a tap that never moved
+    // leaves the gesture pending and blocks later touches.
+    .onTouchesUp((_event, manager) => {
+      manager.end()
+    })
+    .onTouchesCancelled((_event, manager) => {
+      manager.fail()
+    })
     .onBegin(() => {
       startIndex.set(Math.round(position.get()))
       // Neighbours must be mounted before they slide into view.
@@ -111,10 +200,19 @@ export function SegmentedPager({
       position.set(
         reduceMotion
           ? target
-          : withTiming(target, {
-              duration: PAGER_COMMIT_DURATION,
-              easing: EASING,
-            })
+          : target === startIndex.get()
+            ? // Below the 22% threshold: spring back to the current lane.
+              withSpring(target, {
+                damping: 26,
+                mass: 0.8,
+                overshootClamping: true,
+                stiffness: 240,
+              })
+            : // Commit: 260ms from the release point.
+              withTiming(target, {
+                duration: PAGER_COMMIT_DURATION,
+                easing: EASING,
+              })
       )
       scheduleOnRN(commit, target)
     })
@@ -123,7 +221,8 @@ export function SegmentedPager({
     transform: [{ translateX: -position.get() * (width + PAGER_GAP) }],
   }))
 
-  const height = heights[index]
+  // Eager (posed) pagers size to the tallest lane; lazy ones to the current.
+  const height = eager ? undefined : heights[index]
 
   return (
     <GestureDetector gesture={pan}>

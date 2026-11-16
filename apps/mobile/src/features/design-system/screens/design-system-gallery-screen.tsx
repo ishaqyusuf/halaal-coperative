@@ -23,7 +23,11 @@ import { MoneyField } from "@/components/ui/money-field"
 import { PhoneField } from "@/components/ui/phone-field"
 import { SectionHeader } from "@/components/ui/section-header"
 import { SegmentedControl } from "@/components/ui/segmented-control"
-import { SegmentedPager, usePagerPosition } from "@/components/ui/segmented-pager"
+import {
+  SegmentedPager,
+  useLaneTabsAnchor,
+  usePagerPosition,
+} from "@/components/ui/segmented-pager"
 import { SelectField } from "@/components/ui/select-field"
 import { DetailSkeleton, HomeSkeleton, ListSkeleton } from "@/components/ui/skeleton"
 import { StatusBanner } from "@/components/ui/status-banner"
@@ -36,7 +40,15 @@ import { useRouter } from "expo-router"
 import { useEffect, useMemo, useState } from "react"
 import { View } from "react-native"
 
-export type GalleryView = "kit" | "list" | "hero" | "success" | "error" | "submitting"
+export type GalleryView =
+  | "kit"
+  | "lanes"
+  | "list"
+  | "hero"
+  | "success"
+  | "error"
+  | "submitting"
+export type GalleryPose = "swipe" | "tap"
 export type GallerySheet = "floating" | "auto-long" | "form" | "confirm" | "date" | "select"
 
 const MEMBERS = [
@@ -516,6 +528,99 @@ function ListView() {
   )
 }
 
+const LANES = ["ledger", "commitments", "collections"] as const
+const LANE_ROWS = [12, 8, 4]
+
+/**
+ * 02 v3 tab motion on a full screen: the thumb slides, lanes move as a
+ * carousel (tap 340ms, swipe follows the finger and commits past 22%), and
+ * a tap while scrolled past the tabs brings them back into view. `pose`
+ * freezes a mid-swipe (0.42) or mid-tap (0.55) frame for screenshots.
+ */
+function LanesView({ pose }: { pose: GalleryPose | null }) {
+  const [lane, setLane] = useState<(typeof LANES)[number]>("ledger")
+  const laneIndex = LANES.indexOf(lane)
+  const position = usePagerPosition(laneIndex)
+  const anchor = useLaneTabsAnchor()
+  useEffect(() => {
+    if (!pose) return
+    const timer = setTimeout(() => position.set(pose === "swipe" ? 0.42 : 0.55), 700)
+    return () => clearTimeout(timer)
+  }, [pose, position])
+  return (
+    <ScreenShell
+      header={
+        <View className="gap-[8px]" ref={anchor.anchorRef}>
+          <SegmentedControl
+            accessibilityLabel="Contribution lanes"
+            onChange={setLane}
+            options={[
+              { count: 34, label: "Ledger", value: "ledger" },
+              { count: 24, label: "Commitments", value: "commitments" },
+              { count: 6, label: "Collections", value: "collections" },
+            ]}
+            position={position}
+            value={lane}
+          />
+          <Text className="text-muted-foreground" variant="label">
+            Updated 7:48 PM
+          </Text>
+        </View>
+      }
+      headerActions={<ThemeToggle />}
+      onRefresh={() => undefined}
+      onScroll={anchor.onScroll}
+      scrollRef={anchor.scrollRef}
+      title="Contributions"
+    >
+      <SegmentedPager
+        eager={pose !== null}
+        index={laneIndex}
+        onIndexChange={(index) => setLane(LANES[index] ?? "ledger")}
+        onTapTransition={anchor.revealTabs}
+        pages={LANES.map((laneKey, laneNumber) =>
+          function LanePage() {
+            return (
+              <View className="gap-[10px]">
+                <SectionHeader
+                  title={
+                    laneKey === "ledger"
+                      ? "This week"
+                      : laneKey === "commitments"
+                        ? "Active plans"
+                        : "Batches"
+                  }
+                  value={laneKey === "ledger" ? formatMoney(125000) : undefined}
+                />
+                <ListCard>
+                  {Array.from({ length: LANE_ROWS[laneNumber] ?? 4 }, (_, row) => {
+                    const member = MEMBERS[(row + laneNumber * 3) % MEMBERS.length]
+                    return (
+                      <RecordRow
+                        amount={formatMoney(member[2])}
+                        key={`${laneKey}-${row}`}
+                        meta={
+                          laneKey === "commitments"
+                            ? `${formatMoney(member[2])} / month · next 25 Nov`
+                            : member[1]
+                        }
+                        status={member[3]}
+                        statusTone={statusToneFor(member[3])}
+                        title={member[0]}
+                      />
+                    )
+                  })}
+                </ListCard>
+              </View>
+            )
+          }
+        )}
+        position={position}
+      />
+    </ScreenShell>
+  )
+}
+
 function HeroView() {
   return (
     <ScreenShell
@@ -582,9 +687,11 @@ function ThemeToggleInverse() {
 
 export function DesignSystemGalleryScreen({
   initialSheet,
+  pose = null,
   view,
 }: {
   initialSheet: GallerySheet | null
+  pose?: GalleryPose | null
   view: GalleryView
 }) {
   const router = useRouter()
@@ -596,6 +703,7 @@ export function DesignSystemGalleryScreen({
   }, [initialSheet])
 
   if (view === "list") return <ListView />
+  if (view === "lanes") return <LanesView pose={pose} />
   if (view === "hero") return <HeroView />
   if (view === "submitting") return <SubmittingState />
   if (view === "success" || view === "error") {

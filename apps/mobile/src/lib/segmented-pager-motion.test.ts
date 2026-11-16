@@ -35,3 +35,21 @@ describe("segmented pager swipe", () => {
     expect(pagerReleaseIndex({ count: 3, dx: pageWidth, index: 0, pageWidth, vx: 0 })).toBe(0)
   })
 })
+
+describe("segmented pager gesture lock", () => {
+  test("waits inside the slop", async () => {
+    const { pagerGestureDecision } = await import("./segmented-pager-motion")
+    expect(pagerGestureDecision(4, 3)).toBe("wait")
+  })
+  test("locks horizontal only when |dx| > 1.2·|dy|", async () => {
+    const { pagerGestureDecision } = await import("./segmented-pager-motion")
+    expect(pagerGestureDecision(13, 10)).toBe("activate")
+    expect(pagerGestureDecision(12, 10)).toBe("fail")
+    expect(pagerGestureDecision(-30, 4)).toBe("activate")
+  })
+  test("a vertical drag (scroll or pull-to-refresh) fails the swipe", async () => {
+    const { pagerGestureDecision } = await import("./segmented-pager-motion")
+    expect(pagerGestureDecision(2, 14)).toBe("fail")
+    expect(pagerGestureDecision(0, -40)).toBe("fail")
+  })
+})

@@ -53,3 +53,23 @@ export function pagerReleaseIndex({
   const direction = (flicked ? vx : dx) < 0 ? 1 : -1
   return Math.min(max, Math.max(0, index + direction))
 }
+
+/** Movement (pt) before the swipe decides between horizontal and vertical. */
+export const PAGER_SLOP = 10
+/** Horizontal wins only when |dx| > 1.2·|dy| (vertical scroll stays native). */
+export const PAGER_HORIZONTAL_RATIO = 1.2
+
+export type PagerGestureDecision = "activate" | "fail" | "wait"
+
+/**
+ * Locks the lane swipe to horizontal: activate once the finger has moved
+ * past the slop mostly sideways, fail as soon as it moves mostly vertically,
+ * so vertical scrolling and pull-to-refresh never become a lane swipe.
+ */
+export function pagerGestureDecision(dx: number, dy: number): PagerGestureDecision {
+  "worklet"
+  const ax = Math.abs(dx)
+  const ay = Math.abs(dy)
+  if (ax < PAGER_SLOP && ay < PAGER_SLOP) return "wait"
+  return ax > PAGER_HORIZONTAL_RATIO * ay ? "activate" : "fail"
+}

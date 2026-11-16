@@ -14,6 +14,7 @@ import {
   resolveTenantAsync,
   validateMobileDeviceSession,
   type MembershipRecord,
+  type TenantOperationProfileReadModel,
 } from "@halaalvest/db"
 import { randomUUID } from "node:crypto"
 
@@ -83,6 +84,13 @@ export type RequestContextLookups = {
     userId: string
   }) => Promise<{ id: string } | null>
   findUserById: typeof findUserByIdAsync
+  /**
+   * The tenant's operation profile, already read by the dashboard's layout
+   * in the same render. Optional: without it procedures read it themselves.
+   */
+  getTenantOperationProfile?: (
+    tenantId: string
+  ) => Promise<TenantOperationProfileReadModel>
   isQaAuthorizationActive: typeof isQaAuthorizationActive
   resolveTenant: typeof resolveTenantAsync
 }
@@ -224,7 +232,10 @@ export async function buildRequestContext(
       ? cookieSessionToken
       : null
   return {
-    lookups: { findMemberByUserId: lookups.findMemberByUserId },
+    lookups: {
+      findMemberByUserId: lookups.findMemberByUserId,
+      getTenantOperationProfile: lookups.getTenantOperationProfile,
+    },
     auth: {
       activeMembership: membership,
       session:

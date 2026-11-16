@@ -7,6 +7,7 @@ import {
   resolveTenantAsync,
 } from "@halaalvest/db"
 import { cache } from "react"
+import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
 
 // Session lookups shared by everything that resolves the request's session
 // during one server render: `getDashboardServerContext` (layouts, pages,
@@ -68,6 +69,8 @@ export const requestContextLookups: RequestContextLookups = {
   findMemberByUserId: findRequestMemberByUserId,
   findMembershipsForUser: (userId) => findRequestMemberships(userId ?? null),
   findUserById: (userId) => findRequestUser(userId ?? null),
+  // The sidebar layout's copy, so the home overview prefetch reuses it.
+  getTenantOperationProfile: getRequestTenantOperationProfile,
   isQaAuthorizationActive: async (qaAuthorizationId) =>
     Boolean(await getRequestQaAuthorization(qaAuthorizationId)),
   resolveTenant: resolveRequestTenant,

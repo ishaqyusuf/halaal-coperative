@@ -51,6 +51,8 @@ export type NotificationCenter = {
   cache?: MobileReadCacheState
   deliveries: NotificationDelivery[]
   generatedAt: string
+  /** Set when older deliveries exist; summary counts cover all of them. */
+  nextCursor?: string | null
   preferences: NotificationPreference[]
   pushRegistration: NotificationPushRegistration | null
   summary: {

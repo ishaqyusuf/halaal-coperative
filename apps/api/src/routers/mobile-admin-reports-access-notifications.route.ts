@@ -60,6 +60,12 @@ const accessInviteInput = z.object({
   ]),
 })
 
+/** Older pages of the user's own notifications (mobile plan M5). */
+const notificationOverviewInput = z
+  .object({ cursor: z.string().uuid().nullable().optional() })
+  .strict()
+  .optional()
+
 const markReadInput = z.object({
   deliveryIds: z.array(z.string().uuid()).min(1).max(25),
 })
@@ -285,19 +291,22 @@ export const mobileNotificationProcedures = {
       userEmail: ctx.auth.session.user.email,
     })
   ),
-  overview: tenantProcedure.query(async ({ ctx }) => {
-    const subscription = await getTenantSubscriptionSnapshot({
-      tenantId: ctx.tenant.current.id,
-    })
-    return getMobileNotificationCenter({
-      memberLoginEnabled: subscription.enforcement.memberLoginEnabled,
-      mobileDeviceSessionId: ctx.auth.session.mobileDeviceSessionId,
-      role: ctx.auth.activeMembership.role,
-      tenantId: ctx.tenant.current.id,
-      userEmail: ctx.auth.session.user.email,
-      userId: ctx.auth.session.user.id,
-    })
-  }),
+  overview: tenantProcedure
+    .input(notificationOverviewInput)
+    .query(async ({ ctx, input }) => {
+      const subscription = await getTenantSubscriptionSnapshot({
+        tenantId: ctx.tenant.current.id,
+      })
+      return getMobileNotificationCenter({
+        cursor: input?.cursor ?? null,
+        memberLoginEnabled: subscription.enforcement.memberLoginEnabled,
+        mobileDeviceSessionId: ctx.auth.session.mobileDeviceSessionId,
+        role: ctx.auth.activeMembership.role,
+        tenantId: ctx.tenant.current.id,
+        userEmail: ctx.auth.session.user.email,
+        userId: ctx.auth.session.user.id,
+      })
+    }),
   registerPush: tenantProcedure
     .input(registerPushInput)
     .mutation(({ ctx, input }) =>

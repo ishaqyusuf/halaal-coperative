@@ -103,6 +103,19 @@ export async function getNotificationCenter(options?: {
   ) as Promise<NotificationCenter>
 }
 
+/** Older deliveries after `cursor`; live only, never persisted (M4/M5). */
+export async function getOlderNotifications(
+  cursor: string,
+  options?: { forceDevFixture?: boolean }
+): Promise<NotificationCenter> {
+  if (shouldUseDevFixture(options?.forceDevFixture)) {
+    return { ...getDevCenter(), deliveries: [], nextCursor: null }
+  }
+  return createMobileTrpcClient().mobile.notifications.overview.query({
+    cursor,
+  }) as Promise<NotificationCenter>
+}
+
 export async function markNotificationsRead(
   deliveryIds: string[],
   options?: { forceDevFixture?: boolean }

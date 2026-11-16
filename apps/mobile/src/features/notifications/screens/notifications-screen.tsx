@@ -248,6 +248,7 @@ export function NotificationsScreen({
   destinationError,
   error,
   isLoading,
+  isLoadingOlder = false,
   isMarkingRead,
   isSignedIn,
   isUpdatingPreference,
@@ -255,6 +256,7 @@ export function NotificationsScreen({
   onBack,
   onClearDestinationError,
   onEnablePush,
+  onLoadOlder,
   onMarkRead,
   onOpenDelivery,
   onOpenSystemSettings,
@@ -269,6 +271,7 @@ export function NotificationsScreen({
   destinationError: string | null
   error: string | null
   isLoading: boolean
+  isLoadingOlder?: boolean
   isMarkingRead: boolean
   isSignedIn: boolean
   isUpdatingPreference: boolean
@@ -276,6 +279,8 @@ export function NotificationsScreen({
   onBack: () => void
   onClearDestinationError: () => void
   onEnablePush: () => void
+  /** Present while older deliveries exist on the server (M5). */
+  onLoadOlder?: () => void
   onMarkRead: (deliveryIds: string[]) => void
   onOpenDelivery: (delivery: NotificationDelivery) => void
   onOpenSystemSettings: () => void
@@ -479,6 +484,26 @@ export function NotificationsScreen({
                         />
                       )}
                     />
+                    {onLoadOlder ? (
+                      <Button
+                        accessibilityLabel="Show older notifications"
+                        className="min-h-11 self-center"
+                        disabled={isLoadingOlder}
+                        onPress={onLoadOlder}
+                        variant="outline"
+                      >
+                        <Text
+                          allowFontScaling={false}
+                          className="text-sm font-bold text-foreground"
+                          style={scaledTextStyle(accessibilityScale, 13, 18, {
+                            color: colors.foreground,
+                            fontWeight: "700",
+                          })}
+                        >
+                          {isLoadingOlder ? "Loading" : "Show older"}
+                        </Text>
+                      </Button>
+                    ) : null}
                   </>
                 ) : null}
               </>

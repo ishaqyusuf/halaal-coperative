@@ -6,6 +6,7 @@ import { useRouter } from "expo-router"
 import { useEffect, useState } from "react"
 import {
   getNotificationCenter,
+  getOlderNotifications,
   markNotificationsRead,
   updateNotificationPreference,
 } from "../api/notification-center-api"
@@ -52,6 +53,7 @@ export function NotificationsRouteController() {
     null
   )
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false)
   const [isMarkingRead, setIsMarkingRead] = useState(false)
   const [isUpdatingPreference, setIsUpdatingPreference] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -161,6 +163,38 @@ export function NotificationsRouteController() {
     }
   }
 
+  async function handleLoadOlder() {
+    const cursor = notifications?.nextCursor
+    if (!cursor || isLoadingOlder || runtime.state.connectivity !== "online")
+      return
+    setIsLoadingOlder(true)
+    setError(null)
+    try {
+      const older = await getOlderNotifications(cursor, { forceDevFixture })
+      setNotifications((current) => {
+        if (!current || current.nextCursor !== cursor) return current
+        const known = new Set(current.deliveries.map((item) => item.id))
+        return {
+          ...current,
+          deliveries: [
+            ...current.deliveries,
+            ...older.deliveries.filter((item) => !known.has(item.id)),
+          ],
+          nextCursor: older.nextCursor ?? null,
+          // Server totals cover every delivery, not just the loaded pages.
+          summary: {
+            ...older.summary,
+            enabledPreferences: current.summary.enabledPreferences,
+          },
+        }
+      })
+    } catch {
+      setError("Older notifications could not be loaded.")
+    } finally {
+      setIsLoadingOlder(false)
+    }
+  }
+
   function handleOpenDelivery(delivery: NotificationDelivery) {
     if (!profile) return
     const intendedRole =
@@ -237,6 +271,7 @@ export function NotificationsRouteController() {
       }
       error={error}
       isLoading={isLoading}
+      isLoadingOlder={isLoadingOlder}
       isMarkingRead={isMarkingRead}
       isSignedIn={Boolean(profile)}
       isUpdatingPreference={isUpdatingPreference}
@@ -247,6 +282,9 @@ export function NotificationsRouteController() {
         notificationRuntime.clearDestinationError()
       }}
       onEnablePush={() => void notificationRuntime.requestPermission()}
+      onLoadOlder={
+        notifications?.nextCursor ? () => void handleLoadOlder() : undefined
+      }
       onMarkRead={(deliveryIds) => void handleMarkRead(deliveryIds)}
       onOpenDelivery={handleOpenDelivery}
       onOpenSystemSettings={() => void notificationRuntime.openSystemSettings()}

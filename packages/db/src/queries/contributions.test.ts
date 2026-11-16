@@ -421,23 +421,25 @@ describe("contribution live write guards", () => {
     expect(prisma.ledgerLookups).toHaveLength(0)
   })
 
-  test("blocks contribution plan creation before live operations", async () => {
+  // Triage 1.8: setting a commitment is allowed during setup; it starts in
+  // the go-live month (setup-commitments.test.ts covers the behaviour).
+  test("sets contribution plans during setup through the go-live path", async () => {
     const prisma = createLockedContributionPrismaStub()
 
     await expect(
       setMemberContributionPlan(
         {
           actorUserId: "user-1",
-          amount: 25000,
+          amount: 0,
           memberId: "member-1",
           startsAt: new Date("2025-02-01T00:00:00.000Z"),
           tenantId: "tenant-1",
         },
         prisma as never
       )
-    ).rejects.toThrow("Live financial record writes are locked")
+    ).rejects.toThrow("Monthly commitment must be more than ₦0.")
 
-    expect(prisma.transactions).toHaveLength(0)
+    expect(prisma.transactions).toHaveLength(1)
   })
 
   test("blocks contribution plan updates before live operations", async () => {

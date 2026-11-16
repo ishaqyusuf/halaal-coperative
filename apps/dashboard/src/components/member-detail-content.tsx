@@ -48,6 +48,7 @@ function formatIsoDate(value: Date | string | null | undefined) {
 export function MemberDetailContent({
   activePlan,
   canChangeWorkplace,
+  commitmentStartsAtGoLive = false,
   devMode,
   documents,
   member,
@@ -55,6 +56,7 @@ export function MemberDetailContent({
 }: {
   activePlan: ActiveCommitmentPlan
   canChangeWorkplace: boolean
+  commitmentStartsAtGoLive?: boolean
   devMode: boolean
   documents: MemberDetailDocument[]
   member: MemberDetailMember
@@ -102,6 +104,7 @@ export function MemberDetailContent({
           }
           memberId={member.id}
           onSuccess={onSuccess}
+          startsAtGoLive={commitmentStartsAtGoLive}
         />
       </div>
     )

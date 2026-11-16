@@ -260,11 +260,14 @@ export function MemberCommitmentForm({
   defaultAmount,
   memberId,
   onSuccess,
+  startsAtGoLive = false,
 }: {
   defaultStartDate?: string
   defaultAmount?: string
   memberId: string
   onSuccess?: () => void
+  /** Setup: the amount starts the month of go-live, so there is no date. */
+  startsAtGoLive?: boolean
 }) {
   const today = new Date().toISOString().slice(0, 10)
   const form = useZodForm<MemberCommitmentValues>(memberCommitmentSchema, {
@@ -272,7 +275,7 @@ export function MemberCommitmentForm({
       amount: defaultAmount ?? "",
       memberId,
       name: "Monthly commitment",
-      startsAt: defaultStartDate ?? today,
+      startsAt: startsAtGoLive ? today : (defaultStartDate ?? today),
     },
   })
   const { showError, showSuccess } = useNotifications()
@@ -282,7 +285,12 @@ export function MemberCommitmentForm({
     startTransition(async () => {
       try {
         await setMemberContributionPlanAction(objectToFormData(values))
-        showSuccess("Monthly savings saved", "The new amount is on record.")
+        showSuccess(
+          "Monthly savings saved",
+          startsAtGoLive
+            ? "It starts the month your cooperative goes live."
+            : "The new amount is on record."
+        )
         onSuccess?.()
       } catch (error) {
         showError(
@@ -306,7 +314,11 @@ export function MemberCommitmentForm({
             })
           }
         />
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div
+          className={
+            startsAtGoLive ? "grid gap-4" : "grid gap-4 sm:grid-cols-2"
+          }
+        >
           <FormField
             control={form.control}
             name="amount"
@@ -316,27 +328,37 @@ export function MemberCommitmentForm({
                 <FormControl>
                   <CurrencyFormInput {...field} />
                 </FormControl>
+                {startsAtGoLive ? (
+                  <FormDescription>
+                    Nothing is due before you go live. It counts towards the
+                    money you can lend in your first month.
+                  </FormDescription>
+                ) : null}
                 <FormMessage />
               </FormItem>
             )}
           />
-          <FormField
-            control={form.control}
-            name="startsAt"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>From</FormLabel>
-                <FormControl>
-                  <DatePickerInput
-                    {...field}
-                    allowClear={false}
-                    placeholder="Pick a date"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {startsAtGoLive ? (
+            <input type="hidden" {...form.register("startsAt")} />
+          ) : (
+            <FormField
+              control={form.control}
+              name="startsAt"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>From</FormLabel>
+                  <FormControl>
+                    <DatePickerInput
+                      {...field}
+                      allowClear={false}
+                      placeholder="Pick a date"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
         </div>
         <div className="flex justify-end">
           <Button

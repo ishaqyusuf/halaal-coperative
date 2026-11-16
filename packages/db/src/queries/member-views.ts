@@ -59,6 +59,7 @@ export async function getMemberDetailOverview(
           id: true,
           isActive: true,
           startsAt: true,
+          startsAtGoLive: true,
         },
         take: 12,
       },

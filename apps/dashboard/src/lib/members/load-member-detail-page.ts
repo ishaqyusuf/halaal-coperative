@@ -2,6 +2,7 @@ import {
   createDbRuntime,
   getMemberDetailOverview,
   getMemberOperationalReadiness,
+  getTenantMigrationWriteAccess,
 } from "@halaalvest/db"
 import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
 import {
@@ -29,6 +30,8 @@ export type MemberDetailPageData =
       canChangeWorkplace: boolean
       canManageCommitments: boolean
       canManageMembers: boolean
+      /** Still in setup: a commitment set now starts the month of go-live. */
+      commitmentStartsAtGoLive: boolean
       detail: MemberDetailOverview
       operationalReadiness: NonNullable<
         Awaited<ReturnType<typeof getMemberOperationalReadiness>>
@@ -104,16 +107,18 @@ export async function loadMemberDetailPageData(
     context.auth.membership?.role,
     memberManagementRoles
   )
-  const [detail, operationalReadiness, operationProfile] = await Promise.all([
-    getMemberDetailOverview(context.tenant.id, memberId),
-    getMemberOperationalReadiness({
-      memberId,
-      tenantId: context.tenant.id,
-    }),
-    canManageMembers
-      ? getRequestTenantOperationProfile(context.tenant.id)
-      : Promise.resolve(null),
-  ])
+  const [detail, operationalReadiness, operationProfile, writeAccess] =
+    await Promise.all([
+      getMemberDetailOverview(context.tenant.id, memberId),
+      getMemberOperationalReadiness({
+        memberId,
+        tenantId: context.tenant.id,
+      }),
+      canManageMembers
+        ? getRequestTenantOperationProfile(context.tenant.id)
+        : Promise.resolve(null),
+      getTenantMigrationWriteAccess(context.tenant.id),
+    ])
 
   if (!detail || !operationalReadiness) {
     return {
@@ -131,6 +136,7 @@ export async function loadMemberDetailPageData(
       allStaffRoles
     ),
     canManageMembers,
+    commitmentStartsAtGoLive: !writeAccess.canUseLiveFinancialWrites,
     detail: toClientValue(detail),
     operationalReadiness,
     quickFillEnabled: canShowQuickFill(context),

@@ -16,6 +16,7 @@ import {
   provisionGoLiveFinancing,
   type GoLiveFinancingProvisioning,
 } from "./go-live-financing"
+import { anchorSetupCommitmentsToGoLive } from "./setup-commitments"
 import { readOptionalTenantBusinessPolicy } from "./tenant-business-policy"
 import { getTenantById } from "./tenants"
 
@@ -829,6 +830,12 @@ export async function finalizeTenantInitialMigration(
   }
 
   const finalizedAt = new Date()
+  // Commitments entered during setup start in the go-live month (triage
+  // 1.8). Moved before the status change, so a failure leaves setup open.
+  const setupCommitments = await anchorSetupCommitmentsToGoLive(
+    { goLiveAt: finalizedAt, tenantId: input.tenantId },
+    prisma
+  )
   const tenant = await prisma.tenant.update({
     data: {
       initialMigrationStatus: "live_operations",
@@ -886,6 +893,7 @@ export async function finalizeTenantInitialMigration(
           : {}),
         financing,
         finalizedAt: finalizedAt.toISOString(),
+        setupCommitmentsMoved: setupCommitments.movedPlanCount,
         nextStatus: "live_operations",
         tenantActivated,
       },

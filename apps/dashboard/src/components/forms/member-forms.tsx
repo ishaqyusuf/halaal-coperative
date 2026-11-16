@@ -7,7 +7,7 @@ import { useNotifications } from "@halaalvest/notifications-react"
 import { useTenantRouter } from "@halaalvest/tenant-url/next"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button } from "@halaalvest/ui/components/button"
-import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
+import { CurrencyFormInput } from "@halaalvest/ui/components/currency-input"
 import {
   Form,
   FormControl,
@@ -55,28 +55,6 @@ import {
 } from "@/lib/dashboard-actions"
 import { formatDayMonthYear } from "@/utils/format"
 import { useTRPC } from "@/trpc/client"
-
-function CurrencyFormInput({
-  onChange,
-  placeholder,
-  value,
-}: {
-  onChange: (value: string) => void
-  placeholder?: string
-  value?: string
-}) {
-  return (
-    <CurrencyInput
-      allowNegative={false}
-      decimalScale={2}
-      inputMode="decimal"
-      onValueChange={(values) => onChange(values.value)}
-      placeholder={placeholder}
-      value={value ?? ""}
-      valueIsNumericString
-    />
-  )
-}
 
 type SelectFormInputOption = {
   label: string

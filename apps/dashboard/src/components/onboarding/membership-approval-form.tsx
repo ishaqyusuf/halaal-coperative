@@ -14,7 +14,7 @@ import {
 } from "@halaalvest/ui/components/alert-dialog"
 import { Button } from "@halaalvest/ui/components/button"
 import { Checkbox } from "@halaalvest/ui/components/checkbox"
-import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
+import { CurrencyFormInput } from "@halaalvest/ui/components/currency-input"
 import {
   Form,
   FormControl,
@@ -38,31 +38,6 @@ import {
 } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
 import { useTRPC } from "@/trpc/client"
-
-function CurrencyFormInput({
-  onChange,
-  placeholder,
-  value,
-  ...props
-}: {
-  id?: string
-  onChange: (value: string) => void
-  placeholder?: string
-  value?: string
-}) {
-  return (
-    <CurrencyInput
-      {...props}
-      allowNegative={false}
-      decimalScale={2}
-      inputMode="decimal"
-      onValueChange={(values) => onChange(values.value)}
-      placeholder={placeholder}
-      value={value ?? ""}
-      valueIsNumericString
-    />
-  )
-}
 
 function getTodayDateValue() {
   const today = new Date()

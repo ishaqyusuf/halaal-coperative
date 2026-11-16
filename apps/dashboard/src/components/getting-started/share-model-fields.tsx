@@ -34,7 +34,6 @@ import {
   AddInlineRowButton,
   buildShareHistoryRows,
   createShareHistoryRow,
-  CurrencyFormInput,
   DeleteInlineRowButton,
   normalizeShareHistoryRows,
   PercentageFormInput,
@@ -49,6 +48,7 @@ import {
   type ShareHistoryRow,
   type ShareRuleValueType,
 } from "@/components/forms/tenant-finance-forms"
+import { CurrencyFormInput } from "@halaalvest/ui/components/currency-input"
 import { QuickFill } from "@/components/quick-fill"
 import type { GettingStartedShareStructureVersionRow } from "@/lib/getting-started/getting-started-page-types"
 import {

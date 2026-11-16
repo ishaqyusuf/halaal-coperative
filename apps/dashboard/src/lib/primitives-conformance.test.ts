@@ -47,4 +47,12 @@ describe("shared primitives (WP18)", () => {
 
     expect(spins).toEqual([])
   })
+
+  test("form money fields share one CurrencyFormInput", () => {
+    const copies = sourceFiles(srcDir).filter((path) =>
+      /function CurrencyFormInput\b/.test(readFileSync(path, "utf8"))
+    )
+
+    expect(copies).toEqual([])
+  })
 })

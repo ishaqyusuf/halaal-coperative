@@ -5,7 +5,7 @@ import { useTransition } from "react"
 import { z } from "zod"
 import { useNotifications } from "@halaalvest/notifications-react"
 import { Button } from "@halaalvest/ui/components/button"
-import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
+import { CurrencyFormInput } from "@halaalvest/ui/components/currency-input"
 import {
   Form,
   FormControl,
@@ -31,31 +31,6 @@ import {
 } from "@/lib/dashboard-actions"
 import { objectToFormData } from "@/lib/form-submit"
 import { closeContributionPlanAction } from "@/lib/dashboard-actions"
-
-function CurrencyFormInput({
-  disabled = false,
-  onChange,
-  placeholder,
-  value,
-}: {
-  disabled?: boolean
-  onChange: (value: string) => void
-  placeholder?: string
-  value?: string
-}) {
-  return (
-    <CurrencyInput
-      allowNegative={false}
-      decimalScale={2}
-      disabled={disabled}
-      inputMode="decimal"
-      placeholder={placeholder}
-      value={value ?? ""}
-      valueIsNumericString
-      onValueChange={(values) => onChange(values.value)}
-    />
-  )
-}
 
 const contributionPlanSchema = z.object({
   amount: z.string().min(1, "Monthly commitment is required."),

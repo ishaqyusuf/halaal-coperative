@@ -38,7 +38,10 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@halaalvest/ui/components/collapsible"
-import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
+import {
+  CurrencyFormInput,
+  CurrencyInput,
+} from "@halaalvest/ui/components/currency-input"
 import { Field, FieldGroup, FieldLabel } from "@halaalvest/ui/components/field"
 import {
   Form,
@@ -178,37 +181,6 @@ export function AddInlineRowButton({
       <PlusIcon className="size-4" />
       {label}
     </Button>
-  )
-}
-
-export function CurrencyFormInput({
-  className,
-  disabled,
-  id,
-  onChange,
-  placeholder,
-  value,
-}: {
-  className?: string
-  disabled?: boolean
-  id?: string
-  onChange: (value: string) => void
-  placeholder?: string
-  value?: string
-}) {
-  return (
-    <CurrencyInput
-      allowNegative={false}
-      className={className}
-      decimalScale={2}
-      disabled={disabled}
-      id={id}
-      inputMode="decimal"
-      placeholder={placeholder}
-      value={value ?? ""}
-      valueIsNumericString
-      onValueChange={(values) => onChange(values.value)}
-    />
   )
 }
 

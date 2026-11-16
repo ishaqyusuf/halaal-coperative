@@ -14,7 +14,6 @@ import {
   AddInlineRowButton,
   ChargeApplicabilityCombobox,
   chargeDefinitionRowHasValue,
-  CurrencyFormInput,
   DeleteInlineRowButton,
   PercentageFormInput,
   SelectFormInput,
@@ -22,6 +21,7 @@ import {
   type ChargeDefinitionValues,
   type useChargeDefinitionRows,
 } from "@/components/forms/tenant-finance-forms"
+import { CurrencyFormInput } from "@halaalvest/ui/components/currency-input"
 import {
   chargePurposeOptions,
   chargeValueTypeOptions,

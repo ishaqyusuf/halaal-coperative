@@ -54,3 +54,29 @@ export function CurrencyInput({
     />
   )
 }
+
+/**
+ * A naira amount field for forms: no negatives, two decimals, and
+ * `onChange` gets the plain number string ("1500.5"). The one shared copy
+ * of the dashboard's form currency input (WP18).
+ */
+export function CurrencyFormInput({
+  onChange,
+  value,
+  ...props
+}: Omit<NumericFormatProps, "onChange" | "onValueChange" | "value"> & {
+  onChange: (value: string) => void
+  value?: string
+}) {
+  return (
+    <CurrencyInput
+      {...props}
+      allowNegative={false}
+      decimalScale={2}
+      inputMode="decimal"
+      onValueChange={(values) => onChange(values.value)}
+      value={value ?? ""}
+      valueIsNumericString
+    />
+  )
+}

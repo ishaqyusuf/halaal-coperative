@@ -1,6 +1,11 @@
 "use client"
 
 import { Button } from "@halaalvest/ui/components/button"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+} from "@halaalvest/ui/components/empty"
 import type { ReactNode } from "react"
 
 interface EmptyStateProps {
@@ -16,21 +21,20 @@ export function EmptyState({
   actionLabel,
   onAction,
 }: EmptyStateProps) {
+  // The shared Empty primitive (WP18), sized as the old hand-built block.
   return (
-    <div className="flex items-center justify-center">
-      <div className="mt-40 flex flex-col items-center">
-        <div className="mb-6 space-y-2 text-center">
-          <h2 className="text-lg font-medium">{title}</h2>
-          <p className="text-sm text-[#606060]">{description}</p>
-        </div>
+    <Empty className="mt-40 flex-none gap-6 p-0 text-wrap">
+      <EmptyHeader className="max-w-none gap-2">
+        <h2 className="text-lg font-medium">{title}</h2>
+        <EmptyDescription className="text-sm">{description}</EmptyDescription>
+      </EmptyHeader>
 
-        {actionLabel && onAction ? (
-          <Button variant="outline" onClick={onAction}>
-            {actionLabel}
-          </Button>
-        ) : null}
-      </div>
-    </div>
+      {actionLabel && onAction ? (
+        <Button variant="outline" onClick={onAction}>
+          {actionLabel}
+        </Button>
+      ) : null}
+    </Empty>
   )
 }
 

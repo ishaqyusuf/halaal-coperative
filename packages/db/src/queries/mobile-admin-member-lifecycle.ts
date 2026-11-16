@@ -137,9 +137,31 @@ function toMemberRow(
   }
 }
 
+/** "₦180,000" for the tenant's currency (whole amounts keep no kobo). */
+function formatOverviewMoney(amount: number, currencyCode: string) {
+  try {
+    return new Intl.NumberFormat("en-NG", {
+      currency: currencyCode,
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 0,
+      style: "currency",
+    }).format(amount)
+  } catch {
+    return amount.toLocaleString("en-NG")
+  }
+}
+
+/**
+ * Mobile admin overview (T05). Mobile shows only open queue rows, so the
+ * summary skips the operation profile ("open-items"); activity rows carry
+ * the member, amount, kind and status the app lays out itself.
+ */
 export async function getMobileAdminLifecycleOverview(tenantId: string) {
   const prisma = createPrismaClient()
-  const summary = await getOverviewSummary(tenantId, prisma ?? undefined)
+  const summary = await getOverviewSummary(tenantId, prisma ?? undefined, {
+    queueRows: "open-items",
+  })
+  const currencyCode = summary.workspace.currencyCode
   return {
     actionQueue: orderMobileAdminActionQueue(summary.actionQueue)
       .slice(0, 8)
@@ -157,7 +179,16 @@ export async function getMobileAdminLifecycleOverview(tenantId: string) {
     })),
     generatedAt: summary.workspace.generatedAt,
     recentActivity: summary.recentActivity.map(
-      ({ detail, id, label, occurredAt }) => ({ detail, id, label, occurredAt })
+      ({ amount, detail, id, kind, label, memberName, occurredAt, status }) => ({
+        amount,
+        detail,
+        id,
+        kind,
+        label,
+        memberName,
+        occurredAt,
+        status,
+      })
     ),
     stats: [
       {
@@ -175,7 +206,7 @@ export async function getMobileAdminLifecycleOverview(tenantId: string) {
         value: summary.primaryMetrics.collectionCoverage,
       },
       {
-        detail: `${summary.primaryMetrics.portfolioAtRiskAmount.toLocaleString("en-NG")} overdue`,
+        detail: `${formatOverviewMoney(summary.primaryMetrics.portfolioAtRiskAmount, currencyCode)} overdue`,
         format: "percent" as const,
         key: "portfolio-risk",
         label: "Portfolio risk",

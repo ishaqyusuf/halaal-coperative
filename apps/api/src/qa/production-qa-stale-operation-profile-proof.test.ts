@@ -15,7 +15,6 @@ const snapshot = {
   reviewedAt: "2026-09-04T00:00:00.000Z",
   reviewedByUserId: "qa-reviewer",
   services: [{ serviceKey: "procurement", accessMode: "read_only" }],
-  subscription: { accessEnabled: true },
 }
 
 test("proves a stale conflict and unchanged readback without accepting missing Android evidence", async () => {
@@ -128,8 +127,8 @@ for (const outcome of [
   })
 }
 
-test("requires the intended role and read-only entitled fixture before sending any command", async () => {
-  for (const variant of ["role", "mode", "entitlement"] as const) {
+test("requires the intended role and read-only fixture before sending any command", async () => {
+  for (const variant of ["role", "mode"] as const) {
     let writes = 0
     const receipt = await executeProductionQaNegativeJourneys({
       plan,
@@ -146,7 +145,6 @@ test("requires the intended role and read-only entitled fixture before sending a
                   variant === "mode" ? "member_self_service" : "read_only",
               },
             ],
-            subscription: { accessEnabled: variant !== "entitlement" },
           }),
           updateService: async () => {
             writes += 1

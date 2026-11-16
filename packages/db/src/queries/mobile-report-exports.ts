@@ -98,7 +98,7 @@ export function finalizeMobileReportExport(input: {
 }): MobileReportExportResult {
   if (input.rows.length > input.rowLimit) {
     throw ExpectedQueryError.validation(
-      `This export exceeds the ${input.rowLimit.toLocaleString("en")} row limit for the active subscription. Narrow the date range and retry.`,
+      `This export exceeds the ${input.rowLimit.toLocaleString("en")} row limit for one export. Narrow the date range and retry.`,
     )
   }
 

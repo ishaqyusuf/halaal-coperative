@@ -130,7 +130,6 @@ function safeCopy(type: string) {
 export const MOBILE_NOTIFICATION_PAGE_SIZE = 25
 
 type NotificationCenterInput = {
-  memberLoginEnabled: boolean
   mobileDeviceSessionId?: string | null
   role: MembershipRole
   tenantId: string
@@ -326,7 +325,6 @@ export async function getMobileNotificationCenter(
       readNotificationSummaryCounts(prisma, { ...scope, emails }),
       getMobileUserNotificationPreferences(
         {
-          memberLoginEnabled: input.memberLoginEnabled,
           role: input.role,
           tenantId: input.tenantId,
           userId: input.userId,

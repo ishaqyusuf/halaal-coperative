@@ -98,7 +98,7 @@ describe("mobile push notification governance", () => {
     ).rejects.toThrow("cannot register notifications")
   })
 
-  test("keeps mandatory categories on but respects the member subscription gate", async () => {
+  test("keeps mandatory categories on and follows tenant policy for members, with no plan gate", async () => {
     const prisma = {
       mobileUserNotificationPreference: {
         findMany: async () => [
@@ -119,7 +119,6 @@ describe("mobile push notification governance", () => {
 
     const active = await getMobileUserNotificationPreferences(
       {
-        memberLoginEnabled: true,
         role: "member",
         tenantId: "tenant-1",
         userId: "user-1",
@@ -136,18 +135,12 @@ describe("mobile push notification governance", () => {
       enabled: false,
     })
 
-    const subscriptionBlocked = await getMobileUserNotificationPreferences(
-      {
-        memberLoginEnabled: false,
-        role: "member",
-        tenantId: "tenant-1",
-        userId: "user-1",
-      },
-      prisma
-    )
-    expect(subscriptionBlocked.every((item) => !item.available && !item.enabled)).toBe(
-      true
-    )
+    // Triage 2.8: no old-plan "member login" entitlement can switch member
+    // notifications off. Every non-mandatory category the tenant allows stays
+    // available to members.
+    expect(
+      active.filter((item) => item.key !== "financing").every((item) => item.available)
+    ).toBe(true)
   })
 
   test("cannot disable a mandatory notification category", async () => {
@@ -192,7 +185,6 @@ describe("mobile push notification governance", () => {
       await listEligibleMobilePushRegistrations(
         {
           category: "support",
-          memberLoginEnabled: true,
           role: "member",
           tenantId: "tenant-1",
           userId: "user-1",

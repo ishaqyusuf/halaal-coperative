@@ -52,7 +52,6 @@ describe("mobile notification center", () => {
     let auditReads = 0
     const center = await getMobileNotificationCenter(
       {
-        memberLoginEnabled: true,
         role: "member",
         tenantId: "tenant-1",
         userEmail: "member@example.com",
@@ -276,7 +275,6 @@ describe("mobile notification center", () => {
     } as never
     const input = {
       limit: 2,
-      memberLoginEnabled: true,
       role: "member" as const,
       tenantId: "tenant-1",
       userEmail: "member@example.com",

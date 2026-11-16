@@ -3,7 +3,6 @@ import {
   createMobileAdminReportExport,
   getMobileAdminAccessOverview,
   getMobileAdminReportsOverview,
-  getTenantSubscriptionSnapshot,
   disableMobilePushEndpoint,
   listActivityReportEvents,
   getMobileNotificationCenter,
@@ -208,17 +207,13 @@ export const mobileAdminReportsAccessNotificationProcedures = {
     generate: permissionProcedure("view_reports")
       .input(generateReportInput)
       .mutation(async ({ ctx, input }) => {
-        const subscription = await getTenantSubscriptionSnapshot({
-          tenantId: ctx.tenant.current.id,
-        })
-        const report = getMobileReportCatalog(subscription.entitlements).find(
+        const report = getMobileReportCatalog().find(
           (item) => item.key === input.key,
         )
-        if (!report?.available) {
+        if (!report) {
           throw new TRPCError({
-            code: "FORBIDDEN",
-            message:
-              "This report requires a higher report or audit depth on the active subscription.",
+            code: "NOT_FOUND",
+            message: "This report is not available.",
           })
         }
 
@@ -258,15 +253,9 @@ export const mobileAdminReportsAccessNotificationProcedures = {
           key: input.key,
         }
       }),
-    overview: permissionProcedure("view_reports").query(async ({ ctx }) => {
-      const subscription = await getTenantSubscriptionSnapshot({
-        tenantId: ctx.tenant.current.id,
-      })
-      return getMobileAdminReportsOverview(
-        ctx.tenant.current.id,
-        subscription.entitlements,
-      )
-    }),
+    overview: permissionProcedure("view_reports").query(({ ctx }) =>
+      getMobileAdminReportsOverview(ctx.tenant.current.id),
+    ),
   }),
 }
 
@@ -293,20 +282,16 @@ export const mobileNotificationProcedures = {
   ),
   overview: tenantProcedure
     .input(notificationOverviewInput)
-    .query(async ({ ctx, input }) => {
-      const subscription = await getTenantSubscriptionSnapshot({
-        tenantId: ctx.tenant.current.id,
-      })
-      return getMobileNotificationCenter({
+    .query(({ ctx, input }) =>
+      getMobileNotificationCenter({
         cursor: input?.cursor ?? null,
-        memberLoginEnabled: subscription.enforcement.memberLoginEnabled,
         mobileDeviceSessionId: ctx.auth.session.mobileDeviceSessionId,
         role: ctx.auth.activeMembership.role,
         tenantId: ctx.tenant.current.id,
         userEmail: ctx.auth.session.user.email,
         userId: ctx.auth.session.user.id,
-      })
-    }),
+      }),
+    ),
   registerPush: tenantProcedure
     .input(registerPushInput)
     .mutation(({ ctx, input }) =>

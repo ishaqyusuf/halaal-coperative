@@ -7,7 +7,11 @@ import {
 import { buildRequestContext } from "../context"
 import { createCallerFactory } from "../lib.trpc"
 import { appRouter } from "./_app"
-import { resolveEffectiveOperationProfileAccessMode } from "./mobile-operation-profile.route"
+import { tenantServiceKeys } from "@halaalvest/db"
+import {
+  buildMobileOperationProfileSnapshot,
+  MOBILE_OPERATION_PROFILE_SUBSCRIPTION,
+} from "./mobile-operation-profile.route"
 
 describe("mobile Operation Profile route", () => {
   const originalDatabaseUrl = process.env.HALAALVEST_DATABASE_URL
@@ -39,42 +43,74 @@ describe("mobile Operation Profile route", () => {
     return createCaller(context)
   }
 
-  test("keeps configured access when subscription access is enabled", () => {
-    for (const configuredAccessMode of [
-      "disabled",
-      "office_only",
-      "member_self_service",
-      "read_only",
-    ] as const) {
-      expect(
-        resolveEffectiveOperationProfileAccessMode({
-          configuredAccessMode,
-          subscriptionAccessEnabled: true,
-        })
-      ).toBe(configuredAccessMode)
+  const accessModes = [
+    "disabled",
+    "office_only",
+    "member_self_service",
+    "read_only",
+  ] as const
+
+  function profileWith(
+    accessMode: (typeof accessModes)[number]
+  ): Parameters<typeof buildMobileOperationProfileSnapshot>[0]["profile"] {
+    return {
+      policy: {
+        foodPurchaseMaximumActiveObligationsPerMember: 1,
+        foodPurchaseRequiresOpenCycle: true,
+        procurementMaximumActiveObligationsPerMember: 1,
+      },
+      reviewedAt: null,
+      reviewedByUserId: null,
+      services: Object.fromEntries(
+        tenantServiceKeys.map((serviceKey) => [
+          serviceKey,
+          {
+            accessMode,
+            canMemberCreate: accessMode === "member_self_service",
+            canSettleExisting: true,
+            canStaffCreate:
+              accessMode === "office_only" ||
+              accessMode === "member_self_service",
+            canViewExisting: true,
+            serviceKey,
+            shouldShowInMemberNav: accessMode === "member_self_service",
+            shouldShowInStaffNav: accessMode !== "disabled",
+          },
+        ])
+      ) as never,
+      tenantId: "tenant-amanah-demo",
+    }
+  }
+
+  test("effective access always equals the configured access (no plan gate)", () => {
+    for (const accessMode of accessModes) {
+      const snapshot = buildMobileOperationProfileSnapshot({
+        profile: profileWith(accessMode),
+        tenantName: "Amanah",
+      })
+
+      for (const service of snapshot.services) {
+        expect(service.effectiveAccessMode).toBe(accessMode)
+        expect(service.effectiveCanMemberCreate).toBe(service.canMemberCreate)
+        expect(service.effectiveCanStaffCreate).toBe(service.canStaffCreate)
+      }
     }
   })
 
-  test("uses the stricter read-only subscription mode without hiding disabled services", () => {
-    expect(
-      resolveEffectiveOperationProfileAccessMode({
-        configuredAccessMode: "disabled",
-        subscriptionAccessEnabled: false,
-      })
-    ).toBe("disabled")
+  test("keeps an always-allowed subscription block for installed mobile builds", () => {
+    const snapshot = buildMobileOperationProfileSnapshot({
+      profile: profileWith("office_only"),
+      tenantName: "Amanah",
+    })
 
-    for (const configuredAccessMode of [
-      "office_only",
-      "member_self_service",
-      "read_only",
-    ] as const) {
-      expect(
-        resolveEffectiveOperationProfileAccessMode({
-          configuredAccessMode,
-          subscriptionAccessEnabled: false,
-        })
-      ).toBe("read_only")
-    }
+    expect(snapshot.subscription).toEqual(MOBILE_OPERATION_PROFILE_SUBSCRIPTION)
+    expect(snapshot.subscription).toEqual({
+      accessEnabled: true,
+      planCode: "halaalvest",
+      planName: "Halaalvest",
+      reason: null,
+      status: "active",
+    })
   })
 
   test("does not disclose Operation Profile settings to member workspaces", async () => {

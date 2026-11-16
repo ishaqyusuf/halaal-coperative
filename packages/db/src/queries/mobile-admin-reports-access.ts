@@ -5,7 +5,6 @@ import {
   getMobileReportCatalog,
   type MobileReportKey,
 } from "@halaalvest/domain/mobile-reports"
-import type { SubscriptionEntitlements } from "@halaalvest/domain/subscriptions"
 import { listActivityReportEvents } from "./audit"
 import {
   listTenantUsersWithMemberships,
@@ -136,9 +135,8 @@ function queueCount(
 function buildReportCards(
   metrics: Awaited<ReturnType<typeof getDashboardMetrics>>,
   summary: Awaited<ReturnType<typeof getOverviewSummary>>,
-  entitlements: SubscriptionEntitlements,
 ): MobileFeatureAdminReportCard[] {
-  return getMobileReportCatalog(entitlements).map((report) => {
+  return getMobileReportCatalog().map((report) => {
     const metric = {
       audit: ["Recent events", summary.recentActivity.length, "count"],
       charges: ["Open queue", queueCount(summary, "charges"), "count"],
@@ -206,7 +204,6 @@ function buildReportCards(
 
 export async function getMobileAdminReportsOverview(
   tenantId: string,
-  entitlements: SubscriptionEntitlements,
 ): Promise<MobileFeatureAdminReports> {
   const prisma = createPrismaClient()
   if (!prisma) {
@@ -234,7 +231,7 @@ export async function getMobileAdminReportsOverview(
       listActivityReportEvents(tenantId, { limit: 8 }, prisma),
       listCollectionFollowUps(tenantId, { limit: 8 }, prisma),
     ])
-  const reports = buildReportCards(metrics, summary, entitlements)
+  const reports = buildReportCards(metrics, summary)
 
   return {
     activityEvents: activityEvents.map((event) => ({

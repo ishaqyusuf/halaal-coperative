@@ -1,4 +1,3 @@
-import { QueryInfrastructureError } from "../query-error"
 import type { Prisma, PrismaClient } from "../../generated/prisma/client"
 import {
   createProductionQaHarnessEvidenceReport,
@@ -11,7 +10,6 @@ import {
 } from "@halaalvest/domain"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
-import { ensureSubscriptionPlans } from "./subscriptions"
 import {
   ensureProductionQaHarnessOverdueFixture,
   ensureProductionQaHarnessPendingReviewFixture,
@@ -43,13 +41,6 @@ const PRODUCTION_QA_HARNESS_TENANT_POLICY = {
   reserveBufferAmount: 250_000,
 } as const
 
-const PRODUCTION_QA_HARNESS_ADDONS = {
-  member_login: {
-    displayName: "Member login",
-    entitlementOverrides: { memberLogin: true },
-  },
-} as const
-
 export type ProductionQaHarnessCollision = {
   category:
     | "live_tenant_collision"
@@ -75,15 +66,6 @@ export function buildProductionQaHarnessScenarioSeed(input: {
   runId: string
   scenario: ProductionQaHarnessScenarioPlan
 }) {
-  const isFreeBeta = input.scenario.planCode === "free_beta"
-  const isEnterprise = input.scenario.planCode === "enterprise"
-  const isBlocked = input.scenario.state === "blocked"
-  const trialEndsAt = isFreeBeta
-    ? new Date(input.now.getTime() + 90 * 24 * 60 * 60 * 1000)
-    : null
-  const currentPeriodEndsAt = new Date(
-    input.now.getTime() + 30 * 24 * 60 * 60 * 1000
-  )
   const isSetupStage = input.scenario.state === "setup_migration"
   // The ready member's savings arrive through an applied brought-forward
   // opening balance, so the snapshot starts at zero and the ledger fills it.
@@ -130,37 +112,6 @@ export function buildProductionQaHarnessScenarioSeed(input: {
     operationProfile: {
       reviewedAt: input.now,
       serviceModes: input.scenario.serviceModes,
-    },
-    subscription: {
-      activeMemberLimitOverride:
-        input.scenario.state === "at_capacity" ? 1 : null,
-      currentPeriodEndsAt: isFreeBeta ? null : currentPeriodEndsAt,
-      currentPeriodStartsAt: isFreeBeta ? null : input.now,
-      graceEndsAt: isFreeBeta
-        ? new Date(trialEndsAt!.getTime() + 14 * 24 * 60 * 60 * 1000)
-        : null,
-      source: isFreeBeta
-        ? ("free_beta" as const)
-        : isEnterprise
-          ? ("enterprise_contract" as const)
-          : ("manual" as const),
-      sourceState: {
-        harnessContractVersion: 1,
-        initializedBy: "production_contract_qa_harness",
-        qaDomain: input.qaDomain,
-        runId: input.runId,
-        scenarioKey: input.scenario.key,
-        scenarioState: input.scenario.state,
-      },
-      status: isBlocked
-        ? ("suspended" as const)
-        : isFreeBeta
-          ? ("free_beta" as const)
-          : isEnterprise
-            ? ("enterprise" as const)
-            : ("active" as const),
-      trialEndsAt,
-      trialStartsAt: isFreeBeta ? input.now : null,
     },
     tenantPolicy: {
       ...PRODUCTION_QA_HARNESS_TENANT_POLICY,
@@ -326,7 +277,6 @@ export async function provisionProductionQaHarness(
     )
   }
 
-  await ensureSubscriptionPlans(prisma)
   const results: ProductionQaHarnessExecutionResult[] = []
 
   for (const scenario of preview.plan.scenarios.filter(({ key }) =>
@@ -470,10 +420,7 @@ export async function provisionProductionQaHarness(
     ({ scenarioKey }) => selectedKeys.has(scenarioKey)
   )
   const stateCoverage = {
-    complete: coveredScenarios.every(
-      ({ activeAddonPlanMatches, materialized }) =>
-        materialized && activeAddonPlanMatches
-    ),
+    complete: coveredScenarios.every(({ materialized }) => materialized),
     expectedStateCount: coveredScenarios.length,
     materializedStateCount: coveredScenarios.filter(
       ({ materialized }) => materialized
@@ -619,20 +566,6 @@ export async function inspectProductionQaHarnessStateCoverage(
       slug: true,
       startDate: true,
       status: true,
-      subscription: {
-        select: {
-          activeMemberLimitOverride: true,
-          addons: {
-            select: {
-              code: true,
-              endsAt: true,
-              startsAt: true,
-              status: true,
-            },
-          },
-          status: true,
-        },
-      },
       serviceSettings: {
         select: { accessMode: true, id: true, serviceKey: true },
         where: { serviceKey: "procurement" },
@@ -653,25 +586,8 @@ export async function inspectProductionQaHarnessStateCoverage(
       : 0
     const activeMembers =
       tenant?.members.filter(({ status }) => status === "active") ?? []
-    const activeAddonCodes =
-      tenant?.subscription?.addons
-        .filter(
-          ({ endsAt, startsAt, status }) =>
-            status === "active" && startsAt <= now && (!endsAt || endsAt > now)
-        )
-        .map(({ code }) => code)
-        .sort() ?? []
-    const plannedActiveAddonCodes = [...scenario.activeAddonCodes].sort()
-    const activeAddonPlanMatches =
-      activeAddonCodes.length === plannedActiveAddonCodes.length &&
-      activeAddonCodes.every(
-        (code, index) => code === plannedActiveAddonCodes[index]
-      )
     const evaluation = evaluateProductionQaHarnessStateMaterialization({
       facts: {
-        activeMemberCount: activeMembers.length,
-        activeMemberLimit:
-          tenant?.subscription?.activeMemberLimitOverride ?? null,
         hasKycIncompleteMember: activeMembers.some(
           ({ kycStatus }) => kycStatus !== "verified"
         ),
@@ -713,6 +629,11 @@ export async function inspectProductionQaHarnessStateCoverage(
             tenant.projectFinancingRequests.length)
         ),
         hasPublishedProfit: Boolean(tenant?.dividendPeriods.length),
+        hasRestrictedServices: Boolean(
+          tenant?.serviceSettings.some(
+            ({ accessMode }) => accessMode === "disabled"
+          )
+        ),
         hasStaleRecord: Boolean(
           tenant?.auditLogs.some(({ entityId }) =>
             tenant.serviceSettings.some(
@@ -734,7 +655,6 @@ export async function inspectProductionQaHarnessStateCoverage(
               tenant.migrationEmergencyUnlockUntil > now))
         ),
         productRecordCount,
-        subscriptionStatus: tenant?.subscription?.status ?? null,
         tenantStatus: tenant?.status ?? null,
       },
       state: scenario.state,
@@ -742,18 +662,13 @@ export async function inspectProductionQaHarnessStateCoverage(
 
     return {
       ...evaluation,
-      activeAddonCodes,
-      activeAddonPlanMatches,
       scenarioKey: scenario.key,
       tenantId: tenant?.id ?? null,
     }
   })
 
   return {
-    complete: scenarios.every(
-      ({ activeAddonPlanMatches, materialized }) =>
-        materialized && activeAddonPlanMatches
-    ),
+    complete: scenarios.every(({ materialized }) => materialized),
     expectedStateCount: scenarios.length,
     materializedStateCount: scenarios.filter(({ materialized }) => materialized)
       .length,
@@ -867,79 +782,6 @@ async function provisionScenario(input: {
         },
       })
     }
-  }
-
-  const plan = await input.transaction.subscriptionPlan.findUnique({
-    select: { id: true },
-    where: { code: input.scenario.planCode },
-  })
-  if (!plan) {
-    throw new QueryInfrastructureError(
-      `Subscription plan ${input.scenario.planCode} is missing.`
-    )
-  }
-  const subscription = await input.transaction.tenantSubscription.upsert({
-    create: {
-      ...seed.subscription,
-      planId: plan.id,
-      sourceState: seed.subscription
-        .sourceState as unknown as Prisma.InputJsonValue,
-      tenantId: tenant.id,
-    },
-    update: {
-      ...seed.subscription,
-      planId: plan.id,
-      providerCustomerId: null,
-      providerName: null,
-      providerSubscriptionId: null,
-      sourceState: seed.subscription
-        .sourceState as unknown as Prisma.InputJsonValue,
-    },
-    where: { tenantId: tenant.id },
-  })
-  await input.transaction.tenantSubscriptionAddon.deleteMany({
-    where: {
-      tenantSubscriptionId: subscription.id,
-      ...(input.scenario.activeAddonCodes.length > 0
-        ? { code: { notIn: input.scenario.activeAddonCodes } }
-        : {}),
-    },
-  })
-  for (const code of input.scenario.activeAddonCodes) {
-    const addon =
-      PRODUCTION_QA_HARNESS_ADDONS[
-        code as keyof typeof PRODUCTION_QA_HARNESS_ADDONS
-      ]
-    if (!addon) {
-      throw new QueryInfrastructureError(
-        `Unsupported production QA harness add-on: ${code}.`
-      )
-    }
-    await input.transaction.tenantSubscriptionAddon.upsert({
-      create: {
-        code,
-        displayName: addon.displayName,
-        entitlementOverrides: addon.entitlementOverrides,
-        startsAt: input.now,
-        status: "active",
-        tenantId: tenant.id,
-        tenantSubscriptionId: subscription.id,
-      },
-      update: {
-        displayName: addon.displayName,
-        endsAt: null,
-        entitlementOverrides: addon.entitlementOverrides,
-        providerAddonId: null,
-        startsAt: input.now,
-        status: "active",
-      },
-      where: {
-        tenantSubscriptionId_code: {
-          code,
-          tenantSubscriptionId: subscription.id,
-        },
-      },
-    })
   }
 
   const operationProfile =

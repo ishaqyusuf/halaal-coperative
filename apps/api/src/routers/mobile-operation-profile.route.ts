@@ -1,12 +1,9 @@
 import {
   getTenantOperationProfile,
-  getTenantSubscriptionSnapshot,
-  SubscriptionEntitlementError,
   tenantServiceAccessModes,
   tenantServiceKeys,
   updateTenantOperationProfileService,
   type TenantOperationProfileReadModel,
-  type TenantServiceAccessMode,
 } from "@halaalvest/db"
 import { z } from "zod"
 
@@ -19,17 +16,23 @@ const updateServiceInput = z.object({
   serviceKey: z.enum(tenantServiceKeys),
 })
 
-export function resolveEffectiveOperationProfileAccessMode(input: {
-  configuredAccessMode: TenantServiceAccessMode
-  subscriptionAccessEnabled: boolean
-}): TenantServiceAccessMode {
-  if (input.subscriptionAccessEnabled) return input.configuredAccessMode
-  return input.configuredAccessMode === "disabled" ? "disabled" : "read_only"
-}
+/**
+ * Triage 2.8 retired the old tenant plan, so no subscription state limits a
+ * service: the effective access is always what the cooperative configured.
+ * `subscription` stays in the response, always allowed, because installed
+ * mobile builds still read `subscription.accessEnabled` before allowing edits.
+ */
+export const MOBILE_OPERATION_PROFILE_SUBSCRIPTION = {
+  accessEnabled: true,
+  planCode: "halaalvest",
+  planName: "Halaalvest",
+  reason: null,
+  status: "active",
+} as const
 
-function buildMobileOperationProfileSnapshot(input: {
+export function buildMobileOperationProfileSnapshot(input: {
+  now?: Date
   profile: TenantOperationProfileReadModel
-  subscription: Awaited<ReturnType<typeof getTenantSubscriptionSnapshot>>
   tenantName: string
 }) {
   return {
@@ -38,34 +41,20 @@ function buildMobileOperationProfileSnapshot(input: {
     reviewedByUserId: input.profile.reviewedByUserId,
     services: tenantServiceKeys.map((serviceKey) => {
       const configured = input.profile.services[serviceKey]
-      const effectiveAccessMode = resolveEffectiveOperationProfileAccessMode({
-        configuredAccessMode: configured.accessMode,
-        subscriptionAccessEnabled: input.subscription.enforcement.accessEnabled,
-      })
 
       return {
         ...configured,
-        effectiveAccessMode,
-        effectiveCanMemberCreate:
-          input.subscription.enforcement.accessEnabled &&
-          configured.canMemberCreate,
-        effectiveCanStaffCreate:
-          input.subscription.enforcement.accessEnabled &&
-          configured.canStaffCreate,
+        effectiveAccessMode: configured.accessMode,
+        effectiveCanMemberCreate: configured.canMemberCreate,
+        effectiveCanStaffCreate: configured.canStaffCreate,
       }
     }),
-    subscription: {
-      accessEnabled: input.subscription.enforcement.accessEnabled,
-      planCode: input.subscription.plan.code,
-      planName: input.subscription.plan.displayName,
-      reason: input.subscription.enforcement.reason,
-      status: input.subscription.status,
-    },
+    subscription: MOBILE_OPERATION_PROFILE_SUBSCRIPTION,
     tenant: {
       id: input.profile.tenantId,
       name: input.tenantName,
     },
-    updatedAt: new Date().toISOString(),
+    updatedAt: (input.now ?? new Date()).toISOString(),
   }
 }
 
@@ -73,14 +62,10 @@ export const mobileOperationProfileProcedures = {
   operationProfile: createTRPCRouter({
     overview: permissionProcedure("manage_operation_profile").query(
       async ({ ctx }) => {
-        const [profile, subscription] = await Promise.all([
-          getTenantOperationProfile(ctx.tenant.current.id),
-          getTenantSubscriptionSnapshot({ tenantId: ctx.tenant.current.id }),
-        ])
+        const profile = await getTenantOperationProfile(ctx.tenant.current.id)
 
         return buildMobileOperationProfileSnapshot({
           profile,
-          subscription,
           tenantName: ctx.tenant.current.name,
         })
       }
@@ -88,18 +73,6 @@ export const mobileOperationProfileProcedures = {
     updateService: permissionProcedure("manage_operation_profile")
       .input(updateServiceInput)
       .mutation(async ({ ctx, input }) => {
-        const subscription = await getTenantSubscriptionSnapshot({
-          tenantId: ctx.tenant.current.id,
-        })
-
-        if (!subscription.enforcement.accessEnabled) {
-          throw new SubscriptionEntitlementError(
-            subscription.enforcement.reason ??
-              "operation_profile_changes_not_entitled",
-            "Operation Profile changes are unavailable while subscription access is restricted."
-          )
-        }
-
         const profile = await updateTenantOperationProfileService({
           ...input,
           actorUserId: ctx.auth.session.user.id,
@@ -108,7 +81,6 @@ export const mobileOperationProfileProcedures = {
 
         return buildMobileOperationProfileSnapshot({
           profile,
-          subscription,
           tenantName: ctx.tenant.current.name,
         })
       }),

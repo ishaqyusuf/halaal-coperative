@@ -1,6 +1,5 @@
 import { PrismaPg } from "@prisma/adapter-pg"
 import { hashQaAcceleratorEvidence } from "@halaalvest/auth"
-import { SUBSCRIPTION_PLAN_DEFINITIONS } from "@halaalvest/domain/subscriptions"
 import { PrismaClient } from "../generated/prisma/client"
 import { buildTenantSiteHostname } from "@halaalvest/utils"
 import { normalizePostgresConnectionString } from "../src/postgres-connection"
@@ -40,40 +39,6 @@ async function seedQaAcceleratorFixtures() {
       state: "Kaduna",
       status: "active",
       timezone: "Africa/Lagos",
-    },
-  })
-
-  const standardDefinition = SUBSCRIPTION_PLAN_DEFINITIONS.standard
-  const standardPlan = await prisma.subscriptionPlan.upsert({
-    where: { code: "standard" },
-    update: {},
-    create: {
-      activeMemberLimit: standardDefinition.activeMemberLimit,
-      addonDefinitions: standardDefinition.addonDefinitions,
-      availableAddonCodes: standardDefinition.availableAddonCodes,
-      code: "standard",
-      currencyCode: "NGN",
-      description: standardDefinition.description,
-      displayName: standardDefinition.displayName,
-      entitlementDefinition: standardDefinition.entitlements,
-      isPublic: true,
-      monthlyPriceMax: standardDefinition.monthlyPrice.maximum,
-      monthlyPriceMin: standardDefinition.monthlyPrice.minimum,
-      passThroughCostDefinitions: standardDefinition.passThroughCostDefinitions,
-      setupFeeMax: standardDefinition.setupFee.maximum,
-      setupFeeMin: standardDefinition.setupFee.minimum,
-      sortOrder: standardDefinition.sortOrder,
-    },
-  })
-  await prisma.tenantSubscription.upsert({
-    where: { tenantId: tenant.id },
-    update: { planId: standardPlan.id, status: "manual" },
-    create: {
-      planId: standardPlan.id,
-      source: "manual",
-      sourceState: { initializedBy: "qa_accelerator_seed" },
-      status: "manual",
-      tenantId: tenant.id,
     },
   })
 

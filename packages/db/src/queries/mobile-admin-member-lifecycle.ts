@@ -19,7 +19,6 @@ import {
   listMemberPaymentReceipts,
 } from "./payment-receipts"
 import { getMemberSupportCaseSummary, listSupportCases } from "./support"
-import { getTenantSubscriptionSnapshot } from "./subscriptions"
 import {
   getMemberShareBalancesAtDate,
   listMemberShareApplications,
@@ -70,36 +69,19 @@ type MobileAdminMemberRow = {
   status: string
 }
 
-type MobileMemberExpansionSnapshot = {
-  enforcement: {
-    canActivateMember: boolean
-    reason: string | null
-  }
-  plan: {
-    code: string
-    displayName: string
-  }
-  usage: {
-    activeMemberCount: number
-    activeMemberLimit: number | null
-    isAtCapacity: boolean
-  }
-}
-
-export function toMobileMemberExpansion(
-  snapshot: MobileMemberExpansionSnapshot
-) {
+/**
+ * Triage 2.8 retired the old plan member cap, so adding members is always
+ * available. The field stays in the directory response because installed
+ * mobile builds only show "Add member" while `status` is "available".
+ */
+export function toMobileMemberExpansion(activeMemberCount: number) {
   return {
-    activeMemberCount: snapshot.usage.activeMemberCount,
-    activeMemberLimit: snapshot.usage.activeMemberLimit,
-    planCode: snapshot.plan.code,
-    planName: snapshot.plan.displayName,
-    reason: snapshot.enforcement.reason,
-    status: snapshot.usage.isAtCapacity
-      ? ("at_capacity" as const)
-      : snapshot.enforcement.canActivateMember
-        ? ("available" as const)
-        : ("restricted" as const),
+    activeMemberCount,
+    activeMemberLimit: null,
+    planCode: null,
+    planName: null,
+    reason: null,
+    status: "available" as const,
   }
 }
 
@@ -218,14 +200,7 @@ export async function getMobileAdminMemberDirectory(input: {
   if (!prisma) {
     return {
       generatedAt: new Date().toISOString(),
-      memberExpansion: {
-        activeMemberCount: 0,
-        activeMemberLimit: null,
-        planCode: null,
-        planName: null,
-        reason: "billing_infrastructure_unavailable",
-        status: "restricted" as const,
-      },
+      memberExpansion: toMobileMemberExpansion(0),
       members: [],
       onboardingRequests: [],
       page,
@@ -242,7 +217,7 @@ export async function getMobileAdminMemberDirectory(input: {
     }
   }
 
-  const [result, registry, overview, onboarding, subscription] =
+  const [result, registry, overview, onboarding, activeMemberCount] =
     await Promise.all([
       listMembers(
         input.tenantId,
@@ -270,7 +245,9 @@ export async function getMobileAdminMemberDirectory(input: {
         { pageSize: 3, status: "pending_approval" },
         prisma
       ),
-      getTenantSubscriptionSnapshot({ tenantId: input.tenantId }, prisma),
+      prisma.member.count({
+        where: { status: "active", tenantId: input.tenantId },
+      }),
     ])
   const members = result.items.map(toMemberRow)
   const reviewQueues = overview.actionQueue.flatMap((item) => {
@@ -293,7 +270,7 @@ export async function getMobileAdminMemberDirectory(input: {
 
   return {
     generatedAt: new Date().toISOString(),
-    memberExpansion: toMobileMemberExpansion(subscription),
+    memberExpansion: toMobileMemberExpansion(activeMemberCount),
     members,
     onboardingRequests: onboarding.items.map((item) => ({
       createdAt: item.createdAt.toISOString(),

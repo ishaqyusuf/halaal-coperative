@@ -3,11 +3,6 @@ import {
   normalizeQaDomain,
   type QaAcceleratorEnvironment,
 } from "./qa-accelerator"
-import {
-  SUBSCRIPTION_PLAN_CODES,
-  SUBSCRIPTION_PLAN_DEFINITIONS,
-  type SubscriptionPlanCode,
-} from "./subscriptions"
 
 export const PRODUCTION_QA_HARNESS_CONTRACT_VERSION = 1 as const
 
@@ -24,7 +19,6 @@ export const PRODUCTION_QA_HARNESS_STATES = [
   "stale",
   "overdue",
   "blocked",
-  "at_capacity",
   "kyc_incomplete",
   "pending_review",
   "published_profit",
@@ -122,34 +116,28 @@ export const PRODUCTION_QA_HARNESS_OPERATION_PROFILES = {
 >
 
 type ProductionQaHarnessScenarioDefinition = {
-  activeAddonCodes: readonly string[]
   cooperativeCodePrefix: string
   key: string
   label: string
   operationProfile: ProductionQaHarnessOperationProfile
-  planCode: SubscriptionPlanCode
   productAreas: readonly ProductionQaHarnessProductArea[]
   state: ProductionQaHarnessState
 }
 
 const PRODUCTION_QA_HARNESS_SCENARIOS = [
   {
-    activeAddonCodes: [],
     cooperativeCodePrefix: "QFB",
     key: "free-beta-empty",
     label: "Free Beta Empty",
     operationProfile: "restricted",
-    planCode: "free_beta",
     productAreas: ["activation_auth", "subscription", "member_reads"],
     state: "empty",
   },
   {
-    activeAddonCodes: ["member_login"],
     cooperativeCodePrefix: "QSH",
     key: "starter-healthy",
     label: "Starter Healthy",
     operationProfile: "office_led",
-    planCode: "starter",
     productAreas: [
       "activation_auth",
       "role_switching",
@@ -163,12 +151,10 @@ const PRODUCTION_QA_HARNESS_SCENARIOS = [
     state: "healthy",
   },
   {
-    activeAddonCodes: [],
     cooperativeCodePrefix: "QSR",
     key: "standard-review",
     label: "Standard Pending Review",
     operationProfile: "member_self_service",
-    planCode: "standard",
     productAreas: [
       "requests",
       "receipts",
@@ -179,74 +165,52 @@ const PRODUCTION_QA_HARNESS_SCENARIOS = [
     state: "pending_review",
   },
   {
-    activeAddonCodes: [],
     cooperativeCodePrefix: "QGO",
     key: "growth-overdue",
     label: "Growth Overdue",
     operationProfile: "member_self_service",
-    planCode: "growth",
     productAreas: ["financing_execution", "reports"],
     state: "overdue",
   },
   {
-    activeAddonCodes: [],
     cooperativeCodePrefix: "QEP",
     key: "enterprise-profit",
     label: "Enterprise Published Profit",
     operationProfile: "office_led",
-    planCode: "enterprise",
     productAreas: ["shares_profit", "reports"],
     state: "published_profit",
   },
   {
-    activeAddonCodes: [],
-    cooperativeCodePrefix: "QSC",
-    key: "starter-capacity",
-    label: "Starter At Capacity",
-    operationProfile: "office_led",
-    planCode: "starter",
-    productAreas: ["subscription", "member_reads"],
-    state: "at_capacity",
-  },
-  {
-    activeAddonCodes: [],
     cooperativeCodePrefix: "QSK",
     key: "standard-kyc",
     label: "Standard KYC Incomplete",
     operationProfile: "member_self_service",
-    planCode: "standard",
     productAreas: ["activation_auth", "requests", "financing_execution"],
     state: "kyc_incomplete",
   },
   {
-    activeAddonCodes: [],
     cooperativeCodePrefix: "QGB",
     key: "growth-blocked",
     label: "Growth Blocked",
     operationProfile: "restricted",
-    planCode: "growth",
     productAreas: ["service_fulfillment", "push_deep_links", "revocation"],
     state: "blocked",
   },
   {
-    activeAddonCodes: [],
     cooperativeCodePrefix: "QES",
     key: "enterprise-stale",
     label: "Enterprise Stale",
     operationProfile: "read_only",
-    planCode: "enterprise",
     productAreas: ["reports", "push_deep_links"],
     state: "stale",
   },
   {
     // A cooperative still moving its records in: active (so QA sign-in works)
     // but before go-live, so the import and migration tools stay open.
-    activeAddonCodes: [],
     cooperativeCodePrefix: "QSS",
     key: "standard-setup",
     label: "Standard Setup Stage",
     operationProfile: "office_led",
-    planCode: "standard",
     productAreas: ["activation_auth", "member_reads"],
     state: "setup_migration",
   },
@@ -254,12 +218,10 @@ const PRODUCTION_QA_HARNESS_SCENARIOS = [
     // A live cooperative whose member can ask for things today: KYC verified,
     // brought-forward opening balance applied, request charges configured and
     // one pay-separately charge waiting for Record payment.
-    activeAddonCodes: [],
     cooperativeCodePrefix: "QMR",
     key: "standard-ready",
     label: "Standard Member Ready",
     operationProfile: "member_self_service",
-    planCode: "standard",
     productAreas: ["requests", "receipts", "charges"],
     state: "member_ready",
   },
@@ -289,14 +251,12 @@ export type ProductionQaHarnessIdentityPlan = {
 }
 
 export type ProductionQaHarnessScenarioPlan = {
-  activeAddonCodes: string[]
   cooperativeCodePrefix: string
   identities: ProductionQaHarnessIdentityPlan[]
   key: string
   memberNumberPrefix: string
   name: string
   operationProfile: ProductionQaHarnessOperationProfile
-  planCode: SubscriptionPlanCode
   productAreas: ProductionQaHarnessProductArea[]
   serviceModes: Record<
     ProductionQaHarnessServiceKey,
@@ -366,14 +326,12 @@ export function createProductionQaHarnessPlan(input: {
     })
 
     return {
-      activeAddonCodes: [...scenario.activeAddonCodes],
       cooperativeCodePrefix: scenario.cooperativeCodePrefix,
       identities,
       key: scenario.key,
       memberNumberPrefix,
       name: `QA ONLY — ${scenario.label} Cooperative`,
       operationProfile: scenario.operationProfile,
-      planCode: scenario.planCode,
       productAreas: [...scenario.productAreas],
       serviceModes: {
         ...PRODUCTION_QA_HARNESS_OPERATION_PROFILES[scenario.operationProfile],
@@ -412,11 +370,6 @@ export function assertProductionQaHarnessPlan(
   }
 
   assertRequiredCoverage(
-    "subscription plans",
-    plan.scenarios.map(({ planCode }) => planCode),
-    SUBSCRIPTION_PLAN_CODES
-  )
-  assertRequiredCoverage(
     "scenario states",
     plan.scenarios.map(({ state }) => state),
     PRODUCTION_QA_HARNESS_STATES
@@ -451,25 +404,6 @@ export function assertProductionQaHarnessPlan(
     }
     slugs.add(scenario.slug)
     prefixes.add(scenario.cooperativeCodePrefix)
-
-    if (
-      new Set(scenario.activeAddonCodes).size !==
-      scenario.activeAddonCodes.length
-    ) {
-      throw new Error(
-        `Scenario ${scenario.key} contains duplicate active add-ons.`
-      )
-    }
-    const availableAddonCodes = new Set(
-      SUBSCRIPTION_PLAN_DEFINITIONS[scenario.planCode].availableAddonCodes
-    )
-    for (const addonCode of scenario.activeAddonCodes) {
-      if (!availableAddonCodes.has(addonCode)) {
-        throw new Error(
-          `Scenario ${scenario.key} contains add-on ${addonCode} outside plan ${scenario.planCode}.`
-        )
-      }
-    }
 
     assertRequiredCoverage(
       `${scenario.key} roles`,
@@ -536,8 +470,6 @@ export type ProductionQaHarnessExecutionResult = {
 }
 
 export type ProductionQaHarnessStateFacts = {
-  activeMemberCount: number
-  activeMemberLimit: number | null
   hasKycIncompleteMember: boolean
   /** An active member passes operational readiness (KYC and migration). */
   hasOperationallyReadyMember?: boolean
@@ -548,12 +480,13 @@ export type ProductionQaHarnessStateFacts = {
   hasPublishedProfit: boolean
   /** Request workflows carry both submission and approval charges. */
   hasRequestWorkflowCharges?: boolean
+  /** The Operation Profile turns procurement off (the restricted profile). */
+  hasRestrictedServices?: boolean
   hasStaleRecord: boolean
   hasVerifiedActiveMember: boolean
   /** True when the tenant has not gone live (or has an emergency unlock). */
   migrationToolsOpen?: boolean
   productRecordCount: number
-  subscriptionStatus: string | null
   tenantStatus: string | null
 }
 
@@ -570,17 +503,11 @@ export function evaluateProductionQaHarnessStateMaterialization(input: {
   const { facts, state } = input
   const tenantIsActive = facts.tenantStatus === "active"
   const evaluations = {
-    at_capacity: {
-      evidenceCode: "active_member_limit_reached",
-      materialized:
-        tenantIsActive &&
-        facts.activeMemberLimit !== null &&
-        facts.activeMemberLimit > 0 &&
-        facts.activeMemberCount >= facts.activeMemberLimit,
-    },
+    // Triage 2.8: no plan or subscription state blocks a workspace any more,
+    // so "blocked" is the cooperative's own restricted Operation Profile.
     blocked: {
-      evidenceCode: "subscription_suspended",
-      materialized: tenantIsActive && facts.subscriptionStatus === "suspended",
+      evidenceCode: "operation_profile_services_restricted",
+      materialized: tenantIsActive && facts.hasRestrictedServices === true,
     },
     empty: {
       evidenceCode: "no_core_product_records",
@@ -588,12 +515,7 @@ export function evaluateProductionQaHarnessStateMaterialization(input: {
     },
     healthy: {
       evidenceCode: "active_verified_member",
-      materialized:
-        tenantIsActive &&
-        ["active", "enterprise", "free_beta", "manual", "trialing"].includes(
-          facts.subscriptionStatus ?? ""
-        ) &&
-        facts.hasVerifiedActiveMember,
+      materialized: tenantIsActive && facts.hasVerifiedActiveMember,
     },
     member_ready: {
       evidenceCode: "ready_member_with_request_charges",
@@ -660,8 +582,8 @@ export function createProductionQaHarnessEvidenceReport(input: {
     "",
     "## Scenario matrix",
     "",
-    "| Scenario | Plan | Operation Profile | State | Result |",
-    "| --- | --- | --- | --- | --- |",
+    "| Scenario | Operation Profile | State | Result |",
+    "| --- | --- | --- | --- |",
   ]
 
   const resultsByScenario = new Map(
@@ -673,7 +595,7 @@ export function createProductionQaHarnessEvidenceReport(input: {
       ? `${result.status}${result.errorCode ? ` (${result.errorCode})` : ""}`
       : "not run"
     lines.push(
-      `| ${scenario.key} | ${scenario.planCode} | ${scenario.operationProfile} | ${scenario.state} | ${resultLabel} |`
+      `| ${scenario.key} | ${scenario.operationProfile} | ${scenario.state} | ${resultLabel} |`
     )
   }
 

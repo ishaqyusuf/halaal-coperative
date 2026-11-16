@@ -22,7 +22,6 @@ import { ensureMemberInGeneratedMonthlyRecord } from "./monthly-records"
 import { getTenantOperationProfile } from "./operation-profile"
 import { assertQaIdentityLane } from "./qa-maintenance"
 import { claimDashboardEvidenceUploadLink } from "./dashboard-evidence-uploads"
-import { assertTenantCanActivateMember } from "./subscriptions"
 
 export type ListMembersFilters = {
   kycStatus?: KycStatus
@@ -861,10 +860,6 @@ export async function createMemberWithState(
   tx: MemberWriteClient,
   input: CreateMemberInput
 ) {
-  await assertTenantCanActivateMember(
-    input.tenantId,
-    tx as unknown as PrismaClient
-  )
   await assertMemberProfileMutationOpen(input.tenantId, tx)
   await assertQaIdentityLane({
     email: input.email,
@@ -1251,12 +1246,6 @@ export async function updateMemberStatus(
       throw ExpectedQueryError.notFound("Member not found.")
     }
     assertMemberStatusTransition(currentMember.status, newStatus)
-    if (newStatus === "active" && currentMember.status !== "active") {
-      await assertTenantCanActivateMember(
-        tenantId,
-        tx as unknown as PrismaClient
-      )
-    }
 
     const member = await tx.member.update({
       where: { id: memberId, tenantId },

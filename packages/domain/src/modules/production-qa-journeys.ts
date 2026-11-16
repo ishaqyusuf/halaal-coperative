@@ -536,7 +536,7 @@ export const PRODUCTION_QA_POSITIVE_JOURNEYS = [
     steps: [
       apiStep({
         contract: "mobile.admin.reports.overview",
-        evidence: "The report catalog reflects current plan entitlements.",
+        evidence: "The report catalog lists every report as available.",
         key: "reports-overview",
         operation: "query",
       }),

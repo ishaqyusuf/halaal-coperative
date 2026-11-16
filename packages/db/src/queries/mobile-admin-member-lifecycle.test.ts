@@ -63,27 +63,18 @@ describe("mobile admin lifecycle overview", () => {
     ])
   })
 
-  test("maps the subscription authority into a member-expansion contract", () => {
-    expect(
-      toMobileMemberExpansion({
-        enforcement: {
-          canActivateMember: false,
-          reason: "active_member_limit_reached",
-        },
-        plan: { code: "starter", displayName: "Starter" },
-        usage: {
-          activeMemberCount: 1,
-          activeMemberLimit: 1,
-          isAtCapacity: true,
-        },
+  test("always reports member expansion as available, with no member cap", () => {
+    // Triage 2.8: the old plan's active-member cap is gone. Installed mobile
+    // builds read this shape, so it stays, always allowed.
+    for (const activeMemberCount of [0, 100, 1_000_000]) {
+      expect(toMobileMemberExpansion(activeMemberCount)).toEqual({
+        activeMemberCount,
+        activeMemberLimit: null,
+        planCode: null,
+        planName: null,
+        reason: null,
+        status: "available",
       })
-    ).toEqual({
-      activeMemberCount: 1,
-      activeMemberLimit: 1,
-      planCode: "starter",
-      planName: "Starter",
-      reason: "active_member_limit_reached",
-      status: "at_capacity",
-    })
+    }
   })
 })

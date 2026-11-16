@@ -32,6 +32,7 @@ function runtime(input?: {
   let finalAudit: unknown
   const attemptAudits: unknown[] = []
   const disabled: string[] = []
+  const registrationLookups: unknown[] = []
   const receipts: unknown[] = []
   const sent: unknown[] = []
   return {
@@ -46,10 +47,10 @@ function runtime(input?: {
         disabled.push(entry.registrationId)
         return { disabled: true as const }
       },
-      getSubscription: async () => ({
-        enforcement: { memberLoginEnabled: true },
-      }),
-      listRegistrations: async () => input?.registrations ?? [],
+      listRegistrations: async (lookup: unknown) => {
+        registrationLookups.push(lookup)
+        return input?.registrations ?? []
+      },
       prisma: {
         auditLog: {
           findUnique: async () =>
@@ -75,6 +76,7 @@ function runtime(input?: {
     } as never,
     sent,
     receipts,
+    registrationLookups,
     attemptAudits,
   }
 }
@@ -97,6 +99,21 @@ describe("mobile push delivery handler", () => {
       suppressed: 0,
     })
     expect(fixture.sent).toHaveLength(0)
+  })
+
+  test("looks up member recipients without any old-plan member-login gate", async () => {
+    // Triage 2.8: delivery no longer reads a tenant plan snapshot, so a member
+    // push is only filtered by tenant policy and the member's own preferences.
+    const fixture = runtime()
+    await mobilePushDeliveryHandler(payload, fixture.overrides)
+    expect(fixture.registrationLookups).toEqual([
+      {
+        category: "financing",
+        role: "member",
+        tenantId: "tenant-1",
+        userId: "user-1",
+      },
+    ])
   })
 
   test("records preference or registration suppression without contacting Expo", async () => {

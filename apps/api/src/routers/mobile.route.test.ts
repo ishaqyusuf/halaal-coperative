@@ -163,7 +163,10 @@ describe("mobileRouter", () => {
     ).rejects.toThrow("Switch to the member workspace")
   })
 
-  test("fails member statement export closed when entitlements are unavailable", async () => {
+  test("does not gate member statement export on a tenant plan", async () => {
+    // Triage 2.8: no plan "member statements" entitlement. Without a database
+    // the export reaches the statement read itself (no member profile here),
+    // instead of being refused for the workspace's plan.
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin-member",
     })
@@ -172,7 +175,7 @@ describe("mobileRouter", () => {
       caller.mobile.member.statementExport({
         requestId: "00000000-0000-4000-8000-000000000928",
       })
-    ).rejects.toThrow("You do not have permission")
+    ).rejects.toThrow("Member statement was not found.")
   })
 
   test("returns member sections for the active member workspace", async () => {
@@ -1535,7 +1538,8 @@ describe("mobileRouter", () => {
     ).rejects.toThrow("You do not have permission")
   })
 
-  test("fails audit export closed when report entitlements are unavailable", async () => {
+  test("generates the audit export without a plan report or audit depth", async () => {
+    // Triage 2.8: every workspace can generate every report.
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin",
     })
@@ -1545,7 +1549,10 @@ describe("mobileRouter", () => {
         key: "audit",
         requestId: "00000000-0000-4000-8000-000000000930",
       })
-    ).rejects.toThrow("You do not have permission")
+    ).resolves.toMatchObject({
+      id: "00000000-0000-4000-8000-000000000930",
+      key: "audit",
+    })
   })
 
   test("returns admin access overview for tenant admin workspaces", async () => {

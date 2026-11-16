@@ -9,7 +9,6 @@ import {
   getMobileMemberSharesSnapshot,
   getMobileMemberShareApplicationsPage,
   getMobileMemberStatementSnapshot,
-  getTenantSubscriptionSnapshot,
   mobileMemberSectionKeys,
   mobileMemberActivityKindKeys,
   type MobileMemberCommitments,
@@ -162,18 +161,6 @@ export const mobileMemberCoreProcedures = {
     .input(mobileStatementExportInput)
     .mutation(async ({ ctx, input }) => {
       assertMemberWorkspace(ctx.auth.activeMembership.role)
-      const subscription = await getTenantSubscriptionSnapshot({
-        tenantId: ctx.tenant.current.id,
-      })
-      if (
-        subscription.entitlements.memberStatements !== "member_and_admin"
-      ) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message:
-            "Member statement downloads are not included in the active subscription.",
-        })
-      }
 
       const generated = await createMobileMemberStatementExport({
         tenantId: ctx.tenant.current.id,

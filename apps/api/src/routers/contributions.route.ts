@@ -2,6 +2,7 @@ import { z } from "zod"
 import { createTRPCRouter, minRoleProcedure } from "../lib.trpc"
 import {
   listContributions,
+  listMemberContributionPlanOptions,
   recordContribution,
   getContributionHistory,
   getMemberSavingsTotal,
@@ -121,6 +122,22 @@ export const contributionsRouter = createTRPCRouter({
         notes: input.notes,
         actorUserId: ctx.auth.session.user.id,
       })
+    }),
+
+  /** The chosen member's active plans, for the payment form's plan picker. */
+  memberPlanOptions: minRoleProcedure("operations_officer")
+    .input(z.object({ memberId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const plans = await listMemberContributionPlanOptions({
+        memberId: input.memberId,
+        tenantId: ctx.tenant.current.id,
+      })
+
+      return plans.map((plan) => ({
+        amount: Number(plan.amount),
+        id: plan.id,
+        memberName: plan.member.fullName,
+      }))
     }),
 
   memberHistory: minRoleProcedure("operations_officer")

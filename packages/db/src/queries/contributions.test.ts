@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test"
 import {
+  activeContributionPlanListLimit,
   closeContributionPlan,
+  listActiveContributionPlans,
   listContributions,
+  listMemberContributionPlanOptions,
   recordContribution,
   recordMemberPayment,
   resolveMemberPaymentAllocation,
@@ -872,5 +875,100 @@ describe("contribution live write guards", () => {
         prisma as never
       )
     ).rejects.toThrow("Approved financial adjustment review is required")
+  })
+})
+
+describe("contribution plan reads", () => {
+  function createPlanPrisma(rowCount: number, total = rowCount) {
+    const calls: Array<{ args: any; method: string }> = []
+    const prisma = {
+      contributionPlan: {
+        count: async (args: any) => {
+          calls.push({ args, method: "count" })
+          return total
+        },
+        findMany: async (args: any) => {
+          calls.push({ args, method: "findMany" })
+          return Array.from({ length: rowCount }, (_, index) => ({
+            amount: 25000,
+            id: `plan-${index}`,
+            member: { fullName: `Member ${index}` },
+            name: "Monthly",
+            startsAt: new Date("2026-01-01T00:00:00.000Z"),
+          }))
+        },
+      },
+    }
+
+    return { calls, prisma }
+  }
+
+  test("lists active plans lean, newest first, capped at 100", async () => {
+    const { calls, prisma } = createPlanPrisma(3)
+
+    const result = await listActiveContributionPlans(
+      "tenant-1",
+      {},
+      prisma as never
+    )
+
+    expect(activeContributionPlanListLimit).toBe(100)
+    expect(calls).toEqual([
+      {
+        args: {
+          orderBy: { createdAt: "desc" },
+          select: {
+            amount: true,
+            id: true,
+            member: { select: { fullName: true } },
+            name: true,
+            startsAt: true,
+          },
+          take: 100,
+          where: { isActive: true, tenantId: "tenant-1" },
+        },
+        method: "findMany",
+      },
+    ])
+    // A short list is the whole list: no count query.
+    expect(result.total).toBe(3)
+    expect(result.items).toHaveLength(3)
+  })
+
+  test("counts every active plan only when the list is full", async () => {
+    const { calls, prisma } = createPlanPrisma(2, 57)
+
+    const result = await listActiveContributionPlans(
+      "tenant-1",
+      { limit: 2 },
+      prisma as never
+    )
+
+    expect(calls.map((call) => call.method)).toEqual(["findMany", "count"])
+    expect(calls[1]?.args).toEqual({
+      where: { isActive: true, tenantId: "tenant-1" },
+    })
+    expect(result.items).toHaveLength(2)
+    expect(result.total).toBe(57)
+  })
+
+  test("reads one member's active plans for the payment picker", async () => {
+    const { calls, prisma } = createPlanPrisma(1)
+
+    await listMemberContributionPlanOptions(
+      { memberId: "member-1", tenantId: "tenant-1" },
+      prisma as never
+    )
+
+    expect(calls[0]?.args).toEqual({
+      orderBy: { createdAt: "desc" },
+      select: {
+        amount: true,
+        id: true,
+        member: { select: { fullName: true } },
+      },
+      take: 20,
+      where: { isActive: true, memberId: "member-1", tenantId: "tenant-1" },
+    })
   })
 })

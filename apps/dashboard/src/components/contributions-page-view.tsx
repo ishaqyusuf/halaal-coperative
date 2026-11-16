@@ -106,7 +106,7 @@ export function ContributionsPageView({
     filters.view === "collections" && !canUseCollectionSourceBatches
       ? "ledger"
       : (filters.view ?? "ledger")
-  const activeCommitmentPlans = commitmentPlans.filter((plan) => plan.isActive)
+  const activeCommitmentPlans = commitmentPlans.items
   const activeLoans = loans.filter((loan) =>
     ["approved", "disbursed", "active"].includes(loan.status)
   )
@@ -195,6 +195,7 @@ export function ContributionsPageView({
           {activeView === "commitments" ? (
             <CommitmentsView
               activeCommitmentPlans={activeCommitmentPlans}
+              activePlanTotal={commitmentPlans.total}
               canRecordContributions={canRecordContributions}
               members={members.items}
               paymentOrderTotal={members.total}
@@ -235,11 +236,14 @@ function ContributionPageScrollHeader() {
 
 function CommitmentsView({
   activeCommitmentPlans,
+  activePlanTotal,
   canRecordContributions,
   members,
   paymentOrderTotal,
 }: {
-  activeCommitmentPlans: ContributionsPageData["commitmentPlans"]
+  activeCommitmentPlans: ContributionsPageData["commitmentPlans"]["items"]
+  /** Every active plan; the list shows the newest 100. */
+  activePlanTotal: number
   canRecordContributions: boolean
   members: ContributionsPageData["members"]["items"]
   paymentOrderTotal: number
@@ -267,7 +271,7 @@ function CommitmentsView({
             Active
           </h3>
           <span className="text-sm text-muted-foreground tabular-nums">
-            {activeCommitmentPlans.length}
+            {activePlanTotal}
           </span>
         </div>
         {activeCommitmentPlans.length ? (

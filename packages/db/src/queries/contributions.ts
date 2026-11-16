@@ -340,25 +340,71 @@ export async function listContributions(
   return { items, nextCursor, total: total ?? 0, page, pageSize }
 }
 
-export async function listContributionPlans(
+/** Rows shown on the Commitments tab's Active list. */
+export const activeContributionPlanListLimit = 100
+
+/**
+ * Active monthly amounts for the Commitments tab, newest first, with only
+ * the fields the list and its edit sheet read. Capped at `limit`; `total`
+ * counts every active plan, and the count runs only when the list is full.
+ */
+export async function listActiveContributionPlans(
   tenantId: string,
+  input: { limit?: number } = {},
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const limit = input.limit ?? activeContributionPlanListLimit
+  const where = { isActive: true, tenantId }
+  const items = await prisma.contributionPlan.findMany({
+    orderBy: { createdAt: "desc" },
+    select: {
+      amount: true,
+      id: true,
+      member: { select: { fullName: true } },
+      name: true,
+      startsAt: true,
+    },
+    take: limit,
+    where,
+  })
+  const total =
+    items.length < limit
+      ? items.length
+      : await prisma.contributionPlan.count({ where })
+
+  return { items, total }
+}
+
+/** A member has one active plan at a time; the cap only guards bad data. */
+const memberPlanOptionLimit = 20
+
+/**
+ * One member's active plans as options for a payment's plan picker, newest
+ * first. The picker loads them once a member is chosen.
+ */
+export async function listMemberContributionPlanOptions(
+  input: { memberId: string; tenantId: string },
   prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
   return prisma.contributionPlan.findMany({
-    where: { tenantId },
-    include: {
-      member: {
-        select: {
-          id: true,
-          fullName: true,
-          memberNumber: true,
-        },
-      },
+    orderBy: { createdAt: "desc" },
+    select: {
+      amount: true,
+      id: true,
+      member: { select: { fullName: true } },
     },
-    orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
+    take: memberPlanOptionLimit,
+    where: {
+      isActive: true,
+      memberId: input.memberId,
+      tenantId: input.tenantId,
+    },
   })
 }
 

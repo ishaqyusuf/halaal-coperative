@@ -42,7 +42,6 @@ export type ContributionMemberOption = {
 export type ContributionPlanOption = {
   amount: number | string | { toString(): string }
   id: string
-  isActive: boolean
   member: {
     fullName: string
   }
@@ -146,10 +145,6 @@ export function ContributionContent({
   const selectedPlan = activeCommitmentPlans.find(
     (plan) => plan.id === selectedContributionPlanId
   )
-  const commitmentPlanOptions = activeCommitmentPlans.map((plan) => ({
-    id: plan.id,
-    label: `${plan.member.fullName} · ${formatCurrency(Number(plan.amount))}`,
-  }))
   const loanOptions = activeLoans.map((loan) => ({
     id: loan.id,
     label: `${loan.member.fullName} · ${loan.loanProduct.name}`,
@@ -176,7 +171,6 @@ export function ContributionContent({
   if (contributionSheetType === "payment") {
     return (
       <MemberPaymentForm
-        commitmentPlans={commitmentPlanOptions}
         devMode={devMode}
         loans={loanOptions}
         onSuccess={completeContributionWorkflow}

@@ -2,7 +2,7 @@ import {
   createDbRuntime,
   getCollectionSourceContributionBatch,
   getTenantOperationProfile,
-  listContributionPlans,
+  listActiveContributionPlans,
   listCollectionSourceContributionBatches,
   listActiveDeductionSources,
   listLoanOptions,
@@ -26,7 +26,6 @@ type ContributionMemberRow = {
 type ContributionPlanRow = {
   amount: number
   id: string
-  isActive: boolean
   member: {
     fullName: string
   }
@@ -63,7 +62,11 @@ export type ContributionsPageData =
   | {
       canRecordContributions: boolean
       canUseCollectionSourceBatches: boolean
-      commitmentPlans: ContributionPlanRow[]
+      /** Active plans, on the Commitments tab only; `items` may stop short. */
+      commitmentPlans: {
+        items: ContributionPlanRow[]
+        total: number
+      }
       collectionSourceBatchOptions: CollectionSourceBatchOption[]
       collectionSourceBatches: Array<Omit<CollectionSourceBatchView, "rows">>
       filters: ContributionsFilterParams
@@ -120,7 +123,11 @@ export async function loadContributionsPageData(
     filters.view === "commitments"
       ? listMembersWithPaymentOrder(context.tenant.id)
       : Promise.resolve({ items: [], total: 0 }),
-    listContributionPlans(context.tenant.id),
+    // Active plans are listed on the Commitments tab (capped, with a total).
+    // The payment form loads the chosen member's plans on its own.
+    filters.view === "commitments"
+      ? listActiveContributionPlans(context.tenant.id)
+      : Promise.resolve({ items: [], total: 0 }),
     listLoanOptions(context.tenant.id),
     canUseCollectionSourceBatches
       ? listActiveDeductionSources(context.tenant.id)
@@ -141,14 +148,16 @@ export async function loadContributionsPageData(
   return {
     canRecordContributions,
     canUseCollectionSourceBatches,
-    commitmentPlans: commitmentPlans.map((plan) => ({
-      amount: Number(plan.amount),
-      id: plan.id,
-      isActive: plan.isActive,
-      member: { fullName: plan.member.fullName },
-      name: plan.name,
-      startsAt: plan.startsAt,
-    })),
+    commitmentPlans: {
+      items: commitmentPlans.items.map((plan) => ({
+        amount: Number(plan.amount),
+        id: plan.id,
+        member: { fullName: plan.member.fullName },
+        name: plan.name,
+        startsAt: plan.startsAt,
+      })),
+      total: commitmentPlans.total,
+    },
     collectionSourceBatchOptions: collectionSourceOptions.map((source) => ({
       externalReference: source.externalReference,
       id: source.id,

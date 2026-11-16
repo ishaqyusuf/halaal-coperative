@@ -19,7 +19,7 @@ import { NativeSelect } from "@halaalvest/ui/components/native-select"
 import { useZodForm } from "@halaalvest/ui/hooks/use-zod-form"
 import { DatePickerInput } from "@/components/date-picker-input"
 import { applyDashboardDevFormFill } from "@/lib/dev-form-fill"
-import { createQaAmount } from "@halaalvest/utils"
+import { createQaAmount, formatCurrency } from "@halaalvest/utils"
 import { DashboardQuickFill } from "@/components/dashboard-quick-fill"
 import { MemberCombobox } from "@/components/member-combobox"
 import { useTRPC } from "@/trpc/client"
@@ -52,6 +52,25 @@ function useQuickFillMemberId(enabled: boolean) {
   )
 
   return data?.[0]?.id ?? ""
+}
+
+/**
+ * The chosen member's active plans as picker options, loaded once a member
+ * is picked (the page no longer preloads every plan).
+ */
+function useMemberPlanOptions(memberId: string) {
+  const trpc = useTRPC()
+  const { data } = useQuery(
+    trpc.contributions.memberPlanOptions.queryOptions(
+      { memberId },
+      { enabled: Boolean(memberId), staleTime: 60_000 }
+    )
+  )
+
+  return (data ?? []).map((plan) => ({
+    id: plan.id,
+    label: `${plan.memberName} · ${formatCurrency(plan.amount)}`,
+  }))
 }
 
 export function ContributionPlanForm({
@@ -218,12 +237,10 @@ const memberPaymentSchema = z.object({
 type MemberPaymentValues = z.infer<typeof memberPaymentSchema>
 
 export function MemberPaymentForm({
-  commitmentPlans,
   devMode,
   loans,
   onSuccess,
 }: {
-  commitmentPlans: Array<{ id: string; label: string }>
   devMode: boolean
   loans: Array<{ id: string; label: string }>
   onSuccess?: () => Promise<void> | void
@@ -248,6 +265,8 @@ export function MemberPaymentForm({
   const { showError, showSuccess } = useNotifications()
   const [isPending, startTransition] = useTransition()
   const selectedLoanId = form.watch("loanId")
+  const commitmentPlans = useMemberPlanOptions(form.watch("memberId"))
+  const quickFillPlans = useMemberPlanOptions(devMode ? quickFillMemberId : "")
 
   function onSubmit(values: MemberPaymentValues) {
     startTransition(async () => {
@@ -295,7 +314,7 @@ export function MemberPaymentForm({
                   form,
                   "member_payment",
                   {
-                    contributionPlanId: commitmentPlans[0]?.id ?? "",
+                    contributionPlanId: quickFillPlans[0]?.id ?? "",
                     extraLoanPaymentAmount: loanId ? "5000" : "",
                     loanId,
                     memberId: quickFillMemberId,
@@ -319,7 +338,11 @@ export function MemberPaymentForm({
                 <MemberCombobox
                   disabled={isPending}
                   id={field.name}
-                  onValueChange={field.onChange}
+                  onValueChange={(value) => {
+                    field.onChange(value)
+                    // Plans belong to a member: a new member starts unlinked.
+                    form.setValue("contributionPlanId", "")
+                  }}
                   value={field.value}
                 />
               </FormControl>

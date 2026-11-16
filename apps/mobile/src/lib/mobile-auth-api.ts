@@ -1,4 +1,6 @@
+import { type MobileAppAccessSnapshot } from "@/features/mobile-app-access/api/mobile-app-access-api"
 import { createMobileTrpcClient } from "@/lib/mobile-trpc-client"
+import { withRequestTimeout } from "@/lib/request-timeout"
 import { type MobileProfile } from "@/lib/session-store"
 
 export type MobileSignInCredentials = {
@@ -25,7 +27,9 @@ export type MobileRecoveryCompleteInput = {
   password: string
 }
 
-type MobileSignInResponse = {
+/** Sign-in and recovery return the new session's app-access snapshot too. */
+export type MobileSignInResponse = {
+  accessSnapshot?: MobileAppAccessSnapshot
   profile: MobileProfile
 }
 
@@ -36,8 +40,8 @@ type MobileSessionResponse = {
 export async function signInWithMobileAuth(input: MobileSignInCredentials) {
   const client = createMobileTrpcClient()
 
-  return client.auth.mobile.signIn.mutate(
-    input
+  return withRequestTimeout((signal) =>
+    client.auth.mobile.signIn.mutate(input, { signal })
   ) as Promise<MobileSignInResponse>
 }
 
@@ -64,11 +68,18 @@ export async function signOutMobileAuth() {
 export async function requestMobilePasswordRecovery(
   input: MobileRecoveryRequestInput
 ) {
-  return createMobileTrpcClient().auth.mobile.recovery.request.mutate(input)
+  const client = createMobileTrpcClient()
+  return withRequestTimeout((signal) =>
+    client.auth.mobile.recovery.request.mutate(input, { signal })
+  ) as Promise<{ challengeId: string; message: string; requested: true }>
 }
 
 export async function completeMobilePasswordRecovery(
   input: MobileRecoveryCompleteInput
 ) {
-  return createMobileTrpcClient().auth.mobile.recovery.complete.mutate(input)
+  return withRequestTimeout((signal) =>
+    createMobileTrpcClient().auth.mobile.recovery.complete.mutate(input, {
+      signal,
+    })
+  ) as Promise<MobileSignInResponse>
 }

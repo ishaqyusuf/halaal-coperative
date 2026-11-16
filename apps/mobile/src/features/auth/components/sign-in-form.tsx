@@ -1,157 +1,100 @@
-import { Button } from "@/components/ui/button"
+import { FormField } from "@/components/ui/form-field"
 import { Icon } from "@/components/ui/icon"
 import { Input } from "@/components/ui/input"
+import { Pressable } from "@/components/ui/pressable"
 import { Text } from "@/components/ui/text"
+import { AuthErrorBanner } from "@/features/auth/components/auth-error-banner"
 import { PasswordField } from "@/features/auth/components/password-field"
-import { useLargeTextLayout } from "@/hooks/use-large-text-layout"
-import { cn } from "@/lib/utils"
+import { type AuthErrorPresentation } from "@/features/auth/model/auth-errors"
+import { type SignInFieldErrors } from "@/features/auth/model/recovery-flow"
 import { View } from "react-native"
 import { KeyboardController } from "react-native-keyboard-controller"
 
+/** Sign-in fields on the canvas; the Sign in button lives in the dock. */
 export function SignInForm({
-  actionLabel,
-  canSubmit,
+  confirmed,
   cooperativeNumber,
-  cooperativeVerified,
+  disabled,
   error,
-  formTitle,
-  isSubmitting,
+  fieldErrors,
   onCooperativeNumberChange,
   onForgotPassword,
   onPasswordChange,
+  onRetry,
   onSubmit,
   password,
 }: {
-  actionLabel: string
-  canSubmit: boolean
+  confirmed: boolean
   cooperativeNumber: string
-  cooperativeVerified: boolean
-  error: string | null
-  formTitle: string
-  isSubmitting: boolean
+  disabled: boolean
+  error: AuthErrorPresentation | null
+  fieldErrors: SignInFieldErrors
   onCooperativeNumberChange: (value: string) => void
   onForgotPassword: () => void
   onPasswordChange: (value: string) => void
+  onRetry: () => void
   onSubmit: () => void
   password: string
 }) {
-  const largeTextLayout = useLargeTextLayout()
-  const submitDisabled = !canSubmit || isSubmitting
-
   return (
-    <View className="gap-4">
-      {formTitle ? (
-        <Text
-          accessibilityRole="header"
-          className="max-w-[310px] text-[32px] leading-[35px] font-black tracking-[-1px] text-foreground"
-          maxFontSizeMultiplier={1.5}
-        >
-          {formTitle}
-        </Text>
-      ) : null}
-
-      <View className="gap-2">
-        <Text className="text-sm font-semibold text-foreground">
-          Cooperative number
-        </Text>
+    <View className="gap-[16px]">
+      <Text accessibilityRole="header" className="text-foreground" variant="screenTitle">
+        Sign in
+      </Text>
+      <AuthErrorBanner error={error} onRetry={onRetry} retrying={disabled} />
+      <FormField error={fieldErrors.cooperativeNumber} label="Cooperative number">
         <Input
           accessibilityLabel="Cooperative number"
           autoCapitalize="characters"
           autoComplete="username"
           autoCorrect={false}
-          className={cn(
-            "h-14 rounded-2xl bg-accent/35",
-            cooperativeVerified && "border-brand bg-accent"
-          )}
-          editable={!isSubmitting}
+          editable={!disabled}
           onChangeText={onCooperativeNumberChange}
           onSubmitEditing={() => KeyboardController.setFocusTo("next")}
-          maxFontSizeMultiplier={1.35}
           placeholder="ABC-0123"
           returnKeyType="next"
           submitBehavior="submit"
+          testID="sign-in-cooperative-number"
           textContentType="username"
           trailing={
-            cooperativeVerified ? (
-              <View className="bg-brand size-6 items-center justify-center rounded-full">
-                <Icon className="size-sm text-brand-foreground" name="Check" />
+            confirmed ? (
+              <View
+                accessibilityLabel="Confirmed"
+                className="size-[24px] items-center justify-center rounded-full bg-primary"
+              >
+                <Icon className="size-xs text-primary-foreground" name="Check" />
               </View>
             ) : undefined
           }
           value={cooperativeNumber}
         />
-      </View>
-
-      <View className="gap-2">
-        <Text className="text-sm font-semibold text-foreground">Password</Text>
+      </FormField>
+      <FormField error={fieldErrors.password} label="Password">
         <PasswordField
-          autoCapitalize="none"
           autoComplete="current-password"
-          editable={!isSubmitting}
-          fieldSize="large"
-          hideLabel
-          inputClassName="rounded-2xl bg-accent/35"
-          label="Password"
+          editable={!disabled}
+          label="password"
           onChangeText={onPasswordChange}
           onSubmitEditing={onSubmit}
+          placeholder="Enter password"
           returnKeyType="go"
           submitBehavior="blurAndSubmit"
+          testID="sign-in-password"
           textContentType="password"
           value={password}
         />
-        <Button
-          accessibilityLabel="Forgot password"
-          className={cn("h-11 self-start px-0", largeTextLayout && "mt-1")}
-          disabled={isSubmitting}
-          onPress={onForgotPassword}
-          size="sm"
-          variant="link"
-        >
-          <Text className="text-xs font-bold">Forgot password?</Text>
-        </Button>
-      </View>
-
-      {error ? (
-        <View
-          accessibilityLiveRegion="assertive"
-          className="border-l-2 border-destructive bg-destructive/10 px-3 py-2"
-        >
-          <Text
-            accessibilityRole="alert"
-            className="text-sm font-medium text-destructive"
-          >
-            {error}
-          </Text>
-        </View>
-      ) : null}
-
-      <Button
-        accessibilityLabel={actionLabel}
-        accessibilityState={{ busy: isSubmitting }}
-        className={cn(
-          "min-h-14 rounded-2xl bg-brand-vivid px-4 py-3 active:bg-brand-vivid/90",
-          submitDisabled && "bg-muted opacity-100 active:bg-muted"
-        )}
-        disabled={submitDisabled}
-        onPress={onSubmit}
+      </FormField>
+      <Pressable
+        accessibilityRole="button"
+        className="min-h-[44px] justify-center self-start"
+        disabled={disabled}
+        onPress={onForgotPassword}
+        testID="sign-in-forgot-password"
       >
-        <Icon
-          className={cn(
-            "size-[18px] text-brand-surface",
-            submitDisabled && "text-muted-foreground"
-          )}
-          name="ShieldCheck"
-          strokeWidth={2.2}
-        />
-        <Text
-          className={cn(
-            "font-bold text-brand-surface",
-            submitDisabled && "text-muted-foreground"
-          )}
-        >
-          {actionLabel}
+        <Text className="text-primary" variant="label">
+          Forgot password?
         </Text>
-      </Button>
+      </Pressable>
     </View>
   )
 }

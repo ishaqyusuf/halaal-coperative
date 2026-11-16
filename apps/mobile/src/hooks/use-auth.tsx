@@ -22,6 +22,11 @@ import { disableCooperativeShortcutsForSignOut } from "@/features/cooperative-sh
 import { refreshMobileDeviceSession } from "@/features/device-sessions/api/device-session-api"
 import { shouldRefreshMobileDeviceSession } from "@/features/device-sessions/model/device-session-types"
 import { clearMobileFormDrafts } from "@/hooks/use-mobile-form-draft"
+import { type MobileAppAccessSnapshot } from "@/features/mobile-app-access/api/mobile-app-access-api"
+import {
+  clearPrimedMobileAppAccessSnapshot,
+  primeMobileAppAccessSnapshot,
+} from "@/features/mobile-app-access/model/primed-access-snapshot"
 import {
   clearInvalidatedMobileSessionState,
   registerMobileSessionInvalidationHandler,
@@ -51,12 +56,15 @@ type AuthContextValue = {
   signInWithPassword: (
     input: MobileSignInCredentials,
     beforeActivate?: (profile: MobileProfile) => Promise<void> | void
-  ) => Promise<void>
+  ) => Promise<MobileProfile>
   role: MobileRole | null
   signInAs: (role: MobileRole) => Promise<void>
   signOut: () => Promise<void>
   switchRole: (membershipId: string) => Promise<MobileProfile>
-  acceptServerProfile: (profile: MobileProfile) => Promise<void>
+  acceptServerProfile: (
+    profile: MobileProfile,
+    accessSnapshot?: MobileAppAccessSnapshot
+  ) => Promise<void>
   invalidateLocalSession: () => Promise<void>
   refreshSession: (force?: boolean) => Promise<MobileProfile | null>
 }
@@ -94,6 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     authGenerationRef.current += 1
 
     const invalidation = (async () => {
+      clearPrimedMobileAppAccessSnapshot()
       try {
         await clearInvalidatedMobileSessionState({
           clearDrafts: clearMobileFormDrafts,
@@ -266,16 +275,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const acceptServerProfile = useCallback(
-    async (nextProfile: MobileProfile) => {
-      await clearMobileFormDrafts()
-      await clearPrivateReportFiles()
-      await clearMobileReadCache()
+    async (
+      nextProfile: MobileProfile,
+      accessSnapshot?: MobileAppAccessSnapshot
+    ) => {
+      await Promise.all([
+        clearMobileFormDrafts(),
+        clearPrivateReportFiles(),
+        clearMobileReadCache(),
+      ])
       await persistMobileSessionAtomically({
         clearSession,
         persistProfile: setSessionProfile,
         persistToken: setToken,
         profile: nextProfile,
       })
+      primeMobileAppAccessSnapshot(nextProfile.token, accessSnapshot)
       setProfile(nextProfile)
     },
     []
@@ -286,18 +301,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       input: MobileSignInCredentials,
       beforeActivate?: (profile: MobileProfile) => Promise<void> | void
     ) => {
-      await clearMobileFormDrafts()
-      await clearPrivateReportFiles()
-      await clearMobileReadCache()
-      const response = await signInWithMobileAuth(input)
-      await beforeActivate?.(response.profile)
-      await persistMobileSessionAtomically({
-        clearSession,
-        persistProfile: setSessionProfile,
-        persistToken: setToken,
-        profile: response.profile,
-      })
+      // The previous account's local data is cleared while the request is in
+      // flight instead of before it; both finish before the new session is
+      // stored.
+      const [response] = await Promise.all([
+        signInWithMobileAuth(input),
+        clearMobileFormDrafts(),
+        clearPrivateReportFiles(),
+        clearMobileReadCache(),
+      ])
+      await Promise.all([
+        beforeActivate?.(response.profile),
+        persistMobileSessionAtomically({
+          clearSession,
+          persistProfile: setSessionProfile,
+          persistToken: setToken,
+          profile: response.profile,
+        }),
+      ])
+      primeMobileAppAccessSnapshot(
+        response.profile.token,
+        response.accessSnapshot
+      )
       setProfile(response.profile)
+      return response.profile
     },
     []
   )

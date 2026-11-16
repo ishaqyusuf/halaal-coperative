@@ -3,6 +3,7 @@ import { useAuthContext } from "@/hooks/use-auth"
 import { useState } from "react"
 import { Linking, View } from "react-native"
 import { Button } from "@/components/ui/button"
+import { Pressable } from "@/components/ui/pressable"
 import { Text } from "@/components/ui/text"
 import {
   mobileLegalLinks,
@@ -36,7 +37,20 @@ const legalOrigin = (() => {
   }
 })()
 
-export function LegalLinks() {
+/** Signed-out screens show these four as one quiet inline row. */
+const INLINE_LEGAL_LINKS: readonly (readonly [MobileLegalLinkSlug, string])[] = [
+  ["terms", "Terms"],
+  ["privacy", "Privacy"],
+  ["delete-account", "Delete account"],
+  ["support", "Support"],
+]
+
+export function LegalLinks({
+  variant = "list",
+}: {
+  /** `inline`: one centred caption row for sign-in and recovery. */
+  variant?: "list" | "inline"
+} = {}) {
   const router = useRouter()
   const { profile } = useAuthContext()
   const [error, setError] = useState<string | null>(null)
@@ -57,6 +71,62 @@ export function LegalLinks() {
       setError("The page could not open. Please try again later.")
     }
   }
+  if (variant === "inline") {
+    return (
+      <View className="gap-[4px]">
+        <View
+          accessibilityLabel="Account and privacy links"
+          className="flex-row flex-wrap items-center justify-center"
+        >
+          {INLINE_LEGAL_LINKS.map(([slug, label], index) => {
+            const available = Boolean(legalOrigin)
+            return (
+              <View className="flex-row items-center" key={slug}>
+                {index > 0 ? (
+                  <Text
+                    accessible={false}
+                    className="text-muted-foreground"
+                    variant="caption"
+                  >
+                    ·
+                  </Text>
+                ) : null}
+                <Pressable
+                  accessibilityLabel={
+                    available ? `${label}, opens browser` : `${label}, unavailable`
+                  }
+                  accessibilityRole="link"
+                  accessibilityState={{ disabled: !available }}
+                  className="min-h-[44px] justify-center px-[8px]"
+                  disabled={!available}
+                  onPress={() => void open(slug)}
+                >
+                  <Text
+                    className={
+                      available ? "text-foreground-soft" : "text-muted-foreground/60"
+                    }
+                    variant="caption"
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              </View>
+            )
+          })}
+        </View>
+        {error ? (
+          <Text
+            accessibilityLiveRegion="polite"
+            className="text-center text-destructive"
+            variant="small"
+          >
+            {error}
+          </Text>
+        ) : null}
+      </View>
+    )
+  }
+
   return (
     <View className="gap-1 border-t border-border pt-4">
       <Text className="text-sm font-semibold text-foreground">

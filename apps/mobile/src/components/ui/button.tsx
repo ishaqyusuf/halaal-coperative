@@ -143,14 +143,22 @@ function Button({
           loading && "opacity-90",
           buttonVariants({ variant, size }),
           !reduceMotion &&
-            !isDisabled &&
             "will-change-animation transition-transform active:scale-[0.97]",
           className
         )}
         accessibilityState={resolvedAccessibilityState}
-        disabled={isDisabled}
         role={role ?? "button"}
         {...props}
+        // Never toggle the Pressable's `disabled` prop or its press classes:
+        // with react-native-css 3 a disabled → enabled change (Continue after
+        // the 6th digit, Sign in after loading) left the :active style stuck,
+        // so the button stayed scaled and tinted as if pressed (T02, device).
+        // Disabled and loading block touches and presses instead.
+        disabled={undefined}
+        onPress={(event) => {
+          if (!isDisabled) props.onPress?.(event)
+        }}
+        pointerEvents={isDisabled ? "none" : props.pointerEvents}
       >
         {(state) => (
           <>

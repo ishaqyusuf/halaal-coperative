@@ -139,7 +139,11 @@ function RootLayoutNav() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <KeyboardProvider>
+      {/* Android is edge-to-edge (gradle edgeToEdgeEnabled); say so explicitly.
+          Auto-detection fails in this dev client, so the provider padded the
+          root by the status bar: a black strip above every screen plus a
+          doubled top inset on safe-area screens (T02, Android device). */}
+      <KeyboardProvider navigationBarTranslucent statusBarTranslucent>
         <VariableContextProvider value={themeVariables}>
           <View className="flex-1 bg-background">
             <ThemeProvider value={navigationTheme}>

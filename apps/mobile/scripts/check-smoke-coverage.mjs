@@ -87,22 +87,23 @@ assertIncludes("src/features/bootstrap/screens/bootstrap-screen.tsx", [
 ])
 
 assertIncludes("src/features/auth/screens/sign-in-screen.tsx", [
-  "AppKeyboardAwareScrollView",
-  "bottomOffset={224}",
-  "Sign in to mobile workspace",
-  "<QaAccessPanel />",
+  "<AuthScreenShell",
+  "<SignInHero",
+  "<QaAccessPanel bottomInset={dockHeight} />",
   "<SignInForm",
+  "loading={signIn.submitting}",
+  '<LegalLinks variant="inline" />',
 ])
 
 assertIncludes("src/features/auth/components/sign-in-form.tsx", [
   'submitBehavior="submit"',
-  "const submitDisabled = !canSubmit || isSubmitting",
-  'submitDisabled && "bg-muted opacity-100 active:bg-muted"',
-  "disabled={submitDisabled}",
+  "<AuthErrorBanner",
+  "error={fieldErrors.cooperativeNumber}",
+  "error={fieldErrors.password}",
 ])
 
 assertIncludes("src/features/auth/components/qa-access-panel.tsx", [
-  '"Opens QA Domain setup above the keyboard"',
+  '"Opens QA domain setup above the keyboard"',
   '"Set up QA access"',
   "Open ${count} QA profiles",
   "Keyboard.dismiss()",
@@ -111,9 +112,9 @@ assertIncludes("src/features/auth/components/qa-access-panel.tsx", [
 ])
 assertIncludes("src/features/auth/components/qa-profile-chooser.tsx", [
   "qaChooserLayout",
-  "<CompactFormSheet",
-  "<FullScreenFormSheet",
-  "Change QA Domain",
+  "<AppSheet",
+  'variant="form"',
+  "Change QA domain",
 ])
 
 assertIncludes("src/features/auth/screens/recovery-screen.tsx", [
@@ -122,18 +123,20 @@ assertIncludes("src/features/auth/screens/recovery-screen.tsx", [
   "<RecoveryRequestStep",
   "<RecoveryCodeStep",
   "<RecoveryPasswordStep",
+  "<ResultScreen",
 ])
 
 assertIncludes("src/features/auth/components/recovery-step-content.tsx", [
   "Six-digit code",
-  "presentation.actionLabel",
+  "Resend code in",
   "PasswordField",
+  "<PasswordRules",
 ])
 
 assertIncludes("src/features/auth/components/auth-screen-shell.tsx", [
   "AppKeyboardAwareScrollView",
-  "bottomOffset={224}",
-  "contentContainerClassName",
+  "<KeyboardStickyView",
+  "useScreenChrome",
 ])
 
 assertIncludes("src/app/(member)/(tabs)/_layout.tsx", [

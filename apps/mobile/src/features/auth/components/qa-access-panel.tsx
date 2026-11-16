@@ -1,6 +1,7 @@
 import { isUnauthorizedMobileSessionError } from "@/runtime/mobile-runtime-state"
 import Constants from "expo-constants"
 import { Button } from "@/components/ui/button"
+import { Elevated } from "@/components/ui/list-card"
 import { Pressable } from "@/components/ui/pressable"
 import { Text } from "@/components/ui/text"
 import {
@@ -27,16 +28,29 @@ type Capability = "loading" | "available" | "unavailable" | "unreachable"
 /** Delay that lets a closing sheet finish before the composer takes focus. */
 const SHEET_HANDOFF_MS = 400
 
-export function QaAccessPanel({ inline = false }: { inline?: boolean }) {
+export function QaAccessPanel({
+  bottomInset = 0,
+  inline = false,
+}: {
+  /** Height of a docked action bar the floating button must clear. */
+  bottomInset?: number
+  inline?: boolean
+}) {
   if (Constants.expoConfig?.extra?.qaAcceleratorClient !== true) return null
-  return <EnabledQaAccessPanel inline={inline} />
+  return <EnabledQaAccessPanel bottomInset={bottomInset} inline={inline} />
 }
 
 function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback
 }
 
-function EnabledQaAccessPanel({ inline }: { inline: boolean }) {
+function EnabledQaAccessPanel({
+  bottomInset,
+  inline,
+}: {
+  bottomInset: number
+  inline: boolean
+}) {
   const { acceptServerProfile } = useAuthContext()
   const [capability, setCapability] = useState<Capability>("loading")
   const [environment, setEnvironment] = useState("")
@@ -215,6 +229,7 @@ function EnabledQaAccessPanel({ inline }: { inline: boolean }) {
         </Button>
       ) : (
         <QaFloatingButton
+          bottomInset={bottomInset}
           count={profileCount}
           hidden={composerOpen || chooserOpen}
           onPress={openQa}
@@ -266,10 +281,12 @@ function EnabledQaAccessPanel({ inline }: { inline: boolean }) {
  * keyboard is up so it never covers the sign-in fields.
  */
 function QaFloatingButton({
+  bottomInset,
   count,
   hidden,
   onPress,
 }: {
+  bottomInset: number
   count?: number
   hidden: boolean
   onPress: () => void
@@ -293,40 +310,49 @@ function QaFloatingButton({
   if (hidden || keyboardVisible) return null
 
   return (
+    // Position on a style-only wrapper (className and style never share an
+    // element); the 52pt round button and badge use classes.
     <View
-      className="absolute z-20"
       pointerEvents="box-none"
       style={{
-        bottom: Math.max(insets.bottom, 12) + 16,
+        bottom: bottomInset
+          ? bottomInset + 12
+          : Math.max(insets.bottom, 12) + 16,
         position: "absolute",
         right: Math.max(insets.right, 16),
+        zIndex: 20,
       }}
       testID="qa-floating-button"
     >
-      <Pressable
-        accessibilityHint={
-          count === undefined
-            ? "Opens QA Domain setup above the keyboard"
-            : "Shows the QA profiles for the authorized QA Domain"
-        }
-        accessibilityLabel={
-          count === undefined ? "Set up QA access" : `Open ${count} QA profiles`
-        }
-        accessibilityRole="button"
-        className="border-brand/20 size-14 items-center justify-center rounded-full border-[1.5px] bg-card shadow-md active:bg-muted"
-        haptic
-        onPress={onPress}
-        testID="qa-fab"
-      >
-        <Text className="text-brand text-[15px] font-extrabold">QA</Text>
-      </Pressable>
+      <Elevated radius={26}>
+        <Pressable
+          accessibilityHint={
+            count === undefined
+              ? "Opens QA domain setup above the keyboard"
+              : "Shows the QA profiles for the authorized QA domain"
+          }
+          accessibilityLabel={
+            count === undefined ? "Set up QA access" : `Open ${count} QA profiles`
+          }
+          accessibilityRole="button"
+          className="size-[52px] items-center justify-center rounded-full bg-card"
+          haptic
+          onPress={onPress}
+          testID="qa-fab"
+          transition
+        >
+          <Text className="text-primary" variant="section">
+            QA
+          </Text>
+        </Pressable>
+      </Elevated>
       {count === undefined ? null : (
         // Outside the button, which clips its children.
         <View
-          className="bg-brand absolute -top-1 -right-1 h-[22px] min-w-[22px] items-center justify-center rounded-full border-2 border-background px-1"
+          className="absolute -top-[4px] -right-[4px] h-[22px] min-w-[22px] items-center justify-center rounded-full border-2 border-background bg-primary px-[4px]"
           pointerEvents="none"
         >
-          <Text className="text-brand-foreground text-[11px] font-bold">
+          <Text className="text-primary-foreground" variant="caption">
             {count}
           </Text>
         </View>

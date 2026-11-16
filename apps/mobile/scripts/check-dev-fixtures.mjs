@@ -166,11 +166,11 @@ assertIncludes(
 )
 
 assertIncludes("src/features/auth/screens/sign-in-screen.tsx", [
-  "<QaAccessPanel />",
-  "<LivingCooperativeHero",
-  "profile={verifiedProfile}",
+  "<QaAccessPanel bottomInset={dockHeight} />",
+  "<SignInHero",
+  "profile={signIn.confirmedProfile}",
 ])
-assertIncludes("src/features/auth/components/living-cooperative-hero.tsx", [
+assertIncludes("src/features/auth/components/auth-hero.tsx", [
   "profile?.tenant.name",
   "Cooperative confirmed",
 ])

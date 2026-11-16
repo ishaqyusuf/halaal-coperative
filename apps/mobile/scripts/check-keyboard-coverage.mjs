@@ -6,7 +6,12 @@ const MOBILE_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const SOURCE_DIR = join(MOBILE_DIR, "src")
 const failures = []
 
-checkMarkers("src/app/_layout.tsx", ["KeyboardProvider", "<KeyboardProvider>"])
+// Android is edge-to-edge: the provider must say so explicitly (T02 device
+// finding: auto-detection failed and the root was padded by the status bar).
+checkMarkers("src/app/_layout.tsx", [
+  "KeyboardProvider",
+  "<KeyboardProvider navigationBarTranslucent statusBarTranslucent>",
+])
 checkMarkers("src/components/app/keyboard-aware-scroll-view.tsx", [
   "KeyboardAwareScrollView",
   "bottomOffset = 160",
@@ -54,10 +59,16 @@ checkForbiddenMarkers("src/components/app/full-screen-form-sheet.tsx", [
   'Keyboard.addListener("keyboardDidShow"',
   "keyboardTop",
 ])
-checkMarkers("src/features/auth/screens/sign-in-screen.tsx", [
+// Auth (T02, 02 Docked action): one keyboard-aware shell whose primary
+// action rides the keyboard; fields move focus with Next and submit with Go.
+checkMarkers("src/features/auth/components/auth-screen-shell.tsx", [
   "AppKeyboardAwareScrollView",
-  "<QaAccessPanel />",
-  "bottomOffset={224}",
+  "<KeyboardStickyView",
+  "bottomOffset={footerHeight + 24}",
+])
+checkMarkers("src/features/auth/screens/sign-in-screen.tsx", [
+  "<AuthScreenShell",
+  "<QaAccessPanel bottomInset={dockHeight} />",
   "<SignInForm",
 ])
 checkMarkers("src/features/auth/components/sign-in-form.tsx", [
@@ -72,7 +83,7 @@ checkMarkers("src/features/auth/components/sign-in-form.tsx", [
 checkMarkers("src/features/auth/components/qa-access-panel.tsx", [
   "<QaFloatingButton",
   "if (hidden || keyboardVisible) return null",
-  "bottom: Math.max(insets.bottom, 12) + 16",
+  ": Math.max(insets.bottom, 12) + 16,",
   "right: Math.max(insets.right, 16)",
   'position: "absolute"',
   "<QaDomainComposer",
@@ -86,17 +97,13 @@ checkMarkers("src/features/auth/components/qa-domain-composer.tsx", [
   'returnKeyType="go"',
 ])
 checkMarkers("src/features/auth/components/qa-profile-chooser.tsx", [
-  "<CompactFormSheet",
-  "<FullScreenFormSheet",
+  "<AppSheet",
+  'variant="form"',
   'accessibilityLabel="Search QA profiles"',
   "qaChooserLayout(props.profiles.length)",
 ])
-checkMarkers("src/features/auth/components/auth-screen-shell.tsx", [
-  "AppKeyboardAwareScrollView",
-  "bottomOffset={224}",
-])
 checkMarkers("src/features/auth/screens/recovery-screen.tsx", [
-  "AuthScreenShell",
+  "<AuthScreenShell",
   "<RecoveryRequestStep",
   "<RecoveryCodeStep",
   "<RecoveryPasswordStep",
@@ -110,10 +117,7 @@ checkMarkers("src/features/auth/components/recovery-step-content.tsx", [
 checkMarkers("src/features/auth/components/password-field.tsx", [
   "forwardRef",
   "secureTextEntry={!visible}",
-  "const fieldHeight",
-  'largeTextLayout\n    ? "h-16"',
-  'cn("relative", fieldHeight)',
-  '"absolute inset-0 pr-14 text-base"',
+  "style={{ paddingRight: 56 }}",
 ])
 checkMarkers(
   "src/features/food-purchase/screens/member-food-purchase-screen.tsx",
@@ -137,19 +141,24 @@ for (const filePath of findTsxFiles(join(SOURCE_DIR, "features"))) {
   const source = readFileSync(filePath, "utf8")
   if (!/<(?:Input|Textarea)\b/.test(source)) continue
 
+  const authShellSource = readFileSync(
+    join(SOURCE_DIR, "features/auth/components/auth-screen-shell.tsx"),
+    "utf8"
+  )
   const isGuardedLeafInput =
-    (toMobilePath(filePath) === "src/features/auth/components/auth-field.tsx" &&
-      source.includes("export const AuthField = forwardRef")) ||
     (toMobilePath(filePath) === "src/features/auth/components/otp-field.tsx" &&
-      source.includes("export function OtpField")) ||
+      source.includes("export const OtpField = forwardRef")) ||
     (toMobilePath(filePath) ===
       "src/features/auth/components/password-field.tsx" &&
       source.includes("export const PasswordField = forwardRef")) ||
-    (toMobilePath(filePath) ===
+    ((toMobilePath(filePath) ===
       "src/features/auth/components/sign-in-form.tsx" &&
       source.includes("export function SignInForm") &&
-      signInScreenSource.includes("AppKeyboardAwareScrollView") &&
-      signInScreenSource.includes("<SignInForm")) ||
+      signInScreenSource.includes("<AuthScreenShell")) ||
+      (toMobilePath(filePath) ===
+        "src/features/auth/components/recovery-step-content.tsx" &&
+        source.includes("export function RecoveryRequestStep"))) &&
+      authShellSource.includes("AppKeyboardAwareScrollView") ||
     (toMobilePath(filePath) ===
       "src/features/auth/components/qa-domain-composer.tsx" &&
       source.includes("export function QaDomainComposer") &&
@@ -157,8 +166,7 @@ for (const filePath of findTsxFiles(join(SOURCE_DIR, "features"))) {
     (toMobilePath(filePath) ===
       "src/features/auth/components/qa-profile-chooser.tsx" &&
       source.includes("export function QaProfileChooser") &&
-      source.includes("<CompactFormSheet") &&
-      source.includes("<FullScreenFormSheet")) ||
+      source.includes("<AppSheet")) ||
     (toMobilePath(filePath) ===
       "src/features/food-purchase/components/member-food-purchase-application-form.tsx" &&
       source.includes("export function MemberFoodPurchaseApplicationForm")) ||

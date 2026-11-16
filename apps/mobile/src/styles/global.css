@@ -29,6 +29,8 @@
   --color-hero-mid: var(--hero-mid);
   --color-hero-end: var(--hero-end);
   --color-hero-foreground: var(--hero-foreground);
+  --color-hero-accent: var(--hero-accent);
+  --color-hero-mark-foreground: var(--hero-mark-foreground);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-warn: var(--warn);
@@ -83,6 +85,8 @@
     --hero-mid: rgb(5, 92, 80);
     --hero-end: rgb(3, 63, 55);
     --hero-foreground: rgb(240, 253, 250);
+    --hero-accent: rgb(153, 246, 228);
+    --hero-mark-foreground: rgb(59, 42, 6);
     --success: rgb(21, 128, 61);
     --success-foreground: rgb(240, 253, 244);
     --warn: rgb(217, 119, 6);
@@ -145,6 +149,8 @@
       --hero-mid: rgb(8, 78, 69);
       --hero-end: rgb(5, 47, 42);
       --hero-foreground: rgb(240, 253, 250);
+      --hero-accent: rgb(153, 246, 228);
+      --hero-mark-foreground: rgb(59, 42, 6);
       --success: rgb(34, 197, 94);
       --success-foreground: rgb(236, 253, 245);
       --warn: rgb(245, 158, 11);

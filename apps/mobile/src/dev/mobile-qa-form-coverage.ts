@@ -465,10 +465,6 @@ export const mobileQaNonFormFieldSources = [
     source: "src/features/design-system/screens/design-system-gallery-screen.tsx",
   },
   {
-    reason: "Shared auth field; the parent form owns coverage.",
-    source: feature("auth/components/auth-field.tsx"),
-  },
-  {
     reason: "Shared OTP field; OTP evidence stays manual.",
     source: feature("auth/components/otp-field.tsx"),
   },

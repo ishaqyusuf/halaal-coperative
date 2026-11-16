@@ -19,6 +19,7 @@ import {
   getMobileAppAccessSnapshot,
   type MobileAppAccessSnapshot,
 } from "@/features/mobile-app-access/api/mobile-app-access-api"
+import { takePrimedMobileAppAccessSnapshot } from "@/features/mobile-app-access/model/primed-access-snapshot"
 
 type AccessState = {
   accessAllowed: boolean
@@ -68,7 +69,11 @@ export function MobileAppAccessProvider({
       error: false,
     }))
     try {
-      const snapshot = await getMobileAppAccessSnapshot()
+      // Sign-in and recovery hand over the snapshot with the new session,
+      // so the first check after sign-in needs no extra round trip.
+      const snapshot =
+        takePrimedMobileAppAccessSnapshot(getToken()) ??
+        (await getMobileAppAccessSnapshot())
       if (!active.current || id !== request.current) return false
       if (
         snapshot.userBinding !== profile?.user.id ||

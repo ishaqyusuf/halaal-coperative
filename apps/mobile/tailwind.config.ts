@@ -67,6 +67,8 @@ export default {
         "hero-mid": "var(--hero-mid)",
         "hero-end": "var(--hero-end)",
         "hero-foreground": "var(--hero-foreground)",
+        "hero-accent": "var(--hero-accent)",
+        "hero-mark-foreground": "var(--hero-mark-foreground)",
         "tint-warm": {
           DEFAULT: "var(--tint-warm)",
           foreground: "var(--tint-warm-foreground)",

@@ -107,6 +107,13 @@
         "native-inline-style"
       ],
       "reason": "T01 (16 Nov 2026): react-native-css 3.0.1 drops an element's className styles when it also receives an inline style, and Reanimated views take no className. Runtime values (shadows, safe-area insets, animated transforms, measured sizes) therefore live on style-only wrappers; static styling stays in className on sibling/child elements."
+    },
+    {
+      "file": "src/features/auth/components/qa-access-panel.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "T02: the floating QA button's position uses runtime safe-area insets on a style-only wrapper (ADR-20261116 style composition: className and style never share an element); the 52pt button and badge keep semantic classes."
     }
   ]
 }

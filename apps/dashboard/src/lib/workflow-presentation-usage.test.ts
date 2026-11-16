@@ -127,4 +127,21 @@ describe("workflow presentation ownership", () => {
       'memberSignupLink: {\n    access: dialog("compact"),\n    create: dialog("form"),\n    edit: dialog("form"),'
     )
   })
+
+  test("edits season deduction rows in a dialog, not a popover (R17)", () => {
+    const source = readFileSync(
+      new URL(
+        "../components/business-profit-season-deduction-popover.tsx",
+        import.meta.url
+      ),
+      "utf8"
+    )
+
+    expect(source).toContain("<DialogContent")
+    expect(source).not.toContain("PopoverContent")
+    expect(source).not.toContain("w-[520px]")
+    // Only the hidden inputs inside the form submit the rows.
+    expect(source).toContain("name={`deductionAmount-${seasonKey}`}")
+    expect(source).toContain("name={`deductionReason-${seasonKey}`}")
+  })
 })

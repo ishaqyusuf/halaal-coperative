@@ -5,10 +5,15 @@ import { Button } from "@halaalvest/ui/components/button"
 import { CurrencyInput } from "@halaalvest/ui/components/currency-input"
 import { Input } from "@halaalvest/ui/components/input"
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@halaalvest/ui/components/popover"
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@halaalvest/ui/components/dialog"
 import { usePreservedClientState } from "@halaalvest/ui/hooks/use-preserved-form-state"
 import { formatCurrency } from "@halaalvest/utils"
 import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
@@ -186,10 +191,18 @@ export function BusinessProfitSeasonDeductionPopover({
         type="hidden"
         value={reasonSummary}
       />
-      <Popover>
-        <PopoverTrigger
+      {/* A row editor, so a dialog rather than a popover (R17): popovers
+          hold a single value, and the 520px popover overflowed phones. The
+          dialog renders outside the form; only the hidden inputs submit. */}
+      <Dialog>
+        <DialogTrigger
           render={
-            <Button size="sm" type="button" variant="outline">
+            <Button
+              className="h-11 sm:h-8"
+              size="sm"
+              type="button"
+              variant="outline"
+            >
               {totalAmount > 0 ? (
                 <>
                   <span className="tabular-nums">
@@ -206,7 +219,14 @@ export function BusinessProfitSeasonDeductionPopover({
             </Button>
           }
         />
-        <PopoverContent align="end" className="w-[520px] gap-3" sideOffset={8}>
+        <DialogContent className="gap-4 sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Season deduction</DialogTitle>
+            <DialogDescription>
+              Taken out before the profit is shared. Up to{" "}
+              {formatCurrency(maxAmount)} in total.
+            </DialogDescription>
+          </DialogHeader>
           {quickFillEnabled ? (
             <div className="flex justify-end">
               <Button
@@ -220,14 +240,17 @@ export function BusinessProfitSeasonDeductionPopover({
               </Button>
             </div>
           ) : null}
-          <div className="grid gap-2">
+          <div className="grid gap-3">
             {lines.map((line) => (
+              // Phones: amount and Remove on one row, the reason below.
               <div
-                className="grid grid-cols-[140px_minmax(0,1fr)_32px] items-center gap-2"
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[140px_minmax(0,1fr)_auto]"
                 key={line.id}
               >
                 <CurrencyInput
                   allowNegative={false}
+                  aria-label="Amount"
+                  className="h-11 sm:h-8"
                   decimalScale={2}
                   inputMode="decimal"
                   isAllowed={(values) => {
@@ -245,6 +268,8 @@ export function BusinessProfitSeasonDeductionPopover({
                   valueIsNumericString
                 />
                 <Input
+                  aria-label="Reason"
+                  className="col-span-2 row-start-2 h-11 sm:col-span-1 sm:row-start-auto sm:h-8"
                   onChange={(event) =>
                     updateLine(line.id, { reason: event.target.value })
                   }
@@ -253,6 +278,7 @@ export function BusinessProfitSeasonDeductionPopover({
                 />
                 <Button
                   aria-label="Delete deduction line"
+                  className="size-11 sm:size-8"
                   onClick={() => deleteLine(line.id)}
                   size="icon"
                   type="button"
@@ -264,7 +290,7 @@ export function BusinessProfitSeasonDeductionPopover({
             ))}
           </div>
           <Button
-            className="w-full"
+            className="h-11 w-full sm:h-8"
             onClick={() =>
               setLines((currentLines) => [
                 ...currentLines,
@@ -277,8 +303,26 @@ export function BusinessProfitSeasonDeductionPopover({
             <PlusIcon className="size-3.5" />
             Add another
           </Button>
-        </PopoverContent>
-      </Popover>
+          <DialogFooter className="flex-col sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              Total{" "}
+              <span className="text-foreground tabular-nums">
+                {formatCurrency(totalAmount)}
+              </span>
+            </p>
+            <DialogClose
+              render={
+                <Button
+                  className="h-11 w-full sm:h-8 sm:w-auto"
+                  type="button"
+                />
+              }
+            >
+              Done
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

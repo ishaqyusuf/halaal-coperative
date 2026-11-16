@@ -122,7 +122,7 @@ export async function setTenantOpeningCash(
       const equityAccountId = accounts[EQUITY_ACCOUNT_CODE]
 
       if (!cashAccountId || !equityAccountId) {
-        throw new Error("Cash or equity ledger account is not configured.")
+        throw new Error("Ledger accounts not initialized for this cooperative")
       }
 
       const value = Math.abs(difference)

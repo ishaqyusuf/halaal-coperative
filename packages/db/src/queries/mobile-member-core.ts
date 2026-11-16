@@ -1,4 +1,5 @@
 import { createPrismaClient } from "../prisma"
+import { approvedNotPaidOutMetrics } from "./approved-not-paid-out"
 import {
   getMemberByUserId,
   getMemberStatementDetail,
@@ -593,6 +594,7 @@ export function buildMobileMemberCoreHome(input: {
         label: "Financing exposure",
         value: summary?.totalOutstandingPrincipal ?? 0,
       },
+      ...approvedNotPaidOutMetrics(summary),
       {
         detail:
           input.shareCapital > 0

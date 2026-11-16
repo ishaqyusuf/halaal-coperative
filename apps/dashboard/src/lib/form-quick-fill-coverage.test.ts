@@ -69,6 +69,7 @@ describe("dashboard Quick fill coverage", () => {
       "components/billing/remittance-dialog.tsx",
       "components/monthly-record-content.tsx",
       "components/one-path/setup-mode-step.tsx",
+      "components/finance-settings/opening-cash-section.tsx",
       "components/members/opening-balance-quick-fill-button.tsx",
       "components/members/historical-share-purchase-quick-fill.tsx",
       "components/onboarding/member-signup-form.tsx",

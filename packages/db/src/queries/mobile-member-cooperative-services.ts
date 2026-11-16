@@ -33,6 +33,7 @@ import {
   createProcurementRequest,
   type ProcurementRequestRow,
 } from "./procurement"
+import { financingBlockingLoanStatuses } from "./loan-statuses"
 import {
   createProjectFinancingRequest,
   findProjectFinancingRequest,
@@ -430,7 +431,8 @@ function boundedPageSize(pageSize?: number) {
   return Math.min(Math.max(pageSize ?? 20, 1), 50)
 }
 
-const activeFinancingStatuses = ["active", "disbursed"] as const
+// Same list as the server-side procurement check, approved loans included.
+const activeFinancingStatuses = financingBlockingLoanStatuses
 type MobileServiceAccessMode =
   | "disabled"
   | "member_self_service"

@@ -1849,3 +1849,145 @@ describe("member picker options", () => {
     expect(result.total).toBe(1)
   })
 })
+
+describe("approved loans not yet paid out (triage 1.5)", () => {
+  function prismaWithLoanGroups(groups: unknown[]) {
+    const base = createMemberStatementPrismaStub()
+    let loanGroupArgs: any = null
+
+    return {
+      get loanGroupArgs() {
+        return loanGroupArgs
+      },
+      prisma: {
+        ...base,
+        loan: {
+          ...base.loan,
+          groupBy: async (args: unknown) => {
+            loanGroupArgs = args
+            return groups
+          },
+        },
+      },
+    }
+  }
+
+  test("keeps approved loans out of what the member owes and shows them on their own line", async () => {
+    const stub = prismaWithLoanGroups([
+      {
+        _count: { _all: 1 },
+        _sum: {
+          estimatedMonthlyServicing: 5000,
+          extraMonthlySavingsAmount: 1000,
+          outstandingPrincipal: 15000,
+          principalAmount: 30000,
+        },
+        memberId: "member-1",
+        status: "active",
+      },
+      {
+        _count: { _all: 1 },
+        _sum: {
+          estimatedMonthlyServicing: 2000,
+          extraMonthlySavingsAmount: 0,
+          outstandingPrincipal: 40000,
+          principalAmount: 40000,
+        },
+        memberId: "member-1",
+        status: "approved",
+      },
+    ])
+
+    const [summary] = await listMemberStatementSummaries(
+      "tenant-1",
+      stub.prisma as never
+    )
+
+    expect(stub.loanGroupArgs.by).toEqual(["memberId", "status"])
+    expect(stub.loanGroupArgs.where.status.in).toEqual(
+      expect.arrayContaining(["approved", "disbursed", "active", "defaulted"])
+    )
+    expect(summary).toMatchObject({
+      activeLoanCount: 1,
+      approvedNotPaidOutAmount: 40000,
+      approvedNotPaidOutCount: 1,
+      totalEstimatedMonthlyServicing: 5000,
+      totalLoanPrincipal: 30000,
+      totalObligationsOutstanding: 15000,
+      totalOutstandingPrincipal: 15000,
+    })
+  })
+
+  test("a member with only an approved loan owes nothing yet", async () => {
+    const stub = prismaWithLoanGroups([
+      {
+        _count: { _all: 2 },
+        _sum: {
+          estimatedMonthlyServicing: 3000,
+          extraMonthlySavingsAmount: 0,
+          outstandingPrincipal: 60000,
+          principalAmount: 60000,
+        },
+        memberId: "member-1",
+        status: "approved",
+      },
+    ])
+
+    const [summary] = await listMemberStatementSummaries(
+      "tenant-1",
+      stub.prisma as never
+    )
+
+    expect(summary).toMatchObject({
+      activeLoanCount: 0,
+      approvedNotPaidOutAmount: 60000,
+      approvedNotPaidOutCount: 2,
+      totalObligationsOutstanding: 0,
+      totalOutstandingPrincipal: 0,
+    })
+  })
+
+  test("the one-statement SQL read splits approved loans the same way", async () => {
+    const queries: string[] = []
+    const summary = await getMemberStatementSummary("tenant-1", "member-1", {
+      $queryRaw: async (strings: TemplateStringsArray) => {
+        queries.push(strings.join("?"))
+        return [
+          {
+            approvedNotPaidOutAmount: "40000",
+            approvedNotPaidOutCount: 1,
+            contributionCount: 0,
+            dividendCount: 0,
+            email: null,
+            exitedAt: null,
+            foodPurchaseCount: 0,
+            fullName: "Aisha Bello",
+            id: "member-1",
+            joinedAt: new Date("2026-01-01T00:00:00.000Z"),
+            lastContributionAt: null,
+            lastDividendAllocatedAt: null,
+            lastRepaymentAt: null,
+            loanCount: 1,
+            loanOutstandingPrincipal: "15000",
+            loanPrincipalAmount: "30000",
+            memberNumber: "M-001",
+            memberType: "regular",
+            planAmount: null,
+            planStartsAt: null,
+            status: "active",
+            totalSavingsSnapshot: "0",
+            userEmail: null,
+          },
+        ]
+      },
+    } as never)
+
+    expect(queries[0]).toContain("status::text = 'approved'")
+    expect(summary).toMatchObject({
+      approvedNotPaidOutAmount: 40000,
+      approvedNotPaidOutCount: 1,
+      totalObligationsOutstanding: 15000,
+      totalOutstandingPrincipal: 15000,
+    })
+  })
+})

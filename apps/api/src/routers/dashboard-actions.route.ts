@@ -127,6 +127,7 @@ import {
   updateChargeDefinitionVersion,
   updateTenantMigrationSetup,
   upsertTenantBroughtForwardSnapshot,
+  setTenantOpeningCash,
   updateShareBusiness,
   updateSupportCaseStatus,
   updateMemberKyc,
@@ -2774,6 +2775,21 @@ export async function upsertTenantBroughtForwardSnapshotAction(
     ),
   })
 
+  revalidatePath("/getting-started")
+}
+
+/** Cooperative opening cash (triage 1.9); refused once the cooperative is live. */
+export async function setTenantOpeningCashAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  const raw = (formData.get("amount") as string | null)?.trim() ?? ""
+
+  await setTenantOpeningCash({
+    actorUserId: actor.user.id,
+    amount: raw === "" ? 0 : Number(raw),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/finance/migration")
   revalidatePath("/getting-started")
 }
 
@@ -7191,6 +7207,7 @@ const dashboardActionHandlers = {
   updateTenantSharePolicyAction,
   updateTenantMigrationSetupAction,
   upsertTenantBroughtForwardSnapshotAction,
+  setTenantOpeningCashAction,
   updateTenantOperationProfileAction,
   createMemberShareApplicationAction,
   createOwnMemberShareApplicationAction,
@@ -7412,6 +7429,9 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   upsertTenantBroughtForwardSnapshotAction: formAction(
     dashboardActionHandlers.upsertTenantBroughtForwardSnapshotAction
+  ),
+  setTenantOpeningCashAction: formAction(
+    dashboardActionHandlers.setTenantOpeningCashAction
   ),
   updateTenantOperationProfileAction: formAction(
     dashboardActionHandlers.updateTenantOperationProfileAction

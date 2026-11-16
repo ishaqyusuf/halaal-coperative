@@ -4,6 +4,7 @@ import {
   buildMobileMemberCommitments,
   type MobileMemberCoreMetric,
 } from "./mobile-member-core"
+import { approvedNotPaidOutMetrics } from "./approved-not-paid-out"
 import {
   getMobileMemberSharesSnapshot,
   type MobileMemberShareSection,
@@ -59,6 +60,8 @@ export type MobileMemberStatementSnapshot = {
 
 type StatementSummary = {
   activeLoanCount: number
+  approvedNotPaidOutAmount?: number
+  approvedNotPaidOutCount?: number
   contributionsCount: number
   dividendAllocationCount: number
   totalDividendAllocations: number
@@ -187,6 +190,7 @@ export function buildMobileMemberStatementStats(input: {
       label: "Financing",
       value: input.summary?.totalOutstandingPrincipal ?? 0,
     },
+    ...approvedNotPaidOutMetrics(input.summary),
     {
       detail:
         (input.summary?.dividendAllocationCount ?? 0) > 0

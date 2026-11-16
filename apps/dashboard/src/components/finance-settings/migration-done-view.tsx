@@ -1,11 +1,18 @@
 import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import { FinanceSettingsFrame } from "@/components/finance-settings/finance-settings-frame"
+import { OpeningCashSection } from "@/components/finance-settings/opening-cash-section"
 
 /**
  * Opening balances once the cooperative is live: nothing to add here, and
  * one member's records are corrected from their own page.
  */
-export function MigrationDoneView({ memberId }: { memberId?: string }) {
+export function MigrationDoneView({
+  memberId,
+  openingCashAmount = 0,
+}: {
+  memberId?: string
+  openingCashAmount?: number
+}) {
   return (
     <FinanceSettingsFrame>
       <section className="grid gap-3">
@@ -25,6 +32,9 @@ export function MigrationDoneView({ memberId }: { memberId?: string }) {
           .
         </p>
       </section>
+      {openingCashAmount > 0 ? (
+        <OpeningCashSection amount={openingCashAmount} canChange={false} />
+      ) : null}
     </FinanceSettingsFrame>
   )
 }

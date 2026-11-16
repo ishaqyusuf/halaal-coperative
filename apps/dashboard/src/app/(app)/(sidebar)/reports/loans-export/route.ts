@@ -1,5 +1,16 @@
-import { listLoans, listLoanRequests } from "@halaalvest/db"
-import { createCsvResponse, getReportsDateFilters, requireReportsExportContext, toCsv } from "../export-utils"
+import { listLoanExportBatch } from "@halaalvest/db"
+import {
+  describeLoansExportDates,
+  LOANS_EXPORT_HEADERS,
+  toLoansExportCsvRow,
+} from "@/lib/reports/loans-export"
+import {
+  createCsvStreamResponse,
+  getReportsDateFilters,
+  mapExportBatches,
+  readExportBatches,
+  requireReportsExportContext,
+} from "../export-utils"
 
 export async function GET(request: Request) {
   const context = await requireReportsExportContext()
@@ -9,75 +20,23 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url)
-  const filters = getReportsDateFilters(Object.fromEntries(searchParams.entries()))
-  const [loans, requests] = await Promise.all([
-    listLoans(context.tenant.id),
-    listLoanRequests(context.tenant.id),
-  ])
-
-  const csv = toCsv(
-    [
-      "Record Type",
-      "Member",
-      "Member Number",
-      "Product",
-      "Product Code",
-      "Requested Amount",
-      "Principal Amount",
-      "Outstanding Principal",
-      "Requested Term Months",
-      "Loan Term Months",
-      "Estimated Monthly Servicing",
-      "Extra Monthly Savings Amount",
-      "Status",
-    ],
-    [
-      ...requests
-        .filter((request) => {
-          const requestedAt = request.requestedAt
-          if (filters.fromDate && requestedAt < filters.fromDate) return false
-          if (filters.toDate && requestedAt > filters.toDate) return false
-          return true
-        })
-        .map((request) => [
-        "request",
-        request.member.fullName,
-        request.member.memberNumber,
-        request.loanProduct.name,
-        request.loanProduct.code ?? "",
-        Number(request.requestedAmount),
-        "",
-        "",
-        request.requestedTermMonths,
-        "",
-        Number(request.estimatedMonthlyServicing),
-        Number(request.extraMonthlySavingsAmount),
-        request.status,
-      ]),
-      ...loans
-        .filter((loan) => {
-          const createdAt = loan.createdAt
-          if (filters.fromDate && createdAt < filters.fromDate) return false
-          if (filters.toDate && createdAt > filters.toDate) return false
-          return true
-        })
-        .map((loan) => [
-        "loan",
-        loan.member.fullName,
-        loan.member.memberNumber,
-        loan.loanProduct.name,
-        loan.loanProduct.code ?? "",
-        "",
-        Number(loan.principalAmount),
-        Number(loan.outstandingPrincipal),
-        "",
-        loan.termMonths,
-        Number(loan.estimatedMonthlyServicing),
-        Number(loan.extraMonthlySavingsAmount),
-        loan.status,
-      ]),
-    ],
+  const filters = getReportsDateFilters(
+    Object.fromEntries(searchParams.entries())
+  )
+  const tenantId = context.tenant.id
+  const batches = readExportBatches(({ cursor, limit }) =>
+    listLoanExportBatch(tenantId, {
+      cursor,
+      fromDate: filters.fromDate,
+      limit,
+      toDate: filters.toDate,
+    })
   )
 
-  return createCsvResponse(`${context.tenant.slug}-loans-report.csv`, csv)
+  return createCsvStreamResponse(
+    `${context.tenant.slug}-loans-report.csv`,
+    LOANS_EXPORT_HEADERS,
+    mapExportBatches(batches, (rows) => rows.map(toLoansExportCsvRow)),
+    [[describeLoansExportDates(filters)]]
+  )
 }

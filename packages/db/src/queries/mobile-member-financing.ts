@@ -9,6 +9,7 @@ import {
   submitLoanRequest,
   type LoanRequestQuote,
 } from "./loans"
+import { approvedNotPaidOutMetrics } from "./approved-not-paid-out"
 import { getMemberByUserId, getMemberStatementDetail } from "./members"
 
 type LoanRequestPageRow = Awaited<
@@ -325,6 +326,7 @@ function buildFinancingSection(detail: StatementDetail) {
         label: "Outstanding",
         value: detail.summary?.totalOutstandingPrincipal ?? 0,
       },
+      ...approvedNotPaidOutMetrics(detail.summary),
       {
         detail: "Estimated monthly servicing",
         format: "currency" as const,

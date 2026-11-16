@@ -30,7 +30,9 @@ export function toCsv(headers: string[], rows: CsvCell[][]) {
  */
 export async function toCsvStream(
   headers: string[],
-  batches: AsyncIterable<CsvCell[][]>
+  batches: AsyncIterable<CsvCell[][]>,
+  /** Lines written before the header row, such as which date a file uses. */
+  preamble: CsvCell[][] = []
 ): Promise<ReadableStream<Uint8Array>> {
   const encoder = new TextEncoder()
   const iterator = batches[Symbol.asyncIterator]()
@@ -41,7 +43,11 @@ export async function toCsvStream(
     async pull(controller) {
       if (!started) {
         started = true
-        controller.enqueue(encoder.encode(toCsvLine(headers)))
+        controller.enqueue(
+          encoder.encode(
+            [...preamble, headers].map((line) => toCsvLine(line)).join("\n")
+          )
+        )
       }
 
       try {

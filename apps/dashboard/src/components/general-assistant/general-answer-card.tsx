@@ -367,6 +367,12 @@ function MemberHistoryCard({ answer }: { answer: Answer<"member-history"> }) {
           label="Outstanding financing"
           value={formatMoney(answer.outstandingFinancing)}
         />
+        {answer.approvedNotPaidOut ? (
+          <Row
+            label="Approved, not yet paid out"
+            value={formatMoney(answer.approvedNotPaidOut)}
+          />
+        ) : null}
       </div>
       {answer.recentReceipts.length ? (
         <div className="mt-3 border-t pt-2">

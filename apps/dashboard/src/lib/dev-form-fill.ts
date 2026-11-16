@@ -174,6 +174,10 @@ export function createDashboardDevFormFill(
         amount: createQaAmount(10_000, 50_000, 5_000),
         startsAt: today,
       }
+    case "opening_cash":
+      return {
+        amount: createQaAmount(50_000, 500_000, 10_000),
+      }
     case "member_document":
       return {
         documentType: "National ID",
@@ -238,6 +242,7 @@ export type DashboardDevFormKind =
   | "member_document"
   | "member_payment"
   | "member_signup"
+  | "opening_cash"
   | "repayment_post"
   | "role_assignment"
   | "signup_link"

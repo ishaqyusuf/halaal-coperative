@@ -1,4 +1,5 @@
 import { createPrismaClient } from "../prisma"
+import { approvedNotPaidOutMetrics } from "./approved-not-paid-out"
 import { getOverviewSummary } from "./dashboard"
 import {
   createMember,
@@ -478,6 +479,10 @@ export async function getMobileAdminMemberLifecycleDetail(input: {
           status: summary?.activeLoanCount ? "Active" : "Clear",
           value: summary?.totalOutstandingPrincipal ?? 0,
         },
+        ...approvedNotPaidOutMetrics(summary).map((metric) => ({
+          ...metric,
+          status: "Approved",
+        })),
       ],
       subtitle: "Current financing exposure.",
       title: "Financing",
@@ -628,6 +633,7 @@ export async function getMobileAdminMemberLifecycleDetail(input: {
         label: "Financing",
         value: summary?.totalOutstandingPrincipal ?? 0,
       },
+      ...approvedNotPaidOutMetrics(summary),
     ],
   }
 }

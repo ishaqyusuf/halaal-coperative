@@ -2,6 +2,7 @@ import type { MemberStatementSummary } from "@halaalvest/db"
 import { formatCurrency } from "@halaalvest/utils"
 import { DashboardStatCard } from "@/components/dashboard"
 import {
+  describeApprovedNotPaidOut,
   describeOtherObligations,
   describeSpecialSavings,
   getOtherObligationsOutstanding,
@@ -70,6 +71,13 @@ export function MemberBalanceStatCards({
           tone={summary?.totalOutstandingPrincipal ? "warning" : "default"}
           value={formatCurrency(summary?.totalOutstandingPrincipal ?? 0)}
         />
+        {summary?.approvedNotPaidOutCount ? (
+          <DashboardStatCard
+            detail={describeApprovedNotPaidOut(summary)}
+            label="Approved, not yet paid out"
+            value={formatCurrency(summary.approvedNotPaidOutAmount)}
+          />
+        ) : null}
         <DashboardStatCard
           detail={
             otherObligations ? describeOtherObligations(summary) : undefined

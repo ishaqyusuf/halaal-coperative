@@ -9,6 +9,7 @@ import {
   getTenantFinanceSetupLock,
   getTenantFinancingSettingsWorkspace,
   getTenantInitialMigrationState,
+  getTenantOpeningCashSetting,
   listInitialMigrationMemberReview,
   listLegacyLoanMigrationDrafts,
   listMemberActivityEvents,
@@ -19,6 +20,7 @@ import {
 } from "@halaalvest/db"
 import { LoanSettingsView } from "@/components/finance-settings/loan-settings-view"
 import { MigrationDoneView } from "@/components/finance-settings/migration-done-view"
+import { OpeningCashSection } from "@/components/finance-settings/opening-cash-section"
 import { FinanceSettingsUnavailableView } from "@/components/finance-settings-page-states"
 import { InitialMigrationPreview } from "@/components/initial-migration-preview"
 import { TenantFinancePageView } from "@/components/tenant-finance-page-view"
@@ -184,14 +186,28 @@ export async function FinanceSettingsRoute({
     )
   }
 
-  const lock = await getTenantFinanceSetupLock(tenant.id)
+  const [lock, openingCash] = await Promise.all([
+    getTenantFinanceSetupLock(tenant.id),
+    section === "migration" ? getTenantOpeningCashSetting(tenant.id) : null,
+  ])
 
   if (!lock.canUseMigrationTools) {
-    return <MigrationDoneView memberId={migrationMemberId} />
+    return (
+      <MigrationDoneView
+        memberId={migrationMemberId}
+        openingCashAmount={openingCash?.amount ?? 0}
+      />
+    )
   }
 
   return (
     <TenantFinancePageView>
+      {openingCash ? (
+        <OpeningCashSection
+          amount={openingCash.amount}
+          canChange={openingCash.canChange}
+        />
+      ) : null}
       {await loadMigrationWorkspace({
         context,
         memberId: migrationMemberId,

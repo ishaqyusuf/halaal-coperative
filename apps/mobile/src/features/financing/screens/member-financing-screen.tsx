@@ -805,6 +805,51 @@ export function FinancingScreen({
               </View>
             ) : null}
 
+            {presentation?.approvedNotPaidOut ? (
+              <View
+                accessibilityLabel={`${presentation.approvedNotPaidOut.label}: ${presentation.approvedNotPaidOut.value}`}
+                accessible
+                className={cn(
+                  "gap-1 border-b border-border py-4",
+                  !largeTextLayout && "flex-row items-start justify-between"
+                )}
+              >
+                <View className="min-w-0 flex-1 gap-1">
+                  <Text
+                    allowFontScaling={false}
+                    className="text-sm font-semibold text-foreground"
+                    style={scaledTextStyle(accessibilityScale, 14, 20, {
+                      color: colors.foreground,
+                      fontWeight: "600",
+                    })}
+                  >
+                    {presentation.approvedNotPaidOut.label}
+                  </Text>
+                  {presentation.approvedNotPaidOut.detail ? (
+                    <Text
+                      allowFontScaling={false}
+                      className="text-xs leading-5 text-muted-foreground"
+                      style={scaledTextStyle(accessibilityScale, 12, 20, {
+                        color: colors.mutedForeground,
+                      })}
+                    >
+                      {presentation.approvedNotPaidOut.detail}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text
+                  allowFontScaling={false}
+                  className="text-sm font-extrabold text-foreground"
+                  style={scaledTextStyle(accessibilityScale, 14, 20, {
+                    color: colors.foreground,
+                    fontWeight: "800",
+                  })}
+                >
+                  {presentation.approvedNotPaidOut.value}
+                </Text>
+              </View>
+            ) : null}
+
             {error ? (
               <View className="border-l-2 border-destructive pl-3">
                 <Text className="text-sm font-medium text-destructive">

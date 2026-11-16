@@ -364,6 +364,12 @@ function MemberHistory({
           label="Outstanding financing"
           value={formatMoney(answer.outstandingFinancing)}
         />
+        {answer.approvedNotPaidOut ? (
+          <Row
+            label="Approved, not yet paid out"
+            value={formatMoney(answer.approvedNotPaidOut)}
+          />
+        ) : null}
       </View>
       {answer.recentReceipts.length ? (
         <>

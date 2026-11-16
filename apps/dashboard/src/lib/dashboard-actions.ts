@@ -279,6 +279,10 @@ export async function upsertTenantBroughtForwardSnapshotAction(
   )
 }
 
+export async function setTenantOpeningCashAction(formData: FormData) {
+  return callDashboardFormAction("setTenantOpeningCashAction", formData)
+}
+
 export async function updateTenantOperationProfileAction(formData: FormData) {
   const result = await callDashboardFormAction(
     "updateTenantOperationProfileAction",

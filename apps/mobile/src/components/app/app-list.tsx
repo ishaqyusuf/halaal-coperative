@@ -8,7 +8,6 @@ import { type RowPosition, rowPosition } from "@/components/ui/list-card"
 import { ListSkeleton } from "@/components/ui/skeleton"
 import { StatusBanner } from "@/components/ui/status-banner"
 import { useColors } from "@/hooks/use-color"
-import { useDockVisibilityStore } from "@/lib/dock-visibility-store"
 import { LegendList } from "@legendapp/list"
 import { type ReactElement, type ReactNode, useState } from "react"
 import { ActivityIndicator, RefreshControl, View } from "react-native"
@@ -97,7 +96,6 @@ export function AppList<T>({
 }: AppListProps<T>) {
   const colors = useColors()
   const chrome = useScreenChrome({ hero: false })
-  const dockHidden = useDockVisibilityStore((store) => store.hidden)
   const [searchHeight, setSearchHeight] = useState(0)
   const hasData = data.length > 0
   const count = data.length
@@ -192,7 +190,7 @@ export function AppList<T>({
         <BottomSearchFooter
           accessibilityLabel={search.accessibilityLabel ?? search.placeholder}
           bottomOffset={chrome.dockLift}
-          hidden={dockHidden}
+          hidden={chrome.barsHidden}
           localSearch={search.localSearch}
           onChangeText={search.onChangeText}
           onHeightChange={setSearchHeight}

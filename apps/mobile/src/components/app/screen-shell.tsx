@@ -177,7 +177,12 @@ export function useScreenChrome({ hero }: { hero: boolean }) {
   const reduceMotion = useReducedMotion()
   const { contentInset, inDockScene } = useDockContentInset()
   const setDockHidden = useDockVisibilityStore((store) => store.setHidden)
-  const onDockScroll = useBottomDockScroll(setDockHidden)
+  const dockHidden = useDockVisibilityStore((store) => store.hidden)
+  // Off the tabs there is no dock; the scroll still hides the search pill.
+  const [localHidden, setLocalHidden] = useState(false)
+  const onDockScroll = useBottomDockScroll(
+    inDockScene ? setDockHidden : setLocalHidden
+  )
   const [heroHeight, setHeroHeight] = useState(0)
   const [scrolledPastHero, setScrolledPastHero] = useState(false)
   const strip = useSharedValue(hero ? 0 : 1)
@@ -203,9 +208,9 @@ export function useScreenChrome({ hero }: { hero: boolean }) {
         const past = event.nativeEvent.contentOffset.y >= threshold
         setScrolledPastHero((current) => (current === past ? current : past))
       }
-      if (inDockScene) onDockScroll(event)
+      onDockScroll(event)
     },
-    [hero, heroHeight, inDockScene, insets.top, onDockScroll]
+    [hero, heroHeight, insets.top, onDockScroll]
   )
 
   const onHeroLayout = useCallback((height: number) => {
@@ -238,6 +243,8 @@ export function useScreenChrome({ hero }: { hero: boolean }) {
   )
 
   return {
+    /** Scroll-down state for the search pill (and the dock on tab screens). */
+    barsHidden: inDockScene ? dockHidden : localHidden,
     chrome,
     contentBottomInset: inDockScene ? contentInset : insets.bottom + 24,
     /** Lift for a bottom search footer so it floats just above the dock. */

@@ -46,6 +46,8 @@ export type MobileMemberHome = {
     name: string
     status: string
   } | null
+  /** Bell badge (T04). Optional: cached reads from older servers lack it. */
+  notifications?: { unread: number }
   readiness: {
     detail: string
     percentage: number

@@ -55,7 +55,7 @@ export function HomeAskBar({ role }: { role: "member" | "staff" }) {
           testID="home-ask-bar-open"
         >
           <View className="size-8 items-center justify-center rounded-full bg-brand-warm">
-            <Icon className="size-[17px] text-foreground" name="WandSparkles" />
+            <Icon className="size-[17px] text-hero-mark-foreground" name="WandSparkles" />
           </View>
           <Text
             className="min-w-0 flex-1 text-base leading-6 text-muted-foreground"

@@ -1,47 +1,135 @@
-import { expect, test } from "bun:test"
-import { buildMemberHomePresentation } from "./member-home-presentation"
+import { describe, expect, test } from "bun:test"
+import {
+  buildMemberHomePresentation,
+  formatUnreadBadge,
+  resolveMemberHomeView,
+} from "./member-home-presentation"
 import type { MobileMemberHome } from "./member-core-types"
 
-test("unavailable member home never substitutes sample financial data", () => {
-  expect(buildMemberHomePresentation(null, "NGN")).toEqual({
-    readinessPercentage: null,
-    services: [],
-    stats: [],
+const home = {
+  actionItems: [
+    {
+      detail: "KYC is still pending or not started.",
+      key: "kyc-readiness",
+      label: "Profile readiness",
+      severity: "warning",
+    },
+    { detail: "Unknown", key: "something-new", label: "New", severity: "neutral" },
+  ],
+  generatedAt: "2026-09-28T08:00:00.000Z",
+  member: null,
+  notifications: { unread: 12 },
+  readiness: {
+    detail: "Review needed",
+    percentage: 72,
+    status: "needs_attention",
+  },
+  services: [
+    { icon: "BadgeCheck", key: "commitments", label: "Commitments", tone: "accent" },
+    { icon: "HandCoins", key: "financing", label: "Financing", tone: "primary" },
+    { icon: "Sparkles", key: "future", label: "Future", tone: "primary" },
+  ],
+  stats: [
+    {
+      detail: "Posted savings",
+      format: "currency",
+      key: "savings",
+      label: "Savings total",
+      value: 860000,
+    },
+  ],
+} satisfies MobileMemberHome
+
+describe("member home presentation", () => {
+  test("unavailable member home never substitutes sample financial data", () => {
+    expect(buildMemberHomePresentation(null, "NGN")).toEqual({
+      attention: [],
+      readiness: null,
+      services: [],
+      stats: [],
+      unreadBadge: null,
+    })
+  })
+
+  test("shows only the returned server facts, with links and short labels", () => {
+    const view = buildMemberHomePresentation(home, "NGN")
+    expect(view.readiness).toEqual({
+      detail: "Review needed",
+      label: "Needs review",
+      percentage: 72,
+      status: "needs_attention",
+    })
+    expect(view.stats).toEqual([
+      { detail: "Posted savings", key: "savings", label: "Savings total", value: "₦860K" },
+    ])
+    expect(view.services.map((tile) => [tile.key, tile.label, tile.href])).toEqual([
+      ["commitments", "Plans", "/(member)/(tabs)/commitments"],
+      ["financing", "Financing", "/(member)/(tabs)/financing"],
+      ["future", "Future", undefined],
+    ])
+    expect(view.attention[0]).toMatchObject({
+      href: "/(member)/(tabs)/more",
+      icon: "ShieldCheck",
+    })
+    // An item the app does not know yet still shows, without a link.
+    expect(view.attention[1]).toMatchObject({ href: undefined, icon: "CircleAlert" })
+    expect(view.unreadBadge).toBe("9+")
+  })
+
+  test("a cached read from an older server has no badge", () => {
+    const { notifications: _ignored, ...older } = home
+    expect(buildMemberHomePresentation(older, "NGN").unreadBadge).toBeNull()
+  })
+
+  test("formats the unread badge", () => {
+    expect(formatUnreadBadge(0)).toBeNull()
+    expect(formatUnreadBadge(undefined)).toBeNull()
+    expect(formatUnreadBadge(3)).toBe("3")
+    expect(formatUnreadBadge(9)).toBe("9")
+    expect(formatUnreadBadge(10)).toBe("9+")
   })
 })
 
-test("member home shows only the returned server facts", () => {
-  const home = {
-    actionItems: [],
-    generatedAt: "2026-09-28T08:00:00.000Z",
-    member: null,
-    readiness: {
-      detail: "Review needed",
-      percentage: 18,
-      status: "needs_attention",
-    },
-    services: [
-      {
-        icon: "HandCoins",
-        key: "financing",
-        label: "Financing",
-        tone: "primary",
-      },
-    ],
-    stats: [
-      {
-        detail: "Posted savings",
-        format: "currency",
-        key: "savings",
-        label: "Savings total",
-        value: 860000,
-      },
-    ],
-  } satisfies MobileMemberHome
-  expect(buildMemberHomePresentation(home, "NGN")).toMatchObject({
-    readinessPercentage: 18,
-    services: home.services,
-    stats: [{ detail: "Posted savings", label: "Savings total" }],
+describe("member home view state", () => {
+  const base = { cache: null, hasData: false, isError: false, isOffline: false, isPending: false }
+  const stale = {
+    ageMs: 60_000,
+    cachedAt: "2026-11-16T09:42:00.000Z",
+    scope: "s",
+    status: "stale" as const,
+  }
+
+  test("first load shows the skeleton, never a spinner", () => {
+    expect(resolveMemberHomeView({ ...base, isPending: true })).toEqual({
+      banner: null,
+      body: "skeleton",
+    })
   })
-  expect(buildMemberHomePresentation(home, "NGN").stats[0]?.value).toBe("₦860K")
+
+  test("no data and a failure shows the error state (offline adds the banner)", () => {
+    expect(resolveMemberHomeView({ ...base, isError: true }).body).toBe("error")
+    expect(resolveMemberHomeView({ ...base, isError: true, isOffline: true })).toEqual({
+      banner: { cachedAt: null, kind: "offline" },
+      body: "error",
+    })
+  })
+
+  test("data always wins: offline, stale cache and failed refresh keep content", () => {
+    expect(resolveMemberHomeView({ ...base, cache: stale, hasData: true, isOffline: true })).toEqual({
+      banner: { cachedAt: stale.cachedAt, kind: "offline" },
+      body: "content",
+    })
+    expect(resolveMemberHomeView({ ...base, cache: stale, hasData: true })).toEqual({
+      banner: { cachedAt: stale.cachedAt, kind: "stale" },
+      body: "content",
+    })
+    expect(resolveMemberHomeView({ ...base, hasData: true, isError: true })).toEqual({
+      banner: { kind: "error" },
+      body: "content",
+    })
+    expect(resolveMemberHomeView({ ...base, hasData: true, isPending: true })).toEqual({
+      banner: null,
+      body: "content",
+    })
+  })
 })

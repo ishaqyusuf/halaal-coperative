@@ -1,24 +1,174 @@
 import { formatMobileMetricValue } from "@/lib/mobile-metrics"
+import type { MobileReadCacheState } from "@/lib/read-cache"
+import type { Href } from "expo-router"
 import type { MobileMemberHome } from "./member-core-types"
+
+export type MemberHomeStat = {
+  detail: string
+  key: string
+  label: string
+  value: string
+}
+
+export type MemberHomeAttentionRow = {
+  detail: string
+  href?: Href
+  icon: string
+  key: string
+  label: string
+  severity: MobileMemberHome["actionItems"][number]["severity"]
+}
+
+export type MemberHomeServiceTile = {
+  href?: Href
+  icon: string
+  key: string
+  label: string
+}
+
+export type MemberHomeReadiness = {
+  detail: string
+  label: string
+  percentage: number
+  status: MobileMemberHome["readiness"]["status"]
+}
+
+export type MemberHomePresentation = {
+  attention: MemberHomeAttentionRow[]
+  readiness: MemberHomeReadiness | null
+  services: MemberHomeServiceTile[]
+  stats: MemberHomeStat[]
+  unreadBadge: string | null
+}
+
+/** Service tiles open the member's screens; unknown keys are not links. */
+const serviceHrefs: Record<string, Href> = {
+  commitments: "/(member)/(tabs)/commitments",
+  financing: "/(member)/(tabs)/financing",
+  foodPurchase: "/food-purchase",
+  guarantors: "/guarantor-approvals",
+  notifications: "/notifications",
+  procurement: "/procurement",
+  projectFinancing: "/project-financing",
+  receipts: "/receipts",
+  savings: "/(member)/(tabs)/commitments",
+  shares: "/(member)/(tabs)/shares",
+  statements: "/statement",
+  support: "/support",
+  updates: "/updates",
+}
+
+/** Short tile labels (one line under a 52pt tile). */
+const serviceLabels: Record<string, string> = {
+  commitments: "Plans",
+  foodPurchase: "Foodstuff",
+  guarantors: "Guarantors",
+  projectFinancing: "Projects",
+}
+
+const attentionTargets: Record<string, { href: Href; icon: string }> = {
+  commitment: { href: "/(member)/(tabs)/commitments", icon: "BadgeCheck" },
+  financing: { href: "/(member)/(tabs)/financing", icon: "HandCoins" },
+  // KYC and membership status live on the member's More hub.
+  "kyc-readiness": { href: "/(member)/(tabs)/more", icon: "ShieldCheck" },
+  "member-profile": { href: "/support", icon: "UserRound" },
+}
+
+const readinessLabels: Record<MemberHomeReadiness["status"], string> = {
+  missing_profile: "Not linked",
+  needs_attention: "Needs review",
+  ready: "Ready",
+}
+
+/** The bell badge text: nothing at zero, "9+" past nine. */
+export function formatUnreadBadge(unread: number | null | undefined) {
+  const count = Math.max(0, Math.trunc(unread ?? 0))
+  if (count === 0) return null
+  return count > 9 ? "9+" : String(count)
+}
 
 export function buildMemberHomePresentation(
   home: MobileMemberHome | null,
   currencyCode: string
-) {
-  if (!home)
+): MemberHomePresentation {
+  if (!home) {
     return {
-      readinessPercentage: null,
+      attention: [],
+      readiness: null,
       services: [],
       stats: [],
+      unreadBadge: null,
     }
+  }
 
   return {
-    readinessPercentage: home.readiness.percentage,
-    services: home.services,
+    attention: home.actionItems.map((item) => ({
+      detail: item.detail,
+      href: attentionTargets[item.key]?.href,
+      icon: attentionTargets[item.key]?.icon ?? "CircleAlert",
+      key: item.key,
+      label: item.label,
+      severity: item.severity,
+    })),
+    readiness: {
+      detail: home.readiness.detail,
+      label: readinessLabels[home.readiness.status],
+      percentage: Math.min(100, Math.max(0, home.readiness.percentage)),
+      status: home.readiness.status,
+    },
+    services: home.services.map((service) => ({
+      href: serviceHrefs[service.key],
+      icon: service.icon,
+      key: service.key,
+      label: serviceLabels[service.key] ?? service.label,
+    })),
     stats: home.stats.map((metric) => ({
       detail: metric.detail,
+      key: metric.key,
       label: metric.label,
       value: formatMobileMetricValue(metric, currencyCode),
     })),
+    // Older servers (before T04) do not send the count.
+    unreadBadge: formatUnreadBadge(home.notifications?.unread),
   }
+}
+
+export type MemberHomeBanner =
+  | { kind: "offline"; cachedAt: string | null }
+  | { kind: "stale"; cachedAt: string }
+  | { kind: "error" }
+
+export type MemberHomeView = {
+  banner: MemberHomeBanner | null
+  /** What fills the body: the layout skeleton, the error state or the content. */
+  body: "content" | "error" | "skeleton"
+}
+
+/**
+ * One rule for every state of member home. Data always wins over a spinner:
+ * a failed refresh keeps the last content and shows a banner instead.
+ */
+export function resolveMemberHomeView(input: {
+  cache: MobileReadCacheState | null | undefined
+  hasData: boolean
+  isError: boolean
+  isOffline: boolean
+  isPending: boolean
+}): MemberHomeView {
+  if (!input.hasData) {
+    if (input.isPending) return { banner: null, body: "skeleton" }
+    return {
+      banner: input.isOffline ? { cachedAt: null, kind: "offline" } : null,
+      body: "error",
+    }
+  }
+
+  const cachedAt =
+    input.cache?.status === "stale" ? input.cache.cachedAt : null
+  if (input.isOffline) {
+    return { banner: { cachedAt, kind: "offline" }, body: "content" }
+  }
+  if (cachedAt) return { banner: { cachedAt, kind: "stale" }, body: "content" }
+  if (input.isError) return { banner: { kind: "error" }, body: "content" }
+  return { banner: null, body: "content" }
 }

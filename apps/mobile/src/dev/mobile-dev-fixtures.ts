@@ -620,6 +620,7 @@ export function getDevMemberHome(): MobileMemberHome {
     ],
     generatedAt,
     member: { ...member, kycStatus: "verified", status: "active" },
+    notifications: { unread: 3 },
     readiness: {
       detail: "Account, KYC, commitments, and repayment records are current.",
       percentage: 92,

@@ -1,4 +1,5 @@
 import { canUseMobileFeatureData } from "@/dev/mobile-dev-session"
+import { appQueryKey, useInvalidateAppQueries } from "@/hooks/use-app-query"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
 import { useLocalSearchParams } from "expo-router"
@@ -44,6 +45,7 @@ export function NotificationsRouteController() {
   const router = useRouter()
   const runtime = useMobileRuntime()
   const notificationRuntime = useNotificationRuntime()
+  const invalidateAppQueries = useInvalidateAppQueries()
   const { qaState } = useLocalSearchParams<{
     qaState?: string | string[]
   }>()
@@ -131,6 +133,8 @@ export function NotificationsRouteController() {
       await runtime.runOnlineOperation("command", () =>
         markNotificationsRead(deliveryIds, { forceDevFixture })
       )
+      // Member home's bell badge reads the unread count (T04).
+      void invalidateAppQueries(appQueryKey("member-core", "home"))
       const markedIds = new Set(deliveryIds)
       setNotifications((current) => {
         if (!current) return current

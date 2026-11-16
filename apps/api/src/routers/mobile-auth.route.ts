@@ -1,14 +1,13 @@
 import { verifyPassword } from "@halaalvest/auth"
 import {
-  findActiveMembershipAsync,
   findUserByCooperativeAccessCodeAsync,
   findMembershipsForUserAsync,
+  getTenantByIdAsync,
   listMobileWorkspacesForUserAsync,
   resolveTenantAsync,
   revokeMobileDeviceSession,
+  selectActiveMembership,
   type MembershipRecord,
-  type TenantRecord,
-  type UserRecord,
 } from "@halaalvest/db"
 import { TRPCError } from "@trpc/server"
 import { z } from "zod"
@@ -25,6 +24,7 @@ import {
   buildTenantMark,
   getLinkedMobileMember,
   issueMobileProfile,
+  readSignInAccessSnapshot,
   toMobileRole,
 } from "./mobile-auth-profile"
 import {
@@ -62,25 +62,31 @@ export const mobileAuthRouter = createTRPCRouter({
           message: "The cooperative number or account details were invalid.",
         })
       }
-      const tenantResolution = await resolveTenantAsync({
-        fallbackTenantId: user.tenantId,
-      })
+      // Everything below depends only on the verified user, so the tenant
+      // read, the tenant rate limit, the memberships and the linked member
+      // run as one wave. Memberships are read once and reused by the profile.
+      const [tenant, , memberships, member] = await Promise.all([
+        getTenantByIdAsync(user.tenantId, { withMemberCount: false }),
+        enforceTenantAuthLimit({
+          operation: "sign_in",
+          tenantId: user.tenantId,
+        }),
+        findMembershipsForUserAsync(user.id),
+        getLinkedMobileMember({
+          runtimeStatus: ctx.runtime.status,
+          tenantId: user.tenantId,
+          userId: user.id,
+        }),
+      ])
 
-      if (!tenantResolution.tenant) {
+      if (!tenant) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "The cooperative number or account details were invalid.",
         })
       }
-      await enforceTenantAuthLimit({
-        operation: "sign_in",
-        tenantId: tenantResolution.tenant.id,
-      })
 
-      const membership = await findActiveMembershipAsync({
-        tenantId: tenantResolution.tenant.id,
-        userId: user.id,
-      })
+      const membership = selectActiveMembership(memberships, tenant.id)
 
       if (!membership && !user.isPlatformOwner) {
         throw new TRPCError({
@@ -95,27 +101,37 @@ export const mobileAuthRouter = createTRPCRouter({
           id: "platform-owner-mobile-membership",
           isDefault: true,
           role: "super_admin",
-          tenantId: tenantResolution.tenant.id,
+          tenantId: tenant.id,
           userId: user.id,
         } satisfies MembershipRecord)
       await assertMobileMemberWorkspaceEntitled({
         membership: resolvedMembership,
         runtimeStatus: ctx.runtime.status,
-        tenantId: tenantResolution.tenant.id,
+        tenantId: tenant.id,
       })
-      const memberships = await findMembershipsForUserAsync(user.id)
-      return {
-        profile: await issueMobileProfile({
+      const [profile, accessSnapshot] = await Promise.all([
+        issueMobileProfile({
           device: {
             ...ctx.request.mobile,
             deviceId: ctx.request.deviceSignal,
           },
+          member,
           membership: resolvedMembership,
+          memberships,
           runtimeStatus: ctx.runtime.status,
-          tenant: tenantResolution.tenant,
+          tenant,
           user,
         }),
-      }
+        membership
+          ? readSignInAccessSnapshot({
+              membershipId: membership.id,
+              runtimeStatus: ctx.runtime.status,
+              tenantId: tenant.id,
+              userId: user.id,
+            })
+          : undefined,
+      ])
+      return { accessSnapshot, profile }
     }),
 
   me: authenticatedProcedure.query(async ({ ctx }) => {

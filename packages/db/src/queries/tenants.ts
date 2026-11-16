@@ -584,7 +584,17 @@ export async function checkTenantSignupAvailability(input: {
   }
 }
 
-export async function getTenantByIdAsync(tenantId: string) {
+export async function getTenantByIdAsync(
+  tenantId: string,
+  options: {
+    /**
+     * Count the tenant's members (`memberCount`). Sign-in and other hot
+     * auth paths pass false: they never read the count, and counting grows
+     * with the cooperative. Without it `memberCount` is 0.
+     */
+    withMemberCount?: boolean
+  } = {}
+) {
   const prisma = createPrismaClient()
 
   if (!prisma) {
@@ -595,9 +605,9 @@ export async function getTenantByIdAsync(tenantId: string) {
     where: {
       id: tenantId,
     },
-    include: {
-      _count: { select: { members: true } },
-    },
+    ...(options.withMemberCount === false
+      ? {}
+      : { include: { _count: { select: { members: true } } } }),
   })
 
   return tenant ? mapPrismaTenantRecord(tenant) : null
@@ -627,7 +637,11 @@ export async function findTenantBySlugAsync(slug: string | null | undefined) {
 }
 
 export async function findTenantByCooperativeCodePrefixAsync(
-  cooperativeCodePrefix: string | null | undefined
+  cooperativeCodePrefix: string | null | undefined,
+  options: {
+    /** See `getTenantByIdAsync`: public auth paths pass false. */
+    withMemberCount?: boolean
+  } = {}
 ) {
   const normalizedPrefix = normalizeCooperativeCodePrefix(cooperativeCodePrefix)
   if (!normalizedPrefix) return null
@@ -643,9 +657,9 @@ export async function findTenantByCooperativeCodePrefixAsync(
 
   const tenant = await prisma.tenant.findUnique({
     where: { cooperativeCodePrefix: normalizedPrefix },
-    include: {
-      _count: { select: { members: true } },
-    },
+    ...(options.withMemberCount === false
+      ? {}
+      : { include: { _count: { select: { members: true } } } }),
   })
 
   return tenant ? mapPrismaTenantRecord(tenant) : null

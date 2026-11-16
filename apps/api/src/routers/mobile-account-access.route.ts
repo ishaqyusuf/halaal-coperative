@@ -24,7 +24,10 @@ import { z } from "zod"
 import { createTRPCRouter, publicProcedure } from "../lib.trpc"
 import { sendEmailDraftWithAudit } from "../lib/server-notifications"
 import { captureApiNotificationError } from "../observability/sentry"
-import { issueMobileProfile } from "./mobile-auth-profile"
+import {
+  issueMobileProfile,
+  readSignInAccessSnapshot,
+} from "./mobile-auth-profile"
 
 const deviceIdSchema = z.string().trim().min(8).max(180)
 const otpSchema = z
@@ -126,7 +129,9 @@ export function getPublicAuthRateLimitRules(input: {
 
 async function findPublicTenantByCooperativeNumber(cooperativeNumber: string) {
   const prefix = cooperativeNumber.trim().toUpperCase().split("-")[0]
-  return findTenantByCooperativeCodePrefixAsync(prefix)
+  return findTenantByCooperativeCodePrefixAsync(prefix, {
+    withMemberCount: false,
+  })
 }
 
 export async function enforcePublicAuthLimits(input: {
@@ -318,8 +323,8 @@ export const mobileRecoveryRouter = createTRPCRouter({
           message: "This account is not active for the selected cooperative.",
         })
       }
-      return {
-        profile: await issueMobileProfile({
+      const [profile, accessSnapshot] = await Promise.all([
+        issueMobileProfile({
           device: {
             ...ctx.request.mobile,
             deviceId: ctx.request.deviceSignal,
@@ -329,6 +334,13 @@ export const mobileRecoveryRouter = createTRPCRouter({
           tenant,
           user: result.user,
         }),
-      }
+        readSignInAccessSnapshot({
+          membershipId: result.membership.id,
+          runtimeStatus: ctx.runtime.status,
+          tenantId: tenant.id,
+          userId: result.user.id,
+        }),
+      ])
+      return { accessSnapshot, profile }
     }),
 })

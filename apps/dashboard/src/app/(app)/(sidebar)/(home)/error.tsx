@@ -16,14 +16,15 @@ export default function DashboardHomeError({
   )
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background p-6">
+    <div className="flex min-h-[60vh] items-center justify-center p-6">
       <section className="w-full max-w-md rounded-lg border border-border bg-card p-6 text-center shadow-sm">
         <p className="text-xs font-medium text-muted-foreground">
           Dashboard overview
         </p>
-        <h1 className="mt-3 text-xl font-semibold text-foreground">
+        {/* Inside the shell: the top bar is the page's only <h1>. */}
+        <h2 className="mt-3 text-xl font-semibold text-foreground">
           The overview could not be loaded
-        </h1>
+        </h2>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
           No workspace records were changed. Retry the overview request to
           continue.
@@ -37,6 +38,6 @@ export default function DashboardHomeError({
           </Button>
         </div>
       </section>
-    </main>
+    </div>
   )
 }

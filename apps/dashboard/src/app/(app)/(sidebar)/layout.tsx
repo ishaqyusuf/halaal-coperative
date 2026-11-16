@@ -10,7 +10,10 @@ import { normalizeDashboardRedirectPath } from "@/lib/auth-redirect"
 import { loadShowLegalReminder } from "@/lib/dashboard/legal-reminder"
 import { canAccessDashboardPath } from "@/lib/navigation/lib"
 import { getOperationProfileHiddenNavPaths } from "@/lib/navigation/operation-profile"
-import { getDashboardServerContext } from "@/lib/server-context"
+import {
+  getDashboardServerContext,
+  hasVerifiedDashboardSession,
+} from "@/lib/server-context"
 import {
   resolveInitialMigrationLayoutRedirect,
   resolveInitialMigrationSetupGate,
@@ -29,12 +32,21 @@ export default async function SidebarLayout({
     config: tenantUrlConfig,
     headers: headerStore,
   })
-  const context = await getDashboardServerContext()
   const nextPath = normalizeDashboardRedirectPath(headerStore.get("x-pathname"))
   const reviewingPlatformDocuments = nextPath === "/settings/platform-documents"
+  const loginHref =
+    nextPath === "/" ? "/login" : `/login?next=${encodeURIComponent(nextPath)}`
+
+  // Signed-out traffic (home is public in `proxy.ts`) needs only the login
+  // redirect, not the tenant and membership reads below.
+  if (!(await hasVerifiedDashboardSession())) {
+    await tenantRedirect(loginHref)
+  }
+
+  const context = await getDashboardServerContext()
 
   if (!context.auth.sessionToken || !context.auth.user) {
-    await tenantRedirect(`/login?next=${encodeURIComponent(nextPath)}`)
+    await tenantRedirect(loginHref)
   }
 
   if (!context.auth.membership && context.auth.pendingMemberOnboarding) {

@@ -7,16 +7,15 @@ function read(relativePath: string) {
 
 describe("dashboard home Midday conformance", () => {
   test("owns metadata, route boundaries, hydration, and suspense fallbacks", () => {
-    const route = read("../app/(home)/page.tsx")
-    const loading = read("../app/(home)/loading.tsx")
-    const error = read("../app/(home)/error.tsx")
+    const route = read("../app/(app)/(sidebar)/(home)/page.tsx")
+    const loading = read("../app/(app)/(sidebar)/(home)/loading.tsx")
+    const error = read("../app/(app)/(sidebar)/(home)/error.tsx")
     const states = read("../components/dashboard-home-page-states.tsx")
 
     expect(route).toContain('title: "Home | Halaalvest"')
     expect(route).toContain("prefetch(trpc.overview.summary.queryOptions())")
     expect(route).toContain("<HydrateClient>")
     expect(route).toContain("fallback={<OverviewSkeleton />}")
-    expect(route).toContain("fallback={<DashboardHomeSkeleton />}")
     expect(loading).toContain("<DashboardHomeSkeleton")
     expect(error).toContain("dashboard.home_error_boundary")
     expect(error).toContain("reset")
@@ -24,7 +23,7 @@ describe("dashboard home Midday conformance", () => {
   })
 
   test("preserves staff and member role branches behind one server loader", () => {
-    const route = read("../app/(home)/page.tsx")
+    const route = read("../app/(app)/(sidebar)/(home)/page.tsx")
     const loader = read("./dashboard/load-tenant-home-page.ts")
 
     expect(route).toContain('data.state === "member-ready"')
@@ -35,22 +34,27 @@ describe("dashboard home Midday conformance", () => {
     expect(loader).toContain("getMemberOperationalReadiness")
   })
 
-  test("passes the sidebar layout's shell props (WP16)", () => {
-    const route = read("../app/(home)/page.tsx")
+  test("renders inside the (sidebar) layout's shell (WP16)", () => {
+    const route = read("../app/(app)/(sidebar)/(home)/page.tsx")
     const loader = read("./dashboard/load-tenant-home-page.ts")
     const layout = read("../app/(app)/(sidebar)/layout.tsx")
+    const states = read("../components/dashboard-home-page-states.tsx")
 
-    // Both shells (staff overview and member home) get the setup link and
-    // the legal reminder, computed by the same helpers as the layout.
-    expect(route.match(/showSetupNav=\{data\.showSetupNav\}/g)).toHaveLength(2)
-    expect(
-      route.match(/showLegalReminder=\{data\.showLegalReminder\}/g)
-    ).toHaveLength(2)
-    expect(loader).toContain("loadShowLegalReminder(")
-    expect(layout).toContain("loadShowLegalReminder(")
-    expect(loader).toContain(
-      "setupGate.isWorkspaceAdmin && !setupGate.canUseLiveWorkspace"
+    // The layout owns the shell, sign-in and the setup gate, so home mounts
+    // no shell of its own and runs no gate or shell reads.
+    expect(route).not.toContain("DashboardShellClient")
+    expect(route).not.toContain("TenantUrlProvider")
+    expect(loader).not.toContain("resolveInitialMigrationSetupGate")
+    expect(loader).not.toContain("loadShowLegalReminder")
+    expect(loader).not.toContain("getOperationProfileHiddenNavPaths")
+    expect(layout).toContain("<DashboardShellClient")
+    expect(layout).toContain("is still being set up")
+    // Signed-out home traffic skips the tenant and membership reads.
+    expect(layout).toMatch(
+      /hasVerifiedDashboardSession\(\)\)\) \{\s*await tenantRedirect\(loginHref\)/
     )
+    // The route skeleton draws only the body; the shell is already there.
+    expect(states).not.toContain("<aside")
   })
 
   test("keeps the member home lean and phone friendly", () => {

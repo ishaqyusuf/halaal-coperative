@@ -462,6 +462,12 @@ async function main() {
       isSystem: true,
     },
     {
+      code: "2300",
+      name: "Profit Owed To Members",
+      accountType: "liability" as const,
+      isSystem: true,
+    },
+    {
       code: "3000",
       name: "Charge Income",
       accountType: "income" as const,

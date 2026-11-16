@@ -1,0 +1,11 @@
+/// Where a member's shared profit went when it was paid out.
+enum ProfitPayoutDestination {
+  savings
+  cash
+  bank_transfer
+}
+
+enum ProfitPayoutStatus {
+  paid
+  reversed
+}

@@ -15,6 +15,7 @@ model DividendPeriod {
 
   tenant                     Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   allocations                DividendAllocation[]
+  profitPayouts              ProfitPayout[]
   shareBusinesses            ShareBusiness[]
   shareBusinessProfitEntries ShareBusinessProfitEntry[]
 

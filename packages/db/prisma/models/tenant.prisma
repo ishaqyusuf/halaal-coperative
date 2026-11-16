@@ -104,6 +104,7 @@ model Tenant {
   ledgerEntries                         LedgerEntry[]
   dividendPeriods                       DividendPeriod[]
   dividendAllocations                   DividendAllocation[]
+  profitPayouts                         ProfitPayout[]
   shareBusinesses                       ShareBusiness[]
   shareBusinessProfitEntries            ShareBusinessProfitEntry[]
   shareBusinessProfitExpenseLines       ShareBusinessProfitExpenseLine[]

@@ -1,0 +1,37 @@
+/// One member's payout of their shared profit for one season (triage 1.1).
+/// Sharing a season posts "profit owed to members" (Dr 4000 / Cr 2100);
+/// paying out clears it (Dr 2100 / Cr 1000 savings or Cr 2000 cash/bank).
+/// The (season, member) key means a double tap or retry can never pay twice.
+/// A reversal restores the payable; paying again reuses this row and bumps
+/// `payCount`, which keys the ledger postings of each attempt.
+model ProfitPayout {
+  id                          String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                    String                  @map("tenant_id") @db.Uuid
+  dividendPeriodId            String                  @map("dividend_period_id") @db.Uuid
+  memberId                    String                  @map("member_id") @db.Uuid
+  amount                      Decimal                 @db.Decimal(18, 2)
+  destination                 ProfitPayoutDestination
+  status                      ProfitPayoutStatus      @default(paid)
+  reference                   String?
+  note                        String?
+  payCount                    Int                     @default(1) @map("pay_count")
+  paidAt                      DateTime                @map("paid_at") @db.Timestamptz(6)
+  paidByUserId                String                  @map("paid_by_user_id") @db.Uuid
+  ledgerTransactionId         String?                 @map("ledger_transaction_id") @db.Uuid
+  contributionId              String?                 @map("contribution_id") @db.Uuid
+  reversedAt                  DateTime?               @map("reversed_at") @db.Timestamptz(6)
+  reversedByUserId            String?                 @map("reversed_by_user_id") @db.Uuid
+  reversalReason              String?                 @map("reversal_reason")
+  reversalLedgerTransactionId String?                 @map("reversal_ledger_transaction_id") @db.Uuid
+  createdAt                   DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                   DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dividendPeriod DividendPeriod @relation(fields: [dividendPeriodId], references: [id], onDelete: Restrict)
+  member         Member         @relation(fields: [memberId], references: [id], onDelete: Restrict)
+
+  @@unique([dividendPeriodId, memberId], map: "profit_payouts_period_member_key")
+  @@index([tenantId, memberId], map: "profit_payouts_tenant_member_idx")
+  @@index([tenantId, dividendPeriodId, status], map: "profit_payouts_tenant_period_status_idx")
+  @@map("profit_payouts")
+}

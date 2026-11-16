@@ -15,3 +15,18 @@ describe("mobile runtime connectivity", () => {
     expect(resolveOnlineState(true, true)).toBe(true)
   })
 })
+
+describe("active read refresh covers the app query layer", () => {
+  test("refreshActiveReads refetches every stale active query without cancelling in-flight ones", async () => {
+    const { readFileSync } = await import("node:fs")
+    const { join } = await import("node:path")
+    const source = readFileSync(
+      join(import.meta.dir, "mobile-runtime-provider.tsx"),
+      "utf8"
+    )
+    expect(source).toContain('{ stale: true, type: "active" }')
+    expect(source).toContain("{ cancelRefetch: false }")
+    expect(source).toContain("focusManager.setFocused")
+    expect(source).toContain("onlineManager.setOnline")
+  })
+})

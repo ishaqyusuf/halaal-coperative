@@ -61,7 +61,13 @@ export function MobileRuntimeProvider({
     if (now - lastRefreshAtRef.current < 1_000) return
     lastRefreshAtRef.current = now
     // Only active queries past their staleTime; fresh ones stay as they are.
-    await queryClient.refetchQueries({ stale: true, type: "active" })
+    // This covers every useAppQuery/useAppInfiniteQuery read. cancelRefetch
+    // false joins a fetch React Query already started for the same
+    // focus/reconnect event instead of cancelling and repeating it.
+    await queryClient.refetchQueries(
+      { stale: true, type: "active" },
+      { cancelRefetch: false }
+    )
   }, [queryClient])
 
   useEffect(() => {

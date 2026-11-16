@@ -56,7 +56,7 @@ checkMarkers("src/runtime/mobile-runtime-provider.tsx", [
   "AppState.addEventListener",
   "focusManager.setFocused",
   "onlineManager.setOnline",
-  'refetchQueries({ stale: true, type: "active" })',
+  'refetchQueries(\n      { stale: true, type: "active" },\n      { cancelRefetch: false }\n    )',
   "createBackgroundResumeTracker",
   "queryClient.clear()",
 ])

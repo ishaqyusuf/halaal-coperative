@@ -15,7 +15,8 @@ import { useAuthContext } from "@/hooks/use-auth"
 import { canUseMobileFeatureData } from "@/dev/mobile-dev-session"
 import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
 import { useRouter } from "expo-router"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { appQueryKey, useAppQuery, useInvalidateAppQueries } from "@/hooks/use-app-query"
+import { useCallback, useState } from "react"
 
 function getDeviceSessionError(error: unknown, fallback: string) {
   if (!(error instanceof Error)) return fallback
@@ -45,13 +46,10 @@ export function DeviceSessionsRouteController({
   const { invalidateLocalSession, profile } = useAuthContext()
   const router = useRouter()
   const runtime = useMobileRuntime()
-  const [collection, setCollection] =
-    useState<MobileDeviceSessionCollection | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [writeError, setWriteError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const loadRequestIdRef = useRef(0)
+  const invalidate = useInvalidateAppQueries()
   const managed = Boolean(
     targetUserId && profile && targetUserId !== profile.user.id
   )
@@ -62,87 +60,64 @@ export function DeviceSessionsRouteController({
     ? canUseMobileFeatureData(profile, profile.role)
     : false
   const isOffline = runtime.state.connectivity === "offline"
+  // Reasons the read must not run; shown instead of a fetch error.
+  const blockedReason = invalidTarget
+    ? "This device-access link is invalid."
+    : !profile || !canLoad
+      ? "Sign in with your QA or production account to review device access."
+      : managed && !allowedToManage
+        ? "Cooperative Admin access is required to manage another user's devices."
+        : null
+  const sessionsKey = appQueryKey(
+    "device-sessions",
+    managed ? { managedUserId: targetUserId } : { ownUserId: profile?.user.id }
+  )
 
-  const loadSessions = useCallback(async () => {
-    const requestId = ++loadRequestIdRef.current
-    if (invalidTarget) {
-      setError("This device-access link is invalid.")
-      setIsLoading(false)
-      return
-    }
-    if (!profile || !canLoad) {
-      setError(
-        "Sign in with your QA or production account to review device access."
-      )
-      setIsLoading(false)
-      return
-    }
-    if (managed && !allowedToManage) {
-      setError(
-        "Cooperative Admin access is required to manage another user's devices."
-      )
-      setIsLoading(false)
-      return
-    }
-    if (isOffline) {
-      setError("Reconnect to review current device access.")
-      setIsLoading(false)
-      return
-    }
-
-    setIsLoading(true)
-    setError(null)
-    try {
-      const nextCollection = managed
-        ? await getManagedMobileDeviceSessions(targetUserId!)
-        : await getOwnMobileDeviceSessions({
-            ownerId: profile.user.id,
-            ownerName: profile.user.name,
-          })
-      if (requestId === loadRequestIdRef.current) {
-        setCollection(nextCollection)
-      }
-    } catch (loadError) {
-      if (requestId === loadRequestIdRef.current) {
-        setError(
-          getDeviceSessionError(
-            loadError,
+  // T01 reference read: react-query with focus/reconnect/screen-focus
+  // refresh, previous data kept between refreshes, no auth/validation
+  // retries. Writes invalidate this exact key instead of reloading by hand.
+  const sessionsQuery = useAppQuery<MobileDeviceSessionCollection>({
+    enabled: blockedReason === null && !isOffline,
+    queryFn: () =>
+      managed
+        ? getManagedMobileDeviceSessions(targetUserId!)
+        : getOwnMobileDeviceSessions({
+            ownerId: profile!.user.id,
+            ownerName: profile!.user.name,
+          }),
+    queryKey: sessionsKey,
+  })
+  const collection = sessionsQuery.data ?? null
+  const readError =
+    blockedReason ??
+    (isOffline && !collection
+      ? "Reconnect to review current device access."
+      : sessionsQuery.error
+        ? getDeviceSessionError(
+            sessionsQuery.error,
             "Device access could not be loaded. Try again."
           )
-        )
-      }
-    } finally {
-      if (requestId === loadRequestIdRef.current) {
-        setIsLoading(false)
-      }
-    }
-  }, [
-    allowedToManage,
-    canLoad,
-    invalidTarget,
-    isOffline,
-    managed,
-    profile,
-    targetUserId,
-  ])
-
-  useEffect(() => {
-    void loadSessions()
-    return () => {
-      loadRequestIdRef.current += 1
-    }
-  }, [loadSessions])
+        : null)
+  const error = writeError ?? readError
+  const refetchSessions = sessionsQuery.refetch
+  const loadSessions = useCallback(
+    () => invalidate(sessionsKey),
+    // sessionsKey is derived from the two ids below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [invalidate, managed, targetUserId, profile?.user.id]
+  )
 
   const handleRefresh = useCallback(() => {
     setNotice(null)
-    void loadSessions()
-  }, [loadSessions])
+    setWriteError(null)
+    void refetchSessions()
+  }, [refetchSessions])
 
   const handleRevoke = useCallback(
     async (sessionId: string) => {
       if (!profile || isSubmitting) return
       setIsSubmitting(true)
-      setError(null)
+      setWriteError(null)
       setNotice(null)
       try {
         if (managed) {
@@ -164,7 +139,7 @@ export function DeviceSessionsRouteController({
         setNotice("Device access removed.")
         await loadSessions()
       } catch (revokeError) {
-        setError(
+        setWriteError(
           getDeviceSessionError(
             revokeError,
             "Device access could not be removed. Try again."
@@ -188,7 +163,7 @@ export function DeviceSessionsRouteController({
   const handleRevokeAll = useCallback(async () => {
     if (!profile || isSubmitting) return
     setIsSubmitting(true)
-    setError(null)
+    setWriteError(null)
     setNotice(null)
     try {
       if (managed) {
@@ -204,7 +179,7 @@ export function DeviceSessionsRouteController({
         await invalidateLocalSession()
       }
     } catch (revokeError) {
-      setError(
+      setWriteError(
         getDeviceSessionError(
           revokeError,
           "Device access could not be removed. Try again."
@@ -227,7 +202,7 @@ export function DeviceSessionsRouteController({
     <DeviceSessionsScreen
       collection={collection}
       error={error}
-      isLoading={isLoading}
+      isLoading={sessionsQuery.isFetching && !collection}
       isOffline={isOffline}
       isSubmitting={isSubmitting}
       managed={managed}

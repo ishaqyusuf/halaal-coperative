@@ -8,6 +8,7 @@ import { useBottomDockScroll } from "@/hooks/use-bottom-dock-scroll"
 import { useColors } from "@/hooks/use-color"
 import { motion } from "@/lib/design-tokens"
 import { useDockVisibilityStore } from "@/lib/dock-visibility-store"
+import { resolveDockGeometry } from "@/lib/tab-bar-geometry"
 import { cn } from "@/lib/utils"
 import { useRouter } from "expo-router"
 import {
@@ -239,6 +240,13 @@ export function useScreenChrome({ hero }: { hero: boolean }) {
   return {
     chrome,
     contentBottomInset: inDockScene ? contentInset : insets.bottom + 24,
+    /** Lift for a bottom search footer so it floats just above the dock. */
+    dockLift: inDockScene
+      ? resolveDockGeometry(insets.bottom).bottom +
+        resolveDockGeometry(insets.bottom).height -
+        insets.bottom
+      : 0,
+    inDockScene,
     insetsTop: insets.top,
     onHeroLayout,
     onScroll,

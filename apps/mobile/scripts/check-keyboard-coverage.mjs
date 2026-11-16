@@ -203,6 +203,8 @@ for (const filePath of findTsxFiles(join(SOURCE_DIR, "features"))) {
 
   const hasKeyboardAwareSurface = [
     "AppKeyboardAwareScrollView",
+    // T01: AppSheet presents forms through FullScreenFormSheet.
+    "<AppSheet",
     "CompactFormSheet",
     "FullScreenFormSheet",
     "FloatingBottomSheet",

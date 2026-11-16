@@ -112,6 +112,19 @@ describe("mobile Quick Fill production absence", () => {
     })
   })
 
+  test("the design-system gallery redirects outside QA client builds", () => {
+    const source = readFileSync(
+      join(
+        mobileRoot,
+        "src/features/design-system/routes/design-system-route-controller.tsx"
+      ),
+      "utf8"
+    )
+    expect(source).toContain(
+      'if (!isMobileQaClientBuild) return <Redirect href="/" />'
+    )
+  })
+
   test("the Quick Fill control renders nothing outside QA client builds", () => {
     const source = readFileSync(
       join(mobileRoot, "src/components/app/dev-quick-fill.tsx"),

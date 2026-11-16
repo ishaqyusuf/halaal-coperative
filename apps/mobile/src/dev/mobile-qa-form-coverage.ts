@@ -461,6 +461,10 @@ export const mobileQaNonFormFieldSources = [
     source: "src/components/search/floating-search-field.tsx",
   },
   {
+    reason: "Dev/QA-only design-system gallery (T01); demo fields with no submission.",
+    source: "src/features/design-system/screens/design-system-gallery-screen.tsx",
+  },
+  {
     reason: "Shared auth field; the parent form owns coverage.",
     source: feature("auth/components/auth-field.tsx"),
   },

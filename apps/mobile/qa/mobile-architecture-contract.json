@@ -552,6 +552,20 @@
         "super_admin"
       ],
       "tenantBoundary": "Signed account required. Lists only the signed user's own memberships in active cooperatives (QA sessions stay bound to their tenant) and switches only through auth.mobile.switchRole; available before paid access without granting business data."
+    },
+    {
+      "file": "src/app/design-system.tsx",
+      "path": "/design-system",
+      "feature": "design-system",
+      "controller": "@/features/design-system/routes/design-system-route-controller",
+      "roles": [
+        "member",
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Dev/QA-only static design-system gallery with fixture copy; it reads no tenant data and redirects home in production builds."
     }
   ],
   "stateContracts": {

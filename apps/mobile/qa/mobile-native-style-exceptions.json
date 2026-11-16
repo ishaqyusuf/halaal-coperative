@@ -32,13 +32,6 @@
       "reason": "Gorhom Bottom Sheet background, container, handle, and detached sheet APIs require native style objects. The current-detent outer clip follows measured library geometry on the UI thread, preserving the inner keyboard scroll viewport."
     },
     {
-      "file": "src/components/ui/modal.tsx",
-      "allow": [
-        "native-inline-style"
-      ],
-      "reason": "The Gorhom animated backdrop requires a native runtime style; its color comes from the semantic overlay theme token."
-    },
-    {
       "file": "src/components/app/dock-tab-bar.tsx",
       "allow": [
         "native-inline-style"

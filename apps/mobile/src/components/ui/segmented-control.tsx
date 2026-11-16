@@ -106,7 +106,9 @@ export function SegmentedControl<T extends string>({
     const positions = xs.get()
     const sizes = widths.get()
     if (positions.length === 0) return { opacity: 0 }
-    const input = positions.map((_, index) => index)
+    // Worklet: no closures passed to array helpers on the UI thread.
+    const input: number[] = []
+    for (let index = 0; index < positions.length; index += 1) input.push(index)
     const at = Math.min(
       Math.max(indicatorPosition.get(), 0),
       positions.length - 1

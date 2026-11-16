@@ -76,6 +76,12 @@ assertIncludes("src/components/app/dev-quick-fill.tsx", [
   '"absolute left-4 h-12 w-12"',
 ])
 
+// T01 design-system gallery: dev/QA builds only; production redirects home.
+assertIncludes(
+  "src/features/design-system/routes/design-system-route-controller.tsx",
+  ['if (!isMobileQaClientBuild) return <Redirect href="/" />']
+)
+
 assertIncludes("src/dev/mobile-dev-quick-fill.ts", [
   "foodPurchase: {",
   'requestedPaybackMonths: "3"',

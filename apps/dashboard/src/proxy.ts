@@ -205,9 +205,11 @@ export async function proxy(request: NextRequest) {
 }
 
 // Provider webhooks and the machine-only channel worker never need tenant
-// routing or a session, so the proxy does no work for them.
+// routing or a session, so the proxy does no work for them. `.well-known/`
+// (app-link association files) must reach Apple and Google with no login
+// redirect, tenant alias redirect or rewrite.
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|brand/|favicon.ico|sitemap.xml|robots.txt|api/webhooks/assistant/|api/internal/assistant/channels/).*)",
+    "/((?!_next/static|_next/image|brand/|favicon.ico|sitemap.xml|robots.txt|\\.well-known/|api/webhooks/assistant/|api/internal/assistant/channels/).*)",
   ],
 }

@@ -143,6 +143,57 @@ const variantConfig = isDevelopmentBuild
         },
       }
 
+// Shared assistant links (`assistantHrefs`) open the app when it is
+// installed (ADR-20261116-assistant-app-links). Only these paths are claimed;
+// the dashboard's apple-app-site-association and assetlinks.json list the same
+// prefixes. Production always claims app.halaalvest.com. A preview build claims
+// its own https dashboard host (the origin its Share link uses). Development
+// claims none: local hosts can't be verified by Apple or Google, the dev
+// client uses the halaalvest-dev:// scheme, and a new entitlement would mean
+// re-prebuilding apps/mobile/ios.
+const APP_LINK_PATH_PREFIXES = ["/assistant/m/", "/assistant/review/"] as const
+const PRODUCTION_APP_LINK_HOST = "app.halaalvest.com"
+
+function previewAppLinkHost(dashboardUrl: string | undefined) {
+  try {
+    const url = new URL(dashboardUrl?.trim() ?? "")
+    const host = url.hostname.toLowerCase().replace(/\.$/, "")
+    if (url.protocol !== "https:" || url.port) return null
+    if (
+      host === "localhost" ||
+      host.endsWith(".localhost") ||
+      !host.includes(".")
+    )
+      return null
+    return host === PRODUCTION_APP_LINK_HOST ? null : host
+  } catch {
+    return null
+  }
+}
+
+const appLinkHost = isDevelopmentBuild
+  ? null
+  : isPreviewBuild
+    ? previewAppLinkHost(process.env.EXPO_PUBLIC_DASHBOARD_URL)
+    : PRODUCTION_APP_LINK_HOST
+
+const appLinkIntentFilters: NonNullable<
+  ExpoConfig["android"]
+>["intentFilters"] = appLinkHost
+  ? [
+      {
+        action: "VIEW",
+        autoVerify: true,
+        category: ["BROWSABLE", "DEFAULT"],
+        data: APP_LINK_PATH_PREFIXES.map((pathPrefix) => ({
+          scheme: "https",
+          host: appLinkHost,
+          pathPrefix,
+        })),
+      },
+    ]
+  : undefined
+
 const config: ExpoConfig = {
   name: variantConfig.name,
   slug: "halaalvest",
@@ -156,6 +207,7 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: variantConfig.iosBundleIdentifier,
+    ...(appLinkHost ? { associatedDomains: [`applinks:${appLinkHost}`] } : {}),
     privacyManifests: {
       NSPrivacyTracking: false,
       NSPrivacyCollectedDataTypes: appOwnedCollectedDataTypes.map(
@@ -192,6 +244,7 @@ const config: ExpoConfig = {
       foregroundImage: variantConfig.icons.adaptive,
     },
     package: variantConfig.androidPackage,
+    ...(appLinkIntentFilters ? { intentFilters: appLinkIntentFilters } : {}),
     predictiveBackGestureEnabled: false,
   },
   web: {

@@ -32,9 +32,17 @@ function readExpoConfig(env: Record<string, string>) {
       runtimeVersion: { policy: "fingerprint" }
       version: string
       icon: string
-      ios: { bundleIdentifier?: string; icon: { light: string; dark: string } }
+      ios: {
+        bundleIdentifier?: string
+        associatedDomains?: string[]
+        icon: { light: string; dark: string }
+      }
       android: {
         package?: string
+        intentFilters?: {
+          autoVerify?: boolean
+          data?: { scheme?: string; host?: string; pathPrefix?: string }[]
+        }[]
         adaptiveIcon: { foregroundImage: string; backgroundColor: string }
       }
     }
@@ -129,5 +137,26 @@ describe("Node Expo config evaluation", () => {
     expect(launcherHashes.size).toBe(3)
     expect(adaptiveHashes.size).toBe(3)
     expect(darkHashes.size).toBe(3)
+
+    // Shared assistant links: production claims app.halaalvest.com, preview
+    // its own dashboard host, development nothing; only /assistant/ paths.
+    const appLinkData = (host: string) => [
+      { scheme: "https", host, pathPrefix: "/assistant/m/" },
+      { scheme: "https", host, pathPrefix: "/assistant/review/" },
+    ]
+    expect(storeIdentity.ios.associatedDomains).toEqual([
+      "applinks:app.halaalvest.com",
+    ])
+    expect(storeIdentity.android.intentFilters).toMatchObject([
+      { autoVerify: true, data: appLinkData("app.halaalvest.com") },
+    ])
+    expect(preview.ios.associatedDomains).toEqual([
+      "applinks:app.qa.halaalvest.com",
+    ])
+    expect(preview.android.intentFilters).toMatchObject([
+      { autoVerify: true, data: appLinkData("app.qa.halaalvest.com") },
+    ])
+    expect(development.ios.associatedDomains).toBeUndefined()
+    expect(development.android.intentFilters).toBeUndefined()
   }, 15_000)
 })

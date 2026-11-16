@@ -27,6 +27,10 @@ export type LegalRecord = {
 export function getLegalBundle(): Promise<LegalBundle> {
   return createMobileTrpcClient().legal.current.query()
 }
+/** One small call: whether current platform documents still need review. */
+export function getLegalReminderStatus(): Promise<{ needsReview: boolean }> {
+  return createMobileTrpcClient().legal.reminderStatus.query()
+}
 export function getLegalRecords(): Promise<LegalRecord[]> {
   return createMobileTrpcClient().legal.accepted.query()
 }

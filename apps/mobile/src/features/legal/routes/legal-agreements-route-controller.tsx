@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "expo-router"
 import { useAuthContext } from "@/hooks/use-auth"
@@ -10,6 +11,7 @@ import {
   type LegalBundle,
   type LegalRecord,
 } from "../api/legal-api"
+import { legalReminderQueryKey } from "../public/use-legal-reminder"
 import { LegalAgreementsScreen } from "../screens/legal-agreements-screen"
 export function LegalAgreementsRouteController() {
   const { profile } = useAuthContext()
@@ -20,6 +22,8 @@ export function LegalAgreementsRouteController() {
   )
 }
 function LegalContent() {
+  const { profile } = useAuthContext()
+  const queryClient = useQueryClient()
   const runtime = useMobileRuntime()
   const router = useRouter()
   const offline = runtime.state.connectivity === "offline"
@@ -92,6 +96,13 @@ function LegalContent() {
       await runtime.runOnlineOperation("command", async () => {
         if (!current()) throw new Error("Account changed")
         await acceptLegalDocuments(bundle.documents)
+      })
+      void queryClient.invalidateQueries({
+        queryKey: legalReminderQueryKey(
+          profile
+            ? `${profile.user.id}:${profile.tenant.id}:${profile.activeMembershipId}`
+            : null
+        ),
       })
       if (current()) {
         setMessage("Your platform document acknowledgement was recorded.")

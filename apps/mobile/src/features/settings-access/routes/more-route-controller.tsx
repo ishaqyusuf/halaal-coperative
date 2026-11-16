@@ -1,5 +1,4 @@
 import { canUseMobileFeatureData } from "@/dev/mobile-dev-session"
-import { needsLegalReviewReminder } from "@halaalvest/domain/legal-reminder"
 import {
   getAdminAccess,
   inviteAdminAccessUser,
@@ -11,14 +10,11 @@ import type {
   AdminAccessInviteResult,
 } from "@/features/admin-reports-access/public/admin-access-types"
 import { canManageMobileOperationProfile } from "@/features/operation-profile/public/operation-profile-policy"
-import {
-  getLegalBundle,
-  getLegalRecords,
-} from "@/features/legal/public/legal-read-api"
+import { useLegalReminder } from "@/features/legal/public/legal-read-api"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
-import { useFocusEffect, useLocalSearchParams } from "expo-router"
-import { useCallback, useEffect, useState } from "react"
+import { useLocalSearchParams } from "expo-router"
+import { useEffect, useState } from "react"
 import { getMemberMore } from "../api/member-more-api"
 import type { MobileMemberMore } from "../model/member-more-types"
 import {
@@ -77,41 +73,19 @@ export function MoreRouteController() {
   const [workspaceError, setWorkspaceError] = useState<string | null>(null)
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState<string | null>(null)
-  const [showLegalReminder, setShowLegalReminder] = useState(false)
   const [isInviting, setIsInviting] = useState(false)
   const canUseServerMemberHub = canUseMobileFeatureData(profile, "member")
   const accountKey = profile
     ? `${profile.user.id}:${profile.tenant.id}:${profile.activeMembershipId}`
     : null
+  const showLegalReminder = useLegalReminder({
+    accountKey,
+    enabled: runtime.state.connectivity !== "offline",
+  })
   const canUseServerAdminAccess =
     resolvedQaState !== "denied" &&
     canUseMobileFeatureData(profile, "admin") &&
     canManageMobileAdminAccess(profile?.cooperativeRole)
-
-  useFocusEffect(
-    useCallback(() => {
-      let active = true
-      setShowLegalReminder(false)
-      if (!accountKey || runtime.state.connectivity === "offline") return
-
-      void (async () => {
-        try {
-          const bundle = await getLegalBundle()
-          if (!bundle.available) return
-          const records = await getLegalRecords()
-          if (active) {
-            setShowLegalReminder(needsLegalReviewReminder(bundle, records))
-          }
-        } catch {
-          // A reminder check must never interrupt account access.
-        }
-      })()
-
-      return () => {
-        active = false
-      }
-    }, [accountKey, runtime.state.connectivity])
-  )
 
   useEffect(() => {
     let mounted = true

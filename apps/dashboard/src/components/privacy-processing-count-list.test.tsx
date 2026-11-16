@@ -97,18 +97,20 @@ test("renders every selected deletion link and keeps the partial-inventory cavea
     platformBillingSettingsUpdated: 91,
     platformBillFundingChosen: 92,
     foodApplicationsGoodsReleased: 93,
+    profitPayoutsPaid: 94,
+    profitPayoutsReversed: 95,
   }
   const html = renderToStaticMarkup(
     <PrivacyProcessingCountList counts={counts} />
   )
 
-  expect(html.match(/<dt>/g)).toHaveLength(93)
+  expect(html.match(/<dt>/g)).toHaveLength(95)
   const renderedCounts = Array.from(
     html.matchAll(/<dd[^>]*>(\d+)<\/dd>/g),
     (match) => Number(match[1])
   ).sort((a, b) => a - b)
   expect(renderedCounts).toEqual(
-    Array.from({ length: 93 }, (_, index) => index + 1)
+    Array.from({ length: 95 }, (_, index) => index + 1)
   )
   expect(html).toContain("Staff and import history")
   expect(html).toContain("Support cases assigned to staff account")
@@ -124,6 +126,8 @@ test("renders every selected deletion link and keeps the partial-inventory cavea
   expect(html).toContain("Backfill and migration actor history")
   expect(html).toContain("Opening balances reversed")
   expect(html).toContain("Share and profit actor history")
+  expect(html).toContain("Profit payouts made")
+  expect(html).toContain("Profit payouts undone")
   expect(html).toContain("Tenant and QA actor history")
   expect(html).toContain("A financial record can appear")
   expect(html).toContain("Member-linked financial records")

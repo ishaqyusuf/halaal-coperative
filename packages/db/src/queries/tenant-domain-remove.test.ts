@@ -91,13 +91,11 @@ describe("removeTenantCustomDomain", () => {
     ])
   })
 
-  test("refuses the main address", async () => {
+  test("removes a custom address once marked main (isPrimary is display-only)", async () => {
     const { deleted, prisma } = prismaWith(domains)
 
-    await expect(remove("main", prisma)).rejects.toThrow(
-      "Make another address the main one first."
-    )
-    expect(deleted).toEqual([])
+    await remove("main", prisma)
+    expect(deleted).toEqual(["main"])
   })
 
   test("refuses the Halaalvest address", async () => {

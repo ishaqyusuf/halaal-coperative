@@ -79,6 +79,8 @@ import {
   recordCollectionFollowUp,
   provisionTenantUserRole,
   removeTenantStaffRole,
+  removeTenantPersonFromCooperative,
+  restoreTenantPerson,
   rotateMemberSignupLinkToken,
   recordFoodPurchaseAccounting,
   transitionFoodPurchaseCycle,
@@ -106,7 +108,6 @@ import {
   reviewProcurementRequest,
   runTenantDomainVerificationCheck,
   setTenantInitialMigrationEmergencyUnlock,
-  setTenantDomainPrimary,
   removeTenantCustomDomain,
   updateTenantDomainVerificationStatus,
   updateTenantShareStructureVersion,
@@ -5874,19 +5875,7 @@ export async function createTenantDomainAction(formData: FormData) {
   revalidatePath("/")
 }
 
-export async function setTenantDomainPrimaryAction(formData: FormData) {
-  const actor = await requireDashboardActor(workspaceAdminRoles)
-
-  await setTenantDomainPrimary({
-    actorUserId: actor.user.id,
-    domainId: getRequiredString(formData, "domainId"),
-    tenantId: actor.tenant.id,
-  })
-
-  revalidatePath("/domains")
-}
-
-// Admins remove one of their own extra addresses; never the main one.
+// Admins remove one of their own extra addresses; never the Halaalvest one.
 export async function removeTenantCustomDomainAction(formData: FormData) {
   const actor = await requireDashboardActor(workspaceAdminRoles)
 
@@ -6016,6 +6005,35 @@ export async function removeTenantStaffRoleAction(formData: FormData) {
     // The role named in the confirm must be one this admin may take away.
     expectedRole: requireAssignableRole(actor, role),
     membershipId: getRequiredString(formData, "membershipId"),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/roles")
+}
+
+// "Remove from cooperative": all of a staff person's roles, restorable.
+export async function removeTenantPersonFromCooperativeAction(
+  formData: FormData
+) {
+  const actor = await requireDashboardActor(workspaceAdminRoles)
+
+  await removeTenantPersonFromCooperative({
+    actorUserId: actor.user.id,
+    canRemovePlatformAdmin: actor.membership.role === "super_admin",
+    tenantId: actor.tenant.id,
+    userId: getRequiredString(formData, "userId"),
+  })
+
+  revalidatePath("/settings/roles")
+}
+
+export async function restoreTenantPersonAction(formData: FormData) {
+  const actor = await requireDashboardActor(workspaceAdminRoles)
+
+  await restoreTenantPerson({
+    actorUserId: actor.user.id,
+    canRestorePlatformAdmin: actor.membership.role === "super_admin",
+    removalId: getRequiredString(formData, "removalId"),
     tenantId: actor.tenant.id,
   })
 
@@ -7342,12 +7360,13 @@ const dashboardActionHandlers = {
   toggleMemberSignupLinkAction,
   rotateMemberSignupLinkAction,
   createTenantDomainAction,
-  setTenantDomainPrimaryAction,
   removeTenantCustomDomainAction,
   updateTenantDomainVerificationStatusAction,
   runTenantDomainVerificationCheckAction,
   provisionTenantUserRoleAction,
   removeTenantStaffRoleAction,
+  removeTenantPersonFromCooperativeAction,
+  restoreTenantPersonAction,
   recordCollectionFollowUpAction,
   createSupportCaseAction,
   addSupportCaseMessageAction,
@@ -7685,9 +7704,6 @@ export const dashboardActionsRouter = createTRPCRouter({
   createTenantDomainAction: formAction(
     dashboardActionHandlers.createTenantDomainAction
   ),
-  setTenantDomainPrimaryAction: formAction(
-    dashboardActionHandlers.setTenantDomainPrimaryAction
-  ),
   removeTenantCustomDomainAction: formAction(
     dashboardActionHandlers.removeTenantCustomDomainAction
   ),
@@ -7702,6 +7718,12 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   removeTenantStaffRoleAction: formAction(
     dashboardActionHandlers.removeTenantStaffRoleAction
+  ),
+  removeTenantPersonFromCooperativeAction: formAction(
+    dashboardActionHandlers.removeTenantPersonFromCooperativeAction
+  ),
+  restoreTenantPersonAction: formAction(
+    dashboardActionHandlers.restoreTenantPersonAction
   ),
   recordCollectionFollowUpAction: formAction(
     dashboardActionHandlers.recordCollectionFollowUpAction

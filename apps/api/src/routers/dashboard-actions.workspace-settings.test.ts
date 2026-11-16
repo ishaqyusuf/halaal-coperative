@@ -132,11 +132,15 @@ runIntegration("workspace settings actions", () => {
         ["role", "finance_officer"],
       ],
     ],
-    ["createTenantDomainAction", [["hostname", `${slug}.example.test`]]],
     [
-      "setTenantDomainPrimaryAction",
-      [["domainId", "00000000-0000-0000-0000-000000000000"]],
+      "removeTenantPersonFromCooperativeAction",
+      [["userId", "00000000-0000-0000-0000-000000000000"]],
     ],
+    [
+      "restoreTenantPersonAction",
+      [["removalId", "00000000-0000-0000-0000-000000000000"]],
+    ],
+    ["createTenantDomainAction", [["hostname", `${slug}.example.test`]]],
     [
       "runTenantDomainVerificationCheckAction",
       [["domainId", "00000000-0000-0000-0000-000000000000"]],
@@ -234,60 +238,174 @@ runIntegration("workspace settings actions", () => {
     ).toBe(1)
   })
 
-  test("an admin removes a staff role and it is recorded", async () => {
-    await run(admin, "removeTenantStaffRoleAction", [
-      ["membershipId", finance.membershipId],
-      ["role", "finance_officer"],
-    ])
-
+  test("a person's last role can't be removed on its own", async () => {
+    await expect(
+      run(admin, "removeTenantStaffRoleAction", [
+        ["membershipId", finance.membershipId],
+        ["role", "finance_officer"],
+      ])
+    ).rejects.toThrow("Use Remove from cooperative instead.")
     expect(
       await prisma!.membership.count({ where: { id: finance.membershipId } })
-    ).toBe(0)
+    ).toBe(1)
+  })
+
+  test("an admin removes one of two staff roles and it is recorded", async () => {
+    const extra = await prisma!.membership.create({
+      data: {
+        isDefault: false,
+        role: "operations_officer",
+        tenantId,
+        userId: finance.userId,
+      },
+    })
+
+    await run(admin, "removeTenantStaffRoleAction", [
+      ["membershipId", extra.id],
+      ["role", "operations_officer"],
+    ])
+
+    expect(await prisma!.membership.count({ where: { id: extra.id } })).toBe(0)
+    expect(
+      await prisma!.membership.count({ where: { id: finance.membershipId } })
+    ).toBe(1)
     expect(
       await prisma!.auditLog.count({
-        where: {
-          action: "membership.removed",
-          entityId: finance.membershipId,
-          tenantId,
-        },
+        where: { action: "membership.removed", entityId: extra.id, tenantId },
       })
     ).toBe(1)
   })
 
-  test("an unchecked custom address can't become the main address", async () => {
-    await run(admin, "createTenantDomainAction", [
-      ["hostname", `coop.${slug}.example.test`],
-    ])
-    const domain = await prisma!.tenantDomain.findFirstOrThrow({
-      select: { id: true },
-      where: { hostname: `coop.${slug}.example.test`, tenantId },
-    })
-
+  test("Remove from cooperative refuses yourself, the only admin, member logins and platform admins", async () => {
     await expect(
-      run(admin, "setTenantDomainPrimaryAction", [["domainId", domain.id]])
-    ).rejects.toThrow("must be verified")
+      run(admin, "removeTenantPersonFromCooperativeAction", [
+        ["userId", admin.userId],
+      ])
+    ).rejects.toThrow("You can't remove yourself.")
+    await expect(
+      run(superAdmin, "removeTenantPersonFromCooperativeAction", [
+        ["userId", admin.userId],
+      ])
+    ).rejects.toThrow("only admin")
+    await expect(
+      run(admin, "removeTenantPersonFromCooperativeAction", [
+        ["userId", member.userId],
+      ])
+    ).rejects.toThrow("managed from the member's record")
+    await expect(
+      run(admin, "removeTenantPersonFromCooperativeAction", [
+        ["userId", superAdmin.userId],
+      ])
+    ).rejects.toThrow("Only Halaalvest staff can remove a platform admin.")
+    expect(await prisma!.membershipRemoval.count({ where: { tenantId } })).toBe(
+      0
+    )
   })
 
-  test("an admin removes an extra custom address, never the main one", async () => {
+  test("Remove from cooperative keeps the account and other cooperatives, and Restore gives the role back", async () => {
+    const otherTenant = await prisma!.tenant.create({
+      data: {
+        initialMigrationStatus: "live_operations",
+        migrationFinalizedAt: new Date(),
+        name: "Other Cooperative",
+        slug: `${slug}-other`,
+        status: "active",
+      },
+    })
+    // A role in another cooperative must survive the removal.
+    const otherRole = await prisma!.membership.create({
+      data: {
+        isDefault: true,
+        role: "finance_officer",
+        tenantId: otherTenant.id,
+        userId: finance.userId,
+      },
+    })
+
+    try {
+      await run(admin, "removeTenantPersonFromCooperativeAction", [
+        ["userId", finance.userId],
+      ])
+
+      expect(
+        await prisma!.membership.count({
+          where: { tenantId, userId: finance.userId },
+        })
+      ).toBe(0)
+      expect(await prisma!.user.count({ where: { id: finance.userId } })).toBe(
+        1
+      )
+      expect(
+        await prisma!.membership.count({ where: { id: otherRole.id } })
+      ).toBe(1)
+      const removal = await prisma!.membershipRemoval.findFirstOrThrow({
+        where: { tenantId, userId: finance.userId, restoredAt: null },
+      })
+      expect(removal.roles).toEqual(["finance_officer"])
+      expect(
+        await prisma!.auditLog.count({
+          where: { action: "membership.person_removed", entityId: removal.id },
+        })
+      ).toBe(1)
+
+      // Their old session no longer opens this cooperative.
+      await expect(
+        run(finance, "removeTenantStaffRoleAction", [
+          ["membershipId", operations.membershipId],
+          ["role", "operations_officer"],
+        ])
+      ).rejects.toThrow()
+
+      await run(admin, "restoreTenantPersonAction", [
+        ["removalId", removal.id],
+      ])
+
+      const restored = await prisma!.membership.findMany({
+        where: { tenantId, userId: finance.userId },
+      })
+      expect(restored.map((role) => role.role)).toEqual(["finance_officer"])
+      expect(restored[0]?.isDefault).toBe(true)
+      expect(
+        (
+          await prisma!.membershipRemoval.findUniqueOrThrow({
+            where: { id: removal.id },
+          })
+        ).restoredAt
+      ).not.toBeNull()
+      expect(
+        await prisma!.auditLog.count({
+          where: { action: "membership.person_restored", entityId: removal.id },
+        })
+      ).toBe(1)
+      await expect(
+        run(admin, "restoreTenantPersonAction", [["removalId", removal.id]])
+      ).rejects.toThrow("already restored")
+      finance = { ...finance, membershipId: restored[0]!.id }
+    } finally {
+      await prisma!.tenant.deleteMany({ where: { id: otherTenant.id } })
+    }
+  })
+
+  test("an admin removes custom addresses, never the Halaalvest one", async () => {
     const hostname = `spare.${slug}.example.test`
     await run(admin, "createTenantDomainAction", [["hostname", hostname]])
     const spare = await prisma!.tenantDomain.findFirstOrThrow({
       select: { id: true },
       where: { hostname, tenantId },
     })
-    const main = await prisma!.tenantDomain.create({
+    const site = await prisma!.tenantDomain.create({
       data: {
-        hostname: `main.${slug}.example.test`,
+        hostname: `site.${slug}.example.test`,
         isPrimary: true,
-        kind: "custom",
+        kind: "site",
         tenantId,
         verificationStatus: "verified",
       },
     })
 
     await expect(
-      run(admin, "removeTenantCustomDomainAction", [["domainId", main.id]])
-    ).rejects.toThrow("Make another address the main one first.")
+      run(admin, "removeTenantCustomDomainAction", [["domainId", site.id]])
+    ).rejects.toThrow("Your Halaalvest address can't be removed.")
     await run(admin, "removeTenantCustomDomainAction", [["domainId", spare.id]])
 
     expect(await prisma!.tenantDomain.count({ where: { id: spare.id } })).toBe(

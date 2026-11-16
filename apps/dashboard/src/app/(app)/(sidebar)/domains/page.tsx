@@ -18,7 +18,7 @@ export default async function DomainsPage({
 }) {
   loadDomainParams(await searchParams)
   const context = await getDashboardServerContext()
-  // One read: the main address is the list's primary row, so the onboarding
+  // One read: the Halaalvest address is the platform row, so the onboarding
   // state is no longer loaded here (thread 15).
   const domains =
     context.tenant && createDbRuntime().status === "database-configured"

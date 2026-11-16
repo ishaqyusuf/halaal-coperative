@@ -540,6 +540,12 @@ export async function provisionTenantUserRole(input: {
       },
     })
 
+    // Adding a removed person back closes their "Remove from cooperative".
+    await tx.membershipRemoval.updateMany({
+      where: { tenantId: input.tenantId, userId: user.id, restoredAt: null },
+      data: { restoredAt: new Date(), restoredByUserId: input.actorUserId },
+    })
+
     await tx.auditLog.create({
       data: {
         tenantId: input.tenantId,

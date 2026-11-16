@@ -1103,89 +1103,10 @@ export async function createTenantCustomDomain(input: {
   return mapTenantDomainRecord(domain)
 }
 
-export async function setTenantDomainPrimary(input: {
-  actorUserId: string
-  domainId: string
-  tenantId: string
-}) {
-  const prisma = createPrismaClient()
-
-  if (!prisma) {
-    throw new Error("Database not configured")
-  }
-
-  return prisma.$transaction(async (tx) => {
-    const domain = await tx.tenantDomain.findFirst({
-      where: {
-        id: input.domainId,
-        tenantId: input.tenantId,
-      },
-    })
-
-    if (!domain) {
-      throw ExpectedQueryError.notFound("Domain not found")
-    }
-
-    if (domain.kind === "custom" && domain.verificationStatus !== "verified") {
-      throw ExpectedQueryError.precondition(
-        "Custom domains must be verified before they can become primary."
-      )
-    }
-
-    const scopedDomains = await tx.tenantDomain.findMany({
-      where: {
-        tenantId: input.tenantId,
-      },
-      select: {
-        id: true,
-      },
-    })
-
-    const scopedDomainIds = scopedDomains.map((item) => item.id)
-
-    await tx.tenantDomain.updateMany({
-      where: {
-        id: {
-          in: scopedDomainIds,
-        },
-      },
-      data: {
-        isPrimary: false,
-      },
-    })
-
-    const updated = await tx.tenantDomain.update({
-      where: {
-        id: domain.id,
-      },
-      data: {
-        isPrimary: true,
-      },
-    })
-
-    await tx.auditLog.create({
-      data: {
-        action: "tenant_domain.primary_set",
-        actorType: "user",
-        actorUserId: input.actorUserId,
-        entityId: updated.id,
-        entityType: "TenantDomain",
-        metadata: {
-          hostname: updated.hostname,
-          kind: updated.kind,
-        },
-        occurredAt: new Date(),
-        tenantId: input.tenantId,
-      },
-    })
-
-    return mapTenantDomainRecord(updated)
-  })
-}
-
 /**
- * Removes a cooperative's own web address. The Halaalvest address and the
- * main address can't be removed (make another address the main one first).
+ * Removes a cooperative's own web address. The Halaalvest address can't be
+ * removed. (isPrimary is display-only and no longer set from the dashboard,
+ * so it doesn't block removal.)
  */
 export async function removeTenantCustomDomain(
   input: {
@@ -1216,12 +1137,6 @@ export async function removeTenantCustomDomain(
     if (domain.kind !== "custom") {
       throw ExpectedQueryError.precondition(
         "Your Halaalvest address can't be removed."
-      )
-    }
-
-    if (domain.isPrimary) {
-      throw ExpectedQueryError.precondition(
-        "This is your main address. Make another address the main one first."
       )
     }
 

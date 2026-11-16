@@ -652,10 +652,6 @@ export async function createTenantDomainAction(formData: FormData) {
   return callDashboardFormAction("createTenantDomainAction", formData)
 }
 
-export async function setTenantDomainPrimaryAction(formData: FormData) {
-  return callDashboardFormAction("setTenantDomainPrimaryAction", formData)
-}
-
 export async function removeTenantCustomDomainAction(formData: FormData) {
   return callDashboardFormAction("removeTenantCustomDomainAction", formData)
 }
@@ -684,6 +680,19 @@ export async function provisionTenantUserRoleAction(formData: FormData) {
 
 export async function removeTenantStaffRoleAction(formData: FormData) {
   return callDashboardFormAction("removeTenantStaffRoleAction", formData)
+}
+
+export async function removeTenantPersonFromCooperativeAction(
+  formData: FormData
+) {
+  return callDashboardFormAction(
+    "removeTenantPersonFromCooperativeAction",
+    formData
+  )
+}
+
+export async function restoreTenantPersonAction(formData: FormData) {
+  return callDashboardFormAction("restoreTenantPersonAction", formData)
 }
 
 export async function recordCollectionFollowUpAction(formData: FormData) {

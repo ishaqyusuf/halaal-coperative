@@ -13,6 +13,7 @@ model User {
 
   tenant                                     Tenant                              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   memberships                                Membership[]
+  membershipRemovals                         MembershipRemoval[]
   memberProfile                              Member?
   loanRequests                               LoanRequest[]                       @relation("LoanRequestCreatedBy")
   loanApprovals                              LoanApproval[]
@@ -160,4 +161,25 @@ model Membership {
   @@index([tenantId, role], map: "memberships_tenant_role_idx")
   @@index([userId], map: "memberships_user_id_idx")
   @@map("memberships")
+}
+
+/// "Remove from cooperative": the person's last roles in this cooperative,
+/// taken away together and kept here so an admin can restore them. The user
+/// row, ledger and audit history stay. Open while restoredAt is null.
+model MembershipRemoval {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String           @map("tenant_id") @db.Uuid
+  userId           String           @map("user_id") @db.Uuid
+  roles            MembershipRole[]
+  removedAt        DateTime         @default(now()) @map("removed_at") @db.Timestamptz(6)
+  removedByUserId  String?          @map("removed_by_user_id") @db.Uuid
+  restoredAt       DateTime?        @map("restored_at") @db.Timestamptz(6)
+  restoredByUserId String?          @map("restored_by_user_id") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, restoredAt], map: "membership_removals_tenant_restored_idx")
+  @@index([userId], map: "membership_removals_user_id_idx")
+  @@map("membership_removals")
 }

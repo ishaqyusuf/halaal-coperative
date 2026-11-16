@@ -63,6 +63,7 @@ model Tenant {
   domains                               TenantDomain[]
   users                                 User[]
   memberships                           Membership[]
+  membershipRemovals                    MembershipRemoval[]
   members                               Member[]
   memberDocuments                       MemberDocument[]
   importBatches                         ImportBatch[]

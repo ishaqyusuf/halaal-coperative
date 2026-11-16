@@ -50,6 +50,10 @@ import {
   generateShareProfitAllocations,
   shareProfitSeason,
   workOutProfitSeasonShares,
+  payOutProfit,
+  profitPayoutDestinations,
+  reverseProfitPayout,
+  type ProfitPayoutDestination,
   disburseLoan,
   openMonthlyFinancingCycle,
   getImportBatchKind,
@@ -3470,6 +3474,72 @@ export async function shareProfitSeasonAction(formData: FormData) {
     commandId: getRequiredString(formData, "commandId"),
     note: getOptionalTrimmedString(formData, "note"),
     seasonId: getRequiredString(formData, "seasonId"),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidateBusinessPages()
+}
+
+function getProfitPayoutDestination(formData: FormData, key: string) {
+  const value = getRequiredString(formData, key)
+
+  if (!profitPayoutDestinations.includes(value as ProfitPayoutDestination)) {
+    throw new DashboardActionExpectedError(
+      "Choose savings, cash or bank transfer."
+    )
+  }
+
+  return value as ProfitPayoutDestination
+}
+
+/**
+ * Pay out a shared season's profit: one member (`memberId`) or everyone still
+ * owed, with optional per-member destinations (`overrides`, JSON). Same roles
+ * as sharing the season; each member is paid once.
+ */
+export async function payOutProfitAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  const rawOverrides = getOptionalTrimmedString(formData, "overrides")
+  let overrideInput: unknown = {}
+  try {
+    overrideInput = rawOverrides ? JSON.parse(rawOverrides) : {}
+  } catch {
+    overrideInput = null
+  }
+  const parsedOverrides = z
+    .record(z.string().uuid(), z.enum(["savings", "cash", "bank_transfer"]))
+    .safeParse(overrideInput)
+
+  if (!parsedOverrides.success) {
+    throw new DashboardActionExpectedError(
+      "Choose savings, cash or bank transfer for each member."
+    )
+  }
+
+  await payOutProfit({
+    actorUserId: actor.user.id,
+    commandId: getRequiredString(formData, "commandId"),
+    destination: getProfitPayoutDestination(formData, "destination"),
+    memberId: getOptionalTrimmedString(formData, "memberId"),
+    note: getOptionalTrimmedString(formData, "note"),
+    overrides: parsedOverrides.data,
+    reference: getOptionalTrimmedString(formData, "reference"),
+    seasonId: getRequiredString(formData, "seasonId"),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidateBusinessPages()
+}
+
+/** Undo one profit payout: the amount is owed to the member again. */
+export async function reverseProfitPayoutAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  await reverseProfitPayout({
+    actorUserId: actor.user.id,
+    commandId: getRequiredString(formData, "commandId"),
+    payoutId: getRequiredString(formData, "payoutId"),
+    reason: getRequiredString(formData, "reason"),
     tenantId: actor.tenant.id,
   })
 
@@ -7227,6 +7297,8 @@ const dashboardActionHandlers = {
   closeProfitSeasonAction,
   workOutProfitSeasonSharesAction,
   shareProfitSeasonAction,
+  payOutProfitAction,
+  reverseProfitPayoutAction,
   saveBusinessProfitMigrationWorksheetAction,
   saveBusinessProfitSeasonReviewAction,
   updateChargeDefinitionAction,
@@ -7489,6 +7561,10 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   shareProfitSeasonAction: formAction(
     dashboardActionHandlers.shareProfitSeasonAction
+  ),
+  payOutProfitAction: formAction(dashboardActionHandlers.payOutProfitAction),
+  reverseProfitPayoutAction: formAction(
+    dashboardActionHandlers.reverseProfitPayoutAction
   ),
   saveBusinessProfitMigrationWorksheetAction: formAction(
     dashboardActionHandlers.saveBusinessProfitMigrationWorksheetAction

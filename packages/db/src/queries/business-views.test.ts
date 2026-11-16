@@ -173,6 +173,88 @@ describe("shareProfitSeason", () => {
     })
   })
 
+  test("records each member's share as owed once the season is shared", async () => {
+    let status = "approved"
+    const transactions: Array<{ idempotencyKey: string; memberId: string }> = []
+    const entries: Array<{ amount: number; direction: string; ledgerAccountId: string }> = []
+    const { prisma } = mockPrisma({
+      auditLog: { create: async () => ({}) },
+      dividendAllocation: {
+        createMany: async () => ({ count: 2 }),
+        deleteMany: async () => ({ count: 0 }),
+        findMany: async () => [
+          { allocationAmount: 70, memberId: "m1" },
+          { allocationAmount: 30, memberId: "m2" },
+        ],
+      },
+      dividendPeriod: {
+        findFirst: async () => ({ name: "2026 Mid-year", status }),
+        update: async () => {
+          status = "published"
+          return {}
+        },
+      },
+      ledgerAccount: {
+        createMany: async () => ({ count: 0 }),
+        findMany: async () =>
+          ["1000", "2000", "2300", "4000"].map((code) => ({ code, id: `acct-${code}` })),
+      },
+      ledgerEntry: {
+        createMany: async ({ data }: { data: typeof entries }) => {
+          entries.push(...data)
+          return { count: data.length }
+        },
+      },
+      ledgerTransaction: {
+        createMany: async ({ data }: { data: typeof transactions }) => {
+          transactions.push(...data)
+          return { count: data.length }
+        },
+        findMany: async () => [],
+      },
+      shareBusinessProfitEntry: {
+        count: async () => 1,
+        findMany: async (args: { include?: unknown }) =>
+          args.include
+            ? [
+                {
+                  allocations: [
+                    { allocatedProfitAmount: 70, memberId: "m1", memberShareBalance: 700, status: "published" },
+                    { allocatedProfitAmount: 30, memberId: "m2", memberShareBalance: 300, status: "published" },
+                  ],
+                  id: "e1",
+                },
+              ]
+            : [
+                {
+                  allocatableProfitAmount: 100,
+                  allocations: [
+                    { allocatedProfitAmount: 70, status: "draft" },
+                    { allocatedProfitAmount: 30, status: "draft" },
+                  ],
+                  id: "e1",
+                  status: "reviewed",
+                },
+              ],
+        updateMany: async () => ({ count: 1 }),
+      },
+      shareProfitAllocation: { updateMany: async () => ({ count: 2 }) },
+    })
+
+    await shareProfitSeason({ ...command, commandId: crypto.randomUUID() }, prisma)
+
+    expect(transactions.map((row) => row.idempotencyKey)).toEqual([
+      `profit-owed:${seasonId}:m1`,
+      `profit-owed:${seasonId}:m2`,
+    ])
+    expect(entries).toEqual([
+      expect.objectContaining({ amount: 70, direction: "debit", ledgerAccountId: "acct-4000" }),
+      expect.objectContaining({ amount: 70, direction: "credit", ledgerAccountId: "acct-2300" }),
+      expect.objectContaining({ amount: 30, direction: "debit", ledgerAccountId: "acct-4000" }),
+      expect.objectContaining({ amount: 30, direction: "credit", ledgerAccountId: "acct-2300" }),
+    ])
+  })
+
   test("keeps an optional approval note on the shared record", async () => {
     const audits: Array<{ metadata: { note: string | null } }> = []
     const { prisma } = mockPrisma({

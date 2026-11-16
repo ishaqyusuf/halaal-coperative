@@ -1,6 +1,7 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { getMemberStatementSummary } from "./members"
+import { getMemberProfitPayouts } from "./profit-payouts"
 
 /**
  * Lean reads for the staff member detail page and the printable member
@@ -209,7 +210,9 @@ export async function getMemberStatementView(
         orderBy: { createdAt: "desc" },
         select: {
           allocationAmount: true,
-          dividendPeriod: { select: { name: true, publishedAt: true } },
+          dividendPeriod: {
+            select: { id: true, name: true, publishedAt: true },
+          },
           id: true,
         },
         take: 25,
@@ -230,9 +233,23 @@ export async function getMemberStatementView(
 
   const hasOlderPostings =
     !allPostings && ledgerTransactions.length > MEMBER_STATEMENT_PAGE_SIZE
+  // Paid or not, per shared season (profit payout, 1.1).
+  const payouts = await getMemberProfitPayouts(
+    {
+      memberId,
+      seasonIds: dividendAllocations.map(
+        (allocation) => allocation.dividendPeriod.id
+      ),
+      tenantId,
+    },
+    prisma
+  )
 
   return {
-    dividendAllocations,
+    dividendAllocations: dividendAllocations.map((allocation) => ({
+      ...allocation,
+      payout: payouts.get(allocation.dividendPeriod.id) ?? null,
+    })),
     ledgerTransactions: hasOlderPostings
       ? ledgerTransactions.slice(0, MEMBER_STATEMENT_PAGE_SIZE)
       : ledgerTransactions,

@@ -472,6 +472,7 @@ describe("account privacy safeguards", () => {
       assistantChannelLink: { count },
       tenantPlatformBillingSetting: { count },
       platformBill: { count },
+      profitPayout: { count },
     } as unknown as PrismaClient
     const inventory = await getPrivacyProcessingInventory(
       { actorUserId: "operator", requestId: request.id },
@@ -636,7 +637,7 @@ describe("account privacy safeguards", () => {
         prisma
       )
     ).rejects.toThrow("not ready")
-    expect(calls).toHaveLength(92)
+    expect(calls).toHaveLength(94)
     operator = false
     await expect(
       getPrivacyProcessingInventory(

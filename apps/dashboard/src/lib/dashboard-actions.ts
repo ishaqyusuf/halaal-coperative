@@ -413,6 +413,14 @@ export async function shareProfitSeasonAction(formData: FormData) {
   return callDashboardFormAction("shareProfitSeasonAction", formData)
 }
 
+export async function payOutProfitAction(formData: FormData) {
+  return callDashboardFormAction("payOutProfitAction", formData)
+}
+
+export async function reverseProfitPayoutAction(formData: FormData) {
+  return callDashboardFormAction("reverseProfitPayoutAction", formData)
+}
+
 export async function saveBusinessProfitMigrationWorksheetAction(
   formData: FormData
 ) {

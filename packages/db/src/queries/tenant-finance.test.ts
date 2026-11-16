@@ -2199,6 +2199,7 @@ describe("tenant finance queries", () => {
     const dividendAllocationDeletes: Record<string, unknown>[] = []
     const dividendPeriodUpdates: Record<string, unknown>[] = []
     const shareProfitAllocationUpdates: Record<string, unknown>[] = []
+    const owedPostings: Record<string, unknown>[] = []
 
     await publishShareProfitAllocations(
       {
@@ -2228,12 +2229,34 @@ describe("tenant finance queries", () => {
                 dividendAllocationDeletes.push(input)
                 return { count: 2 }
               },
+              findMany: async () => [
+                { allocationAmount: 9000, memberId: "member-1" },
+                { allocationAmount: 6000, memberId: "member-2" },
+              ],
             },
             dividendPeriod: {
+              // After the rebuild the season is shared (profit owed, 1.1).
+              findFirst: async () => ({ name: "2026", status: "published" }),
               update: async (input: Record<string, unknown>) => {
                 dividendPeriodUpdates.push(input)
                 return input
               },
+            },
+            ledgerAccount: {
+              createMany: async () => ({ count: 0 }),
+              findMany: async () =>
+                ["1000", "2000", "2300", "4000"].map((code) => ({
+                  code,
+                  id: `acct-${code}`,
+                })),
+            },
+            ledgerEntry: { createMany: async () => ({ count: 4 }) },
+            ledgerTransaction: {
+              createMany: async (input: { data: Record<string, unknown>[] }) => {
+                owedPostings.push(...input.data)
+                return { count: input.data.length }
+              },
+              findMany: async () => [],
             },
             shareBusinessProfitEntry: {
               count: async () => 1,
@@ -2338,6 +2361,10 @@ describe("tenant finance queries", () => {
         }),
       ]),
     })
+    expect(owedPostings.map((row) => row.idempotencyKey)).toEqual([
+      "profit-owed:dividend-period-1:member-1",
+      "profit-owed:dividend-period-1:member-2",
+    ])
     expect(dividendPeriodUpdates[0]).toMatchObject({
       data: {
         publishedAt: expect.any(Date),

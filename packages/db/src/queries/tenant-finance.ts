@@ -23,6 +23,11 @@ import {
   getTenantInitialMigrationState,
   getTenantMigrationWriteAccess,
 } from "./migration"
+import {
+  getMemberProfitPayouts,
+  type MemberProfitPayout,
+  recordProfitOwedForSeason,
+} from "./profit-payouts"
 import { readOptionalTenantBusinessPolicy } from "./tenant-business-policy"
 import { getTenantById } from "./tenants"
 
@@ -2228,6 +2233,8 @@ export type MemberShareSummary = {
       amount: number
       id: string
       name: string
+      /** Set once the member's share is paid out (date and where it went). */
+      payout: MemberProfitPayout | null
       sharedOn: string | null
     }>
     total: number
@@ -2277,6 +2284,15 @@ export async function getMemberShareSummary(
       ? getMemberShareApplicationUnitTotals(memberScope, prisma)
       : Promise.resolve(null),
   ])
+  const payouts = await getMemberProfitPayouts(
+    {
+      ...memberScope,
+      seasonIds: seasons.map(
+        (row: { dividendPeriod: { id: string } }) => row.dividendPeriod.id
+      ),
+    },
+    prisma
+  )
 
   return {
     profitPaid: {
@@ -2289,6 +2305,7 @@ export async function getMemberShareSummary(
           amount: roundCurrency(Number(row.allocationAmount ?? 0)),
           id: row.dividendPeriod.id,
           name: row.dividendPeriod.name,
+          payout: payouts.get(row.dividendPeriod.id) ?? null,
           sharedOn:
             row.dividendPeriod.publishedAt?.toISOString().slice(0, 10) ?? null,
         })
@@ -4770,6 +4787,21 @@ export async function publishShareProfitAllocations(
       },
       tx
     )
+
+    // Fully shared live season: record each member's share as owed (1.1).
+    if (
+      periodAllocationSummary.allLinkedEntriesPublished &&
+      profitEntry.sourceType === "manual"
+    ) {
+      await recordProfitOwedForSeason(
+        {
+          actorUserId: input.actorUserId ?? null,
+          seasonId: profitEntry.linkedDividendPeriodId,
+          tenantId: input.tenantId,
+        },
+        tx
+      )
+    }
 
     return tx.shareProfitAllocation.findMany({
       where: {

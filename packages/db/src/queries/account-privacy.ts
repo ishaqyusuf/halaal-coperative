@@ -489,6 +489,8 @@ export async function getPrivacyProcessingInventory(
     mobileAccessTermsAccepted,
     platformBillingSettingsUpdated,
     platformBillFundingChosen,
+    profitPayoutsPaid,
+    profitPayoutsReversed,
   ] = await Promise.all([
     db.member.count({ where: { userId } }),
     db.memberDocument.count({ where: { member: { userId } } }),
@@ -612,6 +614,8 @@ export async function getPrivacyProcessingInventory(
     db.cooperativeMobileAccessTerm.count({ where: { acceptedByUserId: userId } }),
     db.tenantPlatformBillingSetting.count({ where: { updatedByUserId: userId } }),
     db.platformBill.count({ where: { fundingChosenByUserId: userId } }),
+    db.profitPayout.count({ where: { paidByUserId: userId } }),
+    db.profitPayout.count({ where: { reversedByUserId: userId } }),
   ])
   return {
     requestId: request.id,
@@ -708,6 +712,8 @@ export async function getPrivacyProcessingInventory(
       mobileAccessTermsAccepted,
       platformBillingSettingsUpdated,
       platformBillFundingChosen,
+      profitPayoutsPaid,
+      profitPayoutsReversed,
     },
     externalProcessorsReviewed: false,
     sharedRecordsReviewed: false,

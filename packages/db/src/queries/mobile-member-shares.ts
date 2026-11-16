@@ -3,6 +3,11 @@ import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
 import { getMemberByUserId } from "./members"
 import {
+  describeProfitPayoutDestination,
+  getMemberProfitPayouts,
+  type ProfitPayoutDestination,
+} from "./profit-payouts"
+import {
   createMemberShareApplication,
   getMemberUnitSharePosition,
   getTenantSharePolicy,
@@ -112,6 +117,8 @@ type MobileMemberShareSectionInput = {
     id: string
     periodEnd: Date
     periodName: string
+    /** Set once this season's share is paid out to the member. */
+    payout?: { destination: string; paidAt: string } | null
     publishedAt: Date | null
   }[]
   publishedDividendCount?: number
@@ -304,16 +311,18 @@ export function buildMobileMemberShareSection(
     rows.push({
       detail: [
         `Period ended ${formatDateLabel(allocation.periodEnd)}`,
-        allocation.publishedAt
-          ? `Published ${formatDateLabel(allocation.publishedAt)}`
-          : null,
+        allocation.payout
+          ? `Paid ${formatDateLabel(new Date(`${allocation.payout.paidAt}T00:00:00.000Z`))} ${describeProfitPayoutDestination(allocation.payout.destination as ProfitPayoutDestination)}`
+          : allocation.publishedAt
+            ? `Shared ${formatDateLabel(allocation.publishedAt)}`
+            : null,
       ]
         .filter(Boolean)
         .join(" - "),
       format: "currency",
       key: `dividend-${allocation.id}`,
       label: allocation.periodName,
-      status: "Published dividend",
+      status: allocation.payout ? "Paid" : "Not paid yet",
       value: allocation.allocationAmount,
     })
   }
@@ -449,6 +458,7 @@ export async function getMobileMemberSharesSnapshot(
         allocationAmount: true,
         dividendPeriod: {
           select: {
+            id: true,
             name: true,
             periodEnd: true,
             publishedAt: true,
@@ -466,6 +476,16 @@ export async function getMobileMemberSharesSnapshot(
     }),
   ])
 
+  const payouts = await getMemberProfitPayouts(
+    {
+      memberId: member.id,
+      seasonIds: dividendAllocations.map(
+        (allocation) => allocation.dividendPeriod.id
+      ),
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
   const section = buildMobileMemberShareSection({
     applications: applicationPage.data,
     ledgerEntries: ledgerEntries.map((entry) => ({
@@ -479,6 +499,7 @@ export async function getMobileMemberSharesSnapshot(
       allocationAmount: Number(allocation.allocationAmount),
       id: allocation.id,
       periodEnd: allocation.dividendPeriod.periodEnd,
+      payout: payouts.get(allocation.dividendPeriod.id) ?? null,
       periodName: allocation.dividendPeriod.name,
       publishedAt: allocation.dividendPeriod.publishedAt,
     })),

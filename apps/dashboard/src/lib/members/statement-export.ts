@@ -1,5 +1,6 @@
 import type { getMemberStatementView } from "@halaalvest/db"
 import { formatCurrency } from "@halaalvest/utils"
+import { profitPayoutWords } from "@/lib/business/business-words"
 import { formatDayMonthYear } from "@/utils/format"
 import { buildMemberBalanceTextLines } from "./member-balances"
 import {
@@ -67,7 +68,11 @@ export function buildMemberStatementText(
             (allocation) =>
               `${formatDayMonthYear(allocation.dividendPeriod.publishedAt) ?? "Not dated"} | ${
                 allocation.dividendPeriod.name
-              } | ${formatCurrency(Number(allocation.allocationAmount))}`
+              } | ${formatCurrency(Number(allocation.allocationAmount))} | ${
+                allocation.payout
+                  ? `Paid ${formatDayMonthYear(allocation.payout.paidAt)} ${profitPayoutWords(allocation.payout.destination)}`
+                  : "Not paid yet"
+              }`
           ),
         ]
       : []),

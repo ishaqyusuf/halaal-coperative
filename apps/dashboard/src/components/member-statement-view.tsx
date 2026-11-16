@@ -15,6 +15,7 @@ import {
   statementMoveLabels,
   type StatementLine,
 } from "@/lib/members/member-statement-lines"
+import { profitPayoutWords } from "@/lib/business/business-words"
 import { getMemberStatusLabel } from "@/lib/members/member-status-words"
 import { formatDayMonthYear } from "@/utils/format"
 
@@ -275,6 +276,11 @@ export function MemberStatementView({
                     {formatDayMonthYear(
                       allocation.dividendPeriod.publishedAt
                     ) ?? "Not dated"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {allocation.payout
+                      ? `Paid on ${formatDayMonthYear(allocation.payout.paidAt)} ${profitPayoutWords(allocation.payout.destination)}`
+                      : "Not paid yet"}
                   </p>
                 </div>
                 <p className="font-semibold text-emerald-800 tabular-nums dark:text-emerald-300">

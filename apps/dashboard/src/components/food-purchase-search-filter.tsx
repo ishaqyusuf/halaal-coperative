@@ -1,124 +1,41 @@
 "use client"
 
-import type { ChangeEvent, FormEvent } from "react"
-import { useState } from "react"
 import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuPortal,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-} from "@halaalvest/ui/components/dropdown-menu"
-import { FinanceFilterList } from "@/components/finance-filter-list"
-import { SearchFilterDropdownInput } from "@/components/search-filter-dropdown-input"
+  RequestSearchFilter,
+  type RequestListControlsConfig,
+} from "@/components/requests/request-list-controls"
 import { useFoodPurchaseFilterParams } from "@/hooks/use-food-purchase-filter-params"
-import { useSortParams } from "@/hooks/use-sort-params"
 
-export const foodPurchaseStatusFilters = [
-  { id: "submitted", name: "Waiting" },
-  { id: "under_review", name: "Being checked" },
-  { id: "approved", name: "Approved" },
-  { id: "rejected", name: "Declined" },
-  { id: "cancelled", name: "Cancelled" },
-]
+export const foodPurchaseListControls: RequestListControlsConfig<string> = {
+  defaultSort: "requestedAt,desc",
+  drawerDescription: "Filter and sort Foodstuff Purchase applications.",
+  drawerTitle: "Filter applications",
+  idPrefix: "food-purchase",
+  listName: "foodstuff requests",
+  searchPlaceholder: "Search name or food",
+  sortOptions: [
+    { id: "requestedAt,desc", name: "Newest first" },
+    { id: "requestedAt,asc", name: "Oldest first" },
+    { id: "requestedAmount,desc", name: "Largest amount asked" },
+    { id: "approvedAmount,desc", name: "Largest amount approved" },
+  ],
+  statusOptions: [
+    { id: "submitted", name: "Waiting" },
+    { id: "under_review", name: "Being checked" },
+    { id: "approved", name: "Approved" },
+    { id: "rejected", name: "Declined" },
+    { id: "cancelled", name: "Cancelled" },
+  ],
+}
 
 export function FoodPurchaseSearchFilter() {
   const { filter, setFilter } = useFoodPurchaseFilterParams()
-  const { setParams: setSortParams } = useSortParams()
-  const [isOpen, setIsOpen] = useState(false)
-
-  const handleSearch = (event: ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value
-
-    void setFilter({ q: value || null })
-  }
-
-  const handleSubmit = (event?: FormEvent) => {
-    event?.preventDefault()
-    void setFilter({ q: filter.q || null })
-  }
-
-  const validFilters = { status: filter.status }
-  const hasValidFilters = Object.values(validFilters).some(
-    (value) => value !== null
-  )
-
-  async function clearFilters() {
-    await Promise.all([
-      setFilter({ q: null, status: null }),
-      setSortParams({ sort: null }),
-    ])
-    setIsOpen(false)
-  }
 
   return (
-    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-      <div className="flex w-full flex-col items-start space-y-4 sm:w-auto sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4">
-        <form className="relative w-full sm:w-auto" onSubmit={handleSubmit}>
-          <SearchFilterDropdownInput
-            autoCapitalize="none"
-            autoComplete="off"
-            autoCorrect="off"
-            filterActive={hasValidFilters}
-            filterOpen={isOpen}
-            onChange={handleSearch}
-            placeholder="Search name or food"
-            spellCheck="false"
-            value={filter.q ?? ""}
-          />
-        </form>
-
-        <FinanceFilterList
-          filters={validFilters}
-          onRemove={setFilter}
-          options={{ status: foodPurchaseStatusFilters }}
-        />
-      </div>
-
-      <DropdownMenuContent
-        align="end"
-        alignOffset={-11}
-        className="w-[350px]"
-        side="bottom"
-        sideOffset={19}
-      >
-        <DropdownMenuGroup>
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <span>Status</span>
-            </DropdownMenuSubTrigger>
-            <DropdownMenuPortal>
-              <DropdownMenuSubContent
-                alignOffset={-4}
-                className="p-0"
-                sideOffset={14}
-              >
-                {foodPurchaseStatusFilters.map((item) => (
-                  <DropdownMenuCheckboxItem
-                    checked={filter.status === item.id}
-                    key={item.id}
-                    onCheckedChange={(checked) => {
-                      setFilter({ status: checked ? item.id : null })
-                      setIsOpen(false)
-                    }}
-                  >
-                    {item.name}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuPortal>
-          </DropdownMenuSub>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => void clearFilters()}>
-          Clear filters
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <RequestSearchFilter
+      config={foodPurchaseListControls}
+      filter={filter}
+      setFilter={setFilter}
+    />
   )
 }

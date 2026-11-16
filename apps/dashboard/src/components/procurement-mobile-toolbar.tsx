@@ -1,19 +1,9 @@
 "use client"
 
-import { useState } from "react"
-import { Button } from "@halaalvest/ui/components/button"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@halaalvest/ui/components/input-group"
-import { Plus, Search } from "lucide-react"
-import { ProcurementFilterDrawer } from "@/components/procurement-filter-drawer"
-import { MiddayFilterIcon } from "@/components/search-filter-dropdown-input"
+import { procurementListControls } from "@/components/procurement-search-filter"
+import { RequestMobileToolbar } from "@/components/requests/request-list-controls"
 import { useProcurementFilterParams } from "@/hooks/use-procurement-filter-params"
 import { useProcurementParams } from "@/hooks/use-procurement-params"
-import { useSortParams } from "@/hooks/use-sort-params"
 
 export function ProcurementMobileToolbar({
   canCreate,
@@ -25,86 +15,22 @@ export function ProcurementMobileToolbar({
   selfService?: boolean
 }) {
   const { filter, setFilter } = useProcurementFilterParams()
-  const { setParams: setProcurementParams } = useProcurementParams()
-  const { params, setParams: setSortParams } = useSortParams()
-  const [filterOpen, setFilterOpen] = useState(false)
-  const hasActiveControls = Boolean(filter.q || filter.status || params.sort)
+  const { setParams } = useProcurementParams()
 
   return (
-    <>
-      <div className="space-y-3 md:hidden">
-        <div className="flex items-center gap-2">
-          <InputGroup className="h-12 min-w-0 flex-1">
-            <InputGroupAddon align="inline-start">
-              <Search aria-hidden className="size-4" />
-            </InputGroupAddon>
-            <InputGroupInput
-              aria-label="Search procurement requests"
-              onChange={(event) =>
-                void setFilter({ q: event.target.value || null })
-              }
-              placeholder="Search"
-              type="search"
-              value={filter.q ?? ""}
-            />
-            <InputGroupAddon align="inline-end">
-              <InputGroupButton
-                aria-label="Filter procurement requests"
-                className="size-11"
-                onClick={() => setFilterOpen(true)}
-                size="icon-sm"
-              >
-                <MiddayFilterIcon />
-              </InputGroupButton>
-            </InputGroupAddon>
-          </InputGroup>
-          {canCreate ? (
-            <Button
-              aria-describedby={
-                createDisabled ? "procurement-create-disabled" : undefined
-              }
-              className="h-12 px-4"
-              disabled={createDisabled}
-              onClick={() =>
-                void setProcurementParams({
-                  procurementRequestId: null,
-                  procurementSheetType: selfService ? "self-service" : "create",
-                })
-              }
-              type="button"
-            >
-              <Plus data-icon="inline-start" />
-              New
-            </Button>
-          ) : null}
-        </div>
-        {canCreate && createDisabled ? (
-          <p className="sr-only" id="procurement-create-disabled">
-            Add a member first.
-          </p>
-        ) : null}
-        {hasActiveControls ? (
-          <Button
-            className="h-11 px-0"
-            onClick={() =>
-              void Promise.all([
-                setFilter({ q: null, status: null }),
-                setSortParams({ sort: null }),
-              ])
-            }
-            type="button"
-            variant="link"
-          >
-            Clear filters
-          </Button>
-        ) : null}
-      </div>
-      {filterOpen ? (
-        <ProcurementFilterDrawer
-          onOpenChange={setFilterOpen}
-          open={filterOpen}
-        />
-      ) : null}
-    </>
+    <RequestMobileToolbar
+      canCreate={canCreate}
+      config={procurementListControls}
+      createDisabled={createDisabled}
+      createDisabledReason="Add a member first."
+      filter={filter}
+      onCreate={() =>
+        void setParams({
+          procurementRequestId: null,
+          procurementSheetType: selfService ? "self-service" : "create",
+        })
+      }
+      setFilter={setFilter}
+    />
   )
 }

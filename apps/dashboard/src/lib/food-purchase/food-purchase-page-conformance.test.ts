@@ -24,7 +24,11 @@ describe("Foodstuff Purchase workspace Midday conformance", () => {
 
   test("keeps summaries, empty states, and mobile filters flat", () => {
     const view = read("components/food-purchase-view.tsx")
-    const drawer = read("components/food-purchase-filter-drawer.tsx")
+    const shared = read("components/requests/request-list-controls.tsx")
+    const drawer = shared.slice(
+      shared.indexOf("function RequestFilterOptions"),
+      shared.indexOf("export function RequestMobileToolbar")
+    )
     const empty = read("components/tables/food-purchase/empty-states.tsx")
 
     expect(view).toContain("<RequestSummaryGrid>")
@@ -43,13 +47,18 @@ describe("Foodstuff Purchase workspace Midday conformance", () => {
   test("keeps search left, actions right, and mobile creation explained", () => {
     const header = read("components/food-purchase-header.tsx")
     const toolbar = read("components/food-purchase-mobile-toolbar.tsx")
+    const shared = read("components/requests/request-list-controls.tsx")
 
     expect(header.indexOf("<FoodPurchaseSearchFilter")).toBeLessThan(
       header.indexOf("<FoodPurchaseColumnVisibility")
     )
-    expect(toolbar).toContain('id="food-purchase-create-disabled"')
-    expect(toolbar).toContain("aria-describedby={")
-    expect(toolbar).toContain('variant="link"')
+    expect(toolbar).toContain("<RequestMobileToolbar")
+    expect(read("components/food-purchase-search-filter.tsx")).toContain(
+      'idPrefix: "food-purchase"'
+    )
+    expect(shared).toContain("id={disabledReasonId}")
+    expect(shared).toContain("aria-describedby={")
+    expect(shared).toContain('variant="link"')
   })
 
   test("closes workflow URL before invalidation and refresh", () => {

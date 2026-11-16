@@ -24,7 +24,11 @@ describe("procurement workspace Midday conformance", () => {
   })
 
   test("uses flat mobile filters and awaits URL settlement", () => {
-    const drawer = read("components/procurement-filter-drawer.tsx")
+    const shared = read("components/requests/request-list-controls.tsx")
+    const drawer = shared.slice(
+      shared.indexOf("function RequestFilterOptions"),
+      shared.indexOf("export function RequestMobileToolbar")
+    )
     const toolbar = read("components/procurement-mobile-toolbar.tsx")
 
     expect(drawer).toContain("divide-y divide-border border-y border-border")
@@ -34,8 +38,12 @@ describe("procurement workspace Midday conformance", () => {
     const clearBody = drawer.match(/function clear\(\) \{([\s\S]*?)\n  \}/)?.[1]
     expect(clearBody).toBeDefined()
     expect(clearBody).not.toMatch(/setFilters?\(|setParams\(/)
-    expect(toolbar).toContain('id="procurement-create-disabled"')
-    expect(toolbar).toContain("aria-describedby={")
+    expect(toolbar).toContain("<RequestMobileToolbar")
+    expect(read("components/procurement-search-filter.tsx")).toContain(
+      'idPrefix: "procurement"'
+    )
+    expect(shared).toContain("id={disabledReasonId}")
+    expect(shared).toContain("aria-describedby={")
   })
 
   test("closes workflow URL before invalidation and refresh", () => {
@@ -59,7 +67,7 @@ describe("procurement workspace Midday conformance", () => {
   })
 
   test("offers explicit desktop filter recovery", () => {
-    const search = read("components/procurement-search-filter.tsx")
+    const search = read("components/requests/request-list-controls.tsx")
     const empty = read("components/tables/procurement/empty-states.tsx")
     const query = read("components/tables/procurement/use-procurement-query.ts")
 

@@ -707,6 +707,7 @@ export async function postImportedMembers(
   // row wins, as it did when each row was upserted in turn.
   const lastRowByNumber = new Map(rows.map((row) => [row.memberNumber, row]))
   const created: Prisma.MemberCreateManyInput[] = []
+  const memberUpdates: ImportedMemberUpdate[] = []
 
   for (const row of lastRowByNumber.values()) {
     const deductionSourceId = row.deductionSourceName
@@ -739,46 +740,41 @@ export async function postImportedMembers(
       continue
     }
 
-    // Updating members already in Halaalvest stays one statement each; a
-    // re-import usually touches few of them.
-    await db.member.update({
-      data: {
-        deductionSourceId,
-        fullName: row.fullName,
-        joinedAt: row.joinedAt,
-        memberType: row.memberType,
-        status: row.status ?? "active",
-        ...(row.address !== undefined && {
-          address: trimmedOrNull(row.address),
-        }),
-        ...(row.email !== undefined && { email: trimmedOrNull(row.email) }),
-        ...(row.governmentIdNumber !== undefined && {
-          governmentIdNumber: trimmedOrNull(row.governmentIdNumber),
-        }),
-        ...(row.kycDocumentType !== undefined && {
-          kycDocumentType: trimmedOrNull(row.kycDocumentType),
-        }),
-        ...(row.kycReviewNotes !== undefined && {
-          kycReviewNotes: trimmedOrNull(row.kycReviewNotes),
-        }),
-        ...(row.kycStatus !== undefined && { kycStatus: row.kycStatus }),
-        ...(row.occupation !== undefined && {
-          occupation: trimmedOrNull(row.occupation),
-        }),
-        ...(row.openingSavingsBalance !== undefined && {
-          totalSavingsSnapshot: row.openingSavingsBalance,
-        }),
-        ...(row.phoneNumber !== undefined && {
-          phoneNumber: trimmedOrNull(row.phoneNumber),
-        }),
-      },
-      where: { id: existingId },
+    memberUpdates.push({
+      deductionSourceId,
+      fullName: row.fullName,
+      id: existingId,
+      joinedAt: row.joinedAt,
+      memberType: row.memberType,
+      status: row.status ?? "active",
+      ...(row.address !== undefined && { address: trimmedOrNull(row.address) }),
+      ...(row.email !== undefined && { email: trimmedOrNull(row.email) }),
+      ...(row.governmentIdNumber !== undefined && {
+        governmentIdNumber: trimmedOrNull(row.governmentIdNumber),
+      }),
+      ...(row.kycDocumentType !== undefined && {
+        kycDocumentType: trimmedOrNull(row.kycDocumentType),
+      }),
+      ...(row.kycReviewNotes !== undefined && {
+        kycReviewNotes: trimmedOrNull(row.kycReviewNotes),
+      }),
+      ...(row.kycStatus !== undefined && { kycStatus: row.kycStatus }),
+      ...(row.occupation !== undefined && {
+        occupation: trimmedOrNull(row.occupation),
+      }),
+      ...(row.openingSavingsBalance !== undefined && {
+        totalSavingsSnapshot: row.openingSavingsBalance,
+      }),
+      ...(row.phoneNumber !== undefined && {
+        phoneNumber: trimmedOrNull(row.phoneNumber),
+      }),
     })
   }
 
   if (created.length) {
     await db.member.createMany({ data: created })
   }
+  await updateImportedMembers(db, tenantId, memberUpdates)
 
   const commitmentRows = [...lastRowByNumber.values()].filter(
     (row) => row.monthlyCommitment && row.monthlyCommitment > 0
@@ -811,16 +807,16 @@ export async function postImportedMembers(
     )
     const newPlans: Prisma.ContributionPlanCreateManyInput[] = []
     const newLogs: Prisma.MemberAmountLogCreateManyInput[] = []
+    const planUpdates: Array<{ amount: number; id: string; startsAt: Date }> =
+      []
+    const logUpdates: Array<{ amount: number; id: string }> = []
 
     for (const row of commitmentRows) {
       const memberId = memberIdByNumber.get(row.memberNumber)!
       const amount = row.monthlyCommitment!
       const planId = planByMember.get(memberId)
       if (planId) {
-        await db.contributionPlan.update({
-          data: { amount, name: "Monthly commitment", startsAt: row.joinedAt },
-          where: { id: planId },
-        })
+        planUpdates.push({ amount, id: planId, startsAt: row.joinedAt })
       } else {
         newPlans.push({
           amount,
@@ -837,10 +833,7 @@ export async function postImportedMembers(
         `${memberId}|${row.joinedAt.toISOString()}`
       )
       if (logId) {
-        await db.memberAmountLog.update({
-          data: { amount, notes: "Imported initial monthly commitment." },
-          where: { id: logId },
-        })
+        logUpdates.push({ amount, id: logId })
       } else {
         newLogs.push({
           amount,
@@ -853,12 +846,188 @@ export async function postImportedMembers(
       }
     }
 
+    await updateImportedCommitments(db, tenantId, planUpdates, logUpdates)
     if (newPlans.length)
       await db.contributionPlan.createMany({ data: newPlans })
     if (newLogs.length) await db.memberAmountLog.createMany({ data: newLogs })
   }
 
   return { processed: rows.length }
+}
+
+/**
+ * Rows per set-based UPDATE. Keeps each statement's JSON payload bounded
+ * (about 250 KB for members) however large the file is; the import as a
+ * whole still commits in one transaction.
+ */
+const importWriteChunkSize = 500
+
+function chunk<T>(items: T[], size = importWriteChunkSize) {
+  const chunks: T[][] = []
+  for (let start = 0; start < items.length; start += size) {
+    chunks.push(items.slice(start, start + size))
+  }
+  return chunks
+}
+
+type ImportedMemberUpdate = {
+  address?: string | null
+  deductionSourceId: string | null
+  email?: string | null
+  fullName: string
+  governmentIdNumber?: string | null
+  id: string
+  joinedAt: Date
+  kycDocumentType?: string | null
+  kycReviewNotes?: string | null
+  kycStatus?: KycStatus
+  memberType: MemberType
+  occupation?: string | null
+  phoneNumber?: string | null
+  status: MemberStatus
+  totalSavingsSnapshot?: number
+}
+
+/** Optional member fields: a column the file left out keeps its value. */
+const optionalMemberColumns = [
+  ["address", "address"],
+  ["email", "email"],
+  ["governmentIdNumber", "government_id_number"],
+  ["kycDocumentType", "kyc_document_type"],
+  ["kycReviewNotes", "kyc_review_notes"],
+  ["kycStatus", "kyc_status"],
+  ["occupation", "occupation"],
+  ["phoneNumber", "phone_number"],
+  ["totalSavingsSnapshot", "total_savings_snapshot"],
+] as const
+
+/**
+ * Writes members already in Halaalvest in one UPDATE per 500 rows, with the
+ * same values the per-row `member.update` wrote: required fields always,
+ * optional fields only when the file has that column (`set_*` flags).
+ */
+async function updateImportedMembers(
+  db: Db,
+  tenantId: string,
+  updates: ImportedMemberUpdate[]
+) {
+  for (const part of chunk(updates)) {
+    const payload = part.map((update) => {
+      const record: Record<string, unknown> = {
+        deduction_source_id: update.deductionSourceId,
+        full_name: update.fullName,
+        id: update.id,
+        joined_at: update.joinedAt.toISOString(),
+        member_type: update.memberType,
+        status: update.status,
+      }
+      for (const [field, column] of optionalMemberColumns) {
+        record[`set_${column}`] = update[field] !== undefined
+        record[column] = update[field] ?? null
+      }
+      return record
+    })
+    const updated = await db.$executeRaw`
+      UPDATE members AS m SET
+        deduction_source_id = v.deduction_source_id,
+        full_name = v.full_name,
+        joined_at = v.joined_at,
+        member_type = v.member_type::"MemberType",
+        status = v.status::"MemberStatus",
+        address = CASE WHEN v.set_address THEN v.address ELSE m.address END,
+        email = CASE WHEN v.set_email THEN v.email ELSE m.email END,
+        government_id_number = CASE WHEN v.set_government_id_number
+          THEN v.government_id_number ELSE m.government_id_number END,
+        kyc_document_type = CASE WHEN v.set_kyc_document_type
+          THEN v.kyc_document_type ELSE m.kyc_document_type END,
+        kyc_review_notes = CASE WHEN v.set_kyc_review_notes
+          THEN v.kyc_review_notes ELSE m.kyc_review_notes END,
+        kyc_status = CASE WHEN v.set_kyc_status
+          THEN v.kyc_status::"KycStatus" ELSE m.kyc_status END,
+        occupation = CASE WHEN v.set_occupation
+          THEN v.occupation ELSE m.occupation END,
+        phone_number = CASE WHEN v.set_phone_number
+          THEN v.phone_number ELSE m.phone_number END,
+        total_savings_snapshot = CASE WHEN v.set_total_savings_snapshot
+          THEN v.total_savings_snapshot ELSE m.total_savings_snapshot END,
+        updated_at = ${new Date().toISOString()}::timestamptz
+      FROM jsonb_to_recordset(${JSON.stringify(payload)}::jsonb) AS v(
+        id uuid,
+        deduction_source_id uuid,
+        full_name text,
+        joined_at timestamptz,
+        member_type text,
+        status text,
+        set_address boolean, address text,
+        set_email boolean, email text,
+        set_government_id_number boolean, government_id_number text,
+        set_kyc_document_type boolean, kyc_document_type text,
+        set_kyc_review_notes boolean, kyc_review_notes text,
+        set_kyc_status boolean, kyc_status text,
+        set_occupation boolean, occupation text,
+        set_phone_number boolean, phone_number text,
+        set_total_savings_snapshot boolean, total_savings_snapshot numeric
+      )
+      WHERE m.id = v.id AND m.tenant_id = ${tenantId}::uuid
+    `
+    assertEveryRowUpdated(updated, part.length, "member")
+  }
+}
+
+/** Existing monthly-commitment plans and amount logs, one UPDATE each per 500. */
+async function updateImportedCommitments(
+  db: Db,
+  tenantId: string,
+  plans: Array<{ amount: number; id: string; startsAt: Date }>,
+  logs: Array<{ amount: number; id: string }>
+) {
+  const updatedAt = new Date().toISOString()
+
+  for (const part of chunk(plans)) {
+    const payload = part.map((plan) => ({
+      amount: plan.amount,
+      id: plan.id,
+      starts_at: plan.startsAt.toISOString(),
+    }))
+    const updated = await db.$executeRaw`
+      UPDATE contribution_plans AS p SET
+        amount = v.amount,
+        name = 'Monthly commitment',
+        starts_at = v.starts_at,
+        updated_at = ${updatedAt}::timestamptz
+      FROM jsonb_to_recordset(${JSON.stringify(payload)}::jsonb)
+        AS v(id uuid, amount numeric, starts_at timestamptz)
+      WHERE p.id = v.id AND p.tenant_id = ${tenantId}::uuid
+    `
+    assertEveryRowUpdated(updated, part.length, "contribution plan")
+  }
+
+  for (const part of chunk(logs)) {
+    const payload = part.map((log) => ({ amount: log.amount, id: log.id }))
+    const updated = await db.$executeRaw`
+      UPDATE member_amount_logs AS l SET
+        amount = v.amount,
+        notes = 'Imported initial monthly commitment.',
+        updated_at = ${updatedAt}::timestamptz
+      FROM jsonb_to_recordset(${JSON.stringify(payload)}::jsonb)
+        AS v(id uuid, amount numeric)
+      WHERE l.id = v.id AND l.tenant_id = ${tenantId}::uuid
+    `
+    assertEveryRowUpdated(updated, part.length, "amount log")
+  }
+}
+
+/** The per-row `update` threw when its row was gone; keep failing loudly. */
+function assertEveryRowUpdated(
+  updated: number,
+  expected: number,
+  what: string
+) {
+  if (updated !== expected) {
+    throw ExpectedQueryError.conflict(
+      `Only ${updated} of ${expected} existing ${what} records could be updated. Refresh and add the file again.`
+    )
+  }
 }
 
 /**

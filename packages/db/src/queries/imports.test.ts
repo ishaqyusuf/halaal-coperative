@@ -744,8 +744,15 @@ describe("import batch queries", () => {
 
   test("imports member opening savings and KYC references in one batched write", async () => {
     const memberCreates: any[] = []
-    const memberUpdates: unknown[] = []
+    const memberUpdates: any[] = []
     const client = {
+      // Existing members are updated in one set-based statement; the second
+      // value is the JSON row payload.
+      $executeRaw: async (sql: TemplateStringsArray, ...values: unknown[]) => {
+        const payload = JSON.parse(String(values[1]))
+        memberUpdates.push({ payload, sql: sql.join("?"), values })
+        return payload.length
+      },
       appliedBackfillMonth: { findMany: async () => [] },
       auditLog: { create: async (input: unknown) => input },
       backfillBatch: { findMany: async () => [] },
@@ -757,10 +764,6 @@ describe("import batch queries", () => {
         findMany: async () => [
           { id: "member-existing", memberNumber: "MBR-002" },
         ],
-        update: async (input: unknown) => {
-          memberUpdates.push(input)
-          return input
-        },
       },
     }
 
@@ -811,13 +814,20 @@ describe("import batch queries", () => {
       phoneNumber: "+2348010001001",
       totalSavingsSnapshot: 25000,
     })
-    expect(memberUpdates).toEqual([
+    expect(memberUpdates).toHaveLength(1)
+    expect(memberUpdates[0].sql).toContain("UPDATE members AS m SET")
+    expect(memberUpdates[0].values.at(-1)).toBe("tenant-1")
+    // Columns the file leaves out keep their stored value (set_* = false).
+    expect(memberUpdates[0].payload).toEqual([
       expect.objectContaining({
-        data: expect.objectContaining({
-          fullName: "Musa Ali",
-          totalSavingsSnapshot: 1000,
-        }),
-        where: { id: "member-existing" },
+        email: null,
+        full_name: "Musa Ali",
+        id: "member-existing",
+        joined_at: "2025-02-01T00:00:00.000Z",
+        set_email: false,
+        set_total_savings_snapshot: true,
+        status: "active",
+        total_savings_snapshot: 1000,
       }),
     ])
   })

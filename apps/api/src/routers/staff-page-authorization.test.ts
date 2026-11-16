@@ -9,6 +9,7 @@ import { createCallerFactory } from "../lib.trpc"
 import { contributionsRouter } from "./contributions.route"
 import { filtersRouter } from "./filters.route"
 import { membersRouter } from "./members.route"
+import { paymentReceiptsRouter } from "./payment-receipts.route"
 import { repaymentsRouter } from "./repayments.route"
 import { shareApplicationsRouter } from "./share-applications.route"
 
@@ -50,6 +51,20 @@ const calls: Call[] = [
     allowed: memberManagers,
   },
   { router: "members", procedure: "options", input: {}, allowed: staff },
+  // Other staff pickers on new-request, receipt and contribution forms: every
+  // staff role, admins included.
+  {
+    router: "contributions",
+    procedure: "memberPlanOptions",
+    input: { memberId: id },
+    allowed: staff,
+  },
+  {
+    router: "paymentReceipts",
+    procedure: "memberOptions",
+    input: { memberId: id },
+    allowed: staff,
+  },
   // /contributions (all staff)
   { router: "contributions", procedure: "ledger", input: {}, allowed: staff },
   {
@@ -105,6 +120,7 @@ async function callersFor(role: CooperativeRole) {
     contributions: createCallerFactory(contributionsRouter)(withRole),
     filters: createCallerFactory(filtersRouter)(withRole),
     members: createCallerFactory(membersRouter)(withRole),
+    paymentReceipts: createCallerFactory(paymentReceiptsRouter)(withRole),
     repayments: createCallerFactory(repaymentsRouter)(withRole),
     shares: createCallerFactory(shareApplicationsRouter)(withRole),
   }
@@ -130,13 +146,14 @@ describe("staff page procedures follow the navigation registry", () => {
     if (databaseUrl) process.env.HALAALVEST_DATABASE_URL = databaseUrl
   })
 
-  for (const role of [...staff, "member"] as CooperativeRole[]) {
+  for (const role of [...staff, "member", "super_admin"] as CooperativeRole[]) {
     test(`${role}`, async () => {
       const api = await callersFor(role)
       for (const { allowed, input, procedure, router } of calls) {
         const code = await outcome(api[router][procedure]!(input))
         const label = `${role} → ${router}.${procedure}`
-        if (allowed.includes(role)) {
+        // A platform admin can open every staff page.
+        if (allowed.includes(role) || role === "super_admin") {
           expect(code, label).not.toBe("FORBIDDEN")
           expect(code, label).not.toBe("UNAUTHORIZED")
         } else {

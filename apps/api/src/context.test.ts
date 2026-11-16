@@ -61,6 +61,48 @@ describe("buildRequestContext web cookie sessions", () => {
     expect(context.tenant.current?.slug).toBe("barakah")
   })
 
+  test("picks the default role when an admin also has a member login", async () => {
+    const token = await createSignedSessionToken({
+      scope: barakahScope,
+      userId: "user-finance-barakah",
+    })
+    const headers = barakahCookieHeaders({
+      sessionToken: token,
+      userId: "user-finance-barakah",
+    })
+    const baseline = await buildRequestContext(headers)
+    const tenantId = baseline.tenant.current!.id
+    // The member row comes back first, as an unordered query may return it.
+    const memberships = [
+      {
+        id: "membership-member-first",
+        isDefault: false,
+        role: "member" as const,
+        tenantId,
+        userId: "user-finance-barakah",
+      },
+      {
+        id: "membership-admin-default",
+        isDefault: true,
+        role: "tenant_admin" as const,
+        tenantId,
+        userId: "user-finance-barakah",
+      },
+    ]
+    const { findUserByIdAsync, isQaAuthorizationActive, resolveTenantAsync } =
+      await import("@halaalvest/db")
+
+    const context = await buildRequestContext(headers, {
+      findMembershipsForUser: async () => memberships,
+      findUserById: findUserByIdAsync,
+      isQaAuthorizationActive,
+      resolveTenant: resolveTenantAsync,
+    })
+
+    expect(context.auth.activeMembership?.id).toBe("membership-admin-default")
+    expect(context.auth.activeMembership?.role).toBe("tenant_admin")
+  })
+
   test("accepts a signed cookie without the user hint cookie", async () => {
     const token = await createSignedSessionToken({
       scope: barakahScope,

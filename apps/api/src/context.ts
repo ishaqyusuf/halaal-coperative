@@ -12,6 +12,7 @@ import {
   findUserByIdAsync,
   isQaAuthorizationActive,
   resolveTenantAsync,
+  selectActiveMembership,
   validateMobileDeviceSession,
   type MembershipRecord,
   type TenantOperationProfileReadModel,
@@ -203,13 +204,13 @@ export async function buildRequestContext(
             membership.tenantId === tenantResolution.tenant.id)
       ) ?? null)
     : undefined
-  const fallbackMembership = tenantResolution.tenant
-    ? (userMemberships.find(
-        (membership) => membership.tenantId === tenantResolution.tenant?.id
-      ) ?? null)
-    : (userMemberships.find((membership) => membership.isDefault) ??
-      userMemberships[0] ??
-      null)
+  // Same choice as the dashboard's page context (default role first), so a
+  // person with an admin role and a member login isn't seen as a member by
+  // the API while the page shows admin screens.
+  const fallbackMembership = selectActiveMembership(
+    userMemberships,
+    tenantResolution.tenant?.id
+  )
   const resolvedMembership =
     signedMembership ??
     (bearerSession?.membershipId ? null : fallbackMembership)

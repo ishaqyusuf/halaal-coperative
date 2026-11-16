@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { systemBillingChargeCodes } from "./cooperative-mobile-billing-constants"
 import {
   applyApplicableWorkflowCharges,
   applyLoanRequestCharges,
@@ -7,6 +8,7 @@ import {
   createChargeDefinition,
   getApplicableChargeQuoteHash,
   getChargeDefinitionOnDate,
+  listChargeLibraryDefinitions,
   reverseChargeApplication,
   settleChargeApplication,
   updateChargeDefinition,
@@ -1281,5 +1283,57 @@ describe("single charge definition read", () => {
       )
     ).toBeNull()
     expect(reads).toBe(0)
+  })
+})
+
+describe("charge library read", () => {
+  test("selects only what the charges page reads, with caps", async () => {
+    const calls: any[] = []
+    const prisma = {
+      chargeDefinition: {
+        findMany: async (args: any) => {
+          calls.push(args)
+          return []
+        },
+      },
+    }
+
+    await listChargeLibraryDefinitions("tenant-1", prisma as never)
+
+    expect(calls).toEqual([
+      {
+        orderBy: { createdAt: "asc" },
+        select: {
+          amount: true,
+          applicability: {
+            select: { workflow: true },
+            where: { isActive: true },
+          },
+          chargeFrequency: true,
+          chargeValueType: true,
+          code: true,
+          id: true,
+          isActive: true,
+          isMonthlyLevy: true,
+          kind: true,
+          name: true,
+          versions: {
+            orderBy: [{ effectiveFrom: "desc" }, { createdAt: "desc" }],
+            select: {
+              amount: true,
+              effectiveFrom: true,
+              id: true,
+              notes: true,
+            },
+            take: 50,
+          },
+        },
+        take: 200,
+        where: {
+          code: { notIn: systemBillingChargeCodes },
+          tenantId: "tenant-1",
+        },
+      },
+    ])
   })
 })

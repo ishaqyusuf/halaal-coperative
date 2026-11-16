@@ -6,7 +6,7 @@ import {
   chargeWorkflowKeys,
   createChargeDefinitionVersion,
   listChargeActivityPage,
-  listChargeDefinitions,
+  listChargeLibraryDefinitions,
   listChargeDefinitionVersions,
   createChargeDefinition,
   updateChargeDefinition,
@@ -87,11 +87,10 @@ const chargeAppliesToByWorkflow: Record<string, ChargeAppliesTo> = {
 
 // Which workflows post this charge on their own, in one stable order.
 function toChargeAppliesTo(
-  applicability: Array<{ isActive?: boolean; workflow: string }>
+  applicability: Array<{ workflow: string }>
 ): ChargeAppliesTo[] {
   const found = new Set(
     applicability
-      .filter((row) => row.isActive !== false)
       .map((row) => chargeAppliesToByWorkflow[row.workflow])
       .filter((value): value is ChargeAppliesTo => Boolean(value))
   )
@@ -102,11 +101,11 @@ function toChargeAppliesTo(
 }
 
 function mapChargeLibraryRows(
-  charges: Awaited<ReturnType<typeof listChargeDefinitions>>
+  charges: Awaited<ReturnType<typeof listChargeLibraryDefinitions>>
 ): ChargeLibraryRow[] {
   const today = new Date()
 
-  return charges.map((charge: any): ChargeLibraryRow => {
+  return charges.map((charge): ChargeLibraryRow => {
     const sortedVersions = [...(charge.versions ?? [])].sort(
       (left, right) =>
         new Date(right.effectiveFrom).getTime() -
@@ -137,7 +136,7 @@ function mapChargeLibraryRows(
       kind: charge.kind,
       name: charge.name,
       versions: sortedVersions.map(
-        (version: any): ChargeLibraryVersionRow => ({
+        (version): ChargeLibraryVersionRow => ({
           amount: Number(version.amount),
           effectiveFrom: version.effectiveFrom.toISOString().slice(0, 10),
           id: version.id,
@@ -224,7 +223,7 @@ export const chargesRouter = createTRPCRouter({
       const rows = sortChargeLibraryRows(
         filterChargeLibraryRows(
           mapChargeLibraryRows(
-            await listChargeDefinitions(ctx.tenant.current.id)
+            await listChargeLibraryDefinitions(ctx.tenant.current.id)
           ),
           input ?? {}
         ),
@@ -249,10 +248,6 @@ export const chargesRouter = createTRPCRouter({
         tenantId: ctx.tenant.current.id,
       })
     }),
-
-  listDefinitions: staffProcedure.query(async ({ ctx }) => {
-    return listChargeDefinitions(ctx.tenant.current.id)
-  }),
 
   createDefinition: minRoleProcedure("tenant_admin")
     .input(

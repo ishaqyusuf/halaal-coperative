@@ -493,24 +493,48 @@ async function loadApplicableChargeQuoter(
       .filter((quote): quote is ResolvedChargeQuote => Boolean(quote))
 }
 
-export async function listChargeDefinitions(
+/** Charge types are a short registry; the cap only bounds the payload. */
+export const chargeLibraryLimit = 200
+
+/** Dated amounts returned per charge type, newest first. */
+export const chargeLibraryVersionLimit = 50
+
+/**
+ * The tenant's charge types for the charges page (system billing codes
+ * excluded), oldest first, with only the fields the page reads: the
+ * workflows that add each charge on their own and its newest dated amounts.
+ */
+export async function listChargeLibraryDefinitions(
   tenantId: string,
   prismaOverride?: PrismaClient
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
-  return (prisma as any).chargeDefinition.findMany({
-    where: { tenantId, code: { notIn: systemBillingChargeCodes } },
-    include: {
+  return prisma.chargeDefinition.findMany({
+    orderBy: { createdAt: "asc" },
+    select: {
+      amount: true,
       applicability: {
-        orderBy: [{ workflow: "asc" }, { trigger: "asc" }],
+        select: { workflow: true },
+        where: { isActive: true },
       },
+      chargeFrequency: true,
+      chargeValueType: true,
+      code: true,
+      id: true,
+      isActive: true,
+      isMonthlyLevy: true,
+      kind: true,
+      name: true,
       versions: {
-        orderBy: { effectiveFrom: "desc" },
+        orderBy: [{ effectiveFrom: "desc" }, { createdAt: "desc" }],
+        select: { amount: true, effectiveFrom: true, id: true, notes: true },
+        take: chargeLibraryVersionLimit,
       },
     },
-    orderBy: { createdAt: "asc" },
+    take: chargeLibraryLimit,
+    where: { code: { notIn: systemBillingChargeCodes }, tenantId },
   })
 }
 

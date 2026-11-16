@@ -199,7 +199,7 @@ export function FoodPurchaseApplicationForm({
         enabled={!isPending}
         isDirty={Boolean(requestedAmount || itemDescription || requestNotes)}
         onFill={() => {
-          const values = createQaFoodPurchaseRequest()
+          const values = createQaFoodPurchaseRequest(maximumMonths)
           setItemDescription(values.itemDescription)
           setRequestedAmount(values.requestedAmount)
           setRequestedPaybackMonths(values.requestedPaybackMonths)

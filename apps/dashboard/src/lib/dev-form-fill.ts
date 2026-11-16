@@ -402,12 +402,14 @@ export function createQaProcurementRequest() {
 }
 
 /** A Foodstuff Purchase application draft. */
-export function createQaFoodPurchaseRequest() {
+export function createQaFoodPurchaseRequest(maximumMonths: number | null) {
   return {
     itemDescription: "Rice, beans, garri, palm oil and household staples.",
     notes: "Please include delivery with the cooperative bulk order.",
     requestedAmount: createQaAmount(60_000, 200_000, 5_000),
-    requestedPaybackMonths: pickQaValue(["3", "4"] as const),
+    requestedPaybackMonths: String(
+      Math.min(maximumMonths ?? 1, pickQaValue([3, 4] as const))
+    ),
   }
 }
 

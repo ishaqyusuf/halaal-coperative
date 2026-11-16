@@ -503,7 +503,9 @@ export async function readyCooperativeJourney(
       await page
         .getByRole("button", { name: "Submit receipt", exact: true })
         .first()
-        .click()
+        .waitFor({ state: "visible" })
+      // Use the same sheet query as the toolbar button after verifying access.
+      await member.open("/payment-receipts?paymentReceiptSheetType=member-create")
       const filled = await quickFillDialog(page)
       await shot(page, "member receipt form")
       await page.keyboard.press("Escape")

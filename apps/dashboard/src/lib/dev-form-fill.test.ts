@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import {
   applyDashboardDevFormFill,
+  createQaFoodPurchaseRequest,
   createQaImportCsv,
   getDashboardRandomDevFormFill,
 } from "./dev-form-fill"
@@ -11,6 +12,12 @@ const nameEmail = (domain: string) =>
   new RegExp(`^[a-z]+(\\.[a-z]+)*@${domain.replaceAll(".", "\\.")}$`)
 
 describe("dashboard QA quick fill", () => {
+  test("foodstuff drafts respect the cooperative payback limit", () => {
+    expect(createQaFoodPurchaseRequest(null).requestedPaybackMonths).toBe("1")
+    expect(createQaFoodPurchaseRequest(1).requestedPaybackMonths).toBe("1")
+    expect(createQaFoodPurchaseRequest(2).requestedPaybackMonths).toBe("2")
+  })
+
   test("member identities use a name-based email on the tester domain", () => {
     const values = getDashboardRandomDevFormFill<{
       email: string

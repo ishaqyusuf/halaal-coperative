@@ -1,6 +1,6 @@
 import { isMobileDevFixtureSession } from "@/dev/mobile-dev-session"
 import { createMobileTrpcClient } from "@/lib/mobile-trpc-client"
-import { readCachedMobileQuery } from "@/lib/read-cache"
+import { isPersistableReadInput, readCachedMobileQuery } from "@/lib/read-cache"
 import type {
   AdminFinanceSupportCommandBase,
   AdminFinanceSupportCommandResult,
@@ -356,7 +356,8 @@ export async function getAdminFinanceSupportOverview(input?: {
   const client = createMobileTrpcClient()
   return readCachedMobileQuery(
     `admin.finance-support.${JSON.stringify(input ?? {})}`,
-    () => client.mobile.admin.finance.overview.query(input)
+    () => client.mobile.admin.finance.overview.query(input),
+    { persist: isPersistableReadInput(input) }
   ) as Promise<AdminFinanceSupportOverview>
 }
 

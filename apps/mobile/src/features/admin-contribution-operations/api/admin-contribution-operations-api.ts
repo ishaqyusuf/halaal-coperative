@@ -1,6 +1,6 @@
 import { isMobileDevFixtureSession } from "@/dev/mobile-dev-session"
 import { createMobileTrpcClient } from "@/lib/mobile-trpc-client"
-import { readCachedMobileQuery } from "@/lib/read-cache"
+import { isPersistableReadInput, readCachedMobileQuery } from "@/lib/read-cache"
 import {
   getDevContributionBatch,
   getDevContributionMember,
@@ -27,7 +27,8 @@ export async function getContributionWorkspace(input: {
   const client = createMobileTrpcClient()
   return readCachedMobileQuery(
     `admin.contributions.${JSON.stringify(input)}`,
-    () => client.mobile.admin.contributions.workspace.query(input)
+    () => client.mobile.admin.contributions.workspace.query(input),
+    { persist: isPersistableReadInput(input) }
   ) as Promise<ContributionWorkspace>
 }
 

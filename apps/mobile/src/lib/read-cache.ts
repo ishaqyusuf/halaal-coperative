@@ -1,5 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage"
+import {
+  isLegacyUnpersistableReadKey,
+  MAX_PERSISTED_READ_BYTES,
+} from "@/lib/read-cache-policy"
 import { requireMobilePersistenceScope } from "@/runtime/persistence-scope"
+
+export { isPersistableReadInput } from "@/lib/read-cache-policy"
 
 const READ_CACHE_PREFIX = "halaalvest_mobile_read_cache:"
 
@@ -26,23 +32,58 @@ function cacheKey(key: string, scopeKey: string) {
   return `${READ_CACHE_PREFIX}${scopeKey}:${key}`
 }
 
+let legacyKeysSwept: Promise<void> | null = null
+
+function sweepLegacyReadKeys() {
+  legacyKeysSwept ??= (async () => {
+    const keys = await AsyncStorage.getAllKeys()
+    const stale = keys.filter(
+      (key) =>
+        key.startsWith(READ_CACHE_PREFIX) && isLegacyUnpersistableReadKey(key)
+    )
+    if (stale.length > 0) await AsyncStorage.multiRemove(stale)
+  })().catch(() => undefined)
+  return legacyKeysSwept
+}
+
 export async function readCachedMobileQuery<T extends object>(
   key: string,
-  query: () => Promise<T>
+  query: () => Promise<T>,
+  options: { persist?: boolean } = {}
 ): Promise<T & { cache: MobileReadCacheState }> {
   const scope = requireMobilePersistenceScope()
   const scopedCacheKey = cacheKey(key, scope.key)
+  const persist = options.persist ?? true
+  void sweepLegacyReadKeys()
+
+  if (!persist) {
+    // Searched reads and later pages are live only: no write, and no
+    // offline fallback that could surface an old search.
+    const value = await query()
+    return {
+      ...value,
+      cache: {
+        ageMs: 0,
+        cachedAt: new Date().toISOString(),
+        scope: scope.key,
+        status: "live",
+      },
+    }
+  }
+
   try {
     const value = await query()
     const cachedAt = new Date().toISOString()
+    const serialized = JSON.stringify({
+      cachedAt,
+      value,
+    } satisfies CachedEnvelope<T>)
 
-    await AsyncStorage.setItem(
-      scopedCacheKey,
-      JSON.stringify({
-        cachedAt,
-        value,
-      } satisfies CachedEnvelope<T>)
-    )
+    if (serialized.length <= MAX_PERSISTED_READ_BYTES) {
+      await AsyncStorage.setItem(scopedCacheKey, serialized)
+    } else {
+      await AsyncStorage.removeItem(scopedCacheKey)
+    }
 
     return {
       ...value,

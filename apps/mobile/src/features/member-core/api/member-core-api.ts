@@ -45,7 +45,8 @@ export async function getMemberActivityPage(input: {
   if (isMobileDevFixtureSession()) {
     return readCachedMobileQuery(
       `member.activity.${input.kind}.${cacheCursor}`,
-      async () => getDevMemberActivityPage(input)
+      async () => getDevMemberActivityPage(input),
+      { persist: input.cursor === null }
     )
   }
 
@@ -58,7 +59,8 @@ export async function getMemberActivityPage(input: {
         cursor: input.cursor,
         kind: input.kind,
         limit: 20,
-      })
+      }),
+    { persist: input.cursor === null }
   ) as Promise<MemberCoreCachedActivityPage>
 }
 

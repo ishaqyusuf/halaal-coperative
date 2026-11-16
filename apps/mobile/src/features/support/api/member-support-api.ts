@@ -42,12 +42,16 @@ export async function getMemberSupport(
           nextCursor: null,
           state: "available" as const,
         }
-      }
+      },
+      { persist: !cursor }
     ) as Promise<MobileMemberSupport>
   }
   const client = createMobileTrpcClient()
-  return readCachedMobileQuery(`member.support.${cursor ?? "first"}`, () =>
-    client.mobile.member.support.list.query(cursor ? { cursor } : undefined)
+  return readCachedMobileQuery(
+    `member.support.${cursor ?? "first"}`,
+    () =>
+      client.mobile.member.support.list.query(cursor ? { cursor } : undefined),
+    { persist: !cursor }
   ) as Promise<MobileMemberSupport>
 }
 

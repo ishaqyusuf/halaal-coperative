@@ -141,12 +141,16 @@ export async function getMemberReceipts(
         canCreateSupportCase: true,
         nextCursor: null,
         state: "available" as const,
-      })
+      }),
+      { persist: !cursor }
     ) as Promise<MobileMemberReceipts>
   }
   const client = createMobileTrpcClient()
-  return readCachedMobileQuery(`member.receipts.${cursor ?? "first"}`, () =>
-    client.mobile.member.receipts.list.query(cursor ? { cursor } : undefined)
+  return readCachedMobileQuery(
+    `member.receipts.${cursor ?? "first"}`,
+    () =>
+      client.mobile.member.receipts.list.query(cursor ? { cursor } : undefined),
+    { persist: !cursor }
   ) as Promise<MobileMemberReceipts>
 }
 

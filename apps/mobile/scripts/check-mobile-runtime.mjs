@@ -82,6 +82,9 @@ checkMarkers("src/trpc/query-client.ts", [
 ])
 checkMarkers("src/lib/read-cache.ts", [
   "requireMobilePersistenceScope",
+  "persist?: boolean",
+  "MAX_PERSISTED_READ_BYTES",
+  "sweepLegacyReadKeys",
   "ageMs",
   "cachedAt",
   'status: "stale"',
@@ -102,6 +105,17 @@ if (runtimeProvider.includes("resumePausedMutations")) {
 
 for (const file of sourceFiles(join(MOBILE_DIR, "src"))) {
   const source = readFileSync(file, "utf8")
+  // M4: a read keyed by its whole input (search text, cursors) must decide
+  // persistence with isPersistableReadInput so typed search never reaches
+  // AsyncStorage.
+  if (
+    /readCachedMobileQuery\(\s*`[^`]*JSON\.stringify\(/.test(source) &&
+    !source.includes("isPersistableReadInput(")
+  ) {
+    failures.push(
+      `${file.replace(`${MOBILE_DIR}/`, "")} caches a read keyed by its input without isPersistableReadInput`
+    )
+  }
   if (source.includes(".toSorted(")) {
     failures.push(
       `${file.replace(`${MOBILE_DIR}/`, "")} uses Array.prototype.toSorted, which is unavailable in the supported Hermes runtime`

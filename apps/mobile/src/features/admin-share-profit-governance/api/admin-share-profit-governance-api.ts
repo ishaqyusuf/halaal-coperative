@@ -1,5 +1,5 @@
 import { createMobileTrpcClient } from "@/lib/mobile-trpc-client"
-import { readCachedMobileQuery } from "@/lib/read-cache"
+import { isPersistableReadInput, readCachedMobileQuery } from "@/lib/read-cache"
 import type {
   ProfitPeriodDetail,
   ShareApplicationDetail,
@@ -18,7 +18,8 @@ export function getShareProfitWorkspace(input: {
     () =>
       createMobileTrpcClient().mobile.admin.shareProfitGovernance.workspace.query(
         input
-      )
+      ),
+    { persist: isPersistableReadInput(input) }
   ) as Promise<ShareProfitWorkspace>
 }
 

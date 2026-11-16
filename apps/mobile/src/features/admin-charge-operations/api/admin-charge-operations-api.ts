@@ -3,7 +3,7 @@ import {
   isMobileQaClientBuild,
 } from "@/dev/mobile-dev-session"
 import { createMobileTrpcClient } from "@/lib/mobile-trpc-client"
-import { readCachedMobileQuery } from "@/lib/read-cache"
+import { isPersistableReadInput, readCachedMobileQuery } from "@/lib/read-cache"
 import {
   getDevChargeApplication,
   getDevChargeFormOptions,
@@ -29,8 +29,10 @@ export async function getChargeWorkspace(input: {
 }) {
   if (isMobileDevFixtureSession())
     return getDevChargeWorkspace(input.lane, input.search, input.filters)
-  return readCachedMobileQuery(`admin.charges.${JSON.stringify(input)}`, () =>
-    createMobileTrpcClient().mobile.admin.charges.workspace.query(input)
+  return readCachedMobileQuery(
+    `admin.charges.${JSON.stringify(input)}`,
+    () => createMobileTrpcClient().mobile.admin.charges.workspace.query(input),
+    { persist: isPersistableReadInput(input) }
   ) as Promise<ChargeWorkspace>
 }
 
@@ -45,8 +47,13 @@ export async function getChargeApplication(applicationId: string) {
 
 export async function getChargeFormOptions(search?: string) {
   if (isMobileDevFixtureSession()) return getDevChargeFormOptions(search)
-  return readCachedMobileQuery(`admin.charges.options.${search ?? ""}`, () =>
-    createMobileTrpcClient().mobile.admin.charges.formOptions.query({ search })
+  return readCachedMobileQuery(
+    `admin.charges.options.${search ?? ""}`,
+    () =>
+      createMobileTrpcClient().mobile.admin.charges.formOptions.query({
+        search,
+      }),
+    { persist: isPersistableReadInput({ search }) }
   ) as Promise<ChargeFormOptions>
 }
 

@@ -142,7 +142,7 @@ function OperationProfileServiceRow({
         {configuredDiffers ? (
           <Text className="text-warn text-xs font-medium">
             Configured as {getOperationProfileMode(service.accessMode).label};
-            subscription restriction is stricter.
+            a platform limit is stricter right now.
           </Text>
         ) : null}
       </View>
@@ -501,17 +501,14 @@ export function OperationProfileScreen({
               <View className="border-warn/40 gap-2 border-y py-4">
                 <View className="flex-row items-center justify-between gap-3">
                   <Text className="text-sm font-bold text-foreground">
-                    Subscription restriction
+                    Some services are limited
                   </Text>
-                  <StatusBadge
-                    label={snapshot.subscription.planName}
-                    tone="warning"
-                  />
+                  <StatusBadge label="Limited" tone="warning" />
                 </View>
                 <Text className="text-xs leading-5 text-muted-foreground">
                   The stricter rule wins. Existing records remain readable, but
-                  new work and Operation Profile changes are unavailable until
-                  subscription access returns.
+                  new work and Operation Profile changes are unavailable for
+                  your cooperative right now.
                 </Text>
               </View>
             ) : null}
@@ -562,7 +559,7 @@ export function OperationProfileScreen({
               <View className="flex-row items-start gap-3">
                 <Icon className="size-sm mt-0.5 text-primary" name="Info" />
                 <Text className="min-w-0 flex-1 text-xs leading-5 text-muted-foreground">
-                  The stricter rule wins. A subscription can make a service
+                  The stricter rule wins. A platform limit can make a service
                   read-only, but it cannot override this cooperative&apos;s
                   operating choice.
                 </Text>

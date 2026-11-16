@@ -153,7 +153,7 @@ export function OperationProfileRouteController() {
       }
       if (!presentedSnapshot?.subscription.accessEnabled) {
         setSubmitError(
-          "Operation Profile changes are unavailable while subscription access is restricted."
+          "Operation Profile changes aren’t available for your cooperative right now."
         )
         return { status: "failed" }
       }

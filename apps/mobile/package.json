@@ -6,7 +6,8 @@
   "scripts": {
     "android": "bun run with-env node ./scripts/run-expo-cli.cjs run:android",
     "check:architecture": "node ./scripts/check-mobile-architecture.mjs",
-    "check:contract": "bun run check:architecture && bun run check:runtime && bun run check:native-imports && bun run check:nativewind-theme-vars && bun run check:nativewind-ui && bun run check:keyboard && bun run check:dev-fixtures && bun run check:quick-fill && bun run check:smoke",
+    "check:contract": "bun run check:architecture && bun run check:no-billing-copy && bun run check:runtime && bun run check:native-imports && bun run check:nativewind-theme-vars && bun run check:nativewind-ui && bun run check:keyboard && bun run check:dev-fixtures && bun run check:quick-fill && bun run check:smoke",
+    "check:no-billing-copy": "node ./scripts/check-no-billing-copy.mjs",
     "check:dev-fixtures": "node ./scripts/check-dev-fixtures.mjs",
     "check:quick-fill": "bun test ./src/dev/mobile-qa-form-coverage.test.ts ./src/dev/mobile-qa-production-absence.test.ts",
     "check:keyboard": "node ./scripts/check-keyboard-coverage.mjs",

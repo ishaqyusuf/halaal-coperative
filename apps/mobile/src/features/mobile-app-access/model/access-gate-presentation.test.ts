@@ -29,21 +29,28 @@ describe("access gate state", () => {
 })
 
 describe("access gate copy", () => {
-  test("never shows a price, currency or payment link", () => {
+  // Owner rule: the app is a free companion. No price, plan, term, renewal,
+  // subscription, payment, or pointer to where access is bought or turned on.
+  const forbidden =
+    /₦|\bNGN\b|naira|\bpay\b|payment|checkout|price|pricing|1,000|subscri|billing|\bbill\b|renew|\bterm\b|\bplan\b|upgrade|web dashboard|website|\bweb\b|dashboard/i
+
+  test("never mentions money, subscriptions or where access is turned on", () => {
     for (const state of ACCESS_GATE_PREVIEW_STATES) {
       const p = projectAccessGate(state, "Amana Savings Cooperative")
-      const text = [p.title, p.body, p.chip.label, p.web?.title, p.web?.path].join(" ")
-      expect(text).not.toMatch(/₦|NGN|naira|\bpay\b|payment|checkout|price|1,000/i)
+      const text = [p.title, p.body, p.chip.label].join(" ")
+      expect(text).not.toMatch(forbidden)
     }
   })
 
-  test("the web path is offered where the member or an owner can act", () => {
-    const withWeb = ACCESS_GATE_PREVIEW_STATES.filter((s) => projectAccessGate(s, "C").web)
-    expect(withWeb).toEqual(["not_requested", "expired", "revoked", "rejected", "staff_off"])
+  test("access is the cooperative's decision", () => {
+    for (const state of ["not_requested", "expired", "revoked"] as const) {
+      expect(projectAccessGate(state, "Amana").body).toContain("Your cooperative manages who can use the HalaalVest app.")
+    }
   })
 
-  test("names the cooperative", () => {
-    expect(projectAccessGate("rejected", "Amana").body).toContain("Amana")
+  test("names the cooperative only where the member must contact it (the hero already shows it)", () => {
+    const named = ACCESS_GATE_PREVIEW_STATES.filter((s) => projectAccessGate(s, "Amana Savings").body.includes("Amana Savings"))
+    expect(named).toEqual(["rejected"])
   })
 })
 

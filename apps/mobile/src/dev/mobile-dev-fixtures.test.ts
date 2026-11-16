@@ -7,10 +7,8 @@ import {
   getDevAdminMemberDetail,
   getDevAdminMembers,
   getDevMemberFoodPurchase,
-  getDevSubscriptionSnapshot,
   inviteDevAdminAccess,
   replyDevSupportCase,
-  requestDevPlanChange,
   reviewDevOnboarding,
   updateDevAdminMemberKyc,
   updateDevAdminMemberStatus,
@@ -169,53 +167,5 @@ describe("mobile admin-access development fixtures", () => {
     expect(invitation.setupUrl).toContain(
       "email=zainab.finance%40ishaq.qa.test"
     )
-  })
-})
-
-describe("mobile subscription development fixtures", () => {
-  test("matches the authoritative five-plan catalogue and current-plan usage", () => {
-    const snapshot = getDevSubscriptionSnapshot()
-
-    expect(snapshot.availablePlans.map((plan) => plan.code)).toEqual([
-      "free_beta",
-      "starter",
-      "standard",
-      "growth",
-      "enterprise",
-    ])
-    expect(
-      snapshot.availablePlans.map((plan) => ({
-        code: plan.code,
-        limit: plan.activeMemberLimit,
-        maximum: plan.monthlyPrice.maximum,
-        minimum: plan.monthlyPrice.minimum,
-      }))
-    ).toEqual([
-      { code: "free_beta", limit: 100, maximum: 0, minimum: 0 },
-      { code: "starter", limit: 250, maximum: 18750, minimum: 12500 },
-      { code: "standard", limit: 1000, maximum: 75000, minimum: 50000 },
-      { code: "growth", limit: 3000, maximum: 225000, minimum: 150000 },
-      { code: "enterprise", limit: null, maximum: null, minimum: null },
-    ])
-    expect(snapshot.plan.code).toBe("standard")
-    expect(snapshot.usage).toMatchObject({
-      activeMemberCount: 438,
-      activeMemberLimit: 1000,
-      remainingActiveMembers: 562,
-      usagePercent: 44,
-    })
-    expect(snapshot.entitlements).toEqual(snapshot.plan.entitlements)
-  })
-
-  test("records an honest support handoff when checkout is unavailable", () => {
-    const intent = requestDevPlanChange("growth")
-
-    expect(intent).toMatchObject({
-      checkoutAvailable: false,
-      checkoutUrl: null,
-      requestedPlanCode: "growth",
-      status: "support_follow_up",
-    })
-    expect(intent.supportMessage).toContain("Billing support")
   })
 })

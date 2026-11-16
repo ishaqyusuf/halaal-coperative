@@ -177,7 +177,7 @@ function ReportRow({
       accessibilityHint={
         report.available
           ? "Opens private report generation"
-          : "Explains the subscription requirement"
+          : "Explains why this report isn’t available"
       }
       accessibilityLabel={`${report.title}. ${report.metricLabel}: ${formatReportMetric(report, currencyCode)}`}
       accessibilityRole="button"
@@ -207,7 +207,7 @@ function ReportRow({
           {formatReportMetric(report, currencyCode)}
         </Text>
         <Text className="text-[10px] text-muted-foreground">
-          {report.available ? report.metricLabel : "Plan restricted"}
+          {report.available ? report.metricLabel : "Not available"}
         </Text>
       </View>
       <Icon className="size-sm text-muted-foreground" name="ChevronRight" />
@@ -568,7 +568,7 @@ function ReportActionSheet({
             <Text className="flex-1 text-xs leading-5 text-muted-foreground">
               {report.available
                 ? "Saved privately for 15 minutes."
-                : "Requires a higher reporting plan."}
+                : "This report isn’t available for your cooperative right now."}
             </Text>
           </View>
         </View>

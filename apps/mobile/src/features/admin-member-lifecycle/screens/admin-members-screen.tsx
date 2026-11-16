@@ -1250,7 +1250,7 @@ export function AdminMembersScreen({
 
       <SubmissionReviewSheet
         confirmLabel="Confirm change"
-        description="Confirm this tenant-scoped member action. The server will enforce the signed role, subscription, and current record state."
+        description="Confirm this tenant-scoped member action. The server checks your role and the member’s current record before saving."
         isSubmitting={isSubmitting}
         onClose={() => {
           reopenIntentRef.current = reviewIntent

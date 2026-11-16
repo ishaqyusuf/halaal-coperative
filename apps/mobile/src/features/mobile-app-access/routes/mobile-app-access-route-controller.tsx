@@ -19,13 +19,13 @@ import { useAuthContext } from "@/hooks/use-auth"
 import { useMobileAppAccess } from "@/runtime/mobile-app-access-provider"
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
-import { View } from "react-native"
 
 /**
  * The app-access gate (T03, 02 Brand hero): signed in, but this membership
  * may not use the app. The hero names the cooperative and the status; the
- * body says where access is turned on (the web dashboard — never a price or
- * payment link in the app); Refresh access is docked. Development builds
+ * body says the cooperative manages app access. It never mentions a price,
+ * plan, renewal, subscription or where access is turned on (owner rule,
+ * ADR-20261116-mobile-no-subscription-copy). Refresh access is docked. Development builds
  * accept `?preview=<state>` for device QA of every status.
  */
 export function MobileAppAccessRouteController() {
@@ -93,21 +93,6 @@ export function MobileAppAccessRouteController() {
         >
           {gate.body}
         </Text>
-        {gate.web ? (
-          <View className="flex-row items-center gap-[12px] rounded-[18px] border border-border bg-card p-[14px]">
-            <View className="size-[40px] items-center justify-center rounded-[12px] bg-tint-sky">
-              <Icon className="size-base text-tint-sky-foreground" name="Globe" />
-            </View>
-            <View className="min-w-0 flex-1 gap-[2px]">
-              <Text className="font-bold" variant="body">
-                {gate.web.title}
-              </Text>
-              <Text className="text-foreground-soft" variant="small">
-                {gate.web.path}
-              </Text>
-            </View>
-          </View>
-        ) : null}
         <ListCard>
           <SettingsRow
             chevron

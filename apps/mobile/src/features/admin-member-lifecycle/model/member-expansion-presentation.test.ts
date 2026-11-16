@@ -4,8 +4,7 @@ import { getMemberExpansionPresentation } from "./member-expansion-presentation"
 describe("member expansion presentation", () => {
   test("fails closed while a legacy cache refreshes", () => {
     expect(getMemberExpansionPresentation(undefined)).toEqual({
-      actionLabel: "View plan",
-      detail: "Plan status unavailable",
+      detail: "New members can’t be added right now.",
       title: "Member creation unavailable",
     })
   })
@@ -34,8 +33,7 @@ describe("member expansion presentation", () => {
         status: "at_capacity",
       })
     ).toEqual({
-      actionLabel: "View plan",
-      detail: "Starter · 1 of 1 active",
+      detail: "1 of 1 active members",
       title: "Member capacity reached",
     })
   })
@@ -51,9 +49,22 @@ describe("member expansion presentation", () => {
         status: "restricted",
       })
     ).toEqual({
-      actionLabel: "View plan",
-      detail: "Starter",
+      detail: "New members can’t be added right now.",
       title: "Member creation unavailable",
     })
+  })
+
+  test("never shows a plan name or upgrade prompt", () => {
+    for (const status of ["at_capacity", "restricted"] as const) {
+      const p = getMemberExpansionPresentation({
+        activeMemberCount: 3,
+        activeMemberLimit: 3,
+        planCode: "starter",
+        planName: "Starter",
+        reason: "subscription_past_due",
+        status,
+      })
+      expect(JSON.stringify(p)).not.toMatch(/starter|plan|upgrade|subscri/i)
+    }
   })
 })

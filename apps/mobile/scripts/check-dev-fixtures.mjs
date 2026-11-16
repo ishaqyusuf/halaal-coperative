@@ -212,8 +212,6 @@ const fixtureFunctions = [
   "getDevAdminReports",
   "getDevNotifications",
   "getDevAdminAccess",
-  "getDevSubscriptionSnapshot",
-  "requestDevPlanChange",
 ]
 
 assertIncludes(
@@ -222,7 +220,6 @@ assertIncludes(
 )
 
 const fixtureAdapters = [
-  "src/lib/mobile-subscription-api.ts",
   "src/features/settings-access/api/member-more-api.ts",
   "src/features/member-core/api/member-core-api.ts",
   "src/features/shares-profit/api/member-shares-api.ts",

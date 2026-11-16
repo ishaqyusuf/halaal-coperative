@@ -17,11 +17,7 @@ export type AccessGatePresentation = {
   chip: { busy?: boolean; icon: string; label: string; tone: AccessGateTone }
   state: AccessGateState
   title: string
-  /** Where to turn access on, shown as the web-path card. No price or link: the app never sells access. */
-  web: { path: string; title: string } | null
 }
-
-const WEB_PATH = "Web dashboard › Mobile access"
 
 export const ACCESS_GATE_PREVIEW_STATES: readonly AccessGateState[] = [
   "checking",
@@ -53,18 +49,25 @@ export function resolveAccessGateState(input: {
   return input.status
 }
 
+/**
+ * Gate copy. Owner rule (ADR-20261116-mobile-no-subscription-copy): the app is
+ * a free companion. It never mentions a price, plan, term, renewal or
+ * subscription, and never says where access is bought or turned on. Access is
+ * the cooperative's decision; the app only reports the state and offers Refresh.
+ */
 export function projectAccessGate(
   state: AccessGateState,
   cooperativeName: string
 ): AccessGatePresentation {
+  // The hero already names the cooperative; the body says "your cooperative" so long names aren't repeated.
+  const manages = "Your cooperative manages who can use the HalaalVest app."
   switch (state) {
     case "checking":
       return {
-        body: `Confirming mobile access with ${cooperativeName}.`,
+        body: "Confirming your access with your cooperative.",
         chip: { busy: true, icon: "RefreshCw", label: "Checking", tone: "neutral" },
         state,
         title: "Checking your access…",
-        web: null,
       }
     case "error":
       return {
@@ -72,55 +75,48 @@ export function projectAccessGate(
         chip: { icon: "WifiOff", label: "Offline", tone: "warm" },
         state,
         title: "We couldn’t check your access",
-        web: null,
       }
     case "pending":
       return {
-        body: "Your cooperative is reviewing your request. HalaalVest opens here as soon as it’s approved.",
+        body: "Your cooperative is reviewing your access. HalaalVest opens here as soon as it’s approved.",
         chip: { icon: "Clock", label: "Pending review", tone: "warm" },
         state,
-        title: "Your request is being reviewed",
-        web: null,
+        title: "Your access is being reviewed",
       }
     case "not_requested":
       return {
-        body: "Mobile access isn’t on for your membership yet. Turn it on from your web dashboard, then refresh here.",
-        chip: { icon: "Smartphone", label: "Not turned on", tone: "neutral" },
+        body: `${manages} Once your access is on, tap Refresh access.`,
+        chip: { icon: "Smartphone", label: "Not on yet", tone: "neutral" },
         state,
-        title: "Turn on the HalaalVest app",
-        web: { path: WEB_PATH, title: "Turn it on from the web" },
+        title: "The app isn’t on for your account",
       }
     case "expired":
       return {
-        body: "Your mobile access term has ended. Renew it from your web dashboard, then refresh here.",
-        chip: { icon: "CalendarClock", label: "Expired", tone: "warm" },
+        body: `${manages} When your access is active again, tap Refresh access.`,
+        chip: { icon: "Smartphone", label: "Not active", tone: "neutral" },
         state,
-        title: "Your app access has ended",
-        web: { path: WEB_PATH, title: "Renew it from the web" },
+        title: "Your app access isn’t active",
       }
     case "revoked":
       return {
-        body: `Mobile access is turned off for your membership. If you turned it off, turn it back on from your web dashboard. Otherwise contact ${cooperativeName}.`,
+        body: `App access is off for your account. ${manages} When it’s back on, tap Refresh access.`,
         chip: { icon: "Ban", label: "Turned off", tone: "danger" },
         state,
         title: "App access is turned off",
-        web: { path: WEB_PATH, title: "Turn it back on from the web" },
       }
     case "rejected":
       return {
-        body: `Your cooperative didn’t approve mobile access for your membership. Contact ${cooperativeName} for details, or turn it on again from your web dashboard.`,
+        body: `Your cooperative didn’t approve app access for your account. Contact ${cooperativeName} for details.`,
         chip: { icon: "CircleX", label: "Not approved", tone: "danger" },
         state,
-        title: "Your request wasn’t approved",
-        web: { path: WEB_PATH, title: "Turn it on again from the web" },
+        title: "Your access wasn’t approved",
       }
     case "staff_off":
       return {
-        body: `Mobile access is off for ${cooperativeName}, so members and staff can’t use the app yet. An owner can turn it on from the web dashboard.`,
+        body: "The HalaalVest app isn’t on for your cooperative yet, so members and staff can’t use it. Ask one of its owners about app access.",
         chip: { icon: "Ban", label: "App off", tone: "neutral" },
         state,
         title: "Your cooperative hasn’t turned on the app",
-        web: { path: WEB_PATH, title: "Owners turn it on from the web" },
       }
   }
 }

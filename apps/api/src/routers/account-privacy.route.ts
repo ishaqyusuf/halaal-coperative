@@ -8,7 +8,7 @@ import {
   PRIVACY_PROCESSING_CATEGORIES,
   cancelOwnPrivacyRequest,
   erasePrivacyRequestPersonalData,
-  finishPrivacyRequest,
+  completePrivacyRequest,
   recordPrivacyCompletionNoticeFailed,
   getPrivacyProcessingInventory,
   getPrivacyRequestForOperator,
@@ -233,7 +233,7 @@ export const accountPrivacyRouter = createTRPCRouter({
         retentionSummary: input.retentionSummary,
       })
       if (input.operatorConfirmationNote) {
-        const done = await finishPrivacyRequest({
+        const done = await completePrivacyRequest({
           actorUserId,
           requestId: input.requestId,
           confirmation: {
@@ -263,7 +263,7 @@ export const accountPrivacyRouter = createTRPCRouter({
             : ("no_contact" as const),
         }
       }
-      const done = await finishPrivacyRequest({
+      const done = await completePrivacyRequest({
         actorUserId,
         requestId: input.requestId,
         confirmation: { method: "email" },

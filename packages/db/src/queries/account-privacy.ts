@@ -742,7 +742,7 @@ function privacyCompletionState(value: Prisma.JsonValue | null) {
       (note) => note.category === "external_processors_backups"
     ),
     sharedRecordsReviewed:
-      evidence.sharedFinancialRecords === "kept_without_identity",
+      evidence.sharedFinancialRecords === "kept_with_name_only",
     erasureComplete: evidence.personalDetails === "erased",
     retentionSummary:
       typeof evidence.retentionSummary === "string"
@@ -1095,11 +1095,95 @@ const supportCaseWithoutMoney = {
 } as const
 
 /**
- * Completion step 1 (ADR-20261116 privacy request completion): erase or
- * anonymise the person's remaining personal details. Financial and ledger
- * rows are kept; they point at the anonymised member and user, so the
- * person's identity is gone from them. Safe to run again: a retry after a
- * failed confirmation email only refreshes the retention summary.
+ * Redacts a former member's personal details inside the caller's
+ * transaction (close-my-account plan, decision 2). Contact, ID and KYC
+ * details, member documents, sign-up contact details and the free text of
+ * support cases without money are removed. The member's name and member
+ * number stay, and every money row is kept untouched: the cooperative must
+ * know who it paid, for the legal retention period. Phase D's login closing
+ * can call this inside revocation once the cooperative has settled.
+ */
+export async function redactFormerMemberPersonalData(
+  tx: Prisma.TransactionClient,
+  input: { userId: string; keepSupportCaseId?: string | null }
+) {
+  const { userId } = input
+  const member = await tx.member.findUnique({
+    where: { userId },
+    select: { id: true },
+  })
+  const memberDocuments = member
+    ? (await tx.memberDocument.deleteMany({ where: { memberId: member.id } }))
+        .count
+    : 0
+  if (member)
+    await tx.member.update({
+      where: { id: member.id },
+      data: {
+        email: null,
+        phoneNumber: null,
+        address: null,
+        occupation: null,
+        governmentIdNumber: null,
+        kycDocumentType: null,
+        kycDocumentUrl: null,
+        kycDocumentUploadedAt: null,
+        kycReviewNotes: null,
+      },
+    })
+  const onboardingRequests = (
+    await tx.memberOnboardingRequest.updateMany({
+      where: { userId },
+      data: {
+        email: `deleted-${userId}@users.invalid`,
+        phoneNumber: null,
+        rejectionReason: null,
+      },
+    })
+  ).count
+  const notKept = input.keepSupportCaseId
+    ? { id: { not: input.keepSupportCaseId } }
+    : {}
+  const supportCases = (
+    await tx.supportCase.updateMany({
+      where: {
+        ...notKept,
+        ...supportCaseWithoutMoney,
+        OR: [
+          { openedByUserId: userId },
+          ...(member ? [{ memberId: member.id }] : []),
+        ],
+      },
+      data: {
+        subject: "Support case (details removed)",
+        description: removedAtRequest,
+      },
+    })
+  ).count
+  const supportMessages = (
+    await tx.supportCaseMessage.updateMany({
+      where: {
+        authorUserId: userId,
+        authorType: { not: "system" },
+        supportCase: { is: { ...notKept, ...supportCaseWithoutMoney } },
+      },
+      data: { message: removedAtRequest, attachmentUrl: null },
+    })
+  ).count
+  return {
+    memberProfile: member ? 1 : 0,
+    memberDocuments,
+    onboardingRequests,
+    supportCases,
+    supportMessages,
+  }
+}
+
+/**
+ * Completion step 1 (ADR-20261116 privacy request completion): redact the
+ * person's remaining personal details after their login is closed. Money
+ * records keep their name and member number. Safe to run again: a retry
+ * after a failed confirmation email only refreshes the retention summary.
  */
 export async function erasePrivacyRequestPersonalData(
   input: { actorUserId: string; requestId: string; retentionSummary: string },
@@ -1148,82 +1232,10 @@ export async function erasePrivacyRequestPersonalData(
     const alreadyErased = evidence.personalDetails === "erased"
     let erasedCounts = evidence.erasedCounts ?? null
     if (!alreadyErased) {
-      const member = await tx.member.findUnique({
-        where: { userId },
-        select: { id: true },
+      erasedCounts = await redactFormerMemberPersonalData(tx, {
+        userId,
+        keepSupportCaseId: request.supportCaseId,
       })
-      const memberDocuments = member
-        ? (
-            await tx.memberDocument.deleteMany({
-              where: { memberId: member.id },
-            })
-          ).count
-        : 0
-      if (member)
-        await tx.member.update({
-          where: { id: member.id },
-          data: {
-            fullName: "Former member",
-            email: null,
-            phoneNumber: null,
-            address: null,
-            occupation: null,
-            governmentIdNumber: null,
-            kycDocumentType: null,
-            kycDocumentUrl: null,
-            kycDocumentUploadedAt: null,
-            kycReviewNotes: null,
-          },
-        })
-      const onboardingRequests = (
-        await tx.memberOnboardingRequest.updateMany({
-          where: { userId },
-          data: {
-            fullName: "Deleted account",
-            email: `deleted-${userId}@users.invalid`,
-            phoneNumber: null,
-            rejectionReason: null,
-          },
-        })
-      ).count
-      const notThisRequest = request.supportCaseId
-        ? { id: { not: request.supportCaseId } }
-        : {}
-      const supportCases = (
-        await tx.supportCase.updateMany({
-          where: {
-            ...notThisRequest,
-            ...supportCaseWithoutMoney,
-            OR: [
-              { openedByUserId: userId },
-              ...(member ? [{ memberId: member.id }] : []),
-            ],
-          },
-          data: {
-            subject: "Support case (details removed)",
-            description: removedAtRequest,
-          },
-        })
-      ).count
-      const supportMessages = (
-        await tx.supportCaseMessage.updateMany({
-          where: {
-            authorUserId: userId,
-            authorType: { not: "system" },
-            supportCase: {
-              is: { ...notThisRequest, ...supportCaseWithoutMoney },
-            },
-          },
-          data: { message: removedAtRequest, attachmentUrl: null },
-        })
-      ).count
-      erasedCounts = {
-        memberProfile: member ? 1 : 0,
-        memberDocuments,
-        onboardingRequests,
-        supportCases,
-        supportMessages,
-      }
       await tx.auditLog.create({
         data: {
           tenantId: request.tenantId,
@@ -1248,7 +1260,7 @@ export async function erasePrivacyRequestPersonalData(
               ? evidence.personalDetailsErasedAt
               : now.toISOString(),
           erasedCounts,
-          sharedFinancialRecords: "kept_without_identity",
+          sharedFinancialRecords: "kept_with_name_only",
           processorErasure: "recorded",
           retentionSummary,
         },
@@ -1320,7 +1332,7 @@ export type PrivacyCompletionConfirmation =
  * it completed, drops the contact email kept only for this notice, closes
  * the support case and writes the audit entry.
  */
-export async function finishPrivacyRequest(
+export async function completePrivacyRequest(
   input: {
     actorUserId: string
     requestId: string
@@ -1365,7 +1377,7 @@ export async function finishPrivacyRequest(
         : "No retention summary was recorded."
     const completionSummary = [
       "Personal details were deleted or anonymised.",
-      "The cooperative’s financial records are kept without the person’s name or contact details.",
+      "The cooperative’s money records are kept under the person’s name and member number, without contact or ID details.",
       `Kept: ${retained}`,
       input.confirmation.method === "email"
         ? "The person was told by email."
@@ -1397,7 +1409,7 @@ export async function finishPrivacyRequest(
           authorUserId: null,
           authorType: "system",
           message:
-            "The privacy request is complete: personal details were erased or anonymised, financial records are kept without identity, and the person was told.",
+            "The privacy request is complete: contact, ID and other personal details were erased, money records are kept under the member's name for the legal period, and the person was told.",
         },
       })
       await tx.supportCase.update({

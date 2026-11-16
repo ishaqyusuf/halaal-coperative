@@ -16,8 +16,8 @@ import { appRouter } from "./_app"
  * A privacy request is "done" (ADR-20261116 privacy request completion)
  * end to end through the API: the member asks, the platform operator checks
  * identity, ends access, records what outside services did, then finishes.
- * Personal details go; the cooperative's money records stay without the
- * person's identity; the person is emailed; the request is completed with
+ * Contact and ID details go; the cooperative's money records stay under
+ * the member's name and number (close-my-account plan, decision 2); the person is emailed; the request is completed with
  * an audit entry. Runs against local Postgres.
  */
 const prisma = createPrismaClient()
@@ -259,7 +259,7 @@ runIntegration("finishing a privacy request", () => {
     expect(untouched.phoneNumber).toBe("+2348000000001")
   })
 
-  test("finishing erases personal details, keeps money records and emails the person", async () => {
+  test("finishing erases contact and ID details, keeps money records under the name and emails the person", async () => {
     const asOperator = await callerFor(operator)
     await asOperator.accountPrivacy.recordProcessingNote({
       requestId,
@@ -279,7 +279,9 @@ runIntegration("finishing a privacy request", () => {
       where: { id: memberId },
     })
     expect(profile).toMatchObject({
-      fullName: "Former member",
+      // Decision 2 of the close-my-account plan: name and number stay.
+      fullName: "Zainab Musa",
+      memberNumber: `${slug}-1`,
       email: null,
       phoneNumber: null,
       address: null,

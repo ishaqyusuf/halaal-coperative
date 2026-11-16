@@ -11,8 +11,8 @@ export const accountDeletionNoticeCopy = {
 /**
  * When a privacy (account deletion) request is "done" (ADR-20261116
  * privacy request completion): within this many days of the request,
- * personal details are erased or anonymised, the cooperative's financial
- * records are kept with the person's identity removed, the person is told,
+ * contact, ID and other personal details are erased, the cooperative's money
+ * records are kept under the member's name and number, the person is told,
  * and the request is marked completed with an audit entry.
  */
 export const PRIVACY_REQUEST_RESPONSE_DAYS = 30
@@ -26,12 +26,12 @@ export function privacyRequestDueAt(requestedAt: Date | string) {
 
 /** The confirmation email the person gets when their request is done. */
 export const privacyCompletionEmailCopy = {
-  eventLabel: "Account deletion complete",
-  subject: "Your HalaalVest account deletion is complete",
-  previewText: "We have finished your account deletion request.",
+  eventLabel: "Account closed",
+  subject: "Your HalaalVest account is closed",
+  previewText: "We have finished your request to close your account.",
   actionLabel: "Read the privacy notice",
   bodyText:
-    "We have finished your request to delete your HalaalVest account. Your sign-in, contact details, member profile, documents and support messages have been deleted or anonymised. Your cooperative must keep its financial records, such as contributions, shares, financing and repayments; those stay in its books with your name and contact details removed. This is the last email we will send to this address about your account.",
+    "We have closed your HalaalVest account. Your sign-in, contact details, ID details, documents and support messages have been deleted or anonymised. Your cooperative must keep records of your money, such as contributions, shares, financing and repayments, for the period the law requires; those records keep your name and member number so the cooperative knows who it paid. This is the last email we will send to this address about your account.",
   referenceLabel: "Request reference",
   cooperativeLabel: "Cooperative",
   retainedLabel: "What we kept and why",

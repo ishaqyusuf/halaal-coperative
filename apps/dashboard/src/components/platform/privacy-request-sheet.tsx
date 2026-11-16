@@ -464,8 +464,8 @@ function RecordsStillHeld({
       <RequestSection title="What is still kept">
         <p className="text-base">
           {done
-            ? `${plural(linked, "record")} still point to this person. They hold no name or contact details now.`
-            : `${plural(linked, "record")} still point to this person. Money records stay; finishing the request removes their personal details.`}
+            ? `${plural(linked, "record")} still point to this person. They keep the name and member number, with no contact or ID details.`
+            : `${plural(linked, "record")} still point to this person. Money records stay; finishing removes their contact and ID details.`}
         </p>
         <details className="rounded-lg border border-border p-4 text-base">
           <summary className="min-h-11 cursor-pointer content-center font-medium">
@@ -604,8 +604,8 @@ function FinishRequest({
     <RequestSection title="Finish the request">
       <p className="text-base">
         Their member profile, documents, sign-up details and support messages
-        without money are deleted or anonymised. Money records stay, without
-        their name or contact details. We email them, then mark this done.
+        without money are deleted or anonymised. Money records stay under their
+        name and member number. We email them, then mark this done.
       </p>
       {!data.externalProcessorsReviewed ? (
         <p className="text-base text-muted-foreground">
@@ -671,7 +671,7 @@ function FinishRequest({
       </Button>
       <RequestConfirmDialog
         confirmLabel="Finish request"
-        description="Their personal details are deleted or anonymised, their money records stay without their name, and they get an email saying it is done. This cannot be undone."
+        description="Their contact and ID details, documents and support messages are removed. Money records stay under their name. They get an email saying it is done. This cannot be undone."
         destructive
         onConfirm={() =>
           complete.mutate({

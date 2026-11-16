@@ -25,9 +25,12 @@ describe("public billing policy", () => {
       "Seat fee",
       "Website assistant",
       "Mobile access",
+      "When billing starts",
       "The monthly bill",
-      "Questions about a charge",
-      "Review before launch",
+      "Late payment",
+      "Mistakes, refunds and disputed bills",
+      "Questions about a member charge",
+      "Price changes",
     ])
   })
 

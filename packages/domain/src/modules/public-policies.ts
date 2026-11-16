@@ -54,7 +54,7 @@ export type PublicPolicy = {
 }
 
 // Review drafts are deliberately not contract-acceptance versions.
-export const publicPolicyRevision = "2026-11-16-draft-9"
+export const publicPolicyRevision = "2026-11-16-draft-10"
 export const publicPolicyStatus = "draft" as const
 
 export const publicPolicies = {
@@ -145,53 +145,69 @@ export const publicPolicies = {
     ],
   },
   "delete-account": {
-    title: "Delete your HalaalVest account",
+    title: "Close your HalaalVest account",
     interactiveCopy: publicDeletionFlowCopy,
     introduction:
-      "Request deletion of your HalaalVest login and associated personal data. This is different from leaving a cooperative, settling financing or closing a cooperative’s entire workspace.",
+      "You can ask us to close your HalaalVest account and remove your personal details. Your cooperative holds your savings, shares and financing, so closing works like leaving a bank: your cooperative settles your money under its own rules first, and then we close your login. Records of your money stay in your cooperative’s books for the period the law requires.",
     sections: [
       {
-        title: "Start a request",
-        body: "When online verification is available, use the form on this page to request an email verification link if you cannot sign in. After verifying control of the account email, review and submit the request. If the form is unavailable or you do not know the workspace address, use the email contact option below. Never send a password, one-time code, bank details or identity-document attachment.",
+        title: "How to ask",
+        body: "If you can sign in, open More in the HalaalVest app and choose the option to close your account. If you cannot sign in, use the form on this page: enter your account email and your cooperative’s short address or website, and we will email you a link to confirm the request is yours. You can also email hello@halaalvest.com from the address on your account. Never send a password, one-time code, bank details or a copy of an identity document.",
       },
       {
-        title: "Verification and scope",
-        body: "Support must verify control of the account and clarify which login, memberships and personal data the request covers. An administrator closing a whole workspace must establish authority and resolve ownership handover. One person’s request must not erase other members’ records.",
+        title: "What happens next",
+        body: "First we check that the request comes from you, and we may ask you for more information. If you still have savings or shares, or still owe money, your cooperative settles your money under its rules: it pays out what it owes you, and you repay what you owe. If you have guaranteed someone else’s financing, your cooperative may keep you to that guarantee until the financing is repaid or another guarantor takes your place. Your cooperative can decline to settle, and must tell you why. Once your money is settled, or if there was none, we close your login.",
       },
       {
-        title: "What completion involves",
-        body: "After verification and review, the responsible operator must revoke account access and device sessions, stop optional communications, erase or anonymise eligible information and coordinate processor deletion. A disabled login or a resolved support ticket alone does not prove deletion.",
+        title: "What closing removes",
+        body: "When we close your account, you are signed out everywhere and can no longer sign in. We remove your password, device sign-ins, push notifications and assistant conversations. We then erase your contact details, identity and KYC details, member documents, sign-up details and the support messages you wrote that did not involve money. We email you when it is done, saying what we kept and why.",
       },
       {
-        title: "Records that may remain",
-        body: "The operator must explain any retained financial, audit, security or dispute records, the applicable reason, access restrictions and retention period. The completion response must distinguish erased information, retained records and outstanding processor work. Retention periods and operational response times still require owner approval.",
+        title: "What we keep",
+        body: "Records of your money stay in your cooperative’s books with your name and member number, so the cooperative can show who it paid and who paid it. These include contributions, savings, shares, financing, repayments, receipts, charges, guarantees and support cases about money. We also keep records of the documents you accepted and the account’s activity history. These records are kept for the period the law requires, and only people who need them can see them. Backups expire on a rolling schedule, so removed details can stay in a backup for a short time.",
       },
       {
-        title: "Current readiness",
-        body: "This request channel and the end-to-end processing procedure require operational verification before store submission. Do not interpret this draft page as a completed account-erasure capability.",
+        title: "How long it takes",
+        body: "We aim to finish within 30 days of your request. If your cooperative still needs to settle your money, we tell you, and we close your login once it has. You can withdraw your request in the app until your cooperative starts settling your money or we close your login.",
+      },
+      {
+        title: "Administrators and whole workspaces",
+        body: "This page is for one person’s account. Closing an account does not close the cooperative’s workspace or remove other members’ records. If you are a cooperative’s only administrator, another administrator must take over before we can close your account. To close a whole workspace, an administrator should contact us at hello@halaalvest.com.",
       },
     ],
   },
   support: {
     title: "HalaalVest support",
     introduction:
-      "Get help with account access, software problems, privacy requests and billing questions. Contact your cooperative for decisions about contributions, membership, withdrawals, financing and guarantor obligations.",
+      "There are two places to get help. Your cooperative helps with your money and membership. HalaalVest helps with the software, your login, your cooperative’s HalaalVest bill and privacy requests.",
     sections: [
       {
-        title: "Cooperative support",
-        body: "When available, open Support in your cooperative workspace to create a tracked case and follow staff replies. Support cases document an issue; they do not themselves reverse a payment or change financial records.",
+        title: "Help from your cooperative",
+        body: "For contributions, savings, shares, financing, guarantees, withdrawals, charges on your member account or leaving the cooperative, ask your cooperative. Members can open Ask for help in the app or on the web, and cooperative staff reply there. A support case records the question and the reply; it does not move money or change a record by itself.",
       },
       {
-        title: "Cannot sign in",
-        body: "Email the product contact below with your cooperative name, a safe description of the issue and any error reference shown. Never send a password or one-time code. Account recovery requires identity verification.",
+        title: "Help from HalaalVest",
+        body: "Email hello@halaalvest.com if you cannot sign in, if the app or website is not working as it should, if your cooperative has a question about its HalaalVest bill, or if you want to make a privacy request. Tell us your name, your cooperative’s name and what happened, and include any error reference shown on screen. Never send a password, one-time code, bank details or a copy of an identity document.",
       },
       {
-        title: "Privacy and account deletion",
-        body: "Use the account-deletion page for a deletion request. For access, correction or a privacy concern, identify the request in your email subject. Platform and cooperative responsibilities must be clarified during review.",
+        title: "When we reply",
+        body: "We read support email on working days, Monday to Friday, except Nigerian public holidays, and aim to reply within two working days. We do not offer round-the-clock support. Privacy requests are answered within the times set out in the privacy notice.",
       },
       {
-        title: "Service expectations",
-        body: "The existing contact is hello@halaalvest.com. The owner must verify mailbox monitoring, response targets and escalation responsibility before launch. No round-the-clock support or response-time guarantee is stated.",
+        title: "Getting back into your account",
+        body: "Your cooperative gives you access to HalaalVest, so it can often help you sign in again. If it cannot, email us. We check that the request comes from you before we change anything on an account.",
+      },
+      {
+        title: "Privacy requests and closing your account",
+        body: "To close your account, use the close-account page or the option in the app. For any other privacy request, such as getting a copy of your information or correcting it, email us with “Privacy request” in the subject.",
+      },
+      {
+        title: "Security problems",
+        body: "If you think someone else has used your account, or you have found a security weakness, email us with “Security” in the subject. Tell your cooperative as well if money may be affected.",
+      },
+      {
+        title: "Complaints",
+        body: "If you are unhappy with how we handled a request, reply to our email and ask for it to be reviewed. For a complaint about how your cooperative runs your account or your money, use the cooperative’s complaints procedure.",
       },
     ],
   },
@@ -202,7 +218,7 @@ export const publicPolicies = {
     sections: [
       {
         title: "Seat fee",
-        body: "Each member whose membership is active when the month closes counts as one seat, at ₦35 per seat for that month. The cooperative chooses who pays. Either the cooperative pays the seat fee itself, or it charges ₦35 to each counted member, taken from that member’s savings. HalaalVest bills the cooperative for every seat either way.",
+        body: "Each member whose membership is active on the day the bill is issued counts as one seat, at ₦35 per seat for that month. The cooperative chooses who pays. Either the cooperative pays the seat fee itself, or it charges ₦35 to each counted member, taken from that member’s savings. Member charges begin once the cooperative has finished setting up its opening records; until then the cooperative pays its seats itself. HalaalVest bills the cooperative for every seat either way.",
       },
       {
         title: "Website assistant",
@@ -213,39 +229,59 @@ export const publicPolicies = {
         body: "Members can request mobile access from their cooperative. Before requesting, a member sees the charge, ₦1,000 for 12 months, and when it is due. Access begins when the cooperative approves the request, and a new term requires a new request and approval. HalaalVest bills the cooperative for each approved term due that month. The cooperative posts the member’s charge to the member account through its normal charge process.",
       },
       {
+        title: "When billing starts",
+        body: "There is no free trial. A cooperative is billed for every month in which its workspace holds real records, including months spent setting up, starting with the month it joins HalaalVest. Test and demonstration workspaces are not billed.",
+      },
+      {
         title: "The monthly bill",
-        body: "After each month closes, HalaalVest issues the cooperative one bill listing seats, assistant messages above the allowance and mobile access terms. A month with nothing owed closes without a charge. Cooperative administrators and finance officers pay the bill from Billing in the dashboard, and record which of the cooperative’s funds paid it. Payment is made through Paystack, or by bank transfer that a HalaalVest platform owner marks paid once received. The cooperative pays HalaalVest directly; whether members have paid their own charges does not change the bill or members’ app access.",
+        body: "On the first day of each month, HalaalVest issues the cooperative one bill for the month before, listing seats, assistant messages above the allowance and mobile access terms. The bill is due when it is issued. A month with nothing owed closes without a charge. Cooperative administrators and finance officers pay the bill from Billing in the dashboard, and record which of the cooperative’s funds paid it. Payment is made through Paystack, or by bank transfer to the account HalaalVest gives the cooperative; a HalaalVest platform owner marks a transfer paid once the money arrives. The cooperative pays HalaalVest directly; whether members have paid their own charges does not change the bill or members’ app access.",
       },
       {
-        title: "Questions about a charge",
-        body: "Members should ask their cooperative about the amount, due date or a disputed charge on their member account. Seat fee and mobile access charges appear as their own entries on the member account, separate from savings contributions, share capital and financing repayments. Cooperatives can raise questions about a bill through HalaalVest support.",
+        title: "Late payment",
+        body: "We do not charge late fees or interest. If a bill stays unpaid, we will contact the cooperative’s administrators. Continued non-payment can lead to the workspace being suspended under the platform terms, but only after we have told the cooperative and given it reasonable time to pay. Suspension never deletes the cooperative’s records.",
       },
       {
-        title: "Review before launch",
-        body: "Late payment, refunds, disputed bills and notice of price changes require owner and legal review. This draft does not set those terms.",
+        title: "Mistakes, refunds and disputed bills",
+        body: "If a cooperative thinks a bill is wrong, an administrator should email hello@halaalvest.com with the bill month and the reason. We will check the seats, assistant messages and mobile access terms behind the bill and reply. If we charged too much, or a bill was paid twice, we refund the difference to the account it came from or take it off the next bill, as the cooperative prefers. Otherwise, payments for a bill are not refundable.",
+      },
+      {
+        title: "Questions about a member charge",
+        body: "Members should ask their cooperative about the amount, due date or a disputed charge on their member account. Seat fee and mobile access charges appear as their own entries on the member account, separate from savings contributions, share capital and financing repayments.",
+      },
+      {
+        title: "Price changes",
+        body: "We will tell cooperative administrators at least 30 days before a price change takes effect, by email and in the dashboard. A new price applies only to months that start after it takes effect. A mobile access term keeps the price the member saw when they requested it.",
       },
     ],
   },
   "cooperative-disclosures": {
     title: "Cooperative and financing disclosures",
     introduction:
-      "Understand your cooperative’s rules before committing funds or accepting financing. HalaalVest supplies software; each cooperative must identify the party responsible for its member services.",
+      "HalaalVest is software that cooperatives use to keep their members’ records. Your cooperative, not HalaalVest, provides your membership, savings, shares and financing. Read this before you commit money to a cooperative or accept financing from it.",
     sections: [
       {
-        title: "Membership and savings",
-        body: "Obtain the cooperative’s membership rules, contribution commitments, levies, withdrawal and exit process, share ownership terms, voting rights and complaints procedure. Savings, share capital and cooperative profits are different records and may have different withdrawal conditions.",
+        title: "Who provides your financial services",
+        body: "Your cooperative takes your contributions, holds its members’ funds, decides on financing and shares its profits. HalaalVest is not a bank, lender, deposit-taker or investment adviser, and it does not hold, lend or move members’ money. Payments you make to the cooperative go to the cooperative’s own accounts, and HalaalVest records them as the cooperative enters and approves them. Ask your cooperative for its registered name, registration details and the people responsible for running it.",
       },
       {
-        title: "Financing costs and obligations",
-        body: "Before accepting financing, review the principal, all charges, total payable, tenure, repayment amounts and dates, late-payment handling, early settlement, guarantor obligations and any payroll authorisation. Interest-free does not mean fee-free or zero total cost. Eligibility is subject to cooperative approval and available funds.",
+        title: "Before you join or save",
+        body: "Ask your cooperative for its membership rules, contribution commitments, levies and charges, how withdrawals and leaving work, what owning shares means, your voting rights and its complaints procedure. Savings, share capital and profit are separate records and can have different rules for withdrawal. When you leave, the cooperative settles your money under its rules before your account is closed.",
       },
       {
-        title: "Halaal methodology and investment risk",
-        body: "The software model avoids interest-bearing financing logic and keeps charges and profits explicit. The product name is not proof of independent Shariah certification. Ask the cooperative who reviews its products and agreements. Profits and returns are not guaranteed, and deposit insurance or regulatory approval must not be assumed.",
+        title: "Before you accept financing",
+        body: "A financing request in HalaalVest is not an approval and not a promise that funds are available. The app lists the charges separately from the amount you ask for; the amount shown does not include them. Before you accept, ask the cooperative for the amount, every charge, the total you will repay, the repayment amounts and dates, what happens if you pay late or early, and any payroll deduction you are authorising. Interest-free does not mean free: charges still apply, and the total you repay can be more than the amount you receive.",
       },
       {
-        title: "Regulatory scope",
-        body: "The operator must confirm launch markets and obtain a classification of the actual financing facilitation and funds-handling model. Store financial-service declarations and any required authorisations must match the operating model, including all applicable costs.",
+        title: "Guaranteeing someone else",
+        body: "If you agree to guarantee another member’s financing, you promise to help repay it if they stop paying. Your cooperative can ask you to pay, and may keep you to the guarantee until the financing is repaid or another guarantor takes your place, including if you want to leave the cooperative.",
+      },
+      {
+        title: "Halaal approach and risk",
+        body: "HalaalVest is built so that cooperatives can run financing without interest and show every charge and profit share openly. The name HalaalVest is not a Shariah certification of your cooperative or its products; ask your cooperative who reviews its products and agreements. Profits from the cooperative’s businesses are not guaranteed and can be lower than expected or nothing. Money you hold with a cooperative is not a bank deposit and is not insured by the Nigeria Deposit Insurance Corporation.",
+      },
+      {
+        title: "Complaints about your cooperative",
+        body: "Raise a problem about your money or membership with your cooperative first, using its complaints procedure. If it is not resolved, you can contact the authority that registered your cooperative in your state. For problems with the software itself, contact HalaalVest support.",
       },
     ],
   },

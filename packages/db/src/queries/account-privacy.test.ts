@@ -381,6 +381,7 @@ describe("account privacy safeguards", () => {
         count,
       },
       member: { count },
+      membershipRemoval: { count },
       memberDocument: { count },
       contribution: { count: financialCount("contribution") },
       loan: { count: financialCount("loan") },
@@ -625,6 +626,8 @@ describe("account privacy safeguards", () => {
     })
     expect(calls).toContainEqual({ where: { verifiedByUserId: "user-a" } })
     expect(calls).toContainEqual({ where: { revokedByUserId: "user-a" } })
+    expect(calls).toContainEqual({ where: { removedByUserId: "user-a" } })
+    expect(calls).toContainEqual({ where: { restoredByUserId: "user-a" } })
     expect(calls).toContainEqual({
       where: { financialAdjustmentApprovedByUserId: "user-a" },
     })
@@ -638,7 +641,7 @@ describe("account privacy safeguards", () => {
         prisma
       )
     ).rejects.toThrow("not ready")
-    expect(calls).toHaveLength(95)
+    expect(calls).toHaveLength(98)
     operator = false
     await expect(
       getPrivacyProcessingInventory(

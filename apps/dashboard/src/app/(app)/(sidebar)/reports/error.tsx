@@ -23,13 +23,19 @@ export default function ReportsError({
         Nothing was changed. Please try again.
       </p>
       <div className="flex flex-col gap-3 sm:flex-row">
-        <Button className="h-11 text-base" onClick={reset} type="button">
+        <Button
+          size="touch"
+          className="text-base"
+          onClick={reset}
+          type="button"
+        >
           Try again
         </Button>
         <Link
           className={buttonVariants({
-            className: "h-11 text-base",
+            className: "text-base",
             variant: "outline",
+            size: "touch",
           })}
           href="/"
         >

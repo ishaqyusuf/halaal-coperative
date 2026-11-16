@@ -34,8 +34,7 @@ export function ChargeActivityActionsMenu({
         render={
           <Button
             aria-label={`Actions for ${label}`}
-            className="size-11"
-            size="icon"
+            size="icon-touch"
             type="button"
             variant="ghost"
           />

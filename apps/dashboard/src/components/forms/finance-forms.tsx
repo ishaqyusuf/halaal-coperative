@@ -210,7 +210,8 @@ export function ContributionPlanForm({
         />
         <div className="md:col-span-2">
           <Button
-            className="h-11 w-full sm:w-auto"
+            size="touch"
+            className="w-full sm:w-auto"
             disabled={isPending}
             type="submit"
           >
@@ -502,7 +503,8 @@ export function MemberPaymentForm({
         />
         <div className="md:col-span-2">
           <Button
-            className="h-11 w-full sm:w-auto"
+            size="touch"
+            className="w-full sm:w-auto"
             disabled={isPending}
             type="submit"
           >
@@ -575,7 +577,8 @@ export function MemberPaymentPreferenceForm({
           )}
         />
         <Button
-          className="h-11 w-full sm:w-auto sm:justify-self-end"
+          size="touch"
+          className="w-full sm:w-auto sm:justify-self-end"
           disabled={isPending}
           type="submit"
         >
@@ -665,9 +668,9 @@ export function ContributionPlanUpdateForm({
           )}
         />
         <Button
-          className="h-11 md:h-9"
+          className="md:h-9"
           disabled={isPending}
-          size="sm"
+          size="touch"
           type="submit"
           variant="outline"
         >
@@ -742,9 +745,9 @@ export function ContributionPlanCloseForm({
           )}
         />
         <Button
-          className="h-11 md:h-9"
+          className="md:h-9"
           disabled={isPending}
-          size="sm"
+          size="touch"
           type="submit"
           variant="outline"
         >

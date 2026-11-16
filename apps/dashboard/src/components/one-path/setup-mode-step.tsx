@@ -116,7 +116,7 @@ export function SetupModeStep({
       lede="Choose how you'll enter the records your members already have."
       primary={
         <Button
-          className="h-11"
+          size="touch"
           disabled={isPending || needsStartDate}
           form={setupModeFormId}
           type="submit"

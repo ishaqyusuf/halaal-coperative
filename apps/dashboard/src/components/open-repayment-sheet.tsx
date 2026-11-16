@@ -16,7 +16,8 @@ export function OpenRepaymentPostSheet({
 
   return (
     <Button
-      className={cn("h-11 text-base", className)}
+      size="touch"
+      className={cn("text-base", className)}
       onClick={() => void open({ loanId, repaymentSheetType: "post" })}
       type="button"
     >

@@ -52,6 +52,8 @@ describe("roles page (thread 15)", () => {
     expect(content).toContain("void setParams(null)")
     expect(content).toContain("router.refresh()")
     expect(form).toContain("onSuccess?.()")
-    expect(form).toContain('className="h-11 w-full text-base sm:w-auto"')
+    // 44px through the shared touch size (WP18).
+    expect(form).toContain('size="touch"')
+    expect(form).toContain('className="w-full text-base sm:w-auto"')
   })
 })

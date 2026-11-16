@@ -28,7 +28,7 @@ class ReceiptErrorBoundaryInner extends Component<
               Check your connection and try again.
             </p>
           </div>
-          <Button className="h-11 md:h-9" onClick={this.retry}>
+          <Button size="touch" className="md:h-9" onClick={this.retry}>
             Try again
           </Button>
         </div>

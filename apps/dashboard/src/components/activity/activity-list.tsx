@@ -39,7 +39,8 @@ export function ActivityList() {
         </p>
         {filtered ? (
           <Button
-            className="h-11 text-base"
+            size="touch"
+            className="text-base"
             onClick={() =>
               void setFilters({ area: null, dateRange: null, search: null })
             }

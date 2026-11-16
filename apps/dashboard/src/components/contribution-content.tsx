@@ -312,7 +312,8 @@ export function ContributionContent({
           <Textarea name="notes" />
         </label>
         <Button
-          className="h-11 w-full sm:w-auto"
+          size="touch"
+          className="w-full sm:w-auto"
           disabled={collectionSourceBatchOptions.length === 0}
           type="submit"
         >
@@ -355,7 +356,8 @@ export function ContributionContent({
           <Input name="reference" placeholder="Posting reference" />
         </label>
         <Button
-          className="h-11 w-full sm:w-auto"
+          size="touch"
+          className="w-full sm:w-auto"
           disabled={!selectedBatch?.id || collectedRows.length === 0}
           type="submit"
         >
@@ -405,7 +407,8 @@ export function ContributionContent({
           <Input name="exceptionReason" placeholder="Variance note" />
         </label>
         <Button
-          className="h-11 w-full sm:w-auto"
+          size="touch"
+          className="w-full sm:w-auto"
           disabled={!selectedBatch?.id || !selectedBatchRow?.id}
           type="submit"
         >
@@ -446,7 +449,8 @@ export function ContributionContent({
           <Input name="exceptionReason" placeholder="Reason" required />
         </label>
         <Button
-          className="h-11 w-full sm:w-auto"
+          size="touch"
+          className="w-full sm:w-auto"
           disabled={!selectedBatch?.id || !selectedBatchRow?.id}
           type="submit"
           variant="outline"
@@ -480,7 +484,8 @@ export function ContributionContent({
         </div>
         <WorkflowConfirmFooter>
           <Button
-            className="h-11 w-full sm:w-auto"
+            size="touch"
+            className="w-full sm:w-auto"
             disabled={!selectedBatch?.id || !selectedBatchRow?.id}
             type="submit"
           >

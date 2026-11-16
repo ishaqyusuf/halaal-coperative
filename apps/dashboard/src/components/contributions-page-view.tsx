@@ -165,9 +165,10 @@ export function ContributionsPageView({
 
               return (
                 <Button
+                  size="touch"
                   aria-controls="contributions-active-view"
                   aria-selected={isActive}
-                  className="h-11 shrink-0 rounded-none border-b-2 px-3 text-sm shadow-none"
+                  className="shrink-0 rounded-none border-b-2 px-3 text-sm shadow-none"
                   id={`contributions-${view}-tab`}
                   key={view}
                   onClick={() => void selectView(view)}

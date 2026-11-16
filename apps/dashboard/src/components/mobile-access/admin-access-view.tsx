@@ -206,14 +206,16 @@ export function AdminAccessView() {
           {settings.enabled ? (
             <>
               <Button
-                className="h-11 px-5 text-base"
+                size="touch"
+                className="px-5 text-base"
                 onClick={() => void setParams({ mobileAccess: "give" })}
                 type="button"
               >
                 Give access
               </Button>
               <Button
-                className="h-11 text-base"
+                size="touch"
+                className="text-base"
                 onClick={() =>
                   open({ kind: "selfService", enabled: !settings.selfService })
                 }
@@ -225,7 +227,8 @@ export function AdminAccessView() {
                   : "Let members turn it on"}
               </Button>
               <Button
-                className="h-11 text-base"
+                size="touch"
+                className="text-base"
                 onClick={() => open({ kind: "enrollment", enabled: false })}
                 type="button"
                 variant="outline"
@@ -235,7 +238,8 @@ export function AdminAccessView() {
             </>
           ) : (
             <Button
-              className="h-11 px-5 text-base"
+              size="touch"
+              className="px-5 text-base"
               onClick={() => open({ kind: "enrollment", enabled: true })}
               type="button"
             >
@@ -255,10 +259,11 @@ export function AdminAccessView() {
             const selected = tab.status === activeTab.status
             return (
               <Button
+                size="touch"
                 aria-controls="mobile-access-list"
                 aria-selected={selected}
                 className={cn(
-                  "h-11 shrink-0 rounded-none border-b-2 px-3 text-base shadow-none",
+                  "shrink-0 rounded-none border-b-2 px-3 text-base shadow-none",
                   selected
                     ? "border-b-foreground font-semibold text-foreground"
                     : "border-transparent text-muted-foreground"
@@ -326,8 +331,9 @@ export function AdminAccessView() {
                     {term.status === "pending" ? (
                       <>
                         <Button
+                          size="touch"
                           aria-label={`Approve ${term.memberName}`}
-                          className="h-11 min-w-28 text-base"
+                          className="min-w-28 text-base"
                           disabled={!settings.enabled}
                           onClick={() =>
                             open({
@@ -341,8 +347,9 @@ export function AdminAccessView() {
                           Approve
                         </Button>
                         <Button
+                          size="touch"
                           aria-label={`Decline ${term.memberName}`}
-                          className="h-11 text-base"
+                          className="text-base"
                           onClick={() =>
                             open({
                               kind: "decline",
@@ -359,8 +366,9 @@ export function AdminAccessView() {
                     ) : null}
                     {term.canTurnOff ? (
                       <Button
+                        size="touch"
                         aria-label={`Turn off the app for ${term.memberName}`}
-                        className="h-11 text-base"
+                        className="text-base"
                         onClick={() =>
                           open({
                             kind: "turnOff",
@@ -376,8 +384,9 @@ export function AdminAccessView() {
                     ) : null}
                     {term.canTurnOn ? (
                       <Button
+                        size="touch"
                         aria-label={`Turn the app back on for ${term.memberName}`}
-                        className="h-11 text-base"
+                        className="text-base"
                         onClick={() =>
                           open({
                             kind: "turnOn",
@@ -404,7 +413,8 @@ export function AdminAccessView() {
           ) : null}
           {list.hasNextPage ? (
             <Button
-              className="mt-2 h-11 text-base"
+              size="touch"
+              className="mt-2 text-base"
               disabled={list.isFetchingNextPage}
               onClick={() => void list.fetchNextPage()}
               type="button"

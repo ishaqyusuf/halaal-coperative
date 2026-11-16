@@ -70,15 +70,14 @@ export function ProfitSeasonsReviewStep({
       }
       primary={
         hasSeasons ? (
-          <Button
-            className="h-11"
-            form={profitSeasonsReviewFormId}
-            type="submit"
-          >
+          <Button size="touch" form={profitSeasonsReviewFormId} type="submit">
             Confirm seasons
           </Button>
         ) : (
-          <Link className={cn(buttonVariants(), "h-11")} href={redirectTo}>
+          <Link
+            className={cn(buttonVariants({ size: "touch" }))}
+            href={redirectTo}
+          >
             Continue
           </Link>
         )

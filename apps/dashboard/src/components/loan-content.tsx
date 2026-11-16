@@ -198,7 +198,7 @@ function LoanRequestDetails({
                 {canReview && guarantor.status === "pending" ? (
                   <div className="flex flex-wrap gap-2">
                     <Button
-                      className="h-11"
+                      size="touch"
                       onClick={() =>
                         void open({
                           guarantorApprovalId: guarantor.id,
@@ -213,7 +213,7 @@ function LoanRequestDetails({
                       They agreed
                     </Button>
                     <Button
-                      className="h-11"
+                      size="touch"
                       onClick={() =>
                         void open({
                           guarantorApprovalId: guarantor.id,

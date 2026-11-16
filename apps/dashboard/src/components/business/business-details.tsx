@@ -54,8 +54,14 @@ export function BusinessDetails({
 
       <RequestFacts
         items={[
-          { label: "Money put in", value: formatCurrency(business.capitalAmount) },
-          { label: "Profit so far", value: formatCurrency(business.profitTotal) },
+          {
+            label: "Money put in",
+            value: formatCurrency(business.capitalAmount),
+          },
+          {
+            label: "Profit so far",
+            value: formatCurrency(business.profitTotal),
+          },
           {
             label: "Shared with members",
             value: formatCurrency(business.sharedTotal),
@@ -170,8 +176,9 @@ export function BusinessDetails({
                   {isHistory && !isLocked ? (
                     <Link
                       className={buttonVariants({
-                        className: "h-11 w-fit text-base",
+                        className: "w-fit text-base",
                         variant: "outline",
+                        size: "touch",
                       })}
                       href={`/settings/finance/business/profits/${entry.id}/migration`}
                     >

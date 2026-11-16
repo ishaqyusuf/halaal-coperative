@@ -145,7 +145,8 @@ export function QaMaintenanceView() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <h2 className="text-xl font-semibold">Marked as test data</h2>
           <Button
-            className="h-11 px-5 text-base"
+            size="touch"
+            className="px-5 text-base"
             disabled={preview.isFetching}
             onClick={() => void preview.refetch()}
             variant="outline"

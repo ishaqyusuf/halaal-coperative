@@ -214,7 +214,8 @@ function GiveAccessContent({
                 Members with a login who don&apos;t have the app.
               </p>
               <Button
-                className="h-11 shrink-0 text-base"
+                size="touch"
+                className="shrink-0 text-base"
                 disabled={grant.isPending || full || allShownSelected}
                 onClick={selectShown}
                 type="button"
@@ -265,7 +266,8 @@ function GiveAccessContent({
         ) : null}
         {members.hasNextPage ? (
           <Button
-            className="h-11 self-start text-base"
+            size="touch"
+            className="self-start text-base"
             disabled={members.isFetchingNextPage}
             onClick={() => void members.fetchNextPage()}
             type="button"
@@ -284,12 +286,18 @@ function GiveAccessContent({
         </p>
         <div className="flex gap-2">
           {grant.data && selected.size === 0 ? (
-            <Button className="h-11 text-base" onClick={onDone} type="button">
+            <Button
+              size="touch"
+              className="text-base"
+              onClick={onDone}
+              type="button"
+            >
               Done
             </Button>
           ) : (
             <Button
-              className="h-11 px-5 text-base"
+              size="touch"
+              className="px-5 text-base"
               disabled={selected.size === 0 || grant.isPending}
               onClick={() => {
                 grant.reset()

@@ -138,7 +138,7 @@ export function ProfitSharingStep({
       }
       primary={
         <Button
-          className="h-11"
+          size="touch"
           disabled={isSaving}
           onClick={continueToNextStep}
           type="button"

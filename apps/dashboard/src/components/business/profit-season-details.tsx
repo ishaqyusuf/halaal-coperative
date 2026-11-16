@@ -408,7 +408,8 @@ function SeasonShareList({ season }: { season: ProfitSeason }) {
       )}
       {hasNextPage ? (
         <Button
-          className="h-11 w-fit text-base"
+          size="touch"
+          className="w-fit text-base"
           disabled={isFetchingNextPage}
           onClick={() => void fetchNextPage()}
           type="button"

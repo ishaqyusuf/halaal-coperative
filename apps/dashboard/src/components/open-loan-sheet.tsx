@@ -18,7 +18,8 @@ export function OpenLoanRequestSheet({
 
   return (
     <Button
-      className={cn("h-11 text-base", className)}
+      size="touch"
+      className={cn("text-base", className)}
       disabled={disabled}
       onClick={() => void open({ loanSheetType: "request" })}
       type="button"

@@ -109,7 +109,9 @@ describe("member signup links Midday conformance", () => {
     expect(view).not.toContain("DashboardSectionCard")
     expect(manager).toContain("data-signup-link-row")
     expect(manager).toContain("divide-y divide-border/70 border-y")
-    expect(manager).toContain('className="h-11 w-full md:h-10 md:w-auto"')
+    // 44px through the shared touch size (WP18), smaller on md.
+    expect(manager).toContain('size="touch"')
+    expect(manager).toContain('className="w-full md:h-10 md:w-auto"')
     expect(manager).toContain("router.refresh()")
     // Replacing a link is destructive, so it is a real AlertDialog.
     expect(manager).toContain("<AlertDialogAction")
@@ -133,7 +135,8 @@ describe("member signup links Midday conformance", () => {
     expect(content).toContain("await setParams")
     expect(content).toContain("router.refresh()")
     expect(content).toContain("await onSuccess()")
-    expect(content).toContain('"h-11 w-full md:h-9 md:w-auto"')
+    expect(content).toContain('"w-full md:h-9 md:w-auto"')
+    expect(content).toContain('size="touch"')
     expect(content).not.toContain("rounded-lg border border-border/70")
     // Every FormLabel sits inside a FormField (the old read-only URL label crashed Edit).
     expect(content).toContain('htmlFor="signup-link-url"')

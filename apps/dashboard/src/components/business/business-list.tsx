@@ -49,10 +49,12 @@ export function BusinessStatusFilter() {
 
         return (
           <Button
+            size="touch"
             aria-pressed={selected}
             className={cn(
-              "h-11 rounded-full px-4 text-base",
-              selected && "border-foreground bg-foreground text-background hover:bg-foreground/90 hover:text-background"
+              "rounded-full px-4 text-base",
+              selected &&
+                "border-foreground bg-foreground text-background hover:bg-foreground/90 hover:text-background"
             )}
             key={option.label}
             onClick={() => void setParams({ status: option.value })}
@@ -126,13 +128,17 @@ export function BusinessList({ canRecord }: { canRecord: boolean }) {
                   </span>
                   <span className="mt-2 grid gap-1 text-base sm:hidden">
                     <span>
-                      <span className="text-muted-foreground">Money put in </span>
+                      <span className="text-muted-foreground">
+                        Money put in{" "}
+                      </span>
                       <span className="font-medium tabular-nums">
                         {formatCurrency(business.capitalAmount)}
                       </span>
                     </span>
                     <span>
-                      <span className="text-muted-foreground">Profit so far </span>
+                      <span className="text-muted-foreground">
+                        Profit so far{" "}
+                      </span>
                       <span className="font-medium tabular-nums">
                         {formatCurrency(business.profitTotal)}
                       </span>
@@ -167,7 +173,8 @@ export function BusinessList({ canRecord }: { canRecord: boolean }) {
       {hasNextPage ? (
         <div className="flex justify-center pt-4">
           <Button
-            className="h-11 text-base"
+            size="touch"
+            className="text-base"
             disabled={isFetchingNextPage}
             onClick={() => void fetchNextPage()}
             type="button"

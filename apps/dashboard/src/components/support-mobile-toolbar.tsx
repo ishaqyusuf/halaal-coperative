@@ -30,10 +30,10 @@ export function SupportMobileToolbar({
   const [filterOpen, setFilterOpen] = useState(false)
   const hasActiveControls = Boolean(
     filter.q ||
-      filter.status ||
-      (mode === "staff" &&
-        (filter.priority || filter.category || filter.assignedToUserId)) ||
-      params.sort
+    filter.status ||
+    (mode === "staff" &&
+      (filter.priority || filter.category || filter.assignedToUserId)) ||
+    params.sort
   )
 
   return (
@@ -71,7 +71,8 @@ export function SupportMobileToolbar({
         </form>
         {hasActiveControls ? (
           <Button
-            className="h-11 justify-self-start px-0 text-base"
+            size="touch"
+            className="justify-self-start px-0 text-base"
             onClick={() =>
               void Promise.all([
                 setFilter(clearedSupportFilters),

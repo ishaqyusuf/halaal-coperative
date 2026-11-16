@@ -86,7 +86,8 @@ export function ActivityEntrySheet() {
           <div className="grid justify-items-start gap-3">
             <p className="text-base">This could not be loaded.</p>
             <Button
-              className="h-11 text-base"
+              size="touch"
+              className="text-base"
               onClick={() => void entry.refetch()}
               type="button"
               variant="outline"
@@ -135,7 +136,8 @@ export function ActivityEntrySheet() {
             ) : null}
             <div>
               <Button
-                className="h-11 text-base"
+                size="touch"
+                className="text-base"
                 onClick={close}
                 type="button"
                 variant="outline"

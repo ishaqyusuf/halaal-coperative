@@ -54,7 +54,8 @@ const signupLinkSchema = z.object({
 
 type SignupLinkValues = z.infer<typeof signupLinkSchema>
 
-const footerButtonClassName = "h-11 w-full md:h-9 md:w-auto"
+// With size="touch" (44px), shrinking on md (WP18).
+const footerButtonClassName = "w-full md:h-9 md:w-auto"
 
 function signupLinkFormData(values: SignupLinkValues, linkId?: string) {
   const formData = new FormData()
@@ -151,6 +152,7 @@ function AccessModeForm({
         <FormFooter>
           <Button
             className={footerButtonClassName}
+            size="touch"
             disabled={isPending}
             type="submit"
           >
@@ -263,6 +265,7 @@ function CreateLinkForm({ onSuccess }: { onSuccess: () => Promise<void> }) {
         <FormFooter>
           <Button
             className={footerButtonClassName}
+            size="touch"
             disabled={isPending}
             type="submit"
           >
@@ -341,7 +344,8 @@ function EditLinkForm({
               value={link.signupUrl}
             />
             <Button
-              className="h-11 sm:h-auto"
+              size="touch"
+              className="sm:h-auto"
               onClick={() => void copyLink(link)}
               type="button"
               variant="outline"
@@ -354,6 +358,7 @@ function EditLinkForm({
         <FormFooter>
           <Button
             className={footerButtonClassName}
+            size="touch"
             disabled={isSaving}
             type="submit"
           >

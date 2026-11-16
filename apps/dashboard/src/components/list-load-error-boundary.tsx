@@ -24,7 +24,7 @@ class Boundary extends Component<
       return (
         <div className="flex flex-col items-center gap-3 border-y border-border px-4 py-10 text-center">
           <p className="text-lg font-semibold">This could not be loaded.</p>
-          <Button className="h-11 text-base" onClick={this.retry}>
+          <Button size="touch" className="text-base" onClick={this.retry}>
             Try again
           </Button>
         </div>

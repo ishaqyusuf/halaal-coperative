@@ -13,7 +13,8 @@ export default function GettingStartedError({
     <WorkspacePageShell
       actions={
         <Button
-          className="h-11 w-full md:h-10 md:w-auto"
+          size="touch"
+          className="w-full md:h-10 md:w-auto"
           onClick={reset}
           type="button"
         >

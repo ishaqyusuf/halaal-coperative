@@ -23,7 +23,12 @@ export default function BusinessError({
         <p className="text-base text-muted-foreground">
           Nothing was changed. Reference: {publicError.referenceId}
         </p>
-        <Button className="mx-auto h-11 text-base" onClick={reset} type="button">
+        <Button
+          size="touch"
+          className="mx-auto text-base"
+          onClick={reset}
+          type="button"
+        >
           Try again
         </Button>
       </div>

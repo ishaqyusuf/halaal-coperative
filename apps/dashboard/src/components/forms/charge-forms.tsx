@@ -320,7 +320,8 @@ export function ChargeTypeForm({
           </p>
         </fieldset>
         <Button
-          className="h-11 w-full text-base sm:w-auto sm:justify-self-start"
+          size="touch"
+          className="w-full text-base sm:w-auto sm:justify-self-start"
           disabled={isPending}
           type="submit"
         >
@@ -515,7 +516,8 @@ export function ChargeMemberForm({
             </span>
           </p>
           <Button
-            className="h-11 w-full text-base sm:w-auto"
+            size="touch"
+            className="w-full text-base sm:w-auto"
             disabled={isPending}
             type="submit"
           >

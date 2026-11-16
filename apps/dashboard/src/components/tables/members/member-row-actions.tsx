@@ -120,7 +120,8 @@ export function MemberMobileActionsDrawer({
     >
       <div className="space-y-2">
         <Button
-          className="h-11 w-full justify-start"
+          size="touch"
+          className="w-full justify-start"
           onClick={() => runAction(viewDetails)}
           type="button"
           variant="ghost"
@@ -130,7 +131,8 @@ export function MemberMobileActionsDrawer({
 
         {canManageMembers && member.status !== "active" ? (
           <Button
-            className="h-11 w-full justify-start"
+            size="touch"
+            className="w-full justify-start"
             onClick={() => runAction(() => changeStatus("active"))}
             type="button"
             variant="ghost"
@@ -140,7 +142,8 @@ export function MemberMobileActionsDrawer({
         ) : null}
         {canManageMembers && member.status !== "suspended" ? (
           <Button
-            className="h-11 w-full justify-start"
+            size="touch"
+            className="w-full justify-start"
             onClick={() => runAction(() => changeStatus("suspended"))}
             type="button"
             variant="ghost"
@@ -150,7 +153,8 @@ export function MemberMobileActionsDrawer({
         ) : null}
         {canManageMembers && member.status !== "inactive" ? (
           <Button
-            className="h-11 w-full justify-start"
+            size="touch"
+            className="w-full justify-start"
             onClick={() => runAction(() => changeStatus("inactive"))}
             type="button"
             variant="ghost"

@@ -13,7 +13,11 @@ export default function MemberSignupLinksError({
   return (
     <WorkspacePageShell
       actions={
-        <Button className="h-11 w-full md:h-10 md:w-auto" onClick={reset}>
+        <Button
+          size="touch"
+          className="w-full md:h-10 md:w-auto"
+          onClick={reset}
+        >
           Try again
         </Button>
       }

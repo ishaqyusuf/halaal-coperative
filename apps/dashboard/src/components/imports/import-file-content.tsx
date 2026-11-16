@@ -220,7 +220,8 @@ export function ImportFileContent({
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <Button
-              className="h-11 text-base"
+              size="touch"
+              className="text-base"
               onClick={downloadTemplate}
               type="button"
               variant="outline"
@@ -342,7 +343,8 @@ export function ImportFileContent({
 
       <div className="grid grid-cols-2 gap-3 border-t border-border/70 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:justify-end sm:px-6">
         <Button
-          className="h-11 text-base"
+          size="touch"
+          className="text-base"
           onClick={onClose}
           type="button"
           variant="ghost"
@@ -350,7 +352,8 @@ export function ImportFileContent({
           Cancel
         </Button>
         <Button
-          className="h-11 text-base"
+          size="touch"
+          className="text-base"
           disabled={!ready || isAdding}
           onClick={() => (words.postsMoney ? setConfirmOpen(true) : add())}
           type="button"

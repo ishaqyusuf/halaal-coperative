@@ -12,7 +12,8 @@ import {
 } from "./quick-assistant-requests"
 
 const QuickAssistantPanel = dynamic(
-  () => import("./quick-assistant-panel").then((mod) => mod.QuickAssistantPanel),
+  () =>
+    import("./quick-assistant-panel").then((mod) => mod.QuickAssistantPanel),
   { ssr: false }
 )
 
@@ -83,10 +84,11 @@ function QuickAssistantLauncher({
   return (
     <>
       <Button
+        size="touch"
         ref={triggerRef}
         type="button"
         variant="ghost"
-        className="h-11 gap-2 rounded-full px-3 sm:h-9"
+        className="gap-2 rounded-full px-3 sm:h-9"
         aria-label="Open quick assistant"
         aria-haspopup="dialog"
         aria-expanded={opened}

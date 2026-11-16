@@ -76,7 +76,8 @@ export function RepaymentScheduleMobileItem({
       </CardButton>
       {canPostRepayment && owed > 0 ? (
         <Button
-          className="h-11 w-full text-base"
+          size="touch"
+          className="w-full text-base"
           onClick={() =>
             void open({ loanId: item.loan.id, repaymentSheetType: "post" })
           }

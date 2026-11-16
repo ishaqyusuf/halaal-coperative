@@ -24,12 +24,19 @@ class RepaymentsErrorBoundaryInner extends Component<
       return (
         <div className="flex min-h-48 flex-col items-center justify-center gap-3 border-y border-border px-4 py-10 text-center md:border-y-0">
           <div>
-            <p className="text-sm font-medium">Repayment records could not be loaded</p>
+            <p className="text-sm font-medium">
+              Repayment records could not be loaded
+            </p>
             <p className="mt-1 text-sm text-muted-foreground">
               Check your connection and try again.
             </p>
           </div>
-          <Button className="h-11 md:h-9" onClick={this.retry} type="button">
+          <Button
+            size="touch"
+            className="md:h-9"
+            onClick={this.retry}
+            type="button"
+          >
             Try again
           </Button>
         </div>
@@ -40,7 +47,11 @@ class RepaymentsErrorBoundaryInner extends Component<
   }
 }
 
-export function RepaymentsDataErrorBoundary({ children }: { children: ReactNode }) {
+export function RepaymentsDataErrorBoundary({
+  children,
+}: {
+  children: ReactNode
+}) {
   return (
     <QueryErrorResetBoundary>
       {({ reset }) => (

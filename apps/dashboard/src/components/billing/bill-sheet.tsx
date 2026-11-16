@@ -18,10 +18,7 @@ import {
   MobileAccessLoadError,
   MobileAccessLoading,
 } from "@/components/mobile-access/access-page-state"
-import {
-  formatAccessAmount,
-  plural,
-} from "@/components/mobile-access/format"
+import { formatAccessAmount, plural } from "@/components/mobile-access/format"
 import { DashboardStateQuickFill } from "@/components/dashboard-quick-fill"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useBillingParams } from "@/hooks/use-billing-params"
@@ -52,10 +49,18 @@ export function BillSheet() {
   )
 }
 
-function BillHeader({ title, description }: { title: string; description: string }) {
+function BillHeader({
+  title,
+  description,
+}: {
+  title: string
+  description: string
+}) {
   return (
     <SheetHeader className="gap-1 px-4 pt-4 sm:px-6">
-      <SheetTitle className="font-heading text-2xl font-semibold">{title}</SheetTitle>
+      <SheetTitle className="font-heading text-2xl font-semibold">
+        {title}
+      </SheetTitle>
       <SheetDescription className="text-base text-muted-foreground">
         {description}
       </SheetDescription>
@@ -72,7 +77,9 @@ function BillContent({
 }) {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
-  const detail = useQuery(trpc.platformBilling.billDetail.queryOptions({ billId }))
+  const detail = useQuery(
+    trpc.platformBilling.billDetail.queryOptions({ billId })
+  )
   const bill = detail.data
 
   async function refreshBills() {
@@ -80,7 +87,9 @@ function BillContent({
       queryClient.invalidateQueries(
         trpc.platformBilling.billDetail.queryFilter({ billId })
       ),
-      queryClient.invalidateQueries(trpc.platformBilling.listBills.queryFilter()),
+      queryClient.invalidateQueries(
+        trpc.platformBilling.listBills.queryFilter()
+      ),
       queryClient.invalidateQueries(
         trpc.platformBilling.fundingSources.queryFilter()
       ),
@@ -96,10 +105,12 @@ function BillContent({
   )
   const verify = useMutation(
     trpc.platformBilling.verifyPaystackCheckout.mutationOptions({
-      onSuccess: ({ status }) => (status === "paid" ? refreshBills() : undefined),
+      onSuccess: ({ status }) =>
+        status === "paid" ? refreshBills() : undefined,
     })
   )
-  const openingCheckout = checkout.isPending || checkout.data?.status === "checkout"
+  const openingCheckout =
+    checkout.isPending || checkout.data?.status === "checkout"
   const busy = openingCheckout || verify.isPending
 
   if (detail.isPending) {
@@ -127,7 +138,8 @@ function BillContent({
     )
   }
 
-  const money = (amount: number) => formatAccessAmount(amount, bill.currencyCode)
+  const money = (amount: number) =>
+    formatAccessAmount(amount, bill.currencyCode)
   const total = money(bill.totalAmount)
   const source = fundingSourceText(bill.fundingSource)
   const paymentNote =
@@ -135,7 +147,8 @@ function BillContent({
       ? "Paystack says the payment failed. You can try again."
       : verify.data?.status === "unavailable"
         ? "No Paystack payment was found for this bill."
-        : (returnedFromPaystack && !verify.data) || verify.data?.status === "pending"
+        : (returnedFromPaystack && !verify.data) ||
+            verify.data?.status === "pending"
           ? "We are still waiting for Paystack to confirm your payment."
           : null
 
@@ -147,7 +160,9 @@ function BillContent({
       />
 
       <div className="space-y-6 px-4 pb-6 sm:px-6">
-        <p className="font-heading text-3xl font-semibold tabular-nums">{total}</p>
+        <p className="font-heading text-3xl font-semibold tabular-nums">
+          {total}
+        </p>
 
         <section aria-labelledby="bill-lines" className="space-y-2">
           <h3 className="text-base font-semibold" id="bill-lines">
@@ -215,7 +230,8 @@ function BillContent({
               <div className="flex flex-wrap gap-3">
                 {bill.paystackCheckoutEnabled ? (
                   <Button
-                    className="h-11 px-5 text-base"
+                    size="touch"
+                    className="px-5 text-base"
                     disabled={busy || !bill.fundingSource}
                     onClick={() => {
                       verify.reset()
@@ -232,7 +248,8 @@ function BillContent({
                 ) : null}
                 {bill.paystackPaymentPending ? (
                   <Button
-                    className="h-11 text-base"
+                    size="touch"
+                    className="text-base"
                     disabled={busy}
                     onClick={() => {
                       checkout.reset()
@@ -323,11 +340,14 @@ function FundingSourcePicker({
     current && currentType ? `${currentType}:${current}` : ""
   )
   const choose = useMutation(
-    trpc.platformBilling.chooseFundingSource.mutationOptions({ onSuccess: onSaved })
+    trpc.platformBilling.chooseFundingSource.mutationOptions({
+      onSuccess: onSaved,
+    })
   )
   const money = (amount: number) => formatAccessAmount(amount, currencyCode)
 
-  if (sources.isPending) return <MobileAccessLoading label="Loading your funds…" />
+  if (sources.isPending)
+    return <MobileAccessLoading label="Loading your funds…" />
   if (!sources.data)
     return (
       <MobileAccessLoadError
@@ -341,7 +361,8 @@ function FundingSourcePicker({
   const chosen = sources.data.find(
     (source) => `${source.type}:${source.id}` === selected
   )
-  const unchanged = selected === (current && currentType ? `${currentType}:${current}` : "")
+  const unchanged =
+    selected === (current && currentType ? `${currentType}:${current}` : "")
   const label = (source: (typeof sources.data)[number]) =>
     `${source.name} (${money(source.available)} available)`
 
@@ -377,11 +398,16 @@ function FundingSourcePicker({
           onChange={(event) => setSelected(event.target.value)}
           value={selected}
         >
-          <NativeSelectOption value="">Choose a charge or business</NativeSelectOption>
+          <NativeSelectOption value="">
+            Choose a charge or business
+          </NativeSelectOption>
           {charges.length ? (
             <NativeSelectOptGroup label="Charges">
               {charges.map((source) => (
-                <NativeSelectOption key={source.id} value={`charge:${source.id}`}>
+                <NativeSelectOption
+                  key={source.id}
+                  value={`charge:${source.id}`}
+                >
                   {label(source)}
                 </NativeSelectOption>
               ))}
@@ -390,7 +416,10 @@ function FundingSourcePicker({
           {businesses.length ? (
             <NativeSelectOptGroup label="Businesses">
               {businesses.map((source) => (
-                <NativeSelectOption key={source.id} value={`business:${source.id}`}>
+                <NativeSelectOption
+                  key={source.id}
+                  value={`business:${source.id}`}
+                >
                   {label(source)}
                 </NativeSelectOption>
               ))}
@@ -419,12 +448,17 @@ function FundingSourcePicker({
         </p>
       ) : null}
       <Button
-        className="h-11 text-base"
+        size="touch"
+        className="text-base"
         disabled={!chosen || unchanged || choose.isPending}
         type="submit"
         variant={current ? "outline" : "default"}
       >
-        {choose.isPending ? "Saving…" : current ? "Change source" : "Use this source"}
+        {choose.isPending
+          ? "Saving…"
+          : current
+            ? "Change source"
+            : "Use this source"}
       </Button>
     </form>
   )

@@ -32,8 +32,9 @@ export function CheckDomainButton({
 
   return (
     <Button
+      size="touch"
       aria-label={`Check ${hostname} now`}
-      className="h-11 text-base"
+      className="text-base"
       disabled={pending}
       onClick={() =>
         startTransition(async () => {
@@ -94,8 +95,9 @@ export function MakeMainDomainButton({
   return (
     <>
       <Button
+        size="touch"
         aria-label={`Make ${hostname} the main address`}
-        className="h-11 text-base"
+        className="text-base"
         onClick={() => setOpen(true)}
         type="button"
         variant="outline"
@@ -149,8 +151,9 @@ export function RemoveDomainButton({
   return (
     <>
       <Button
+        size="touch"
         aria-label={`Remove ${hostname}`}
-        className="h-11 text-base"
+        className="text-base"
         onClick={() => setOpen(true)}
         type="button"
         variant="ghost"
@@ -176,7 +179,8 @@ export function OpenAddDomainButton() {
 
   return (
     <Button
-      className="h-11 w-full text-base sm:w-auto"
+      size="touch"
+      className="w-full text-base sm:w-auto"
       onClick={() => setParams({ domainDialog: "add" })}
       type="button"
     >

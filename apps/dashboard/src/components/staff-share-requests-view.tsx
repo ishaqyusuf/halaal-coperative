@@ -96,7 +96,8 @@ function ShareRequestList() {
       {hasNextPage ? (
         <div className="flex justify-center pt-4">
           <Button
-            className="h-11 w-full text-base sm:w-auto"
+            size="touch"
+            className="w-full text-base sm:w-auto"
             disabled={isFetchingNextPage}
             onClick={() => void fetchNextPage()}
             type="button"
@@ -157,10 +158,11 @@ export function StaffShareRequestsView({
 
                 return (
                   <Button
+                    size="touch"
                     aria-controls="share-requests-list"
                     aria-selected={selected}
                     className={cn(
-                      "h-11 shrink-0 rounded-none border-b-2 px-3 text-base shadow-none",
+                      "shrink-0 rounded-none border-b-2 px-3 text-base shadow-none",
                       selected
                         ? "border-b-foreground font-semibold text-foreground"
                         : "border-transparent text-muted-foreground"
@@ -178,7 +180,8 @@ export function StaffShareRequestsView({
               })}
             </div>
             <Button
-              className="h-11 w-full text-base sm:w-auto"
+              size="touch"
+              className="w-full text-base sm:w-auto"
               onClick={() =>
                 void setShareParams({
                   shareApplicationId: null,
@@ -222,8 +225,8 @@ export function StaffShareRequestsView({
           </p>
           <Link
             className={cn(
-              buttonVariants({ variant: "outline" }),
-              "h-11 w-full text-base sm:w-auto sm:justify-self-start"
+              buttonVariants({ variant: "outline", size: "touch" }),
+              "w-full text-base sm:w-auto sm:justify-self-start"
             )}
             href="/settings/finance/shares"
           >

@@ -11,7 +11,8 @@ export function OpenShareModelButton({ label = "Change" }: { label?: string }) {
 
   return (
     <Button
-      className="h-11 text-base"
+      size="touch"
+      className="text-base"
       onClick={() => setParams({ shareId: null, shareType: "policy" })}
       type="button"
       variant="outline"
@@ -27,7 +28,8 @@ export function AddShareAmountButton() {
 
   return (
     <Button
-      className="h-11 text-base"
+      size="touch"
+      className="text-base"
       onClick={() => setParams({ shareId: null, shareType: "create" })}
       type="button"
     >
@@ -49,7 +51,11 @@ export function ShareAmountRow({
   const { setParams } = useShareParams()
 
   if (isLocked) {
-    return <div className="flex items-center gap-3 px-1 py-4 sm:px-3">{children}</div>
+    return (
+      <div className="flex items-center gap-3 px-1 py-4 sm:px-3">
+        {children}
+      </div>
+    )
   }
 
   return (
@@ -73,9 +79,14 @@ export function AddChargeButton() {
 
   return (
     <Button
-      className="h-11 text-base"
+      size="touch"
+      className="text-base"
       onClick={() =>
-        setParams({ chargeId: null, chargeType: "create", chargeVersionId: null })
+        setParams({
+          chargeId: null,
+          chargeType: "create",
+          chargeVersionId: null,
+        })
       }
       type="button"
     >

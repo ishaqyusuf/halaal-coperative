@@ -195,7 +195,8 @@ function ChargeTypeDetails({
         {canManageCharges ? (
           <div className="grid gap-3 sm:grid-cols-2">
             <Button
-              className="h-11 text-base"
+              size="touch"
+              className="text-base"
               onClick={() =>
                 void setParams({
                   chargeDefinitionId: charge.id,
@@ -207,7 +208,8 @@ function ChargeTypeDetails({
               Change amount
             </Button>
             <Button
-              className="h-11 text-base"
+              size="touch"
+              className="text-base"
               onClick={() =>
                 void setParams({
                   chargeDefinitionId: charge.id,
@@ -347,7 +349,12 @@ function ChangeAmountForm({
             placeholder="For example: agreed at the March meeting"
           />
         </div>
-        <Button className="h-11 text-base" disabled={isPending} type="submit">
+        <Button
+          size="touch"
+          className="text-base"
+          disabled={isPending}
+          type="submit"
+        >
           {isPending ? "Saving…" : "Save new amount"}
         </Button>
       </form>
@@ -382,7 +389,8 @@ function ToggleChargeConfirm({ charge }: { charge: ChargeTypeRow }) {
       <input name="isActive" type="hidden" value={String(turningOn)} />
       <WorkflowConfirmFooter disabled={isPending}>
         <Button
-          className="h-11 text-base"
+          size="touch"
+          className="text-base"
           disabled={isPending}
           type="submit"
           variant={turningOn ? "default" : "destructive"}
@@ -483,7 +491,8 @@ function CorrectionConfirm({
       </div>
       <WorkflowConfirmFooter disabled={isPending}>
         <Button
-          className="h-11 text-base"
+          size="touch"
+          className="text-base"
           disabled={isPending || !reason.trim()}
           type="submit"
           variant="destructive"
@@ -563,7 +572,12 @@ function RecordPaymentForm({
             name="notes"
           />
         </div>
-        <Button className="h-11 text-base" disabled={isPending} type="submit">
+        <Button
+          size="touch"
+          className="text-base"
+          disabled={isPending}
+          type="submit"
+        >
           {isPending ? "Saving…" : "Record payment"}
         </Button>
       </form>

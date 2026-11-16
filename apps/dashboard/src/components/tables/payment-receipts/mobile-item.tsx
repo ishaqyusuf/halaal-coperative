@@ -77,9 +77,8 @@ export function PaymentReceiptMobileItem({
           >
             <Button
               aria-label={`Open actions for ${receipt.member.fullName}'s receipt`}
-              className="size-11"
               onClick={() => setActionsOpen(true)}
-              size="icon-lg"
+              size="icon-touch"
               type="button"
               variant="ghost"
             >
@@ -118,7 +117,8 @@ export function PaymentReceiptMobileItem({
         <div className="space-y-2">
           {mode === "staff" && !isFinal ? (
             <Button
-              className="h-11 w-full justify-start"
+              size="touch"
+              className="w-full justify-start"
               onClick={() => openSheet("review")}
               variant="ghost"
             >
@@ -127,7 +127,8 @@ export function PaymentReceiptMobileItem({
             </Button>
           ) : null}
           <Button
-            className="h-11 w-full justify-start"
+            size="touch"
+            className="w-full justify-start"
             onClick={() =>
               openSheet(mode === "member" ? "member-support" : "support")
             }

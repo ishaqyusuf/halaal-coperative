@@ -19,7 +19,8 @@ export function OpenChargeOperationButton({
 
   return (
     <Button
-      className="h-11 w-full text-base sm:w-auto sm:justify-self-start"
+      size="touch"
+      className="w-full text-base sm:w-auto sm:justify-self-start"
       onClick={() =>
         void setParams({
           chargeApplicationId: null,

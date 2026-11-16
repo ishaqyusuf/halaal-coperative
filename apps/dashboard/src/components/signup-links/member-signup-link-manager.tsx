@@ -38,7 +38,8 @@ import {
 } from "@/lib/signup-links/member-signup-links"
 import { formatDayMonthYear } from "@/utils/format"
 
-const rowButtonClassName = "h-11 md:h-10"
+// With size="touch" (44px), shrinking on md (WP18).
+const rowButtonClassName = "md:h-10"
 
 function availabilityTone(link: MemberSignupLinkView) {
   if (link.availability === "available") return "positive" as const
@@ -148,6 +149,7 @@ function MemberSignupLinkRow({
       <div className="grid grid-cols-[1fr_1fr_auto] gap-2 md:flex">
         <Button
           className={rowButtonClassName}
+          size="touch"
           disabled={link.availability !== "available"}
           onClick={() => void copyLink(link)}
           type="button"
@@ -157,6 +159,7 @@ function MemberSignupLinkRow({
         </Button>
         <Button
           className={rowButtonClassName}
+          size="touch"
           onClick={onEdit}
           type="button"
           variant="outline"
@@ -169,9 +172,9 @@ function MemberSignupLinkRow({
             render={
               <Button
                 aria-label={`More for ${link.name}`}
-                className="size-11 md:size-10"
+                className="md:size-10"
                 disabled={isToggling || isReplacing}
-                size="icon"
+                size="icon-touch"
                 type="button"
                 variant="outline"
               />
@@ -254,7 +257,8 @@ export function MemberSignupLinkManager({
           </p>
         </div>
         <Button
-          className="h-11 w-full md:h-10 md:w-auto"
+          size="touch"
+          className="w-full md:h-10 md:w-auto"
           onClick={() => openSheet("access")}
           type="button"
           variant="outline"

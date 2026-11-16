@@ -116,8 +116,9 @@ export function BillList({
             <div className="flex min-w-0 flex-1 items-center gap-3">{body}</div>
             {action?.when(bill) ? (
               <Button
+                size="touch"
                 aria-label={`${action.label}: ${title}, ${bill.periodLabel}`}
-                className="h-11 shrink-0 text-base"
+                className="shrink-0 text-base"
                 onClick={() => action.run(bill)}
                 type="button"
                 variant="outline"

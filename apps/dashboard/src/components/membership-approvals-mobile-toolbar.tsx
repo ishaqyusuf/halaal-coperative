@@ -78,7 +78,7 @@ export function MembershipApprovalsMobileToolbar({
           <div>
             {hasActiveControls ? (
               <Button
-                className="h-11"
+                size="touch"
                 onClick={clearFilters}
                 type="button"
                 variant="outline"
@@ -90,7 +90,9 @@ export function MembershipApprovalsMobileToolbar({
 
           {showLinkGenerator ? (
             <TenantLink
-              className={cn(buttonVariants({ variant: "outline" }), "h-11")}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "touch" })
+              )}
               href="/member-signup-links"
             >
               Joining links

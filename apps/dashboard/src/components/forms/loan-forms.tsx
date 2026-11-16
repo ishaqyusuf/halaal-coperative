@@ -332,7 +332,9 @@ export function LoanRequestForm({
         {monthlyPayment > 0 ? (
           <div className="border-y border-border py-3 text-base">
             <p className="flex items-baseline justify-between gap-4">
-              <span className="text-muted-foreground">Pays back each month</span>
+              <span className="text-muted-foreground">
+                Pays back each month
+              </span>
               <span className="font-semibold tabular-nums">
                 {formatCurrency(monthlyPayment)}
               </span>
@@ -612,7 +614,7 @@ export function LoanDecisionConfirm({
           )}
           <WorkflowConfirmFooter disabled={isPending}>
             <Button
-              className="h-11"
+              size="touch"
               disabled={isPending || blocked}
               type="submit"
               variant={decision === "rejected" ? "destructive" : "default"}
@@ -694,7 +696,7 @@ export function GuarantorAnswerConfirm({
           </p>
           <WorkflowConfirmFooter disabled={isPending}>
             <Button
-              className="h-11"
+              size="touch"
               disabled={isPending}
               type="submit"
               variant={answer === "approved" ? "default" : "destructive"}
@@ -801,7 +803,7 @@ export function LoanPayOutConfirm({
             )}
           />
           <WorkflowConfirmFooter disabled={isPending}>
-            <Button className="h-11" disabled={isPending} type="submit">
+            <Button size="touch" disabled={isPending} type="submit">
               {isPending ? "Paying out…" : "Pay out"}
             </Button>
           </WorkflowConfirmFooter>

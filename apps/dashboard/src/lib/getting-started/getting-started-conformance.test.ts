@@ -82,7 +82,7 @@ describe("getting started Midday conformance", () => {
     expect(view).toContain("max-md:[&_button]:min-h-11")
     // The "Step N of 11" eyebrow comes from the map; Back stays 44px tall.
     expect(step).toContain("formatJourneyStepCounter(stepKey)")
-    expect(step).toContain('"h-11"')
+    expect(step).toContain('size: "touch"')
     expect(step).toContain("<details")
     expect(model).toContain("getOrderedGettingStartedStepKeys")
     expect(model).toContain("getGettingStartedStepHref")

@@ -180,7 +180,8 @@ export function DatePickerInput({
       </Popover>
       {allowClear && currentValue ? (
         <Button
-          className="h-11 shrink-0"
+          size="touch"
+          className="shrink-0"
           disabled={disabled}
           onClick={() => updateValue("")}
           type="button"

@@ -37,13 +37,14 @@ export default function MemberBackfillError({
           Support reference: {publicError.referenceId}
         </p>
         <div className="mt-5 flex flex-col gap-2 md:flex-row">
-          <Button className="h-11 md:h-9" onClick={reset} type="button">
+          <Button size="touch" className="md:h-9" onClick={reset} type="button">
             Try again
           </Button>
           <Link
             className={buttonVariants({
-              className: "h-11 md:h-9",
+              className: "md:h-9",
               variant: "outline",
+              size: "touch",
             })}
             href="/members"
           >

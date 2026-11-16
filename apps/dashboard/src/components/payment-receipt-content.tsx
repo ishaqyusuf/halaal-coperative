@@ -638,7 +638,8 @@ export function PaymentReceiptCreateContent({
           ))}
         </div>
         <Button
-          className="mt-4 h-11 md:h-9"
+          size="touch"
+          className="mt-4 md:h-9"
           disabled={isPending}
           onClick={() =>
             setAllocations((current) => [...current, emptyAllocation()])
@@ -652,7 +653,8 @@ export function PaymentReceiptCreateContent({
       </section>
       <div className="mt-6 flex justify-end border-t border-border pt-4">
         <Button
-          className="h-11 w-full sm:w-auto md:h-9"
+          size="touch"
+          className="w-full sm:w-auto md:h-9"
           disabled={isPending || !memberId || !isAllocationBalanced}
           onClick={createReceipt}
         >
@@ -1655,7 +1657,8 @@ export function MemberPaymentReceiptCreateContent({
           ))}
         </div>
         <Button
-          className="mt-4 h-11 md:h-9"
+          size="touch"
+          className="mt-4 md:h-9"
           disabled={isPending}
           onClick={() =>
             setAllocations((current) => [...current, emptyAllocation()])
@@ -1669,7 +1672,8 @@ export function MemberPaymentReceiptCreateContent({
       </section>
       <div className="mt-6 flex justify-end border-t border-border pt-4">
         <Button
-          className="h-11 w-full sm:w-auto md:h-9"
+          size="touch"
+          className="w-full sm:w-auto md:h-9"
           disabled={isPending || !isAllocationBalanced}
           onClick={createReceipt}
         >
@@ -1825,10 +1829,10 @@ function AllocationEditor({
         {onRemove ? (
           <Button
             aria-label={`Remove allocation ${index + 1}`}
-            className="size-11 md:size-9"
+            className="md:size-9"
             disabled={disabled}
             onClick={onRemove}
-            size="icon"
+            size="icon-touch"
             type="button"
             variant="ghost"
           >

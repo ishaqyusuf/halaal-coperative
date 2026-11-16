@@ -29,8 +29,9 @@ export default async function BillingPage() {
             context.auth.user?.isPlatformOwner ? (
               <Link
                 className={buttonVariants({
-                  className: "h-11 text-base",
+                  className: "text-base",
                   variant: "outline",
+                  size: "touch",
                 })}
                 href="/platform/bills"
               >

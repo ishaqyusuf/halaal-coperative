@@ -31,7 +31,11 @@ const BillSheet = dynamic(() =>
 )
 
 /** /billing: this month so far, the settings, and Halaalvest's bills. */
-export function BillingView({ canManageSettings }: { canManageSettings: boolean }) {
+export function BillingView({
+  canManageSettings,
+}: {
+  canManageSettings: boolean
+}) {
   const trpc = useTRPC()
   const { billId, setParams } = useBillingParams()
   const overview = useQuery(trpc.platformBilling.overview.queryOptions())
@@ -41,7 +45,9 @@ export function BillingView({ canManageSettings }: { canManageSettings: boolean 
 
   return (
     <div className="space-y-10">
-      {overview.isPending ? <MobileAccessLoading label="Loading billing…" /> : null}
+      {overview.isPending ? (
+        <MobileAccessLoading label="Loading billing…" />
+      ) : null}
       {overview.isError ? (
         <MobileAccessLoadError
           message="Billing could not be loaded."
@@ -73,7 +79,9 @@ export function BillingView({ canManageSettings }: { canManageSettings: boolean 
             </p>
           ) : null}
         </div>
-        {bills.isPending ? <MobileAccessLoading label="Loading bills…" /> : null}
+        {bills.isPending ? (
+          <MobileAccessLoading label="Loading bills…" />
+        ) : null}
         {bills.isError ? (
           <MobileAccessLoadError
             message="Bills could not be loaded."
@@ -83,7 +91,9 @@ export function BillingView({ canManageSettings }: { canManageSettings: boolean 
         {bills.data && bills.data.length > 0 ? (
           <BillList
             bills={bills.data}
-            onOpen={(bill) => void setParams({ billId: bill.id, paystackReturn: null })}
+            onOpen={(bill) =>
+              void setParams({ billId: bill.id, paystackReturn: null })
+            }
           />
         ) : null}
         {overview.data?.qaBillAvailable && !overview.data.currentBillId ? (
@@ -106,7 +116,10 @@ function ThisMonth({ overview }: { overview: Overview }) {
   return (
     <section aria-labelledby="billing-this-month" className="space-y-3">
       <div className="space-y-1">
-        <h2 className="font-heading text-xl font-semibold" id="billing-this-month">
+        <h2
+          className="font-heading text-xl font-semibold"
+          id="billing-this-month"
+        >
           {overview.periodLabel} so far
         </h2>
         <p className="text-base text-muted-foreground">
@@ -142,7 +155,9 @@ function ThisMonth({ overview }: { overview: Overview }) {
             </span>
           </dt>
           <dd className="shrink-0 text-base tabular-nums">
-            {money(assistant.billableMessages * overview.prices.assistantMessagePrice)}
+            {money(
+              assistant.billableMessages * overview.prices.assistantMessagePrice
+            )}
           </dd>
         </div>
         <div className="flex items-start justify-between gap-3 py-3">
@@ -151,8 +166,9 @@ function ThisMonth({ overview }: { overview: Overview }) {
           </dt>
           <dd className="shrink-0 text-base tabular-nums">
             {money(
-              overview.estimate.lines.find((line) => line.kind === "mobile_access")
-                ?.amount ?? 0
+              overview.estimate.lines.find(
+                (line) => line.kind === "mobile_access"
+              )?.amount ?? 0
             )}
           </dd>
         </div>
@@ -173,17 +189,22 @@ function BillingSettings({
   const { settings, prices } = overview
   const [payer, setPayer] = useState(settings.seatFeePayer)
   const [autoBilling, setAutoBilling] = useState(settings.assistantAutoBilling)
-  const [cap, setCap] = useState<number | undefined>(settings.assistantMonthlyCap)
+  const [cap, setCap] = useState<number | undefined>(
+    settings.assistantMonthlyCap
+  )
   const [confirming, setConfirming] = useState<AccessConfirmation | null>(null)
   const save = useMutation(
     trpc.platformBilling.updateSettings.mutationOptions({
       onSuccess: async () => {
         setConfirming(null)
-        await queryClient.invalidateQueries(trpc.platformBilling.overview.queryFilter())
+        await queryClient.invalidateQueries(
+          trpc.platformBilling.overview.queryFilter()
+        )
       },
     })
   )
-  const money = (amount: number) => formatAccessAmount(amount, prices.currencyCode)
+  const money = (amount: number) =>
+    formatAccessAmount(amount, prices.currencyCode)
   const capValue = cap ?? 0
   const changed =
     payer !== settings.seatFeePayer ||
@@ -233,22 +254,38 @@ function BillingSettings({
           onValueChange={(value) => setPayer(value as typeof payer)}
           value={payer}
         >
-          <label className="flex items-start gap-3 text-base" htmlFor="seat-payer-cooperative">
-            <RadioGroupItem className="mt-1" id="seat-payer-cooperative" value="cooperative" />
+          <label
+            className="flex items-start gap-3 text-base"
+            htmlFor="seat-payer-cooperative"
+          >
+            <RadioGroupItem
+              className="mt-1"
+              id="seat-payer-cooperative"
+              value="cooperative"
+            />
             <span className="grid gap-0.5">
               <span>The cooperative</span>
               <span className="text-sm text-muted-foreground">
-                Paid from the cooperative&apos;s own funds. Members are not charged.
+                Paid from the cooperative&apos;s own funds. Members are not
+                charged.
               </span>
             </span>
           </label>
-          <label className="flex items-start gap-3 text-base" htmlFor="seat-payer-members">
-            <RadioGroupItem className="mt-1" id="seat-payer-members" value="members" />
+          <label
+            className="flex items-start gap-3 text-base"
+            htmlFor="seat-payer-members"
+          >
+            <RadioGroupItem
+              className="mt-1"
+              id="seat-payer-members"
+              value="members"
+            />
             <span className="grid gap-0.5">
               <span>Members</span>
               <span className="text-sm text-muted-foreground">
-                At the end of each month, {money(prices.seatFee)} is taken from each
-                active member&apos;s savings and shows in their transactions.
+                At the end of each month, {money(prices.seatFee)} is taken from
+                each active member&apos;s savings and shows in their
+                transactions.
               </span>
             </span>
           </label>
@@ -256,11 +293,14 @@ function BillingSettings({
       </fieldset>
 
       <fieldset className="space-y-3" disabled={!canManage || save.isPending}>
-        <legend className="text-base font-semibold">Assistant on the website</legend>
+        <legend className="text-base font-semibold">
+          Assistant on the website
+        </legend>
         <p className="text-base text-muted-foreground">
           Your staff share {prices.assistantFreeMessages} free messages a month.
-          With billing on, more messages cost {money(prices.assistantMessagePrice)} each,
-          up to your monthly cap. The assistant stops at the limit.
+          With billing on, more messages cost{" "}
+          {money(prices.assistantMessagePrice)} each, up to your monthly cap.
+          The assistant stops at the limit.
         </p>
         <div className="flex items-center gap-3">
           <Switch
@@ -308,7 +348,8 @@ function BillingSettings({
             </p>
           ) : null}
           <Button
-            className="h-11 text-base"
+            size="touch"
+            className="text-base"
             disabled={!changed || save.isPending}
             onClick={() => {
               if (payer !== settings.seatFeePayer) {
@@ -362,8 +403,12 @@ function QaIssueBill() {
     trpc.platformBilling.issueQaBill.mutationOptions({
       onSuccess: async (result) => {
         await Promise.all([
-          queryClient.invalidateQueries(trpc.platformBilling.overview.queryFilter()),
-          queryClient.invalidateQueries(trpc.platformBilling.listBills.queryFilter()),
+          queryClient.invalidateQueries(
+            trpc.platformBilling.overview.queryFilter()
+          ),
+          queryClient.invalidateQueries(
+            trpc.platformBilling.listBills.queryFilter()
+          ),
         ])
         void setParams({ billId: result.billId, paystackReturn: null })
       },
@@ -380,7 +425,8 @@ function QaIssueBill() {
         </p>
       ) : null}
       <Button
-        className="h-11 text-base"
+        size="touch"
+        className="text-base"
         disabled={issue.isPending}
         onClick={() => issue.mutate()}
         type="button"

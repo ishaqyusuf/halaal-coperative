@@ -156,8 +156,8 @@ export function GoLiveChecklist({
                 <Link
                   aria-label={`Fix ${row.label}`}
                   className={cn(
-                    buttonVariants({ variant: "outline" }),
-                    "h-11 shrink-0"
+                    buttonVariants({ variant: "outline", size: "touch" }),
+                    "shrink-0"
                   )}
                   href={row.fixHref}
                 >
@@ -284,7 +284,8 @@ export function GoLiveChecklist({
         )}
 
         <Button
-          className="h-11 w-full sm:w-fit"
+          size="touch"
+          className="w-full sm:w-fit"
           disabled={!canSubmit}
           type="submit"
         >

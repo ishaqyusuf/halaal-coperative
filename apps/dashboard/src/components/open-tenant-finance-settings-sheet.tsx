@@ -28,7 +28,8 @@ export function OpenTenantFinanceSettingsSheet({
 
   return (
     <Button
-      className="h-11 text-base"
+      size="touch"
+      className="text-base"
       disabled={disabled}
       onClick={() => setParams({ tenantFinanceSettingsSheetType: type })}
       type="button"

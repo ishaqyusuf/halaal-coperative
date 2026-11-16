@@ -225,7 +225,7 @@ export function OperationProfileSetupForm({
       lede={`Which services does ${tenantName} run today?`}
       primary={
         <Button
-          className="h-11"
+          size="touch"
           disabled={isPending}
           form={operationProfileSetupFormId}
           type="submit"

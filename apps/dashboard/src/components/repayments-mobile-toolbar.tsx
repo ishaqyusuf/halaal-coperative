@@ -20,14 +20,14 @@ export function RepaymentsMobileToolbar() {
   const [filterOpen, setFilterOpen] = useState(false)
   const hasActiveControls = Boolean(
     filters.assignedToUserId ||
-      filters.dateRange?.length ||
-      filters.memberId ||
-      filters.q ||
-      filters.repaymentStatus ||
-      filters.resolutionStatus ||
-      filters.scheduleStatus ||
-      filters.stage ||
-      params.sort
+    filters.dateRange?.length ||
+    filters.memberId ||
+    filters.q ||
+    filters.repaymentStatus ||
+    filters.resolutionStatus ||
+    filters.scheduleStatus ||
+    filters.stage ||
+    params.sort
   )
 
   return (
@@ -61,7 +61,8 @@ export function RepaymentsMobileToolbar() {
         </div>
         {hasActiveControls ? (
           <Button
-            className="h-11 px-0"
+            size="touch"
+            className="px-0"
             onClick={() =>
               void Promise.all([
                 setFilters({

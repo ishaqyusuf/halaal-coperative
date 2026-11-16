@@ -26,14 +26,13 @@ export function RepaymentsEmptyState({
             {filtered ? filteredTitle : title}
           </h2>
           <p className="text-base text-muted-foreground">
-            {filtered
-              ? "Try another name or clear the filters."
-              : description}
+            {filtered ? "Try another name or clear the filters." : description}
           </p>
         </div>
         {filtered ? (
           <Button
-            className="h-11 text-base"
+            size="touch"
+            className="text-base"
             onClick={() =>
               void Promise.all([
                 setFilters({

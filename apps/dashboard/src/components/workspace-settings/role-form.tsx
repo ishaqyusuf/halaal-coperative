@@ -148,7 +148,9 @@ export function RoleAssignmentForm({
                 </NativeSelect>
               </FormControl>
               {selectedRole ? (
-                <FormDescription>{getRoleAbility(selectedRole)}</FormDescription>
+                <FormDescription>
+                  {getRoleAbility(selectedRole)}
+                </FormDescription>
               ) : null}
               <FormMessage />
             </FormItem>
@@ -176,7 +178,8 @@ export function RoleAssignmentForm({
         />
         <div className="border-t border-border pt-4 sm:flex sm:justify-end">
           <Button
-            className="h-11 w-full text-base sm:w-auto"
+            size="touch"
+            className="w-full text-base sm:w-auto"
             disabled={isPending}
             type="submit"
           >

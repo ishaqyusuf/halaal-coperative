@@ -146,14 +146,14 @@ export function ReviewSetupStep({
       primary={
         allDone || !firstUnsavedStep ? (
           <Link
-            className={cn(buttonVariants({}), "h-11")}
+            className={cn(buttonVariants({ size: "touch" }))}
             href={getGettingStartedStepHref("admin-member")}
           >
             Next: add members
           </Link>
         ) : (
           <Link
-            className={cn(buttonVariants({}), "h-11")}
+            className={cn(buttonVariants({ size: "touch" }))}
             href={getGettingStartedStepHref(firstUnsavedStep[1])}
           >
             Finish {firstUnsavedStep[2].toLowerCase()}

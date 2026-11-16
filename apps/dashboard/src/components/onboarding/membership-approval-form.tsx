@@ -509,7 +509,7 @@ export function MembershipApprovalForm({
 
         <div className="flex flex-col-reverse gap-3 border-t border-border/70 pt-5 sm:flex-row sm:justify-end">
           <Button
-            className="h-11"
+            size="touch"
             disabled={isBusy}
             onClick={() => setIsDeclineOpen(true)}
             type="button"
@@ -518,7 +518,7 @@ export function MembershipApprovalForm({
             Decline
           </Button>
           {canApprove ? (
-            <Button className="h-11" disabled={isBusy} type="submit">
+            <Button size="touch" disabled={isBusy} type="submit">
               {isApproving ? "Approving…" : "Approve"}
             </Button>
           ) : null}

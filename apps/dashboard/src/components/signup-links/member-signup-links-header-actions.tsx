@@ -9,7 +9,8 @@ export function MemberSignupLinksHeaderActions() {
 
   return (
     <Button
-      className="h-11 md:h-10"
+      size="touch"
+      className="md:h-10"
       onClick={() =>
         setParams({ signupLinkId: null, signupLinkSheetType: "create" })
       }

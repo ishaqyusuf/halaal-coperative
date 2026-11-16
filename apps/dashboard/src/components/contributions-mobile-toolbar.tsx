@@ -64,7 +64,6 @@ export function ContributionsMobileToolbar({
           {canRecord ? (
             <Button
               aria-label="Record contribution payment"
-              className="size-11"
               onClick={() =>
                 void setContributionParams({
                   contributionSheetType: "payment",
@@ -74,7 +73,7 @@ export function ContributionsMobileToolbar({
                   selectedContributionPlanId: null,
                 })
               }
-              size="icon-lg"
+              size="icon-touch"
               type="button"
             >
               <Plus />
@@ -83,7 +82,8 @@ export function ContributionsMobileToolbar({
         </div>
         {hasActiveControls ? (
           <Button
-            className="h-11 px-0"
+            size="touch"
+            className="px-0"
             onClick={() =>
               void Promise.all([
                 setFilters({

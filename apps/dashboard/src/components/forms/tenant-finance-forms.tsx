@@ -117,11 +117,11 @@ export function DeleteInlineRowButton({
             aria-label={`Delete ${label}`}
             className={
               wordsOnPhones
-                ? "h-11 gap-2 px-3 text-base xl:size-11 xl:px-0"
-                : "size-11"
+                ? "gap-2 px-3 text-base xl:size-11 xl:px-0"
+                : undefined
             }
             disabled={disabled}
-            size={wordsOnPhones ? "default" : "icon-sm"}
+            size={wordsOnPhones ? "touch" : "icon-touch"}
             type="button"
             variant="ghost"
           />
@@ -168,7 +168,8 @@ export function AddInlineRowButton({
 }) {
   return (
     <Button
-      className="h-11 w-full"
+      size="touch"
+      className="w-full"
       disabled={disabled}
       onClick={onAdd}
       type="button"
@@ -4290,11 +4291,11 @@ function ShareBusinessSingleForm({
             </p>
             <Button
               aria-label="Quick fill business form"
-              className="h-11! w-full sm:w-auto!"
+              className="! w-full sm:w-auto!"
               data-business-quick-fill
               disabled={isPending}
               onClick={quickFillBusinessDraft}
-              size="sm"
+              size="touch"
               type="button"
               variant="outline"
             >
@@ -4503,9 +4504,9 @@ function ShareBusinessSingleForm({
               </div>
               <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
                 <Button
-                  className="h-11 w-full sm:w-auto!"
+                  className="w-full sm:w-auto!"
                   onClick={sortProfitHistoryRows}
-                  size="sm"
+                  size="touch"
                   type="button"
                   variant="ghost"
                 >
@@ -4516,9 +4517,9 @@ function ShareBusinessSingleForm({
                   Sort
                 </Button>
                 <Button
-                  className="h-11 w-full sm:w-auto!"
+                  className="w-full sm:w-auto!"
                   onClick={resetProfitHistoryRows}
-                  size="sm"
+                  size="touch"
                   type="button"
                   variant="ghost"
                 >
@@ -4541,10 +4542,10 @@ function ShareBusinessSingleForm({
                       </p>
                       <Button
                         aria-label={`Remove profit entry ${index + 1}`}
-                        className="size-11 text-muted-foreground"
+                        className="text-muted-foreground"
                         disabled={isPending || isLiveProfitCaptureBlocked}
                         onClick={() => removeProfitHistoryRow(row.id)}
-                        size="icon-sm"
+                        size="icon-touch"
                         type="button"
                         variant="ghost"
                       >
@@ -4664,7 +4665,8 @@ function ShareBusinessSingleForm({
         />
         <div className="flex border-t border-border/70 pt-4 md:col-span-2 md:justify-end">
           <Button
-            className="h-11 w-full md:h-9 md:w-auto"
+            size="touch"
+            className="w-full md:h-9 md:w-auto"
             disabled={isPending}
             type="submit"
           >

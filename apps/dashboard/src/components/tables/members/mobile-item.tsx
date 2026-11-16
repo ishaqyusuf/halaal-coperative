@@ -100,9 +100,8 @@ export function MemberMobileItem({
           >
             <Button
               aria-label={`Open actions for ${member.fullName}`}
-              className="size-11"
               onClick={() => setActionsOpen(true)}
-              size="icon-lg"
+              size="icon-touch"
               type="button"
               variant="ghost"
             >

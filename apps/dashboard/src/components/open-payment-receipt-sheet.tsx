@@ -1,10 +1,7 @@
 "use client"
 
 import { Button } from "@halaalvest/ui/components/button"
-import {
-  PlusIcon,
-  ReceiptTextIcon,
-} from "lucide-react"
+import { PlusIcon, ReceiptTextIcon } from "lucide-react"
 import {
   type PaymentReceiptSheetType,
   usePaymentReceiptParams,
@@ -33,17 +30,12 @@ export function OpenPaymentReceiptCreateSheet({
   return (
     <Button
       aria-label={iconOnly ? "Add receipt" : undefined}
-      className={iconOnly ? "size-11" : undefined}
       onClick={() => openSheet("create")}
-      size={iconOnly ? "icon-lg" : "default"}
+      size={iconOnly ? "icon-touch" : "default"}
       type="button"
     >
       {iconOnly ? <PlusIcon /> : <ReceiptTextIcon data-icon="inline-start" />}
-      {iconOnly ? (
-        <span className="sr-only">Add receipt</span>
-      ) : (
-        "Add receipt"
-      )}
+      {iconOnly ? <span className="sr-only">Add receipt</span> : "Add receipt"}
     </Button>
   )
 }
@@ -58,9 +50,8 @@ export function OpenMemberPaymentReceiptCreateSheet({
   return (
     <Button
       aria-label={iconOnly ? "Submit payment receipt" : undefined}
-      className={iconOnly ? "size-11" : undefined}
       onClick={() => openSheet("member-create")}
-      size={iconOnly ? "icon-lg" : "default"}
+      size={iconOnly ? "icon-touch" : "default"}
       type="button"
     >
       <PlusIcon data-icon={iconOnly ? undefined : "inline-start"} />
@@ -81,10 +72,7 @@ export function OpenPaymentReceiptReviewSheet({
   const openSheet = useOpenPaymentReceiptSheet()
 
   return (
-    <Button
-      onClick={() => openSheet("review", receiptId)}
-      type="button"
-    >
+    <Button onClick={() => openSheet("review", receiptId)} type="button">
       Review
     </Button>
   )

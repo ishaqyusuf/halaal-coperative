@@ -50,8 +50,9 @@ export function RemoveRoleButton({
   return (
     <>
       <Button
+        size="touch"
         aria-label={`Remove ${roleWord} from ${name}`}
-        className="h-11 text-base"
+        className="text-base"
         onClick={() => setOpen(true)}
         type="button"
         variant="outline"

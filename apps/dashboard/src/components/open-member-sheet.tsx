@@ -17,7 +17,6 @@ export function OpenMemberSheet({
   return (
     <Button
       aria-label={iconOnly ? "New member" : undefined}
-      className={iconOnly ? "size-11" : undefined}
       disabled={disabled}
       onClick={() =>
         setParams({
@@ -26,7 +25,7 @@ export function OpenMemberSheet({
           selectedMemberStatus: null,
         })
       }
-      size={iconOnly ? "icon-lg" : "default"}
+      size={iconOnly ? "icon-touch" : "default"}
       type="button"
     >
       <PlusIcon data-icon={iconOnly ? undefined : "inline-start"} />

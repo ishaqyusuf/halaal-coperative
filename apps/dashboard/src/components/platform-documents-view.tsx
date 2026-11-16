@@ -105,7 +105,8 @@ export function PlatformDocumentsView({
         <div className="space-y-3 text-base" role="alert">
           <p>We couldn&apos;t load what you have accepted. Try again.</p>
           <Button
-            className="h-11 text-base"
+            size="touch"
+            className="text-base"
             onClick={() => router.refresh()}
             variant="outline"
           >
@@ -182,7 +183,8 @@ export function PlatformDocumentsView({
             </span>
           </label>
           <Button
-            className="h-11 w-full text-base sm:w-auto"
+            size="touch"
+            className="w-full text-base sm:w-auto"
             disabled={!reviewed || accept.isPending}
             onClick={() => setConfirming(true)}
           >
@@ -195,8 +197,8 @@ export function PlatformDocumentsView({
           <AlertDialogHeader>
             <AlertDialogTitle>Accept these documents?</AlertDialogTitle>
             <AlertDialogDescription className="text-base">
-              We keep a record that you accepted these versions. You
-              can&apos;t undo this.
+              We keep a record that you accepted these versions. You can&apos;t
+              undo this.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <ul className="space-y-1 text-base">
@@ -209,13 +211,15 @@ export function PlatformDocumentsView({
           </ul>
           <AlertDialogFooter>
             <AlertDialogCancel
-              className="h-11 text-base"
+              size="touch"
+              className="text-base"
               disabled={accept.isPending}
             >
               Go back
             </AlertDialogCancel>
             <AlertDialogAction
-              className="h-11 text-base"
+              size="touch"
+              className="text-base"
               disabled={!reviewed || accept.isPending}
               onClick={() => void recordAcknowledgement()}
             >

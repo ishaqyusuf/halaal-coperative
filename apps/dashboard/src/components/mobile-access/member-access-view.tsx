@@ -150,7 +150,8 @@ export function MemberAccessView() {
                 cooperative will reply.
               </p>
               <Button
-                className="h-11 text-base"
+                size="touch"
+                className="text-base"
                 disabled={status.isFetching}
                 onClick={() => void status.refetch()}
                 type="button"
@@ -196,7 +197,8 @@ export function MemberAccessView() {
 
           {canTurnOff ? (
             <Button
-              className="h-11 text-base"
+              size="touch"
+              className="text-base"
               onClick={() => {
                 turnOff.reset()
                 setConfirmingOff(true)
@@ -210,7 +212,8 @@ export function MemberAccessView() {
 
           {canTurnBackOn ? (
             <Button
-              className="h-11 px-5 text-base"
+              size="touch"
+              className="px-5 text-base"
               disabled={turnBackOn.isPending}
               onClick={() => turnBackOn.mutate()}
               type="button"
@@ -232,11 +235,7 @@ export function MemberAccessView() {
         <p className="text-base">{blockedReasonText[blockedReason]}</p>
       ) : null}
 
-      {enabled &&
-      !term &&
-      !canRequest &&
-      !blockedReason &&
-      !status.isError ? (
+      {enabled && !term && !canRequest && !blockedReason && !status.isError ? (
         <p className="text-base">
           You can&apos;t get the app yet. Ask your cooperative to check your
           membership.
@@ -297,7 +296,8 @@ export function MemberAccessView() {
             I agree to pay {price}.
           </Label>
           <Button
-            className="h-11 px-5 text-base"
+            size="touch"
+            className="px-5 text-base"
             disabled={!hasAccepted || accept.isPending}
             type="submit"
           >

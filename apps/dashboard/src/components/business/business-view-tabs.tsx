@@ -30,10 +30,11 @@ export function BusinessViewTabs({
 
         return (
           <Button
+            size="touch"
             aria-controls="business-active-view"
             aria-selected={selected}
             className={cn(
-              "h-11 shrink-0 rounded-none border-b-2 px-3 text-base shadow-none",
+              "shrink-0 rounded-none border-b-2 px-3 text-base shadow-none",
               selected
                 ? "border-b-foreground font-semibold text-foreground"
                 : "border-transparent text-muted-foreground"

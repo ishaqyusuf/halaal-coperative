@@ -121,7 +121,8 @@ export function ShareRequestSheet({
               <div className="grid gap-3">
                 <p className="text-base">This could not be loaded.</p>
                 <Button
-                  className="h-11 text-base"
+                  size="touch"
+                  className="text-base"
                   onClick={() => void details.refetch()}
                   type="button"
                   variant="outline"

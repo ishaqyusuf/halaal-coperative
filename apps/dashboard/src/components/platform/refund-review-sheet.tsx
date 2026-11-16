@@ -74,7 +74,8 @@ function RefundReviewContent({
           <div className="grid justify-items-start gap-3" role="alert">
             <p className="text-lg">This review could not be loaded.</p>
             <Button
-              className="h-11 px-5 text-base"
+              size="touch"
+              className="px-5 text-base"
               onClick={() => void detail.refetch()}
               variant="outline"
             >

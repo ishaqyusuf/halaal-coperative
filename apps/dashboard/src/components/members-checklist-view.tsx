@@ -39,7 +39,8 @@ export type MembersChecklistViewProps = {
   railSteps: OnePathRailStepModel[]
 }
 
-const actionClassName = "h-11 w-full sm:w-auto"
+// Buttons and links here use the 44px `touch` size (WP18).
+const actionClassName = "w-full sm:w-auto"
 
 const kycStatusLabels: Record<
   MembersChecklistAdminMember["kycStatus"],
@@ -128,7 +129,10 @@ export function MembersChecklistView({
             primary={
               goLiveHref ? (
                 <Link
-                  className={cn(buttonVariants({}), actionClassName)}
+                  className={cn(
+                    buttonVariants({ size: "touch" }),
+                    actionClassName
+                  )}
                   href={goLiveHref}
                 >
                   Go live
@@ -155,7 +159,10 @@ export function MembersChecklistView({
                 <ChecklistRow
                   actions={
                     <Link
-                      className={cn(buttonVariants({}), actionClassName)}
+                      className={cn(
+                        buttonVariants({ size: "touch" }),
+                        actionClassName
+                      )}
                       href={adminMemberHref}
                     >
                       {adminMember
@@ -206,7 +213,7 @@ export function MembersChecklistView({
                     <>
                       <Link
                         className={cn(
-                          buttonVariants({ variant: "outline" }),
+                          buttonVariants({ size: "touch", variant: "outline" }),
                           actionClassName
                         )}
                         href={membersHref}
@@ -215,7 +222,7 @@ export function MembersChecklistView({
                       </Link>
                       <Link
                         className={cn(
-                          buttonVariants({ variant: "outline" }),
+                          buttonVariants({ size: "touch", variant: "outline" }),
                           actionClassName
                         )}
                         href={memberImportHref}
@@ -234,6 +241,7 @@ export function MembersChecklistView({
                     financeOfficerInvite.lockLabel ? (
                       <Button
                         className={actionClassName}
+                        size="touch"
                         disabled
                         type="button"
                         variant="outline"
@@ -243,7 +251,7 @@ export function MembersChecklistView({
                     ) : (
                       <Link
                         className={cn(
-                          buttonVariants({ variant: "outline" }),
+                          buttonVariants({ size: "touch", variant: "outline" }),
                           actionClassName
                         )}
                         href={financeOfficerInvite.href}
@@ -262,7 +270,10 @@ export function MembersChecklistView({
                   <ChecklistRow
                     actions={
                       <Link
-                        className={cn(buttonVariants({}), actionClassName)}
+                        className={cn(
+                          buttonVariants({ size: "touch" }),
+                          actionClassName
+                        )}
                         href={goLiveHref}
                       >
                         Go live

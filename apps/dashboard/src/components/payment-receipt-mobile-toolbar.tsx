@@ -64,7 +64,7 @@ export function PaymentReceiptMobileToolbar({
           <div>
             {hasControls ? (
               <Button
-                className="h-11"
+                size="touch"
                 onClick={() =>
                   void Promise.all([
                     setFilter(clearedPaymentReceiptFilters),

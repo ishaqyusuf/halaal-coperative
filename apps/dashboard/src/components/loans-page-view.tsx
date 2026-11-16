@@ -95,8 +95,8 @@ export function LoansPageView({
           action={
             <Link
               className={cn(
-                buttonVariants({ variant: "outline" }),
-                "h-11 shrink-0 bg-background text-base"
+                buttonVariants({ variant: "outline", size: "touch" }),
+                "shrink-0 bg-background text-base"
               )}
               href="/guarantor-approvals"
             >
@@ -116,8 +116,8 @@ export function LoansPageView({
             intakeFix ? (
               <Link
                 className={cn(
-                  buttonVariants({ variant: "outline" }),
-                  "h-11 shrink-0 bg-background text-base"
+                  buttonVariants({ variant: "outline", size: "touch" }),
+                  "shrink-0 bg-background text-base"
                 )}
                 href={intakeFix.href}
               >

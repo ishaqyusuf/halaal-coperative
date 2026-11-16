@@ -198,8 +198,8 @@ export function BusinessProfitSeasonDeductionPopover({
         <DialogTrigger
           render={
             <Button
-              className="h-11 sm:h-8"
-              size="sm"
+              className="sm:h-8"
+              size="touch"
               type="button"
               variant="outline"
             >
@@ -278,9 +278,9 @@ export function BusinessProfitSeasonDeductionPopover({
                 />
                 <Button
                   aria-label="Delete deduction line"
-                  className="size-11 sm:size-8"
+                  className="sm:size-8"
                   onClick={() => deleteLine(line.id)}
-                  size="icon"
+                  size="icon-touch"
                   type="button"
                   variant="ghost"
                 >
@@ -290,7 +290,8 @@ export function BusinessProfitSeasonDeductionPopover({
             ))}
           </div>
           <Button
-            className="h-11 w-full sm:h-8"
+            size="touch"
+            className="w-full sm:h-8"
             onClick={() =>
               setLines((currentLines) => [
                 ...currentLines,
@@ -313,7 +314,8 @@ export function BusinessProfitSeasonDeductionPopover({
             <DialogClose
               render={
                 <Button
-                  className="h-11 w-full sm:h-8 sm:w-auto"
+                  size="touch"
+                  className="w-full sm:h-8 sm:w-auto"
                   type="button"
                 />
               }

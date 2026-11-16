@@ -344,7 +344,8 @@ export function RequestMobileToolbar<S extends string>({
         ) : null}
         {hasActiveControls ? (
           <Button
-            className="h-11 px-0"
+            size="touch"
+            className="px-0"
             onClick={() =>
               void Promise.all([
                 setFilter({ q: null, status: null }),

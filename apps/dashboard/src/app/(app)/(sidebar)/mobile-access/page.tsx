@@ -55,8 +55,9 @@ export default async function MobileAccessPage({
             canViewInvoices ? (
               <Link
                 className={buttonVariants({
-                  className: "h-11 text-base",
+                  className: "text-base",
                   variant: "outline",
+                  size: "touch",
                 })}
                 href="/billing"
               >

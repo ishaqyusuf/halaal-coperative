@@ -126,7 +126,8 @@ export function RepaymentPostForm({
         await postRepaymentAction(
           objectToFormData({
             amount: values.amount,
-            expectedOutstandingPrincipal: chosen.outstandingPrincipal.toFixed(2),
+            expectedOutstandingPrincipal:
+              chosen.outstandingPrincipal.toFixed(2),
             expectedStatus: chosen.status,
             loanId: values.loanId,
             paidAt: values.paidAt,
@@ -302,11 +303,11 @@ export function RepaymentPostForm({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="h-11" disabled={isPending}>
+            <AlertDialogCancel size="touch" disabled={isPending}>
               Go back
             </AlertDialogCancel>
             <Button
-              className="h-11"
+              size="touch"
               disabled={isPending}
               onClick={post}
               type="button"

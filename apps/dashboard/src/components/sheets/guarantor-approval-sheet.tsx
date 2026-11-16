@@ -118,7 +118,7 @@ function GuarantorResponseConfirm({
           />
           <WorkflowConfirmFooter disabled={isPending}>
             <Button
-              className="h-11"
+              size="touch"
               disabled={isPending}
               type="submit"
               variant={answer === "approved" ? "default" : "destructive"}

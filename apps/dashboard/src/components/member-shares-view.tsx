@@ -89,7 +89,8 @@ export function MemberSharesView({
         {position ? (
           <div className="grid gap-2">
             <Button
-              className="h-11 w-full text-base sm:w-auto sm:justify-self-start"
+              size="touch"
+              className="w-full text-base sm:w-auto sm:justify-self-start"
               disabled={Boolean(requestBlockedReason)}
               onClick={() =>
                 void setParams({

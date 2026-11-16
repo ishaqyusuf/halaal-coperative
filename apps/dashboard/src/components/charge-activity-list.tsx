@@ -115,7 +115,8 @@ export function ChargeActivityList({
       {hasNextPage ? (
         <div className="flex justify-center pt-4">
           <Button
-            className="h-11 w-full text-base sm:w-auto"
+            size="touch"
+            className="w-full text-base sm:w-auto"
             disabled={isFetchingNextPage}
             onClick={() => void fetchNextPage()}
             type="button"

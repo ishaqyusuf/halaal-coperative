@@ -15,7 +15,6 @@ import type {
 import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 import { useTRPC } from "@/trpc/client"
 
-
 const disabledId = "00000000-0000-4000-8000-000000000000"
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -128,7 +127,8 @@ export function RepaymentSheet({
                   This could not be loaded.
                 </p>
                 <Button
-                  className="h-11 text-base"
+                  size="touch"
+                  className="text-base"
                   onClick={() =>
                     void (shouldLoadSchedule
                       ? scheduleQuery.refetch()

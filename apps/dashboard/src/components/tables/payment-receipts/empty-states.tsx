@@ -31,7 +31,8 @@ export function PaymentReceiptsEmptyState({
       </div>
       {filtered ? (
         <Button
-          className="h-11 md:h-9"
+          size="touch"
+          className="md:h-9"
           onClick={() =>
             void Promise.all([
               setFilter(clearedPaymentReceiptFilters),

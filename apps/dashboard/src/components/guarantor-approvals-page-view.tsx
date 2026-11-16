@@ -26,7 +26,7 @@ export function GuarantorApprovalsPageView({
             title="This page is for members."
           />
           <Link
-            className={cn(buttonVariants(), "h-11 w-fit text-base")}
+            className={cn(buttonVariants({ size: "touch" }), "w-fit text-base")}
             href="/loans"
           >
             Go to Loans

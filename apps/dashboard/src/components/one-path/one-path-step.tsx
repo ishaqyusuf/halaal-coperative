@@ -92,7 +92,7 @@ export function OnePathStep({
       <div className="sticky bottom-0 z-10 mt-4 flex flex-wrap items-center gap-3 border-t border-border/70 bg-background/95 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur">
         {backHref ? (
           <Link
-            className={cn(buttonVariants({ variant: "ghost" }), "h-11")}
+            className={cn(buttonVariants({ variant: "ghost", size: "touch" }))}
             href={backHref}
           >
             <ArrowLeftIcon data-icon="inline-start" />

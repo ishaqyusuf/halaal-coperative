@@ -21,7 +21,7 @@ export function MobileAccessLoadError({
   return (
     <div className="space-y-3 py-4" role="alert">
       <p className="text-base">{message}</p>
-      <Button className="h-11" type="button" variant="outline" onClick={retry}>
+      <Button size="touch" type="button" variant="outline" onClick={retry}>
         Try again
       </Button>
     </div>

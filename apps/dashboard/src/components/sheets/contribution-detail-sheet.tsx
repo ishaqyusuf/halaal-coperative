@@ -114,7 +114,8 @@ export function ContributionDetailSheet() {
             </dl>
             {entry.member?.id ? (
               <Button
-                className="h-11 w-full sm:h-9 sm:w-auto sm:justify-self-start"
+                size="touch"
+                className="w-full sm:h-9 sm:w-auto sm:justify-self-start"
                 nativeButton={false}
                 render={<Link href={`/members/${entry.member.id}`} />}
                 variant="outline"

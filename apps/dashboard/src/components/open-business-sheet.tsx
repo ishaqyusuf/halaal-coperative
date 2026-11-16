@@ -9,7 +9,8 @@ export function OpenBusinessSheet({ disabled }: { disabled?: boolean }) {
 
   return (
     <Button
-      className="h-11 w-full text-base sm:w-auto"
+      size="touch"
+      className="w-full text-base sm:w-auto"
       disabled={disabled}
       onClick={() =>
         void setParams({
@@ -32,7 +33,8 @@ export function OpenReviewNoBusinessProfitSheet() {
 
   return (
     <Button
-      className="h-11 w-full text-base sm:w-auto"
+      size="touch"
+      className="w-full text-base sm:w-auto"
       onClick={() =>
         void setParams({
           businessId: null,

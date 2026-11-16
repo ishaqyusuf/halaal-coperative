@@ -203,7 +203,8 @@ export function ImportBatchContent({
 
       <div className="grid grid-cols-2 gap-3 border-t border-border/70 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:justify-end sm:px-6">
         <Button
-          className={hasAction ? "h-11 text-base" : "col-span-2 h-11 text-base"}
+          size="touch"
+          className={hasAction ? "text-base" : "col-span-2 text-base"}
           onClick={onClose}
           type="button"
           variant={hasAction ? "ghost" : "outline"}
@@ -212,7 +213,8 @@ export function ImportBatchContent({
         </Button>
         {canUndo ? (
           <Button
-            className="h-11 text-base"
+            size="touch"
+            className="text-base"
             disabled={isUndoing}
             onClick={() => setUndoOpen(true)}
             type="button"
@@ -223,7 +225,8 @@ export function ImportBatchContent({
         ) : null}
         {canAdd ? (
           <Button
-            className="h-11 text-base"
+            size="touch"
+            className="text-base"
             disabled={isAdding}
             onClick={() => (words.postsMoney ? setConfirmOpen(true) : add())}
             type="button"

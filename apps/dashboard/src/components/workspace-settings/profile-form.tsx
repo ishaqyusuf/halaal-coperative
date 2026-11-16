@@ -185,7 +185,11 @@ export function CooperativeProfileForm({
             <FormItem>
               <FormLabel>Time zone</FormLabel>
               <FormControl>
-                <NativeSelect {...field} className="w-full [&_select]:text-base" size="default">
+                <NativeSelect
+                  {...field}
+                  className="w-full [&_select]:text-base"
+                  size="default"
+                >
                   {timeZones.map((zone) => (
                     <option key={zone} value={zone}>
                       {zone.replace(/_/g, " ")}
@@ -285,7 +289,8 @@ export function CooperativeProfileForm({
 
         <div className="border-t border-border pt-4 sm:flex sm:justify-end">
           <Button
-            className="h-11 w-full text-base sm:w-auto"
+            size="touch"
+            className="w-full text-base sm:w-auto"
             disabled={isPending}
             type="submit"
           >

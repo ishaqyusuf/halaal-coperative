@@ -158,8 +158,9 @@ export function SearchFilterPanel({
           </InputGroup>
         ) : (
           <Button
+            size="touch"
             className={cn(
-              "h-11 w-fit",
+              "w-fit",
               (hasFilters || isOpen) && "border border-border"
             )}
             onClick={() => setIsOpen((current) => !current)}

@@ -179,7 +179,8 @@ export function MemberShareRequestForm({
         />
       </div>
       <Button
-        className="h-11 text-base"
+        size="touch"
+        className="text-base"
         disabled={isPending || !canSubmit}
         onClick={submit}
         type="button"
@@ -262,7 +263,8 @@ export function StaffShareRequestForm({
         />
       </div>
       <Button
-        className="h-11 text-base"
+        size="touch"
+        className="text-base"
         disabled={isPending || !memberId || shares < 1}
         onClick={submit}
         type="button"
@@ -391,7 +393,8 @@ export function ShareRequestDetails({
       {isWaiting && canReview ? (
         <div className="grid gap-3 sm:grid-cols-2">
           <Button
-            className="h-11 text-base"
+            size="touch"
+            className="text-base"
             disabled={isPending}
             onClick={() => setDecision("approved")}
             type="button"
@@ -399,7 +402,8 @@ export function ShareRequestDetails({
             Approve
           </Button>
           <Button
-            className="h-11 text-base"
+            size="touch"
+            className="text-base"
             disabled={isPending}
             onClick={() => setDecision("rejected")}
             type="button"

@@ -16,7 +16,6 @@ export function OpenProcurementRequestCreateSheet({
   return (
     <Button
       disabled={disabled}
-      className={iconOnly ? "size-11" : undefined}
       onClick={() =>
         setParams({
           procurementRequestId: null,
@@ -24,7 +23,7 @@ export function OpenProcurementRequestCreateSheet({
         })
       }
       type="button"
-      size={iconOnly ? "icon-lg" : "default"}
+      size={iconOnly ? "icon-touch" : "default"}
     >
       <PlusIcon data-icon="inline-start" />
       {iconOnly ? <span className="sr-only">New request</span> : "New request"}
@@ -41,7 +40,6 @@ export function OpenMemberProcurementRequestCreateSheet({
 
   return (
     <Button
-      className={iconOnly ? "size-11" : undefined}
       onClick={() =>
         setParams({
           procurementRequestId: null,
@@ -49,7 +47,7 @@ export function OpenMemberProcurementRequestCreateSheet({
         })
       }
       type="button"
-      size={iconOnly ? "icon-lg" : "default"}
+      size={iconOnly ? "icon-touch" : "default"}
     >
       <PlusIcon data-icon="inline-start" />
       {iconOnly ? (

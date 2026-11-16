@@ -15,8 +15,9 @@ export function OpenOperationProfileSettingsSheet({
 
   return (
     <Button
+      size="touch"
       aria-label={`Change who can start ${serviceLabel.toLowerCase()}`}
-      className="h-11 w-full text-base sm:w-auto"
+      className="w-full text-base sm:w-auto"
       onClick={() =>
         setParams({
           operationProfileServiceKey: serviceKey,

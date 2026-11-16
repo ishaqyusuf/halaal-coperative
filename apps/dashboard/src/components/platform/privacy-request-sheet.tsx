@@ -100,7 +100,8 @@ function PrivacyRequestContent({ requestId }: { requestId: string }) {
         <div className="grid justify-items-start gap-3" role="alert">
           <p className="text-lg">This request could not be loaded.</p>
           <Button
-            className="h-11 px-5 text-base"
+            size="touch"
+            className="px-5 text-base"
             onClick={() => void detail.refetch()}
             variant="outline"
           >
@@ -284,7 +285,8 @@ function EndAccess({ name, requestId }: { name: string; requestId: string }) {
         <div className="grid justify-items-start gap-3" role="alert">
           <p className="text-base">Their cooperatives could not be loaded.</p>
           <Button
-            className="h-11 px-5 text-base"
+            size="touch"
+            className="px-5 text-base"
             onClick={() => void scope.refetch()}
             variant="outline"
           >
@@ -405,7 +407,8 @@ function RecordsStillHeld({ requestId }: { requestId: string }) {
         <div className="grid justify-items-start gap-3" role="alert">
           <p className="text-base">This could not be loaded.</p>
           <Button
-            className="h-11 px-5 text-base"
+            size="touch"
+            className="px-5 text-base"
             onClick={() => void inventory.refetch()}
             variant="outline"
           >

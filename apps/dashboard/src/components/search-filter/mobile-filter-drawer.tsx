@@ -83,7 +83,7 @@ export function MobileFilterDrawer({
           ) : null}
           <div className="grid grid-cols-2 gap-2">
             <Button
-              className="h-11"
+              size="touch"
               disabled={pending}
               onClick={() => {
                 onClear()
@@ -95,7 +95,7 @@ export function MobileFilterDrawer({
               Reset
             </Button>
             <Button
-              className="h-11"
+              size="touch"
               disabled={pending}
               onClick={apply}
               type="button"

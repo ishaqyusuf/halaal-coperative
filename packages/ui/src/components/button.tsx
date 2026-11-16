@@ -25,10 +25,18 @@ const buttonVariantClasses = cva(
         xs: "h-[var(--ui-control-h-xs,calc(var(--spacing)*6))] gap-1 rounded-(--ui-radius-control) px-2 text-xs has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-[var(--ui-control-h-sm,calc(var(--spacing)*7))] gap-1 rounded-(--ui-radius-control) px-[var(--ui-control-px-sm,calc(var(--spacing)*2.5))] has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
         lg: "h-[var(--ui-control-h-lg,calc(var(--spacing)*9))] gap-1.5 px-[var(--ui-control-px,calc(var(--spacing)*2.5))] has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
+        // A 44px touch target (WP18). Add a breakpoint height in className
+        // (for example `md:h-9`) where the button shrinks on wider screens.
+        touch:
+          "h-11 gap-1.5 px-[var(--ui-control-px,calc(var(--spacing)*2.5))] has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
         icon: "size-[var(--ui-control-h,calc(var(--spacing)*8))]",
-        "icon-xs": "size-[var(--ui-control-h-xs,calc(var(--spacing)*6))] rounded-(--ui-radius-control) [&_svg:not([class*='size-'])]:size-3",
-        "icon-sm": "size-[var(--ui-control-h-sm,calc(var(--spacing)*7))] rounded-(--ui-radius-control)",
+        "icon-xs":
+          "size-[var(--ui-control-h-xs,calc(var(--spacing)*6))] rounded-(--ui-radius-control) [&_svg:not([class*='size-'])]:size-3",
+        "icon-sm":
+          "size-[var(--ui-control-h-sm,calc(var(--spacing)*7))] rounded-(--ui-radius-control)",
         "icon-lg": "size-[var(--ui-control-h-lg,calc(var(--spacing)*9))]",
+        // The 44px icon button (WP18), for example `md:size-9` on wider screens.
+        "icon-touch": "size-11",
       },
     },
     defaultVariants: {

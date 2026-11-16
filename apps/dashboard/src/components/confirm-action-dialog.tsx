@@ -58,11 +58,16 @@ export function ConfirmActionDialog({
         </AlertDialogHeader>
         {children}
         <AlertDialogFooter>
-          <AlertDialogCancel className="h-11 text-base" disabled={pending}>
+          <AlertDialogCancel
+            size="touch"
+            className="text-base"
+            disabled={pending}
+          >
             Go back
           </AlertDialogCancel>
           <AlertDialogAction
-            className="h-11 text-base"
+            size="touch"
+            className="text-base"
             disabled={pending || confirmDisabled}
             onClick={onConfirm}
             variant={destructive ? "destructive" : "default"}

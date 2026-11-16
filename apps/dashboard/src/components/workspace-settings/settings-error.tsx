@@ -18,7 +18,12 @@ export function SettingsError({
   return (
     <SettingsPage
       action={
-        <Button className="h-11 w-full text-base sm:w-auto" onClick={reset} type="button">
+        <Button
+          size="touch"
+          className="w-full text-base sm:w-auto"
+          onClick={reset}
+          type="button"
+        >
           Try again
         </Button>
       }

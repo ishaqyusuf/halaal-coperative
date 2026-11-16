@@ -57,7 +57,8 @@ export function SupportAttachmentField({
         </RequestField>
       ) : (
         <Button
-          className="h-11 justify-self-start px-0 text-base"
+          size="touch"
+          className="justify-self-start px-0 text-base"
           disabled={disabled}
           onClick={() => setShowLink(true)}
           type="button"

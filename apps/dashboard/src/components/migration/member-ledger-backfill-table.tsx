@@ -620,8 +620,8 @@ function MonthlyLedgerSegmentTable({
           {hiddenOnPhone > 0 ? (
             <label
               className={cn(
-                buttonVariants({ variant: "outline" }),
-                "h-11 w-full cursor-pointer text-base group-has-[[data-show-all-months]:checked]/months:hidden focus-within:ring-2 focus-within:ring-ring sm:hidden"
+                buttonVariants({ variant: "outline", size: "touch" }),
+                "w-full cursor-pointer text-base group-has-[[data-show-all-months]:checked]/months:hidden focus-within:ring-2 focus-within:ring-ring sm:hidden"
               )}
             >
               <input

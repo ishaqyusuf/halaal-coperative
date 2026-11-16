@@ -54,7 +54,8 @@ export function PlatformQueue({
       <div className="grid justify-items-start gap-3 py-6" role="alert">
         <p className="text-lg">{error}</p>
         <Button
-          className="h-11 px-5 text-base"
+          size="touch"
+          className="px-5 text-base"
           onClick={onRetry}
           variant="outline"
         >
@@ -163,7 +164,8 @@ export function PlatformQueue({
       ) : null}
       {hasMore ? (
         <Button
-          className="h-11 justify-self-start px-5 text-base"
+          size="touch"
+          className="justify-self-start px-5 text-base"
           disabled={loadingMore}
           onClick={onLoadMore}
           variant="outline"

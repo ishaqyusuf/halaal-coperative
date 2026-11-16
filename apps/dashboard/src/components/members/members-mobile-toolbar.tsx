@@ -99,9 +99,9 @@ export function MembersMobileToolbar({
           {hasSecondaryActions ? (
             <Button
               aria-label="More member actions"
-              className="size-11 shrink-0"
+              className="shrink-0"
               onClick={() => setActionsOpen(true)}
-              size="icon-lg"
+              size="icon-touch"
               type="button"
               variant="outline"
             >
@@ -113,7 +113,7 @@ export function MembersMobileToolbar({
 
         {hasActiveControls ? (
           <Button
-            className="h-11"
+            size="touch"
             onClick={() => setParams(clearedMembersControlsParams)}
             type="button"
             variant="outline"
@@ -140,7 +140,8 @@ export function MembersMobileToolbar({
         <div className="space-y-2">
           {canImportMembers ? (
             <Button
-              className="h-11 w-full justify-start"
+              size="touch"
+              className="w-full justify-start"
               onClick={openImport}
               type="button"
               variant="ghost"
@@ -151,7 +152,8 @@ export function MembersMobileToolbar({
           ) : null}
           {showSignupLink ? (
             <Button
-              className="h-11 w-full justify-start"
+              size="touch"
+              className="w-full justify-start"
               onClick={openSignupLinks}
               type="button"
               variant="ghost"

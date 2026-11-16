@@ -58,8 +58,8 @@ export function DashboardUserMenu({
       <DropdownMenuTrigger
         aria-label="Your account"
         className={cn(
-          buttonVariants({ variant: "ghost" }),
-          "h-11 gap-2 rounded-full px-1.5 lg:pr-3"
+          buttonVariants({ variant: "ghost", size: "touch" }),
+          "gap-2 rounded-full px-1.5 lg:pr-3"
         )}
       >
         <span

@@ -74,7 +74,8 @@ export function LoansToolbar() {
       {hasActiveControls ? (
         <div className="flex min-h-11 items-center md:min-h-0">
           <Button
-            className="h-11 px-0 md:h-auto"
+            size="touch"
+            className="px-0 md:h-auto"
             onClick={() =>
               void Promise.all([
                 setFilter(clearedLoanFilters),

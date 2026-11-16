@@ -197,7 +197,8 @@ export function OperationProfileSettingsContent({
 
       <div className="flex border-t border-border pt-4 sm:justify-end">
         <Button
-          className="h-11 w-full text-base sm:w-auto"
+          size="touch"
+          className="w-full text-base sm:w-auto"
           disabled={isPending || (reducesAccess && !reason.trim())}
           type="submit"
         >

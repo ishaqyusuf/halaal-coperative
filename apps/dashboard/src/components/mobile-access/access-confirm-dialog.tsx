@@ -82,11 +82,16 @@ export function AccessConfirmDialog({
           </p>
         ) : null}
         <AlertDialogFooter>
-          <AlertDialogCancel className="h-11 text-base" disabled={pending}>
+          <AlertDialogCancel
+            size="touch"
+            className="text-base"
+            disabled={pending}
+          >
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction
-            className="h-11 text-base"
+            size="touch"
+            className="text-base"
             disabled={pending || reasonMissing}
             onClick={() => onConfirm(reason.trim())}
             variant={confirmation.destructive ? "destructive" : "default"}

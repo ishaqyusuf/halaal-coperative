@@ -149,7 +149,8 @@ function RemittanceForm({
         ) : null}
         <DialogFooter>
           <Button
-            className="h-11 text-base"
+            size="touch"
+            className="text-base"
             disabled={remittance.isPending}
             onClick={onClose}
             type="button"
@@ -158,7 +159,8 @@ function RemittanceForm({
             Cancel
           </Button>
           <Button
-            className="h-11 text-base"
+            size="touch"
+            className="text-base"
             disabled={remittance.isPending || !reference.trim() || !paidAt}
             type="submit"
           >

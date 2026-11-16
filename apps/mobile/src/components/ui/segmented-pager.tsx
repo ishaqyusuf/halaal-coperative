@@ -128,13 +128,14 @@ export function SegmentedPager({
   return (
     <GestureDetector gesture={pan}>
       <View
-        className="overflow-hidden"
         onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
-        style={height ? { height } : undefined}
+        style={height ? { height, overflow: "hidden" } : { overflow: "hidden" }}
       >
         <Animated.View
-          className="flex-row items-start"
-          style={[{ gap: PAGER_GAP }, rowStyle]}
+          style={[
+            { alignItems: "flex-start", flexDirection: "row", gap: PAGER_GAP },
+            rowStyle,
+          ]}
         >
           {pages.map((render, pageIndex) => (
             <View
@@ -152,7 +153,7 @@ export function SegmentedPager({
                   return copy
                 })
               }}
-              style={{ width: width || undefined }}
+              {...(width ? { style: { width } } : null)}
             >
               {visited.has(pageIndex) ? render() : null}
             </View>

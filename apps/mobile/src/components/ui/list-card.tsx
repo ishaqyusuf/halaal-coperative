@@ -12,7 +12,31 @@ import { View } from "react-native"
 export function useCardShadow() {
   const { colorScheme } = useColorScheme()
   const value = shadows[colorScheme].card
-  return value === "none" ? undefined : { boxShadow: value }
+  // Never undefined: react-native-css treats an explicit `style={undefined}`
+  // as "no styles" and drops the className styles with it.
+  return value === "none" ? {} : { boxShadow: value }
+}
+
+/**
+ * Card elevation without mixing className and style on one element:
+ * react-native-css drops className styles from a view that also gets an
+ * inline style, so the shadow sits on a style-only wrapper.
+ */
+export function Elevated({
+  children,
+  className,
+  radius,
+}: {
+  children: ReactNode
+  className?: string
+  radius: number
+}) {
+  const shadow = useCardShadow()
+  return (
+    <View style={{ ...shadow, borderRadius: radius }}>
+      <View className={className}>{children}</View>
+    </View>
+  )
 }
 
 /**
@@ -29,12 +53,11 @@ export function ListCard({
   /** Separators start after the 52pt avatar column. */
   inset?: boolean
 }) {
-  const shadow = useCardShadow()
   const rows = Children.toArray(children).filter(isValidElement)
   return (
-    <View
+    <Elevated
       className={cn("overflow-hidden rounded-[20px] bg-card", className)}
-      style={shadow}
+      radius={20}
     >
       {rows.map((row, index) => (
         <View key={row.key ?? index}>
@@ -46,7 +69,7 @@ export function ListCard({
           {row}
         </View>
       ))}
-    </View>
+    </Elevated>
   )
 }
 
@@ -108,9 +131,9 @@ export function TintedAvatar({
       accessible={false}
       className={cn(
         "items-center justify-center rounded-[14px]",
+        size === 40 ? "size-[40px]" : size === 52 ? "size-[52px]" : "size-[56px]",
         AVATAR_CLASSES[tint.background]
       )}
-      style={{ height: size, width: size }}
     >
       {icon ? (
         <Icon
@@ -172,11 +195,11 @@ export function RecordRow({
 }) {
   const grouped = position !== undefined
   const content = (
-    <View className="min-h-16 flex-row items-center gap-3 px-[14px] py-2.5">
+    <View className="min-h-[64px] flex-row items-center gap-[12px] px-[14px] py-[10px]">
       {leading ?? (
         <TintedAvatar icon={avatarIcon} name={avatarName ?? title} />
       )}
-      <View className="min-w-0 flex-1 gap-0.5">
+      <View className="min-w-0 flex-1 gap-[2px]">
         <Text className="font-bold" numberOfLines={1} variant="body">
           {title}
         </Text>
@@ -187,7 +210,7 @@ export function RecordRow({
         ) : null}
       </View>
       {amount || status || trailing ? (
-        <View className="shrink-0 items-end gap-1">
+        <View className="shrink-0 items-end gap-[4px]">
           {amount ? (
             <Text numberOfLines={1} variant="money">
               {amount}

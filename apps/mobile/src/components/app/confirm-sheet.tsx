@@ -38,7 +38,7 @@ export function ConfirmSheet({
       accessibilityLabel={title}
       dismissible={false}
       footer={
-        <View className="gap-2.5 px-5 pt-2 pb-5">
+        <View className="gap-[10px] px-[20px] pt-[8px] pb-[20px]">
           <Button
             loading={isConfirming}
             onPress={onConfirm}
@@ -58,10 +58,10 @@ export function ConfirmSheet({
       variant="confirm"
       visible={visible}
     >
-      <View className="items-center gap-3 pt-2">
+      <View className="items-center gap-[12px] pt-[8px]">
         <View
           className={cn(
-            "size-14 items-center justify-center rounded-full",
+            "size-[56px] items-center justify-center rounded-full",
             destructive ? "bg-tint-danger" : "bg-accent"
           )}
         >

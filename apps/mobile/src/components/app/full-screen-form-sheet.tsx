@@ -225,6 +225,7 @@ export function FullScreenFormSheet({
             <SafeAreaView style={{ backgroundColor: colors.background, flex: 1 }}>
               <OverlayStatusBar />
               <View className="min-h-14 flex-row items-center gap-2 px-[14px] pt-1 pb-2">
+                <View style={{ ...cardShadow, borderRadius: 999 }}>
                 <Button
                   accessibilityLabel={
                     form.onBack ? "Back" : `Close ${form.title}`
@@ -233,7 +234,6 @@ export function FullScreenFormSheet({
                   disabled={isSubmitting}
                   onPress={form.onBack ?? requestClose}
                   size="icon"
-                  style={cardShadow}
                   variant="ghost"
                 >
                   <Icon
@@ -241,6 +241,7 @@ export function FullScreenFormSheet({
                     name={form.onBack ? "ChevronLeft" : "X"}
                   />
                 </Button>
+                </View>
                 <Text
                   accessibilityRole="header"
                   className="min-w-0 flex-1 text-center text-base font-extrabold text-foreground"

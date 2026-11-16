@@ -1,5 +1,6 @@
 import { Pressable } from "@/components/ui/pressable"
 import { Text } from "@/components/ui/text"
+import { useColors } from "@/hooks/use-color"
 import { motion } from "@/lib/design-tokens"
 import { cn } from "@/lib/utils"
 import * as Haptics from "expo-haptics"
@@ -52,6 +53,7 @@ export function SegmentedControl<T extends string>({
   value: T
 }) {
   const reduceMotion = useReducedMotion()
+  const colors = useColors()
   const shouldScroll = scrollable ?? options.length > 3
   const selectedIndex = Math.max(
     0,
@@ -122,12 +124,22 @@ export function SegmentedControl<T extends string>({
   })
 
   const track = (
-    <View className="relative flex-row gap-0.5">
+    <View className="relative flex-row gap-[2px]">
       <Animated.View
         accessible={false}
-        className="absolute top-0 bottom-0 left-0 rounded-[11px] bg-surface-float"
         pointerEvents="none"
-        style={[{ boxShadow: "0 1px 3px rgba(0, 0, 0, 0.10)" }, indicatorStyle]}
+        style={[
+          {
+            backgroundColor: colors.surfaceFloat,
+            borderRadius: 11,
+            bottom: 0,
+            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.10)",
+            left: 0,
+            position: "absolute",
+            top: 0,
+          },
+          indicatorStyle,
+        ]}
       />
       {options.map((option, index) => {
         const selected = option.value === value
@@ -142,7 +154,7 @@ export function SegmentedControl<T extends string>({
             accessibilityRole="tab"
             accessibilityState={{ disabled: option.disabled, selected }}
             className={cn(
-              "min-h-9 flex-row items-center justify-center gap-1.5 rounded-[11px] px-3",
+              "min-h-[36px] flex-row items-center justify-center gap-[6px] rounded-[11px] px-[12px]",
               shouldScroll ? "" : "flex-1",
               option.disabled && "opacity-40"
             )}
@@ -166,7 +178,7 @@ export function SegmentedControl<T extends string>({
             {option.count !== undefined ? (
               <Text
                 className="text-muted-foreground"
-                style={{ fontVariant: ["tabular-nums"] }}
+                tabular
                 variant="caption"
               >
                 {option.count}

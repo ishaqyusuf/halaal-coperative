@@ -27,13 +27,13 @@ export function EmptyState({
   return (
     <View
       className={cn(
-        "min-h-[132px] items-center justify-center gap-3 px-6 py-8",
+        "min-h-[132px] items-center justify-center gap-[12px] px-[24px] py-[32px]",
         className
       )}
     >
       <View
         className={cn(
-          "size-14 items-center justify-center rounded-full",
+          "size-[56px] items-center justify-center rounded-full",
           tone === "error" ? "bg-tint-danger" : "bg-accent"
         )}
       >
@@ -47,7 +47,7 @@ export function EmptyState({
           name={icon}
         />
       </View>
-      <View className="items-center gap-1">
+      <View className="items-center gap-[4px]">
         <Text className="text-center" variant="section">
           {title}
         </Text>
@@ -59,7 +59,7 @@ export function EmptyState({
       </View>
       {action ? (
         <Button
-          className="mt-1"
+          className="mt-[4px]"
           loading={action.loading}
           onPress={action.onPress}
           size="sm"

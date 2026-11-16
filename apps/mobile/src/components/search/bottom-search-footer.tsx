@@ -161,10 +161,16 @@ export function BottomSearchFooter({
     // Floating search: the pill and any step action float over the list
     // with no bar behind them, so touches around them reach the list.
     <Animated.View
-      className="gap-2.5 px-6"
       onLayout={onLayout}
       pointerEvents={shouldHide ? "none" : "box-none"}
-      style={[{ paddingBottom: paddingBottom + FLOATING_SEARCH_GAP }, slideStyle]}
+      style={[
+        {
+          gap: 10,
+          paddingBottom: paddingBottom + FLOATING_SEARCH_GAP,
+          paddingHorizontal: 24,
+        },
+        slideStyle,
+      ]}
     >
       {caption && !searchFocused ? (
         <View className="items-end" pointerEvents="none">
@@ -173,7 +179,7 @@ export function BottomSearchFooter({
       ) : null}
       <View
         className={
-          layout === "inline" ? "flex-row items-center gap-2.5" : "gap-2.5"
+          layout === "inline" ? "flex-row items-center gap-[10px]" : "gap-[10px]"
         }
         pointerEvents="box-none"
       >
@@ -199,22 +205,21 @@ export function BottomSearchFooter({
     </Animated.View>
   ) : (
     <Animated.View
-      className="bg-background"
       pointerEvents={shouldHide ? "none" : "auto"}
       onLayout={onLayout}
       style={[{ backgroundColor: colors.background }, slideStyle]}
     >
-      <View className="w-full" style={{ paddingBottom }}>
+      <View style={{ paddingBottom, width: "100%" }}>
         <View
           className={
             variant === "action-bar"
-              ? "gap-3 px-4 pb-2 pt-3"
-              : "gap-3 px-4 pb-2 pt-2"
+              ? "gap-[12px] px-[16px] pb-[8px] pt-[12px]"
+              : "gap-[12px] px-[16px] pb-[8px] pt-[8px]"
           }
         >
           <View
             className={
-              layout === "inline" ? "flex-row items-center gap-3" : "gap-3"
+              layout === "inline" ? "flex-row items-center gap-[12px]" : "gap-[12px]"
             }
           >
             {children}
@@ -226,7 +231,6 @@ export function BottomSearchFooter({
 
   return keyboardOwner === "sheet" ? (
     <View
-      className="absolute"
       pointerEvents="box-none"
       style={containerStyle}
       testID="bottom-search-footer"

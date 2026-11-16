@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
-import { useCardShadow } from "@/components/ui/list-card"
+import { Elevated } from "@/components/ui/list-card"
 import { Text } from "@/components/ui/text"
 import { cn } from "@/lib/utils"
 import type { ReactNode } from "react"
@@ -24,11 +24,10 @@ export function ReviewSummary({
   title: string
   onEdit?: () => void
 }) {
-  const shadow = useCardShadow()
   const rows = Children.toArray(children).filter(isValidElement)
   return (
-    <View className="gap-2">
-      <View className="min-h-11 flex-row items-center justify-between">
+    <View className="gap-[8px]">
+      <View className="min-h-[44px] flex-row items-center justify-between">
         <Text accessibilityRole="header" variant="section">
           {title}
         </Text>
@@ -36,7 +35,7 @@ export function ReviewSummary({
           <Pressable
             accessibilityLabel={`Edit ${title}`}
             accessibilityRole="button"
-            className="min-h-11 justify-center px-1"
+            className="min-h-[44px] justify-center px-[4px]"
             hitSlop={8}
             onPress={onEdit}
           >
@@ -46,14 +45,14 @@ export function ReviewSummary({
           </Pressable>
         ) : null}
       </View>
-      <View className="overflow-hidden rounded-[20px] bg-card" style={shadow}>
+      <Elevated className="overflow-hidden rounded-[20px] bg-card" radius={20}>
         {rows.map((row, index) => (
           <View key={row.key ?? index}>
             {index > 0 ? <View className="mx-[14px] h-px bg-border" /> : null}
             {row}
           </View>
         ))}
-      </View>
+      </Elevated>
     </View>
   )
 }
@@ -69,14 +68,14 @@ export function ReviewRow({
   tabular?: boolean
 }) {
   return (
-    <View className="min-h-12 flex-row items-center justify-between gap-4 px-[14px] py-3">
+    <View className="min-h-[48px] flex-row items-center justify-between gap-[16px] px-[14px] py-[12px]">
       <Text className="text-muted-foreground" variant="body">
         {label}
       </Text>
       {typeof value === "string" ? (
         <Text
           className="min-w-0 shrink text-right"
-          style={tabular ? { fontVariant: ["tabular-nums"] } : undefined}
+          tabular={tabular}
           variant="body"
         >
           {value}
@@ -105,8 +104,12 @@ function ResultActions({
   if (!primary && !secondary) return null
   return (
     <View
-      className="gap-3 px-[18px] pt-3"
-      style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+      style={{
+        gap: 12,
+        paddingBottom: Math.max(insets.bottom, 16),
+        paddingHorizontal: 18,
+        paddingTop: 12,
+      }}
     >
       {primary ? (
         <Button loading={primary.loading} onPress={primary.onPress}>
@@ -138,7 +141,7 @@ function ResultBadge({ tone }: { tone: "success" | "error" }) {
     >
       <View
         className={cn(
-          "size-24 items-center justify-center rounded-full",
+          "size-[96px] items-center justify-center rounded-full",
           tone === "success" ? "bg-tint-success" : "bg-tint-danger"
         )}
       >
@@ -179,15 +182,17 @@ export function ResultScreen({
   tone: "success" | "error"
 }) {
   const insets = useSafeAreaInsets()
-  const shadow = useCardShadow()
+  const colors = useColors()
   return (
-    <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
-      <View className="min-h-14 flex-row items-center justify-end px-[18px]">
+    <View
+      style={{ backgroundColor: colors.background, flex: 1, paddingTop: insets.top }}
+    >
+      <View className="min-h-[56px] flex-row items-center justify-end px-[18px]">
         {onDone ? (
           <Pressable
             accessibilityLabel="Done"
             accessibilityRole="button"
-            className="min-h-11 justify-center px-1"
+            className="min-h-[44px] justify-center px-[4px]"
             hitSlop={8}
             onPress={onDone}
           >
@@ -198,7 +203,7 @@ export function ResultScreen({
         ) : null}
       </View>
       <ScrollView
-        contentContainerClassName="flex-grow items-center justify-center gap-4 px-6 pb-6"
+        contentContainerClassName="flex-grow items-center justify-center gap-[16px] px-[24px] pb-[24px]"
         showsVerticalScrollIndicator={false}
       >
         <ResultBadge tone={tone} />
@@ -216,11 +221,10 @@ export function ResultScreen({
           </Text>
         ) : null}
         {details ? (
-          <View
-            className="mt-2 w-full overflow-hidden rounded-[20px] bg-card"
-            style={shadow}
-          >
-            {details}
+          <View className="mt-[8px] w-full">
+            <Elevated className="overflow-hidden rounded-[20px] bg-card" radius={20}>
+              {details}
+            </Elevated>
           </View>
         ) : null}
       </ScrollView>
@@ -242,9 +246,9 @@ export function SubmittingState({
     <View
       accessibilityLiveRegion="polite"
       accessibilityRole="progressbar"
-      className="flex-1 items-center justify-center gap-4 bg-background px-6"
+      className="flex-1 items-center justify-center gap-[16px] bg-background px-[24px]"
     >
-      <View className="size-24 items-center justify-center rounded-full bg-accent">
+      <View className="size-[96px] items-center justify-center rounded-full bg-accent">
         <ActivityIndicator color={colors.primary} size="large" />
       </View>
       <Text className="text-center" variant="title">

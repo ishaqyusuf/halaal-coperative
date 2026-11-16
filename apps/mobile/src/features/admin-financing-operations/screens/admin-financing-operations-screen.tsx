@@ -529,6 +529,7 @@ export function AdminFinancingOperationsScreen({
         testID="admin-financing-operations-screen"
       >
         <ScreenHeader
+          back
           action={
             <Button
               accessibilityLabel="Refresh financing operations"

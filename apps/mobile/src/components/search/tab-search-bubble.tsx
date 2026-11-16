@@ -109,9 +109,8 @@ export function TabSearchBubble({
 
   return (
     <Animated.View
-      className="absolute z-[900]"
       pointerEvents="box-none"
-      style={buttonStyle}
+      style={[{ position: "absolute", zIndex: 900 }, buttonStyle]}
     >
       <FloatingSearchButton
         accessibilityLabel={accessibilityLabel}

@@ -106,13 +106,13 @@ export function DatePicker({
   }
 
   return (
-    <View className="gap-3">
-      <View className="min-h-11 flex-row items-center gap-2">
+    <View className="gap-[12px]">
+      <View className="min-h-[44px] flex-row items-center gap-[8px]">
         <Pressable
           accessibilityHint="Switches between days and a month and year grid"
           accessibilityLabel={`${MONTH_NAMES[visibleMonth.month - 1]} ${visibleMonth.year}, change month or year`}
           accessibilityRole="button"
-          className="min-h-11 flex-1 flex-row items-center gap-1.5 rounded-lg"
+          className="min-h-[44px] flex-1 flex-row items-center gap-[6px] rounded-lg"
           noRipple
           onPress={() => {
             setYearCursor(visibleMonth.year)
@@ -131,7 +131,7 @@ export function DatePicker({
           accessibilityLabel="Jump to today"
           accessibilityRole="button"
           className={cn(
-            "min-h-9 items-center justify-center rounded-full bg-accent px-4",
+            "min-h-[36px] items-center justify-center rounded-full bg-accent px-[16px]",
             todayDisabled && "opacity-40"
           )}
           disabled={todayDisabled}
@@ -153,7 +153,7 @@ export function DatePicker({
               accessibilityLabel="Previous month"
               accessibilityRole="button"
               className={cn(
-                "size-11 items-center justify-center rounded-full",
+                "size-[44px] items-center justify-center rounded-full",
                 !canGoBack && "opacity-30"
               )}
               disabled={!canGoBack}
@@ -166,7 +166,7 @@ export function DatePicker({
               accessibilityLabel="Next month"
               accessibilityRole="button"
               className={cn(
-                "size-11 items-center justify-center rounded-full",
+                "size-[44px] items-center justify-center rounded-full",
                 !canGoForward && "opacity-30"
               )}
               disabled={!canGoForward}
@@ -180,10 +180,10 @@ export function DatePicker({
       </View>
 
       {mode === "days" ? (
-        <View className="gap-1" role="grid">
+        <View className="gap-[4px]" role="grid">
           <View className="flex-row">
             {WEEKDAYS.map((weekday, index) => (
-              <View className="flex-1 items-center py-1" key={`${weekday}-${index}`}>
+              <View className="flex-1 items-center py-[4px]" key={`${weekday}-${index}`}>
                 <Text className="text-muted-foreground" variant="caption">
                   {weekday}
                 </Text>
@@ -203,7 +203,7 @@ export function DatePicker({
                       accessibilityRole="button"
                       accessibilityState={{ disabled, selected }}
                       className={cn(
-                        "size-11 items-center justify-center rounded-full",
+                        "size-[44px] items-center justify-center rounded-full",
                         selected && "bg-primary",
                         !selected && isToday && "border-2 border-primary"
                       )}
@@ -218,7 +218,7 @@ export function DatePicker({
                     >
                       <Text
                         className={cn(
-                          "text-lg",
+                          "text-[18px]",
                           selected
                             ? "font-extrabold text-primary-foreground"
                             : isToday
@@ -228,7 +228,7 @@ export function DatePicker({
                             !selected &&
                             "opacity-30"
                         )}
-                        style={{ fontVariant: ["tabular-nums"] }}
+                        tabular
                       >
                         {day.day}
                       </Text>
@@ -240,13 +240,13 @@ export function DatePicker({
           ))}
         </View>
       ) : (
-        <View className="gap-3">
-          <View className="flex-row items-center justify-between rounded-[14px] bg-surface-raised p-1">
+        <View className="gap-[12px]">
+          <View className="flex-row items-center justify-between rounded-[14px] bg-surface-raised p-[4px]">
             <Pressable
               accessibilityLabel="Previous year"
               accessibilityRole="button"
               className={cn(
-                "size-11 items-center justify-center rounded-full",
+                "size-[44px] items-center justify-center rounded-full",
                 isMonthOutside({ day: 1, month: 12, year: yearCursor - 1 }, minimumDate, maximumDate) &&
                   "opacity-30"
               )}
@@ -262,7 +262,7 @@ export function DatePicker({
             </Pressable>
             <Text
               className="text-foreground"
-              style={{ fontVariant: ["tabular-nums"] }}
+              tabular
               variant="title"
             >
               {yearCursor}
@@ -271,7 +271,7 @@ export function DatePicker({
               accessibilityLabel="Next year"
               accessibilityRole="button"
               className={cn(
-                "size-11 items-center justify-center rounded-full",
+                "size-[44px] items-center justify-center rounded-full",
                 isMonthOutside({ day: 1, month: 1, year: yearCursor + 1 }, minimumDate, maximumDate) &&
                   "opacity-30"
               )}
@@ -293,13 +293,13 @@ export function DatePicker({
               const current =
                 visibleMonth.month === index + 1 && visibleMonth.year === yearCursor
               return (
-                <View className="w-1/3 p-1" key={label}>
+                <View className="w-1/3 p-[4px]" key={label}>
                   <Pressable
                     accessibilityLabel={`${MONTH_NAMES[index]} ${yearCursor}`}
                     accessibilityRole="button"
                     accessibilityState={{ disabled, selected: current }}
                     className={cn(
-                      "min-h-12 items-center justify-center rounded-[14px]",
+                      "min-h-[48px] items-center justify-center rounded-[14px]",
                       current ? "bg-primary" : "bg-surface-raised",
                       disabled && "opacity-30"
                     )}

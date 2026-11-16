@@ -543,7 +543,7 @@ export function AdminShareProfitGovernanceScreen({
     return (
       <SafeArea className="flex-1 bg-background">
         <View className={`${compactGutter} flex-1 pt-4`}>
-          <ScreenHeader title="Share & profit" />
+          <ScreenHeader back title="Share & profit" />
           <View className="flex-1 justify-center">
             <EmptyState
               description="Your current cooperative role cannot view share capital or profit governance records."
@@ -574,6 +574,7 @@ export function AdminShareProfitGovernanceScreen({
       >
         <View className="w-full max-w-[560px] gap-5 self-center">
           <ScreenHeader
+            back
             action={
               <Button
                 accessibilityLabel="Refresh share and profit governance"

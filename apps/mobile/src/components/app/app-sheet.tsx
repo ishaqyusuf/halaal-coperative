@@ -9,7 +9,7 @@ import { type ReactNode, useCallback, useEffect, useState } from "react"
 import { useWindowDimensions, View } from "react-native"
 
 /** Floating body padding; the full-screen shell supplies its own. */
-const FLOATING_BODY_CLASS = "gap-4 px-5 pt-1 pb-5"
+const FLOATING_BODY_CLASS = "gap-[16px] px-[20px] pt-[4px] pb-[20px]"
 
 export type AppSheetProps = {
   visible: boolean
@@ -106,10 +106,15 @@ export function AppSheet({
         // out of the accessibility tree; it unmounts once measured.
         <View
           accessibilityElementsHidden
-          className="absolute opacity-0"
           importantForAccessibility="no-hide-descendants"
           pointerEvents="none"
-          style={{ left: 0, top: windowHeight * 2, width: windowWidth - 16 }}
+          style={{
+            left: 0,
+            opacity: 0,
+            position: "absolute",
+            top: windowHeight * 2,
+            width: windowWidth - 16,
+          }}
         >
           <View onLayout={(event) => onMeasure(event.nativeEvent.layout.height)}>
             <View className={FLOATING_BODY_CLASS}>{children}</View>

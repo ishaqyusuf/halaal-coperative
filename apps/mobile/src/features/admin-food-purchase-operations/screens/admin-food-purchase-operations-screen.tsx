@@ -639,6 +639,7 @@ export function AdminFoodPurchaseOperationsScreen({
         testID="admin-food-purchase-operations-screen"
       >
         <ScreenHeader
+          back
           action={
             <Button
               accessibilityLabel="Refresh Foodstuff Purchase operations"

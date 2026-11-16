@@ -65,13 +65,13 @@ export function StatusBanner({
       accessibilityLiveRegion="polite"
       accessibilityRole={config.role}
       className={cn(
-        "flex-row items-center gap-3 rounded-[18px] px-[14px] py-3",
+        "flex-row items-center gap-[12px] rounded-[18px] px-[14px] py-[12px]",
         config.surface,
         className
       )}
     >
-      <Icon className={cn("size-base self-start mt-0.5", config.text)} name={config.icon} />
-      <View className="min-w-0 flex-1 gap-0.5">
+      <Icon className={cn("size-base self-start mt-[2px]", config.text)} name={config.icon} />
+      <View className="min-w-0 flex-1 gap-[2px]">
         <Text className={config.text} variant="label">
           {title}
         </Text>
@@ -85,7 +85,7 @@ export function StatusBanner({
         <Pressable
           accessibilityLabel={`${retryLabel}: ${title}`}
           accessibilityRole="button"
-          className="min-h-11 min-w-[72px] items-center justify-center rounded-full bg-card px-4"
+          className="min-h-[44px] min-w-[72px] items-center justify-center rounded-full bg-card px-[16px]"
           disabled={retrying}
           haptic
           onPress={onRetry}

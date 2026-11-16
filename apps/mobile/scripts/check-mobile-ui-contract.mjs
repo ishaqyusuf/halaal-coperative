@@ -276,7 +276,8 @@ function checkPopupPrimitives() {
   ]) {
     checkSourceMarkers(tabsLayout, [
       "useFullScreenFormVisibility",
-      'display: hideTabBar ? "none" : "flex"',
+      "<DockTabBar {...props} hidden={hideTabBar} />",
+      "<DockScene>{children}</DockScene>",
     ])
   }
   checkSourceMarkers("src/components/app/confirmation-sheet.tsx", [

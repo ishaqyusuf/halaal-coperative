@@ -682,6 +682,7 @@ export function AdminChargeOperationsScreen({
     <SafeArea className="flex-1 bg-background">
       <View className="flex-1 px-5 pt-4">
         <ScreenHeader
+          back
           action={
             <Button
               accessibilityLabel="Refresh charges"

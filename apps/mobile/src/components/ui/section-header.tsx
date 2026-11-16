@@ -21,7 +21,7 @@ export function SectionHeader({
 }) {
   return (
     <View
-      className={cn("min-h-11 flex-row items-center justify-between gap-3", className)}
+      className={cn("min-h-[44px] flex-row items-center justify-between gap-[12px]", className)}
     >
       <Text
         accessibilityRole="header"
@@ -35,7 +35,7 @@ export function SectionHeader({
         <Pressable
           accessibilityLabel={action.accessibilityLabel ?? action.label}
           accessibilityRole="button"
-          className="min-h-11 justify-center rounded-lg px-1"
+          className="min-h-[44px] justify-center rounded-lg px-[4px]"
           haptic
           hitSlop={8}
           noRipple
@@ -48,7 +48,7 @@ export function SectionHeader({
       ) : value ? (
         <Text
           className="text-muted-foreground"
-          style={{ fontVariant: ["tabular-nums"] }}
+          tabular
           variant="label"
         >
           {value}

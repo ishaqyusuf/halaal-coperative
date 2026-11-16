@@ -234,7 +234,8 @@ export function Icon({
   const themeOverride =
     theme === "dark" || theme === "light" ? theme : undefined
   const scheme = themeOverride ?? (inverted ? "dark" : colorScheme)
-  const resolvedClassName = cn("text-foreground", className)
+  // An explicit `color` (e.g. a tab bar tint) wins over the default ink.
+  const resolvedClassName = cn(color ? undefined : "text-foreground", className)
   const resolvedColor = resolveColor(resolvedClassName, scheme)
   const IconComponent = as ?? iconRegistry[name] ?? iconRegistry.Circle
   const wrapperClassName = resolvedClassName

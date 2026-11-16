@@ -1,4 +1,5 @@
-import { useCardShadow } from "@/components/ui/list-card"
+import { Elevated } from "@/components/ui/list-card"
+import { useColors } from "@/hooks/use-color"
 import { cn } from "@/lib/utils"
 import {
   createContext,
@@ -55,15 +56,31 @@ function SharedBone({
   className?: string
   progress: SharedValue<number>
 }) {
+  const colors = useColors()
   const style = useAnimatedStyle(() => ({
     opacity: 0.55 + progress.get() * 0.45,
   }))
+  // The plain View owns size and shape (className); Reanimated views take
+  // no className, so the pulse fills it through style.
   return (
-    <Animated.View
+    <View
       accessible={false}
-      className={cn("rounded-lg bg-muted", className)}
-      style={style}
-    />
+      className={cn("overflow-hidden rounded-lg", className)}
+    >
+      <Animated.View
+        style={[
+          {
+            backgroundColor: colors.muted,
+            bottom: 0,
+            left: 0,
+            position: "absolute",
+            right: 0,
+            top: 0,
+          },
+          style,
+        ]}
+      />
+    </View>
   )
 }
 
@@ -90,32 +107,29 @@ function ListSkeleton({
   className?: string
   rows?: number
 }) {
-  const shadow = useCardShadow()
   return (
     <SkeletonGroup>
-      <View
-        accessibilityLabel="Loading"
-        accessibilityRole="progressbar"
+      <Elevated
         className={cn("overflow-hidden rounded-[20px] bg-card", className)}
-        style={shadow}
+        radius={20}
       >
         {Array.from({ length: rows }, (_, index) => (
           <View key={index}>
             {index > 0 ? <View className="ml-[66px] h-px bg-border" /> : null}
-            <View className="min-h-16 flex-row items-center gap-3 px-[14px] py-2.5">
-              <Skeleton className="size-10 rounded-[14px]" />
-              <View className="flex-1 gap-2">
+            <View className="min-h-[64px] flex-row items-center gap-[12px] px-[14px] py-[10px]">
+              <Skeleton className="size-[40px] rounded-[14px]" />
+              <View className="flex-1 gap-[8px]">
                 <Skeleton className="h-4 w-3/5 rounded-md" />
                 <Skeleton className="h-3 w-2/5 rounded-md" />
               </View>
-              <View className="items-end gap-2">
+              <View className="items-end gap-[8px]">
                 <Skeleton className="h-4 w-16 rounded-md" />
                 <Skeleton className="h-[22px] w-14 rounded-full" />
               </View>
             </View>
           </View>
         ))}
-      </View>
+      </Elevated>
     </SkeletonGroup>
   )
 }
@@ -127,14 +141,14 @@ function HomeSkeleton({ className }: { className?: string }) {
       <View
         accessibilityLabel="Loading"
         accessibilityRole="progressbar"
-        className={cn("gap-4", className)}
+        className={cn("gap-[16px]", className)}
       >
         <Skeleton className="h-48 w-full rounded-[28px]" />
-        <View className="flex-row gap-3">
+        <View className="flex-row gap-[12px]">
           <Skeleton className="h-32 flex-1 rounded-[20px]" />
           <Skeleton className="h-32 flex-1 rounded-[20px]" />
         </View>
-        <View className="flex-row gap-3">
+        <View className="flex-row gap-[12px]">
           <Skeleton className="h-32 flex-1 rounded-[20px]" />
           <Skeleton className="h-32 flex-1 rounded-[20px]" />
         </View>
@@ -156,11 +170,11 @@ function DetailSkeleton({
       <View
         accessibilityLabel="Loading"
         accessibilityRole="progressbar"
-        className={cn("gap-4", className)}
+        className={cn("gap-[16px]", className)}
       >
-        <View className="flex-row items-center gap-3">
-          <Skeleton className="size-14 rounded-[14px]" />
-          <View className="flex-1 gap-2">
+        <View className="flex-row items-center gap-[12px]">
+          <Skeleton className="size-[56px] rounded-[14px]" />
+          <View className="flex-1 gap-[8px]">
             <Skeleton className="h-5 w-1/2 rounded-md" />
             <Skeleton className="h-3.5 w-1/3 rounded-md" />
           </View>
@@ -168,7 +182,7 @@ function DetailSkeleton({
         <View className="overflow-hidden rounded-[20px] bg-card">
           {Array.from({ length: rows }, (_, index) => (
             <View
-              className="min-h-12 flex-row items-center justify-between px-[14px] py-3"
+              className="min-h-[48px] flex-row items-center justify-between px-[14px] py-[12px]"
               key={index}
             >
               <Skeleton className="h-3.5 w-1/3 rounded-md" />

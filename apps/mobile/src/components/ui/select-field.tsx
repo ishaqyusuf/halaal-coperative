@@ -51,8 +51,8 @@ export function FieldTrigger({
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       className={cn(
-        largeText ? "min-h-16" : "min-h-[52px]",
-        "w-full flex-row items-center gap-3 rounded-[14px] border bg-card px-4",
+        largeText ? "min-h-[64px]" : "min-h-[52px]",
+        "w-full flex-row items-center gap-[12px] rounded-[14px] border bg-card px-[16px]",
         invalid ? "border-destructive" : "border-input",
         disabled && "opacity-50"
       )}
@@ -126,7 +126,7 @@ export function SelectField<T extends string>({
         variant="picker"
         visible={open}
       >
-        <View accessibilityRole="radiogroup" className="-mx-2">
+        <View accessibilityRole="radiogroup" className="-mx-[8px]">
           {options.map((option) => {
             const isSelected = option.value === value
             return (
@@ -137,7 +137,7 @@ export function SelectField<T extends string>({
                   disabled: option.disabled,
                 }}
                 className={cn(
-                  "min-h-14 flex-row items-center gap-3 rounded-[14px] px-3 py-2",
+                  "min-h-[56px] flex-row items-center gap-[12px] rounded-[14px] px-[12px] py-[8px]",
                   isSelected ? "bg-accent" : "active:bg-muted",
                   option.disabled && "opacity-40"
                 )}
@@ -149,7 +149,7 @@ export function SelectField<T extends string>({
                   setOpen(false)
                 }}
               >
-                <View className="min-w-0 flex-1 gap-0.5">
+                <View className="min-w-0 flex-1 gap-[2px]">
                   <Text
                     className={cn(
                       "font-bold",

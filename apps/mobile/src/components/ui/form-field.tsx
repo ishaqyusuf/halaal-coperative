@@ -58,8 +58,8 @@ export function FormField({
 
   return (
     <FormFieldContext.Provider value={control}>
-      <View className={cn("gap-2", className)}>
-        <View className="flex-row items-end justify-between gap-3">
+      <View className={cn("gap-[8px]", className)}>
+        <View className="flex-row items-end justify-between gap-[12px]">
           <Text
             className={cn(
               invalid

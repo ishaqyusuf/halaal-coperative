@@ -254,6 +254,7 @@ export function AdminContributionWorkspace({
       testID="admin-contribution-operations-screen"
     >
       <ScreenHeader
+        back
         action={
           <Button
             accessibilityLabel={

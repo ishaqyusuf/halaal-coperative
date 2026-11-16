@@ -61,12 +61,18 @@ export function FloatingSearchCaption({
   const surface = useFloatingSurface()
   return (
     <View
-      className="min-h-[34px] flex-row items-center gap-2 px-[14px]"
-      style={surface}
+      style={{
+        ...surface,
+        alignItems: "center",
+        flexDirection: "row",
+        gap: 8,
+        minHeight: 34,
+        paddingHorizontal: 14,
+      }}
     >
-      <Text className="text-xs font-bold text-muted-foreground">{label}</Text>
+      <Text className="text-[12px] font-bold text-muted-foreground">{label}</Text>
       {value ? (
-        <Text className="text-base font-extrabold tabular-nums text-foreground">
+        <Text className="text-[16px] font-extrabold text-foreground" tabular>
           {value}
         </Text>
       ) : null}
@@ -89,7 +95,7 @@ export function FloatingSearchButton({
 }) {
   const surface = useFloatingSurface()
   return (
-    <View className="size-[52px]" style={surface}>
+    <View style={{ ...surface, height: 52, width: 52 }}>
       <Pressable
         accessibilityLabel={accessibilityLabel}
         accessibilityRole="button"
@@ -151,12 +157,15 @@ export function FloatingSearchField({
 
   return (
     <View
-      className={cn(
-        "flex-row items-center gap-2.5 pl-[18px]",
-        largeText ? "min-h-16" : "min-h-[52px]",
-        (value && editable) || showTrailing ? "pr-[7px]" : "pr-[18px]"
-      )}
-      style={surface}
+      style={{
+        ...surface,
+        alignItems: "center",
+        flexDirection: "row",
+        gap: 10,
+        minHeight: largeText ? 64 : 52,
+        paddingLeft: 18,
+        paddingRight: (value && editable) || showTrailing ? 7 : 18,
+      }}
     >
       <Icon
         className={cn(
@@ -170,7 +179,6 @@ export function FloatingSearchField({
         autoCapitalize="none"
         autoCorrect={false}
         autoFocus={autoFocus}
-        className={cn("min-w-0 flex-1 text-base", largeText ? "h-16" : "h-[50px]")}
         editable={editable}
         maxLength={maxLength}
         numberOfLines={1}
@@ -182,7 +190,14 @@ export function FloatingSearchField({
         ref={inputRef}
         returnKeyType="search"
         selectionColor={colors.primary}
-        style={{ color: colors.foreground, padding: 0 }}
+        style={{
+          color: colors.foreground,
+          flex: 1,
+          fontSize: 16,
+          height: largeText ? 64 : 50,
+          minWidth: 0,
+          padding: 0,
+        }}
         value={value}
       />
       {value && editable ? (
@@ -190,7 +205,7 @@ export function FloatingSearchField({
           accessibilityLabel="Clear search"
           accessibilityRole="button"
           className={cn(
-            "size-9 items-center justify-center rounded-full",
+            "size-[36px] items-center justify-center rounded-full",
             dark ? "bg-border" : "bg-muted"
           )}
           haptic
@@ -204,7 +219,7 @@ export function FloatingSearchField({
         <Pressable
           accessibilityLabel={trailingAction.accessibilityLabel}
           accessibilityRole="button"
-          className="size-10 items-center justify-center rounded-full bg-accent"
+          className="size-[40px] items-center justify-center rounded-full bg-accent"
           haptic
           hitSlop={6}
           onPress={trailingAction.onPress}

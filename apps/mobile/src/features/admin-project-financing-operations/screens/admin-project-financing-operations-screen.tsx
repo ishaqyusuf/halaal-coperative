@@ -744,7 +744,7 @@ export function AdminProjectFinancingOperationsScreen({
       <SafeArea className="flex-1 bg-background">
         <View className={`flex-1 gap-5 pt-4 ${compactGutter}`}>
           <View className="w-full max-w-[560px] gap-5 self-center">
-            <ScreenHeader title="Project financing" />
+            <ScreenHeader back title="Project financing" />
             <EmptyState
               description="Your current cooperative role cannot view or operate project financing records."
               icon="ShieldX"
@@ -767,6 +767,7 @@ export function AdminProjectFinancingOperationsScreen({
       >
         <View className="w-full max-w-[560px] gap-5 self-center">
           <ScreenHeader
+            back
             action={
               <Button
                 accessibilityLabel="Refresh project financing operations"

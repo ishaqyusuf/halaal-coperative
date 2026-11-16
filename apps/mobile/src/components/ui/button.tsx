@@ -11,7 +11,7 @@ import { useReducedMotion } from "react-native-reanimated"
  */
 const buttonVariants = cva(
   cn(
-    "group min-h-11 min-w-11 shrink-0 flex-row items-center justify-center gap-2 rounded-2xl",
+    "group min-h-[44px] min-w-[44px] shrink-0 flex-row items-center justify-center gap-[8px] rounded-2xl",
     Platform.select({
       web: "whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
     })
@@ -45,18 +45,18 @@ const buttonVariants = cva(
       },
       size: {
         default: cn(
-          "h-[52px] px-5",
+          "h-[52px] px-[20px]",
           Platform.select({ web: "has-[>svg]:px-4" })
         ),
         sm: cn(
-          "min-h-11 gap-1.5 rounded-xl px-4",
+          "min-h-[44px] gap-[6px] rounded-xl px-[16px]",
           Platform.select({ web: "has-[>svg]:px-3" })
         ),
         lg: cn(
-          "h-[52px] px-6",
+          "h-[52px] px-[24px]",
           Platform.select({ web: "has-[>svg]:px-5" })
         ),
-        icon: "h-11 w-11 rounded-full",
+        icon: "h-[44px] w-[44px] rounded-full",
       },
     },
     defaultVariants: {
@@ -68,7 +68,7 @@ const buttonVariants = cva(
 
 const buttonTextVariants = cva(
   cn(
-    "text-base font-bold text-foreground",
+    "text-[16px] font-bold text-foreground",
     Platform.select({ web: "pointer-events-none transition-colors" })
   ),
   {
@@ -78,7 +78,8 @@ const buttonTextVariants = cva(
         destructive: "text-destructive-foreground",
         outline: "text-foreground",
         secondary: "text-accent-foreground",
-        ghost: "text-accent-foreground",
+        // Neutral: legacy screens use ghost buttons as tabs and toolbars.
+        ghost: "text-foreground",
         link: cn(
           "text-primary group-active:underline",
           Platform.select({
@@ -88,7 +89,7 @@ const buttonTextVariants = cva(
       },
       size: {
         default: "",
-        sm: "text-sm",
+        sm: "text-[14px]",
         lg: "",
         icon: "",
       },

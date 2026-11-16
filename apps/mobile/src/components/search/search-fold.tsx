@@ -76,10 +76,9 @@ export function SearchFold({
   return (
     <Animated.View
       accessibilityElementsHidden={folded}
-      className={clip ? "overflow-hidden" : "overflow-visible"}
       importantForAccessibility={folded ? "no-hide-descendants" : "auto"}
       pointerEvents={folded ? "none" : "auto"}
-      style={style}
+      style={[{ overflow: clip ? "hidden" : "visible" }, style]}
     >
       <View
         onLayout={(event) => {

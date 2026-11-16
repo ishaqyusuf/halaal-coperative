@@ -1,13 +1,16 @@
+import { ScreenHeaderButton } from "@/components/app/screen-shell"
 import { Text } from "@/components/ui/text"
 import { useColors } from "@/hooks/use-color"
 import { useLargeTextLayout } from "@/hooks/use-large-text-layout"
 import { resolveDisplayTextScale } from "@/lib/mobile-accessibility-layout"
 import { cn } from "@/lib/utils"
+import { useRouter } from "expo-router"
 import type { ReactNode } from "react"
 import { useWindowDimensions, View } from "react-native"
 
 export function ScreenHeader({
   action,
+  back = false,
   className,
   description,
   leading,
@@ -16,6 +19,8 @@ export function ScreenHeader({
   title,
 }: {
   action?: ReactNode
+  /** Pushed stack screens: a round back button (falls back to the role home). */
+  back?: boolean
   className?: string
   description?: string
   leading?: ReactNode
@@ -25,6 +30,20 @@ export function ScreenHeader({
 }) {
   const largeTextLayout = useLargeTextLayout()
   const colors = useColors()
+  const router = useRouter()
+  const resolvedLeading =
+    leading ??
+    (back ? (
+      <ScreenHeaderButton
+        accessibilityLabel="Go back"
+        icon="ChevronLeft"
+        onPress={() =>
+          router.canGoBack() ? router.back() : router.replace("/")
+        }
+        testID="screen-back-button"
+        tone={tone}
+      />
+    ) : null)
   const { fontScale } = useWindowDimensions()
   const bodyTextScale = Number.isFinite(fontScale) ? Math.max(fontScale, 1) : 1
   const displayTextScale = resolveDisplayTextScale(fontScale)
@@ -33,7 +52,9 @@ export function ScreenHeader({
     <View
       className={cn("flex-row items-start justify-between gap-4", className)}
     >
-      {leading ? <View className="shrink-0">{leading}</View> : null}
+      {resolvedLeading ? (
+        <View className="shrink-0">{resolvedLeading}</View>
+      ) : null}
       <View className="min-w-0 flex-1">
         <Text
           allowFontScaling={false}

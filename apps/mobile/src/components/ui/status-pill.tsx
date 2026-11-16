@@ -39,7 +39,7 @@ export function StatusPill({
       accessibilityLabel={`Status: ${label}`}
       className={cn(
         "flex-row items-center self-start rounded-full",
-        size === "large" ? "min-h-8 px-3" : "min-h-[22px] px-2.5",
+        size === "large" ? "min-h-[32px] px-[12px]" : "min-h-[22px] px-[10px]",
         classes.surface,
         className
       )}

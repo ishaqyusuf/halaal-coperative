@@ -493,6 +493,7 @@ export function AdminRepaymentOperationsScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <ScreenHeader
+          back
           action={
             <Button
               accessibilityLabel="Refresh repayment operations"

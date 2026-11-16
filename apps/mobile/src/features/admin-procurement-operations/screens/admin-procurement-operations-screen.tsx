@@ -419,6 +419,7 @@ export function AdminProcurementOperationsScreen({
         testID="admin-procurement-operations-screen"
       >
         <ScreenHeader
+          back
           action={<Button accessibilityLabel="Refresh procurement operations" disabled={isLoading} onPress={loadWorkspace} size="icon" variant="secondary"><Icon className="size-base text-primary" name="RefreshCw" /></Button>}
           title="Procurement operations"
         />

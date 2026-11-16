@@ -5,8 +5,12 @@ import {
   type AppSheetVariant,
   resolveAppSheetPresentation,
 } from "@/lib/app-sheet-rule"
-import { type ReactNode, useCallback, useEffect, useState } from "react"
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import { useWindowDimensions, View } from "react-native"
+
+/** The floating present/exit animation (300ms) plus a frame of slack. */
+const FLOAT_SETTLE_MS = 360
+const FLOAT_EXIT_MS = 320
 
 /** Floating body padding; the full-screen shell supplies its own. */
 const FLOATING_BODY_CLASS = "gap-[16px] px-[20px] pt-[4px] pb-[20px]"
@@ -64,15 +68,17 @@ export function AppSheet({
   variant = "auto",
   visible,
 }: AppSheetProps) {
-  const { height: windowHeight, width: windowWidth } = useWindowDimensions()
+  const { height: windowHeight } = useWindowDimensions()
   const [measuredHeight, setMeasuredHeight] = useState<number | null>(null)
   const [presentation, setPresentation] =
     useState<AppSheetPresentation | null>(null)
   const needsMeasurement = variant === "auto"
 
+  const openedAtRef = useRef(0)
   // Every open starts fresh: measure first, then decide.
   useEffect(() => {
     if (!visible) return
+    openedAtRef.current = Date.now()
     setMeasuredHeight(null)
     setPresentation(null)
   }, [visible])
@@ -85,9 +91,32 @@ export function AppSheet({
     windowHeight,
   })
 
+  const [expanding, setExpanding] = useState(false)
   useEffect(() => {
-    if (visible && decided && decided !== presentation) setPresentation(decided)
-  }, [decided, presentation, visible])
+    if (!visible || !decided || decided === presentation) return
+    if (decided === "fullscreen" && variant === "auto") {
+      // Floating → full screen: let the float settle, close it, then
+      // present full screen. Presenting both gorhom portals in one frame
+      // strands the floating sheet (found on device, 16 Nov 2026).
+      const settle = Math.max(
+        0,
+        FLOAT_SETTLE_MS - (Date.now() - openedAtRef.current)
+      )
+      let swap: ReturnType<typeof setTimeout> | undefined
+      const close = setTimeout(() => {
+        setExpanding(true)
+        swap = setTimeout(() => {
+          setExpanding(false)
+          setPresentation("fullscreen")
+        }, FLOAT_EXIT_MS)
+      }, settle)
+      return () => {
+        clearTimeout(close)
+        if (swap) clearTimeout(swap)
+      }
+    }
+    setPresentation(decided)
+  }, [decided, presentation, variant, visible])
 
   const onMeasure = useCallback((height: number) => {
     const rounded = Math.ceil(height)
@@ -96,32 +125,14 @@ export function AppSheet({
     )
   }, [])
 
-  const active = presentation ?? decided
-  const measuring = visible && needsMeasurement && active === null
+  // Read-only content opens floating at once; its in-sheet measurement
+  // expands it to full screen when it is taller than half the window.
+  const active = expanding
+    ? "expanding"
+    : (presentation ?? (variant === "auto" ? "floating" : decided))
 
   return (
     <>
-      {measuring ? (
-        // Off-screen, invisible measurement of the floating layout. Kept
-        // out of the accessibility tree; it unmounts once measured.
-        <View
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-          pointerEvents="none"
-          style={{
-            left: 0,
-            opacity: 0,
-            position: "absolute",
-            top: windowHeight * 2,
-            width: windowWidth - 16,
-          }}
-        >
-          <View onLayout={(event) => onMeasure(event.nativeEvent.layout.height)}>
-            <View className={FLOATING_BODY_CLASS}>{children}</View>
-            {footer}
-          </View>
-        </View>
-      ) : null}
       <FloatingBottomSheet
         accessibilityLabel={accessibilityLabel ?? title}
         dismissible={dismissible}
@@ -139,8 +150,8 @@ export function AppSheet({
       >
         <View
           className={FLOATING_BODY_CLASS}
-          // Content that grows after opening (late data) re-measures here
-          // and expands into the full-screen presentation past half height.
+          // Measures the content; past half the window (now or after late
+          // data arrives) the sheet expands into the full-screen presentation.
           onLayout={
             needsMeasurement
               ? (event) => onMeasure(event.nativeEvent.layout.height)

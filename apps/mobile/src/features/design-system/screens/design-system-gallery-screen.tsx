@@ -139,7 +139,9 @@ function GallerySheets({
               <Text className="text-muted-foreground" variant="label">
                 {label}
               </Text>
-              <Text variant="money">{formatMoney(Number(amount))}</Text>
+              <Text adjustsFontSizeToFit numberOfLines={1} variant="money">
+                {formatMoney(Number(amount))}
+              </Text>
             </View>
           ))}
         </View>

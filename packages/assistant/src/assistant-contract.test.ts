@@ -5,7 +5,15 @@ import {
 } from "./contracts"
 import { capabilitiesFor, capabilityAllowed } from "./capabilities/manifest"
 import { fixtureAnswers, fixtureProposal } from "./fixtures"
-import { extractAmount, extractPaidOn, extractPeriod, routeIntent } from "./intents"
+import {
+  PAYMENT_REFERENCE_MAX,
+  extractAmount,
+  extractMemberNumber,
+  extractPaidOn,
+  extractPaymentReference,
+  extractPeriod,
+  routeIntent,
+} from "./intents"
 import { formatMoney, money } from "./format"
 
 const now = new Date("2026-11-14T00:00:00Z")
@@ -97,6 +105,49 @@ describe("intent routing", () => {
     expect(routeIntent("I paid five thousand naira yesterday", "member", now).candidates).toMatchObject({
       amount: "5000",
       paidOn: "2026-11-13",
+    })
+  })
+
+  test("payment references in common phrasings", () => {
+    expect(extractPaymentReference("I paid five thousand naira yesterday, reference TRF5521")).toBe("TRF5521")
+    expect(extractPaymentReference("ref: TRF-5521")).toBe("TRF-5521")
+    expect(extractPaymentReference("ref no TRF5521")).toBe("TRF5521")
+    expect(extractPaymentReference("Ref No. TRF5521.")).toBe("TRF5521")
+    expect(extractPaymentReference("the reference number is TRF5521")).toBe("TRF5521")
+    expect(extractPaymentReference("transaction id FT26111400123")).toBe("FT26111400123")
+    expect(extractPaymentReference("Transaction ID: 000123456789")).toBe("000123456789")
+    expect(extractPaymentReference("teller number 004512")).toBe("004512")
+    expect(extractPaymentReference("teller no: 4512")).toBe("4512")
+    expect(extractPaymentReference("ref#TRF5521")).toBe("TRF5521")
+    expect(extractPaymentReference(`ref ${"A1".repeat(100)}`)).toHaveLength(PAYMENT_REFERENCE_MAX)
+  })
+
+  test("no reference is invented", () => {
+    expect(extractPaymentReference("I paid five thousand naira yesterday")).toBeNull()
+    expect(extractPaymentReference("I paid ₦5,000 with reference to my November dues")).toBeNull()
+    expect(extractPaymentReference("I need a refund of 5000 naira")).toBeNull()
+    expect(extractPaymentReference("one transaction of 5000 naira")).toBeNull()
+    expect(routeIntent("I paid five thousand naira yesterday", "member", now).candidates.paymentReference).toBeNull()
+  })
+
+  test("a reference is not read as the amount or a member number", () => {
+    expect(extractAmount("ref TRN5521")).toBeNull()
+    expect(extractAmount("I paid five thousand naira, ref TRN5521")).toBe("5000")
+    expect(extractAmount("I paid N5,000")).toBe("5000")
+    expect(extractMemberNumber("ref: TRF-5521")).toBe("TRF-5521")
+    const member = routeIntent("I paid five thousand naira yesterday, reference TRF5521", "member", now)
+    expect(member.capabilityId).toBe("M04")
+    expect(member.candidates).toMatchObject({ amount: "5000", paidOn: "2026-11-13", paymentReference: "TRF5521" })
+    const staff = routeIntent("Record ₦25,000 from HV-1048 for November, ref: TRF-5521", "staff", now)
+    expect(staff.capabilityId).toBe("S04")
+    expect(staff.candidates).toMatchObject({ amount: "25000", memberNumber: "HV-1048", paymentReference: "TRF-5521" })
+    expect(routeIntent("Record ₦25,000 for November, teller no TRF-5521", "staff", now).candidates.memberNumber).toBeNull()
+  })
+
+  test("amount-only receipts still fill amount and date", () => {
+    expect(routeIntent("I paid ₦5,000", "member", now).candidates).toMatchObject({
+      amount: "5000",
+      paymentReference: null,
     })
   })
 })

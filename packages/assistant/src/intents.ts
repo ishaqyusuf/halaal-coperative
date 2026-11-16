@@ -22,6 +22,8 @@ export type IntentCandidates = {
   period: string | null
   /** YYYY-MM-DD payment date ("yesterday", "on 12 November"); never in the future. */
   paidOn?: string | null
+  /** Bank/teller reference the person typed ("ref: TRF-5521"), trimmed, at most 120 characters. */
+  paymentReference?: string | null
 }
 
 const MONTHS = [
@@ -113,9 +115,45 @@ export function extractPaidOn(text: string, now: Date = new Date()): string | nu
   return check.getUTCDate() === day ? candidate : null
 }
 
+/** Same cap as `paymentReference` in the proposal contract. */
+export const PAYMENT_REFERENCE_MAX = 120
+
+// "reference TRF5521", "ref: TRF-5521", "ref no. TRF5521", "teller number 004512",
+// "transaction id FT2611…", "session id …". Bare "transaction"/"session" need a
+// qualifier so "transaction of 5000" isn't read as a reference.
+const REFERENCE_PATTERN = new RegExp(
+  "(?:\\b(?:ref(?:erence)?|teller)\\b(?:\\s*(?:no\\b\\.?|number\\b|num\\b|#|id\\b|code\\b))?" +
+    "|\\b(?:transaction|txn|trx|transfer|session)\\s*(?:id\\b|ref(?:erence)?\\b|no\\b\\.?|number\\b|num\\b|#|code\\b)" +
+    "(?:\\s*(?:no\\b\\.?|number\\b|#))?)" +
+    "\\s*(?:(?:is|was)\\s+|[:#=-]\\s*)?" +
+    "([a-z0-9](?:[a-z0-9/_.-]*[a-z0-9])?)",
+  "gi"
+)
+
+function findPaymentReference(text: string): { value: string; index: number; length: number } | null {
+  for (const match of text.matchAll(REFERENCE_PATTERN)) {
+    const token = match[1]!
+    // A reference carries at least one digit; this skips "with reference to …".
+    if (!/\d/.test(token)) continue
+    return { value: token.slice(0, PAYMENT_REFERENCE_MAX), index: match.index!, length: match[0].length }
+  }
+  return null
+}
+
+/** The payment reference the person typed, or null. Never invents one. */
+export function extractPaymentReference(text: string): string | null {
+  return findPaymentReference(text)?.value ?? null
+}
+
+/** The text with a stated reference removed, so "ref TRN5521" isn't read as ₦5,521 or a member number. */
+function withoutReference(text: string): string {
+  const found = findPaymentReference(text)
+  return found ? `${text.slice(0, found.index)} ${text.slice(found.index + found.length)}` : text
+}
+
 export function extractAmount(text: string): string | null {
-  const numeric = extractNumericAmount(text)
-  return numeric ?? extractWordAmount(text)
+  const rest = withoutReference(text)
+  return extractNumericAmount(rest) ?? extractWordAmount(rest)
 }
 
 function extractNumericAmount(text: string): string | null {
@@ -173,12 +211,14 @@ export function routeIntent(
   now: Date = new Date()
 ): AssistantIntent {
   const text = rawText.toLowerCase()
+  const rest = withoutReference(rawText)
   const candidates: IntentCandidates = {
-    amount: extractAmount(rawText),
-    memberNumber: extractMemberNumber(rawText),
-    memberQuery: extractMemberQuery(rawText),
-    period: extractPeriod(rawText, now),
-    paidOn: extractPaidOn(rawText, now),
+    amount: extractAmount(rest),
+    memberNumber: extractMemberNumber(rest),
+    memberQuery: extractMemberQuery(rest),
+    period: extractPeriod(rest, now),
+    paidOn: extractPaidOn(rest, now),
+    paymentReference: extractPaymentReference(rawText),
   }
   const route = (capabilityId: CapabilityId | null): AssistantIntent => ({
     capabilityId,

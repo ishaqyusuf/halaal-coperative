@@ -3,6 +3,7 @@ import { createOpenAI } from "@ai-sdk/openai"
 import {
   type CapabilityId,
   type IntentCandidates,
+  PAYMENT_REFERENCE_MAX,
   assistantInstructions,
   capabilitiesFor,
 } from "@halaalvest/assistant"
@@ -57,7 +58,16 @@ const candidateSchema = z.object({
   period: z.string().regex(/^\d{4}-\d{2}$/).nullable().optional(),
   /** Payment date YYYY-MM-DD, only when the person said when they paid. */
   paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  /** Bank/teller/transaction reference exactly as the person typed it, only when they gave one. */
+  paymentReference: z.string().max(PAYMENT_REFERENCE_MAX).nullable().optional(),
 })
+
+/** Keep a model-read reference only when it appears verbatim in the message, so none is invented. */
+function statedReference(value: string | null | undefined, text: string) {
+  const reference = value?.trim()
+  if (!reference || !/\d/.test(reference)) return null
+  return text.toLowerCase().includes(reference.toLowerCase()) ? reference.slice(0, PAYMENT_REFERENCE_MAX) : null
+}
 
 /**
  * The model only picks one allowed capability and candidate fields. Typed
@@ -88,6 +98,7 @@ export async function interpretWithModel(input: {
               memberQuery: args.memberQuery ?? null,
               period: args.period ?? null,
               paidOn: args.paidOn ?? null,
+              paymentReference: statedReference(args.paymentReference, input.text),
             },
           }
           return { ok: true }

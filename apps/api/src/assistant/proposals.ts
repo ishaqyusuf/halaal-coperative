@@ -270,7 +270,7 @@ export async function startReceiptSubmission(
     kind: "receipt-submission",
     amount: amount ? money(amount) : null,
     paidOn: paidOnOrToday(candidates.paidOn, deps.now()),
-    paymentReference: null,
+    paymentReference: candidates.paymentReference ?? null,
     allocations: amount ? await memberReceiptAllocations(principal, gate.member!.id, amount, deps) : [],
     evidenceUploadId: null,
   }
@@ -408,7 +408,7 @@ export async function startRecordPayment(
     paidOn: paidOnOrToday(candidates.paidOn, deps.now()),
     period: candidates.period,
     channel: "transfer",
-    paymentReference: null,
+    paymentReference: candidates.paymentReference ?? null,
     allocations: planned?.allocations ?? [],
   }
   const row = await createAssistantProposal({

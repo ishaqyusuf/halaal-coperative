@@ -12,6 +12,7 @@ import {
   assistantTurnInputSchema,
   capabilityAllowed,
   extractAmount,
+  extractPaymentReference,
   money,
   proposalFieldsSchema,
   routeIntent,
@@ -116,14 +117,15 @@ async function handleChoice(
   return null
 }
 
-/** A bare amount fills the newest collecting draft in this chat. */
+/** A bare amount or a stated reference fills the newest collecting draft in this chat. */
 async function continueDraft(
   principal: AssistantPrincipal,
   conversationId: string,
   text: string
 ): Promise<Outcome | null> {
   const amount = extractAmount(text) ?? (/^\s*\d+(\.\d{1,2})?\s*$/.test(text) ? text.trim() : null)
-  if (!amount) return null
+  const paymentReference = extractPaymentReference(text)
+  if (!amount && !paymentReference) return null
   const open = (await listConversationProposals({ ...scopeOf(principal), conversationId }))
     .filter((row) => row.status === "collecting")
     .at(-1)
@@ -133,7 +135,11 @@ async function continueDraft(
   const proposal = await editProposal(principal, {
     proposalId: open.id,
     revision: open.revision,
-    fields: { ...fields, amount: money(amount) },
+    fields: {
+      ...fields,
+      ...(amount ? { amount: money(amount) } : {}),
+      ...(paymentReference ? { paymentReference } : {}),
+    },
   })
   return {
     capabilityId: open.capabilityId as CapabilityId,

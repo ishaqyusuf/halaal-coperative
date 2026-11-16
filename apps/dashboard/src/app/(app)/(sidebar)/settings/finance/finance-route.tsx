@@ -13,7 +13,8 @@ import {
   listLegacyLoanMigrationDrafts,
   listMemberActivityEvents,
   listMemberAmountLogs,
-  listMembers,
+  listRecentMemberOptions,
+  searchMemberOptions,
   listMigrationProfitAdjustmentOptions,
 } from "@halaalvest/db"
 import { LoanSettingsView } from "@/components/finance-settings/loan-settings-view"
@@ -57,18 +58,20 @@ async function loadMigrationWorkspace({
   section: FinanceRouteSection
   tenant: Tenant
 }) {
-  const [migrationState, migrationMemberReview, legacyLoanDrafts, memberItems] =
-    await Promise.all([
-      getTenantInitialMigrationState(tenant.id),
-      listInitialMigrationMemberReview(tenant.id),
-      listLegacyLoanMigrationDrafts(tenant.id),
-      listMembers(tenant.id, { page: 1, pageSize: 200 }).then(
-        (result) => result.items
-      ),
-    ])
-  const previewMember = memberId
-    ? (memberItems.find((member) => member.id === memberId) ?? null)
-    : null
+  const [
+    migrationState,
+    migrationMemberReview,
+    legacyLoanDrafts,
+    memberItems,
+    [previewMember = null],
+  ] = await Promise.all([
+    getTenantInitialMigrationState(tenant.id),
+    listInitialMigrationMemberReview(tenant.id),
+    listLegacyLoanMigrationDrafts(tenant.id),
+    listRecentMemberOptions(tenant.id),
+    // Looked up by id, so a member outside the picker's 200 still previews.
+    memberId ? searchMemberOptions(tenant.id, { ids: [memberId] }) : [],
+  ])
   const [amountLogs, activityEvents, profitOptions] = previewMember
     ? await Promise.all([
         listMemberAmountLogs({ memberId: previewMember.id, tenantId: tenant.id }),

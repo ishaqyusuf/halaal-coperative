@@ -14,6 +14,7 @@ import {
   updateMemberDocumentReview,
   updateMemberKyc,
   updateMemberStatus,
+  listRecentMemberOptions,
   searchMemberOptions,
   tenantHasMembers,
 } from "./members"
@@ -1784,6 +1785,19 @@ describe("member picker options", () => {
       tenantId: "tenant-1",
     })
     expect(calls[0]?.args.take).toBe(1)
+  })
+
+  test("lists recent members as lean options, newest first, 200 by default", async () => {
+    const { calls, prisma } = createOptionsPrisma()
+
+    await listRecentMemberOptions("tenant-1", {}, prisma as never)
+
+    expect(calls[0]?.args).toEqual({
+      orderBy: { createdAt: "desc" },
+      select: { fullName: true, id: true, memberNumber: true },
+      take: 200,
+      where: { tenantId: "tenant-1" },
+    })
   })
 
   test("checks for any member with one id-only lookup", async () => {

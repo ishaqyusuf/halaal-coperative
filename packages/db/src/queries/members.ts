@@ -227,6 +227,28 @@ export async function searchMemberOptions(
   })
 }
 
+/**
+ * The newest members as picker options (id, name, member number), in the
+ * same order and cap as `listMembers` page 1, without its plan, deduction
+ * source and user includes or the total count. For setup screens whose
+ * pickers still take a preloaded list.
+ */
+export async function listRecentMemberOptions(
+  tenantId: string,
+  input: { limit?: number } = {},
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  return prisma.member.findMany({
+    orderBy: { createdAt: "desc" },
+    select: { fullName: true, id: true, memberNumber: true },
+    take: input.limit ?? 200,
+    where: { tenantId },
+  })
+}
+
 /** Whether the tenant has any member, for "create" buttons on picker pages. */
 export async function tenantHasMembers(
   tenantId: string,

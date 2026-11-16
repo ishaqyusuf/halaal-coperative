@@ -19,7 +19,7 @@ import {
   listMemberActivityEvents,
   listMemberAmountLogs,
   listMemberOpeningBalances,
-  listMembers,
+  listRecentMemberOptions,
   listMigrationProfitAdjustmentOptions,
 } from "@halaalvest/db"
 import {
@@ -205,7 +205,7 @@ export async function loadMemberBackfillWorkflowData(memberId: string) {
     getMemberById(tenantId, memberId),
     getInitialMigrationMemberReview({ memberId, tenantId }),
     listMemberOpeningBalances({ memberId, tenantId }),
-    listMembers(tenantId, { page: 1, pageSize: 200 }),
+    listRecentMemberOptions(tenantId),
     getTenantMigrationSetup(tenantId),
     getTenantSharePolicy(tenantId),
   ])
@@ -300,7 +300,7 @@ export async function loadMemberBackfillWorkflowData(memberId: string) {
       serializeHistoricalMemberSharePurchase
     ),
     memberNumberPrefix: context.tenant.memberNumberPrefix,
-    memberOptions: memberOptions.items.map((option) => ({
+    memberOptions: memberOptions.map((option) => ({
       id: option.id,
       label: `${option.fullName} (${option.memberNumber})`,
     })),

@@ -3,7 +3,6 @@ import type {
   listInitialMigrationMemberReview,
   listLegacyLoanMigrationDrafts,
   listMemberAmountLogs,
-  listMembers,
   listMigrationProfitAdjustmentOptions,
 } from "@halaalvest/db"
 
@@ -13,7 +12,6 @@ type FinancingSettings = Awaited<
 type LegacyLoanDrafts = Awaited<
   ReturnType<typeof listLegacyLoanMigrationDrafts>
 >
-type MemberList = Awaited<ReturnType<typeof listMembers>>
 type MemberAmountLogs = Awaited<ReturnType<typeof listMemberAmountLogs>>
 type MigrationMemberReview = Awaited<
   ReturnType<typeof listInitialMigrationMemberReview>
@@ -70,7 +68,9 @@ export function toLegacyLoanDraftRows(drafts: LegacyLoanDrafts) {
   }))
 }
 
-export function toMemberOptions(members: MemberList["items"]) {
+export function toMemberOptions(
+  members: Array<{ fullName: string; id: string; memberNumber: string }>
+) {
   return members.map((member) => ({
     id: member.id,
     label: `${member.fullName} (${member.memberNumber})`,

@@ -1,9 +1,9 @@
 "use client"
 
+import { Spinner } from "@halaalvest/ui/components/spinner"
 import { Badge } from "@halaalvest/ui/components/badge"
 import { formatCurrency } from "@halaalvest/utils"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
-import { LoaderCircle } from "lucide-react"
 import { useRef } from "react"
 import {
   monthlyRecordStatusLabel,
@@ -12,15 +12,24 @@ import {
 import { MonthlyRecordRowActions } from "@/components/open-monthly-record-sheet"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import type { MonthlyRecordMemberTableRow } from "./data-table"
-import { MonthlyRecordsEmptyState, MonthlyRecordsNoResults } from "./empty-states"
+import {
+  MonthlyRecordsEmptyState,
+  MonthlyRecordsNoResults,
+} from "./empty-states"
 import { useMonthlyRecordsQuery } from "./use-monthly-records-query"
 
-function MonthlyRecordMobileItem({ row }: { row: MonthlyRecordMemberTableRow }) {
+function MonthlyRecordMobileItem({
+  row,
+}: {
+  row: MonthlyRecordMemberTableRow
+}) {
   return (
     <div className="flex flex-col gap-3 py-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate font-medium text-foreground">{row.memberName}</p>
+          <p className="truncate font-medium text-foreground">
+            {row.memberName}
+          </p>
           <p className="truncate text-muted-foreground">
             {[row.memberNumber, row.workplaceName].filter(Boolean).join(" · ")}
           </p>
@@ -39,7 +48,9 @@ function MonthlyRecordMobileItem({ row }: { row: MonthlyRecordMemberTableRow }) 
         <div>
           <dt className="text-muted-foreground">Paid</dt>
           <dd className="font-medium text-foreground tabular-nums">
-            {row.status === "applied" ? formatCurrency(row.totalPaidAmount) : "—"}
+            {row.status === "applied"
+              ? formatCurrency(row.totalPaidAmount)
+              : "—"}
           </dd>
         </div>
       </dl>
@@ -121,7 +132,7 @@ export function MonthlyRecordsMobileList({
         })}
         {query.isFetchingNextPage ? (
           <div className="absolute inset-x-0 bottom-0 flex h-12 items-center justify-center text-muted-foreground">
-            <LoaderCircle aria-hidden className="size-5 animate-spin" />
+            <Spinner aria-hidden className="size-5" />
             <span className="sr-only">Loading more members</span>
           </div>
         ) : null}

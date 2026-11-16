@@ -1,7 +1,7 @@
 "use client"
 
+import { Spinner } from "@halaalvest/ui/components/spinner"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
-import { LoaderCircle } from "lucide-react"
 import { useRef } from "react"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useScrollHeader } from "@/hooks/use-scroll-header"
@@ -86,7 +86,7 @@ export function FoodPurchaseMobileList({
         })}
         {isFetchingNextPage ? (
           <div className="absolute inset-x-0 bottom-0 flex h-12 items-center justify-center text-muted-foreground">
-            <LoaderCircle aria-hidden className="size-4 animate-spin" />
+            <Spinner aria-hidden />
             <span className="sr-only">
               Loading more Foodstuff Purchase applications
             </span>

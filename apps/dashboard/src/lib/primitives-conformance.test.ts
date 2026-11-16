@@ -39,4 +39,12 @@ describe("shared primitives (WP18)", () => {
     expect(button).toMatch(/touch:\s*\n?\s*"h-11 /)
     expect(button).toContain('"icon-touch": "size-11"')
   })
+
+  test("loading indicators use the shared Spinner", () => {
+    const spins = sourceFiles(srcDir).filter((path) =>
+      readFileSync(path, "utf8").includes("animate-spin")
+    )
+
+    expect(spins).toEqual([])
+  })
 })

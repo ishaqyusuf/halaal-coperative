@@ -1,8 +1,8 @@
 "use client"
 
+import { Spinner } from "@halaalvest/ui/components/spinner"
 import { useRef } from "react"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
-import { LoaderCircle } from "lucide-react"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useScrollHeader } from "@/hooks/use-scroll-header"
 import { ProcurementEmptyState } from "./empty-states"
@@ -77,7 +77,7 @@ export function ProcurementMobileList({ canReview }: { canReview: boolean }) {
         })}
         {isFetchingNextPage ? (
           <div className="absolute inset-x-0 bottom-0 flex h-12 items-center justify-center text-muted-foreground">
-            <LoaderCircle aria-hidden className="size-4 animate-spin" />
+            <Spinner aria-hidden />
             <span className="sr-only">Loading more procurement requests</span>
           </div>
         ) : null}

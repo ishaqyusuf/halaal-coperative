@@ -1,5 +1,6 @@
 "use client"
 
+import { Spinner } from "@halaalvest/ui/components/spinner"
 import {
   Table,
   TableBody,
@@ -12,7 +13,6 @@ import {
   type ColumnDef,
 } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
-import { LoaderCircle } from "lucide-react"
 import { useCallback, useRef } from "react"
 import { useDataTable } from "@/hooks/use-data-table"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
@@ -167,7 +167,7 @@ function RepaymentVirtualTable<TData extends { id: string }>({
       </Table>
       {query.isFetchingNextPage ? (
         <div className="flex h-12 items-center justify-center text-muted-foreground">
-          <LoaderCircle aria-hidden className="size-4 animate-spin" />
+          <Spinner aria-hidden />
           <span className="sr-only">Loading more repayment records</span>
         </div>
       ) : null}
@@ -211,9 +211,7 @@ export function RepaymentScheduleDataTable({
             ? "No late payments match"
             : "No payments match",
         title:
-          view === "collections"
-            ? "No late payments"
-            : "No payments due yet",
+          view === "collections" ? "No late payments" : "No payments due yet",
       }}
       initialSettings={initialSettings}
       onOpen={open}

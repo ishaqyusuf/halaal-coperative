@@ -1,8 +1,8 @@
 "use client"
 
+import { Spinner } from "@halaalvest/ui/components/spinner"
 import { type ReactNode, useRef } from "react"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
-import { LoaderCircle } from "lucide-react"
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll"
 import { useScrollHeader } from "@/hooks/use-scroll-header"
 import { RepaymentsEmptyState } from "./empty-states"
@@ -93,7 +93,7 @@ function RepaymentMobileList<TItem extends { id: string }>({
         })}
         {query.isFetchingNextPage ? (
           <div className="absolute inset-x-0 bottom-0 flex h-12 items-center justify-center text-muted-foreground">
-            <LoaderCircle aria-hidden className="size-4 animate-spin" />
+            <Spinner aria-hidden />
             <span className="sr-only">Loading more repayment records</span>
           </div>
         ) : null}
@@ -123,9 +123,7 @@ export function RepaymentScheduleMobileList({
             ? "No late payments match"
             : "No payments match",
         title:
-          view === "collections"
-            ? "No late payments"
-            : "No payments due yet",
+          view === "collections" ? "No late payments" : "No payments due yet",
       }}
       query={query}
       renderItem={(item) => (

@@ -1,5 +1,6 @@
 "use client"
 
+import { Spinner } from "@halaalvest/ui/components/spinner"
 import { closestCenter, DndContext } from "@dnd-kit/core"
 import {
   Table,
@@ -9,7 +10,6 @@ import {
 } from "@halaalvest/ui/components/table"
 import { getCoreRowModel } from "@tanstack/react-table"
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
-import { LoaderCircle } from "lucide-react"
 import { useEffect, useRef } from "react"
 import { VirtualRow } from "@/components/tables/core"
 import { useContributionParams } from "@/hooks/use-contribution-params"
@@ -171,7 +171,7 @@ export function ContributionsDataTable({
       </DndContext>
       {query.isFetchingNextPage ? (
         <div className="flex h-12 items-center justify-center text-muted-foreground">
-          <LoaderCircle aria-hidden className="size-4 animate-spin" />
+          <Spinner aria-hidden />
           <span className="sr-only">Loading more contribution records</span>
         </div>
       ) : null}

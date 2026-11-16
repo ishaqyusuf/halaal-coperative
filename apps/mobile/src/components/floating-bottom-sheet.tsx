@@ -29,6 +29,7 @@ import {
 } from "react-native"
 import { useKeyboardState } from "react-native-keyboard-controller"
 import {
+  Easing,
   type SharedValue,
   useAnimatedReaction,
   useAnimatedStyle,
@@ -44,6 +45,12 @@ import { useColors } from "@/hooks/use-color"
 import { useLargeTextLayout } from "@/hooks/use-large-text-layout"
 import { resolveDisplayTextScale } from "@/lib/mobile-accessibility-layout"
 import { BottomSheetInputProvider } from "@/components/ui/bottom-sheet-input-context"
+
+// The same easing drives the surface and its position-linked backdrop.
+const SHEET_MOTION = {
+  duration: 300,
+  easing: Easing.bezier(0.22, 0.61, 0.36, 1),
+}
 
 const SHEET_RADIUS = 32
 
@@ -277,6 +284,15 @@ export function FloatingBottomSheet({
 
   useEffect(() => {
     if (visible) {
+      // A reopen must not fire a completion left over from the previous close.
+      if (dismissedTimerRef.current !== null) {
+        clearTimeout(dismissedTimerRef.current)
+        dismissedTimerRef.current = null
+      }
+      if (dismissedFallbackTimerRef.current !== null) {
+        clearTimeout(dismissedFallbackTimerRef.current)
+        dismissedFallbackTimerRef.current = null
+      }
       if (accessibilityFallbackTimerRef.current !== null) {
         clearTimeout(accessibilityFallbackTimerRef.current)
         accessibilityFallbackTimerRef.current = null
@@ -286,10 +302,9 @@ export function FloatingBottomSheet({
       dismissedNotifiedRef.current = false
       wasPresentedRef.current = true
       sheetRef.current?.present()
-      const compactFrame = requestAnimationFrame(() =>
-        sheetRef.current?.snapToIndex(0)
-      )
-      return () => cancelAnimationFrame(compactFrame)
+      // Gorhom opens at index 0. A second snap in the next frame can
+      // interrupt the mount animation while dynamic detents are being measured.
+      return
     }
 
     if (wasPresentedRef.current) {
@@ -329,6 +344,7 @@ export function FloatingBottomSheet({
     if (!keyboardExpandable || !visible) return
 
     const frame = requestAnimationFrame(() => {
+      if (!hasOpenedRef.current) return
       if (isKeyboardVisible && snapPoints === undefined) {
         sheetRef.current?.snapToPosition(keyboardExpandedSnapPoint)
         return
@@ -509,6 +525,8 @@ export function FloatingBottomSheet({
     <BottomSheetModal
       ref={sheetRef}
       index={0}
+      animateOnMount
+      animationConfigs={SHEET_MOTION}
       snapPoints={resolvedSnapPoints}
       enableDynamicSizing={resolvedEnableDynamicSizing}
       maxDynamicContentSize={

@@ -5,13 +5,28 @@ import type {
   RepaymentCommandResult,
   RepaymentFacility,
   RepaymentLane,
+  RepaymentSummary,
   RepaymentWorkspace,
 } from "../model/admin-repayment-operations-types"
 import {
   getDevRepaymentFacility,
+  getDevRepaymentSummary,
   getDevRepaymentWorkspace,
   runDevRepaymentCommand,
 } from "./admin-repayment-operations-dev-fixtures"
+
+/** Lane page size (T19): small pages, fetched as the list scrolls. */
+export const REPAYMENT_PAGE_SIZE = 20
+
+/** Summary card and lane counts: one aggregate read keyed by tenant only. */
+export function getRepaymentOperationsSummary() {
+  if (isMobileDevFixtureSession()) return getDevRepaymentSummary()
+  return readCachedMobileQuery(
+    "admin.repayment-operations.summary",
+    () =>
+      createMobileTrpcClient().mobile.admin.repaymentOperations.summary.query()
+  ) as Promise<RepaymentSummary>
+}
 
 export function getRepaymentOperationsWorkspace(input: {
   cursor?: string | null
@@ -19,11 +34,16 @@ export function getRepaymentOperationsWorkspace(input: {
   search?: string
 }) {
   if (isMobileDevFixtureSession()) return getDevRepaymentWorkspace(input)
+  const request = {
+    ...input,
+    includeSummary: false,
+    limit: REPAYMENT_PAGE_SIZE,
+  }
   return readCachedMobileQuery(
-    `admin.repayment-operations.${JSON.stringify(input)}`,
+    `admin.repayment-operations.v2.${JSON.stringify(input)}`,
     () =>
       createMobileTrpcClient().mobile.admin.repaymentOperations.workspace.query(
-        input
+        request
       ),
     { persist: isPersistableReadInput(input) }
   ) as Promise<RepaymentWorkspace>

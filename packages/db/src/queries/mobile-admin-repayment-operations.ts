@@ -102,19 +102,42 @@ const loanPreview = {
   loanProduct: { select: { name: true } },
 } as const
 
-export async function getMobileAdminRepaymentWorkspace(
-  input: {
-    capabilities: MobileAdminRepaymentCapabilities
-    cursor?: string | null
-    lane: MobileAdminRepaymentLane
-    search?: string
-    tenantId: string
-  },
+const openScheduleStatuses = [
+  "pending",
+  "due",
+  "overdue",
+  "partially_paid",
+] as const
+
+export type MobileAdminRepaymentSummary = {
+  activeFacilities: number
+  /** Lane counts: due = every open instalment, collections = overdue ones. */
+  counts: { collections: number; due: number; posted: number }
+  currencyCode: string
+  dueThisMonth: number
+  generatedAt: string
+  outstanding: number
+  overdue: number
+  paidPrincipal: number
+  principal: number
+}
+
+function remaining(sum: {
+  amountPaid: unknown
+  totalDue: unknown
+}) {
+  return Math.max(0, Number(sum.totalDue ?? 0) - Number(sum.amountPaid ?? 0))
+}
+
+/**
+ * The repayments summary card and lane counts (T19). Aggregates only, keyed
+ * by tenant (never by search), in one round: no row scans.
+ */
+export async function getMobileAdminRepaymentSummary(
+  input: { tenantId: string },
   prismaOverride?: PrismaClient
-) {
+): Promise<MobileAdminRepaymentSummary> {
   const prisma = getPrisma(prismaOverride)
-  const scope = operationsCursorScope(input, "repayments")
-  const cursor = readOperationsCursor(input.cursor, scope)
   const now = new Date()
   const monthStart = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)
@@ -122,19 +145,82 @@ export async function getMobileAdminRepaymentWorkspace(
   const monthEnd = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)
   )
-  const loanSearch = searchWhere(input.search)
-  const [tenant, loans, schedule, repayments] = await Promise.all([
+  const open = {
+    status: { in: [...openScheduleStatuses] },
+    tenantId: input.tenantId,
+  }
+  const [tenant, loans, month, overdue, due, posted] = await Promise.all([
     prisma.tenant.findUnique({
       select: { currencyCode: true },
       where: { id: input.tenantId },
     }),
-    prisma.loan.findMany({
-      include: loanPreview,
+    prisma.loan.aggregate({
+      _count: { _all: true },
+      _sum: { outstandingPrincipal: true, principalAmount: true },
       where: {
-        ...loanSearch,
         status: { in: ["disbursed", "active"] },
         tenantId: input.tenantId,
       },
+    }),
+    prisma.repaymentScheduleItem.aggregate({
+      _sum: { amountPaid: true, totalDue: true },
+      where: { ...open, dueAt: { gte: monthStart, lt: monthEnd } },
+    }),
+    prisma.repaymentScheduleItem.aggregate({
+      _count: { _all: true },
+      _sum: { amountPaid: true, totalDue: true },
+      where: { ...open, dueAt: { lt: now } },
+    }),
+    prisma.repaymentScheduleItem.count({ where: open }),
+    prisma.repayment.count({
+      where: { status: "posted", tenantId: input.tenantId },
+    }),
+  ])
+  const outstanding = Number(loans._sum.outstandingPrincipal ?? 0)
+  const principal = Number(loans._sum.principalAmount ?? 0)
+  return {
+    activeFacilities: loans._count._all,
+    counts: { collections: overdue._count._all, due, posted },
+    currencyCode: tenant?.currencyCode ?? "NGN",
+    dueThisMonth: remaining(month._sum),
+    generatedAt: now.toISOString(),
+    outstanding,
+    overdue: remaining(overdue._sum),
+    paidPrincipal: Math.max(0, principal - outstanding),
+    principal,
+  }
+}
+
+export async function getMobileAdminRepaymentWorkspace(
+  input: {
+    capabilities: MobileAdminRepaymentCapabilities
+    cursor?: string | null
+    /**
+     * Legacy clients (before T19) read the summary from every page. The
+     * redesigned screen passes false and reads getMobileAdminRepaymentSummary.
+     */
+    includeSummary?: boolean
+    lane: MobileAdminRepaymentLane
+    /** Page size, 1–80. Legacy clients get 80. */
+    limit?: number
+    search?: string
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = getPrisma(prismaOverride)
+  const scope = operationsCursorScope(
+    { lane: input.lane, search: input.search, tenantId: input.tenantId },
+    "repayments"
+  )
+  const cursor = readOperationsCursor(input.cursor, scope)
+  const limit = Math.min(80, Math.max(1, Math.floor(input.limit ?? 80)))
+  const now = new Date()
+  const loanSearch = searchWhere(input.search)
+  const [tenant, schedule, repayments, summary] = await Promise.all([
+    prisma.tenant.findUnique({
+      select: { currencyCode: true },
+      where: { id: input.tenantId },
     }),
     input.lane === "posted"
       ? Promise.resolve([])
@@ -148,14 +234,14 @@ export async function getMobileAdminRepaymentWorkspace(
             loan: { include: loanPreview },
           },
           orderBy: [{ dueAt: "asc" }, { id: "asc" }],
-          take: 81,
+          take: limit + 1,
           where: {
             ...(cursor ? { AND: [{ OR: [
               { dueAt: { gt: cursor.at } },
               { dueAt: cursor.at, id: { gt: cursor.id } },
             ] }] } : {}),
             loan: { is: loanSearch },
-            status: { in: ["pending", "due", "overdue", "partially_paid"] },
+            status: { in: [...openScheduleStatuses] },
             tenantId: input.tenantId,
             ...(input.lane === "collections" ? { dueAt: { lt: now } } : {}),
           },
@@ -164,7 +250,7 @@ export async function getMobileAdminRepaymentWorkspace(
       ? prisma.repayment.findMany({
           include: { loan: { include: loanPreview } },
           orderBy: [{ paidAt: "desc" }, { id: "desc" }],
-          take: 81,
+          take: limit + 1,
           where: {
             ...(cursor ? { AND: [{ OR: [
               { paidAt: { lt: cursor.at } },
@@ -176,11 +262,17 @@ export async function getMobileAdminRepaymentWorkspace(
           },
         })
       : Promise.resolve([]),
+    input.includeSummary === false
+      ? Promise.resolve(null)
+      : getMobileAdminRepaymentSummary(
+          { tenantId: input.tenantId },
+          prismaOverride
+        ),
   ])
 
   const items: MobileAdminRepaymentWorkspaceItem[] =
     input.lane === "posted"
-      ? repayments.slice(0, 80).map((repayment) => ({
+      ? repayments.slice(0, limit).map((repayment) => ({
           agingDays: 0,
           amount: Number(repayment.amount),
           dueAt: repayment.paidAt.toISOString(),
@@ -203,7 +295,7 @@ export async function getMobileAdminRepaymentWorkspace(
           state: repayment.status,
         }))
       : schedule
-          .slice(0, 80)
+          .slice(0, limit)
           .filter((item) => Number(item.amountPaid) < Number(item.totalDue))
           .map((item) => ({
             agingDays: agingDays(item.dueAt, now),
@@ -240,62 +332,41 @@ export async function getMobileAdminRepaymentWorkspace(
           }))
 
   // Advance over the raw page even if settled schedule rows are filtered out.
-  const lastRepayment = repayments[79]
-  const lastSchedule = schedule[79]
+  const lastRepayment = repayments[limit - 1]
+  const lastSchedule = schedule[limit - 1]
   const nextCursor = input.lane === "posted"
-    ? repayments.length > 80 && lastRepayment
+    ? repayments.length > limit && lastRepayment
       ? writeOperationsCursor(scope, lastRepayment.id, lastRepayment.paidAt) : null
-    : schedule.length > 80 && lastSchedule
+    : schedule.length > limit && lastSchedule
       ? writeOperationsCursor(scope, lastSchedule.id, lastSchedule.dueAt) : null
-
-  const outstanding = loans.reduce(
-    (sum, loan) => sum + Number(loan.outstandingPrincipal),
-    0
-  )
-  const principal = loans.reduce(
-    (sum, loan) => sum + Number(loan.principalAmount),
-    0
-  )
-  const allDue = await prisma.repaymentScheduleItem.findMany({
-    select: { amountPaid: true, dueAt: true, totalDue: true },
-    where: {
-      loan: { is: { ...loanSearch, status: { in: ["disbursed", "active"] } } },
-      status: { in: ["pending", "due", "overdue", "partially_paid"] },
-      tenantId: input.tenantId,
-    },
-  })
-  const dueThisMonth = allDue
-    .filter((item) => item.dueAt >= monthStart && item.dueAt < monthEnd)
-    .reduce(
-      (sum, item) =>
-        sum + Math.max(0, Number(item.totalDue) - Number(item.amountPaid)),
-      0
-    )
-  const overdue = allDue
-    .filter((item) => item.dueAt < now)
-    .reduce(
-      (sum, item) =>
-        sum + Math.max(0, Number(item.totalDue) - Number(item.amountPaid)),
-      0
-    )
 
   return {
     capabilities: input.capabilities,
     currencyCode: tenant?.currencyCode ?? "NGN",
-    generatedAt: new Date().toISOString(),
+    generatedAt: now.toISOString(),
     items,
     lane: input.lane,
     nextCursor,
-    summary: {
-      activeFacilities: loans.length,
-      dueThisMonth,
-      outstanding,
-      overdue,
-      paidPrincipal: Math.max(0, principal - outstanding),
-      principal,
-    },
+    ...(summary
+      ? {
+          summary: {
+            activeFacilities: summary.activeFacilities,
+            dueThisMonth: summary.dueThisMonth,
+            outstanding: summary.outstanding,
+            overdue: summary.overdue,
+            paidPrincipal: summary.paidPrincipal,
+            principal: summary.principal,
+          },
+        }
+      : {}),
   }
 }
+
+/** Facility detail caps: the newest repayments and follow-ups only. */
+export const mobileAdminRepaymentFacilityLimits = {
+  followUps: 10,
+  repayments: 20,
+} as const
 
 export async function getMobileAdminRepaymentFacility(
   input: { loanId: string; tenantId: string },
@@ -311,13 +382,16 @@ export async function getMobileAdminRepaymentFacility(
           repaymentScheduleItem: { select: { installmentNumber: true } },
         },
         orderBy: { createdAt: "desc" },
+        take: mobileAdminRepaymentFacilityLimits.followUps,
       },
+      _count: { select: { collectionFollowUps: true, repayments: true } },
       member: { select: { fullName: true, id: true, memberNumber: true } },
       loanProduct: { select: { name: true } },
       repaymentScheduleItems: { orderBy: { installmentNumber: "asc" } },
       repayments: {
         include: { receivedByUser: { select: { fullName: true } } },
         orderBy: { paidAt: "desc" },
+        take: mobileAdminRepaymentFacilityLimits.repayments,
       },
     },
     where: { id: input.loanId, tenantId: input.tenantId },
@@ -356,6 +430,10 @@ export async function getMobileAdminRepaymentFacility(
       resolutionStatus: followUp.resolutionStatus,
       status: followUp.status,
     })),
+    counts: {
+      followUps: loan._count.collectionFollowUps,
+      repayments: loan._count.repayments,
+    },
     id: loan.id,
     member: {
       id: loan.member.id,

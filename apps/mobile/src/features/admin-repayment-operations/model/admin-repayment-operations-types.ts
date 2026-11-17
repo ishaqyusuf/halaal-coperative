@@ -29,27 +29,35 @@ export type RepaymentWorkspaceItem = {
   state: string
 }
 
+export type RepaymentSummary = {
+  activeFacilities: number
+  cache?: RepaymentReadCache
+  /** due = every open instalment, collections = overdue ones. */
+  counts: Record<RepaymentLane, number>
+  currencyCode: string
+  dueThisMonth: number
+  generatedAt: string
+  outstanding: number
+  overdue: number
+  paidPrincipal: number
+  principal: number
+}
+
+type RepaymentReadCache = {
+  ageMs: number
+  cachedAt: string
+  scope: string
+  status: "live" | "stale"
+}
+
 export type RepaymentWorkspace = {
-  cache?: {
-    ageMs: number
-    cachedAt: string
-    scope: string
-    status: "live" | "stale"
-  }
+  cache?: RepaymentReadCache
   capabilities: RepaymentCapabilities
   currencyCode: string
   generatedAt: string
   items: RepaymentWorkspaceItem[]
   nextCursor?: string | null
   lane: RepaymentLane
-  summary: {
-    activeFacilities: number
-    dueThisMonth: number
-    outstanding: number
-    overdue: number
-    paidPrincipal: number
-    principal: number
-  }
 }
 
 export type RepaymentFacility = {
@@ -67,6 +75,8 @@ export type RepaymentFacility = {
     resolutionStatus: string
     status: string
   }[]
+  /** Totals behind the capped repayments (20) and follow-ups (10). */
+  counts?: { followUps: number; repayments: number }
   id: string
   member: { id: string; name: string; number: string }
   nextDue: {

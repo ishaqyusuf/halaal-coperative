@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import {
   getMobileAdminRepaymentFacility,
+  getMobileAdminRepaymentSummary,
   getMobileAdminRepaymentWorkspace,
+  mobileAdminRepaymentFacilityLimits,
 } from "./mobile-admin-repayment-operations"
 
 function createWorkspacePrisma() {
@@ -34,18 +36,47 @@ function createWorkspacePrisma() {
     status: "due",
     totalDue: 25_000,
   }
+  const aggregateQueries: any[] = []
   return {
+    aggregateQueries,
     loan: {
-      findMany: async (args: any) => {
+      aggregate: async (args: any) => {
+        aggregateQueries.push(args)
         expect(args.where.tenantId).toBe("tenant-1")
-        return [loan]
+        return {
+          _count: { _all: 1 },
+          _sum: {
+            outstandingPrincipal: loan.outstandingPrincipal,
+            principalAmount: loan.principalAmount,
+          },
+        }
+      },
+      findMany: async () => {
+        throw new Error("The summary must not scan loans")
       },
     },
-    repayment: { findMany: async () => [] },
+    repayment: {
+      count: async (args: any) => {
+        aggregateQueries.push(args)
+        return 4
+      },
+      findMany: async () => [],
+    },
     repaymentScheduleItem: {
+      aggregate: async (args: any) => {
+        aggregateQueries.push(args)
+        return {
+          _count: { _all: 2 },
+          _sum: { amountPaid: 5_000, totalDue: 25_000 },
+        }
+      },
+      count: async (args: any) => {
+        aggregateQueries.push(args)
+        return 7
+      },
       findMany: async (args: any) => {
         scheduleQueries.push(args)
-        return args.include ? [schedule] : [schedule]
+        return [schedule]
       },
     },
     scheduleQueries,
@@ -80,6 +111,71 @@ describe("mobile admin repayment operations", () => {
       outstanding: 75_000,
       paidPrincipal: 25_000,
     })
+  })
+
+  test("reads the summary from tenant-scoped aggregates only, ignoring search", async () => {
+    const prisma = createWorkspacePrisma()
+    const summary = await getMobileAdminRepaymentSummary(
+      { tenantId: "tenant-1" },
+      prisma as never
+    )
+    expect(prisma.scheduleQueries).toHaveLength(0)
+    expect(
+      prisma.aggregateQueries.every(
+        (query) => query.where.tenantId === "tenant-1"
+      )
+    ).toBe(true)
+    expect(summary).toMatchObject({
+      activeFacilities: 1,
+      counts: { collections: 2, due: 7, posted: 4 },
+      dueThisMonth: 20_000,
+      outstanding: 75_000,
+      overdue: 20_000,
+      paidPrincipal: 25_000,
+      principal: 100_000,
+    })
+  })
+
+  test("pages a lane at the requested size without the summary", async () => {
+    const prisma = createWorkspacePrisma()
+    const workspace = await getMobileAdminRepaymentWorkspace(
+      {
+        capabilities: { followUp: true, post: true, view: true },
+        includeSummary: false,
+        lane: "due",
+        limit: 20,
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+    expect(prisma.scheduleQueries[0].take).toBe(21)
+    expect(prisma.aggregateQueries).toHaveLength(0)
+    expect("summary" in workspace).toBe(false)
+    expect(workspace.nextCursor).toBeNull()
+  })
+
+  test("caps facility repayments and follow-ups", async () => {
+    let include: any
+    const prisma = {
+      loan: {
+        findFirst: async (args: any) => {
+          include = args.include
+          return null
+        },
+      },
+    }
+    await expect(
+      getMobileAdminRepaymentFacility(
+        { loanId: "loan-1", tenantId: "tenant-1" },
+        prisma as never
+      )
+    ).rejects.toThrow()
+    expect(include.repayments.take).toBe(
+      mobileAdminRepaymentFacilityLimits.repayments
+    )
+    expect(include.collectionFollowUps.take).toBe(
+      mobileAdminRepaymentFacilityLimits.followUps
+    )
   })
 
   test("scopes facility detail by both tenant and facility identity", async () => {

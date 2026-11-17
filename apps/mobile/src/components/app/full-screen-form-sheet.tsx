@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/icon"
 import { Text } from "@/components/ui/text"
 import { useColorScheme } from "@/hooks/use-color"
 import { useLargeTextLayout } from "@/hooks/use-large-text-layout"
+import { cn } from "@/lib/utils"
 import { THEME } from "@/lib/theme"
 import { Portal } from "@gorhom/portal"
 import { OverlayStatusBar } from "@/components/app/screen-status-bar"
@@ -51,11 +52,14 @@ const FORM_EXIT = {
 
 export function FullScreenFormSheet({
   children,
+  contentClassName,
+  contentKey,
   dirty = false,
   footer,
   isSubmitting = false,
   onClose,
   onDismissed,
+  headerOnCard = false,
   headerTrailing,
   onBack,
   overlay,
@@ -64,9 +68,12 @@ export function FullScreenFormSheet({
   visible,
 }: {
   children: ReactNode
+  contentClassName?: string
+  contentKey?: string
   dirty?: boolean
   footer?: ReactNode
   /** Small right-aligned header text, e.g. a step "1 of 2". */
+  headerOnCard?: boolean
   headerTrailing?: ReactNode
   isSubmitting?: boolean
   /** Shows a back chevron instead of X (a later step returning to the form). */
@@ -102,6 +109,7 @@ export function FullScreenFormSheet({
   // Keep the last displayed form intact while the surface slides away.
   const lastForm = useRef({
     children,
+    contentKey,
     footer,
     headerTrailing,
     onBack,
@@ -109,7 +117,7 @@ export function FullScreenFormSheet({
     title,
   })
   const form = visible
-    ? { children, footer, headerTrailing, onBack, overlayActive, title }
+    ? { children, contentKey, footer, headerTrailing, onBack, overlayActive, title }
     : lastForm.current
 
   useLayoutEffect(() => {
@@ -117,6 +125,7 @@ export function FullScreenFormSheet({
     if (visible)
       lastForm.current = {
         children,
+        contentKey,
         footer,
         headerTrailing,
         onBack,
@@ -125,6 +134,7 @@ export function FullScreenFormSheet({
       }
   }, [
     children,
+    contentKey,
     footer,
     headerTrailing,
     onBack,
@@ -222,15 +232,18 @@ export function FullScreenFormSheet({
           ]}
         >
           <View className="flex-1">
-            <SafeAreaView style={{ backgroundColor: colors.background, flex: 1 }}>
+            <SafeAreaView style={{ backgroundColor: headerOnCard ? colors.card : colors.background, flex: 1 }}>
               <OverlayStatusBar />
-              <View className="min-h-14 flex-row items-center gap-2 px-[14px] pt-1 pb-2">
+              <View className={cn(
+                "min-h-14 flex-row items-center gap-2 px-[14px] pt-1 pb-2",
+                headerOnCard && "border-b border-border",
+              )}>
                 <View style={{ ...cardShadow, borderRadius: 999 }}>
                 <Button
                   accessibilityLabel={
                     form.onBack ? "Back" : `Close ${form.title}`
                   }
-                  className="bg-card"
+                  className={headerOnCard ? "bg-surface-raised" : "bg-card"}
                   disabled={isSubmitting}
                   onPress={form.onBack ?? requestClose}
                   size="icon"
@@ -244,7 +257,7 @@ export function FullScreenFormSheet({
                 </View>
                 <Text
                   accessibilityRole="header"
-                  className="min-w-0 flex-1 text-center text-base font-extrabold text-foreground"
+                  className={cn("min-w-0 flex-1 text-center font-extrabold text-foreground", headerOnCard ? "text-[16px] leading-[22px]" : "text-base")}
                   maxFontSizeMultiplier={1.5}
                   numberOfLines={largeTextLayout ? 2 : 1}
                 >
@@ -260,8 +273,9 @@ export function FullScreenFormSheet({
                   )}
                 </View>
               </View>
-              <View className="flex-1 overflow-hidden">
+              <View className={cn("flex-1 overflow-hidden", headerOnCard && "bg-background")}>
                 <AppKeyboardAwareScrollView
+                  key={form.contentKey}
                   bottomOffset={Math.max(
                     insets.bottom + 144,
                     footerHeight + 144,
@@ -270,7 +284,7 @@ export function FullScreenFormSheet({
                   keyboardShouldPersistTaps="always"
                   nestedScrollEnabled
                 >
-                  <View className="gap-5 px-5 pb-8 pt-5">
+                  <View className={cn("gap-5 px-5 pb-8 pt-5", contentClassName)}>
                     {form.children}
                     <View
                       accessibilityElementsHidden

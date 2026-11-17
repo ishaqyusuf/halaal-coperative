@@ -10,12 +10,11 @@ import {
   DEFAULT_FINANCING_POLICY,
   getTenantFinancingPolicySnapshot,
 } from "./financing-cycles"
-import { getTenantInitialMigrationState } from "./migration"
+import { getTenantMigrationWriteAccess } from "./migration"
 import {
   findFoodPurchaseApplication,
   getActiveFoodPurchaseObligationCount,
   getFoodPurchaseApplicationSummary,
-  listFoodPurchaseApplications,
   listFoodPurchaseApplicationPage,
   listFoodPurchaseCycles,
   submitFoodPurchaseApplication,
@@ -28,10 +27,10 @@ import { getTenantOperationProfile } from "./operation-profile"
 import {
   getProcurementSummary,
   getProcurementRequest,
-  listProcurementRequests,
   listProcurementRequestPage,
   createProcurementRequest,
   type ProcurementRequestRow,
+  type ProcurementRequestStatus,
 } from "./procurement"
 import { financingBlockingLoanStatuses } from "./loan-statuses"
 import { isLateScheduleItem, startOfUtcDay } from "./repayments"
@@ -39,9 +38,9 @@ import {
   createProjectFinancingRequest,
   findProjectFinancingRequest,
   getProjectFinancingSummary,
-  listProjectFinancingRequests,
   listProjectFinancingRequestPage,
   type ProjectFinancingRequestRow,
+  type ProjectFinancingRequestStatus,
   type ProjectFinancingStructure,
 } from "./project-financing"
 
@@ -90,6 +89,7 @@ export function countLateProcurementScheduleItems(
 function toMobileProcurementRequest(row: ProcurementRequestRow) {
   return {
     approvedCost: row.approvedCost,
+    approvedMarkup: row.approvedMarkup,
     approvedMonthlyRepayment: row.approvedMonthlyRepayment,
     approvedRepaymentMonths: row.approvedRepaymentMonths,
     estimatedMonthlyRepayment: row.estimatedMonthlyRepayment,
@@ -163,6 +163,7 @@ function toMobileFoodPurchaseApplication(row: FoodPurchaseApplicationRow) {
       releasedAmount: row.cycle.releasedAmount,
       status: row.cycle.status,
     },
+    goodsReleasedAt: row.goodsReleasedAt?.toISOString() ?? null,
     id: row.id,
     itemDescription: row.itemDescription,
     paidAmount: row.paidAmount,
@@ -176,16 +177,22 @@ function toMobileFoodPurchaseApplication(row: FoodPurchaseApplicationRow) {
   }
 }
 
-async function getChargeOptions(input: {
-  tenantId: string
-  workflow: ChargeWorkflow
-}): Promise<MobileWorkflowChargeOption[]> {
-  const quotes = await quoteApplicableCharges({
-    basisAmount: 100,
-    tenantId: input.tenantId,
-    trigger: "submission",
-    workflow: input.workflow,
-  })
+async function getChargeOptions(
+  input: {
+    tenantId: string
+    workflow: ChargeWorkflow
+  },
+  prisma: PrismaClient
+): Promise<MobileWorkflowChargeOption[]> {
+  const quotes = await quoteApplicableCharges(
+    {
+      basisAmount: 100,
+      tenantId: input.tenantId,
+      trigger: "submission",
+      workflow: input.workflow,
+    },
+    prisma
+  )
   return quotes.map((quote) => ({
     amount: quote.effectiveAmount,
     chargeValueType: quote.chargeValueType,
@@ -194,79 +201,6 @@ async function getChargeOptions(input: {
     id: quote.chargeApplicabilityId ?? quote.chargeDefinitionId,
     name: quote.name,
   }))
-}
-
-async function getMobileMemberProcurement(input: {
-  tenantId: string
-  userId: string
-}) {
-  const prisma = createPrismaClient()
-  if (!prisma) {
-    return {
-      canCreateRequest: false,
-      chargeOptions: [] as MobileWorkflowChargeOption[],
-      generatedAt: new Date().toISOString(),
-      member: null,
-      requests: [] as ReturnType<typeof toMobileProcurementRequest>[],
-      summary: {
-        activeRequests: 0,
-        approvedRequests: 0,
-        dueScheduleItems: 0,
-        outstandingAmount: 0,
-        overdueScheduleItems: 0,
-        pendingRequests: 0,
-        totalRequests: 0,
-      },
-    }
-  }
-  const member = await getMemberByUserId(input, prisma)
-  if (!member) return getMobileMemberProcurementUnavailable()
-  const [requests, chargeOptions, profile] = await Promise.all([
-    listProcurementRequests(
-      { memberId: member.id, tenantId: input.tenantId },
-      prisma
-    ),
-    getChargeOptions({
-      tenantId: input.tenantId,
-      workflow: "procurement_request",
-    }),
-    getTenantOperationProfile(input.tenantId, prisma),
-  ])
-  const rows = requests.map(toMobileProcurementRequest)
-  return {
-    canCreateRequest: profile.services.procurement.canMemberCreate,
-    chargeOptions,
-    generatedAt: new Date().toISOString(),
-    member: {
-      id: member.id,
-      memberNumber: member.memberNumber,
-      name: member.fullName,
-    },
-    requests: rows,
-    summary: {
-      activeRequests: rows.filter((item) =>
-        ["active", "purchased"].includes(item.status)
-      ).length,
-      approvedRequests: rows.filter((item) =>
-        ["approved", "purchased", "active", "completed"].includes(item.status)
-      ).length,
-      dueScheduleItems: rows.reduce(
-        (total, item) =>
-          total +
-          item.scheduleItems.filter((entry) => entry.status === "due").length,
-        0
-      ),
-      outstandingAmount: rows.reduce(
-        (total, item) => total + item.outstandingAmount,
-        0
-      ),
-      overdueScheduleItems: countLateProcurementScheduleItems(rows),
-      pendingRequests: rows.filter((item) =>
-        ["submitted", "under_review"].includes(item.status)
-      ).length,
-      totalRequests: rows.length,
-    },
-  }
 }
 
 function getMobileMemberProcurementUnavailable() {
@@ -288,12 +222,8 @@ function getMobileMemberProcurementUnavailable() {
   }
 }
 
-async function getMobileMemberProjectFinancing(input: {
-  tenantId: string
-  userId: string
-}) {
-  const prisma = createPrismaClient()
-  const empty = {
+function getMobileMemberProjectFinancingUnavailable() {
+  return {
     chargeOptions: [] as MobileWorkflowChargeOption[],
     generatedAt: new Date().toISOString(),
     member: null,
@@ -308,63 +238,10 @@ async function getMobileMemberProjectFinancing(input: {
       totalRequests: 0,
     },
   }
-  if (!prisma) return empty
-  const member = await getMemberByUserId(input, prisma)
-  if (!member) return empty
-  const [requests, chargeOptions] = await Promise.all([
-    listProjectFinancingRequests(
-      { memberId: member.id, tenantId: input.tenantId },
-      prisma
-    ),
-    getChargeOptions({
-      tenantId: input.tenantId,
-      workflow: "project_financing_request",
-    }),
-  ])
-  const rows = requests.map(toMobileProjectFinancingRequest)
-  return {
-    chargeOptions,
-    generatedAt: new Date().toISOString(),
-    member: {
-      id: member.id,
-      memberNumber: member.memberNumber,
-      name: member.fullName,
-    },
-    requests: rows,
-    summary: {
-      activeRequests: rows.filter((item) => item.status === "active").length,
-      approvedRequests: rows.filter((item) =>
-        ["approved", "active", "completed"].includes(item.status)
-      ).length,
-      outstandingAmount: rows.reduce(
-        (total, item) =>
-          ["approved", "active", "completed"].includes(item.status)
-            ? total + Math.max((item.approvedAmount ?? 0) - item.paidAmount, 0)
-            : total,
-        0
-      ),
-      pendingRequests: rows.filter((item) =>
-        ["submitted", "under_review"].includes(item.status)
-      ).length,
-      totalApprovedAmount: rows.reduce(
-        (total, item) => total + (item.approvedAmount ?? 0),
-        0
-      ),
-      totalRequestedAmount: rows.reduce(
-        (total, item) => total + item.requestedAmount,
-        0
-      ),
-      totalRequests: rows.length,
-    },
-  }
 }
 
-async function getMobileMemberFoodPurchase(input: {
-  tenantId: string
-  userId: string
-}) {
-  const prisma = createPrismaClient()
-  const empty = {
+function getMobileMemberFoodPurchaseUnavailable() {
+  return {
     applications: [] as ReturnType<typeof toMobileFoodPurchaseApplication>[],
     canCreateApplication: false,
     chargeOptions: [] as MobileWorkflowChargeOption[],
@@ -378,44 +255,18 @@ async function getMobileMemberFoodPurchase(input: {
       totalApplications: 0,
     },
   }
-  if (!prisma) return empty
-  const member = await getMemberByUserId(input, prisma)
-  if (!member) return empty
-  const [cycles, applications, chargeOptions, profile] = await Promise.all([
-    listFoodPurchaseCycles({ tenantId: input.tenantId }, prisma),
-    listFoodPurchaseApplications(
-      { memberId: member.id, tenantId: input.tenantId },
-      prisma
-    ),
-    getChargeOptions({
-      tenantId: input.tenantId,
-      workflow: "food_purchase_application",
-    }),
-    getTenantOperationProfile(input.tenantId, prisma),
-  ])
-  const mobileCycles = cycles.map(toMobileFoodPurchaseCycle)
-  const rows = applications.map(toMobileFoodPurchaseApplication)
-  return {
-    applications: rows,
-    canCreateApplication: profile.services.food_purchase.canMemberCreate,
-    chargeOptions,
-    cycles: mobileCycles,
-    generatedAt: new Date().toISOString(),
-    member: {
+}
+
+function toMobileServiceMember(
+  member: Awaited<ReturnType<typeof getMemberByUserId>>
+) {
+  return (
+    member && {
       id: member.id,
       memberNumber: member.memberNumber,
       name: member.fullName,
-    },
-    summary: {
-      approvedApplications: rows.filter((item) => item.status === "approved")
-        .length,
-      openCycles: mobileCycles.filter((item) => item.status === "open").length,
-      pendingApplications: rows.filter((item) =>
-        ["submitted", "under_review"].includes(item.status)
-      ).length,
-      totalApplications: rows.length,
-    },
-  }
+    }
+  )
 }
 
 export type MobileProcurementRequestPage = {
@@ -544,13 +395,35 @@ function unavailableCapability(serviceKey: "food_purchase" | "procurement") {
   }
 }
 
+type MemberRequestPageInput = {
+  cursor?: string | null
+  filter?: "all" | "active" | "pending" | "closed"
+  pageSize?: number
+  search?: string
+  tenantId: string
+  userId: string
+}
+
+const procurementLanes: Record<
+  Exclude<NonNullable<MemberRequestPageInput["filter"]>, "all">,
+  ProcurementRequestStatus[]
+> = {
+  active: ["active", "purchased"],
+  pending: ["submitted", "under_review"],
+  closed: ["completed", "rejected", "cancelled"],
+}
+
+const projectLanes: Record<
+  Exclude<NonNullable<MemberRequestPageInput["filter"]>, "all">,
+  ProjectFinancingRequestStatus[]
+> = {
+  active: ["active"],
+  pending: ["submitted", "under_review"],
+  closed: ["completed", "rejected", "cancelled"],
+}
+
 export async function getMobileMemberProcurementRequestPage(
-  input: {
-    cursor?: string | null
-    pageSize?: number
-    tenantId: string
-    userId: string
-  },
+  input: MemberRequestPageInput,
   prismaOverride?: NonNullable<ReturnType<typeof createPrismaClient>>
 ): Promise<MobileProcurementRequestPage> {
   const prisma = prismaOverride ?? createPrismaClient()
@@ -566,6 +439,11 @@ export async function getMobileMemberProcurementRequestPage(
       cursor: input.cursor,
       memberId: member.id,
       pageSize: boundedPageSize(input.pageSize),
+      search: input.search,
+      statuses:
+        input.filter && input.filter !== "all"
+          ? procurementLanes[input.filter]
+          : undefined,
       tenantId: input.tenantId,
     },
     prisma
@@ -602,12 +480,7 @@ export async function getMobileMemberProcurementRequestDetail(
 }
 
 export async function getMobileMemberFoodPurchaseApplicationPage(
-  input: {
-    cursor?: string | null
-    pageSize?: number
-    tenantId: string
-    userId: string
-  },
+  input: MemberRequestPageInput,
   prismaOverride?: NonNullable<ReturnType<typeof createPrismaClient>>
 ): Promise<MobileFoodPurchaseApplicationPage> {
   const prisma = prismaOverride ?? createPrismaClient()
@@ -623,6 +496,8 @@ export async function getMobileMemberFoodPurchaseApplicationPage(
       cursor: input.cursor,
       memberId: member.id,
       pageSize: boundedPageSize(input.pageSize),
+      search: input.search,
+      memberLane: input.filter === "all" ? undefined : input.filter,
       tenantId: input.tenantId,
     },
     prisma
@@ -659,12 +534,7 @@ export async function getMobileMemberFoodPurchaseApplicationDetail(
 }
 
 export async function getMobileMemberProjectFinancingRequestPage(
-  input: {
-    cursor?: string | null
-    pageSize?: number
-    tenantId: string
-    userId: string
-  },
+  input: MemberRequestPageInput,
   prismaOverride?: NonNullable<ReturnType<typeof createPrismaClient>>
 ): Promise<MobileProjectFinancingRequestPage> {
   const prisma = prismaOverride ?? createPrismaClient()
@@ -680,6 +550,11 @@ export async function getMobileMemberProjectFinancingRequestPage(
       cursor: input.cursor,
       memberId: member.id,
       pageSize: boundedPageSize(input.pageSize),
+      search: input.search,
+      statuses:
+        input.filter && input.filter !== "all"
+          ? projectLanes[input.filter]
+          : undefined,
       tenantId: input.tenantId,
     },
     prisma
@@ -715,15 +590,19 @@ export async function getMobileMemberProjectFinancingRequestDetail(
   return request ? toMobileProjectFinancingRequest(request) : null
 }
 
-export async function getMobileMemberProcurementService(input: {
-  tenantId: string
-  userId: string
-}) {
-  const snapshot = await getMobileMemberProcurement(input)
-  const prisma = createPrismaClient()
+export async function getMobileMemberProcurementService(
+  input: {
+    tenantId: string
+    userId: string
+  },
+  prismaOverride?: PrismaClient
+) {
+  const snapshot = getMobileMemberProcurementUnavailable()
+  const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) {
     return {
       ...snapshot,
+      activeRequest: null,
       capability: unavailableCapability("procurement"),
       policy: {
         activeFinancingBlocksProcurement:
@@ -740,38 +619,47 @@ export async function getMobileMemberProcurementService(input: {
     }
   }
 
-  const [profile, policy, activeFinancingCount, requestPage, summary, readiness] =
+  const [member, profile, policy] = await Promise.all([
+    getMemberByUserId(input, prisma),
+    getTenantOperationProfile(input.tenantId, prisma),
+    getTenantFinancingPolicySnapshot(input.tenantId, prisma),
+  ])
+  const [activeFinancingCount, requestPage, summary, readiness, chargeOptions] =
     await Promise.all([
-      getTenantOperationProfile(input.tenantId, prisma),
-      getTenantFinancingPolicySnapshot(input.tenantId, prisma),
-      snapshot.member
+      member && policy.activeFinancingBlocksProcurement
         ? prisma.loan.count({
             where: {
-              memberId: snapshot.member.id,
+              memberId: member.id,
               status: { in: [...activeFinancingStatuses] },
               tenantId: input.tenantId,
             },
           })
         : Promise.resolve(0),
-      snapshot.member
+      member
         ? listProcurementRequestPage(
             {
-              memberId: snapshot.member.id,
+              memberId: member.id,
               pageSize: 20,
               tenantId: input.tenantId,
             },
             prisma
           )
         : Promise.resolve(null),
-      snapshot.member
-        ? getProcurementSummary(input.tenantId, prisma, snapshot.member.id)
+      member
+        ? getProcurementSummary(input.tenantId, prisma, member.id)
         : Promise.resolve(null),
-      snapshot.member
+      member
         ? getMemberOperationalReadiness(
-            { memberId: snapshot.member.id, tenantId: input.tenantId },
+            { memberId: member.id, tenantId: input.tenantId },
             prisma
           )
         : Promise.resolve(null),
+      member
+        ? getChargeOptions(
+            { tenantId: input.tenantId, workflow: "procurement_request" },
+            prisma
+          )
+        : Promise.resolve([]),
     ])
   const capability = profile.services.procurement
   const availability = deriveMobileProcurementAvailability({
@@ -779,14 +667,35 @@ export async function getMobileMemberProcurementService(input: {
     activeFinancingBlocksProcurement: policy.activeFinancingBlocksProcurement,
     activeFinancingCount,
     activeObligationCount: summary?.activeRequests ?? 0,
-    hasMember: snapshot.member !== null,
+    hasMember: member !== null,
     memberOperationalReady: readiness?.isReady === true,
     maximumActiveObligationsPerMember:
       profile.policy.procurementMaximumActiveObligationsPerMember,
   })
 
+  const inPage = requestPage?.data.find((row) =>
+    procurementLanes.active.includes(row.status)
+  )
+  const active =
+    inPage ??
+    (member && summary?.activeRequests
+      ? (
+          await listProcurementRequestPage(
+            {
+              memberId: member.id,
+              pageSize: 1,
+              tenantId: input.tenantId,
+              statuses: procurementLanes.active,
+            },
+            prisma
+          )
+        ).data[0]
+      : undefined)
   return {
     ...snapshot,
+    activeRequest: active ? toMobileProcurementRequest(active) : null,
+    chargeOptions,
+    member: toMobileServiceMember(member),
     canCreateRequest: availability.canCreateRequest,
     capability,
     policy: {
@@ -801,7 +710,7 @@ export async function getMobileMemberProcurementService(input: {
     requests:
       requestPage?.data.map(toMobileProcurementRequest) ?? snapshot.requests,
     restrictionReasons: availability.restrictionReasons,
-    state: snapshot.member
+    state: member
       ? ("available" as const)
       : ("member_profile_missing" as const),
     summary: summary
@@ -818,15 +727,19 @@ export async function getMobileMemberProcurementService(input: {
   }
 }
 
-export async function getMobileMemberFoodPurchaseService(input: {
-  tenantId: string
-  userId: string
-}) {
-  const snapshot = await getMobileMemberFoodPurchase(input)
-  const prisma = createPrismaClient()
+export async function getMobileMemberFoodPurchaseService(
+  input: {
+    tenantId: string
+    userId: string
+  },
+  prismaOverride?: PrismaClient
+) {
+  const snapshot = getMobileMemberFoodPurchaseUnavailable()
+  const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) {
     return {
       ...snapshot,
+      activeRequest: null,
       capability: unavailableCapability("food_purchase"),
       policy: {
         allowsCommitmentReductionDuringPayback:
@@ -842,35 +755,47 @@ export async function getMobileMemberFoodPurchaseService(input: {
     }
   }
 
+  const [member, profile, policy] = await Promise.all([
+    getMemberByUserId(input, prisma),
+    getTenantOperationProfile(input.tenantId, prisma),
+    getTenantFinancingPolicySnapshot(input.tenantId, prisma),
+  ])
   const [
-    profile,
-    policy,
+    cycles,
+    chargeOptions,
     applicationPage,
     applicationSummary,
     activeObligationCount,
     openCycleCount,
   ] = await Promise.all([
-    getTenantOperationProfile(input.tenantId, prisma),
-    getTenantFinancingPolicySnapshot(input.tenantId, prisma),
-    snapshot.member
+    member
+      ? listFoodPurchaseCycles({ tenantId: input.tenantId }, prisma)
+      : Promise.resolve([]),
+    member
+      ? getChargeOptions(
+          { tenantId: input.tenantId, workflow: "food_purchase_application" },
+          prisma
+        )
+      : Promise.resolve([]),
+    member
       ? listFoodPurchaseApplicationPage(
           {
-            memberId: snapshot.member.id,
+            memberId: member.id,
             pageSize: 20,
             tenantId: input.tenantId,
           },
           prisma
         )
       : Promise.resolve(null),
-    snapshot.member
+    member
       ? getFoodPurchaseApplicationSummary(
-          { memberId: snapshot.member.id, tenantId: input.tenantId },
+          { memberId: member.id, tenantId: input.tenantId },
           prisma
         )
       : Promise.resolve(null),
-    snapshot.member
+    member
       ? getActiveFoodPurchaseObligationCount(
-          { memberId: snapshot.member.id, tenantId: input.tenantId },
+          { memberId: member.id, tenantId: input.tenantId },
           prisma
         )
       : Promise.resolve(0),
@@ -882,21 +807,51 @@ export async function getMobileMemberFoodPurchaseService(input: {
   const availability = deriveMobileFoodPurchaseAvailability({
     accessMode: capability.accessMode,
     activeObligationCount,
-    hasMember: snapshot.member !== null,
+    hasMember: member !== null,
     hasOpenCycle:
       !profile.policy.foodPurchaseRequiresOpenCycle || openCycleCount > 0,
     maximumActiveObligationsPerMember:
       profile.policy.foodPurchaseMaximumActiveObligationsPerMember,
   })
 
+  const inPage = applicationPage?.data.find(
+    (row) =>
+      row.status === "approved" &&
+      row.approvedAmount !== null &&
+      row.approvedAmount > row.paidAmount &&
+      (row.goodsReleasedAt ||
+        row.paidAmount > 0 ||
+        ["accounting_approved", "completed", "closed"].includes(
+          row.cycle.status
+        ))
+  )
+  const active =
+    inPage ??
+    (member && activeObligationCount
+      ? (
+          await listFoodPurchaseApplicationPage(
+            {
+              memberId: member.id,
+              pageSize: 1,
+              tenantId: input.tenantId,
+              memberLane: "active",
+            },
+            prisma
+          )
+        ).data[0]
+      : undefined)
   return {
     ...snapshot,
+    activeRequest: active ? toMobileFoodPurchaseApplication(active) : null,
+    chargeOptions,
+    member: toMobileServiceMember(member),
     applicationNextCursor: applicationPage?.meta.cursor ?? null,
     applications:
       applicationPage?.data.map(toMobileFoodPurchaseApplication) ??
       snapshot.applications,
     canCreateApplication: availability.canCreateApplication,
     capability,
+    cycles: cycles.map(toMobileFoodPurchaseCycle),
     policy: {
       allowsCommitmentReductionDuringPayback:
         policy.foodPurchaseAllowsCommitmentReductionDuringPayback,
@@ -906,7 +861,7 @@ export async function getMobileMemberFoodPurchaseService(input: {
       requiresOpenCycle: profile.policy.foodPurchaseRequiresOpenCycle,
     },
     restrictionReasons: availability.restrictionReasons,
-    state: snapshot.member
+    state: member
       ? ("available" as const)
       : ("member_profile_missing" as const),
     summary: applicationSummary
@@ -915,15 +870,19 @@ export async function getMobileMemberFoodPurchaseService(input: {
   }
 }
 
-export async function getMobileMemberProjectFinancingService(input: {
-  tenantId: string
-  userId: string
-}) {
-  const snapshot = await getMobileMemberProjectFinancing(input)
-  const prisma = createPrismaClient()
+export async function getMobileMemberProjectFinancingService(
+  input: {
+    tenantId: string
+    userId: string
+  },
+  prismaOverride?: PrismaClient
+) {
+  const snapshot = getMobileMemberProjectFinancingUnavailable()
+  const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) {
     return {
       ...snapshot,
+      activeRequest: null,
       canCreateRequest: false,
       eligibleStructures: mobileProjectFinancingStructureKeys.map((value) => ({
         requiresPaybackMonths: value === "repayable_facility",
@@ -935,24 +894,50 @@ export async function getMobileMemberProjectFinancingService(input: {
     }
   }
 
-  const migration = await getTenantInitialMigrationState(input.tenantId, prisma)
-  const canUseLiveFinancialWrites = migration.snapshot.canUseLiveFinancialWrites
-  const [requestPage, summary] = snapshot.member
+  const [member, migration] = await Promise.all([
+    getMemberByUserId(input, prisma),
+    getTenantMigrationWriteAccess(input.tenantId, prisma),
+  ])
+  const canUseLiveFinancialWrites = migration.canUseLiveFinancialWrites
+  const [requestPage, summary, chargeOptions] = member
     ? await Promise.all([
         listProjectFinancingRequestPage(
           {
-            memberId: snapshot.member.id,
+            memberId: member.id,
             pageSize: 20,
             tenantId: input.tenantId,
           },
           prisma
         ),
-        getProjectFinancingSummary(input.tenantId, prisma, snapshot.member.id),
+        getProjectFinancingSummary(input.tenantId, prisma, member.id),
+        getChargeOptions(
+          { tenantId: input.tenantId, workflow: "project_financing_request" },
+          prisma
+        ),
       ])
-    : [null, null]
+    : [null, null, []]
+  const inPage = requestPage?.data.find((row) => row.status === "active")
+  const active =
+    inPage ??
+    (member && summary?.activeRequests
+      ? (
+          await listProjectFinancingRequestPage(
+            {
+              memberId: member.id,
+              pageSize: 1,
+              tenantId: input.tenantId,
+              statuses: projectLanes.active,
+            },
+            prisma
+          )
+        ).data[0]
+      : undefined)
   return {
     ...snapshot,
-    canCreateRequest: snapshot.member !== null && canUseLiveFinancialWrites,
+    activeRequest: active ? toMobileProjectFinancingRequest(active) : null,
+    chargeOptions,
+    member: toMobileServiceMember(member),
+    canCreateRequest: member !== null && canUseLiveFinancialWrites,
     eligibleStructures: mobileProjectFinancingStructureKeys.map((value) => ({
       requiresPaybackMonths: value === "repayable_facility",
       value,
@@ -966,7 +951,7 @@ export async function getMobileMemberProjectFinancingService(input: {
       : [
           "New project financing requests open after the cooperative finalizes its initial migration.",
         ],
-    state: snapshot.member
+    state: member
       ? ("available" as const)
       : ("member_profile_missing" as const),
     summary: summary ?? snapshot.summary,

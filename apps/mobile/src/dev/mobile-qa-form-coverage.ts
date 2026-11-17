@@ -22,15 +22,9 @@ export type MobileQaFormCoverage = QaFormCoverage & {
 const feature = (path: string) => `src/features/${path}`
 
 const memberFinancing = feature("financing/components/financing-request-form.tsx")
-const memberProcurement = feature(
-  "procurement/screens/member-procurement-screen.tsx"
-)
-const memberProjectFinancing = feature(
-  "project-financing/screens/member-project-financing-screen.tsx"
-)
-const memberFoodPurchase = [
-  feature("food-purchase/components/member-food-purchase-application-form.tsx"),
-  feature("food-purchase/hooks/use-member-food-purchase-controller.ts"),
+const serviceRequestSources = [
+  feature("member-service-requests/service-request-editor.tsx"),
+  feature("member-service-requests/service-request-adapters.ts"),
 ]
 const memberReceiptForm = feature("receipts/components/receipt-submit-flow.tsx")
 const memberReceiptSupport = feature("receipts/components/receipt-support-flow.tsx")
@@ -100,19 +94,19 @@ export const mobileQaFormCoverage = [
     formId: "mobile.member.procurement-request",
     kind: "recipe",
     recipe: "procurement",
-    sources: [memberProcurement],
+    sources: serviceRequestSources,
   },
   {
     formId: "mobile.member.project-financing-request",
     kind: "recipe",
     recipe: "projectFinancing",
-    sources: [memberProjectFinancing],
+    sources: serviceRequestSources,
   },
   {
     formId: "mobile.member.food-purchase-application",
     kind: "recipe",
     recipe: "foodPurchase",
-    sources: memberFoodPurchase,
+    sources: serviceRequestSources,
   },
   {
     formId: "mobile.member.receipt-draft",

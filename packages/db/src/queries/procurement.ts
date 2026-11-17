@@ -115,6 +115,7 @@ export type ListProcurementRequestPageFilters = {
   search?: string
   sort?: [ProcurementRequestSortField, "asc" | "desc"] | null
   status?: ProcurementRequestStatus
+  statuses?: ProcurementRequestStatus[]
 }
 
 const procurementRequestStatuses = new Set([
@@ -712,12 +713,13 @@ function getProcurementRequestWhere(input: {
   memberId?: string
   search?: string
   status?: ProcurementRequestStatus
+  statuses?: ProcurementRequestStatus[]
   tenantId: string
 }) {
   return {
     tenantId: input.tenantId,
     ...(input.memberId ? { memberId: input.memberId } : {}),
-    ...(input.status ? { status: input.status } : {}),
+    ...(input.status ? { status: input.status } : input.statuses?.length ? { status: { in: input.statuses } } : {}),
     ...(input.search && {
       OR: [
         {
@@ -772,7 +774,7 @@ export async function listProcurementRequestPage(
   const prisma = (prismaOverride ?? createPrismaClient()) as any
   if (!prisma) throw new Error("Database not configured")
 
-  if (input.status && !procurementRequestStatuses.has(input.status)) {
+  if ((input.status && !procurementRequestStatuses.has(input.status)) || input.statuses?.some((status) => !procurementRequestStatuses.has(status))) {
     throw new AppError({
       code: "VALIDATION_FAILED",
       publicMessage: "Procurement request status is not supported.",

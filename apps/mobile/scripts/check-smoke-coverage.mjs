@@ -346,29 +346,13 @@ assertIncludes(
   ["StatusBanner", "ScreenShell", "AdminFinanceOperationsGrid"]
 )
 
-for (const screen of [
-  "src/features/procurement/screens/member-procurement-screen.tsx",
-  "src/features/project-financing/screens/member-project-financing-screen.tsx",
-]) {
-  assertIncludes(screen, [
-    "useMobileFormDraft",
-    "isMobileReadCacheStale",
-    "CooperativeServiceFreshness",
-    "CooperativeServiceStateNotice",
-  ])
-}
-
 assertIncludes(
-  "src/features/food-purchase/hooks/use-member-food-purchase-controller.ts",
-  ["useMobileFormDraft", "isMobileReadCacheStale"]
+  "src/features/member-service-requests/member-service-request-screen.tsx",
+  ["useMobileFormDraft", "isMobileReadCacheStale", "useAppQuery", "useAppInfiniteQuery"]
 )
 assertIncludes(
-  "src/features/food-purchase/screens/member-food-purchase-screen.tsx",
-  [
-    "useMemberFoodPurchaseController",
-    "CooperativeServiceFreshness",
-    "CooperativeServiceStateNotice",
-  ]
+  "src/features/member-service-requests/service-request-overview.tsx",
+  ["<AppList", "onEndReached=", "<SegmentedControl", "<SegmentedPager", "<RequestNotice"]
 )
 
 assertIncludes(
@@ -377,9 +361,6 @@ assertIncludes(
 )
 
 for (const screen of [
-  "src/features/procurement/screens/member-procurement-screen.tsx",
-  "src/features/project-financing/screens/member-project-financing-screen.tsx",
-  "src/features/food-purchase/screens/member-food-purchase-screen.tsx",
   "src/features/admin-reports-access/screens/admin-reports-screen.tsx",
 ]) {
   assertIncludes(screen, ["VirtualizedCardList"])

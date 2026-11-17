@@ -44,6 +44,7 @@ export type ListFoodPurchaseApplicationPageFilters = {
   page?: number
   pageSize?: number
   search?: string
+  memberLane?: "active" | "pending" | "closed"
   sort?: [FoodPurchaseApplicationSortField, "asc" | "desc"] | null
   status?: FoodPurchaseApplicationStatus
 }
@@ -1273,20 +1274,42 @@ export async function listFoodPurchaseApplicationPage(
   }
 
   const where = getFoodPurchaseApplicationWhere(input)
+  const amount = prisma.foodPurchaseApplication.fields?.approvedAmount
+  // Approved applications stay approved in storage after release or settlement.
+  const laneWhere = {
+    active: {
+      status: "approved",
+      approvedAmount: { not: null, gt: 0 },
+      paidAmount: { lt: amount },
+      OR: [
+        { goodsReleasedAt: { not: null } },
+        { paidAmount: { gt: 0 } },
+        { cycle: { status: { in: ["accounting_approved", "completed", "closed"] } } },
+      ],
+    },
+    pending: { status: { in: ["submitted", "under_review"] } },
+    closed: {
+      OR: [
+        { status: { in: ["rejected", "cancelled"] } },
+        { status: "approved", approvedAmount: { not: null }, paidAmount: { gte: amount } },
+      ],
+    },
+  }
+  const filters = input.memberLane ? { AND: [where, laneWhere[input.memberLane]] } : where
   const cursor = input.cursor
     ? decodeFoodPurchaseApplicationPageCursor(input.cursor, input.sort)
     : null
   const pageWhere: any = cursor
     ? {
         AND: [
-          where,
+          filters,
           getFoodPurchaseApplicationPageKeysetWhere({
             cursor,
             sort: input.sort,
           }),
         ],
       }
-    : where
+    : filters
   const [applications, total] = await Promise.all([
     prisma.foodPurchaseApplication.findMany({
       include: applicationInclude(),
@@ -1295,7 +1318,7 @@ export async function listFoodPurchaseApplicationPage(
       take: pageSize + 1,
       where: pageWhere,
     }),
-    prisma.foodPurchaseApplication.count({ where }),
+    prisma.foodPurchaseApplication.count({ where: filters }),
   ])
 
   const data = applications

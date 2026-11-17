@@ -24,6 +24,9 @@ export type AppSheetProps = {
   /** Heading used only after an untitled sheet expands. */
   expandedTitle?: string
   children: ReactNode
+  /** Remount the full-screen scroll position when a flow changes steps. */
+  contentKey?: string
+  contentClassName?: string
   /**
    * - `form`: has inputs → always full screen (X, centred title, docked footer).
    * - `auto` (default): read-only → floating while it fits half the window,
@@ -41,6 +44,7 @@ export type AppSheetProps = {
   dirty?: boolean
   isSubmitting?: boolean
   /** Form only: right header text such as "1 of 2". */
+  headerOnCard?: boolean
   headerTrailing?: ReactNode
   /** Form only: back chevron for a later step. */
   onBack?: () => void
@@ -60,10 +64,13 @@ export type AppSheetProps = {
 export function AppSheet({
   accessibilityLabel,
   children,
+  contentClassName,
+  contentKey,
   dirty,
   dismissible = true,
   expandedTitle,
   footer,
+  headerOnCard = false,
   headerTrailing,
   insetFloatingFooter = false,
   isSubmitting,
@@ -206,8 +213,11 @@ export function AppSheet({
         </View>
       </FloatingBottomSheet>
       <FullScreenFormSheet
+        contentClassName={contentClassName}
+        contentKey={contentKey}
         dirty={variant === "form" ? dirty : false}
         footer={footer}
+        headerOnCard={headerOnCard}
         headerTrailing={headerTrailing}
         isSubmitting={isSubmitting}
         onBack={onBack}

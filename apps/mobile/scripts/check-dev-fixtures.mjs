@@ -92,9 +92,6 @@ assertIncludes("src/dev/mobile-dev-quick-fill.ts", [
 const quickFillScreens = [
   "src/features/auth/screens/recovery-screen.tsx",
   "src/features/financing/components/financing-request-form.tsx",
-  "src/features/procurement/screens/member-procurement-screen.tsx",
-  "src/features/project-financing/screens/member-project-financing-screen.tsx",
-  "src/features/food-purchase/screens/member-food-purchase-screen.tsx",
   "src/features/receipts/components/receipt-submit-flow.tsx",
   "src/features/receipts/components/receipt-support-flow.tsx",
   "src/features/support/components/member-support-create.tsx",
@@ -116,24 +113,14 @@ const quickFillScreens = [
 ]
 
 for (const screen of quickFillScreens) {
-  if (
-    screen ===
-    "src/features/food-purchase/screens/member-food-purchase-screen.tsx"
-  ) {
-    assertIncludes(screen, ["MemberFoodPurchaseQuickFill"])
-    assertIncludes(
-      "src/features/food-purchase/components/member-food-purchase-application-form.tsx",
-      ["DevQuickFill"]
-    )
-    assertIncludes(
-      "src/features/food-purchase/hooks/use-member-food-purchase-controller.ts",
-      ["mobileDevQuickFill"]
-    )
-    continue
-  }
-
   assertIncludes(screen, ["DevQuickFill", "mobileDevQuickFill"])
 }
+
+assertIncludes("src/features/member-service-requests/service-request-editor.tsx", ["<DevQuickFill"])
+assertIncludes(
+  "src/features/member-service-requests/service-request-adapters.ts",
+  ["mobileDevQuickFill.procurement", "mobileDevQuickFill.projectFinancing", "mobileDevQuickFill.foodPurchase"]
+)
 
 // Passwords, OTPs, app PINs, and QA Domains stay manual. The per-form
 // inventory and its discovery test live in src/dev/mobile-qa-form-coverage*.

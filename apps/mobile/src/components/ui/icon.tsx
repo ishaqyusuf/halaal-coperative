@@ -124,6 +124,7 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
     .default,
   PackagePlus: require("lucide-react-native/dist/esm/icons/package-plus")
     .default,
+  Package: require("lucide-react-native/dist/esm/icons/package").default,
   PackageSearch: require("lucide-react-native/dist/esm/icons/package-search")
     .default,
   Pencil: require("lucide-react-native/dist/esm/icons/pencil").default,

@@ -78,7 +78,9 @@ const foodPurchaseApplicationCreateInput = z.object({
 
 const boundedPageInput = z.object({
   cursor: z.string().min(1).optional(),
+  filter: z.enum(["all", "active", "pending", "closed"]).optional(),
   pageSize: z.number().int().min(1).max(50).optional(),
+  search: z.string().trim().max(100).optional(),
 })
 
 function assertMemberWorkspace(role: string) {

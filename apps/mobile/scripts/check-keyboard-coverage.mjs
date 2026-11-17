@@ -120,12 +120,8 @@ checkMarkers("src/features/auth/components/password-field.tsx", [
   "style={{ paddingRight: 56 }}",
 ])
 checkMarkers(
-  "src/features/food-purchase/screens/member-food-purchase-screen.tsx",
-  [
-    "<FullScreenFormSheet",
-    "<MemberFoodPurchaseApplicationForm",
-    "</FullScreenFormSheet>",
-  ]
+  "src/features/member-service-requests/service-request-editor.tsx",
+  ["<AppSheet", 'variant="form"', "<MoneyField", "<Textarea", "footer="]
 )
 checkMarkers(
   "src/features/guarantors/screens/member-guarantor-approvals-screen.tsx",

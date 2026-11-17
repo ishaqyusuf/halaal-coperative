@@ -47,6 +47,7 @@ export function SegmentedControl<T extends string>({
   position,
   scrollable,
   value,
+  variant = "track",
 }: {
   accessibilityLabel: string
   className?: string
@@ -55,9 +56,11 @@ export function SegmentedControl<T extends string>({
   position?: SharedValue<number>
   scrollable?: boolean
   value: T
+  variant?: "track" | "pills"
 }) {
   const reduceMotion = useReducedMotion()
   const colors = useColors()
+  const pills = variant === "pills"
   const shouldScroll = scrollable ?? options.length > 3
   const selectedIndex = Math.max(
     0,
@@ -132,16 +135,33 @@ export function SegmentedControl<T extends string>({
   })
 
   const track = (
-    <View className="relative flex-row gap-[2px]">
+    <View className={cn("relative flex-row", pills ? "gap-[8px]" : "gap-[2px]")}>
+      {pills ? layouts.map((layout, index) => layout && (
+        <View
+          key={options[index]?.value ?? index}
+          pointerEvents="none"
+          style={{
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+            borderRadius: 999,
+            borderWidth: 1,
+            bottom: 0,
+            left: layout.x,
+            position: "absolute",
+            top: 0,
+            width: layout.width,
+          }}
+        />
+      )) : null}
       <Animated.View
         accessible={false}
         pointerEvents="none"
         style={[
           {
-            backgroundColor: colors.segmentedIndicator,
-            borderRadius: 11,
+            backgroundColor: pills ? colors.foreground : colors.segmentedIndicator,
+            borderRadius: pills ? 999 : 11,
             bottom: 0,
-            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.10)",
+            ...(pills ? {} : { boxShadow: "0 1px 3px rgba(0, 0, 0, 0.10)" }),
             left: 0,
             position: "absolute",
             top: 0,
@@ -162,11 +182,13 @@ export function SegmentedControl<T extends string>({
             accessibilityRole="tab"
             accessibilityState={{ disabled: option.disabled, selected }}
             className={cn(
-              "min-h-[36px] flex-row items-center justify-center gap-[6px] rounded-[11px] px-[12px]",
+              "min-h-[36px] flex-row items-center justify-center gap-[6px] px-[12px]",
+              pills ? "rounded-full px-[14px]" : "rounded-[11px]",
               shouldScroll ? "" : "flex-1",
               option.disabled && "opacity-40"
             )}
             disabled={option.disabled}
+            hitSlop={pills ? { top: 4, bottom: 4 } : undefined}
             key={option.value}
             noRipple
             onLayout={onSegmentLayout(index)}
@@ -187,7 +209,7 @@ export function SegmentedControl<T extends string>({
               />
             ) : null}
             <Text
-              className={selected ? "text-foreground" : "text-foreground-soft"}
+              className={selected ? (pills ? "text-background" : "text-foreground") : "text-foreground-soft"}
               numberOfLines={1}
               variant="label"
             >
@@ -199,6 +221,7 @@ export function SegmentedControl<T extends string>({
                   option.countTone === "attention"
                     ? "text-tint-vivid-foreground"
                     : "text-muted-foreground",
+                  pills && selected && "text-background/75",
                   option.countBadge &&
                     "min-w-[20px] overflow-hidden rounded-full px-[5px] text-center leading-[20px]",
                   option.countBadge &&
@@ -222,7 +245,7 @@ export function SegmentedControl<T extends string>({
     <View
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="tablist"
-      className={cn("bg-surface-raised rounded-[14px] p-[3px]", className)}
+      className={cn(!pills && "rounded-[14px] bg-surface-raised p-[3px]", className)}
     >
       {shouldScroll ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>

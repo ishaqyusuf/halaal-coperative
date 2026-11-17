@@ -1,5 +1,6 @@
 import { Input, type InputProps } from "@/components/ui/input"
 import { Text } from "@/components/ui/text"
+import { cn } from "@/lib/utils"
 import { currencySymbol, formatMoneyInput, parseMoneyInput } from "@/lib/money"
 import { forwardRef } from "react"
 import type { TextInput } from "react-native"
@@ -13,6 +14,7 @@ export type MoneyFieldProps = Omit<
   onChangeValue: (raw: string, amount: number | null) => void
   allowDecimals?: boolean
   currencyCode?: string
+  display?: "large"
 }
 
 /**
@@ -24,6 +26,8 @@ export const MoneyField = forwardRef<TextInput, MoneyFieldProps>(
     {
       allowDecimals = false,
       currencyCode = "NGN",
+      className,
+      display,
       onChangeValue,
       placeholder = "0",
       style,
@@ -36,10 +40,11 @@ export const MoneyField = forwardRef<TextInput, MoneyFieldProps>(
       <Input
         ref={ref}
         {...props}
+        className={cn(display === "large" && "h-[52px] rounded-none border-0 border-b-2 bg-card", className)}
         inputMode={allowDecimals ? "decimal" : "numeric"}
         keyboardType={allowDecimals ? "decimal-pad" : "number-pad"}
         leading={
-          <Text className="text-muted-foreground" variant="money">
+          <Text className={cn("text-muted-foreground", display === "large" && "text-[28px] leading-[34px]")} variant="money">
             {currencySymbol(currencyCode).trim()}
           </Text>
         }
@@ -49,7 +54,11 @@ export const MoneyField = forwardRef<TextInput, MoneyFieldProps>(
         }}
         placeholder={placeholder}
         returnKeyType="done"
-        style={[{ fontVariant: ["tabular-nums"], paddingLeft: 8 }, style]}
+        style={[
+          { fontVariant: ["tabular-nums"], paddingLeft: 8 },
+          display === "large" ? { fontSize: 36, fontWeight: "800", lineHeight: 42 } : null,
+          style,
+        ]}
         value={formatMoneyInput(value, allowDecimals)}
       />
     )

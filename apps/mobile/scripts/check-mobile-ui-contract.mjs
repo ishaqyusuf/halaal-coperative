@@ -251,7 +251,8 @@ function checkPopupPrimitives() {
     "<KeyboardStickyView",
     "footerHeight + 144",
     "setFooterHeight(event.nativeEvent.layout.height)",
-    '<View className="gap-5 px-5 pb-8 pt-5">',
+    'cn("gap-5 px-5 pb-8 pt-5", contentClassName)',
+    "key={form.contentKey}",
     'position: "absolute"',
   ])
   checkSourceMarkers("src/components/app/dev-quick-fill.tsx", [
@@ -333,9 +334,10 @@ function checkAccessibilityIsolation() {
 }
 
 function checkSeparatedDataEntrySurfaces() {
-  checkSourceMarkers("src/features/procurement/screens/member-procurement-screen.tsx", [
-    "overlayActive={isReviewingSubmit}",
-    '"bg-muted opacity-100 active:bg-muted"',
+  checkSourceMarkers("src/features/member-service-requests/service-request-editor.tsx", [
+    "<AppSheet",
+    'variant="form"',
+    "footer=",
   ])
   checkSourceMarkers(
     "src/features/financing/components/financing-request-form.tsx",
@@ -382,85 +384,22 @@ function checkSeparatedDataEntrySurfaces() {
     "src/features/guarantors/components/member-guarantor-response-form.tsx",
     ["<AppSheet", 'variant="form"', "<Textarea"]
   )
-  const screens = [
-    "src/features/food-purchase/screens/member-food-purchase-screen.tsx",
-    "src/features/procurement/screens/member-procurement-screen.tsx",
-    "src/features/project-financing/screens/member-project-financing-screen.tsx",
-  ]
-
-  for (const screen of screens) {
-    const source = readFileSync(join(MOBILE_DIR, screen), "utf8")
-    if (source.includes("<AppKeyboardAwareScrollView")) {
-      failures.push(
-        `${screen} must keep its browsable content on a normal ScrollView and keyboard handling inside form sheets`
-      )
-    }
-    if (
-      !source.includes("<FullScreenFormSheet") &&
-      !source.includes("<CompactFormSheet")
-    ) {
-      failures.push(
-        `${screen} must move data entry into an approved form sheet`
-      )
-    }
-
-    const contentSurface = readFirstJsxBlock(source, "ScrollView")
-    if (!contentSurface) {
-      failures.push(`${screen} is missing its read-focused ScrollView`)
-      continue
-    }
-    const readOnlySurface = ["FullScreenFormSheet", "CompactFormSheet"].reduce(
-      (current, tag) => removeJsxBlocks(current, tag),
-      contentSurface
-    )
-    if (/<(?:Input|Textarea)\b/.test(readOnlySurface)) {
-      failures.push(
-        `${screen} renders data-entry controls inline with browsable content`
-      )
-    }
+  const path = "src/features/member-service-requests/service-request-overview.tsx"
+  checkSourceMarkers(path, ["<AppList", "onEndReached="])
+  const source = readFileSync(join(MOBILE_DIR, path), "utf8")
+  if (/<(?:AppKeyboardAwareScrollView|Input|Textarea)\b/.test(source)) {
+    failures.push(`${path} renders data-entry controls inline with browsable content`)
   }
-}
-
-function readFirstJsxBlock(source, tag) {
-  const openingStart = source.indexOf(`<${tag}`)
-  if (openingStart === -1) return null
-  const openingEnd = readOpeningTagEnd(source, openingStart + tag.length + 1)
-  if (openingEnd === -1) return null
-  const closing = `</${tag}>`
-  const closingStart = source.indexOf(closing, openingEnd)
-  if (closingStart === -1) return null
-  return source.slice(openingEnd + 1, closingStart)
-}
-
-function removeJsxBlocks(source, tag) {
-  let result = source
-  let openingStart = result.indexOf(`<${tag}`)
-
-  while (openingStart !== -1) {
-    const openingEnd = readOpeningTagEnd(result, openingStart + tag.length + 1)
-    if (openingEnd === -1) break
-    const closing = `</${tag}>`
-    const closingStart = result.indexOf(closing, openingEnd)
-    if (closingStart === -1) break
-    result = `${result.slice(0, openingStart)}${result.slice(
-      closingStart + closing.length
-    )}`
-    openingStart = result.indexOf(`<${tag}`)
-  }
-
-  return result
 }
 
 function checkScreenHeaders() {
   const screens = [
     "src/features/admin-reports-access/screens/admin-reports-screen.tsx",
     "src/features/financing/screens/member-financing-screen.tsx",
-    "src/features/food-purchase/screens/member-food-purchase-screen.tsx",
+    "src/features/member-service-requests/service-request-overview.tsx",
     "src/features/guarantors/screens/member-guarantor-approvals-screen.tsx",
     "src/features/settings-access/screens/more-screen.tsx",
     "src/features/notifications/screens/notifications-screen.tsx",
-    "src/features/procurement/screens/member-procurement-screen.tsx",
-    "src/features/project-financing/screens/member-project-financing-screen.tsx",
     "src/features/receipts/screens/member-receipts-screen.tsx",
     "src/features/mobile-app-access/routes/mobile-app-access-route-controller.tsx",
     "src/features/support/screens/member-support-screen.tsx",

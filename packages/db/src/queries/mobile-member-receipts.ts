@@ -9,16 +9,15 @@ import {
   getMemberPaymentReceipt,
   getMemberScopedPaymentReceiptSummary,
   listMemberPaymentReceiptPage,
+  listMemberPaymentReceiptPageWithoutTotal,
   type MemberPaymentReceiptRow,
   type PaymentReceiptAllocationInput,
 } from "./payment-receipts"
 import { getMemberByUserId } from "./members"
-import { getTenantOperationProfile } from "./operation-profile"
-import { listMemberContributionPlans } from "./contributions"
-import { listMemberLoans } from "./loans"
-import { listProcurementRequests } from "./procurement"
-import { listFoodPurchaseApplications } from "./food-purchase"
-import { listProjectFinancingRequests } from "./project-financing"
+import {
+  getTenantOperationProfile,
+  resolveTenantServiceCapabilities,
+} from "./operation-profile"
 import { ExpectedQueryError } from "../query-error"
 
 export type MobileReceiptTargetKind =
@@ -109,103 +108,138 @@ function emptySnapshot(
   }
 }
 
+async function getReceiptServices(tenantId: string, prisma: PrismaClient) {
+  const settings = await prisma.tenantServiceSetting.findMany({
+    select: { accessMode: true, serviceKey: true },
+    where: {
+      tenantId,
+      serviceKey: {
+        in: [
+          "payment_receipts",
+          "support_cases",
+          "procurement",
+          "food_purchase",
+        ],
+      },
+    },
+  })
+  return resolveTenantServiceCapabilities(
+    Object.fromEntries(
+      settings.map(({ serviceKey, accessMode }) => [serviceKey, accessMode])
+    )
+  )
+}
+
 async function getReceiptCategories(input: {
   memberId: string
   prisma: PrismaClient
   tenantId: string
 }) {
-  const [profile, plans, loans, procurement, foodPurchase, projectFinancing] =
+  const { memberId, prisma, tenantId } = input
+  const scope = { memberId, tenantId }
+  const [services, plans, loans, procurement, foodPurchase, projectFinancing] =
     await Promise.all([
-      getTenantOperationProfile(input.tenantId, input.prisma),
-      listMemberContributionPlans(
-        { memberId: input.memberId, tenantId: input.tenantId },
-        input.prisma
-      ),
-      listMemberLoans(
-        { memberId: input.memberId, tenantId: input.tenantId },
-        input.prisma
-      ),
-      listProcurementRequests(
-        { limit: 100, memberId: input.memberId, tenantId: input.tenantId },
-        input.prisma
-      ),
-      listFoodPurchaseApplications(
-        { limit: 100, memberId: input.memberId, tenantId: input.tenantId },
-        input.prisma
-      ),
-      listProjectFinancingRequests(
-        { limit: 100, memberId: input.memberId, tenantId: input.tenantId },
-        input.prisma
-      ),
+      getReceiptServices(tenantId, prisma),
+      prisma.contributionPlan.findMany({
+        where: { ...scope, isActive: true },
+        orderBy: { createdAt: "desc" },
+        select: { amount: true, id: true },
+      }),
+      prisma.loan.findMany({
+        where: {
+          ...scope,
+          status: { in: ["approved", "disbursed", "active"] },
+        },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          loanProduct: { select: { name: true } },
+          outstandingPrincipal: true,
+        },
+      }),
+      prisma.procurementRepaymentScheduleItem.findMany({
+        where: {
+          ...scope,
+          status: { in: ["due", "overdue", "partially_paid", "pending"] },
+          amount: {
+            gt: prisma.procurementRepaymentScheduleItem.fields.paidAmount,
+          },
+          procurementRequest: scope,
+        },
+        orderBy: [{ dueDate: "asc" }, { id: "asc" }],
+        take: 100,
+        select: {
+          amount: true,
+          id: true,
+          installmentNumber: true,
+          paidAmount: true,
+          procurementRequest: { select: { itemName: true } },
+        },
+      }),
+      prisma.foodPurchaseApplication.findMany({
+        where: {
+          ...scope,
+          status: "approved",
+          approvedAmount: {
+            gt: prisma.foodPurchaseApplication.fields.paidAmount,
+          },
+        },
+        orderBy: { requestedAt: "desc" },
+        take: 100,
+        select: {
+          approvedAmount: true,
+          id: true,
+          itemDescription: true,
+          paidAmount: true,
+        },
+      }),
+      prisma.projectFinancingRequest.findMany({
+        where: {
+          ...scope,
+          approvedStructure: "repayable_facility",
+          status: { in: ["approved", "active"] },
+          approvedAmount: {
+            gt: prisma.projectFinancingRequest.fields.paidAmount,
+          },
+        },
+        orderBy: { requestedAt: "desc" },
+        take: 100,
+        select: {
+          approvedAmount: true,
+          businessName: true,
+          id: true,
+          paidAmount: true,
+        },
+      }),
     ])
 
-  const planTargets = plans
-    .filter((plan) => plan.isActive)
-    .map((plan) => ({
-      id: plan.id,
-      label: `${Number(plan.amount).toLocaleString("en-NG")} active commitment`,
-      outstandingAmount: null,
-    }))
-  const loanTargets = loans
-    .filter((loan) => ["approved", "disbursed", "active"].includes(loan.status))
-    .map((loan) => ({
-      id: loan.id,
-      label: `${loan.loanProduct.name} · ${Number(loan.outstandingPrincipal).toLocaleString("en-NG")} outstanding`,
-      outstandingAmount: Number(loan.outstandingPrincipal),
-    }))
-  const procurementTargets = procurement.flatMap((request) =>
-    request.repaymentScheduleItems
-      .filter((item) => {
-        const outstanding = Number(item.amount) - Number(item.paidAmount)
-        return (
-          ["due", "overdue", "partially_paid", "pending"].includes(
-            item.status
-          ) && outstanding > 0
-        )
-      })
-      .map((item) => {
-        const outstanding = Number(item.amount) - Number(item.paidAmount)
-        return {
-          id: item.id,
-          label: `${request.itemName} #${item.installmentNumber} · ${outstanding.toLocaleString("en-NG")} due`,
-          outstandingAmount: outstanding,
-        }
-      })
-  )
-  const foodTargets = foodPurchase
-    .filter((application) => {
-      const outstanding =
-        Number(application.approvedAmount ?? 0) - Number(application.paidAmount)
-      return application.status === "approved" && outstanding > 0
-    })
-    .map((application) => {
-      const outstanding =
-        Number(application.approvedAmount ?? 0) - Number(application.paidAmount)
-      return {
-        id: application.id,
-        label: `${application.itemDescription ?? "Foodstuff Purchase"} · ${outstanding.toLocaleString("en-NG")} due`,
-        outstandingAmount: outstanding,
-      }
-    })
-  const projectTargets = projectFinancing
-    .filter((request) => {
-      const outstanding =
-        Number(request.approvedAmount ?? 0) - Number(request.paidAmount)
-      return (
-        request.approvedStructure === "repayable_facility" &&
-        ["approved", "active"].includes(request.status) &&
-        outstanding > 0
-      )
-    })
-    .map((request) => {
-      const outstanding =
-        Number(request.approvedAmount ?? 0) - Number(request.paidAmount)
-      return {
-        id: request.id,
-        label: `${request.businessName} · ${outstanding.toLocaleString("en-NG")} due`,
-        outstandingAmount: outstanding,
-      }
-    })
+  const planTargets = plans.map((plan) => ({
+    id: plan.id,
+    label: `${Number(plan.amount).toLocaleString("en-NG")} active commitment`,
+    outstandingAmount: null,
+  }))
+  const loanTargets = loans.map((loan) => ({
+    id: loan.id,
+    label: loan.loanProduct.name,
+    outstandingAmount: Number(loan.outstandingPrincipal),
+  }))
+  const procurementTargets = procurement.map((item) => ({
+    id: item.id,
+    label: `${item.procurementRequest.itemName} · Instalment ${item.installmentNumber}`,
+    outstandingAmount: Number(item.amount) - Number(item.paidAmount),
+  }))
+  const foodTargets = foodPurchase.map((application) => ({
+    id: application.id,
+    label: application.itemDescription ?? "Foodstuff Purchase",
+    outstandingAmount:
+      Number(application.approvedAmount) - Number(application.paidAmount),
+  }))
+  const projectTargets = projectFinancing.map((request) => ({
+    id: request.id,
+    label: request.businessName,
+    outstandingAmount:
+      Number(request.approvedAmount) - Number(request.paidAmount),
+  }))
 
   const options: MobileReceiptCategoryOption[] = [
     {
@@ -266,7 +300,7 @@ async function getReceiptCategories(input: {
     },
   ]
   if (
-    profile.services.procurement.accessMode !== "disabled" ||
+    services.procurement.accessMode !== "disabled" ||
     procurementTargets.length > 0
   ) {
     options.splice(5, 0, {
@@ -279,7 +313,7 @@ async function getReceiptCategories(input: {
     })
   }
   if (
-    profile.services.food_purchase.accessMode !== "disabled" ||
+    services.food_purchase.accessMode !== "disabled" ||
     foodTargets.length > 0
   ) {
     options.splice(options.length - 1, 0, {
@@ -292,79 +326,84 @@ async function getReceiptCategories(input: {
     })
   }
   return {
-    canCreateReceipt: profile.services.payment_receipts.canMemberCreate,
-    canCreateSupportCase: profile.services.support_cases.canMemberCreate,
+    canCreateReceipt: services.payment_receipts.canMemberCreate,
+    canCreateSupportCase: services.support_cases.canMemberCreate,
     options,
   }
 }
 
-async function getReceiptPage(input: {
-  cursor?: string | null
-  memberId: string
-  prisma: PrismaClient
-  tenantId: string
-}) {
-  const pageSize = 20
-  const page = await listMemberPaymentReceiptPage(
-    input.tenantId,
-    {
-      cursor: input.cursor,
-      memberId: input.memberId,
-      pageSize: pageSize + 1,
-      sort: ["submittedAt", "desc"],
-    },
-    input.prisma
-  )
-  const rows = page.items.slice(0, pageSize)
-  return {
-    nextCursor:
-      page.items.length > pageSize && rows.at(-1)
-        ? createMemberPaymentReceiptPageCursor(rows.at(-1)!, [
-            "submittedAt",
-            "desc",
-          ])
-        : null,
-    rows,
-  }
+export async function getMobileMemberReceiptFormOptions(
+  input: { tenantId: string; userId: string },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+  const member = await getMemberByUserId(input, prisma)
+  if (!member) return { canCreateReceipt: false, categories: [] }
+  const { canCreateReceipt, options } = await getReceiptCategories({
+    memberId: member.id,
+    prisma,
+    tenantId: input.tenantId,
+  })
+  return { canCreateReceipt, categories: options }
 }
 
 export async function getMobileMemberReceiptSnapshot(
-  input: { cursor?: string | null; tenantId: string; userId: string },
+  input: {
+    compact?: boolean
+    cursor?: string | null
+    search?: string
+    tenantId: string
+    userId: string
+  },
   prismaOverride?: PrismaClient
 ): Promise<MobileMemberReceiptSnapshot> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) return emptySnapshot("database_unavailable")
+  const { tenantId, cursor, compact, search } = input
   const member = await getMemberByUserId(input, prisma)
   if (!member) return emptySnapshot("member_profile_missing")
-  const [summary, categories, page] = await Promise.all([
-    getMemberScopedPaymentReceiptSummary(
-      { memberId: member.id, tenantId: input.tenantId },
-      prisma
-    ),
-    getReceiptCategories({
-      memberId: member.id,
-      prisma,
-      tenantId: input.tenantId,
-    }),
-    getReceiptPage({
-      cursor: input.cursor,
-      memberId: member.id,
-      prisma,
-      tenantId: input.tenantId,
-    }),
+  const scope = { memberId: member.id, tenantId }
+  const pageSize = 20
+  const sort = ["submittedAt", "desc"] as ["submittedAt", "desc"]
+  const filters = { ...scope, cursor, pageSize: pageSize + 1, sort }
+  const [summary, capabilities, items] = await Promise.all([
+    compact && cursor
+      ? emptySnapshot("available").summary
+      : getMemberScopedPaymentReceiptSummary(scope, prisma),
+    compact
+      ? getReceiptServices(tenantId, prisma).then((services) => ({
+          canCreateReceipt: services.payment_receipts.canMemberCreate,
+          canCreateSupportCase: services.support_cases.canMemberCreate,
+          options: [],
+        }))
+      : getReceiptCategories({ ...scope, prisma }),
+    compact
+      ? listMemberPaymentReceiptPageWithoutTotal(
+          tenantId,
+          { ...filters, memberLedgerSearch: search },
+          prisma
+        )
+      : listMemberPaymentReceiptPage(tenantId, filters, prisma).then(
+          (page) => page.items
+        ),
   ])
+  const rows = items.slice(0, pageSize)
   return {
-    canCreateReceipt: categories.canCreateReceipt,
-    canCreateSupportCase: categories.canCreateSupportCase,
-    categories: categories.options,
+    canCreateReceipt: capabilities.canCreateReceipt,
+    canCreateSupportCase: capabilities.canCreateSupportCase,
+    categories: capabilities.options,
     generatedAt: new Date().toISOString(),
     member: {
       id: member.id,
       memberNumber: member.memberNumber,
       name: member.fullName,
     },
-    nextCursor: page.nextCursor,
-    receipts: page.rows.map(toMobileReceipt),
+    nextCursor:
+      items.length > pageSize
+        ? createMemberPaymentReceiptPageCursor(rows[pageSize - 1]!, sort)
+        : null,
+    receipts: rows.map(toMobileReceipt),
     state: "available",
     summary: {
       approvedReceipts: summary.approvedReceipts,
@@ -428,6 +467,7 @@ export async function createMobileMemberReceiptForSession(
         ...input,
         memberId: member.id,
         submittedByUserId: input.userId,
+        requireProofUploadRecord: true,
       },
       prisma
     )

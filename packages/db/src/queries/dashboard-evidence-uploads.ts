@@ -22,6 +22,7 @@ export async function claimDashboardEvidenceUploadLink(
     purpose: DashboardEvidencePurpose
     entityId: string
     claimantUserId: string | null | undefined
+    requireRecord?: boolean
   },
   tx: Prisma.TransactionClient | PrismaClient
 ) {
@@ -30,8 +31,8 @@ export async function claimDashboardEvidenceUploadLink(
   const record = await tx.dashboardEvidenceUpload.findUnique({ where: { id: match[1] } })
   if (!record) {
     // The development-only filesystem adapter uses the same URL shape.
-    if (process.env.DASHBOARD_PRIVATE_BLOB_ENABLED === "1" &&
-        (process.env.NODE_ENV === "production" || process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV))) {
+    if (input.requireRecord || (process.env.DASHBOARD_PRIVATE_BLOB_ENABLED === "1" &&
+        (process.env.NODE_ENV === "production" || process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV)))) {
       throw ExpectedQueryError.notFound("Private evidence upload was not found.")
     }
     return

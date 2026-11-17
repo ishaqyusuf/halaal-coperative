@@ -102,6 +102,7 @@ export type ListMemberPaymentReceiptPageFilters = {
   cursor?: string | null
   limit?: number
   memberId?: string
+  memberLedgerSearch?: string
   page?: number
   pageSize?: number
   search?: string
@@ -1776,6 +1777,38 @@ function getPaymentReceiptPageKeysetWhere(input: {
   }
 }
 
+function memberLedgerSearchWhere(search: string) {
+  const text = search.toLowerCase().replace(/[ _-]+/g, " ").trim()
+  const statusLabels: Record<MemberPaymentReceiptStatus, string> = {
+    approved: "approved",
+    correction_requested: "needs correction to fix",
+    rejected: "rejected",
+    submitted: "submitted pending review",
+    under_review: "under review in review",
+  }
+  const statuses = [...receiptStatuses].filter((status) =>
+    statusLabels[status].includes(text) || status.replace(/_/g, " ").includes(text)
+  )
+  const categories = [...allocationCategories].filter((category) =>
+    category.replace(/_/g, " ").includes(text) ||
+    (category === "food_purchase" && "foodstuff purchase".includes(text)) ||
+    (category === "loan_extra_payment" && "extra loan payment".includes(text))
+  )
+  const cleanAmount = search.replace(/[,₦\s]/g, "")
+  const amount = /^\d{1,16}(?:\.\d{1,2})?$/.test(cleanAmount)
+    ? cleanAmount
+    : null
+  return {
+    OR: [
+      { paymentReference: { contains: search, mode: "insensitive" as const } },
+      ...(statuses.length ? [{ status: { in: statuses } }] : []),
+      ...(categories.length ? [{ allocations: { some: { category: { in: categories } } } }] : []),
+      ...(amount !== null ? [{ totalAmount: amount }] : []),
+      ...(text.includes("cash") ? [{ channel: "cash" as const }] : []),
+    ],
+  }
+}
+
 function getPaymentReceiptWhere(
   tenantId: string,
   filters?: ListMemberPaymentReceiptPageFilters
@@ -1784,6 +1817,7 @@ function getPaymentReceiptWhere(
     tenantId,
     ...(filters?.memberId ? { memberId: filters.memberId } : {}),
     ...(filters?.status ? { status: filters.status } : {}),
+    ...(filters?.memberLedgerSearch && memberLedgerSearchWhere(filters.memberLedgerSearch)),
     ...(filters?.search && {
       OR: [
         {
@@ -1834,6 +1868,24 @@ export async function listMemberPaymentReceiptPage(
   filters?: ListMemberPaymentReceiptPageFilters,
   prismaOverride?: PrismaClient
 ) {
+  return queryMemberPaymentReceiptPage(tenantId, filters, false, prismaOverride)
+}
+
+export async function listMemberPaymentReceiptPageWithoutTotal(
+  tenantId: string,
+  filters: ListMemberPaymentReceiptPageFilters,
+  prisma: PrismaClient
+) {
+  const { items } = await queryMemberPaymentReceiptPage(tenantId, filters, true, prisma)
+  return items
+}
+
+async function queryMemberPaymentReceiptPage(
+  tenantId: string,
+  filters: ListMemberPaymentReceiptPageFilters | undefined,
+  omitTotal: boolean,
+  prismaOverride?: PrismaClient
+) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
@@ -1869,7 +1921,7 @@ export async function listMemberPaymentReceiptPage(
       take: pageSize,
       where: pageWhere,
     }),
-    prisma.memberPaymentReceipt.count({ where }),
+    omitTotal ? 0 : prisma.memberPaymentReceipt.count({ where }),
   ])
 
   return {
@@ -1935,29 +1987,17 @@ export async function getMemberScopedPaymentReceiptSummary(
     memberId: input.memberId,
     tenantId: input.tenantId,
   }
-  const [
-    submittedReceipts,
-    underReviewReceipts,
-    correctionRequestedReceipts,
-    approvedReceipts,
-    rejectedReceipts,
-  ] = await Promise.all([
-    prisma.memberPaymentReceipt.count({
-      where: { ...where, status: "submitted" },
-    }),
-    prisma.memberPaymentReceipt.count({
-      where: { ...where, status: "under_review" },
-    }),
-    prisma.memberPaymentReceipt.count({
-      where: { ...where, status: "correction_requested" },
-    }),
-    prisma.memberPaymentReceipt.count({
-      where: { ...where, status: "approved" },
-    }),
-    prisma.memberPaymentReceipt.count({
-      where: { ...where, status: "rejected" },
-    }),
-  ])
+  const groups = await prisma.memberPaymentReceipt.groupBy({
+    _count: { _all: true },
+    by: ["status"],
+    where,
+  })
+  const counts = new Map(groups.map((group) => [group.status, group._count._all]))
+  const submittedReceipts = counts.get("submitted") ?? 0
+  const underReviewReceipts = counts.get("under_review") ?? 0
+  const approvedReceipts = counts.get("approved") ?? 0
+  const correctionRequestedReceipts = counts.get("correction_requested") ?? 0
+  const rejectedReceipts = counts.get("rejected") ?? 0
 
   return {
     approvedReceipts,
@@ -1979,6 +2019,7 @@ export async function createMemberPaymentReceipt(
     paymentReference?: string | null
     proofDocumentName?: string | null
     proofDocumentUrl?: string | null
+    requireProofUploadRecord?: boolean
     submittedByUserId?: string | null
     tenantId: string
     totalAmount: number
@@ -2107,7 +2148,7 @@ export async function createMemberPaymentReceipt(
     await claimDashboardEvidenceUploadLink({
       tenantId: input.tenantId, url: proofDocumentUrl,
       purpose: "payment_receipt_proof", entityId: receipt.id,
-      claimantUserId: input.submittedByUserId,
+      claimantUserId: input.submittedByUserId, requireRecord: input.requireProofUploadRecord,
     }, tx)
 
     await tx.auditLog.create({

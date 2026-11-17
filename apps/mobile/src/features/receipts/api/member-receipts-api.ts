@@ -5,6 +5,7 @@ import {
   getDevMemberReceipts,
 } from "@/dev/mobile-dev-fixtures"
 import { createMobileTrpcClient } from "@/lib/mobile-trpc-client"
+import { receiptMatches } from "../model/receipt-presentation"
 import { readCachedMobileQuery } from "@/lib/read-cache"
 import type {
   MobileMemberReceipts,
@@ -129,36 +130,79 @@ const devCategories: MobileMemberReceipts["categories"] = [
   },
 ]
 
-export async function getMemberReceipts(
-  cursor?: string | null
-): Promise<MobileMemberReceipts> {
-  if (isMobileDevFixtureSession()) {
-    return readCachedMobileQuery(
-      `member.receipts.${cursor ?? "first"}`,
-      async () => ({
-        ...getDevMemberReceipts(),
-        categories: devCategories,
-        canCreateSupportCase: true,
-        nextCursor: null,
-        state: "available" as const,
-      }),
-      { persist: !cursor }
-    ) as Promise<MobileMemberReceipts>
+function fixtureReceipt(
+  receipt: ReturnType<typeof createDevMemberReceipt>
+): MobilePaymentReceipt {
+  return {
+    ...receipt,
+    reviewedAt: receipt.reviewedAt ?? null,
+    allocations: receipt.allocations.map((split) => ({
+      contributionPlanId: null,
+      foodPurchaseApplicationId: null,
+      loanId: null,
+      projectFinancingRequestId: null,
+      procurementRepaymentScheduleItemId: null,
+      ...split,
+    })),
   }
-  const client = createMobileTrpcClient()
-  return readCachedMobileQuery(
-    `member.receipts.${cursor ?? "first"}`,
-    () =>
-      client.mobile.member.receipts.list.query(cursor ? { cursor } : undefined),
-    { persist: !cursor }
-  ) as Promise<MobileMemberReceipts>
+}
+
+export async function getMemberReceipts({
+  cursor,
+  online,
+  search,
+}: {
+  cursor?: string | null
+  online: boolean
+  search?: string
+}): Promise<MobileMemberReceipts> {
+  return readCachedMobileQuery<MobileMemberReceipts>(
+    "member.receipts.first",
+    async () => {
+      if (!online) throw new Error("You’re offline.")
+      if (isMobileDevFixtureSession()) {
+        const snapshot = getDevMemberReceipts()
+        const receipts = snapshot.receipts.map(fixtureReceipt)
+        return {
+          ...snapshot,
+          receipts: search
+            ? receipts.filter((item) => receiptMatches(item, search, "NGN"))
+            : receipts,
+          categories: [],
+          canCreateSupportCase: true,
+          nextCursor: null,
+          state: "available" as const,
+        }
+      }
+      const page: MobileMemberReceipts =
+        await createMobileTrpcClient().mobile.member.receipts.list.query({
+          compact: true,
+          cursor: cursor ?? undefined,
+          search,
+        })
+      if (page.state === "database_unavailable")
+        throw new Error("Receipts are unavailable.")
+      return page
+    },
+    { persist: !cursor && !search }
+  )
+}
+
+export async function getReceiptFormOptions(): Promise<{
+  canCreateReceipt: boolean
+  categories: MobileMemberReceipts["categories"]
+}> {
+  if (isMobileDevFixtureSession()) {
+    return { canCreateReceipt: true, categories: devCategories }
+  }
+  return createMobileTrpcClient().mobile.member.receipts.formOptions.query()
 }
 
 export async function createMemberReceipt(
   input: MobileReceiptCreateInput
 ): Promise<MobilePaymentReceipt> {
   if (isMobileDevFixtureSession()) {
-    return createDevMemberReceipt(input as never) as MobilePaymentReceipt
+    return fixtureReceipt(createDevMemberReceipt(input))
   }
   const client = createMobileTrpcClient()
   return client.mobile.member.receipts.create.mutate(
@@ -170,10 +214,10 @@ export async function getMemberReceiptDetail(
   receiptId: string
 ): Promise<MobilePaymentReceipt | null> {
   if (isMobileDevFixtureSession()) {
-    return (
-      getDevMemberReceipts().receipts.find((receipt) => receipt.id === receiptId) ??
-      null
-    ) as MobilePaymentReceipt | null
+    const receipt = getDevMemberReceipts().receipts.find(
+      (item) => item.id === receiptId
+    )
+    return receipt ? fixtureReceipt(receipt) : null
   }
   const client = createMobileTrpcClient()
   return client.mobile.member.receipts.detail.query({

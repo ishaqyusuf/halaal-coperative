@@ -1,26 +1,36 @@
-import { createAuditLogEntry, createDbRuntime } from "@halaalvest/db"
+import { isMobileUploadRequest, getMobileReceiptUploadActor, mobileReceiptUploadPurpose, isMobileReceiptProofType } from "@/lib/uploads/mobile-receipt-upload"
+import { createAuditLogEntry, createDashboardEvidenceUpload, createDbRuntime, finalizeDashboardEvidenceUpload } from "@halaalvest/db"
 import { NextResponse, type NextRequest } from "next/server"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { hasActiveUploadMembership } from "@/lib/uploads/upload-access"
 import {
   isDashboardUploadStorageUnavailable,
+  MAX_DASHBOARD_UPLOAD_BYTES,
   isSupportedDashboardUploadPurpose,
 } from "@/lib/uploads/upload-policy"
 
 export const runtime = "nodejs"
 
 export async function POST(request: NextRequest) {
-  const context = await getDashboardServerContext()
+  const mobile = isMobileUploadRequest(request)
+  const context = mobile ? null : await getDashboardServerContext()
+  const actor = mobile
+    ? await getMobileReceiptUploadActor(request)
+    : context && hasActiveUploadMembership(context) && context.tenant && context.auth.user
+      ? { tenantId: context.tenant.id, userId: context.auth.user.id }
+      : null
+  if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
 
-  if (!hasActiveUploadMembership(context) || !context.tenant || !context.auth.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
-  }
 
   if (isDashboardUploadStorageUnavailable()) {
     return NextResponse.json(
       { error: "File uploads are unavailable until persistent storage is configured." },
       { status: 503 }
     )
+  }
+
+  if (mobile && Number(request.headers.get("content-length")) > MAX_DASHBOARD_UPLOAD_BYTES + 16384) {
+    return NextResponse.json({ error: "Upload is too large." }, { status: 413 })
   }
 
   let formData: FormData
@@ -42,20 +52,34 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Upload purpose is invalid." }, { status: 400 })
   }
 
+  if (mobile && (purpose !== mobileReceiptUploadPurpose || !isMobileReceiptProofType(file.type))) {
+    return NextResponse.json({ error: "Select a JPG, PNG or PDF." }, { status: 400 })
+  }
+
   try {
     const { saveDashboardUpload } = await import("@/lib/uploads/local-upload-storage")
     const upload = await saveDashboardUpload({
       file,
       purpose,
-      tenantId: context.tenant.id,
-      userId: context.auth.user.id,
+      tenantId: actor.tenantId,
+      userId: actor.userId,
     })
 
-    if (createDbRuntime().status === "database-configured") {
+    if (mobile) {
+      await createDashboardEvidenceUpload({
+        id: upload.id, tenantId: actor.tenantId, uploaderUserId: actor.userId, purpose,
+        originalName: upload.originalName, contentType: upload.contentType, declaredSize: upload.size,
+      })
+      const finalized = await finalizeDashboardEvidenceUpload({
+        id: upload.id, tenantId: actor.tenantId, uploaderUserId: actor.userId,
+        purpose, contentType: upload.contentType, storedSize: upload.size,
+      })
+      if (!finalized) throw new Error("Upload could not be verified.")
+    } else if (createDbRuntime().status === "database-configured") {
       await createAuditLogEntry({
         action: "file.uploaded",
         actorType: "user",
-        actorUserId: context.auth.user.id,
+        actorUserId: actor.userId,
         entityId: upload.id,
         entityType: "DashboardUpload",
         metadata: {
@@ -65,7 +89,7 @@ export async function POST(request: NextRequest) {
           size: upload.size,
           url: upload.url,
         },
-        tenantId: context.tenant.id,
+        tenantId: actor.tenantId,
       })
     }
 

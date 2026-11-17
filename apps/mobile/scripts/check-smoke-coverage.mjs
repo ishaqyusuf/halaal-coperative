@@ -275,7 +275,6 @@ assertIncludes("src/features/member-core/public/member-activity-history.tsx", [
 ])
 
 for (const screen of [
-  "src/features/receipts/screens/member-receipts-screen.tsx",
   "src/features/support/screens/member-support-screen.tsx",
   "src/features/admin-member-lifecycle/screens/admin-members-screen.tsx",
 ]) {
@@ -285,6 +284,14 @@ for (const screen of [
     "CachedReadBanner",
   ])
 }
+
+assertIncludes("src/features/receipts/screens/member-receipts-screen.tsx", [
+  "<AppList",
+  "useAppInfiniteQuery",
+  "useMobileFormDraft",
+  "isMobileReadCacheStale",
+  "<StatusBanner",
+])
 
 assertIncludes("src/features/shares-profit/routes/member-shares-route-controller.tsx", [
   "useAppInfiniteQuery",
@@ -355,7 +362,6 @@ assertIncludes(
 )
 
 for (const screen of [
-  "src/features/receipts/screens/member-receipts-screen.tsx",
   "src/features/notifications/screens/notifications-screen.tsx",
   "src/features/procurement/screens/member-procurement-screen.tsx",
   "src/features/project-financing/screens/member-project-financing-screen.tsx",

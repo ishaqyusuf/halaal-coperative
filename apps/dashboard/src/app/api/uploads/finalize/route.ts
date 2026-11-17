@@ -1,3 +1,4 @@
+import { isMobileUploadRequest, getMobileReceiptUploadActor, mobileReceiptUploadPurpose } from "@/lib/uploads/mobile-receipt-upload"
 import { finalizeDashboardEvidenceUpload } from "@halaalvest/db"
 import { NextResponse, type NextRequest } from "next/server"
 import { getDashboardServerContext } from "@/lib/server-context"
@@ -9,8 +10,15 @@ import { isPrivateDashboardUploadEnabled } from "@/lib/uploads/upload-policy"
 export const runtime = "nodejs"
 
 export async function POST(request: NextRequest) {
-  const context = await getDashboardServerContext()
-  if (!hasActiveUploadMembership(context) || !context.tenant || !context.auth.user) return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+  const mobile = isMobileUploadRequest(request)
+  const context = mobile ? null : await getDashboardServerContext()
+  const actor = mobile
+    ? await getMobileReceiptUploadActor(request)
+    : context && hasActiveUploadMembership(context) && context.tenant && context.auth.user
+      ? { tenantId: context.tenant.id, userId: context.auth.user.id }
+      : null
+  if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+
   if (!isPrivateDashboardUploadEnabled()) return NextResponse.json({ error: "Private uploads are disabled." }, { status: 503 })
   let input: { intent?: unknown }
   try { input = await request.json() } catch { return NextResponse.json({ error: "Invalid upload request." }, { status: 400 }) }
@@ -18,10 +26,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid upload details." }, { status: 400 })
   }
   try {
-    const intent = verifyPrivateUploadIntent(input.intent, context.tenant.id, context.auth.user.id)
-    const blob = await verifyPrivateUpload(context.tenant.id, intent.id)
+    const intent = verifyPrivateUploadIntent(input.intent, actor.tenantId, actor.userId)
+    if (mobile && intent.purpose !== mobileReceiptUploadPurpose) throw new Error("Invalid upload purpose.")
+    const blob = await verifyPrivateUpload(actor.tenantId, intent.id, mobile ? AbortSignal.timeout(10_000) : undefined)
     const finalized = await finalizeDashboardEvidenceUpload({
-      id: intent.id, tenantId: context.tenant.id, uploaderUserId: context.auth.user.id,
+      id: intent.id, tenantId: actor.tenantId, uploaderUserId: actor.userId,
       purpose: intent.purpose, contentType: blob.contentType, storedSize: blob.size,
     })
     if (!finalized) throw new Error("Upload metadata does not match the stored file.")

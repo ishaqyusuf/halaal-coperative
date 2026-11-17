@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/icon"
 import { Text } from "@/components/ui/text"
 import { cn } from "@/lib/utils"
 import { View } from "react-native"
@@ -24,11 +25,13 @@ const TONE_CLASSES: Record<StatusTone, { surface: string; text: string }> = {
 /** 22pt chip, 12/16·700, tinted by meaning (Active, Pending, Exception…). */
 export function StatusPill({
   className,
+  icon,
   label,
   size = "default",
   tone = "neutral",
 }: {
   className?: string
+  icon?: string
   label: string
   size?: "default" | "large"
   tone?: StatusTone
@@ -41,9 +44,11 @@ export function StatusPill({
         "flex-row items-center self-start rounded-full",
         size === "large" ? "min-h-[32px] px-[12px]" : "min-h-[22px] px-[10px]",
         classes.surface,
+        icon && "gap-[4px]",
         className
       )}
     >
+      {icon ? <Icon className={cn("size-xs", classes.text)} name={icon} /> : null}
       <Text
         className={classes.text}
         numberOfLines={1}

@@ -32,7 +32,8 @@ const memberFoodPurchase = [
   feature("food-purchase/components/member-food-purchase-application-form.tsx"),
   feature("food-purchase/hooks/use-member-food-purchase-controller.ts"),
 ]
-const memberReceipts = feature("receipts/screens/member-receipts-screen.tsx")
+const memberReceiptForm = feature("receipts/components/receipt-submit-flow.tsx")
+const memberReceiptSupport = feature("receipts/components/receipt-support-flow.tsx")
 const memberSupport = feature("support/screens/member-support-screen.tsx")
 const memberShares = feature("shares-profit/screens/share-request-flow.tsx")
 const memberGuarantor = [
@@ -117,13 +118,13 @@ export const mobileQaFormCoverage = [
     formId: "mobile.member.receipt-draft",
     kind: "recipe",
     recipe: "receipt",
-    sources: [memberReceipts],
+    sources: [memberReceiptForm],
   },
   {
     formId: "mobile.member.receipt-support",
     kind: "recipe",
     recipe: "receiptSupport",
-    sources: [memberReceipts],
+    sources: [memberReceiptSupport],
   },
   {
     formId: "mobile.member.support-case",

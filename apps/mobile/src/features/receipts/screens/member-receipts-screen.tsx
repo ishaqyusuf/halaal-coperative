@@ -1,133 +1,199 @@
-import { CachedReadBanner } from "@/components/app/cached-read-banner"
-import { CompactFormSheet } from "@/components/app/compact-form-sheet"
-import { DevQuickFill } from "@/components/app/dev-quick-fill"
+import { AppList } from "@/components/app/app-list"
 import { EmptyState } from "@/components/app/empty-state"
-import { FormStateBanner } from "@/components/app/form-state-banner"
-import { FullScreenFormSheet } from "@/components/app/full-screen-form-sheet"
-import { CalendarDateField } from "@/components/app/calendar-date-field"
-import { useFormCalendar } from "@/hooks/use-form-calendar"
-import { SectionCard } from "@/components/app/section-card"
-import { ScreenHeader } from "@/components/app/screen-header"
-import { ScreenBackButton } from "@/components/app/screen-back-button"
-import { getStatusBadgeTone, StatusBadge } from "@/components/app/status-badge"
-import { SubmissionReviewSheet } from "@/components/app/submission-review-sheet"
-import { SubmissionSuccessSheet } from "@/components/app/submission-success-sheet"
-import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
-import { WorkflowDetailSheet } from "@/components/app/workflow-detail-sheet"
-import { LoadingSpinner } from "@/components/loading-spinner"
-import { SafeArea } from "@/components/safe-area"
+import { ScreenHeaderButton } from "@/components/app/screen-shell"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
-import { Input } from "@/components/ui/input"
+import { Elevated } from "@/components/ui/list-card"
+import { Pressable } from "@/components/ui/pressable"
+import { Skeleton } from "@/components/ui/skeleton"
+import { StatusBanner } from "@/components/ui/status-banner"
+import { StatusPill } from "@/components/ui/status-pill"
 import { Text } from "@/components/ui/text"
-import { Textarea } from "@/components/ui/textarea"
-import { useAuthContext } from "@/hooks/use-auth"
-import { useColors } from "@/hooks/use-color"
-import { useMobileFormDraft } from "@/hooks/use-mobile-form-draft"
+import { canUseMobileFeatureData } from "@/dev/mobile-dev-session"
 import {
-  createMemberReceipt,
-  createReceiptSupportCase,
+  appQueryKey,
+  useAppInfiniteQuery,
+  useAppQuery,
+} from "@/hooks/use-app-query"
+import { useAuthContext } from "@/hooks/use-auth"
+import { useDebounce } from "@/hooks/use-debounce"
+import { useMobileFormDraft } from "@/hooks/use-mobile-form-draft"
+import { isMobileReadCacheStale } from "@/lib/read-cache"
+import { useIsOnline } from "@/lib/online-status"
+import { cn } from "@/lib/utils"
+import { useQueryClient, type InfiniteData } from "@tanstack/react-query"
+import { useRouter } from "expo-router"
+import { useEffect, useRef, useState } from "react"
+import { View } from "react-native"
+import {
   getMemberReceiptDetail,
   getMemberReceipts,
 } from "../api/member-receipts-api"
+import { ReceiptDetail, ReceiptTile } from "../components/receipt-detail"
+import { ReceiptSubmitFlow } from "../components/receipt-submit-flow"
+import { ReceiptSupportFlow } from "../components/receipt-support-flow"
 import type {
   MobileMemberReceipts,
   MobilePaymentReceipt,
-  MobileReceiptAllocationCategory,
-  MobileReceiptPeriodIntent,
-  MobileReceiptTargetKind,
 } from "../model/member-receipt-types"
-import { isMobileReadCacheStale } from "@/lib/read-cache"
-import { canUseMobileFeatureData } from "@/dev/mobile-dev-session"
 import {
-  mobileDevQuickFill,
-  mobileDevQuickFillDate,
-  mobileDevQuickFillReference,
-} from "@/dev/mobile-dev-quick-fill"
-import { NotificationDestinationNotice } from "@/features/notifications/public/notification-destination-notice"
-import { useRouter } from "expo-router"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Keyboard, Pressable, ScrollView, View } from "react-native"
+  hasReceiptDraft,
+  newReceiptDraft,
+  receiptDate,
+  receiptMatches,
+  receiptMoney,
+  receiptMonth,
+  receiptStatus,
+  receiptTitle,
+} from "../model/receipt-presentation"
 
-type DraftAllocation = {
-  amount: string
-  category: MobileReceiptAllocationCategory
-  id: string
-  notes: string
-  periodIntent: MobileReceiptPeriodIntent
-  targetId: string
-  targetMonth: string
+type LedgerItem = {
+  first: boolean
+  last: boolean
+  month?: string
+  monthCount?: number
+  receipt: MobilePaymentReceipt
 }
 
-const periodIntents: {
-  label: string
-  value: MobileReceiptPeriodIntent
-}[] = [
-  { label: "Current", value: "current_period" },
-  { label: "Future", value: "future_period" },
-  { label: "Back", value: "back_period" },
-  { label: "Unspecified", value: "unspecified" },
-]
-
-function createDraftAllocation(): DraftAllocation {
-  return {
-    amount: "",
-    category: "commitment",
-    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    notes: "",
-    periodIntent: "current_period",
-    targetId: "",
-    targetMonth: new Date().toISOString().slice(0, 7),
+function ledgerItems(receipts: MobilePaymentReceipt[]) {
+  const monthCounts = new Map<string, number>()
+  for (const item of receipts) {
+    const month = item.submittedAt.slice(0, 7)
+    monthCounts.set(month, (monthCounts.get(month) ?? 0) + 1)
   }
+  return receipts.map((receipt, index, items): LedgerItem => {
+    const month = receipt.submittedAt.slice(0, 7)
+    const first = items[index - 1]?.submittedAt.slice(0, 7) !== month
+    return {
+      first,
+      last: items[index + 1]?.submittedAt.slice(0, 7) !== month,
+      month: first ? month : undefined,
+      monthCount: first ? monthCounts.get(month) : undefined,
+      receipt,
+    }
+  })
 }
 
-function allocationTargetPayload(
-  targetKind: MobileReceiptTargetKind,
-  targetId: string
-) {
-  if (!targetKind || !targetId) return {}
-  return { [targetKind]: targetId }
+function ReceiptLedgerRow({
+  currency,
+  item,
+  onPress,
+}: {
+  currency: string
+  item: LedgerItem
+  onPress: () => void
+}) {
+  const { receipt } = item
+  const status = receiptStatus(receipt.status)
+  const count = receipt.allocations.length
+  return (
+    <View className={cn("px-[18px]", item.last && "pb-[16px]")}>
+      {item.month ? (
+        <View className="mb-[8px] flex-row items-baseline justify-between px-[2px]">
+          <Text accessibilityRole="header" variant="section">
+            {receiptMonth(item.month)}
+          </Text>
+          <Text className="text-muted-foreground" variant="caption">
+            {item.monthCount}
+          </Text>
+        </View>
+      ) : null}
+      <Pressable
+        accessibilityLabel={`${receiptTitle(receipt)}, ${receiptMoney(receipt.totalAmount, currency)}, ${status.label}`}
+        accessibilityRole="button"
+        className={cn(
+          "min-h-[68px] flex-row items-center gap-[10px] border-x border-border bg-card px-[13px] py-[10px]",
+          item.first && "rounded-t-[20px] border-t",
+          item.last && "rounded-b-[20px] border-b"
+        )}
+        onPress={onPress}
+      >
+        <ReceiptTile tone={status.tone} />
+        <View className="min-w-0 flex-1 gap-[2px]">
+          <Text className="font-extrabold" numberOfLines={1} variant="body">
+            {receiptTitle(receipt)}
+          </Text>
+          <Text
+            className="text-muted-foreground"
+            numberOfLines={1}
+            variant="small"
+          >
+            {receiptDate(receipt.paidAt, true)} · {count}{" "}
+            {count === 1 ? "split" : "splits"}
+          </Text>
+        </View>
+        <View className="items-end gap-[3px]">
+          <Text tabular variant="money">
+            {receiptMoney(receipt.totalAmount, currency)}
+          </Text>
+          <StatusPill
+            icon={status.icon}
+            label={status.label}
+            tone={status.tone}
+          />
+        </View>
+      </Pressable>
+      {!item.last ? (
+        <View className="border-x border-border bg-card pl-[67px]">
+          <View className="h-px bg-border" />
+        </View>
+      ) : null}
+    </View>
+  )
 }
 
-function parseAmount(value: string) {
-  const amount = Number(value.replace(/,/g, "").trim())
-
-  return Number.isFinite(amount) ? amount : 0
-}
-
-function formatCurrency(value: number, currencyCode: string) {
-  return new Intl.NumberFormat("en-NG", {
-    currency: currencyCode,
-    maximumFractionDigits: 0,
-    style: "currency",
-  }).format(value)
-}
-
-function formatStatus(value: string) {
-  return value
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase())
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-    year: "numeric",
-  }).format(new Date(value))
-}
-
-function parsePaidAt(value: string) {
-  const trimmed = value.trim()
-
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    return null
-  }
-
-  const date = new Date(`${trimmed}T00:00:00.000Z`)
-
-  return Number.isNaN(date.getTime()) ? null : date
+function ReceiptStats({
+  snapshot,
+}: {
+  snapshot: MobileMemberReceipts | undefined
+}) {
+  const cards = [
+    {
+      label: "In review",
+      count: snapshot?.summary.pendingReviewReceipts,
+      dot: "bg-brand-warm",
+    },
+    {
+      label: "To fix",
+      count: snapshot?.summary.correctionRequestedReceipts,
+      dot: "bg-brand-vivid",
+    },
+    {
+      label: "Approved",
+      count: snapshot?.summary.approvedReceipts,
+      dot: "bg-success",
+    },
+  ]
+  return (
+    <Elevated
+      className="flex-row rounded-[20px] border border-border bg-card"
+      radius={20}
+    >
+      {cards.map((card, i) => (
+        <View
+          className={cn(
+            "min-w-0 flex-1 items-start gap-[4px] px-[12px] py-[14px]",
+            i > 0 && "border-l border-border"
+          )}
+          key={card.label}
+        >
+          {card.count === undefined ? (
+            <Skeleton className="h-[26px] w-[28px] rounded-[6px]" />
+          ) : (
+            <Text tabular variant="title">
+              {card.count}
+            </Text>
+          )}
+          <View className="flex-row items-center gap-[5px]">
+            <View className={cn("size-[7px] rounded-full", card.dot)} />
+            <Text className="shrink text-muted-foreground" variant="caption">
+              {card.label}
+            </Text>
+          </View>
+        </View>
+      ))}
+    </Elevated>
+  )
 }
 
 export function ReceiptsScreen({
@@ -136,1156 +202,437 @@ export function ReceiptsScreen({
   initialEntityId?: string | null
 }) {
   const { profile } = useAuthContext()
-  const colors = useColors()
   const router = useRouter()
-  const [receipts, setReceipts] = useState<MobileMemberReceipts | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [submissionError, setSubmissionError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
-  const [pendingSuccess, setPendingSuccess] = useState<string | null>(null)
-  const [totalAmount, setTotalAmount] = useState("")
-  const [paidAt, setPaidAt] = useState(() =>
-    new Date().toISOString().slice(0, 10)
-  )
-  const [paymentReference, setPaymentReference] = useState("")
-  const [proofDocumentUrl, setProofDocumentUrl] = useState("")
-  const [memberNotes, setMemberNotes] = useState("")
-  const [supportReceiptId, setSupportReceiptId] = useState<string | null>(null)
-  const [supportDescription, setSupportDescription] = useState("")
-  const [supportError, setSupportError] = useState<string | null>(null)
-  const [isCreatingSupport, setIsCreatingSupport] = useState(false)
-  const [isReceiptFormVisible, setIsReceiptFormVisible] = useState(false)
-  const receiptCalendar = useFormCalendar(isReceiptFormVisible)
-  const [isSupportFormVisible, setIsSupportFormVisible] = useState(false)
-  const [isReviewingSubmit, setIsReviewingSubmit] = useState(false)
-  const queuedReceiptSuccessRef = useRef<string | null>(null)
-  const queuedSupportSuccessRef = useRef<string | null>(null)
-  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [selectedReceipt, setSelectedReceipt] =
-    useState<MobilePaymentReceipt | null>(null)
-  const handledNotificationEntityRef = useRef<string | null>(null)
-  const [isDestinationUnavailable, setIsDestinationUnavailable] =
-    useState(false)
-  const [allocations, setAllocations] = useState<DraftAllocation[]>(() => [
-    createDraftAllocation(),
-  ])
-  const canUseServerReceipts = canUseMobileFeatureData(profile, "member")
-  const currencyCode = profile?.tenant.currencyCode ?? "NGN"
-  const hasStaleReceipts = isMobileReadCacheStale(receipts?.cache)
-  const allocationTotal = useMemo(
-    () =>
-      allocations.reduce(
-        (sum, allocation) => sum + parseAmount(allocation.amount),
-        0
-      ),
-    [allocations]
-  )
-  const receiptAmount = parseAmount(totalAmount)
-  const receiptDraft = useMemo(
-    () => ({
-      allocations,
-      memberNotes,
-      paidAt,
-      paymentReference,
-      proofDocumentUrl,
-      supportDescription,
-      supportReceiptId,
-      totalAmount,
-    }),
-    [
-      allocations,
-      memberNotes,
-      paidAt,
-      paymentReference,
-      proofDocumentUrl,
-      supportDescription,
-      supportReceiptId,
-      totalAmount,
-    ]
-  )
-  const clearReceiptDraft = useMobileFormDraft({
-    enabled: canUseServerReceipts,
+  const online = useIsOnline()
+  const cache = useQueryClient()
+  const account = profile
+    ? `${profile.user.id}:${profile.tenant.id}:${profile.activeMembershipId}`
+    : undefined
+  const allowed = canUseMobileFeatureData(profile, "member")
+  const currency = profile?.tenant.currencyCode ?? "NGN"
+  const [search, setSearch] = useState("")
+  const term = useDebounce(search.trim().slice(0, 120), 275)
+  const [draft, setDraft] = useState(newReceiptDraft)
+  const [formOpen, setFormOpen] = useState(false)
+  const [receiptId, setReceiptId] = useState<string | null>(initialEntityId)
+  const [supportOpen, setSupportOpen] = useState(false)
+  const [retrying, setRetrying] = useState(false)
+  const previousEntityId = useRef(initialEntityId)
+  useEffect(() => {
+    if (initialEntityId === previousEntityId.current) return
+    previousEntityId.current = initialEntityId
+    if (initialEntityId) {
+      setReceiptId(initialEntityId)
+      setSupportOpen(false)
+    }
+  }, [initialEntityId])
+
+  const clearStoredDraft = useMobileFormDraft({
+    enabled: allowed,
     key: "member.receipts.create",
-    onHydrate: (draft) => {
-      setTotalAmount(draft.totalAmount)
-      setPaidAt(draft.paidAt)
-      setPaymentReference(draft.paymentReference)
-      setProofDocumentUrl(draft.proofDocumentUrl)
-      setMemberNotes(draft.memberNotes)
-      setSupportReceiptId(draft.supportReceiptId)
-      setSupportDescription(draft.supportDescription)
-      if (draft.allocations.length > 0) {
-        setAllocations(draft.allocations)
-      }
-    },
-    value: receiptDraft,
+    onHydrate: (value) =>
+      setDraft((previous) => ({
+        ...previous,
+        ...value,
+        allocations: value.allocations?.length
+          ? value.allocations
+          : previous.allocations,
+      })),
+    value: draft,
   })
-  const canSubmit = Boolean(
-    receipts?.canCreateReceipt &&
-    receiptAmount > 0 &&
-    Math.abs(receiptAmount - allocationTotal) < 0.005 &&
-    allocations.every((allocation) => parseAmount(allocation.amount) > 0) &&
-    allocations.every((allocation) => {
-      const option = receipts?.categories.find(
-        (item) => item.value === allocation.category
+  const draftSaved = hasReceiptDraft(draft)
+
+  const listKey = appQueryKey("member-receipts", account, "ledger")
+  const ledger = useAppInfiniteQuery<
+    MobileMemberReceipts,
+    MobilePaymentReceipt,
+    Error,
+    typeof listKey,
+    string | null
+  >({
+    enabled: allowed,
+    getNextPageParam: (page) => page.nextCursor,
+    initialPageParam: null,
+    networkMode: "always",
+    placeholderData: undefined,
+    queryKey: listKey,
+    queryFn: ({ pageParam }) =>
+      getMemberReceipts({ cursor: pageParam, online }),
+    selectItems: (page) => page.receipts,
+  })
+  const snapshot = ledger.data?.pages[0]
+  const stale = isMobileReadCacheStale(snapshot?.cache)
+  const canCreate = Boolean(snapshot?.canCreateReceipt)
+  const canSupport = Boolean(snapshot?.canCreateSupportCase)
+  const searching = Boolean(term && online)
+  const searchKey = appQueryKey("member-receipts", account, "search", term)
+  const results = useAppInfiniteQuery<
+    MobileMemberReceipts,
+    MobilePaymentReceipt,
+    Error,
+    typeof searchKey,
+    string | null
+  >({
+    enabled: allowed && searching,
+    getNextPageParam: (page) => page.nextCursor,
+    initialPageParam: null,
+    placeholderData: undefined,
+    queryKey: searchKey,
+    queryFn: ({ pageParam }) =>
+      getMemberReceipts({ cursor: pageParam, online, search: term }),
+    selectItems: (page) => page.receipts,
+  })
+  const detail = useAppQuery({
+    enabled: allowed && Boolean(receiptId) && online,
+    placeholderData: undefined,
+    queryKey: appQueryKey("member-receipts", account, "detail", receiptId),
+    queryFn: () => getMemberReceiptDetail(receiptId!),
+  })
+  const cachedReceipt =
+    ledger.items.find((item) => item.id === receiptId) ??
+    results.items.find((item) => item.id === receiptId)
+  const selected =
+    detail.data === null ? null : (detail.data ?? cachedReceipt ?? null)
+  const activeList = searching ? results : ledger
+  const rows = online
+    ? activeList.items
+    : ledger.items.filter(
+        (item) => !term || receiptMatches(item, term, currency)
       )
-      return !option?.requiresTarget || Boolean(allocation.targetId)
-    }) &&
-    parsePaidAt(paidAt) &&
-    !hasStaleReceipts
-  )
-  const hasReceiptDraft = Boolean(
-    totalAmount.trim() ||
-    paymentReference.trim() ||
-    proofDocumentUrl.trim() ||
-    memberNotes.trim() ||
-    allocations.some(
-      (allocation) => allocation.amount.trim() || allocation.notes.trim()
-    )
-  )
-  const hasSupportDraft = Boolean(supportDescription.trim())
-  const latestReceipt = receipts?.receipts[0] ?? null
-  const reviewRows = [
-    {
-      detail: `${allocations.length} allocation${allocations.length === 1 ? "" : "s"} totaling ${formatCurrency(allocationTotal, currencyCode)}`,
-      icon: "ReceiptText",
-      label: "Receipt total",
-      value: receiptAmount
-        ? formatCurrency(receiptAmount, currencyCode)
-        : "Not set",
-    },
-    {
-      detail: paymentReference.trim() || "No reference entered",
-      icon: "CalendarClock",
-      label: "Paid date",
-      value: paidAt || "Not set",
-    },
-    {
-      detail: proofDocumentUrl.trim()
-        ? "Proof link will be submitted"
-        : "No proof link entered",
-      icon: "FileCheck",
-      label: "Proof",
-      value: proofDocumentUrl.trim() ? "Linked" : "Missing",
-    },
-  ]
-  const loadReceipts = useCallback(() => {
-    let mounted = true
+  const totalCount = snapshot
+    ? Object.values(snapshot.summary).reduce((a, b) => a + b, 0)
+    : 0
+  const missing = snapshot?.state === "member_profile_missing" || !allowed
+  const failed =
+    activeList.isError || snapshot?.state === "database_unavailable"
+  const loading = allowed && activeList.isPending && !failed
+  const openForm = () => {
+    if (canCreate) setFormOpen(true)
+  }
+  const openReceipt = (id: string) => {
+    setSupportOpen(false)
+    setReceiptId(id)
+  }
 
-    if (!canUseServerReceipts) {
-      setReceipts(null)
-      setError(null)
-      setIsLoading(false)
+  function resetDraft() {
+    setDraft((value) => ({
+      ...newReceiptDraft(),
+      supportDescription: value.supportDescription,
+      supportReceiptId: value.supportReceiptId,
+    }))
+    void clearStoredDraft().catch(() => undefined)
+  }
 
-      return () => {
-        mounted = false
-      }
-    }
-
-    setIsLoading(true)
-    setError(null)
-
-    void getMemberReceipts()
-      .then((response) => {
-        if (mounted) {
-          setReceipts(response)
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setError("Receipts are unavailable.")
-        }
-      })
-      .finally(() => {
-        if (mounted) {
-          setIsLoading(false)
-        }
-      })
-
-    return () => {
-      mounted = false
-    }
-  }, [canUseServerReceipts])
-
-  useEffect(() => loadReceipts(), [loadReceipts])
-
-  useEffect(() => {
-    if (
-      !initialEntityId ||
-      !canUseServerReceipts ||
-      handledNotificationEntityRef.current === initialEntityId
-    ) {
-      return
-    }
-
-    handledNotificationEntityRef.current = initialEntityId
-    let mounted = true
-    setIsDestinationUnavailable(false)
-    void getMemberReceiptDetail(initialEntityId)
-      .then((detail) => {
-        if (!mounted) return
-        if (detail) {
-          setSelectedReceipt(detail)
-          return
-        }
-        setIsDestinationUnavailable(true)
-      })
-      .catch(() => {
-        if (mounted) setIsDestinationUnavailable(true)
-      })
-
-    return () => {
-      mounted = false
-    }
-  }, [canUseServerReceipts, initialEntityId])
-
-  useEffect(
-    () => () => {
-      if (successTimerRef.current !== null) {
-        clearTimeout(successTimerRef.current)
-      }
-    },
-    []
-  )
-
-  useEffect(() => {
-    if (
-      !pendingSuccess ||
-      isReceiptFormVisible ||
-      isSupportFormVisible ||
-      isReviewingSubmit
-    ) {
-      return
-    }
-
-    if (successTimerRef.current !== null) {
-      clearTimeout(successTimerRef.current)
-    }
-    successTimerRef.current = setTimeout(() => {
-      setSuccess(pendingSuccess)
-      setPendingSuccess(null)
-      successTimerRef.current = null
-    }, 1_200)
-  }, [
-    isReceiptFormVisible,
-    isReviewingSubmit,
-    isSupportFormVisible,
-    pendingSuccess,
-  ])
-
-  async function handleLoadMore() {
-    const cursor = receipts?.nextCursor
-    if (!cursor || isLoadingMore) return
-
-    setIsLoadingMore(true)
-    setError(null)
+  async function refresh() {
+    if (!online || retrying) return
+    setRetrying(true)
     try {
-      const response = await getMemberReceipts(cursor)
-      setReceipts((current) => {
-        if (!current) return response
-        const receiptsById = new Map(
-          current.receipts.map((item) => [item.id, item])
+      const key = searching ? searchKey : listKey
+      cache.setQueryData<InfiniteData<MobileMemberReceipts, string | null>>(
+        key,
+        (value) =>
+          value
+            ? {
+                pages: value.pages.slice(0, 1),
+                pageParams: value.pageParams.slice(0, 1),
+              }
+            : value
+      )
+      await activeList.refetch()
+    } finally {
+      setRetrying(false)
+    }
+  }
+
+  function submitted(receipt: MobilePaymentReceipt) {
+    cache.setQueryData(
+      appQueryKey("member-receipts", account, "detail", receipt.id),
+      receipt
+    )
+    cache.setQueryData<InfiniteData<MobileMemberReceipts, string | null>>(
+      listKey,
+      (value) => {
+        if (
+          !value?.pages[0] ||
+          value.pages.some((page) =>
+            page.receipts.some((item) => item.id === receipt.id)
+          )
         )
-        response.receipts.forEach((item) => receiptsById.set(item.id, item))
+          return value
+        const [first, ...pages] = value.pages
         return {
-          ...response,
-          receipts: Array.from(receiptsById.values()),
-          summary: current.summary,
+          ...value,
+          pages: [
+            {
+              ...first,
+              receipts: [receipt, ...first.receipts],
+              summary: {
+                ...first.summary,
+                pendingReviewReceipts: first.summary.pendingReviewReceipts + 1,
+              },
+            },
+            ...pages,
+          ],
         }
-      })
-    } catch {
-      setError("More receipts could not be loaded.")
-    } finally {
-      setIsLoadingMore(false)
-    }
-  }
-
-  function updateAllocation(
-    id: string,
-    patch: Partial<Omit<DraftAllocation, "id">>
-  ) {
-    setAllocations((current) =>
-      current.map((allocation) =>
-        allocation.id === id ? { ...allocation, ...patch } : allocation
-      )
+      }
     )
+    void cache.invalidateQueries({
+      queryKey: searchKey,
+      exact: true,
+      refetchType: "none",
+    })
+    resetDraft()
   }
 
-  async function handleCreateReceiptSupport(receiptId: string) {
-    if (!receipts?.canCreateSupportCase) {
-      const message = "New support cases are unavailable for this cooperative."
-      setError(message)
-      setSupportError(message)
-      return
-    }
-    if (supportDescription.trim().length < 5 || isCreatingSupport) return
-    if (hasStaleReceipts) {
-      const message =
-        "Refresh receipts before opening a money-impact support case."
-      setError(message)
-      setSupportError(message)
-      return
-    }
-
-    setError(null)
-    setSubmissionError(null)
-    setSupportError(null)
-    setSuccess(null)
-    setIsCreatingSupport(true)
-
-    try {
-      await createReceiptSupportCase({
-        description: supportDescription.trim(),
-        receiptId,
-      })
-      await clearReceiptDraft()
-      queuedSupportSuccessRef.current = "Receipt support case opened."
-      setIsSupportFormVisible(false)
-    } catch {
-      const message = "Receipt support case could not be opened."
-      setError(message)
-      setSupportError(message)
-    } finally {
-      setIsCreatingSupport(false)
-    }
-  }
-
-  async function handleSubmit() {
-    const paidDate = parsePaidAt(paidAt)
-
-    if (hasStaleReceipts) {
-      setError("Refresh receipts before submitting payment proof.")
-      return
-    }
-
-    if (!canSubmit || !paidDate || isSubmitting) return
-
-    setError(null)
-    setSubmissionError(null)
-    setSuccess(null)
-    setIsSubmitting(true)
-
-    try {
-      await createMemberReceipt({
-        allocations: allocations.map((allocation) => ({
-          amount: parseAmount(allocation.amount),
-          category: allocation.category,
-          ...allocationTargetPayload(
-            receipts?.categories.find(
-              (item) => item.value === allocation.category
-            )?.targetKind ?? null,
-            allocation.targetId
-          ),
-          notes: allocation.notes.trim() || undefined,
-          periodIntent: allocation.periodIntent,
-          targetPeriodStart:
-            allocation.periodIntent !== "unspecified" &&
-            /^\d{4}-\d{2}$/.test(allocation.targetMonth)
-              ? `${allocation.targetMonth}-01T00:00:00.000Z`
-              : undefined,
-        })),
-        memberNotes: memberNotes.trim() || undefined,
-        paidAt: paidDate.toISOString(),
-        paymentReference: paymentReference.trim() || undefined,
-        proofDocumentUrl: proofDocumentUrl.trim() || undefined,
-        totalAmount: receiptAmount,
-      })
-      await clearReceiptDraft()
-      queuedReceiptSuccessRef.current = "Receipt submitted for finance review."
-      setIsReviewingSubmit(false)
-    } catch {
-      const message = "Receipt could not be submitted."
-      setError(message)
-      setSubmissionError(message)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
+  const nav = (compact: boolean) => (
+    <View className="min-h-[50px] flex-row items-center justify-between">
+      <ScreenHeaderButton
+        accessibilityLabel="Go back"
+        icon="ChevronLeft"
+        onPress={() => router.back()}
+      />
+      {compact ? <Text variant="label">Receipts</Text> : null}
+      {canCreate ? (
+        <Button
+          accessibilityLabel={
+            draftSaved ? "Continue receipt" : "Submit receipt"
+          }
+          onPress={openForm}
+          size="icon"
+          testID="receipt-new"
+        >
+          <Icon
+            className="size-[22px] text-primary-foreground"
+            name={draftSaved ? "SquarePen" : "Plus"}
+          />
+        </Button>
+      ) : (
+        <View className="size-[44px]" />
+      )}
+    </View>
+  )
+  const empty = missing ? (
+    <EmptyState
+      description="Your cooperative needs to link your member profile before receipts show here."
+      icon="IdCard"
+      title="Your member profile isn’t linked yet"
+    />
+  ) : failed ? (
+    <EmptyState
+      action={online ? { label: "Try again", onPress: refresh } : undefined}
+      description="Check your connection and try again."
+      icon="CircleAlert"
+      title={
+        online ? "Couldn’t load receipts" : "No receipts saved on this phone"
+      }
+      tone="error"
+    />
+  ) : term ? (
+    <EmptyState
+      action={{ label: "Clear search", onPress: () => setSearch("") }}
+      description="Try a reference, an amount or a status."
+      icon="Search"
+      title={`No receipts match “${term}”`}
+    />
+  ) : (
+    <EmptyState
+      action={
+        canCreate ? { label: "Submit receipt", onPress: openForm } : undefined
+      }
+      description={
+        canCreate
+          ? "After you pay your cooperative, send the proof here. Finance reviews it before posting."
+          : "Receipts you send will show here."
+      }
+      icon="ReceiptText"
+      title="No receipts yet"
+    />
+  )
 
   return (
-    <SafeArea style={{ backgroundColor: colors.background }}>
-      <ScrollView contentContainerClassName="gap-5 px-5 pb-8 pt-5">
-        <ScreenHeader
-          leading={<ScreenBackButton onPress={() => router.back()} />}
-          title="Receipts"
-        />
-
-        {isDestinationUnavailable ? (
-          <NotificationDestinationNotice
-            onDismiss={() => setIsDestinationUnavailable(false)}
-          />
-        ) : null}
-
-        {!canUseServerReceipts ? (
-          <SectionCard icon="ReceiptText" title="Receipts">
-            <Text className="text-sm leading-5 text-muted-foreground">
-              Sign in with a production member account to submit and track
-              receipts.
+    <>
+      <AppList
+        back={false}
+        compactHeader={<View className="px-[18px]">{nav(true)}</View>}
+        data={ledgerItems(rows)}
+        keyExtractor={(item) => item.receipt.id}
+        estimatedItemSize={77}
+        error={
+          failed && rows.length > 0 && !activeList.isFetchNextPageError
+            ? "Couldn’t refresh receipts."
+            : null
+        }
+        empty={empty}
+        header={
+          <View className="gap-[14px]">
+            {nav(false)}
+            <Text accessibilityRole="header" variant="screenTitle">
+              Receipts
             </Text>
-          </SectionCard>
-        ) : null}
-
-        {canUseServerReceipts ? (
-          <>
-            <CachedReadBanner cache={receipts?.cache} label="receipt data" />
-
-            {latestReceipt ? (
-              <View className="gap-3 border-b border-border pb-5">
-                <Text className="text-xs font-extrabold tracking-[0.7px] text-muted-foreground uppercase">
-                  Latest payment proof
-                </Text>
-                <Text
-                  adjustsFontSizeToFit
-                  className="text-[40px] leading-[44px] font-black tracking-[-1.2px] text-foreground"
-                  minimumFontScale={0.72}
-                  numberOfLines={1}
-                >
-                  {formatCurrency(latestReceipt.totalAmount, currencyCode)}
-                </Text>
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  {latestReceipt.paymentReference ??
-                    formatDate(latestReceipt.paidAt)}
-                  {" · submitted "}
-                  {formatDate(latestReceipt.submittedAt)}
-                </Text>
-                <View className="flex-row items-center justify-between gap-3 border-t border-border pt-3">
-                  <Text className="flex-1 text-sm font-semibold text-foreground">
-                    {latestReceipt.status === "correction_requested"
-                      ? "Finance needs a correction"
-                      : latestReceipt.status === "approved"
-                        ? "Finance approved this receipt"
-                        : "Finance review in progress"}
-                  </Text>
-                  <StatusBadge
-                    label={formatStatus(latestReceipt.status)}
-                    tone={getStatusBadgeTone(latestReceipt.status)}
-                  />
-                </View>
-              </View>
+            {!online ? (
+              <StatusBanner
+                description={
+                  snapshot?.cache?.cachedAt
+                    ? `Showing receipts saved ${receiptDate(snapshot.cache.cachedAt, true)}.`
+                    : undefined
+                }
+                kind="offline"
+                title="You’re offline"
+              />
+            ) : stale ? (
+              <StatusBanner
+                kind="stale"
+                onRetry={refresh}
+                retrying={retrying}
+                title="Couldn’t refresh receipts"
+              />
             ) : null}
-
-            <View className="flex-row border-y border-border">
-              <View className="flex-1 gap-1 py-3 pr-3">
-                <Text className="text-[10px] font-extrabold tracking-[0.5px] text-muted-foreground uppercase">
-                  Pending
-                </Text>
-                <Text className="text-base font-extrabold text-foreground">
-                  {receipts?.summary.pendingReviewReceipts ?? "—"}
-                </Text>
-              </View>
-              <View className="flex-1 gap-1 border-l border-border px-3 py-3">
-                <Text className="text-[10px] font-extrabold tracking-[0.5px] text-muted-foreground uppercase">
-                  Corrections
-                </Text>
-                <Text className="text-base font-extrabold text-foreground">
-                  {receipts?.summary.correctionRequestedReceipts ?? "—"}
-                </Text>
-              </View>
-              <View className="flex-1 gap-1 border-l border-border py-3 pl-3">
-                <Text className="text-[10px] font-extrabold tracking-[0.5px] text-muted-foreground uppercase">
-                  Approved
-                </Text>
-                <Text className="text-base font-extrabold text-foreground">
-                  {receipts?.summary.approvedReceipts ?? "—"}
-                </Text>
-              </View>
-            </View>
-
-            {receipts?.canCreateReceipt ? (
-              <>
-                <Button
-                  accessibilityHint="Opens a keyboard-safe receipt form"
-                  className="h-12"
-                  onPress={() => setIsReceiptFormVisible(true)}
-                >
-                  <Icon
-                    name="ReceiptText"
-                    className="size-base text-primary-foreground"
-                  />
-                  <Text>
-                    {hasReceiptDraft ? "Continue receipt" : "Submit receipt"}
-                  </Text>
-                </Button>
-                <FullScreenFormSheet
-                  dirty={hasReceiptDraft}
-                  footer={
-                    <View className="flex-row items-center gap-3">
-                      {!hasReceiptDraft ? (
-                        <DevQuickFill
-                          label="Quick fill receipt"
-                          onPress={() => {
-                            const preset = mobileDevQuickFill.receipt
-                            const paidAt = mobileDevQuickFillDate(0)
-                            setTotalAmount(preset.totalAmount)
-                            setPaidAt(paidAt)
-                            setPaymentReference(
-                              mobileDevQuickFillReference("HVC")
-                            )
-                            setProofDocumentUrl(preset.proofDocumentUrl)
-                            setMemberNotes(preset.memberNotes)
-                            setAllocations([
-                              {
-                                amount: preset.allocationAmount,
-                                category: "commitment",
-                                id: `quick-fill-${Date.now()}`,
-                                notes: "Monthly commitment and savings",
-                                periodIntent: "current_period",
-                                targetId:
-                                  receipts.categories.find(
-                                    (item) => item.value === "commitment"
-                                  )?.targets[0]?.id ?? "",
-                                targetMonth: paidAt.slice(0, 7),
-                              },
-                            ])
-                          }}
-                          placement="footer"
-                          portal={false}
-                        />
-                      ) : null}
-                      <Button
-                        className="h-12 flex-1"
-                        disabled={!canSubmit || isSubmitting}
-                        onPress={() => {
-                          Keyboard.dismiss()
-                          setSubmissionError(null)
-                          setIsReviewingSubmit(true)
-                        }}
-                      >
-                        <Icon
-                          name="Send"
-                          className="size-base text-primary-foreground"
-                        />
-                        <Text>
-                          {isSubmitting ? "Submitting" : "Review receipt"}
-                        </Text>
-                      </Button>
-                    </View>
-                  }
-                  isSubmitting={isSubmitting}
-                  onClose={() => setIsReceiptFormVisible(false)}
-                  overlayActive={receiptCalendar.isOpen || isReviewingSubmit}
-                  overlay={
-                    receiptCalendar.isOpen ? (
-                      receiptCalendar.overlay
-                    ) : isReviewingSubmit ||
-                      queuedReceiptSuccessRef.current !== null ? (
-                      <SubmissionReviewSheet
-                        description="Finance will review this receipt before posting."
-                        error={submissionError}
-                        isSubmitting={isSubmitting}
-                        onClose={() => {
-                          setSubmissionError(null)
-                          setIsReviewingSubmit(false)
-                        }}
-                        onConfirm={handleSubmit}
-                        onDismissed={() => {
-                          const nextSuccess = queuedReceiptSuccessRef.current
-                          if (!nextSuccess) return
-
-                          queuedReceiptSuccessRef.current = null
-                          setTotalAmount("")
-                          setPaymentReference("")
-                          setProofDocumentUrl("")
-                          setMemberNotes("")
-                          setAllocations([createDraftAllocation()])
-                          setPendingSuccess(nextSuccess)
-                          setIsReceiptFormVisible(false)
-                          loadReceipts()
-                        }}
-                        rows={reviewRows}
-                        title="Review receipt"
-                        visible={isReviewingSubmit}
-                      />
-                    ) : null
-                  }
-                  title="Submit receipt"
-                  visible={isReceiptFormVisible}
-                >
-                  <View className="gap-3">
-                    <FormStateBanner
-                      hasDraft={hasReceiptDraft}
-                      isStale={hasStaleReceipts}
-                    />
-                    <View className="gap-2">
-                      <Text className="text-sm font-semibold text-foreground">
-                        Total amount
-                      </Text>
-                      <Input
-                        accessibilityLabel="Receipt total amount"
-                        editable={!isSubmitting}
-                        keyboardType="numeric"
-                        onChangeText={setTotalAmount}
-                        placeholder="Total amount"
-                        value={totalAmount}
-                      />
-                    </View>
-                    <View className="gap-2">
-                      <Text className="text-sm font-semibold text-foreground">
-                        Payment reference
-                      </Text>
-                      <Input
-                        accessibilityLabel="Receipt payment reference"
-                        autoCapitalize="none"
-                        editable={!isSubmitting}
-                        onChangeText={setPaymentReference}
-                        placeholder="Payment reference"
-                        value={paymentReference}
-                      />
-                    </View>
-                    <View className="gap-2">
-                      <Text className="text-sm font-semibold text-foreground">
-                        Paid date
-                      </Text>
-                      <CalendarDateField
-                        accessibilityLabel="Receipt paid date"
-                        disabled={isSubmitting}
-                        onPress={() =>
-                          receiptCalendar.open({
-                            label: "Paid date",
-                            value: paidAt,
-                            onChange: setPaidAt,
-                            maximumDate: new Date().toISOString().slice(0, 10),
-                          })
-                        }
-                        value={paidAt}
-                      />
-                    </View>
-                    <View className="gap-2">
-                      <Text className="text-sm font-semibold text-foreground">
-                        Proof link
-                      </Text>
-                      <Input
-                        accessibilityLabel="Receipt proof link"
-                        autoCapitalize="none"
-                        editable={!isSubmitting}
-                        onChangeText={setProofDocumentUrl}
-                        placeholder="Proof link"
-                        value={proofDocumentUrl}
-                      />
-                    </View>
-
-                    <View className="gap-3">
-                      <View className="flex-row items-center justify-between">
-                        <Text className="font-semibold text-foreground">
-                          Allocations
-                        </Text>
-                        <Button
-                          className="h-9"
-                          onPress={() =>
-                            setAllocations((current) => [
-                              ...current,
-                              createDraftAllocation(),
-                            ])
-                          }
-                          variant="outline"
-                        >
-                          <Icon
-                            name="Plus"
-                            className="size-sm text-foreground"
-                          />
-                          <Text>Add split</Text>
-                        </Button>
-                      </View>
-
-                      {allocations.map((allocation, index) => (
-                        <View
-                          className="gap-3 border-b border-border pb-4"
-                          key={allocation.id}
-                        >
-                          <View className="flex-row items-center justify-between">
-                            <Text className="text-sm font-semibold text-foreground">
-                              Allocation {index + 1}
-                            </Text>
-                            {allocations.length > 1 ? (
-                              <Button
-                                className="h-8 px-2"
-                                onPress={() =>
-                                  setAllocations((current) =>
-                                    current.filter(
-                                      (item) => item.id !== allocation.id
-                                    )
-                                  )
-                                }
-                                variant="ghost"
-                              >
-                                <Icon
-                                  name="Trash2"
-                                  className="size-sm text-destructive"
-                                />
-                              </Button>
-                            ) : null}
-                          </View>
-                          <View className="flex-row flex-wrap gap-2">
-                            {receipts.categories.map((item) => {
-                              const isActive =
-                                item.value === allocation.category
-
-                              return (
-                                <Button
-                                  className="h-9"
-                                  key={item.value}
-                                  onPress={() =>
-                                    updateAllocation(allocation.id, {
-                                      category: item.value,
-                                      targetId: item.targets[0]?.id ?? "",
-                                    })
-                                  }
-                                  variant={isActive ? "secondary" : "outline"}
-                                >
-                                  <Text>{item.label}</Text>
-                                </Button>
-                              )
-                            })}
-                          </View>
-                          {(() => {
-                            const option = receipts.categories.find(
-                              (item) => item.value === allocation.category
-                            )
-                            if (!option) return null
-                            return (
-                              <View className="gap-2">
-                                {option.targets.map((target) => (
-                                  <Button
-                                    className="min-h-10 justify-start"
-                                    key={target.id}
-                                    onPress={() =>
-                                      updateAllocation(allocation.id, {
-                                        targetId: target.id,
-                                      })
-                                    }
-                                    variant={
-                                      allocation.targetId === target.id
-                                        ? "secondary"
-                                        : "outline"
-                                    }
-                                  >
-                                    <Text>{target.label}</Text>
-                                  </Button>
-                                ))}
-                                {option.requiresTarget &&
-                                option.targets.length === 0 ? (
-                                  <Text className="text-sm font-medium text-destructive">
-                                    No payable target is currently available.
-                                  </Text>
-                                ) : null}
-                                {!option.postable ? (
-                                  <Text className="text-sm leading-5 text-muted-foreground">
-                                    Finance can review this staged allocation,
-                                    but it cannot post until a dedicated ledger
-                                    exists.
-                                  </Text>
-                                ) : null}
-                              </View>
-                            )
-                          })()}
-                          <Input
-                            accessibilityLabel={`Allocation ${index + 1} amount`}
-                            editable={!isSubmitting}
-                            keyboardType="numeric"
-                            onChangeText={(value) =>
-                              updateAllocation(allocation.id, { amount: value })
-                            }
-                            placeholder="Allocation amount"
-                            value={allocation.amount}
-                          />
-                          <View className="flex-row flex-wrap gap-2">
-                            {periodIntents.map((item) => {
-                              const isActive =
-                                item.value === allocation.periodIntent
-
-                              return (
-                                <Button
-                                  className="h-9"
-                                  key={item.value}
-                                  onPress={() =>
-                                    updateAllocation(allocation.id, {
-                                      periodIntent: item.value,
-                                    })
-                                  }
-                                  variant={isActive ? "secondary" : "outline"}
-                                >
-                                  <Text>{item.label}</Text>
-                                </Button>
-                              )
-                            })}
-                          </View>
-                          {allocation.periodIntent !== "unspecified" ? (
-                            <CalendarDateField
-                              accessibilityLabel={`Allocation ${index + 1} target month`}
-                              disabled={isSubmitting}
-                              precision="month"
-                              placeholder="Choose target month"
-                              onPress={() =>
-                                receiptCalendar.open({
-                                  label: "Allocation month",
-                                  value: `${allocation.targetMonth}-01`,
-                                  selectionMode: "month",
-                                  onChange: (value) =>
-                                    updateAllocation(allocation.id, {
-                                      targetMonth: value.slice(0, 7),
-                                    }),
-                                })
-                              }
-                              value={allocation.targetMonth}
-                            />
-                          ) : null}
-                          <Input
-                            accessibilityLabel={`Allocation ${index + 1} notes`}
-                            editable={!isSubmitting}
-                            onChangeText={(value) =>
-                              updateAllocation(allocation.id, { notes: value })
-                            }
-                            placeholder="Allocation notes"
-                            value={allocation.notes}
-                          />
-                        </View>
-                      ))}
-                    </View>
-
-                    <View className="gap-2">
-                      <Text className="text-sm font-semibold text-foreground">
-                        Member notes
-                      </Text>
-                      <Textarea
-                        accessibilityLabel="Receipt member notes"
-                        editable={!isSubmitting}
-                        onChangeText={setMemberNotes}
-                        placeholder="Member notes"
-                        value={memberNotes}
-                      />
-                    </View>
-                    <Text className="text-sm text-muted-foreground">
-                      Allocation total:{" "}
-                      {formatCurrency(allocationTotal, currencyCode)}
-                    </Text>
-                    {error ? (
-                      <Text className="text-sm font-medium text-destructive">
-                        {error}
-                      </Text>
-                    ) : null}
-                    {success ? (
-                      <Text className="text-success text-sm font-medium">
-                        {success}
-                      </Text>
-                    ) : null}
-                  </View>
-                </FullScreenFormSheet>
-              </>
-            ) : receipts ? (
-              <View className="gap-1 border-y border-border py-4">
-                <Text className="font-semibold text-foreground">
-                  New receipt submissions are unavailable
-                </Text>
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  Your cooperative currently keeps receipt history readable but
-                  does not allow new member submissions.
-                </Text>
-              </View>
+            {!canCreate && snapshot?.state === "available" ? (
+              <StatusBanner
+                kind="info"
+                title="New receipts are off"
+                description="Your receipt history is still available."
+              />
             ) : null}
-
-            <View className="gap-4 border-b border-border pb-5">
-              <View className="flex-row items-baseline justify-between gap-3">
-                <Text className="text-xl font-extrabold tracking-[-0.4px] text-foreground">
-                  Receipt history
-                </Text>
-                <Text className="text-xs font-medium text-muted-foreground">
-                  {receipts?.receipts.length ?? 0} receipt
-                  {(receipts?.receipts.length ?? 0) === 1 ? "" : "s"}
-                </Text>
-              </View>
-              {isLoading ? (
-                <LoadingSpinner />
-              ) : !receipts ? (
-                <View className="items-center gap-4 py-8">
-                  <EmptyState
-                    description="Receipt records could not be loaded."
-                    icon="ReceiptText"
-                    title="Receipts unavailable"
-                  />
-                  <Button onPress={loadReceipts} variant="outline">
-                    <Text>Try again</Text>
-                  </Button>
+            {canCreate && draftSaved ? (
+              <Pressable
+                accessibilityRole="button"
+                className="flex-row items-center gap-[10px] rounded-[18px] bg-accent p-[12px]"
+                onPress={openForm}
+              >
+                <Icon
+                  className="ml-[6px] size-[20px] text-primary"
+                  name="SquarePen"
+                />
+                <View className="flex-1">
+                  <Text
+                    className="font-bold text-accent-foreground"
+                    variant="body"
+                  >
+                    Continue your receipt
+                  </Text>
+                  <Text className="text-accent-foreground" variant="small">
+                    {receiptMoney(
+                      Number(draft.totalAmount.replace(/,/g, "")) || 0,
+                      currency
+                    )}{" "}
+                    draft saved on this phone
+                  </Text>
                 </View>
-              ) : (
-                <>
-                  <VirtualizedCardList
-                    data={receipts?.receipts ?? []}
-                    empty={
-                      <EmptyState
-                        description="Submitted payment evidence will appear here before finance review."
-                        icon="ReceiptText"
-                        title="No payment receipts"
-                      />
-                    }
-                    estimatedItemSize={196}
-                    inline
-                    keyExtractor={(receipt) => receipt.id}
-                    renderItem={({ item: receipt }) => (
-                      <View
-                        className="gap-2 border-b border-border pb-4"
-                        key={receipt.id}
-                      >
-                        <Pressable
-                          accessibilityLabel={`View ${receipt.paymentReference ?? "receipt"} details`}
-                          accessibilityRole="button"
-                          className="gap-3 active:opacity-70"
-                          onPress={() => setSelectedReceipt(receipt)}
-                        >
-                          <View className="flex-row items-start justify-between gap-3">
-                            <View className="min-w-0 flex-1 gap-1">
-                              <Text className="font-semibold text-foreground">
-                                {receipt.paymentReference ??
-                                  formatDate(receipt.paidAt)}
-                              </Text>
-                              <Text className="text-xs leading-5 text-muted-foreground">
-                                Submitted {formatDate(receipt.submittedAt)}
-                              </Text>
-                            </View>
-                            <View className="flex-row items-center gap-2">
-                              <StatusBadge
-                                label={formatStatus(receipt.status)}
-                                tone={getStatusBadgeTone(receipt.status)}
-                              />
-                              <Icon
-                                name="ChevronRight"
-                                className="size-sm text-muted-foreground"
-                              />
-                            </View>
-                          </View>
-                          <View className="flex-row border-y border-border">
-                            <View className="flex-1 gap-1 py-2 pr-3">
-                              <Text className="text-[10px] font-extrabold tracking-[0.5px] text-muted-foreground uppercase">
-                                Amount
-                              </Text>
-                              <Text className="text-sm font-extrabold text-foreground">
-                                {formatCurrency(
-                                  receipt.totalAmount,
-                                  currencyCode
-                                )}
-                              </Text>
-                            </View>
-                            <View className="flex-1 gap-1 border-l border-border py-2 pl-3">
-                              <Text className="text-[10px] font-extrabold tracking-[0.5px] text-muted-foreground uppercase">
-                                Allocations
-                              </Text>
-                              <Text className="text-sm font-extrabold text-foreground">
-                                {receipt.allocations.length}
-                              </Text>
-                            </View>
-                          </View>
-                          {receipt.reviewNotes ? (
-                            <Text className="text-xs leading-5 text-muted-foreground">
-                              {receipt.reviewNotes}
-                            </Text>
-                          ) : null}
-                        </Pressable>
-                        {receipts?.canCreateSupportCase &&
-                        supportReceiptId === receipt.id ? (
-                          <>
-                            <Button
-                              className="h-10 self-start"
-                              disabled={hasStaleReceipts || isCreatingSupport}
-                              onPress={() => setIsSupportFormVisible(true)}
-                              variant="outline"
-                            >
-                              <Icon
-                                name="MessageCirclePlus"
-                                className="size-base"
-                              />
-                              <Text>Continue support case</Text>
-                            </Button>
-                            <CompactFormSheet
-                              dirty={hasSupportDraft}
-                              isSubmitting={isCreatingSupport}
-                              onClose={() => {
-                                setSupportError(null)
-                                setIsSupportFormVisible(false)
-                              }}
-                              onDismissed={() => {
-                                const nextSuccess =
-                                  queuedSupportSuccessRef.current
-                                if (!nextSuccess) return
-
-                                queuedSupportSuccessRef.current = null
-                                setSupportReceiptId(null)
-                                setSupportDescription("")
-                                setSupportError(null)
-                                setPendingSuccess(nextSuccess)
-                                loadReceipts()
-                              }}
-                              title="Open receipt support case"
-                              visible={isSupportFormVisible}
-                            >
-                              <Textarea
-                                accessibilityLabel="Receipt support issue"
-                                editable={!isCreatingSupport}
-                                onChangeText={setSupportDescription}
-                                placeholder="Describe the payment issue"
-                                value={supportDescription}
-                              />
-                              {supportError ? (
-                                <Text className="text-sm font-medium text-destructive">
-                                  {supportError}
-                                </Text>
-                              ) : null}
-                              <View className="flex-row items-center gap-3">
-                                {!hasSupportDraft ? (
-                                  <DevQuickFill
-                                    label="Quick fill issue"
-                                    onPress={() =>
-                                      setSupportDescription(
-                                        mobileDevQuickFill.receiptSupport
-                                          .description
-                                      )
-                                    }
-                                    placement="footer"
-                                    portal={false}
-                                  />
-                                ) : null}
-                                <Button
-                                  className="h-11 flex-1"
-                                  disabled={
-                                    supportDescription.trim().length < 5 ||
-                                    hasStaleReceipts ||
-                                    isCreatingSupport
-                                  }
-                                  onPress={() =>
-                                    handleCreateReceiptSupport(receipt.id)
-                                  }
-                                >
-                                  <Icon
-                                    name="Send"
-                                    className="size-base text-primary-foreground"
-                                  />
-                                  <Text>
-                                    {isCreatingSupport
-                                      ? "Opening"
-                                      : "Open case"}
-                                  </Text>
-                                </Button>
-                              </View>
-                            </CompactFormSheet>
-                          </>
-                        ) : receipts?.canCreateSupportCase ? (
-                          <Button
-                            className="h-10 self-start"
-                            disabled={hasStaleReceipts || isCreatingSupport}
-                            onPress={() => {
-                              setSelectedReceipt(null)
-                              setSupportReceiptId(receipt.id)
-                              setSupportDescription("")
-                              setSupportError(null)
-                              setIsSupportFormVisible(true)
-                              setError(null)
-                              setSuccess(null)
-                            }}
-                            variant="ghost"
-                          >
-                            <Icon
-                              name="MessageCirclePlus"
-                              className="size-base"
-                            />
-                            <Text>Open support case</Text>
-                          </Button>
-                        ) : (
-                          <Text className="text-xs leading-5 text-muted-foreground">
-                            Existing receipts remain readable. New support cases
-                            are disabled by your cooperative.
-                          </Text>
-                        )}
-                      </View>
-                    )}
-                  />
-                  {receipts?.nextCursor ? (
-                    <Button
-                      className="mt-4 h-11"
-                      disabled={isLoadingMore}
-                      onPress={handleLoadMore}
-                      variant="outline"
-                    >
-                      <Text>
-                        {isLoadingMore ? "Loading" : "Load more receipts"}
-                      </Text>
-                    </Button>
-                  ) : null}
-                </>
-              )}
+                <Icon
+                  className="size-[18px] text-primary"
+                  name="ChevronRight"
+                />
+              </Pressable>
+            ) : null}
+            {!missing &&
+            (snapshot?.state === "available" || ledger.isPending) ? (
+              <ReceiptStats snapshot={snapshot} />
+            ) : null}
+          </View>
+        }
+        isFetchingNextPage={activeList.isFetchingNextPage}
+        isLoading={loading}
+        listFooter={
+          activeList.isFetchNextPageError && online ? (
+            <View className="px-[18px]">
+              <StatusBanner
+                kind="error"
+                onRetry={() => void activeList.fetchNextPage()}
+                title="Couldn’t load more receipts"
+              />
             </View>
-          </>
-        ) : null}
-      </ScrollView>
-      {success ? (
-        <SubmissionSuccessSheet
-          description={success}
-          onClose={() => setSuccess(null)}
-          title={
-            success.includes("support") ? "Support case opened" : "Receipt sent"
+          ) : undefined
+        }
+        onEndReached={online && !stale ? activeList.onEndReached : undefined}
+        onRefresh={online ? refresh : undefined}
+        onRetry={online ? refresh : undefined}
+        refreshing={retrying}
+        renderItem={({ item }) => (
+          <ReceiptLedgerRow
+            currency={currency}
+            item={item}
+            onPress={() => openReceipt(item.receipt.id)}
+          />
+        )}
+        search={
+          totalCount > 10
+            ? {
+                value: search,
+                onChangeText: setSearch,
+                placeholder: "Search receipts",
+                totalCount,
+                localSearch: !online,
+              }
+            : undefined
+        }
+        testID="member-receipts"
+      />
+      <ReceiptDetail
+        canSupport={canSupport}
+        currency={currency}
+        error={detail.isError || !online}
+        loading={online && detail.isPending}
+        onClose={() => setReceiptId(null)}
+        onRetry={() => void detail.refetch()}
+        onSupport={() => {
+          if (!selected || !canSupport) return
+          if (draft.supportReceiptId !== selected.id) {
+            setDraft((value) => ({
+              ...value,
+              supportDescription: "",
+              supportReceiptId: selected.id,
+            }))
           }
+          setSupportOpen(true)
+        }}
+        receipt={selected}
+        visible={Boolean(receiptId && !supportOpen && !formOpen)}
+      />
+      {formOpen ? (
+        <ReceiptSubmitFlow
+          canCreate={canCreate}
+          currency={currency}
+          draft={draft}
+          offline={!online}
+          onClose={() => setFormOpen(false)}
+          onDiscard={() => {
+            resetDraft()
+            setFormOpen(false)
+          }}
+          onSent={submitted}
+          onViewReceipt={(receipt) => {
+            setFormOpen(false)
+            openReceipt(receipt.id)
+          }}
+          scope={account}
+          setDraft={setDraft}
+          stale={stale}
           visible
         />
       ) : null}
-      <WorkflowDetailSheet
-        onClose={() => setSelectedReceipt(null)}
-        rows={
-          selectedReceipt
-            ? [
-                {
-                  detail: `Submitted ${formatDate(selectedReceipt.submittedAt)}`,
-                  icon: "ReceiptText",
-                  label: "Status",
-                  value: formatStatus(selectedReceipt.status),
-                },
-                {
-                  detail: `Paid ${formatDate(selectedReceipt.paidAt)}`,
-                  icon: "CalendarClock",
-                  label: selectedReceipt.paymentReference ?? "Payment receipt",
-                  value: formatCurrency(
-                    selectedReceipt.totalAmount,
-                    currencyCode
-                  ),
-                },
-                {
-                  detail: selectedReceipt.allocations
-                    .map((allocation) => formatStatus(allocation.category))
-                    .join(" · "),
-                  icon: "CircleDollarSign",
-                  label: "Allocations",
-                  value: String(selectedReceipt.allocations.length),
-                },
-                {
-                  detail:
-                    selectedReceipt.proofDocumentName ??
-                    (selectedReceipt.proofDocumentUrl
-                      ? "Payment proof link attached"
-                      : "No payment proof link attached"),
-                  icon: "FileCheck",
-                  label: "Proof",
-                  value: selectedReceipt.proofDocumentUrl
-                    ? "Attached"
-                    : "Not attached",
-                },
-                ...(selectedReceipt.reviewNotes
-                  ? [
-                      {
-                        detail: selectedReceipt.reviewNotes,
-                        icon: "MessageSquareText",
-                        label: "Finance note",
-                        value: "Review update",
-                      },
-                    ]
-                  : []),
-              ]
-            : []
-        }
-        title={
-          selectedReceipt?.paymentReference ??
-          (selectedReceipt ? formatDate(selectedReceipt.paidAt) : "Receipt")
-        }
-        visible={Boolean(selectedReceipt)}
-      />
-    </SafeArea>
+      {supportOpen && selected ? (
+        <ReceiptSupportFlow
+          canSubmit={canSupport}
+          currency={currency}
+          description={draft.supportDescription}
+          offline={!online}
+          onClose={() => setSupportOpen(false)}
+          onEdit={(supportDescription) =>
+            setDraft((value) => ({ ...value, supportDescription }))
+          }
+          onSent={() =>
+            setDraft((value) => ({
+              ...value,
+              supportDescription: "",
+              supportReceiptId: null,
+            }))
+          }
+          receipt={selected}
+          stale={stale}
+          visible
+        />
+      ) : null}
+    </>
   )
 }

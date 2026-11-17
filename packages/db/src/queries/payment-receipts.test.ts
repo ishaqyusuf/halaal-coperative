@@ -405,9 +405,16 @@ describe("member payment receipt queries", () => {
       },
       {
         memberPaymentReceipt: {
-          count: async (input: Record<string, unknown>) => {
+          groupBy: async (input: Record<string, unknown>) => {
             countWheres.push(input.where)
-            return countWheres.length
+            expect(input.by).toEqual(["status"])
+            return [
+              { status: "submitted", _count: { _all: 1 } },
+              { status: "under_review", _count: { _all: 2 } },
+              { status: "correction_requested", _count: { _all: 3 } },
+              { status: "approved", _count: { _all: 4 } },
+              { status: "rejected", _count: { _all: 5 } },
+            ]
           },
         },
       } as never
@@ -421,7 +428,7 @@ describe("member payment receipt queries", () => {
       submittedReceipts: 1,
       underReviewReceipts: 2,
     })
-    expect(countWheres).toHaveLength(5)
+    expect(countWheres).toHaveLength(1)
     for (const where of countWheres) {
       expect(where).toMatchObject({
         memberId: "member-1",

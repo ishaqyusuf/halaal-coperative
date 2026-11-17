@@ -35,10 +35,12 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   BriefcaseBusiness:
     require("lucide-react-native/dist/esm/icons/briefcase-business").default,
   Calendar: require("lucide-react-native/dist/esm/icons/calendar").default,
+  Camera: require("lucide-react-native/dist/esm/icons/camera").default,
   CalendarClock: require("lucide-react-native/dist/esm/icons/calendar-clock")
     .default,
   ChartNoAxesCombined:
     require("lucide-react-native/dist/esm/icons/chart-no-axes-combined").default,
+  CircleHelp: require("lucide-react-native/dist/esm/icons/circle-question-mark").default,
   CirclePause: require("lucide-react-native/dist/esm/icons/circle-pause").default,
   Coins: require("lucide-react-native/dist/esm/icons/coins").default,
   Compass: require("lucide-react-native/dist/esm/icons/compass").default,
@@ -83,6 +85,7 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   Headphones: require("lucide-react-native/dist/esm/icons/headphones").default,
   History: require("lucide-react-native/dist/esm/icons/history").default,
   Home: require("lucide-react-native/dist/esm/icons/house").default,
+  Image: require("lucide-react-native/dist/esm/icons/image").default,
   Info: require("lucide-react-native/dist/esm/icons/info").default,
   KeyRound: require("lucide-react-native/dist/esm/icons/key-round").default,
   Landmark: require("lucide-react-native/dist/esm/icons/landmark").default,
@@ -90,6 +93,7 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
     require("lucide-react-native/dist/esm/icons/layout-dashboard").default,
   LayoutGrid: require("lucide-react-native/dist/esm/icons/layout-grid").default,
   ListChecks: require("lucide-react-native/dist/esm/icons/list-checks").default,
+  Link: require("lucide-react-native/dist/esm/icons/link").default,
   Link2Off: require("lucide-react-native/dist/esm/icons/link-2-off").default,
   Lock: require("lucide-react-native/dist/esm/icons/lock").default,
   Megaphone: require("lucide-react-native/dist/esm/icons/megaphone").default,
@@ -147,11 +151,13 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   SlidersHorizontal:
     require("lucide-react-native/dist/esm/icons/sliders-horizontal").default,
   Smartphone: require("lucide-react-native/dist/esm/icons/smartphone").default,
+  SquarePen: require("lucide-react-native/dist/esm/icons/square-pen").default,
   Star: require("lucide-react-native/dist/esm/icons/star").default,
   Sun: require("lucide-react-native/dist/esm/icons/sun").default,
   Trash2: require("lucide-react-native/dist/esm/icons/trash-2").default,
   TriangleAlert: require("lucide-react-native/dist/esm/icons/triangle-alert")
     .default,
+  Upload: require("lucide-react-native/dist/esm/icons/upload").default,
   User: require("lucide-react-native/dist/esm/icons/user").default,
   UserCheck: require("lucide-react-native/dist/esm/icons/user-check").default,
   UserPlus: require("lucide-react-native/dist/esm/icons/user-plus").default,

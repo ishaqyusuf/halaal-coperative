@@ -1,7 +1,9 @@
 import type {
   FinancingCommandResult,
   FinancingItem,
+  FinancingItemRead,
   FinancingLane,
+  FinancingSummary,
   FinancingWorkspace,
 } from "../model/admin-financing-operations-types"
 
@@ -137,7 +139,9 @@ const disbursementItems: FinancingItem[] = [
 export async function getDevFinancingWorkspace(
   lane: FinancingLane,
   search?: string
-): Promise<FinancingWorkspace> {
+): Promise<
+  FinancingWorkspace & Pick<FinancingSummary, "currencyCode" | "cycle">
+> {
   const source =
     lane === "review"
       ? requestItems
@@ -216,6 +220,41 @@ export async function getDevFinancingWorkspace(
       totalAmount: items.reduce((sum, item) => sum + item.amount, 0),
     },
   }
+}
+
+export async function getDevFinancingSummary(): Promise<FinancingSummary> {
+  const { capabilities, currencyCode, cycle } = await getDevFinancingWorkspace(
+    "review"
+  )
+  return {
+    capabilities,
+    currencyCode,
+    cycle,
+    generatedAt,
+    lanes: {
+      disbursement: {
+        count: disbursementItems.length,
+        totalAmount: disbursementItems.reduce((sum, item) => sum + item.amount, 0),
+      },
+      review: {
+        count: requestItems.length,
+        totalAmount: requestItems.reduce((sum, item) => sum + item.amount, 0),
+      },
+    },
+    requiresDualApproval: true,
+  }
+}
+
+export async function getDevFinancingItem(
+  entityId: string
+): Promise<FinancingItemRead> {
+  const loan = disbursementItems.find(
+    (item) => item.id === entityId || item.loanId === entityId
+  )
+  if (loan) return { item: loan, lane: "disbursement" }
+  const request = requestItems.find((item) => item.id === entityId)
+  if (!request) throw new Error("Financing record not found.")
+  return { item: request, lane: "review" }
 }
 
 export async function runDevFinancingCommand(

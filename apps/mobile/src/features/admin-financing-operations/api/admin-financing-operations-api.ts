@@ -2,32 +2,55 @@ import { isMobileDevFixtureSession } from "@/dev/mobile-dev-session"
 import { createMobileTrpcClient } from "@/lib/mobile-trpc-client"
 import { isPersistableReadInput, readCachedMobileQuery } from "@/lib/read-cache"
 import {
+  getDevFinancingItem,
+  getDevFinancingSummary,
   getDevFinancingWorkspace,
   runDevFinancingCommand,
 } from "./admin-financing-dev-fixtures"
 import type {
   FinancingCommandResult,
   FinancingCycleState,
+  FinancingItemRead,
   FinancingLane,
+  FinancingSummary,
   FinancingWorkspace,
 } from "../model/admin-financing-operations-types"
 
+/** Cycle, currency, lane counts and policy: once per visit and after writes. */
+export async function getFinancingSummary() {
+  if (isMobileDevFixtureSession()) return getDevFinancingSummary()
+  return readCachedMobileQuery("admin.financing-operations.summary", () =>
+    createMobileTrpcClient().mobile.admin.financingOperations.summary.query()
+  ) as Promise<FinancingSummary>
+}
+
+/** One cursor page of a lane, without the cycle (read in the summary). */
 export async function getFinancingOperationsWorkspace(input: {
   cursor?: string | null
-  entityId?: string
   lane: FinancingLane
   search?: string
 }) {
   if (isMobileDevFixtureSession())
     return getDevFinancingWorkspace(input.lane, input.search)
+  const request = { ...input, includeSummary: false }
   return readCachedMobileQuery(
-    `admin.financing-operations.${JSON.stringify(input)}`,
+    `admin.financing-operations.${JSON.stringify(request)}`,
     () =>
       createMobileTrpcClient().mobile.admin.financingOperations.workspace.query(
-        input
+        request
       ),
     { persist: isPersistableReadInput(input) }
   ) as Promise<FinancingWorkspace>
+}
+
+/** One record for a notification deep link. */
+export async function getFinancingItem(entityId: string) {
+  if (isMobileDevFixtureSession()) return getDevFinancingItem(entityId)
+  return readCachedMobileQuery(`admin.financing-operations.item.${entityId}`, () =>
+    createMobileTrpcClient().mobile.admin.financingOperations.item.query({
+      entityId,
+    })
+  ) as Promise<FinancingItemRead>
 }
 
 export async function updateFinancingCycle(input: {

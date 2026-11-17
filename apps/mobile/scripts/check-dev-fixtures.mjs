@@ -107,7 +107,7 @@ const quickFillScreens = [
   "src/features/admin-contribution-operations/components/contribution-plan-sheet.tsx",
   "src/features/admin-contribution-operations/components/contribution-row-sheet.tsx",
   "src/features/admin-contribution-operations/components/post-contribution-payment-sheet.tsx",
-  "src/features/admin-financing-operations/screens/admin-financing-operations-screen.tsx",
+  "src/features/admin-financing-operations/components/financing-action-sheets.tsx",
   "src/features/admin-food-purchase-operations/screens/admin-food-purchase-operations-screen.tsx",
   "src/features/admin-procurement-operations/screens/admin-procurement-operations-screen.tsx",
   "src/features/admin-project-financing-operations/screens/admin-project-financing-operations-screen.tsx",

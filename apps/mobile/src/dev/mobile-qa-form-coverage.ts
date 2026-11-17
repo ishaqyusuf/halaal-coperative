@@ -60,7 +60,7 @@ const adminCharges = feature(
   "admin-charge-operations/screens/admin-charge-operations-screen.tsx"
 )
 const adminFinancing = feature(
-  "admin-financing-operations/screens/admin-financing-operations-screen.tsx"
+  "admin-financing-operations/components/financing-action-sheets.tsx"
 )
 const adminFoodPurchase = feature(
   "admin-food-purchase-operations/screens/admin-food-purchase-operations-screen.tsx"

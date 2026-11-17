@@ -371,8 +371,12 @@ assertIncludes(
   ]
 )
 
-for (const screen of [
+assertIncludes(
   "src/features/notifications/screens/notifications-screen.tsx",
+  ["<AppList", "onEndReached=", "<SegmentedControl", "<SegmentedPager"]
+)
+
+for (const screen of [
   "src/features/procurement/screens/member-procurement-screen.tsx",
   "src/features/project-financing/screens/member-project-financing-screen.tsx",
   "src/features/food-purchase/screens/member-food-purchase-screen.tsx",

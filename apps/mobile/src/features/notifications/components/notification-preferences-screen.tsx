@@ -114,7 +114,7 @@ export function NotificationPreferencesScreen({
                 }
                 testID={`notification-preference-${preference.key}`}
               >
-                <View className="size-[27px] rounded-full bg-white" />
+                <View className="size-[27px] rounded-full bg-primary-foreground dark:bg-foreground" />
               </Pressable>
             </View>
           )

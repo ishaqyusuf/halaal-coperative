@@ -82,6 +82,7 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   FileCheck: require("lucide-react-native/dist/esm/icons/file-check").default,
   FileText: require("lucide-react-native/dist/esm/icons/file-text").default,
   Archive: require("lucide-react-native/dist/esm/icons/archive").default,
+  ArrowLeftRight: require("lucide-react-native/dist/esm/icons/arrow-left-right").default,
   Copy: require("lucide-react-native/dist/esm/icons/copy").default,
   FileCheck2: require("lucide-react-native/dist/esm/icons/file-check-2").default,
   Tablet: require("lucide-react-native/dist/esm/icons/tablet").default,

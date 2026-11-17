@@ -71,7 +71,10 @@ export function GroupedRow({
   chevron = false,
   destructive = false,
   detail,
+  disabled = false,
   icon,
+  mark,
+  markTone = "tint",
   onPress,
   testID,
   title,
@@ -85,7 +88,12 @@ export function GroupedRow({
   chevron?: boolean
   destructive?: boolean
   detail?: string
+  /** Dims the row and ignores presses (another row is busy, offline). */
+  disabled?: boolean
   icon?: string
+  /** Cooperative initials in a 30pt rounded tile (T27). */
+  mark?: string
+  markTone?: "solid" | "tint"
   onPress?: () => void
   testID?: string
   title: string
@@ -95,7 +103,24 @@ export function GroupedRow({
 }) {
   const content = (
     <View className="min-h-[52px] flex-row items-center gap-[12px] px-[16px] py-[8px]">
-      {avatar ? (
+      {mark ? (
+        <View
+          className={cn(
+            "size-[30px] items-center justify-center rounded-[8px]",
+            markTone === "solid" ? "bg-primary" : "bg-accent"
+          )}
+        >
+          <Text
+            className={cn(
+              "text-[11px] font-extrabold",
+              markTone === "solid" ? "text-primary-foreground" : "text-accent-foreground"
+            )}
+            maxFontSizeMultiplier={1}
+          >
+            {mark}
+          </Text>
+        </View>
+      ) : avatar ? (
         <View className="size-[30px] items-center justify-center rounded-full bg-accent">
           <Text
             className="text-[12px] font-bold text-accent-foreground"
@@ -152,11 +177,13 @@ export function GroupedRow({
   }
   return (
     <Pressable
+      accessibilityState={{ disabled }}
+      className={cn("active:bg-muted", disabled && "opacity-50")}
+      disabled={disabled}
       accessibilityLabel={
         accessibilityLabel ?? [title, detail, value].filter(Boolean).join(", ")
       }
       accessibilityRole="button"
-      className="active:bg-muted"
       haptic
       onPress={onPress}
       testID={testID}

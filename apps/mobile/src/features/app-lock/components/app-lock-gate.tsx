@@ -12,6 +12,7 @@ import { useAppLockContext } from "@/features/app-lock/hooks/use-app-lock"
 import { APP_LOCK_CODE_LENGTH } from "@/features/app-lock/model/app-lock-types"
 import { useAuthContext } from "@/hooks/use-auth"
 import { OverlayStatusBar } from "@/components/app/screen-status-bar"
+import { SPLASH_LOGO, SPLASH_LOGO_SIZE } from "@/lib/splash-logo"
 import {
   type ReactNode,
   useCallback,
@@ -20,7 +21,7 @@ import {
   useRef,
   useState,
 } from "react"
-import { StyleSheet, View } from "react-native"
+import { Image, StyleSheet, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 function formatLockout(value?: string | null) {
@@ -65,9 +66,15 @@ export function AppLockContentIsolation({ children }: { children: ReactNode }) {
 }
 
 export function AppLockGate() {
+  const appLock = useAppLockContext()
   const { shouldBlock, shouldConceal } = useAppLockCover()
 
   if (!shouldBlock && !shouldConceal) return null
+  // Reading the lock state takes a moment on launch. Until it is known, keep
+  // the splash surface up (same canvas, same centred logo) instead of a PIN
+  // pad that most people never see; the app stays covered either way.
+  const hydrating =
+    shouldBlock && !appLock.isHydrated && !appLock.hydrationError
 
   return (
     <View
@@ -76,11 +83,38 @@ export function AppLockGate() {
       importantForAccessibility="yes"
       style={[StyleSheet.absoluteFill, { elevation: 5000, zIndex: 5000 }]}
     >
-      {shouldConceal && !shouldBlock ? (
+      {hydrating ? (
+        <SplashCover />
+      ) : shouldConceal && !shouldBlock ? (
         <PrivacyCurtain />
       ) : (
         <AppLockUnlockScreen />
       )}
+    </View>
+  )
+}
+
+/** Launch cover while the lock state loads: the splash canvas and logo. */
+function SplashCover() {
+  return (
+    <View className="flex-1 bg-background" testID="app-lock-hydrating">
+      <OverlayStatusBar />
+      {/* Style-only: absolute centring that matches the splash logo. */}
+      <View
+        style={{
+          ...StyleSheet.absoluteFillObject,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Image
+          accessibilityIgnoresInvertColors
+          accessible={false}
+          fadeDuration={0}
+          source={SPLASH_LOGO}
+          style={{ height: SPLASH_LOGO_SIZE, width: SPLASH_LOGO_SIZE }}
+        />
+      </View>
     </View>
   )
 }

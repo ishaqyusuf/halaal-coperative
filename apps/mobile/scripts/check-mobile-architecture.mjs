@@ -482,9 +482,9 @@ function checkAdminReportsAccessNotificationOwnership() {
     "utf8"
   )
   for (const marker of [
-    "getAdminAccess",
+    "getWorkspaceAccessCount",
     "getMemberMore",
-    "inviteAdminAccessUser",
+    "useAppQuery",
     "runOnlineOperation",
     "switchRole",
     "signOut",
@@ -498,7 +498,7 @@ function checkAdminReportsAccessNotificationOwnership() {
     join(SOURCE_DIR, "features/settings-access/screens/more-screen.tsx"),
     "utf8"
   )
-  for (const marker of ["FullScreenFormSheet", "Signing out"]) {
+  for (const marker of ["ScreenShell", "ConfirmSheet", "InviteUserSheet"]) {
     if (!moreScreen.includes(marker)) {
       failures.push(`more screen is missing hardened state marker ${marker}`)
     }

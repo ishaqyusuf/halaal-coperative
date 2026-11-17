@@ -383,6 +383,16 @@
       "tenantBoundary": "Settings and access surfaces render server permissions."
     },
     {
+      "file": "src/app/(admin)/workspace-access.tsx",
+      "path": "/workspace-access",
+      "feature": "settings-access",
+      "roles": [
+        "tenant_admin",
+        "super_admin"
+      ],
+      "tenantBoundary": "Workspace users, role counts and invitation permissions are scoped to the active tenant and checked by the API."
+    },
+    {
       "file": "src/app/(admin)/operation-profile.tsx",
       "path": "/(admin)/operation-profile",
       "feature": "operation-profile",

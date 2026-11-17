@@ -348,6 +348,170 @@ export async function getMobileAdminAccessOverview(
   }
 }
 
+type AccessUser = MobileFeatureAdminAccess["users"][number]
+type AccessCursor = { id: string; group: "staff" | "members" }
+
+export async function countMobileAdminAccessUsers(tenantId: string) {
+  const prisma = createPrismaClient()
+  const workspaceUsers = prisma
+    ? await prisma.user.count({ where: { tenantId, deletedAt: null } })
+    : (await listTenantUsersWithMemberships(tenantId)).length
+  return { workspaceUsers }
+}
+
+export async function getMobileAdminAccessStats(tenantId: string) {
+  const prisma = createPrismaClient()
+  if (!prisma) {
+    const { summary, roles } = await getMobileAdminAccessOverview(tenantId)
+    return { summary, roles }
+  }
+
+  const where = { tenantId, deletedAt: null }
+  const [workspaceUsers, staffUsers, defaultRoles, roleGroups] =
+    await Promise.all([
+      prisma.user.count({ where }),
+      prisma.user.count({
+        where: {
+          ...where,
+          memberships: { some: { tenantId, role: { not: "member" } } },
+        },
+      }),
+      prisma.user.count({
+        where: {
+          ...where,
+          memberships: { some: { tenantId, isDefault: true } },
+        },
+      }),
+      prisma.membership.groupBy({
+        by: ["role", "isDefault"],
+        where: { tenantId, user: where },
+        _count: { _all: true },
+      }),
+    ])
+  const catalogue = roles.map((role) => ({
+    defaultUsersCount:
+      roleGroups.find((group) => group.role === role && group.isDefault)?._count
+        ._all ?? 0,
+    label: roleLabel(role),
+    role,
+    scope: roleScope(role),
+    usersCount: roleGroups.reduce(
+      (sum, group) => sum + (group.role === role ? group._count._all : 0),
+      0
+    ),
+  }))
+  return {
+    roles: catalogue,
+    summary: {
+      defaultRoles,
+      memberUsers:
+        catalogue.find((role) => role.role === "member")?.usersCount ?? 0,
+      roleAssignments: roleGroups.reduce(
+        (sum, group) => sum + group._count._all,
+        0
+      ),
+      staffUsers,
+      workspaceUsers,
+    },
+  }
+}
+
+export async function listMobileAdminAccessPage(input: {
+  tenantId: string
+  cursor?: AccessCursor | null
+  limit: number
+  search?: string
+}): Promise<{ users: AccessUser[]; nextCursor: AccessCursor | null }> {
+  const { cursor, limit, search, tenantId } = input
+  const prisma = createPrismaClient()
+  const staff = { tenantId, role: { not: "member" as const } }
+
+  async function readGroup(group: AccessCursor["group"], take: number) {
+    const after = cursor?.group === group ? cursor.id : undefined
+    if (!prisma) {
+      const { users } = await getMobileAdminAccessOverview(tenantId)
+      const term = search?.toLowerCase()
+      return users
+        .filter(
+          (user) =>
+            user.memberships.some(
+              (membership) => membership.role !== "member"
+            ) ===
+              (group === "staff") &&
+            (!after || user.id > after) &&
+            (!term ||
+              [user.fullName, user.email].some((field) =>
+                field.toLowerCase().includes(term)
+              ))
+        )
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .slice(0, take)
+    }
+
+    // Escape LIKE wildcards so search treats their characters literally.
+    const contains = search?.replace(/[\\%_]/g, "\\$&")
+    const users = await prisma.user.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        id: after ? { gt: after } : undefined,
+        memberships: group === "staff" ? { some: staff } : { none: staff },
+        OR: contains
+          ? [
+              { fullName: { contains, mode: "insensitive" } },
+              { email: { contains, mode: "insensitive" } },
+            ]
+          : undefined,
+      },
+      orderBy: { id: "asc" },
+      take,
+      select: {
+        email: true,
+        fullName: true,
+        id: true,
+        isPlatformOwner: true,
+        memberships: {
+          where: { tenantId },
+          select: { id: true, isDefault: true, role: true },
+          orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+        },
+      },
+    })
+    return users.map((user) => {
+      const memberships = user.memberships.map((membership) => ({
+        ...membership,
+        label: roleLabel(membership.role),
+      }))
+      return {
+        ...user,
+        defaultRoleLabel:
+          memberships.find((membership) => membership.isDefault)?.label ?? null,
+        memberships,
+      }
+    })
+  }
+
+  const staffUsers =
+    cursor?.group === "members" ? [] : await readGroup("staff", limit + 1)
+  const memberUsers =
+    staffUsers.length > limit
+      ? []
+      : await readGroup("members", limit + 1 - staffUsers.length)
+  const candidates = [...staffUsers, ...memberUsers]
+  const users = candidates.slice(0, limit)
+  const last = users.at(-1)
+  return {
+    users,
+    nextCursor:
+      candidates.length > limit && last
+        ? {
+            id: last.id,
+            group: staffUsers.length >= limit ? "staff" : "members",
+          }
+        : null,
+  }
+}
+
 export async function inviteMobileAdminAccessUserForSession(input: {
   actorUserId: string
   email: string

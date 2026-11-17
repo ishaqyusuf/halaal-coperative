@@ -101,7 +101,7 @@ const quickFillScreens = [
   "src/features/shares-profit/screens/share-request-flow.tsx",
   "src/features/admin-member-lifecycle/screens/admin-members-screen.tsx",
   "src/features/admin-member-lifecycle/screens/admin-member-detail-screen.tsx",
-  "src/features/settings-access/screens/more-screen.tsx",
+  "src/features/settings-access/components/invite-user-sheet.tsx",
   "src/features/operation-profile/components/operation-profile-edit-sheet.tsx",
   "src/features/admin-charge-operations/screens/admin-charge-operations-screen.tsx",
   "src/features/admin-contribution-operations/screens/admin-contribution-operations-screen.tsx",
@@ -221,6 +221,7 @@ assertIncludes(
 
 const fixtureAdapters = [
   "src/features/settings-access/api/member-more-api.ts",
+  "src/features/settings-access/api/workspace-access-api.ts",
   "src/features/member-core/api/member-core-api.ts",
   "src/features/shares-profit/api/member-shares-api.ts",
   "src/features/financing/api/member-financing-api.ts",

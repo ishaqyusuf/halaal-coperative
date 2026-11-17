@@ -1,238 +1,59 @@
 import { canUseMobileFeatureData } from "@/dev/mobile-dev-session"
-import {
-  getAdminAccess,
-  inviteAdminAccessUser,
-} from "@/features/admin-reports-access/public/admin-access-api"
 import { canManageMobileAdminAccess } from "@/features/admin-reports-access/public/admin-access-policy"
-import type {
-  AdminAccess,
-  AdminAccessInviteInput,
-  AdminAccessInviteResult,
-} from "@/features/admin-reports-access/public/admin-access-types"
-import { canManageMobileOperationProfile } from "@/features/operation-profile/public/operation-profile-policy"
 import { useLegalReminder } from "@/features/legal/public/legal-read-api"
+import { useAppQuery } from "@/hooks/use-app-query"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
 import { useLocalSearchParams } from "expo-router"
-import { useEffect, useState } from "react"
+import { useRef, useState } from "react"
 import { getMemberMore } from "../api/member-more-api"
-import type { MobileMemberMore } from "../model/member-more-types"
 import {
-  presentAdminAccessForQa,
-  type SettingsAccessQaState,
-} from "../model/settings-access-qa"
+  getWorkspaceAccessCount,
+  settingsAccessKey,
+} from "../api/workspace-access-api"
+import { getSettingsAccessQaState } from "../model/settings-access-qa"
 import { MoreScreen } from "../screens/more-screen"
-
-function formatErrorMessage(error: unknown, fallback: string) {
-  if (!(error instanceof Error)) return fallback
-
-  if (error.message.includes("tenant_admin")) {
-    return "Workspace access requires Cooperative Admin."
-  }
-
-  if (error.message.toLowerCase().includes("cooperative prefix")) {
-    return "Configure this cooperative's 3–5 letter prefix on the web before inviting mobile users."
-  }
-
-  return fallback
-}
-
-function getQaState(value: string | string[] | undefined) {
-  if (!__DEV__ || typeof value !== "string") return null
-  return [
-    "denied",
-    "empty",
-    "error",
-    "invite-failed",
-    "loading",
-    "missing-prefix",
-    "offline",
-    "stale",
-  ].includes(value)
-    ? (value as SettingsAccessQaState)
-    : null
-}
 
 export function MoreRouteController() {
   const { profile, signInAs, signOut, switchRole } = useAuthContext()
   const runtime = useMobileRuntime()
-  const { qaState } = useLocalSearchParams<{
-    qaState?: string | string[]
-  }>()
-  const resolvedQaState = getQaState(qaState)
-  const [adminAccess, setAdminAccess] = useState<AdminAccess | null>(null)
-  const [isLoadingAdminAccess, setIsLoadingAdminAccess] = useState(false)
-  const [adminAccessError, setAdminAccessError] = useState<string | null>(null)
-  const [adminAccessRefreshKey, setAdminAccessRefreshKey] = useState(0)
-  const [memberHub, setMemberHub] = useState<MobileMemberMore | null>(null)
-  const [isLoadingMemberHub, setIsLoadingMemberHub] = useState(false)
-  const [memberHubError, setMemberHubError] = useState<string | null>(null)
+  const { qaState } = useLocalSearchParams<{ qaState?: string }>()
+  const qa = getSettingsAccessQaState(qaState)
   const [switchingMembershipId, setSwitchingMembershipId] = useState<
     string | null
   >(null)
   const [workspaceError, setWorkspaceError] = useState<string | null>(null)
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState<string | null>(null)
-  const [isInviting, setIsInviting] = useState(false)
-  const canUseServerMemberHub = canUseMobileFeatureData(profile, "member")
+  const signingOut = useRef(false)
+  const offline = qa === "offline" || runtime.state.connectivity === "offline"
   const accountKey = profile
     ? `${profile.user.id}:${profile.tenant.id}:${profile.activeMembershipId}`
     : null
-  const showLegalReminder = useLegalReminder({
-    accountKey,
-    enabled: runtime.state.connectivity !== "offline",
-  })
-  const canUseServerAdminAccess =
-    resolvedQaState !== "denied" &&
+  const canManageAccess =
+    qa !== "denied" &&
     canUseMobileFeatureData(profile, "admin") &&
     canManageMobileAdminAccess(profile?.cooperativeRole)
 
-  useEffect(() => {
-    let mounted = true
-
-    if (!canUseServerMemberHub) {
-      setMemberHub(null)
-      setMemberHubError(null)
-      setIsLoadingMemberHub(false)
-      return
-    }
-
-    setIsLoadingMemberHub(true)
-    setMemberHubError(null)
-
-    void getMemberMore()
-      .then((response) => {
-        if (mounted) setMemberHub(response)
-      })
-      .catch(() => {
-        if (mounted) setMemberHubError("Member details are unavailable.")
-      })
-      .finally(() => {
-        if (mounted) setIsLoadingMemberHub(false)
-      })
-
-    return () => {
-      mounted = false
-    }
-  }, [canUseServerMemberHub, profile?.token])
-
-  useEffect(() => {
-    let mounted = true
-
-    if (!canUseServerAdminAccess) {
-      setAdminAccess(null)
-      setAdminAccessError(null)
-      setIsLoadingAdminAccess(false)
-      return
-    }
-
-    if (resolvedQaState === "error") {
-      setAdminAccess(null)
-      setAdminAccessError("Workspace access is unavailable.")
-      setIsLoadingAdminAccess(false)
-      return
-    }
-
-    if (resolvedQaState === "loading") {
-      setAdminAccess(null)
-      setAdminAccessError(null)
-      setIsLoadingAdminAccess(true)
-      return
-    }
-
-    setIsLoadingAdminAccess(true)
-    setAdminAccessError(null)
-
-    void getAdminAccess()
-      .then((response) => {
-        if (mounted) {
-          setAdminAccess(presentAdminAccessForQa(response, resolvedQaState))
-        }
-      })
-      .catch((error: unknown) => {
-        if (mounted) {
-          setAdminAccessError(
-            formatErrorMessage(error, "Workspace access is unavailable.")
-          )
-        }
-      })
-      .finally(() => {
-        if (mounted) setIsLoadingAdminAccess(false)
-      })
-
-    return () => {
-      mounted = false
-    }
-  }, [
-    adminAccessRefreshKey,
-    canUseServerAdminAccess,
-    profile?.token,
-    resolvedQaState,
-  ])
-
-  async function inviteUser(
-    input: AdminAccessInviteInput
-  ): Promise<
-    | { message: string; result: null }
-    | { message: null; result: AdminAccessInviteResult }
-  > {
-    if (isInviting) {
-      return {
-        message: "Workspace invitation is already in progress.",
-        result: null,
-      }
-    }
-
-    if (resolvedQaState === "missing-prefix") {
-      return {
-        message:
-          "Configure this cooperative's 3–5 letter prefix on the web before inviting mobile users.",
-        result: null,
-      }
-    }
-
-    if (resolvedQaState === "invite-failed") {
-      return {
-        message: null,
-        result: {
-          cooperativeNumber: "ABC-0123",
-          deliveryStatus: "failed",
-          email: input.email,
-          fullName: input.fullName,
-          id: "ticket-09-invite-failed",
-          role: input.role,
-          setupUrl: "",
-          status: "invited",
-        },
-      }
-    }
-
-    setIsInviting(true)
-    setAdminAccessError(null)
-
-    try {
-      const result = await runtime.runOnlineOperation("command", () =>
-        inviteAdminAccessUser(input)
-      )
-      setAdminAccess(await getAdminAccess())
-      return { message: null, result }
-    } catch (error) {
-      return {
-        message: formatErrorMessage(
-          error,
-          "Workspace invitation could not be saved."
-        ),
-        result: null,
-      }
-    } finally {
-      setIsInviting(false)
-    }
-  }
+  const showLegalReminder = useLegalReminder({ accountKey, enabled: !offline })
+  const member = useAppQuery({
+    enabled: canUseMobileFeatureData(profile, "member"),
+    networkMode: "always",
+    placeholderData: undefined,
+    queryFn: getMemberMore,
+    queryKey: settingsAccessKey(accountKey, "member"),
+  })
+  const access = useAppQuery({
+    enabled: canManageAccess && qa !== "loading" && qa !== "error",
+    networkMode: "always",
+    placeholderData: undefined,
+    queryFn: getWorkspaceAccessCount,
+    queryKey: settingsAccessKey(accountKey, "count"),
+  })
 
   async function switchWorkspace(membershipId: string) {
     setWorkspaceError(null)
     setSwitchingMembershipId(membershipId)
-
     try {
       await runtime.runOnlineOperation("command", () =>
         switchRole(membershipId)
@@ -245,45 +66,46 @@ export function MoreRouteController() {
   }
 
   async function handleSignOut() {
-    if (isSigningOut) return
+    if (signingOut.current) return
+    signingOut.current = true
     setIsSigningOut(true)
     setSignOutError(null)
-
     try {
+      if (qa === "signout-error") throw new Error("Simulated sign-out failure")
       await signOut()
     } catch {
       setSignOutError("Sign out could not be completed. Try again.")
     } finally {
+      signingOut.current = false
       setIsSigningOut(false)
     }
   }
 
+  if (!profile) return null
   return (
     <MoreScreen
-      adminAccess={adminAccess}
-      adminAccessError={adminAccessError}
-      canManageOperationProfile={canManageMobileOperationProfile(
-        profile?.cooperativeRole
-      )}
-      canUseServerAdminAccess={canUseServerAdminAccess}
-      canUseServerMemberHub={canUseServerMemberHub}
-      isInviting={isInviting}
-      isLoadingAdminAccess={isLoadingAdminAccess}
-      isLoadingMemberHub={isLoadingMemberHub}
+      key={`${accountKey}:${qa ?? ""}`}
+      accessCount={qa === "empty" ? 0 : access.data?.workspaceUsers}
+      accessError={qa === "error" || access.isError}
+      canManageAccess={canManageAccess}
       isSigningOut={isSigningOut}
-      memberHub={memberHub}
-      memberHubError={memberHubError}
-      onInviteUser={inviteUser}
+      member={member.data}
+      memberError={member.isError}
+      memberLoading={member.isLoading}
+      offline={offline}
       onOpenAdminFixture={() => void signInAs("admin")}
-      onRefreshAdminAccess={() =>
-        setAdminAccessRefreshKey((value) => value + 1)
-      }
+      onRefresh={() => {
+        if (offline) return
+        if (profile.role === "member") void member.refetch()
+        if (canManageAccess) void access.refetch()
+      }}
       onSignOut={() => void handleSignOut()}
       onSwitchWorkspace={(membershipId) => void switchWorkspace(membershipId)}
       profile={profile}
-      qaState={resolvedQaState}
-      signOutError={signOutError}
+      qa={qa}
+      refreshing={member.isRefetching || access.isRefetching}
       showLegalReminder={showLegalReminder}
+      signOutError={signOutError}
       switchingMembershipId={switchingMembershipId}
       workspaceError={workspaceError}
     />

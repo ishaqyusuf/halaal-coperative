@@ -3,6 +3,7 @@ import type { MobileProfile } from "@/lib/session-store"
 export type WorkspaceRole = NonNullable<MobileProfile["availableRoles"]>[number]
 
 export function formatWorkspaceRoleLabel(role: WorkspaceRole["role"] | string) {
+  if (role === "tenant_admin" || role === "admin") return "Cooperative Admin"
   return role
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))

@@ -1,7 +1,10 @@
 import {
+  countMobileAdminAccessUsers,
   createAuditLogEntry,
   createMobileAdminReportExport,
   getMobileAdminAccessOverview,
+  getMobileAdminAccessStats,
+  listMobileAdminAccessPage,
   getMobileAdminReportsOverview,
   disableMobilePushEndpoint,
   listActivityReportEvents,
@@ -175,6 +178,28 @@ export const mobileAdminReportsAccessNotificationProcedures = {
           setupUrl,
         }
       }),
+    summary: permissionProcedure("manage_roles").query(({ ctx }) =>
+      countMobileAdminAccessUsers(ctx.tenant.current.id)
+    ),
+    stats: permissionProcedure("manage_roles").query(({ ctx }) =>
+      getMobileAdminAccessStats(ctx.tenant.current.id)
+    ),
+    directory: permissionProcedure("manage_roles")
+      .input(
+        z.object({
+          cursor: z
+            .object({
+              group: z.enum(["staff", "members"]),
+              id: z.string().uuid(),
+            })
+            .nullish(),
+          limit: z.number().int().min(1).max(50).default(25),
+          search: z.string().trim().max(120).optional(),
+        })
+      )
+      .query(({ ctx, input }) =>
+        listMobileAdminAccessPage({ ...input, tenantId: ctx.tenant.current.id })
+      ),
     overview: permissionProcedure("manage_roles").query(({ ctx }) =>
       getMobileAdminAccessOverview(ctx.tenant.current.id)
     ),

@@ -266,6 +266,8 @@ export function useScreenChrome({ hero }: { hero: boolean }) {
 
 export type ScreenShellProps = {
   title?: string
+  /** Pin a compact title after the large title scrolls away. */
+  compactTitle?: boolean
   /** Auto (router.canGoBack()) unless set; a function overrides navigation. */
   back?: boolean | (() => void)
   headerActions?: ReactNode
@@ -296,6 +298,7 @@ export type ScreenShellProps = {
  */
 export function ScreenShell({
   back,
+  compactTitle = false,
   children,
   contentClassName,
   footer,
@@ -312,6 +315,7 @@ export function ScreenShell({
 }: ScreenShellProps) {
   const colors = useColors()
   const chrome = useScreenChrome({ hero: Boolean(hero) })
+  const [showCompactTitle, setShowCompactTitle] = useState(false)
 
   return (
     <View className="flex-1 bg-background" testID={testID}>
@@ -324,6 +328,8 @@ export function ScreenShell({
         keyboardShouldPersistTaps="handled"
         onScroll={(event) => {
           chrome.onScroll(event)
+          if (compactTitle)
+            setShowCompactTitle(event.nativeEvent.contentOffset.y >= 52)
           onScroll?.(event)
         }}
         ref={scrollRef}
@@ -364,6 +370,24 @@ export function ScreenShell({
           {children}
         </View>
       </ScrollView>
+      {compactTitle && showCompactTitle && title ? (
+        <View
+          style={{
+            backgroundColor: colors.background,
+            left: 0,
+            right: 0,
+            top: chrome.insetsTop,
+            position: "absolute",
+            zIndex: 2,
+          }}
+        >
+          <View className="min-h-[44px] items-center justify-center border-b border-border">
+            <Text accessibilityRole="header" variant="section">
+              {title}
+            </Text>
+          </View>
+        </View>
+      ) : null}
       {footer ? <DockedFooter>{footer}</DockedFooter> : null}
       {overlay}
     </View>

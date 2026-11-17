@@ -212,7 +212,7 @@ export const mobileQaFormCoverage = [
     formId: "mobile.admin.access-invite",
     kind: "recipe",
     recipe: "adminInvite",
-    sources: [feature("settings-access/screens/more-screen.tsx")],
+    sources: [feature("settings-access/components/invite-user-sheet.tsx")],
   },
   {
     formId: "mobile.admin.operation-profile-change",

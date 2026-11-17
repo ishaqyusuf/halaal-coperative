@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/icon"
 import { Pressable } from "@/components/ui/pressable"
 import { Text } from "@/components/ui/text"
 import { useColors } from "@/hooks/use-color"
@@ -19,6 +20,7 @@ import Animated, {
 export type SegmentedOption<T extends string> = {
   value: T
   label: string
+  icon?: string
   /** Optional count shown after the label ("Ledger 34"). */
   count?: number | string
   accessibilityLabel?: string
@@ -170,6 +172,14 @@ export function SegmentedControl<T extends string>({
               onChange(option.value)
             }}
           >
+            {option.icon ? (
+              <Icon
+                className={
+                  selected ? "size-sm text-primary" : "size-sm text-muted-foreground"
+                }
+                name={option.icon}
+              />
+            ) : null}
             <Text
               className={selected ? "text-foreground" : "text-foreground-soft"}
               numberOfLines={1}

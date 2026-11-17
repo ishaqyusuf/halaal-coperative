@@ -1,12 +1,7 @@
-import {
-  getMobileMemberFoodPurchaseService,
-  getMobileMemberProcurementService,
-  getMobileMemberProjectFinancingService,
-} from "./mobile-member-cooperative-services"
-import { getMobileMemberGuarantorSnapshot } from "./mobile-member-guarantors"
-import { getMobileMemberReceiptSnapshot } from "./mobile-member-receipts"
-import { getMobileMemberStatementSnapshot } from "./mobile-member-statement"
-import { getMobileMemberSupportSnapshot } from "./mobile-member-support"
+import { createPrismaClient } from "../prisma"
+import { getFoodPurchaseApplicationSummary } from "./food-purchase"
+import { getMemberByUserId } from "./members"
+import { getTenantOperationProfile } from "./operation-profile"
 
 type MobileMetricFormat = "count" | "currency" | "percent"
 type MobileMemberMoreRow = {
@@ -84,32 +79,82 @@ export async function getMobileMemberMore(input: {
   tenantId: string
   userId: string
 }): Promise<MobileMemberMore> {
-  const [statement, receipts, procurement, project, food, guarantors, support] =
-    await Promise.all([
-      getMobileMemberStatementSnapshot(input),
-      getMobileMemberReceiptSnapshot(input),
-      getMobileMemberProcurementService(input),
-      getMobileMemberProjectFinancingService(input),
-      getMobileMemberFoodPurchaseService(input),
-      getMobileMemberGuarantorSnapshot(input),
-      getMobileMemberSupportSnapshot(input),
-    ])
+  const prisma = createPrismaClient()
+  if (!prisma) return unavailableMore()
+  const member = await getMemberByUserId(input, prisma)
+  if (!member) return unavailableMore()
 
-  if (!statement.member) return unavailableMore()
+  const scope = { tenantId: input.tenantId, memberId: member.id }
+  const pending = ["submitted", "under_review"]
+  const [
+    profile,
+    receiptGroups,
+    procurementGroups,
+    projectRequests,
+    food,
+    openCycles,
+    pendingApprovals,
+    supportGroups,
+  ] = await Promise.all([
+    getTenantOperationProfile(input.tenantId, prisma),
+    prisma.memberPaymentReceipt.groupBy({
+      by: ["status"],
+      where: scope,
+      _count: { _all: true },
+    }),
+    prisma.procurementRequest.groupBy({
+      by: ["status"],
+      where: scope,
+      _count: { _all: true },
+    }),
+    prisma.projectFinancingRequest.count({
+      where: { ...scope, status: { in: ["submitted", "under_review"] } },
+    }),
+    getFoodPurchaseApplicationSummary(scope, prisma),
+    prisma.foodPurchaseCycle.count({
+      where: { tenantId: input.tenantId, status: "open" },
+    }),
+    prisma.loanGuarantorApproval.count({
+      where: {
+        tenantId: input.tenantId,
+        guarantorMemberId: member.id,
+        status: "pending",
+      },
+    }),
+    prisma.supportCase.groupBy({
+      by: ["status"],
+      where: scope,
+      _count: { _all: true },
+    }),
+  ])
+  const count = (
+    groups: { status: string; _count: { _all: number } }[],
+    statuses: string[]
+  ) =>
+    groups.reduce(
+      (total, group) =>
+        total + (statuses.includes(group.status) ? group._count._all : 0),
+      0
+    )
+  const pendingReceipts = count(receiptGroups, pending)
+  const pendingProcurement = count(procurementGroups, pending)
+  const openCases = count(supportGroups, [
+    "open",
+    "in_progress",
+    "waiting_on_member",
+  ])
 
-  const stat = (key: string) =>
-    statement.stats.find((item) => item.key === key)?.value ?? 0
   const sections: MobileMemberMore["sections"] = [
     {
       icon: "UserRound",
       key: "profile",
       rows: [
         row({
-          detail: `${humanize(statement.member.status) ?? "Member"} membership`,
+          detail: `${humanize(member.status) ?? "Member"} membership`,
           format: null,
           key: "member-number",
-          label: statement.member.memberNumber,
-          status: humanize(statement.member.kycStatus),
+          label: member.memberNumber,
+          status: humanize(member.kycStatus),
           value: null,
         }),
       ],
@@ -118,24 +163,7 @@ export async function getMobileMemberMore(input: {
     {
       icon: "FileText",
       key: "statement",
-      rows: [
-        row({
-          detail: "Generated from posted cooperative records",
-          format: "currency",
-          key: "savings",
-          label: "Savings snapshot",
-          status: "Available",
-          value: stat("savings"),
-        }),
-        row({
-          detail: "Current outstanding financing exposure",
-          format: "currency",
-          key: "financing",
-          label: "Financing exposure",
-          status: "Available",
-          value: stat("outstanding-financing"),
-        }),
-      ],
+      rows: [],
       title: "Statement",
     },
     {
@@ -147,8 +175,8 @@ export async function getMobileMemberMore(input: {
           format: "count",
           key: "pending-receipts",
           label: "Pending review",
-          status: receipts.summary.pendingReviewReceipts > 0 ? "Open" : "Clear",
-          value: receipts.summary.pendingReviewReceipts,
+          status: pendingReceipts > 0 ? "Open" : "Clear",
+          value: pendingReceipts,
         }),
       ],
       title: "Receipts",
@@ -162,8 +190,8 @@ export async function getMobileMemberMore(input: {
           format: "count",
           key: "pending-procurement",
           label: "Pending procurement",
-          status: procurement.summary.pendingRequests > 0 ? "Open" : "Clear",
-          value: procurement.summary.pendingRequests,
+          status: pendingProcurement > 0 ? "Open" : "Clear",
+          value: pendingProcurement,
         }),
       ],
       title: "Procurement",
@@ -177,8 +205,8 @@ export async function getMobileMemberMore(input: {
           format: "count",
           key: "pending-project-financing",
           label: "Pending project requests",
-          status: project.summary.pendingRequests > 0 ? "Open" : "Clear",
-          value: project.summary.pendingRequests,
+          status: projectRequests > 0 ? "Open" : "Clear",
+          value: projectRequests,
         }),
       ],
       title: "Project financing",
@@ -192,16 +220,16 @@ export async function getMobileMemberMore(input: {
           format: "count",
           key: "open-food-purchase-cycles",
           label: "Open cycles",
-          status: food.summary.openCycles > 0 ? "Open" : "Closed",
-          value: food.summary.openCycles,
+          status: openCycles > 0 ? "Open" : "Closed",
+          value: openCycles,
         }),
         row({
           detail: "Applications waiting for committee review",
           format: "count",
           key: "pending-food-purchase",
           label: "Pending applications",
-          status: food.summary.pendingApplications > 0 ? "Open" : "Clear",
-          value: food.summary.pendingApplications,
+          status: food.pendingApplications > 0 ? "Open" : "Clear",
+          value: food.pendingApplications,
         }),
       ],
       title: "Foodstuff Purchase",
@@ -215,9 +243,8 @@ export async function getMobileMemberMore(input: {
           format: "count",
           key: "pending-guarantors",
           label: "Pending guarantor requests",
-          status:
-            guarantors.summary.pendingApprovals > 0 ? "Needs action" : "Clear",
-          value: guarantors.summary.pendingApprovals,
+          status: pendingApprovals > 0 ? "Needs action" : "Clear",
+          value: pendingApprovals,
         }),
       ],
       title: "Guarantor approvals",
@@ -231,8 +258,8 @@ export async function getMobileMemberMore(input: {
           format: "count",
           key: "open-support",
           label: "Open cases",
-          status: support.summary.openCases > 0 ? "Open" : "Clear",
-          value: support.summary.openCases,
+          status: openCases > 0 ? "Open" : "Clear",
+          value: openCases,
         }),
       ],
       title: "Support",
@@ -242,29 +269,36 @@ export async function getMobileMemberMore(input: {
   return {
     generatedAt: new Date().toISOString(),
     member: {
-      id: statement.member.id,
-      kycStatus: statement.member.kycStatus,
-      memberNumber: statement.member.memberNumber,
-      name: statement.member.name,
-      status: statement.member.status,
+      id: member.id,
+      kycStatus: member.kycStatus,
+      memberNumber: member.memberNumber,
+      name: member.name,
+      status: member.status,
     },
     sections: sections.filter((section) => {
       if (section.key === "receipts") {
-        return receipts.canCreateReceipt || receipts.receipts.length > 0
+        return (
+          profile.services.payment_receipts.canMemberCreate ||
+          receiptGroups.length > 0
+        )
       }
       if (section.key === "procurement") {
         return (
-          procurement.capability.shouldShowInMemberNav ||
-          procurement.requests.length > 0
+          profile.services.procurement.shouldShowInMemberNav ||
+          procurementGroups.length > 0
         )
       }
       if (section.key === "foodPurchase") {
         return (
-          food.capability.shouldShowInMemberNav || food.applications.length > 0
+          profile.services.food_purchase.shouldShowInMemberNav ||
+          food.totalApplications > 0
         )
       }
       if (section.key === "support") {
-        return support.canCreateCase || support.cases.length > 0
+        return (
+          profile.services.support_cases.canMemberCreate ||
+          supportGroups.length > 0
+        )
       }
       return true
     }),

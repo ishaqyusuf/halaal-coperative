@@ -13,6 +13,7 @@ export function ConfirmSheet({
   cancelLabel = "Cancel",
   confirmLabel,
   description,
+  error,
   icon,
   isConfirming = false,
   onCancel,
@@ -24,6 +25,7 @@ export function ConfirmSheet({
   cancelLabel?: string
   confirmLabel: string
   description?: string
+  error?: string | null
   icon?: string
   isConfirming?: boolean
   onCancel: () => void
@@ -81,6 +83,16 @@ export function ConfirmSheet({
         {description ? (
           <Text className="text-center text-muted-foreground" variant="body">
             {description}
+          </Text>
+        ) : null}
+        {error ? (
+          <Text
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+            className="text-center text-destructive"
+            variant="small"
+          >
+            {error}
           </Text>
         ) : null}
       </View>

@@ -29,12 +29,12 @@ describe("workspace role presentation", () => {
         switchingMembershipId: null,
       })
     ).toEqual({
-      accessibilityLabel: "Tenant Admin workspace, Current",
+      accessibilityLabel: "Cooperative Admin workspace, Current",
       detail: "Manage this cooperative",
       icon: "ShieldCheck",
       isActive: true,
       isSwitching: false,
-      label: "Tenant Admin",
+      label: "Cooperative Admin",
       stateLabel: "Current",
     })
   })

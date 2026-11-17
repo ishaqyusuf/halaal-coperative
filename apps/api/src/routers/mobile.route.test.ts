@@ -1611,6 +1611,27 @@ describe("mobileRouter", () => {
     expect(access.roles.map((role) => role.role)).toContain("tenant_admin")
   })
 
+  test("exposes count and scoped directory reads to cooperative admins only", async () => {
+    const admin = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+    const member = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(admin.mobile.admin.access.summary()).resolves.toEqual({
+      workspaceUsers: 2,
+    })
+    const result = await admin.mobile.admin.access.directory({
+      search: "admin@amanah.local",
+    })
+    expect(result.users.map((user) => user.email)).toEqual(["admin@amanah.local"])
+    expect(result.nextCursor).toBeNull()
+    await expect(member.mobile.admin.access.summary()).rejects.toThrow("You do not have permission")
+    await expect(member.mobile.admin.access.stats()).rejects.toThrow("You do not have permission")
+    await expect(member.mobile.admin.access.directory({})).rejects.toThrow("You do not have permission")
+  })
+
   test("rejects admin access overview from non-admin staff workspaces", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-barakah-finance",

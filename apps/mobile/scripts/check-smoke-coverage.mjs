@@ -158,11 +158,11 @@ assertIncludes("src/app/(admin)/(tabs)/_layout.tsx", [
 ])
 
 assertIncludes("src/features/settings-access/screens/more-screen.tsx", [
-  "handleOpenManagedDeviceAccess",
+  "<ScreenShell",
   "Device access",
-  "Sign out",
-  "CachedReadBanner",
-  "<ScreenStatusBar />",
+  "<ConfirmSheet",
+  "<StatusBanner",
+  "/workspace-access",
 ])
 
 // T05: the overview is a ScreenShell hero screen; the shell owns the
@@ -181,11 +181,23 @@ assertIncludes(
   "src/features/settings-access/routes/more-route-controller.tsx",
   [
     "switchRole(membershipId)",
-    "inviteAdminAccessUser(input)",
-    "getAdminAccess()",
-    "getMemberMore()",
+    "getWorkspaceAccessCount",
+    "getMemberMore",
+    "useAppQuery",
   ]
 )
+
+assertIncludes("src/features/settings-access/screens/workspace-access-screen.tsx", [
+  "<AppList",
+  "useAppInfiniteQuery",
+  "onEndReached=",
+  'pathname: "/sessions"',
+])
+assertIncludes("src/features/settings-access/components/invite-user-sheet.tsx", [
+  '<AppSheet',
+  'variant="form"',
+  "inviteAdminAccessUser(input)",
+])
 
 assertIncludes(
   "src/features/device-sessions/routes/device-sessions-route-controller.tsx",

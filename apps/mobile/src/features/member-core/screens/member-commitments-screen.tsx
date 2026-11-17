@@ -1,304 +1,270 @@
-import { CachedReadBanner } from "@/components/app/cached-read-banner"
+import { AppList } from "@/components/app/app-list"
 import { EmptyState } from "@/components/app/empty-state"
-import { ScreenHeader } from "@/components/app/screen-header"
-import { StatusBadge } from "@/components/app/status-badge"
-import { LoadingSpinner } from "@/components/loading-spinner"
-import { SafeArea } from "@/components/safe-area"
+import { ScreenHero } from "@/components/app/screen-shell"
+import { Icon } from "@/components/ui/icon"
+import { ListCard, RecordRow, TintedAvatar } from "@/components/ui/list-card"
+import { StatusPill } from "@/components/ui/status-pill"
+import { Pressable } from "@/components/ui/pressable"
+import { ListSkeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
-import { useColors } from "@/hooks/use-color"
-import { useLargeTextLayout } from "@/hooks/use-large-text-layout"
-import { resolveDisplayTextScale } from "@/lib/mobile-accessibility-layout"
-import type { MobileProfile } from "@/lib/session-store"
-import { cn } from "@/lib/utils"
-import { useMemo } from "react"
-import {
-  ScrollView,
-  type TextStyle,
-  useWindowDimensions,
-  View,
-} from "react-native"
+import { useRouter } from "expo-router"
+import { useState } from "react"
+import { View } from "react-native"
 import { buildMemberCommitmentsPresentation } from "../model/member-commitments-presentation"
 import type {
-  MemberActivityHistoryState,
+  MobileMemberActivityRow,
   MobileMemberSection,
 } from "../model/member-core-types"
-import { MemberActivityHistory } from "../public/member-activity-history"
-
-function scaledTextStyle(
-  scale: number,
-  fontSize: number,
-  lineHeight: number,
-  fontWeight?: TextStyle["fontWeight"],
-  color?: TextStyle["color"]
-) {
-  return {
-    color,
-    fontSize: fontSize * scale,
-    fontWeight,
-    lineHeight: lineHeight * scale,
-  }
-}
-
-export type MemberCommitmentsScreenProps = {
-  activity: MemberActivityHistoryState
-  canUseServerData: boolean
-  error: string | null
-  isLoading: boolean
-  profile: MobileProfile
-  section: MobileMemberSection | null
-}
-
-function SectionHeading({ title }: { title: string }) {
-  const colors = useColors()
-  const { fontScale } = useWindowDimensions()
-  const accessibilityScale = Number.isFinite(fontScale)
-    ? Math.max(fontScale, 1)
-    : 1
-
-  return (
-    <View className="border-b border-border pb-2">
-      <Text
-        allowFontScaling={false}
-        className="text-lg font-extrabold tracking-tight text-foreground"
-        style={scaledTextStyle(
-          accessibilityScale,
-          18,
-          24,
-          "800",
-          colors.foreground
-        )}
-      >
-        {title}
-      </Text>
-    </View>
-  )
-}
-
-function PositionRow({
-  detail,
-  label,
-  status,
-  value,
-}: {
-  detail: string | null
-  label: string
-  status?: string | null
-  value: string | null
-}) {
-  const largeTextLayout = useLargeTextLayout()
-  const colors = useColors()
-  const { fontScale } = useWindowDimensions()
-  const accessibilityScale = Number.isFinite(fontScale)
-    ? Math.max(fontScale, 1)
-    : 1
-
-  return (
-    <View className="gap-2 border-b border-border py-4">
-      <View
-        className={cn(
-          "gap-2",
-          largeTextLayout
-            ? "items-start"
-            : "flex-row items-start justify-between"
-        )}
-      >
-        <View
-          className={cn(
-            "min-w-0 gap-1",
-            largeTextLayout ? "w-full" : "flex-1 pr-3"
-          )}
-        >
-          <Text
-            allowFontScaling={false}
-            className="text-sm font-bold text-foreground"
-            style={scaledTextStyle(
-              accessibilityScale,
-              14,
-              20,
-              "700",
-              colors.foreground
-            )}
-          >
-            {label}
-          </Text>
-          {detail ? (
-            <Text
-              allowFontScaling={false}
-              className="text-sm leading-5 text-muted-foreground"
-              style={scaledTextStyle(
-                accessibilityScale,
-                14,
-                20,
-                "400",
-                colors.mutedForeground
-              )}
-            >
-              {detail}
-            </Text>
-          ) : null}
-        </View>
-        {value ? (
-          <Text
-            allowFontScaling={false}
-            className={cn(
-              "shrink-0 text-sm font-extrabold text-foreground",
-              largeTextLayout && "w-full self-start text-left"
-            )}
-            style={scaledTextStyle(
-              accessibilityScale,
-              14,
-              20,
-              "800",
-              colors.foreground
-            )}
-          >
-            {value}
-          </Text>
-        ) : null}
-      </View>
-      {status ? (
-        <StatusBadge label={status} tone="success" wrap={largeTextLayout} />
-      ) : null}
-    </View>
-  )
-}
+import type { MemberActivityRead } from "../public/use-member-activity"
+import {
+  MemberLedgerDetail,
+  MemberLedgerFooter,
+  MemberLedgerRow,
+  MemberReadBanner,
+  useMemberLedgerList,
+} from "./member-ledger-list"
 
 export function MemberCommitmentsScreen({
   activity,
-  canUseServerData,
+  currencyCode,
   error,
   isLoading,
-  profile,
+  offline,
+  onRefresh,
+  refreshing,
   section,
-}: MemberCommitmentsScreenProps) {
-  const colors = useColors()
-  const { fontScale } = useWindowDimensions()
-  const accessibilityScale = Number.isFinite(fontScale)
-    ? Math.max(fontScale, 1)
-    : 1
-  const displayTextScale = resolveDisplayTextScale(fontScale)
-  const presentation = useMemo(
-    () =>
-      section
-        ? buildMemberCommitmentsPresentation(
-            section,
-            profile.tenant.currencyCode
-          )
-        : null,
-    [profile.tenant.currencyCode, section]
+}: {
+  activity: MemberActivityRead
+  currencyCode: string
+  error: boolean
+  isLoading: boolean
+  offline: boolean
+  onRefresh: () => void
+  refreshing: boolean
+  section?: MobileMemberSection
+}) {
+  const router = useRouter()
+  const [selected, setSelected] = useState<MobileMemberActivityRow | null>(null)
+  const { data, search, setSearch, stickyIndices } = useMemberLedgerList(
+    activity.rows,
+    true,
+    !activity.hasNextPage && activity.cache?.status === "live"
   )
+  const plan = section?.rows.find(
+    (row) => row.key.startsWith("plan-") && row.status === "Active"
+  )
+  const position = section
+    ? buildMemberCommitmentsPresentation(section, currencyCode)
+    : null
+  const count =
+    section?.stats.find((metric) => metric.key === "contributions")?.value ?? 0
 
   return (
-    <SafeArea className="bg-background">
-      <ScrollView
-        contentContainerClassName="gap-5 px-5 pb-8 pt-5"
-        showsVerticalScrollIndicator={false}
-      >
-        <ScreenHeader title="Plans" />
-
-        {canUseServerData ? (
-          <CachedReadBanner cache={section?.cache} label="plan data" />
-        ) : null}
-
-        {!canUseServerData ? (
+    <AppList
+      data={section ? data : []}
+      empty={
+        section ? (
           <EmptyState
-            description="Your plan position is unavailable in this session."
-            icon="CircleAlert"
-            title="Plans unavailable"
+            description={
+              search
+                ? undefined
+                : "Your contributions appear here once the cooperative posts them."
+            }
+            title={
+              search
+                ? "No matching contributions"
+                : "No posted contributions yet"
+            }
           />
-        ) : null}
-
-        {canUseServerData && isLoading ? <LoadingSpinner /> : null}
-
-        {canUseServerData && error ? (
+        ) : (
           <EmptyState
-            description={error}
+            action={{ label: "Retry", onPress: onRefresh }}
+            description="Check your connection and try again."
             icon="CircleAlert"
-            title="Plans unavailable"
+            title="Couldn’t load your plans"
+            tone="error"
           />
-        ) : null}
-
-        {canUseServerData && !isLoading && !error && presentation ? (
-          <>
-            <View className="gap-3 border-y border-border py-4">
-              <Text
-                allowFontScaling={false}
-                className="text-xs font-extrabold tracking-[1px] text-muted-foreground uppercase"
-                style={{
-                  ...scaledTextStyle(
-                    accessibilityScale,
-                    12,
-                    16,
-                    "800",
-                    colors.mutedForeground
-                  ),
-                  letterSpacing: accessibilityScale,
-                  textTransform: "uppercase",
-                }}
-              >
-                {presentation.postedSavings.label}
-              </Text>
-              <Text
-                allowFontScaling={false}
-                className="text-[38px] leading-[42px] font-black tracking-tight text-foreground"
-                style={scaledTextStyle(
-                  displayTextScale,
-                  38,
-                  42,
-                  "900",
-                  colors.foreground
-                )}
-              >
-                {presentation.postedSavings.value}
-              </Text>
-              {presentation.contributionSummary ? (
-                <Text
-                  allowFontScaling={false}
-                  className="text-sm leading-5 font-semibold text-muted-foreground"
-                  style={scaledTextStyle(
-                    accessibilityScale,
-                    14,
-                    20,
-                    "600",
-                    colors.mutedForeground
-                  )}
-                >
-                  {presentation.contributionSummary}
+        )
+      }
+      error={section ? activity.error : null}
+      header={
+        <>
+          <MemberReadBanner
+            cache={
+              activity.cache?.status === "stale"
+                ? activity.cache
+                : (section?.cache ?? activity.cache)
+            }
+            error={Boolean(section && error)}
+            offline={offline}
+            onRetry={onRefresh}
+          />
+          {position ? (
+            <>
+              <View className="gap-[8px]">
+                <Text accessibilityRole="header" variant="section">
+                  Active plan
                 </Text>
-              ) : null}
-            </View>
-
-            <View className="gap-2">
-              <SectionHeading title="Active plan" />
-              <PositionRow {...presentation.activePlan} />
-            </View>
-
-            <View className="gap-2">
-              <SectionHeading title="Savings" />
-              <PositionRow {...presentation.specialSavings} />
-            </View>
-
-            <MemberActivityHistory
-              compactEmpty
-              currencyCode={profile.tenant.currencyCode}
-              emptyTitle="No posted contributions yet"
-              flat
-              history={activity}
-              inline
-              showStatus={false}
-              title="Recent contributions"
-            />
-          </>
-        ) : null}
-
-        {canUseServerData && !isLoading && !error && !presentation ? (
-          <EmptyState
-            description="Refresh to load your plan position."
-            icon="BadgeCheck"
-            title="No plan data"
-          />
-        ) : null}
-      </ScrollView>
-    </SafeArea>
+                <ListCard>
+                  {plan ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      className="min-h-[76px] flex-row items-center gap-[12px] px-[14px] py-[12px]"
+                      onPress={() => setSelected(plan)}
+                    >
+                      <TintedAvatar icon="BadgeCheck" name={plan.label} />
+                      <View className="min-w-0 flex-1 gap-[2px]">
+                        <Text variant="section">{plan.label}</Text>
+                        <Text className="text-muted-foreground" variant="small">
+                          {position.activePlan.value}
+                          {plan.interval === "Monthly"
+                            ? " every month"
+                            : plan.interval
+                              ? ` · ${plan.interval}`
+                              : ""}{" "}
+                          · {plan.detail}
+                        </Text>
+                      </View>
+                      <StatusPill label="Active" tone="success" />
+                    </Pressable>
+                  ) : (
+                    <RecordRow
+                      avatarIcon="BadgeCheck"
+                      meta="Your cooperative sets up your savings plan."
+                      title="No active plan"
+                    />
+                  )}
+                </ListCard>
+              </View>
+              <Text accessibilityRole="header" variant="section">
+                Contributions
+              </Text>
+            </>
+          ) : isLoading ? (
+            <ListSkeleton rows={2} />
+          ) : null}
+        </>
+      }
+      hero={
+        <ScreenHero className="gap-[16px]">
+          <View className="flex-row items-center justify-between gap-[12px]">
+            <Text
+              accessibilityRole="header"
+              className="text-hero-foreground flex-1"
+              variant="screenTitle"
+            >
+              Plans
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              className="bg-hero-foreground/15 min-h-[44px] flex-row items-center gap-[8px] rounded-full px-[14px]"
+              onPress={() => router.push("/(member)/statement")}
+            >
+              <Icon className="size-sm text-hero-foreground" name="FileText" />
+              <Text className="text-hero-foreground" variant="label">
+                Statement
+              </Text>
+            </Pressable>
+          </View>
+          {position ? (
+            <>
+              <View className="gap-[4px]">
+                <Text className="text-hero-foreground/80" variant="label">
+                  {position.postedSavings.label}
+                </Text>
+                <Text
+                  className="text-hero-foreground tabular-nums"
+                  variant="hero"
+                >
+                  {position.postedSavings.value}
+                </Text>
+                <View className="bg-hero-foreground/15 flex-row items-center gap-[6px] self-start rounded-full px-[10px] py-[4px]">
+                  <Icon
+                    className="size-sm text-hero-foreground"
+                    name={count ? "Check" : "Clock"}
+                  />
+                  <Text className="text-hero-foreground" variant="caption">
+                    {position.contributionSummary ??
+                      "No posted contributions yet"}
+                  </Text>
+                </View>
+              </View>
+              <View className="bg-hero-end/40 flex-row rounded-[18px]">
+                <View className="border-hero-foreground/20 flex-1 gap-[2px] border-r p-[12px]">
+                  <Text className="text-hero-foreground/80" variant="caption">
+                    {plan?.interval === "Monthly" || !plan
+                      ? "Monthly commitment"
+                      : "Active commitment"}
+                  </Text>
+                  <Text className="text-hero-foreground" variant="money">
+                    {position.activePlan.value ?? "Not set"}
+                  </Text>
+                  <Text className="text-hero-foreground/80" variant="caption">
+                    {plan?.detail ?? "Set by your cooperative"}
+                  </Text>
+                </View>
+                <View className="flex-1 gap-[2px] p-[12px]">
+                  <Text className="text-hero-foreground/80" variant="caption">
+                    {position.specialSavings.label}
+                  </Text>
+                  <Text className="text-hero-foreground" variant="money">
+                    {position.specialSavings.value}
+                  </Text>
+                  <Text className="text-hero-foreground/80" variant="caption">
+                    Voluntary
+                  </Text>
+                </View>
+              </View>
+            </>
+          ) : null}
+        </ScreenHero>
+      }
+      isFetchingNextPage={activity.isFetchingNextPage}
+      isLoading={isLoading || Boolean(section && activity.isLoading)}
+      keyExtractor={(item) => item.key}
+      listFooter={
+        <MemberLedgerFooter
+          activity={activity}
+          endLabel={position?.contributionSummary ?? "All contributions"}
+          offline={offline}
+          searching={Boolean(search.trim())}
+        />
+      }
+      onEndReached={offline || search.trim() ? undefined : activity.onLoadMore}
+      onRefresh={onRefresh}
+      onRetry={activity.onRefresh}
+      overlay={
+        <MemberLedgerDetail
+          currencyCode={currencyCode}
+          onClose={() => setSelected(null)}
+          row={selected}
+          title={
+            selected?.key.startsWith("plan-") ? "Active plan" : "Contribution"
+          }
+        />
+      }
+      refreshing={refreshing}
+      renderItem={({ item }) => (
+        <MemberLedgerRow
+          currencyCode={currencyCode}
+          item={item}
+          onPress={setSelected}
+          plans
+        />
+      )}
+      search={
+        section
+          ? {
+              localSearch: true,
+              onChangeText: setSearch,
+              placeholder: "Search loaded contributions",
+              totalCount: Math.max(count, activity.rows.length),
+              value: search,
+            }
+          : undefined
+      }
+      stickyIndices={section ? stickyIndices : undefined}
+      testID="member-plans-screen"
+    />
   )
 }

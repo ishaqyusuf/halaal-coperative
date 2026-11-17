@@ -255,6 +255,12 @@ describe("mobileRouter", () => {
     await expect(
       caller.mobile.member.activity({ cursor: "", kind: "statement" })
     ).rejects.toThrow()
+    await expect(
+      caller.mobile.member.activity({ category: "financing", kind: "commitments" })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" })
+    expect(
+      await caller.mobile.member.activity({ category: "financing", kind: "statement" })
+    ).toMatchObject({ kind: "statement", state: "database_unavailable" })
   })
 
   test("returns member financing for the active member workspace", async () => {

@@ -39,6 +39,10 @@ export type AppListProps<T> = {
   title?: string
   back?: boolean | (() => void)
   headerActions?: ReactNode
+  /** Pinned navigation for long pushed lists after the large title scrolls off. */
+  compactHeader?: ReactNode
+  /** Edge-to-edge brand hero (use ScreenHero). Replaces the title header. */
+  hero?: ReactNode
   /** Content between the title and the rows: summary, segments, banners. */
   header?: ReactNode
 
@@ -49,6 +53,9 @@ export type AppListProps<T> = {
   /** Paging: call fetchNextPage; the footer shows a spinner meanwhile. */
   onEndReached?: () => void
   isFetchingNextPage?: boolean
+  /** Retry or end-of-history message under the loaded rows. */
+  listFooter?: ReactNode
+  stickyIndices?: number[]
 
   /** First load with no data: skeleton rows instead of a spinner. */
   isLoading?: boolean
@@ -74,15 +81,18 @@ export type AppListProps<T> = {
  */
 export function AppList<T>({
   back,
+  compactHeader,
   data,
   empty,
   error,
   estimatedItemSize = 72,
   header,
   headerActions,
+  hero,
   isFetchingNextPage = false,
   isLoading = false,
   keyExtractor,
+  listFooter,
   loading,
   onEndReached,
   onRefresh,
@@ -91,36 +101,57 @@ export function AppList<T>({
   refreshing = false,
   renderItem,
   search,
+  stickyIndices,
   testID,
   title,
 }: AppListProps<T>) {
   const colors = useColors()
-  const chrome = useScreenChrome({ hero: false })
+  const chrome = useScreenChrome({ hero: Boolean(hero) })
   const [searchHeight, setSearchHeight] = useState(0)
+  const [showCompactHeader, setShowCompactHeader] = useState(false)
   const hasData = data.length > 0
   const count = data.length
 
   const listHeader = (
-    <View
-      style={{
-        gap: 16,
-        paddingBottom: 12,
-        paddingHorizontal: 18,
-        paddingTop: chrome.insetsTop + 8,
-      }}
-    >
-      <ScreenTitleHeader back={back} headerActions={headerActions} title={title}>
-        {header}
-      </ScreenTitleHeader>
-      {error && hasData ? (
-        <StatusBanner
-          description={error}
-          kind="error"
-          onRetry={onRetry}
-          title="Couldn’t refresh"
-        />
+    <>
+      {hero ? (
+        <View
+          onLayout={(event) =>
+            chrome.onHeroLayout(event.nativeEvent.layout.height)
+          }
+        >
+          {hero}
+        </View>
       ) : null}
-    </View>
+      <View
+        style={{
+          gap: 16,
+          paddingBottom: 12,
+          paddingHorizontal: 18,
+          paddingTop: hero ? 16 : chrome.insetsTop + 8,
+        }}
+      >
+        {hero ? (
+          header
+        ) : (
+          <ScreenTitleHeader
+            back={back}
+            headerActions={headerActions}
+            title={title}
+          >
+            {header}
+          </ScreenTitleHeader>
+        )}
+        {error && hasData ? (
+          <StatusBanner
+            description={error}
+            kind="error"
+            onRetry={onRetry}
+            title="Couldn’t refresh"
+          />
+        ) : null}
+      </View>
+    </>
   )
 
   const listEmpty = isLoading ? (
@@ -155,7 +186,9 @@ export function AppList<T>({
                 accessibilityLabel="Loading more"
                 color={colors.mutedForeground}
               />
-            ) : null}
+            ) : (
+              listFooter
+            )}
           </View>
         }
         ListHeaderComponent={listHeader}
@@ -167,7 +200,15 @@ export function AppList<T>({
         keyboardShouldPersistTaps="handled"
         onEndReached={onEndReached}
         onEndReachedThreshold={0.6}
-        onScroll={chrome.onScroll}
+        onScroll={(event) => {
+          chrome.onScroll(event)
+          if (compactHeader) {
+            const visible = event.nativeEvent.contentOffset.y >= 96
+            setShowCompactHeader((previous) =>
+              previous === visible ? previous : visible
+            )
+          }
+        }}
         recycleItems
         refreshControl={
           onRefresh ? (
@@ -185,7 +226,27 @@ export function AppList<T>({
         }
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
+        stickyHeaderConfig={
+          stickyIndices
+            ? { offset: chrome.insetsTop + (compactHeader ? 52 : 0) }
+            : undefined
+        }
+        stickyIndices={stickyIndices}
       />
+      {showCompactHeader && compactHeader ? (
+        <View
+          style={{
+            backgroundColor: colors.background,
+            left: 0,
+            right: 0,
+            top: chrome.insetsTop,
+            position: "absolute",
+            zIndex: 2,
+          }}
+        >
+          {compactHeader}
+        </View>
+      ) : null}
       {search ? (
         <BottomSearchFooter
           accessibilityLabel={search.accessibilityLabel ?? search.placeholder}

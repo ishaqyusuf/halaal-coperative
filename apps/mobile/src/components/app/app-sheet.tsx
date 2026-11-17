@@ -5,6 +5,7 @@ import {
   type AppSheetVariant,
   resolveAppSheetPresentation,
 } from "@/lib/app-sheet-rule"
+import { cn } from "@/lib/utils"
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import { useWindowDimensions, View } from "react-native"
 
@@ -30,6 +31,8 @@ export type AppSheetProps = {
   variant?: AppSheetVariant
   /** Docked actions; ride the keyboard in the form presentation. */
   footer?: ReactNode
+  /** Add the floating sheet's action gutters around its fixed footer. */
+  insetFloatingFooter?: boolean
   /** Form only: confirm before discarding edits. */
   dirty?: boolean
   isSubmitting?: boolean
@@ -57,6 +60,7 @@ export function AppSheet({
   dismissible = true,
   footer,
   headerTrailing,
+  insetFloatingFooter = false,
   isSubmitting,
   onBack,
   onBackPress,
@@ -70,8 +74,10 @@ export function AppSheet({
 }: AppSheetProps) {
   const { height: windowHeight } = useWindowDimensions()
   const [measuredHeight, setMeasuredHeight] = useState<number | null>(null)
-  const [presentation, setPresentation] =
-    useState<AppSheetPresentation | null>(null)
+  const [footerHeight, setFooterHeight] = useState(0)
+  const [presentation, setPresentation] = useState<AppSheetPresentation | null>(
+    null
+  )
   const needsMeasurement = variant === "auto"
 
   const openedAtRef = useRef(0)
@@ -84,7 +90,10 @@ export function AppSheet({
   }, [visible])
 
   const decided = resolveAppSheetPresentation({
-    contentHeight: measuredHeight,
+    contentHeight:
+      measuredHeight === null
+        ? null
+        : measuredHeight + (insetFloatingFooter && footer ? footerHeight : 0),
     previous: presentation,
     titled: Boolean(title),
     variant,
@@ -136,7 +145,20 @@ export function AppSheet({
       <FloatingBottomSheet
         accessibilityLabel={accessibilityLabel ?? title}
         dismissible={dismissible}
-        footer={footer}
+        footer={
+          insetFloatingFooter && footer ? (
+            <View
+              className="px-[20px] pt-[12px] pb-[20px]"
+              onLayout={(event) =>
+                setFooterHeight(Math.ceil(event.nativeEvent.layout.height))
+              }
+            >
+              {footer}
+            </View>
+          ) : (
+            footer
+          )
+        }
         onBackPress={onBackPress}
         onClose={onClose}
         onDismissed={active === "floating" ? onDismissed : undefined}
@@ -149,7 +171,10 @@ export function AppSheet({
         visible={visible && active === "floating"}
       >
         <View
-          className={FLOATING_BODY_CLASS}
+          className={cn(
+            FLOATING_BODY_CLASS,
+            insetFloatingFooter && "pt-[8px] pb-[4px]"
+          )}
           // Measures the content; past half the window (now or after late
           // data arrives) the sheet expands into the full-screen presentation.
           onLayout={

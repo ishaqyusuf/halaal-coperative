@@ -60,9 +60,11 @@ import type {
 import type {
   MobileMemberActivityKind,
   MobileMemberActivityPage,
+  MobileMemberActivityRow,
   MobileMemberHome,
   MobileMemberStatement,
   MemberStatementExportPayload,
+  MobileStatementActivityCategory,
 } from "@/features/member-core/model/member-core-types"
 import type {
   MobileMemberShareApplication,
@@ -95,6 +97,15 @@ const memberSections: Record<MobileMemberSectionKey, MobileMemberSection> = {
     generatedAt,
     key: "commitments",
     rows: [
+      {
+        detail: "Started 15 Jan 2024",
+        format: "currency",
+        interval: "Monthly",
+        key: "plan-monthly",
+        label: "Monthly savings",
+        status: "Active",
+        value: 60000,
+      },
       {
         detail: "August 2026 monthly commitment",
         format: "currency",
@@ -682,19 +693,78 @@ export function getDevMemberSection(key: MobileMemberSectionKey) {
   return clone(memberSections[key])
 }
 
+const devPostedContributions: MobileMemberActivityRow[] = Array.from(
+  { length: 12 },
+  (_, index) => {
+    const date = new Date(Date.UTC(2026, 7 - index, 11))
+    const postedAt = date.toISOString()
+    const reference = `PAY-${postedAt.slice(0, 7)}`
+    const transfer = index % 4 === 3
+    return {
+      channel: transfer ? "Transfer" : "Payroll",
+      detail: `${transfer ? "Bank transfer" : "Payroll deduction"} · Posted ${postedAt.slice(0, 10)} · Ref ${reference}`,
+      extraSavings: index % 3 === 1 ? 10_000 : 0,
+      format: "currency",
+      key: `contribution-dev-${index}`,
+      label: date.toLocaleDateString("en", { month: "long", timeZone: "UTC", year: "numeric" }),
+      postedAt,
+      reference,
+      status: "Posted",
+      value: 60_000,
+    }
+  }
+)
+
+const devStatementActivity: Record<MobileStatementActivityCategory, MobileMemberActivityRow[]> = {
+  charges: [],
+  financing: [{
+    detail: "Equipment financing · 11 Aug 2026",
+    entryCount: 2,
+    format: "currency",
+    key: "ledger-dev-repayment",
+    label: "Repayment posted",
+    postedAt: generatedAt,
+    reference: "FCT-2608",
+    status: "Loan repayment",
+    value: 40_000,
+  }],
+  savings: devPostedContributions.map((row) => ({
+    ...row,
+    entryCount: 2,
+    label: `${row.label} contribution`,
+    status: "Contribution",
+  })),
+  shares: [{
+    detail: "Annual allocation published 12 Apr 2026",
+    entryCount: 2,
+    format: "currency",
+    key: "ledger-dev-dividend",
+    label: "Published dividend",
+    postedAt: "2026-04-12T12:00:00.000Z",
+    reference: "DIV-2025",
+    status: "Dividend",
+    value: 12_400,
+  }],
+}
+
 export function getDevMemberActivityPage(input: {
+  category?: MobileStatementActivityCategory
   cursor: string | null
   kind: MobileMemberActivityKind
 }): MobileMemberActivityPage {
-  const rows =
-    input.kind === "shares"
-      ? memberSections.shares.rows
-      : memberSections.commitments.rows
+  const rows = input.kind === "shares"
+    ? memberSections.shares.rows
+    : input.kind === "commitments"
+      ? devPostedContributions
+      : input.category
+        ? devStatementActivity[input.category]
+        : Object.values(devStatementActivity).flat()
+            .sort((a, b) => (b.postedAt ?? "").localeCompare(a.postedAt ?? ""))
   return clone({
     generatedAt,
-    items: input.cursor ? rows.slice(2) : rows.slice(0, 2),
+    items: input.cursor ? rows.slice(11) : rows.slice(0, 11),
     kind: input.kind,
-    nextCursor: input.cursor ? null : "dev-page-2",
+    nextCursor: !input.cursor && rows.length > 11 ? "dev-page-2" : null,
     state: "available",
   })
 }
@@ -738,6 +808,27 @@ export function getDevMemberStatement(): MobileMemberStatement {
           title,
         })
       ),
+      {
+        emptyState: "No charge applications are available.",
+        key: "charges",
+        rows: [],
+        subtitle: "Charges assessed to your account.",
+        title: "Charges",
+      },
+      {
+        emptyState: "No uploaded member documents are available.",
+        key: "documents",
+        rows: [{
+          detail: "Uploaded 16 Jan 2024",
+          format: null,
+          key: "document-national-id",
+          label: "National ID",
+          status: "Verified",
+          value: null,
+        }],
+        subtitle: "Documents recorded by the cooperative.",
+        title: "Documents",
+      },
       {
         emptyState: "No receipts.",
         key: "receipts",
@@ -783,7 +874,11 @@ export function getDevMemberStatement(): MobileMemberStatement {
         title: "Support",
       },
     ],
-    stats: getDevMemberHome().stats,
+    stats: [
+      ...getDevMemberHome().stats,
+      ...memberSections.commitments.stats.filter((metric) => metric.key === "active-commitment"),
+      { detail: "Published dividends", format: "currency", key: "dividends", label: "Dividends", value: 12_400 },
+    ],
   })
 }
 

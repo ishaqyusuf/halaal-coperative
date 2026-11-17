@@ -578,6 +578,9 @@ export function FloatingBottomSheet({
       }
       onDismiss={handleDismiss}
       onChange={handleSheetChange}
+      // The sheet label must leave the scroll contents and action buttons
+      // individually reachable when the native footer is present.
+      accessible={footer ? false : undefined}
       accessibilityLabel={accessibilityLabel}
     >
       {header ? (

@@ -2,7 +2,6 @@ import { createPrismaClient } from "../prisma"
 import { approvedNotPaidOutMetrics } from "./approved-not-paid-out"
 import {
   getMemberByUserId,
-  getMemberStatementDetail,
   getMemberStatementSummary,
   type MemberStatementSummary,
 } from "./members"
@@ -56,6 +55,7 @@ export type MobileMemberCoreHome = {
 
 export type MobileMemberCommitmentRow = {
   detail: string
+  interval?: string
   format: "currency" | "percent" | "count" | null
   key: string
   label: string
@@ -200,6 +200,7 @@ export function buildMobileMemberCommitments(
         ? `Started ${formatDateLabel(input.activePlan.startsAt)}`
         : (humanizeStatus(input.activePlan.interval) ?? "Contribution plan"),
       format: "currency",
+      interval: humanizeStatus(input.activePlan.interval) ?? undefined,
       key: `plan-${input.activePlan.id}`,
       label: input.activePlan.name,
       status: input.activePlan.isActive ? "Active" : "Inactive",
@@ -587,7 +588,10 @@ export function buildMobileMemberCoreHome(input: {
       {
         detail:
           (summary?.activeLoanCount ?? 0) > 0
-            ? countLabel(summary?.activeLoanCount ?? 0, "active financing record")
+            ? countLabel(
+                summary?.activeLoanCount ?? 0,
+                "active financing record"
+              )
             : "No active financing",
         format: "currency",
         key: "financing",
@@ -743,6 +747,7 @@ export async function getMobileMemberCommitments(
   input: {
     tenantId: string
     userId: string
+    summaryOnly?: boolean
   },
   prismaOverride?: NonNullable<ReturnType<typeof createPrismaClient>>
 ): Promise<MobileMemberCommitments> {
@@ -753,21 +758,21 @@ export async function getMobileMemberCommitments(
   const member = await getMemberByUserId(input, prisma)
   if (!member) return emptyMobileMemberCommitments()
 
-  const detail = await getMemberStatementDetail(
-    input.tenantId,
-    member.id,
-    prisma
-  )
-  if (!detail) {
-    return emptyMobileMemberCommitments(
-      "No statement detail was found for this member profile."
-    )
-  }
-
-  const activePlan =
-    detail.member.contributionPlans.find((plan) => plan.isActive) ??
-    detail.member.contributionPlans[0] ??
-    null
+  const where = { memberId: member.id, tenantId: input.tenantId }
+  const [activePlan, summary, contributions] = await Promise.all([
+    prisma.contributionPlan.findFirst({
+      where,
+      orderBy: [{ isActive: "desc" }, { startsAt: "desc" }, { id: "desc" }],
+    }),
+    getMemberStatementSummary(input.tenantId, member.id, prisma),
+    input.summaryOnly
+      ? []
+      : prisma.contribution.findMany({
+          where,
+          orderBy: [{ postedAt: "desc" }, { id: "desc" }],
+          take: 4,
+        }),
+  ])
 
   return buildMobileMemberCommitments({
     activePlan: activePlan
@@ -780,7 +785,7 @@ export async function getMobileMemberCommitments(
           startsAt: activePlan.startsAt,
         }
       : null,
-    contributions: detail.contributions.map((contribution) => ({
+    contributions: contributions.map((contribution) => ({
       amount: Number(contribution.amount ?? 0),
       channel: contribution.channel,
       extraSavingsAmount: Number(contribution.extraSavingsAmount ?? 0),
@@ -790,12 +795,6 @@ export async function getMobileMemberCommitments(
       reference: contribution.reference,
       status: contribution.status,
     })),
-    summary: detail.summary
-      ? {
-          contributionsCount: detail.summary.contributionsCount,
-          specialSavingsBalance: detail.summary.specialSavingsBalance,
-          totalSavingsSnapshot: detail.summary.totalSavingsSnapshot,
-        }
-      : null,
+    summary,
   })
 }

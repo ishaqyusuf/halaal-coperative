@@ -1,4 +1,5 @@
 import type { MobileReportKey } from "@halaalvest/domain/mobile-reports"
+import type { PrismaClient } from "../../generated/prisma/client"
 import { ExpectedQueryError } from "../query-error"
 import { listActivityReportEvents } from "./audit"
 import { listChargeApplications } from "./charges"
@@ -526,15 +527,22 @@ export async function createMobileAdminReportExport(input: {
   })
 }
 
-export async function createMobileMemberStatementExport(input: {
-  tenantId: string
-  tenantSlug: string
-  userId: string
-}): Promise<MobileReportExportResult> {
-  const statement = await getMobileMemberStatementSnapshot({
-    tenantId: input.tenantId,
-    userId: input.userId,
-  })
+export async function createMobileMemberStatementExport(
+  input: {
+    tenantId: string
+    tenantSlug: string
+    userId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<MobileReportExportResult> {
+  const statement = await getMobileMemberStatementSnapshot(
+    {
+      forExport: true,
+      tenantId: input.tenantId,
+      userId: input.userId,
+    },
+    prismaOverride
+  )
   if (!statement.member) {
     throw ExpectedQueryError.notFound("Member statement was not found.")
   }
@@ -546,7 +554,7 @@ export async function createMobileMemberStatementExport(input: {
       section: section.title,
       status: row.status,
       value: row.value,
-    })),
+    }))
   )
   return finalizeMobileReportExport({
     columns: [

@@ -392,7 +392,11 @@ export async function getMobileMemberSharesSnapshot(
     tenantId: string
     userId: string
   },
-  prismaOverride?: PrismaClient
+  prismaOverride?: PrismaClient,
+  resolvedMember?: Pick<
+    NonNullable<Awaited<ReturnType<typeof getMemberByUserId>>>,
+    "id" | "memberNumber" | "fullName"
+  >
 ): Promise<MobileMemberSharesSnapshot> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) {
@@ -402,7 +406,7 @@ export async function getMobileMemberSharesSnapshot(
     )
   }
 
-  const member = await getMemberByUserId(input, prisma)
+  const member = resolvedMember ?? (await getMemberByUserId(input, prisma))
   if (!member) {
     return emptyMobileMemberSharesSnapshot(
       "member_profile_missing",

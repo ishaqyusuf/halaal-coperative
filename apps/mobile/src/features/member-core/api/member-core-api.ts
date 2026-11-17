@@ -10,6 +10,7 @@ import type {
   MobileMemberHome,
   MobileMemberSection,
   MobileMemberStatement,
+  MobileStatementActivityCategory,
 } from "../model/member-core-types"
 import { isMobileDevFixtureSession } from "@/dev/mobile-dev-session"
 import {
@@ -37,30 +38,36 @@ export type MemberCoreCachedActivityPage = MobileMemberActivityPage & {
 }
 
 export async function getMemberActivityPage(input: {
+  category?: MobileStatementActivityCategory
   cursor: string | null
   kind: MobileMemberActivityKind
 }): Promise<MemberCoreCachedActivityPage> {
   const cacheCursor = input.cursor ?? "first"
+  const cacheKey = input.category
+    ? `member.activity.${input.kind}.${input.category}.${cacheCursor}`
+    : `member.activity.${input.kind}.${cacheCursor}`
+  const persist = input.cursor === null && !input.category
 
   if (isMobileDevFixtureSession()) {
     return readCachedMobileQuery(
-      `member.activity.${input.kind}.${cacheCursor}`,
+      cacheKey,
       async () => getDevMemberActivityPage(input),
-      { persist: input.cursor === null }
+      { persist }
     )
   }
 
   const client = createMobileTrpcClient()
 
   return readCachedMobileQuery(
-    `member.activity.${input.kind}.${cacheCursor}`,
+    cacheKey,
     () =>
       client.mobile.member.activity.query({
+        category: input.category,
         cursor: input.cursor,
         kind: input.kind,
         limit: 20,
       }),
-    { persist: input.cursor === null }
+    { persist }
   ) as Promise<MemberCoreCachedActivityPage>
 }
 
@@ -84,7 +91,7 @@ export async function getMemberCommitments(): Promise<MemberCoreCachedSection> {
   const client = createMobileTrpcClient()
 
   return readCachedMobileQuery("member.section.commitments", () =>
-    client.mobile.member.commitments.query()
+    client.mobile.member.commitments.query({ summaryOnly: true })
   ) as Promise<MemberCoreCachedSection>
 }
 
@@ -97,7 +104,7 @@ export async function getMemberCoreStatement(): Promise<MemberCoreCachedStatemen
   const client = createMobileTrpcClient()
 
   return readCachedMobileQuery("member.statement", () =>
-    client.mobile.member.statement.query()
+    client.mobile.member.statement.query({ includeLedger: false })
   ) as Promise<MemberCoreCachedStatement>
 }
 

@@ -11,6 +11,7 @@ import {
   getMobileMemberStatementSnapshot,
   mobileMemberSectionKeys,
   mobileMemberActivityKindKeys,
+  mobileStatementActivityCategories,
   type MobileMemberCommitments,
   type MobileMemberShareSection,
 } from "@halaalvest/db"
@@ -27,11 +28,17 @@ const mobileMemberSectionInput = z.object({
   section: z.enum(mobileMemberSectionKeys),
 })
 
-const mobileMemberActivityInput = z.object({
-  cursor: z.string().trim().min(1).max(200).nullish(),
-  kind: z.enum(mobileMemberActivityKindKeys),
-  limit: z.number().int().min(1).max(50).optional(),
-})
+const mobileMemberActivityInput = z
+  .object({
+    category: z.enum(mobileStatementActivityCategories).optional(),
+    cursor: z.string().trim().min(1).max(200).nullish(),
+    kind: z.enum(mobileMemberActivityKindKeys),
+    limit: z.number().int().min(1).max(50).optional(),
+  })
+  .refine(({ category, kind }) => !category || kind === "statement", {
+    message: "Activity categories apply to the statement.",
+    path: ["category"],
+  })
 
 const mobileShareApplicationCreateInput = z.object({
   notes: z.string().trim().max(1000).optional(),
@@ -63,6 +70,7 @@ export const mobileMemberCoreProcedures = {
       assertMemberWorkspace(ctx.auth.activeMembership.role)
 
       return getMobileMemberActivityPage({
+        category: input.category,
         cursor: input.cursor,
         kind: input.kind,
         limit: input.limit,
@@ -70,14 +78,17 @@ export const mobileMemberCoreProcedures = {
         userId: ctx.auth.session.user.id,
       })
     }),
-  commitments: tenantProcedure.query(({ ctx }) => {
-    assertMemberWorkspace(ctx.auth.activeMembership.role)
+  commitments: tenantProcedure
+    .input(z.object({ summaryOnly: z.boolean().optional() }).optional())
+    .query(({ ctx, input }) => {
+      assertMemberWorkspace(ctx.auth.activeMembership.role)
 
-    return getMobileMemberCommitments({
-      tenantId: ctx.tenant.current.id,
-      userId: ctx.auth.session.user.id,
-    })
-  }),
+      return getMobileMemberCommitments({
+        summaryOnly: input?.summaryOnly,
+        tenantId: ctx.tenant.current.id,
+        userId: ctx.auth.session.user.id,
+      })
+    }),
   home: tenantProcedure.query(({ ctx }) => {
     assertMemberWorkspace(ctx.auth.activeMembership.role)
 
@@ -149,14 +160,17 @@ export const mobileMemberCoreProcedures = {
       })
     }),
   }),
-  statement: tenantProcedure.query(({ ctx }) => {
-    assertMemberWorkspace(ctx.auth.activeMembership.role)
+  statement: tenantProcedure
+    .input(z.object({ includeLedger: z.boolean().optional() }).optional())
+    .query(({ ctx, input }) => {
+      assertMemberWorkspace(ctx.auth.activeMembership.role)
 
-    return getMobileMemberStatementSnapshot({
-      tenantId: ctx.tenant.current.id,
-      userId: ctx.auth.session.user.id,
-    })
-  }),
+      return getMobileMemberStatementSnapshot({
+        includeLedger: input?.includeLedger,
+        tenantId: ctx.tenant.current.id,
+        userId: ctx.auth.session.user.id,
+      })
+    }),
   statementExport: tenantProcedure
     .input(mobileStatementExportInput)
     .mutation(async ({ ctx, input }) => {

@@ -154,9 +154,10 @@ if (target === "store-qa") {
       "Using unreachable validation API/dashboard origins for this Android build."
     )
   } else {
+    // Store builds take service origins only from the root Preview file; the
+    // app-local apps/mobile/.env.preview holds localhost values for development.
     const previewUrls = await loadEnvFiles({}, [
       path.join(REPO_DIR, ".env.preview"),
-      path.join(APP_DIR, ".env.preview"),
     ])
     for (const key of [
       "EXPO_PUBLIC_API_URL",

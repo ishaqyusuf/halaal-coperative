@@ -123,7 +123,7 @@ export function TintedAvatar({
 }: {
   icon?: string
   name: string
-  size?: 40 | 52 | 56
+  size?: 40 | 44 | 52 | 56
 }) {
   const tint = avatarTintFor(name)
   return (
@@ -131,7 +131,12 @@ export function TintedAvatar({
       accessible={false}
       className={cn(
         "items-center justify-center rounded-[14px]",
-        size === 40 ? "size-[40px]" : size === 52 ? "size-[52px]" : "size-[56px]",
+        {
+          40: "size-[40px]",
+          44: "size-[44px]",
+          52: "size-[52px]",
+          56: "size-[56px]",
+        }[size],
         AVATAR_CLASSES[tint.background]
       )}
     >
@@ -143,7 +148,7 @@ export function TintedAvatar({
       ) : (
         <Text
           className={AVATAR_TEXT_CLASSES[tint.foreground]}
-          variant={size > 40 ? "title" : "section"}
+          variant={size > 44 ? "title" : "section"}
         >
           {initialsFor(name)}
         </Text>

@@ -37,10 +37,9 @@ const memberReceiptSupport = feature("receipts/components/receipt-support-flow.t
 const memberSupportCreate = feature("support/components/member-support-create.tsx")
 const memberSupportThread = feature("support/components/member-support-thread.tsx")
 const memberShares = feature("shares-profit/screens/share-request-flow.tsx")
-const memberGuarantor = [
-  feature("guarantors/screens/member-guarantor-approvals-screen.tsx"),
-  feature("guarantors/components/member-guarantor-response-form.tsx"),
-]
+const memberGuarantor = feature(
+  "guarantors/components/member-guarantor-response-form.tsx"
+)
 const recovery = [
   feature("auth/screens/recovery-screen.tsx"),
   feature("auth/components/recovery-step-content.tsx"),
@@ -149,7 +148,7 @@ export const mobileQaFormCoverage = [
     formId: "mobile.member.guarantor-response",
     kind: "recipe",
     recipe: "guarantor",
-    sources: memberGuarantor,
+    sources: [memberGuarantor],
   },
 
   // Authentication and device security

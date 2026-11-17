@@ -153,6 +153,8 @@ function ResultActions({
   )
 }
 
+type ResultTone = "success" | "error" | "warning" | "info"
+
 function ResultBadge({
   compact,
   icon,
@@ -160,7 +162,7 @@ function ResultBadge({
 }: {
   compact: boolean
   icon?: string
-  tone: "success" | "error" | "warning"
+  tone: ResultTone
 }) {
   const palette = {
     success: {
@@ -177,6 +179,14 @@ function ResultBadge({
       fill: "bg-tint-danger",
       ink: "text-destructive",
       tintedInk: "text-tint-danger-foreground",
+      icon: "CircleAlert",
+    },
+    info: {
+      border: "border-tint-sky",
+      ring: "bg-tint-sky/55",
+      fill: "bg-tint-sky",
+      ink: "text-tint-sky-foreground",
+      tintedInk: "text-tint-sky-foreground",
       icon: "CircleAlert",
     },
     warning: {
@@ -233,6 +243,7 @@ export function ResultScreen({
   primary,
   secondary,
   title,
+  titleVariant,
   tone,
 }: {
   align?: "center" | "top"
@@ -246,7 +257,8 @@ export function ResultScreen({
   primary?: ResultAction
   secondary?: ResultAction
   title: string
-  tone: "success" | "error" | "warning"
+  titleVariant?: "title" | "screenTitle"
+  tone: ResultTone
 }) {
   const insets = useSafeAreaInsets()
   const colors = useColors()
@@ -300,7 +312,7 @@ export function ResultScreen({
           accessibilityLiveRegion="polite"
           accessibilityRole="header"
           className="text-center"
-          variant={compact ? "title" : "screenTitle"}
+          variant={titleVariant ?? (compact ? "title" : "screenTitle")}
         >
           {title}
         </Text>

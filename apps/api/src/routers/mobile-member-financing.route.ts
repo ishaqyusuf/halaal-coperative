@@ -3,6 +3,7 @@ import {
   getMobileMemberFinancingRequestPage,
   getMobileMemberFinancingRequestDetail,
   getMobileMemberFinancingSnapshot,
+  getMobileMemberGuarantorRequest,
   getMobileMemberGuarantorSnapshot,
   quoteMobileMemberFinancingRequest,
   respondMobileMemberGuarantorRequestForSession,
@@ -37,6 +38,20 @@ const financingPageInput = z.object({
 const financingDetailInput = z.object({
   loanRequestId: z.string().trim().min(1).max(200),
 })
+
+const guarantorPageInput = z
+  .object({
+    cursor: z
+      .object({
+        id: z.uuid(),
+        pending: z.boolean(),
+        requestedAt: z.iso.datetime({ precision: 6 }),
+      })
+      .nullish(),
+    pageSize: z.number().int().min(1).max(50).optional(),
+    search: z.string().trim().max(100).optional(),
+  })
+  .optional()
 
 const guarantorResponseInput = z
   .object({
@@ -115,13 +130,24 @@ export const mobileMemberFinancingProcedures = {
       }),
   }),
   guarantorApprovals: createTRPCRouter({
-    list: tenantProcedure.query(({ ctx }) => {
+    list: tenantProcedure.input(guarantorPageInput).query(({ ctx, input }) => {
       assertMemberWorkspace(ctx.auth.activeMembership.role)
       return getMobileMemberGuarantorSnapshot({
+        page: input,
         tenantId: ctx.tenant.current.id,
         userId: ctx.auth.session.user.id,
       })
     }),
+    request: tenantProcedure
+      .input(z.object({ guarantorApprovalId: z.uuid() }))
+      .query(({ ctx, input }) => {
+        assertMemberWorkspace(ctx.auth.activeMembership.role)
+        return getMobileMemberGuarantorRequest({
+          ...input,
+          tenantId: ctx.tenant.current.id,
+          userId: ctx.auth.session.user.id,
+        })
+      }),
     respond: memberOperationalProcedure
       .input(guarantorResponseInput)
       .mutation(({ ctx, input }) => {

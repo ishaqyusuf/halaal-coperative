@@ -21,6 +21,8 @@ export type AppSheetProps = {
   onClose: () => void
   onDismissed?: () => void
   title?: string
+  /** Heading used only after an untitled sheet expands. */
+  expandedTitle?: string
   children: ReactNode
   /**
    * - `form`: has inputs → always full screen (X, centred title, docked footer).
@@ -60,6 +62,7 @@ export function AppSheet({
   children,
   dirty,
   dismissible = true,
+  expandedTitle,
   footer,
   headerTrailing,
   insetFloatingFooter = false,
@@ -182,7 +185,7 @@ export function AppSheet({
         overlayActive={overlayActive}
         presentation="large"
         scrollable="auto"
-        showCloseButton={variant !== "confirm"}
+        showCloseButton={variant !== "confirm" && !expandedTitle}
         title={title}
         visible={visible && active === "floating"}
       >
@@ -212,7 +215,7 @@ export function AppSheet({
         onDismissed={active === "fullscreen" ? onDismissed : undefined}
         overlay={overlay}
         overlayActive={overlayActive}
-        title={title ?? ""}
+        title={title ?? expandedTitle ?? ""}
         visible={visible && active === "fullscreen"}
       >
         {children}

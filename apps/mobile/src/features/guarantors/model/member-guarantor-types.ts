@@ -20,6 +20,7 @@ export type MobileGuarantorRequest = {
   requestedByName: string | null
   respondedAt: string | null
   respondedByName: string | null
+  answeredByMember?: boolean
   responseNotes: string | null
   status: string
 }
@@ -29,6 +30,7 @@ export type MobileMemberGuarantorSnapshot = {
   cache?: MobileReadCacheState
   generatedAt: string
   member: { id: string; memberNumber: string; name: string } | null
+  nextCursor?: MobileGuarantorCursor | null
   state: "available" | "database_unavailable" | "member_profile_missing"
   summary: {
     approvedApprovals: number
@@ -43,4 +45,10 @@ export type MobileGuarantorResponseInput = {
   guarantorApprovalId: string
   notes?: string
   status: MobileGuarantorDecision
+}
+
+export type MobileGuarantorCursor = {
+  id: string
+  pending: boolean
+  requestedAt: string
 }

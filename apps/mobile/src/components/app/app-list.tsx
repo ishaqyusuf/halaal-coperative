@@ -27,6 +27,8 @@ export type AppListSearch = {
 
 export type AppListProps<T> = {
   data: readonly T[]
+  /** Changes to row presentation that are independent of the item data. */
+  extraData?: unknown
   keyExtractor: (item: T, index: number) => string
   /**
    * `position` lets RecordRow join consecutive rows into one rounded card.
@@ -100,6 +102,7 @@ export function AppList<T>({
   error,
   errorTitle = "Couldn’t load this list",
   estimatedItemSize = 72,
+  extraData,
   fixedHeader,
   fullWidthBottomAction = false,
   header,
@@ -228,6 +231,7 @@ export function AppList<T>({
         data={data as T[]}
         drawDistance={600}
         estimatedItemSize={estimatedItemSize}
+        extraData={extraData}
         keyExtractor={keyExtractor}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"

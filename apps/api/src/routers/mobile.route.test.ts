@@ -834,6 +834,35 @@ describe("mobileRouter", () => {
     ).rejects.toThrow("Switch to the member workspace")
   })
 
+  test("bounds mobile guarantor pages and authorizes detail by workspace", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+    const staff = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+    const id = "a43d8d3f-2f13-4797-8e71-310af8233969"
+
+    await expect(
+      caller.mobile.member.guarantorApprovals.list({ pageSize: 51 })
+    ).rejects.toThrow()
+    await expect(
+      caller.mobile.member.guarantorApprovals.list({
+        cursor: { id, pending: true, requestedAt: "2026-11-17" },
+      })
+    ).rejects.toThrow()
+    await expect(
+      staff.mobile.member.guarantorApprovals.request({
+        guarantorApprovalId: id,
+      })
+    ).rejects.toThrow("Switch to the member workspace")
+    await expect(
+      caller.mobile.member.guarantorApprovals.request({
+        guarantorApprovalId: id,
+      })
+    ).resolves.toBeNull()
+  })
+
   test("validates member guarantor approval response input", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin-member",

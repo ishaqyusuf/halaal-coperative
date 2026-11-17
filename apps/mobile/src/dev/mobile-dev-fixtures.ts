@@ -486,45 +486,135 @@ let guarantorApprovals: MobileMemberGuarantorApproval[] = [
   {
     id: "guarantor-approval-dev-1",
     loanRequest: {
-      borrowerMemberNumber: "HV-1032",
-      borrowerName: "Fatima Musa",
-      estimatedMonthlyServicing: 37500,
-      id: "loan-request-dev-2",
-      loanProductName: "Education support facility",
-      purpose: "Professional certification fees",
-      requestedAmount: 300000,
-      requestedAt: "2026-08-09T11:00:00.000Z",
-      requestedTermMonths: 8,
-      status: "guarantor_review",
+      borrowerMemberNumber: "QHC-0118",
+      borrowerName: "Musa Ibrahim",
+      estimatedMonthlyServicing: 54000,
+      id: "guarantor-loan-dev-1",
+      loanProductName: "Home improvement financing",
+      purpose: "Roof repair and solar panels for the family home",
+      requestedAmount: 600000,
+      requestedAt: "2026-11-14T10:00:00.000Z",
+      requestedTermMonths: 12,
+      status: "under_review"
     },
-    requestedAt: "2026-08-09T11:05:00.000Z",
+    requestedAt: "2026-11-14T10:05:00.000Z",
     requestedByName: "Amina Bello",
     respondedAt: null,
     respondedByName: null,
     responseNotes: null,
     status: "pending",
+    answeredByMember: false
   },
   {
     id: "guarantor-approval-dev-2",
     loanRequest: {
-      borrowerMemberNumber: "HV-1007",
-      borrowerName: "Ibrahim Lawal",
-      estimatedMonthlyServicing: 50000,
-      id: "loan-request-dev-3",
-      loanProductName: "Asset acquisition facility",
-      purpose: "Business equipment",
-      requestedAmount: 600000,
-      requestedAt: "2026-06-12T10:00:00.000Z",
-      requestedTermMonths: 12,
-      status: "approved",
+      borrowerMemberNumber: "QHC-0071",
+      borrowerName: "Yusuf Adamu",
+      estimatedMonthlyServicing: 19350,
+      id: "guarantor-loan-dev-2",
+      loanProductName: "Education financing",
+      purpose: "School fees for his final year at the polytechnic",
+      requestedAmount: 180000,
+      requestedAt: "2026-09-28T10:00:00.000Z",
+      requestedTermMonths: 10,
+      status: "approved"
     },
-    requestedAt: "2026-06-12T10:05:00.000Z",
+    requestedAt: "2026-09-28T10:05:00.000Z",
     requestedByName: "Amina Bello",
-    respondedAt: "2026-06-13T08:00:00.000Z",
+    respondedAt: "2026-10-02T08:00:00.000Z",
     respondedByName: "Yusuf Abdullahi",
-    responseNotes: "Member and repayment plan confirmed.",
+    responseNotes: "Known him six years; a steady contributor.",
     status: "approved",
+    answeredByMember: true
   },
+  {
+    id: "guarantor-approval-dev-3",
+    loanRequest: {
+      borrowerMemberNumber: "QHC-0093",
+      borrowerName: "Fatima Lawal",
+      estimatedMonthlyServicing: 43750,
+      id: "guarantor-loan-dev-3",
+      loanProductName: "Business financing",
+      purpose: "Restock the provisions shop before December",
+      requestedAmount: 250000,
+      requestedAt: "2026-11-13T10:00:00.000Z",
+      requestedTermMonths: 6,
+      status: "under_review"
+    },
+    requestedAt: "2026-11-13T10:05:00.000Z",
+    requestedByName: "Amina Bello",
+    respondedAt: null,
+    respondedByName: null,
+    responseNotes: null,
+    status: "pending",
+    answeredByMember: false
+  },
+  {
+    id: "guarantor-approval-dev-4",
+    loanRequest: {
+      borrowerMemberNumber: "QHC-0150",
+      borrowerName: "Halima Sani",
+      estimatedMonthlyServicing: 41250,
+      id: "guarantor-loan-dev-4",
+      loanProductName: "Asset financing",
+      purpose: "Delivery tricycle for the bakery",
+      requestedAmount: 900000,
+      requestedAt: "2026-08-12T10:00:00.000Z",
+      requestedTermMonths: 24,
+      status: "rejected"
+    },
+    requestedAt: "2026-08-12T10:05:00.000Z",
+    requestedByName: "Amina Bello",
+    respondedAt: "2026-08-19T08:00:00.000Z",
+    respondedByName: "Yusuf Abdullahi",
+    responseNotes: "I’m already backing two requests this year.",
+    status: "rejected",
+    answeredByMember: true
+  },
+  {
+    id: "guarantor-approval-dev-5",
+    loanRequest: {
+      borrowerMemberNumber: "QHC-0034",
+      borrowerName: "Ibrahim Garba",
+      estimatedMonthlyServicing: 43200,
+      id: "guarantor-loan-dev-5",
+      loanProductName: "Business financing",
+      purpose: "Two industrial sewing machines for the tailoring shop",
+      requestedAmount: 320000,
+      requestedAt: "2026-05-30T10:00:00.000Z",
+      requestedTermMonths: 8,
+      status: "rejected"
+    },
+    requestedAt: "2026-05-30T10:05:00.000Z",
+    requestedByName: "Amina Bello",
+    respondedAt: "2026-06-03T08:00:00.000Z",
+    respondedByName: "Yusuf Abdullahi",
+    responseNotes: null,
+    status: "approved",
+    answeredByMember: true
+  },
+  {
+    id: "guarantor-approval-dev-6",
+    loanRequest: {
+      borrowerMemberNumber: "QHC-0201",
+      borrowerName: "Zainab Musa",
+      estimatedMonthlyServicing: 26250,
+      id: "guarantor-loan-dev-6",
+      loanProductName: "Home improvement financing",
+      purpose: "Kitchen repairs and a new water tank",
+      requestedAmount: 150000,
+      requestedAt: "2026-03-05T10:00:00.000Z",
+      requestedTermMonths: 6,
+      status: "approved"
+    },
+    requestedAt: "2026-03-05T10:05:00.000Z",
+    requestedByName: "Amina Bello",
+    respondedAt: "2026-03-12T08:00:00.000Z",
+    respondedByName: "Amina Bello",
+    responseNotes: null,
+    status: "approved",
+    answeredByMember: false
+  }
 ]
 
 let shareApplications: MobileMemberShareApplication[] = [
@@ -1532,7 +1622,10 @@ export function createDevFoodPurchaseApplication(
 
 export function getDevMemberGuarantorApprovals(): MobileMemberGuarantorApprovals {
   return clone({
-    approvals: guarantorApprovals,
+    approvals: [...guarantorApprovals].sort((a, b) =>
+      Number(b.status === "pending") - Number(a.status === "pending") ||
+      b.requestedAt.localeCompare(a.requestedAt)
+    ),
     generatedAt,
     member,
     summary: {
@@ -1562,6 +1655,7 @@ export function respondDevGuarantorApproval(
     ...approval,
     respondedAt: new Date().toISOString(),
     respondedByName: member.name,
+    answeredByMember: true,
     responseNotes: input.notes ?? null,
     status: input.status,
   }

@@ -374,9 +374,16 @@ function checkSeparatedDataEntrySurfaces() {
   ]) {
     checkSourceMarkers(path, ["<AppSheet", 'variant="form"'])
   }
+  checkSourceMarkers(
+    "src/features/guarantors/screens/member-guarantor-approvals-screen.tsx",
+    ["<AppList", "<GuarantorDecisionSheets"]
+  )
+  checkSourceMarkers(
+    "src/features/guarantors/components/member-guarantor-response-form.tsx",
+    ["<AppSheet", 'variant="form"', "<Textarea"]
+  )
   const screens = [
     "src/features/food-purchase/screens/member-food-purchase-screen.tsx",
-    "src/features/guarantors/screens/member-guarantor-approvals-screen.tsx",
     "src/features/procurement/screens/member-procurement-screen.tsx",
     "src/features/project-financing/screens/member-project-financing-screen.tsx",
   ]

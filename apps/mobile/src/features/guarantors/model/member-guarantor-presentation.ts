@@ -1,7 +1,7 @@
 import type { MobileGuarantorRequest } from "./member-guarantor-types"
 
 const currencyFormatters = new Map<string, Intl.NumberFormat>()
-const dateFormatter = new Intl.DateTimeFormat("en", {
+const dateFormatter = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
   month: "short",
   timeZone: "UTC",
@@ -12,9 +12,10 @@ function getCurrencyFormatter(currencyCode: string) {
   const existing = currencyFormatters.get(currencyCode)
   if (existing) return existing
 
-  const formatter = new Intl.NumberFormat("en", {
+  const formatter = new Intl.NumberFormat("en-NG", {
     currency: currencyCode,
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
     style: "currency",
   })
   currencyFormatters.set(currencyCode, formatter)
@@ -66,4 +67,27 @@ export function presentGuarantorApproval(
     status,
     term,
   }
+}
+
+export function getGuarantorAnswer(approval: MobileGuarantorRequest) {
+  if (approval.status === "pending") {
+    return { label: "Waiting for you", tone: "warning" } as const
+  }
+  if (approval.answeredByMember === false) {
+    return { label: "Recorded by your cooperative", tone: "info" } as const
+  }
+  return approval.status === "approved"
+    ? ({ label: "You agreed", tone: "success" } as const)
+    : ({ label: "You declined", tone: "danger" } as const)
+}
+
+export function matchesGuarantorSearch(
+  approval: MobileGuarantorRequest,
+  term: string
+) {
+  const { borrowerName, borrowerMemberNumber, loanProductName } =
+    approval.loanRequest
+  return `${borrowerName} ${borrowerMemberNumber} ${loanProductName}`
+    .toLowerCase()
+    .includes(term.toLowerCase())
 }

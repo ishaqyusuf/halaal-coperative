@@ -49,9 +49,7 @@ describe("member guarantor presentation", () => {
 
     expect(result.status).toBe("Approved")
     expect(result.respondedDate).toContain("2026")
-    expect(result.resolvedContext).toBe(
-      "Education support facility · NGN 300,000"
-    )
+    expect(result.resolvedContext).toBe("Education support facility · ₦300,000")
     expect(result.responseNotes).toBe("Repayment plan confirmed.")
   })
 })

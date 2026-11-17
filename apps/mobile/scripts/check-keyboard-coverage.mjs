@@ -129,7 +129,7 @@ checkMarkers(
 )
 checkMarkers(
   "src/features/guarantors/screens/member-guarantor-approvals-screen.tsx",
-  ["<CompactFormSheet", "<MemberGuarantorResponseForm", "</CompactFormSheet>"]
+  ["<AppList", "<GuarantorDecisionSheets"]
 )
 
 const signInScreenSource = readFileSync(
@@ -179,9 +179,6 @@ for (const filePath of findTsxFiles(join(SOURCE_DIR, "features"))) {
     (toMobilePath(filePath) ===
       "src/features/food-purchase/components/member-food-purchase-application-form.tsx" &&
       source.includes("export function MemberFoodPurchaseApplicationForm")) ||
-    (toMobilePath(filePath) ===
-      "src/features/guarantors/components/member-guarantor-response-form.tsx" &&
-      source.includes("export function MemberGuarantorResponseForm")) ||
     (toMobilePath(filePath) ===
       "src/features/admin-finance-support/components/admin-finance-action-form.tsx" &&
       source.includes("export function AdminFinanceActionForm") &&

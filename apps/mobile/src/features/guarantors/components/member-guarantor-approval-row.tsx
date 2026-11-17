@@ -1,186 +1,190 @@
-import { getStatusBadgeTone, StatusBadge } from "@/components/app/status-badge"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
+import {
+  ListCard,
+  RecordRow,
+  TintedAvatar,
+  type RowPosition,
+} from "@/components/ui/list-card"
+import { Pressable } from "@/components/ui/pressable"
+import { StatusPill } from "@/components/ui/status-pill"
 import { Text } from "@/components/ui/text"
 import { useLargeTextLayout } from "@/hooks/use-large-text-layout"
 import { cn } from "@/lib/utils"
-import { Pressable, View } from "react-native"
-import type { MobileGuarantorRequest } from "../model/member-guarantor-types"
-import { presentGuarantorApproval } from "../model/member-guarantor-presentation"
+import { View } from "react-native"
+import {
+  getGuarantorAnswer,
+  presentGuarantorApproval,
+} from "../model/member-guarantor-presentation"
+import type {
+  MobileGuarantorDecision,
+  MobileGuarantorRequest,
+} from "../model/member-guarantor-types"
 
-export function MemberGuarantorApprovalRow({
+export function GuarantorDecisionButtons({
   approval,
-  currencyCode,
-  isActionBlocked,
-  isFirst,
-  isSubmitting,
-  onOpenDetail,
-  onOpenResponse,
+  blocked,
+  onDecision,
+  restriction,
 }: {
   approval: MobileGuarantorRequest
-  currencyCode: string
-  isActionBlocked: boolean
-  isFirst: boolean
-  isSubmitting: boolean
-  onOpenDetail: () => void
-  onOpenResponse: () => void
+  blocked: boolean
+  onDecision: (decision: MobileGuarantorDecision) => void
+  restriction?: string
 }) {
-  const largeTextLayout = useLargeTextLayout()
-  const row = presentGuarantorApproval(approval, currencyCode)
-  const isPending = approval.status === "pending"
-
-  if (!isPending) {
-    return (
-      <Pressable
-        accessibilityLabel={`View ${row.accessibilityLabel}`}
-        accessibilityRole="button"
-        className={cn(
-          "border-b border-border py-4 active:bg-muted/40",
-          isFirst && "border-t"
-        )}
-        onPress={onOpenDetail}
-      >
-        <View
+  const largeText = useLargeTextLayout()
+  const name = approval.loanRequest.borrowerName
+  const finalized = approval.loanRequest.status === "approved"
+  return (
+    <View className="gap-[8px]">
+      <View className={cn("gap-[10px]", !largeText && "flex-row")}>
+        <Button
+          accessibilityLabel={`I can’t guarantee ${name}`}
           className={cn(
-            "gap-3",
-            !largeTextLayout && "flex-row items-center justify-between"
+            "min-h-[52px] border-muted-foreground/40",
+            !largeText && "flex-1"
           )}
+          disabled={blocked || finalized}
+          onPress={() => onDecision("rejected")}
+          testID={`guarantor-decline-${approval.id}`}
+          variant="outline"
         >
-          <View className="min-w-0 flex-1 gap-1">
-            <Text className="text-base font-extrabold text-foreground">
-              {row.borrower}
-            </Text>
-            <Text className="text-xs leading-4 text-muted-foreground">
-              {row.resolvedContext}
-            </Text>
-          </View>
-          <View
-            className={cn(
-              "gap-3",
-              largeTextLayout ? "flex-row items-center" : "items-end"
-            )}
+          <Icon className="size-sm text-foreground" name="X" />
+          <Text>I can’t</Text>
+        </Button>
+        <Button
+          accessibilityLabel={`I agree to guarantee ${name}`}
+          className={cn("min-h-[52px]", !largeText && "flex-1")}
+          disabled={blocked || finalized}
+          onPress={() => onDecision("approved")}
+          testID={`guarantor-agree-${approval.id}`}
+        >
+          <Icon className="size-sm text-primary-foreground" name="Check" />
+          <Text>I agree</Text>
+        </Button>
+      </View>
+      {restriction || finalized ? (
+        <Text className="text-center text-muted-foreground" variant="caption">
+          {finalized
+            ? "The cooperative has already approved this financing request."
+            : restriction}
+        </Text>
+      ) : null}
+    </View>
+  )
+}
+
+export function GuarantorDecisionCard({
+  approval,
+  blocked,
+  currencyCode,
+  onDecision,
+  onOpen,
+  restriction,
+}: {
+  approval: MobileGuarantorRequest
+  blocked: boolean
+  currencyCode: string
+  onDecision: (decision: MobileGuarantorDecision) => void
+  onOpen: () => void
+  restriction?: string
+}) {
+  const row = presentGuarantorApproval(approval, currencyCode)
+  return (
+    <View className="mx-[18px] mb-[8px]">
+      <ListCard className="pb-[16px]">
+        <View className="gap-[14px]">
+          <Pressable
+            accessibilityLabel={`View ${row.borrower}’s request, ${row.requestedAmount}`}
+            accessibilityRole="button"
+            className="gap-[12px] px-[16px] pt-[14px] active:bg-muted"
+            haptic
+            onPress={onOpen}
           >
-            <View className={cn("gap-1", !largeTextLayout && "items-end")}>
-              <StatusBadge
-                label={row.status}
-                tone={getStatusBadgeTone(approval.status)}
-                wrap={largeTextLayout}
+            <View className="flex-row items-center gap-[12px]">
+              <TintedAvatar name={row.borrower} size={44} />
+              <View className="min-w-0 flex-1 gap-[2px]">
+                <Text className="font-bold" numberOfLines={1} variant="body">
+                  {row.borrower}
+                </Text>
+                <Text
+                  className="text-muted-foreground"
+                  numberOfLines={1}
+                  variant="small"
+                >
+                  {row.borrowerContext}
+                </Text>
+              </View>
+              <Icon
+                className="size-sm text-muted-foreground"
+                name="ChevronRight"
               />
-              <Text className="text-xs font-semibold text-muted-foreground">
-                {row.respondedDate}
+            </View>
+            <View className="gap-[2px]">
+              <Text tabular variant="title">
+                {row.requestedAmount}
+              </Text>
+              <Text className="text-foreground-soft" tabular variant="small">
+                {row.term} · {row.monthlyServicing} a month
               </Text>
             </View>
-            <Icon
-              className="size-sm text-muted-foreground"
-              name="ChevronRight"
+            <View className="bg-surface-raised flex-row items-start gap-[8px] rounded-[12px] px-[12px] py-[9px]">
+              <Icon className="size-sm mt-px text-primary" name="ShieldCheck" />
+              <Text
+                className="text-foreground-soft min-w-0 flex-1"
+                variant="label"
+              >
+                Agreeing means you will act as guarantor for this financing
+                request.
+              </Text>
+            </View>
+          </Pressable>
+          <View className="px-[16px]">
+            <GuarantorDecisionButtons
+              approval={approval}
+              blocked={blocked}
+              onDecision={onDecision}
+              restriction={restriction}
             />
           </View>
         </View>
-      </Pressable>
-    )
-  }
-
-  return (
-    <View
-      className={cn(
-        "gap-3 border-b border-border py-4",
-        "border-l-warn border-l-[3px] pl-3",
-        isFirst && "border-t"
-      )}
-    >
-      <View className="flex-row items-start justify-between gap-3">
-        <View className="min-w-0 flex-1 gap-1">
-          <Text className="text-base font-extrabold text-foreground">
-            {row.borrower}
-          </Text>
-          <Text className="text-xs leading-4 text-muted-foreground">
-            {row.borrowerContext}
-          </Text>
-        </View>
-        <View className="self-start">
-          <StatusBadge
-            label={row.status}
-            tone={getStatusBadgeTone(approval.status)}
-            wrap={largeTextLayout}
-          />
-        </View>
-      </View>
-
-      <View
-        className={cn(
-          "border-y border-border py-3",
-          largeTextLayout ? "gap-3" : "flex-row"
-        )}
-      >
-        {[
-          ["Requested", row.requestedAmount],
-          ["Monthly", row.monthlyServicing],
-          ["Term", row.term],
-        ].map(([label, value], index) => (
-          <View
-            className={cn(
-              "min-w-0 gap-1",
-              largeTextLayout
-                ? index > 0 && "border-t border-border pt-3"
-                : [
-                    index === 0 ? "flex-[1.25] pr-2" : "flex-1 px-2",
-                    index < 2 && "border-r border-border",
-                    index === 2 && "pr-0 pl-2",
-                  ]
-            )}
-            key={label}
-          >
-            <Text className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
-              {label}
-            </Text>
-            <Text className="text-sm leading-5 font-extrabold text-foreground">
-              {value}
-            </Text>
-          </View>
-        ))}
-      </View>
-
-      {row.purpose ? (
-        <View className="gap-1">
-          <Text className="text-xs font-bold text-muted-foreground">
-            Purpose
-          </Text>
-          <Text className="text-sm leading-5 text-foreground">
-            {row.purpose}
-          </Text>
-        </View>
-      ) : null}
-
-      <View
-        className={cn(
-          "gap-3",
-          !largeTextLayout && "flex-row items-center justify-between"
-        )}
-      >
-        <Text
-          className={cn(
-            "text-xs font-semibold text-muted-foreground",
-            !largeTextLayout && "min-w-0 flex-1"
-          )}
-        >
-          Requested {row.requestedDate}
-        </Text>
-        <Button
-          accessibilityLabel={`Review guarantor response for ${row.borrower}`}
-          className={cn(
-            "min-h-11 py-2",
-            largeTextLayout ? "w-full" : "self-start"
-          )}
-          disabled={isActionBlocked || isSubmitting}
-          onPress={onOpenResponse}
-        >
-          <Icon
-            className="size-base text-primary-foreground"
-            name="ShieldCheck"
-          />
-          <Text>Review</Text>
-        </Button>
-      </View>
+      </ListCard>
     </View>
+  )
+}
+
+export function GuarantorHistoryRow({
+  approval,
+  currencyCode,
+  position,
+  onOpen,
+}: {
+  approval: MobileGuarantorRequest
+  currencyCode: string
+  position: RowPosition
+  onOpen: () => void
+}) {
+  const row = presentGuarantorApproval(approval, currencyCode)
+  const answer = getGuarantorAnswer(approval)
+  const label = answer.tone === "info" ? "Recorded" : answer.label
+  return (
+    <RecordRow
+      accessibilityLabel={`${row.borrower}, ${row.requestedAmount}, ${answer.label}, ${row.respondedDate}`}
+      amount={row.requestedAmount}
+      chevron
+      onPress={onOpen}
+      position={position}
+      supporting={
+        <View className="flex-row flex-wrap items-center gap-[6px]">
+          <StatusPill label={label} tone={answer.tone} />
+          {approval.respondedAt ? (
+            <Text className="text-muted-foreground" variant="caption">
+              {row.respondedDate}
+            </Text>
+          ) : null}
+        </View>
+      }
+      title={row.borrower}
+    />
   )
 }

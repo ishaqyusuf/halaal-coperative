@@ -1870,7 +1870,7 @@ export async function respondMemberLoanGuarantorApproval(
   input: {
     actorUserId: string
     guarantorApprovalId: string
-    guarantorMemberId: string
+    guarantorMemberId?: string
     notes?: string
     status: "approved" | "rejected"
     tenantId: string
@@ -1886,21 +1886,13 @@ export async function respondMemberLoanGuarantorApproval(
     async (tx) => {
       const existingApproval = await tx.loanGuarantorApproval.findFirst({
         where: {
-          guarantorMemberId: input.guarantorMemberId,
+          ...(input.guarantorMemberId
+            ? { guarantorMemberId: input.guarantorMemberId }
+            : { guarantorMember: { userId: input.actorUserId, tenantId: input.tenantId } }),
           id: input.guarantorApprovalId,
           tenantId: input.tenantId,
         },
-        include: {
-          guarantorMember: {
-            select: {
-              email: true,
-              fullName: true,
-              id: true,
-              memberNumber: true,
-            },
-          },
-          loanRequest: true,
-        },
+        select: { id: true, status: true, loanRequest: { select: { status: true } } },
       })
 
       if (!existingApproval) {
@@ -1938,6 +1930,7 @@ export async function respondMemberLoanGuarantorApproval(
           },
           loanRequest: {
             include: {
+              loanProduct: { select: { name: true } },
               member: {
                 select: {
                   fullName: true,
@@ -1947,6 +1940,7 @@ export async function respondMemberLoanGuarantorApproval(
               },
             },
           },
+          requestedByUser: { select: { fullName: true } },
           respondedByUser: {
             select: { id: true, fullName: true, email: true },
           },

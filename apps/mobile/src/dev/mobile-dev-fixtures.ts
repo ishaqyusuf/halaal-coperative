@@ -554,7 +554,33 @@ let shareApplications: MobileMemberShareApplication[] = [
   },
 ]
 
+const registryPreviewNames = [
+  "Jibrin Aminu", "Sakina Ibrahim", "Rabiu Abdulsalam", "Firdausi Yahaya",
+  "Murtala Bashir", "Ummulkhair Sani", "Sulaiman Kolawole", "Hannatu Gambo",
+  "Anas Olawale", "Bilkisu Sadiq", "Ahmad Jibril", "Maimuna Haruna",
+  "Ismail Ajayi", "Saadatu Bello", "Faruk Adamu", "Hadiza Tukur",
+  "Mahmud Sambo", "Zulaihat Ahmad", "Idris Bakare", "Rahma Lawan",
+]
+const registryPreviewMembers = registryPreviewNames.map((fullName, index): MobileAdminMemberRow => {
+  const number = 48 - index
+  return {
+    activeMonthlyCommitment: index < 3 ? null : 25_000,
+    deductionSourceName: index < 3 ? null : "Bank transfer",
+    email: `member${number}@example.test`,
+    fullName,
+    id: `registry-preview-${number}`,
+    joinedAt: "2024-08-06T00:00:00.000Z",
+    kycStatus: index < 3 ? "not_started" : index % 5 === 4 ? "pending" : "verified",
+    linkedUserEmail: index < 3 ? null : `member${number}@example.test`,
+    memberNumber: `QHC-${String(number).padStart(4, "0")}`,
+    memberType: number % 5 === 0 ? "business" : number % 3 === 0 ? "civil_servant" : "individual",
+    phoneNumber: `+23480321400${number}`,
+    status: index < 3 ? "pending" : index === 17 ? "suspended" : "active",
+  }
+})
+
 let adminMembers: MobileAdminMemberRow[] = [
+  ...registryPreviewMembers,
   {
     activeMonthlyCommitment: 75_000,
     deductionSourceName: "FCT Payroll",
@@ -1776,13 +1802,14 @@ export function getDevAdminMembers(
   let rows = adminMembers.filter(
     (item) =>
       (!input?.status || item.status === input.status) &&
-      (!input?.kycStatus || item.kycStatus === input.kycStatus)
+      (!input?.kycStatus || item.kycStatus === input.kycStatus) &&
+      (!input?.needsReview || (item.status === "active" && item.kycStatus !== "verified"))
   )
   if (search)
     rows = rows.filter((item) =>
-      [item.fullName, item.memberNumber, item.email].some((value) =>
-        value?.toLowerCase().includes(search)
-      )
+      [item.fullName, item.memberNumber].some((value) =>
+        value.toLowerCase().includes(search)
+      ) || (/^[+()\s.\d-]+$/.test(search) && search.replace(/\D/g, "").length >= 3 && item.phoneNumber?.replace(/\D/g, "").includes(search.replace(/\D/g, "")))
     )
   return clone({
     generatedAt,
@@ -1834,8 +1861,8 @@ export function getDevAdminMembers(
 export function getDevAdminMemberDetail(
   memberId: string
 ): MobileAdminMemberDetail {
-  const row =
-    adminMembers.find((item) => item.id === memberId) ?? adminMembers[0]!
+  const row = adminMembers.find((item) => item.id === memberId)
+  if (!row) return { generatedAt, member: null, sections: [], stats: [] }
   const sections = getDevMemberStatement()
     .sections.filter((section) => section.key !== "charges")
     .map((section) =>
@@ -1860,6 +1887,9 @@ export function getDevAdminMemberDetail(
 }
 
 export function createDevAdminMember(input: MobileAdminMemberCreateInput) {
+  if (adminMembers.some(({ memberNumber }) => memberNumber.toLowerCase() === input.memberNumber.toLowerCase())) {
+    throw new Error(`Member number ${input.memberNumber} is already used. Choose another number.`)
+  }
   const row: MobileAdminMemberRow = {
     activeMonthlyCommitment: input.monthlyCommitment ?? null,
     deductionSourceName: null,

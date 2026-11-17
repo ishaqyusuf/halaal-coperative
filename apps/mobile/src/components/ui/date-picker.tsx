@@ -119,7 +119,13 @@ export function DatePicker({
             setMode((current) => (current === "days" ? "months" : "days"))
           }}
         >
-          <Text className="shrink" numberOfLines={1} variant="title">
+          <Text
+            adjustsFontSizeToFit
+            className="shrink"
+            minimumFontScale={0.82}
+            numberOfLines={1}
+            variant="section"
+          >
             {MONTH_NAMES[visibleMonth.month - 1]} {visibleMonth.year}
           </Text>
           <Icon

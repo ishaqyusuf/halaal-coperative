@@ -66,9 +66,12 @@ export type AppListProps<T> = {
   empty?: ReactNode
   /** A failed read. With data it shows as a banner above the rows. */
   error?: string | null
+  errorTitle?: string
   onRetry?: () => void
 
   search?: AppListSearch
+  /** Optional floating action aligned beside search and hidden with it. */
+  bottomAction?: ReactNode
   /** A FAB or other overlay pinned above the list. */
   overlay?: ReactNode
   testID?: string
@@ -84,10 +87,12 @@ export type AppListProps<T> = {
 export function AppList<T>({
   active = true,
   back,
+  bottomAction,
   compactHeader,
   data,
   empty,
   error,
+  errorTitle = "Couldn’t load this list",
   estimatedItemSize = 72,
   header,
   headerActions,
@@ -173,7 +178,7 @@ export function AppList<T>({
       action={onRetry ? { label: "Try again", onPress: onRetry } : undefined}
       description={error}
       icon="CircleAlert"
-      title="Couldn’t load this list"
+      title={errorTitle}
       tone="error"
     />
   ) : (
@@ -190,7 +195,8 @@ export function AppList<T>({
           <View
             style={{
               paddingBottom:
-                chrome.contentBottomInset + (search ? searchHeight : 0),
+                chrome.contentBottomInset +
+                (search || bottomAction ? searchHeight : 0),
               paddingTop: 12,
             }}
           >
@@ -260,18 +266,25 @@ export function AppList<T>({
           {compactHeader}
         </View>
       ) : null}
-      {search ? (
+      {search || bottomAction ? (
         <BottomSearchFooter
-          accessibilityLabel={search.accessibilityLabel ?? search.placeholder}
+          accessibilityLabel={
+            search?.accessibilityLabel ?? search?.placeholder ?? "Search"
+          }
           bottomOffset={chrome.dockLift}
           hidden={chrome.barsHidden}
-          localSearch={search.localSearch}
-          onChangeText={search.onChangeText}
+          localSearch={search?.localSearch}
+          onChangeText={search?.onChangeText ?? (() => {})}
           onHeightChange={setSearchHeight}
-          placeholder={search.placeholder}
-          totalCount={search.totalCount}
-          value={search.value}
-        />
+          placeholder={search?.placeholder ?? ""}
+          searchVisible={Boolean(search)}
+          totalCount={search?.totalCount ?? 0}
+          value={search?.value ?? ""}
+          floatActions={Boolean(bottomAction)}
+          layout={bottomAction ? "inline" : "stacked"}
+        >
+          {bottomAction}
+        </BottomSearchFooter>
       ) : null}
       {overlay}
     </View>

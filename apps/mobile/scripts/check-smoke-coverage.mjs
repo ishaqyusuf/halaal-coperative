@@ -276,7 +276,6 @@ assertIncludes("src/features/member-core/public/member-activity-history.tsx", [
 
 for (const screen of [
   "src/features/support/screens/member-support-screen.tsx",
-  "src/features/admin-member-lifecycle/screens/admin-members-screen.tsx",
 ]) {
   assertIncludes(screen, [
     "useMobileFormDraft",
@@ -373,7 +372,15 @@ for (const screen of [
 
 assertIncludes(
   "src/features/admin-member-lifecycle/screens/admin-members-screen.tsx",
-  ["FullScreenFormSheet", "CompactFormSheet", "SubmissionReviewSheet"]
+  ["<AppList", "<CreateMemberSheet", "<MemberChangeSheet", "isMobileReadCacheStale"]
+)
+assertIncludes(
+  "src/features/admin-member-lifecycle/components/create-member-sheet.tsx",
+  ["<AppSheet", "useMobileFormDraft", "<ReviewSummary", "<ResultScreen"]
+)
+assertIncludes(
+  "src/features/admin-member-lifecycle/components/member-change-sheet.tsx",
+  ["<AppSheet", "<ReviewSummary", "<ResultScreen"]
 )
 
 assertIncludes(

@@ -89,7 +89,35 @@ export type MobileAdminMembers = {
   total: number
 }
 
+export type MobileAdminMemberDirectorySummary = Pick<
+  MobileAdminMembers,
+  | "cache"
+  | "generatedAt"
+  | "memberExpansion"
+  | "onboardingRequests"
+  | "reviewQueues"
+  | "total"
+> & {
+  statusCounts: Record<MobileAdminMemberStatus, number>
+  kycCounts: Record<MobileAdminMemberKycStatus, number>
+}
+
+export type MobileAdminMemberDirectoryPage = Pick<
+  MobileAdminMembers,
+  "cache" | "generatedAt" | "members" | "page" | "pageSize" | "total"
+>
+
+export type MemberRecentChange = {
+  actor: string | null
+  id: string
+  kind: "created" | "kyc" | "status"
+  notes: string | null
+  occurredAt: string
+  value: string | null
+}
+
 export type MobileAdminMemberDetail = {
+  recentChanges?: MemberRecentChange[]
   cache?: MobileReadCacheState
   generatedAt: string
   member:
@@ -130,6 +158,7 @@ export type MobileAdminOverview = {
 }
 
 export type MobileAdminMembersListInput = {
+  needsReview?: boolean
   kycStatus?: MobileAdminMemberKycStatus
   page?: number
   pageSize?: number

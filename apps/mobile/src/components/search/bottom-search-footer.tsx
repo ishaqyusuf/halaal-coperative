@@ -38,6 +38,7 @@ export type BottomSearchFooterProps = {
   actionsAboveSearch?: boolean
   /** Slides the footer down out of view (see useBottomSearchScroll). It stays
    * visible while the search is focused or has text. */
+  floatActions?: boolean
   hidden?: boolean
   includeSafeArea?: boolean
   editable?: boolean
@@ -78,6 +79,7 @@ export function BottomSearchFooter({
   caption,
   children,
   actionsAboveSearch = false,
+  floatActions = false,
   hidden = false,
   includeSafeArea = true,
   editable = true,
@@ -120,7 +122,9 @@ export function BottomSearchFooter({
   onFocusChangeRef.current = onFocusChange
 
   useEffect(() => {
-    hiddenProgress.set(animateDock(shouldHide ? 1 : 0, shouldHide, reduceMotion))
+    hiddenProgress.set(
+      animateDock(shouldHide ? 1 : 0, shouldHide, reduceMotion)
+    )
   }, [hiddenProgress, reduceMotion, shouldHide])
 
   useEffect(() => {
@@ -144,9 +148,7 @@ export function BottomSearchFooter({
 
   if (!children && !effectiveSearchVisible) return null
 
-  const onLayout = (event: {
-    nativeEvent: { layout: { height: number } }
-  }) => {
+  const onLayout = (event: { nativeEvent: { layout: { height: number } } }) => {
     setHeight(event.nativeEvent.layout.height)
     onHeightChange?.(event.nativeEvent.layout.height)
   }
@@ -158,77 +160,88 @@ export function BottomSearchFooter({
     right: 0,
     zIndex: 20,
   } as const
-  const body = effectiveSearchVisible ? (
-    // Floating search: the pill and any step action float over the list
-    // with no bar behind them, so touches around them reach the list.
-    <Animated.View
-      onLayout={onLayout}
-      pointerEvents={shouldHide ? "none" : "box-none"}
-      style={[
-        {
-          gap: 10,
-          paddingBottom: paddingBottom + FLOATING_SEARCH_GAP,
-          paddingHorizontal: 24,
-        },
-        slideStyle,
-      ]}
-    >
-      {caption && !searchFocused ? (
-        <View className="items-end" pointerEvents="none">
-          {caption}
-        </View>
-      ) : null}
-      <View
-        className={
-          layout === "inline" ? "flex-row items-center gap-[10px]" : "gap-[10px]"
-        }
-        pointerEvents="box-none"
+  const body =
+    effectiveSearchVisible || floatActions ? (
+      // Floating search: the pill and any step action float over the list
+      // with no bar behind them, so touches around them reach the list.
+      <Animated.View
+        onLayout={onLayout}
+        pointerEvents={shouldHide ? "none" : "box-none"}
+        style={[
+          {
+            gap: 10,
+            paddingBottom: paddingBottom + FLOATING_SEARCH_GAP,
+            paddingHorizontal: floatActions ? 18 : 24,
+          },
+          slideStyle,
+        ]}
       >
-        {actionsAboveSearch ? children : null}
-        <View className={layout === "inline" ? "min-w-0 flex-1" : ""}>
-          <FloatingSearchField
-            accessibilityLabel={accessibilityLabel || label}
-            autoFocus={autoFocus}
-            editable={editable && (!isOffline || localSearch)}
-            focused={searchFocused}
-            maxLength={maxLength}
-            onBlur={() => setFocused(false)}
-            onChangeText={onChangeText}
-            onFocus={() => setFocused(true)}
-            placeholder={placeholder}
-            focusRequest={searchFocusRequest}
-            trailingAction={searchTrailingAction}
-            value={value}
-          />
-        </View>
-        {actionsAboveSearch ? null : children}
-      </View>
-    </Animated.View>
-  ) : (
-    <Animated.View
-      pointerEvents={shouldHide ? "none" : "auto"}
-      onLayout={onLayout}
-      style={[{ backgroundColor: colors.background }, slideStyle]}
-    >
-      <View style={{ paddingBottom, width: "100%" }}>
+        {caption && !searchFocused ? (
+          <View className="items-end" pointerEvents="none">
+            {caption}
+          </View>
+        ) : null}
         <View
           className={
-            variant === "action-bar"
-              ? "gap-[12px] px-[16px] pb-[8px] pt-[12px]"
-              : "gap-[12px] px-[16px] pb-[8px] pt-[8px]"
+            layout === "inline"
+              ? "flex-row items-center gap-[10px]"
+              : "gap-[10px]"
           }
+          pointerEvents="box-none"
         >
+          {actionsAboveSearch ? children : null}
+          {effectiveSearchVisible ? (
+            <View className={layout === "inline" ? "min-w-0 flex-1" : ""}>
+              <FloatingSearchField
+                accessibilityLabel={accessibilityLabel || label}
+                autoFocus={autoFocus}
+                editable={editable && (!isOffline || localSearch)}
+                focused={searchFocused}
+                maxLength={maxLength}
+                onBlur={() => setFocused(false)}
+                onChangeText={onChangeText}
+                onFocus={() => setFocused(true)}
+                placeholder={placeholder}
+                focusRequest={searchFocusRequest}
+                trailingAction={searchTrailingAction}
+                value={value}
+              />
+            </View>
+          ) : (
+            <View className="flex-1" />
+          )}
+          {actionsAboveSearch || (floatActions && searchFocused)
+            ? null
+            : children}
+        </View>
+      </Animated.View>
+    ) : (
+      <Animated.View
+        pointerEvents={shouldHide ? "none" : "auto"}
+        onLayout={onLayout}
+        style={[{ backgroundColor: colors.background }, slideStyle]}
+      >
+        <View style={{ paddingBottom, width: "100%" }}>
           <View
             className={
-              layout === "inline" ? "flex-row items-center gap-[12px]" : "gap-[12px]"
+              variant === "action-bar"
+                ? "gap-[12px] px-[16px] pt-[12px] pb-[8px]"
+                : "gap-[12px] px-[16px] pt-[8px] pb-[8px]"
             }
           >
-            {children}
+            <View
+              className={
+                layout === "inline"
+                  ? "flex-row items-center gap-[12px]"
+                  : "gap-[12px]"
+              }
+            >
+              {children}
+            </View>
           </View>
         </View>
-      </View>
-    </Animated.View>
-  )
+      </Animated.View>
+    )
 
   return keyboardOwner === "sheet" ? (
     <View

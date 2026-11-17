@@ -578,9 +578,8 @@ export function FloatingBottomSheet({
       }
       onDismiss={handleDismiss}
       onChange={handleSheetChange}
-      // The sheet label must leave the scroll contents and action buttons
-      // individually reachable when the native footer is present.
-      accessible={footer ? false : undefined}
+      // Keep rows and picker choices individually reachable by VoiceOver.
+      accessible={false}
       accessibilityLabel={accessibilityLabel}
     >
       {header ? (

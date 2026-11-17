@@ -359,14 +359,26 @@ function checkSeparatedDataEntrySurfaces() {
       ["<AppSheet", 'variant="form"']
     )
   }
+  checkSourceMarkers(
+    "src/features/admin-member-lifecycle/screens/admin-members-screen.tsx",
+    ["<AppList", "<CreateMemberSheet", "<MemberChangeSheet"]
+  )
+  checkSourceMarkers(
+    "src/features/admin-member-lifecycle/screens/admin-member-detail-screen.tsx",
+    ["<ScreenShell", "<MemberChangeSheet"]
+  )
+  for (const path of [
+    "src/features/admin-member-lifecycle/components/create-member-sheet.tsx",
+    "src/features/admin-member-lifecycle/components/member-change-sheet.tsx",
+  ]) {
+    checkSourceMarkers(path, ["<AppSheet", 'variant="form"'])
+  }
   const screens = [
     "src/features/food-purchase/screens/member-food-purchase-screen.tsx",
     "src/features/guarantors/screens/member-guarantor-approvals-screen.tsx",
     "src/features/procurement/screens/member-procurement-screen.tsx",
     "src/features/project-financing/screens/member-project-financing-screen.tsx",
     "src/features/support/screens/member-support-screen.tsx",
-    "src/features/admin-member-lifecycle/screens/admin-members-screen.tsx",
-    "src/features/admin-member-lifecycle/screens/admin-member-detail-screen.tsx",
   ]
 
   for (const screen of screens) {
@@ -390,19 +402,10 @@ function checkSeparatedDataEntrySurfaces() {
       failures.push(`${screen} is missing its read-focused ScrollView`)
       continue
     }
-    let readOnlySurface = ["FullScreenFormSheet", "CompactFormSheet"].reduce(
+    const readOnlySurface = ["FullScreenFormSheet", "CompactFormSheet"].reduce(
       (current, tag) => removeJsxBlocks(current, tag),
       contentSurface
     )
-    if (
-      screen ===
-      "src/features/admin-member-lifecycle/screens/admin-members-screen.tsx"
-    ) {
-      readOnlySurface = readOnlySurface.replace(
-        /<Input\b[\s\S]*?accessibilityLabel="Search members"[\s\S]*?\/>/g,
-        ""
-      )
-    }
     if (/<(?:Input|Textarea)\b/.test(readOnlySurface)) {
       failures.push(
         `${screen} renders data-entry controls inline with browsable content`

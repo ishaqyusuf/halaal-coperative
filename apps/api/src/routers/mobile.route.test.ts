@@ -1256,6 +1256,28 @@ describe("mobileRouter", () => {
     expect(members.summary.totalCount).toBe(0)
   })
 
+  test("supports compact admin member reads and the separate directory summary", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+    await expect(
+      caller.mobile.admin.members.list({ compact: true, needsReview: true, pageSize: 20 })
+    ).resolves.toMatchObject({ members: [], page: 1, pageSize: 20, total: 0 })
+    await expect(caller.mobile.admin.members.summary()).resolves.toMatchObject({
+      total: 0, reviewQueues: [], onboardingRequests: [],
+    })
+    await expect(
+      caller.mobile.admin.members.detail({ compact: true, memberId: "member-amanah-missing" })
+    ).resolves.toMatchObject({ member: null, sections: [], stats: [], recentChanges: [] })
+  })
+
+  test("rejects the admin member summary from the member workspace", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+    await expect(caller.mobile.admin.members.summary()).rejects.toThrow()
+  })
+
   test("returns admin member detail for staff workspaces", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin",

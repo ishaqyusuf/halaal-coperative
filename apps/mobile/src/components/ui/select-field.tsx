@@ -92,6 +92,7 @@ export function SelectField<T extends string>({
   disabled,
   onChange,
   options,
+  outlined = false,
   placeholder = "Choose",
   sheetTitle,
   testID,
@@ -100,6 +101,7 @@ export function SelectField<T extends string>({
   disabled?: boolean
   onChange: (value: T) => void
   options: readonly SelectOption<T>[]
+  outlined?: boolean
   placeholder?: string
   sheetTitle?: string
   testID?: string
@@ -126,11 +128,17 @@ export function SelectField<T extends string>({
         variant="picker"
         visible={open}
       >
-        <View accessibilityRole="radiogroup" className="-mx-[8px]">
+        <View
+          accessible={false}
+          accessibilityRole="radiogroup"
+          className={outlined ? "gap-[8px]" : "-mx-[8px]"}
+        >
           {options.map((option) => {
             const isSelected = option.value === value
             return (
               <Pressable
+                accessibilityLabel={option.label}
+                accessibilityHint={option.description}
                 accessibilityRole="radio"
                 accessibilityState={{
                   checked: isSelected,
@@ -139,10 +147,13 @@ export function SelectField<T extends string>({
                 className={cn(
                   "min-h-[56px] flex-row items-center gap-[12px] rounded-[14px] px-[12px] py-[8px]",
                   isSelected ? "bg-accent" : "active:bg-muted",
+                  outlined && "min-h-[70px] rounded-[18px] border px-[16px]",
+                  outlined && (isSelected ? "border-primary" : "border-border"),
                   option.disabled && "opacity-40"
                 )}
                 disabled={option.disabled}
                 key={option.value}
+                testID={testID ? `${testID}-${option.value}` : undefined}
                 onPress={() => {
                   void Haptics.selectionAsync()
                   onChange(option.value)
@@ -165,8 +176,25 @@ export function SelectField<T extends string>({
                     </Text>
                   ) : null}
                 </View>
-                {isSelected ? (
-                  <Icon className="size-base text-accent-foreground" name="Check" />
+                {outlined ? (
+                  <View
+                    className={cn(
+                      "size-[24px] items-center justify-center rounded-full border",
+                      isSelected ? "border-primary bg-primary" : "border-border"
+                    )}
+                  >
+                    {isSelected ? (
+                      <Icon
+                        className="size-xs text-primary-foreground"
+                        name="Check"
+                      />
+                    ) : null}
+                  </View>
+                ) : isSelected ? (
+                  <Icon
+                    className="size-base text-accent-foreground"
+                    name="Check"
+                  />
                 ) : null}
               </Pressable>
             )

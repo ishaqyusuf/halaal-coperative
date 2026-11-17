@@ -224,9 +224,11 @@ function ResultBadge({
 export function ResultScreen({
   align = "center",
   badgeIcon,
+  badges,
   compact = false,
   description,
   details,
+  dismissIcon,
   onDone,
   primary,
   secondary,
@@ -235,9 +237,11 @@ export function ResultScreen({
 }: {
   align?: "center" | "top"
   badgeIcon?: string
+  badges?: ReactNode
   compact?: boolean
   description?: ReactNode
   details?: ReactNode
+  dismissIcon?: string
   onDone?: () => void
   primary?: ResultAction
   secondary?: ResultAction
@@ -259,15 +263,26 @@ export function ResultScreen({
         <View className="min-h-[56px] flex-row items-center justify-end px-[18px]">
           {onDone ? (
             <Pressable
-              accessibilityLabel="Done"
+              accessibilityLabel={dismissIcon ? "Close result" : "Done"}
               accessibilityRole="button"
-              className="min-h-[44px] justify-center px-[4px]"
+              className={cn(
+                "min-h-[44px] justify-center px-[4px]",
+                dismissIcon &&
+                  "size-[44px] items-center rounded-full bg-card shadow-sm"
+              )}
               hitSlop={8}
               onPress={onDone}
             >
-              <Text className="text-primary" variant="section">
-                Done
-              </Text>
+              {dismissIcon ? (
+                <Icon
+                  className="size-base text-foreground"
+                  name={dismissIcon}
+                />
+              ) : (
+                <Text className="text-primary" variant="section">
+                  Done
+                </Text>
+              )}
             </Pressable>
           ) : null}
         </View>
@@ -301,6 +316,11 @@ export function ResultScreen({
           >
             {description}
           </Text>
+        ) : null}
+        {badges ? (
+          <View className="flex-row flex-wrap justify-center gap-[6px]">
+            {badges}
+          </View>
         ) : null}
         {details ? (
           <View className="mt-[8px] w-full">

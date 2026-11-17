@@ -44,11 +44,11 @@ const recovery = [
   feature("auth/screens/recovery-screen.tsx"),
   feature("auth/components/recovery-step-content.tsx"),
 ]
-const adminMembers = feature(
-  "admin-member-lifecycle/screens/admin-members-screen.tsx"
+const adminMemberCreate = feature(
+  "admin-member-lifecycle/components/create-member-sheet.tsx"
 )
-const adminMemberDetail = feature(
-  "admin-member-lifecycle/screens/admin-member-detail-screen.tsx"
+const adminMemberChange = feature(
+  "admin-member-lifecycle/components/member-change-sheet.tsx"
 )
 const adminFinanceSupport = [
   feature("admin-finance-support/components/admin-finance-action-form.tsx"),
@@ -195,19 +195,19 @@ export const mobileQaFormCoverage = [
     formId: "mobile.admin.member-create",
     kind: "recipe",
     recipe: "adminMember",
-    sources: [adminMembers],
+    sources: [adminMemberCreate],
   },
   {
     formId: "mobile.admin.member-onboarding-review",
     kind: "recipe",
     recipe: "adminMemberReview",
-    sources: [adminMembers],
+    sources: [adminMemberChange, feature("admin-member-lifecycle/screens/admin-members-screen.tsx")],
   },
   {
     formId: "mobile.admin.member-status-kyc",
     kind: "recipe",
     recipe: "adminMemberReview",
-    sources: [adminMemberDetail],
+    sources: [adminMemberChange, feature("admin-member-lifecycle/screens/admin-member-detail-screen.tsx")],
   },
   {
     formId: "mobile.admin.access-invite",

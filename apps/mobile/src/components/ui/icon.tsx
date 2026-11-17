@@ -73,6 +73,7 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   Delete: require("lucide-react-native/dist/esm/icons/delete").default,
   Eye: require("lucide-react-native/dist/esm/icons/eye").default,
   EyeOff: require("lucide-react-native/dist/esm/icons/eye-off").default,
+  Ellipsis: require("lucide-react-native/dist/esm/icons/ellipsis").default,
   ExternalLink: require("lucide-react-native/dist/esm/icons/external-link")
     .default,
   FileCheck: require("lucide-react-native/dist/esm/icons/file-check").default,

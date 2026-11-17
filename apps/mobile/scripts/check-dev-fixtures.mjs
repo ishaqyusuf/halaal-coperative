@@ -112,7 +112,7 @@ const quickFillScreens = [
   "src/features/admin-procurement-operations/screens/admin-procurement-operations-screen.tsx",
   "src/features/admin-project-financing-operations/screens/admin-project-financing-operations-screen.tsx",
   "src/features/admin-repayment-operations/screens/admin-repayment-operations-screen.tsx",
-  "src/features/admin-share-profit-governance/screens/admin-share-profit-governance-screen.tsx",
+  "src/features/admin-share-profit-governance/components/share-profit-flows.tsx",
 ]
 
 for (const screen of quickFillScreens) {

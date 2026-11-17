@@ -75,7 +75,7 @@ const adminRepayments = feature(
   "admin-repayment-operations/screens/admin-repayment-operations-screen.tsx"
 )
 const adminShareProfit = feature(
-  "admin-share-profit-governance/screens/admin-share-profit-governance-screen.tsx"
+  "admin-share-profit-governance/components/share-profit-flows.tsx"
 )
 
 export const mobileQaFormCoverage = [

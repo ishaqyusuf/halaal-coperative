@@ -438,12 +438,19 @@ assertIncludes(
 assertIncludes(
   "src/features/admin-share-profit-governance/screens/admin-share-profit-governance-screen.tsx",
   [
-    "VirtualizedCardList",
-    "FloatingBottomSheet",
-    "DevQuickFill",
-    "commandsBlocked",
-    "expectedState",
+    "ShareProfitBooks",
     'testID="admin-share-profit-governance-screen"',
+    'captureMobileError(summary.error, "mobile.share_profit_governance")',
+  ]
+)
+
+assertIncludes(
+  "src/features/admin-share-profit-governance/components/share-profit-flows.tsx",
+  [
+    "DevQuickFill",
+    "expectedState",
+    "runOnlineOperation",
+    "ConfirmSheet",
     'captureMobileError(error, "mobile.share_profit_governance")',
   ]
 )

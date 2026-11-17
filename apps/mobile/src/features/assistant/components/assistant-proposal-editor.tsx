@@ -1,4 +1,5 @@
-import { FullScreenFormSheet } from "@/components/app/full-screen-form-sheet"
+import { AppSheet } from "@/components/app/app-sheet"
+import { DateField } from "@/components/ui/date-field"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Pressable } from "@/components/ui/pressable"
@@ -103,22 +104,24 @@ export function AssistantProposalEditor({
   }
 
   return (
-    <FullScreenFormSheet
+    <AppSheet
       dirty={dirty}
       footer={
-        <Button className="h-12" disabled={off || !values} onPress={() => void save()}>
-          <Text>{saving ? "Saving…" : "Save changes"}</Text>
+        <Button disabled={off || !values} loading={saving} onPress={() => void save()}>
+          <Text>{saving ? "Saving…" : "Save and review"}</Text>
         </Button>
       }
+      headerTrailing="Edit · 1 of 2"
       isSubmitting={saving}
       onClose={onClose}
       title="Edit draft"
+      variant="form"
       visible={!!proposal}
     >
       {fields && values ? (
         <View className="gap-4">
           <Text className="text-base leading-[22px] text-muted-foreground">
-            Save changes, then review the updated card before confirming.
+            Save your changes, then check the summary before you submit.
           </Text>
           {failed ? (
             <View className="gap-1 rounded-[18px] border border-warn/40 bg-warn/10 p-3">
@@ -185,15 +188,15 @@ export function AssistantProposalEditor({
             />
           </Field>
           {fields.kind !== "payment-request" ? (
-            <Field label="Date paid" error={errors.paidOn} hint="YYYY-MM-DD">
-              <Input
-                accessibilityLabel="Date paid"
-                autoCapitalize="none"
-                editable={!off}
-                keyboardType="numbers-and-punctuation"
-                onChangeText={set("paidOn")}
-                placeholder="2026-11-14"
-                value={values.paidOn}
+            <Field label="Date paid" error={errors.paidOn}>
+              <DateField
+                disabled={off}
+                maximumDate={new Date().toISOString().slice(0, 10)}
+                onChange={set("paidOn")}
+                placeholder="Choose a date"
+                sheetTitle="Date paid"
+                testID="assistant-edit-paid-on"
+                value={values.paidOn || null}
               />
             </Field>
           ) : null}
@@ -256,6 +259,6 @@ export function AssistantProposalEditor({
           ) : null}
         </View>
       ) : null}
-    </FullScreenFormSheet>
+    </AppSheet>
   )
 }

@@ -87,6 +87,7 @@ export function AssistantSavedLinkRouteController({
 
   return (
     <AssistantSavedLinkScreen
+      cooperativeName={profile?.tenant?.name}
       kind={kind}
       state={gate ?? result ?? "opening"}
       onRetry={() => setAttempt((value) => value + 1)}

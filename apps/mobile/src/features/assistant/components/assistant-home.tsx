@@ -1,9 +1,14 @@
+import { ScreenHeaderButton } from "@/components/app/screen-shell"
 import { Icon } from "@/components/ui/icon"
+import { Elevated } from "@/components/ui/list-card"
 import { Pressable } from "@/components/ui/pressable"
 import { Text } from "@/components/ui/text"
+import { useColors } from "@/hooks/use-color"
 import { cn } from "@/lib/utils"
 import type { AssistantConversationSummary } from "@halaalvest/assistant/contracts"
 import { View } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { AssistantMark } from "./assistant-ui"
 
 type IconName =
   | "Landmark"
@@ -165,9 +170,11 @@ export function AssistantChatRow({
   )
 }
 
-/** Assistant home (EwaTrade A2a v2.2, Prompt rows): greeting, role prompts, Recent. */
+/** Assistant home (T25, 02 Brand hero): hero greeting, suggestion tiles, Recent. */
 export function AssistantHome({
   name,
+  cooperativeName,
+  role,
   suggestions,
   chats,
   disabled,
@@ -175,8 +182,11 @@ export function AssistantHome({
   onSuggestion,
   onChat,
   onAllChats,
+  onClose,
 }: {
   name?: string
+  cooperativeName?: string
+  role?: "member" | "staff"
   suggestions: AssistantSuggestion[]
   chats: AssistantConversationSummary[]
   disabled: boolean
@@ -184,7 +194,10 @@ export function AssistantHome({
   onSuggestion: (prompt: AssistantPrompt) => void
   onChat: (id: string) => void
   onAllChats: () => void
+  onClose: () => void
 }) {
+  const insets = useSafeAreaInsets()
+  const colors = useColors()
   const firstName = name?.trim().split(/\s+/)[0]
   const hour = Number(
     new Date().toLocaleTimeString("en-NG", {
@@ -194,58 +207,120 @@ export function AssistantHome({
     })
   )
   return (
-    <View className="pt-0.5">
-      <Text
-        accessibilityRole="header"
-        className="mb-3.5 text-2xl font-extrabold leading-[30px] tracking-tight text-foreground"
+    <View className="gap-[16px]">
+      <View
+        style={{
+          backgroundColor: colors.heroMid,
+          borderBottomLeftRadius: 28,
+          borderBottomRightRadius: 28,
+          experimental_backgroundImage: `linear-gradient(165deg, ${colors.heroStart} 0%, ${colors.heroMid} 55%, ${colors.heroEnd} 100%)`,
+          marginHorizontal: -18,
+          marginTop: -18,
+          paddingBottom: 26,
+          paddingHorizontal: 18,
+          paddingTop: insets.top + 8,
+        }}
       >
-        {assistantGreeting(Number.isFinite(hour) ? hour : new Date().getHours())}
-        {firstName ? `, ${firstName}` : ""}
-      </Text>
+        <View className="flex-row items-center justify-between">
+          <ScreenHeaderButton
+            accessibilityLabel="Close assistant"
+            icon="X"
+            onPress={onClose}
+            tone="inverse"
+          />
+          {offline ? null : (
+            <ScreenHeaderButton
+              accessibilityLabel="All chats"
+              icon="History"
+              onPress={onAllChats}
+              tone="inverse"
+            />
+          )}
+        </View>
+        <View className="mb-[12px] mt-[14px]">
+          <AssistantMark size={56} />
+        </View>
+        {cooperativeName ? (
+          <Text className="text-hero-foreground/80" numberOfLines={1} variant="label">
+            {cooperativeName}
+          </Text>
+        ) : null}
+        <Text accessibilityRole="header" className="mt-[4px] text-hero-foreground" variant="screenTitle">
+          {assistantGreeting(Number.isFinite(hour) ? hour : new Date().getHours())}
+          {firstName ? `, ${firstName}` : ""}
+        </Text>
+        <Text className="mt-[4px] text-hero-foreground/80" variant="small">
+          {role === "staff"
+            ? "Ask about members, receipts or payments."
+            : "Ask about your savings, financing or receipts."}
+        </Text>
+      </View>
       {offline ? (
-        <View className="mb-3.5 gap-1 rounded-[18px] border border-warn/40 bg-warn/10 p-3">
-          <Text className="text-base font-bold text-warn">You’re offline</Text>
-          <Text className="text-base leading-[22px] text-foreground">
+        <View className="gap-1 rounded-[18px] bg-tint-warm p-3">
+          <Text className="font-bold text-tint-warm-foreground" variant="body">
+            You’re offline
+          </Text>
+          <Text className="text-tint-warm-foreground" variant="small">
             Reconnect to ask or open a chat.
           </Text>
         </View>
       ) : null}
-      <View
-        className={cn(
-          "overflow-hidden rounded-[18px] border border-border bg-card",
-          disabled && "opacity-45"
-        )}
-      >
-        {suggestions.map((suggestion) => {
+      <Text className="text-muted-foreground" variant="label">
+        Try asking
+      </Text>
+      <View className={cn("flex-row flex-wrap gap-[10px]", disabled && "opacity-45")}>
+        {suggestions.slice(0, 6).map((suggestion) => {
           const look = capabilityLook[suggestion.capabilityId]
           const prompt = assistantPrompt(suggestion)
           return (
-            <Row
-              key={suggestion.capabilityId}
-              icon={look?.icon ?? "Info"}
-              title={suggestion.label}
-              meta={look?.sub}
-              trailing={<PromptGlyph send={prompt.send} />}
-              disabled={disabled}
-              onPress={() => onSuggestion(prompt)}
-            />
+            <View className="basis-[47%] grow" key={suggestion.capabilityId}>
+            <Elevated className="flex-1 rounded-[18px] bg-card" radius={18}>
+              <Pressable
+                accessibilityHint={prompt.send ? "Sends this question" : "Fills the message box"}
+                accessibilityLabel={suggestion.label}
+                accessibilityRole="button"
+                accessibilityState={{ disabled }}
+                className="min-h-[132px] gap-[4px] p-[14px] active:opacity-80"
+                disabled={disabled}
+                haptic
+                onPress={() => onSuggestion(prompt)}
+              >
+                <View className="mb-[8px] size-[40px] items-center justify-center rounded-[12px] bg-accent">
+                  <Icon className="size-[18px] text-accent-foreground" name={look?.icon ?? "Info"} />
+                </View>
+                <Text className="pr-[22px] font-bold" variant="body">
+                  {suggestion.label}
+                </Text>
+                {look?.sub ? (
+                  <Text className="text-muted-foreground" variant="caption">
+                    {look.sub}
+                  </Text>
+                ) : null}
+                <View className="absolute right-[12px] top-[12px]">
+                  <PromptGlyph send={prompt.send} />
+                </View>
+              </Pressable>
+            </Elevated>
+            </View>
           )
         })}
       </View>
       {chats.length ? (
         <>
-          <View className="mb-2 mt-5 flex-row items-center justify-between">
-            <Text className="text-lg font-bold text-foreground">Recent</Text>
+          <View className="mt-[4px] flex-row items-center justify-between">
+            <Text variant="section">Recent</Text>
             <Pressable
               accessibilityRole="button"
               className="min-h-11 justify-center px-1"
               disabled={disabled}
               onPress={onAllChats}
             >
-              <Text className="text-base font-bold text-brand">All chats</Text>
+              <Text className="text-primary" variant="label">
+                All chats
+              </Text>
             </Pressable>
           </View>
-          <View className="overflow-hidden rounded-[18px] border border-border bg-card">
+          <Elevated className="overflow-hidden rounded-[20px] bg-card" radius={20}>
             {chats.map((chat) => (
               <AssistantChatRow
                 key={chat.id}
@@ -254,7 +329,7 @@ export function AssistantHome({
                 onPress={() => onChat(chat.id)}
               />
             ))}
-          </View>
+          </Elevated>
         </>
       ) : null}
     </View>

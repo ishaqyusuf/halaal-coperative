@@ -1,6 +1,7 @@
 import { StatusBadge } from "@/components/app/status-badge"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
+import { Elevated } from "@/components/ui/list-card"
 import { Text } from "@/components/ui/text"
 import { useLargeTextLayout } from "@/hooks/use-large-text-layout"
 import { cn } from "@/lib/utils"
@@ -521,7 +522,24 @@ function Notice({
 }
 
 /** One typed card per answer kind. */
+/** 03 Card lanes (T25): every answer sits on its own card surface. */
 export function AssistantAnswerCard({
+  answer,
+  actions,
+}: {
+  answer: AssistantAnswer
+  actions: AnswerActions
+}) {
+  return (
+    <Elevated className="rounded-[18px] bg-card" radius={18}>
+      <View className="p-[14px]">
+        <AnswerBody actions={actions} answer={answer} />
+      </View>
+    </Elevated>
+  )
+}
+
+function AnswerBody({
   answer,
   actions,
 }: {
@@ -621,9 +639,17 @@ export function ProposalCard({
       )}
     >
       <View className="flex-row flex-wrap items-center justify-between gap-2">
-        <Text className={cn(base, "font-bold text-foreground")}>
-          {proposalTitle[kind]}
-        </Text>
+        <View className="min-w-0 flex-1 flex-row items-center gap-[10px]">
+          <View className="size-[36px] items-center justify-center rounded-[12px] bg-tint-warm">
+            <Icon
+              className="size-[18px] text-tint-warm-foreground"
+              name={kind === "record-payment" ? "Coins" : "Receipt"}
+            />
+          </View>
+          <Text className={cn(base, "min-w-0 flex-1 font-bold text-foreground")}>
+            {proposalTitle[kind]}
+          </Text>
+        </View>
         <StatusBadge
           label={reviewing ? "Check and confirm" : proposalStatusLabel[status]}
           tone={

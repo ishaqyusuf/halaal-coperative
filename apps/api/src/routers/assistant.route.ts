@@ -135,16 +135,19 @@ export const assistantRouter = createTRPCRouter({
       .input(z.object({ id: z.string().uuid() }))
       .query(async ({ ctx, input }) => {
         const principal = principalFor(ctx, "web")
-        const conversation = await readAssistantConversation({
-          ...scopeOf(principal),
-          conversationId: input.id,
-        })
+        // Both reads are owner-scoped, so they run together (T25: was serial).
+        const [conversation, proposals] = await Promise.all([
+          readAssistantConversation({
+            ...scopeOf(principal),
+            conversationId: input.id,
+          }),
+          listConversationProposals({
+            ...scopeOf(principal),
+            conversationId: input.id,
+          }),
+        ])
         if (!conversation)
           throw new AppError({ code: "NOT_FOUND", publicMessage: "Chat not found." })
-        const proposals = await listConversationProposals({
-          ...scopeOf(principal),
-          conversationId: input.id,
-        })
         return {
           conversation: conversationSummary(conversation),
           messages: conversation.messages.map((message) => ({

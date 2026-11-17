@@ -1,4 +1,4 @@
-import { FloatingBottomSheet } from "@/components/floating-bottom-sheet"
+import { ScreenStatusBar } from "@/components/app/screen-status-bar"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -21,7 +21,9 @@ import {
   ProposalCard,
   ResultCard,
 } from "../components/assistant-cards"
-import { AssistantChatRow, AssistantHome } from "../components/assistant-home"
+import { AssistantAllChats } from "../components/assistant-all-chats"
+import { AssistantConfirmSheet } from "../components/assistant-confirm-sheet"
+import { AssistantHome, assistantPrompt } from "../components/assistant-home"
 import { AssistantProposalEditor } from "../components/assistant-proposal-editor"
 import {
   AssistantBubble,
@@ -29,6 +31,7 @@ import {
   AssistantDayMarker,
   AssistantHeader,
   AssistantThinking,
+  AssistantMark,
 } from "../components/assistant-ui"
 import { assistantNativeRoute } from "../model/assistant-link-route"
 import { assistantStageLabel } from "../model/assistant-stream"
@@ -110,6 +113,8 @@ function AskAssistantLive({
   const atBottom = useRef(!target)
   const [chatsOpen, setChatsOpen] = useState(false)
   const [editing, setEditing] = useState<AssistantProposal | null>(null)
+  // 03 confirm sheet: the proposal id (the latest revision is read at render).
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [saveFailed, setSaveFailed] = useState<string | null>(null)
   const [linkNotice, setLinkNotice] = useState<string | null>(null)
   const role = vm.bootstrap.data?.role
@@ -128,9 +133,12 @@ function AskAssistantLive({
       requestAnimationFrame(() => input.current?.focus())
   }, [enabled, blocked, starter, vm])
 
-  // Offline or locked closes the editor so nothing is saved from it.
+  // Offline or locked closes the editor and confirm sheet so nothing is saved.
   useEffect(() => {
-    if (blocked) setEditing(null)
+    if (blocked) {
+      setEditing(null)
+      setConfirmingId(null)
+    }
   }, [blocked])
 
   const share = async (kind: "message" | "proposal", id: string) => {
@@ -233,7 +241,7 @@ function AskAssistantLive({
         disabled={disabled}
         working={vm.working.has(proposalId)}
         offlineReason={pausedReason}
-        onConfirm={() => void vm.confirm(proposal)}
+        onConfirm={() => setConfirmingId(proposal.id)}
         onCancel={() => void vm.cancel(proposal)}
         onEdit={() => {
           setSaveFailed(null)
@@ -255,9 +263,12 @@ function AskAssistantLive({
     // The chat is white (card colour), like the reply surface in ChatGPT.
     // flex comes from style: with an inline style here, a "flex-1" class was
     // dropped and the screen measured only its top inset (composer off screen).
-    <View className="bg-card" style={{ flex: 1, paddingTop: insets.top }}>
+    <View className="bg-background" style={{ flex: 1 }}>
+      {home ? null : <View className="bg-card" style={{ height: insets.top }} />}
       {/* keyboard-controller's view isn't mapped by NativeWind. */}
+      {home ? <ScreenStatusBar tone="hero" /> : null}
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+        {home ? null : (
         <AssistantHeader
           title="Assistant"
           subtitle={[
@@ -290,6 +301,7 @@ function AskAssistantLive({
           }
           disabled={blocked || vm.busy}
         />
+        )}
         <FlatList
           ref={list}
           className="flex-1"
@@ -377,7 +389,12 @@ function AskAssistantLive({
               {pinnedProposal ? proposalCard(pinnedProposal) : null}
               {home ? (
                 <AssistantHome
+                  cooperativeName={vm.bootstrap.data?.cooperativeName ?? cooperativeName}
                   name={name}
+                  onClose={() =>
+                    router.canGoBack() ? router.back() : router.replace("/")
+                  }
+                  role={role === "staff" ? "staff" : role ? "member" : undefined}
                   suggestions={vm.bootstrap.data?.suggestions ?? []}
                   chats={chats
                     .filter((chat) => chat.id !== vm.conversationId)
@@ -413,6 +430,10 @@ function AskAssistantLive({
                 {item.role === "user" ? (
                   <AssistantBubble user text={text} />
                 ) : (
+                  <View className="flex-row gap-[10px]">
+                  <View className="pt-[2px]">
+                    <AssistantMark size={28} />
+                  </View>
                   <View
                     accessibilityLabel={
                       item.id === target?.messageId
@@ -421,8 +442,8 @@ function AskAssistantLive({
                     }
                     className={
                       item.id === target?.messageId
-                        ? "-mx-2 min-w-0 gap-4 rounded-[18px] border border-brand-warm p-2"
-                        : "min-w-0 gap-4"
+                        ? "-mx-2 min-w-0 flex-1 gap-4 rounded-[18px] border border-brand-warm p-2"
+                        : "min-w-0 flex-1 gap-4"
                     }
                   >
                     {item.parts.map((part, partIndex) => {
@@ -466,6 +487,7 @@ function AskAssistantLive({
                       </Button>
                     ) : null}
                   </View>
+                  </View>
                 )}
               </View>
             )
@@ -503,6 +525,27 @@ function AskAssistantLive({
           }
         />
         <AssistantComposer
+          followUps={
+            home
+              ? undefined
+              : (vm.bootstrap.data?.suggestions ?? [])
+                  .map(assistantPrompt)
+                  .filter((prompt) => prompt.send)
+                  .map((prompt) => prompt.prompt)
+                  .filter(
+                    (prompt) =>
+                      prompt !==
+                      messages
+                        .filter((message) => message.role === "user")
+                        .at(-1)
+                        ?.parts.find((part) => part.type === "text")?.text
+                  )
+                  .slice(0, 3)
+          }
+          onFollowUp={(text) => {
+            atBottom.current = true
+            void vm.send(text)
+          }}
           inputRef={input}
           value={vm.draft}
           onChange={vm.setDraft}
@@ -519,49 +562,35 @@ function AskAssistantLive({
           }
         />
       </KeyboardAvoidingView>
-      <FloatingBottomSheet
-        visible={chatsOpen}
-        onClose={() => setChatsOpen(false)}
-        title="All chats"
-        scrollable
-      >
-        <View className="gap-3 pb-4">
-          <Button
-            disabled={blocked || vm.busy}
-            onPress={() => {
-              setChatsOpen(false)
-              vm.clearThread()
-            }}
-          >
-            <Text>New chat</Text>
-          </Button>
-          {vm.conversations.isError ? (
-            <Banner
-              title="Chats could not load"
-              message="Reconnect and try again."
-            />
-          ) : chats.length ? (
-            <View className="overflow-hidden rounded-[18px] border border-border bg-card">
-              {chats.map((chat) => (
-                <AssistantChatRow
-                  key={chat.id}
-                  chat={chat}
-                  disabled={blocked || vm.busy}
-                  onPress={() => {
-                    setChatsOpen(false)
-                    atBottom.current = true
-                    vm.choose(chat.id)
-                  }}
-                />
-              ))}
-            </View>
-          ) : (
-            <Text className="text-base text-muted-foreground">
-              Your saved chats appear here.
-            </Text>
-          )}
-        </View>
-      </FloatingBottomSheet>
+      {chatsOpen ? (
+        <AssistantAllChats
+          chats={chats}
+          disabled={blocked || vm.busy}
+          error={vm.conversations.isError}
+          fetchingNext={vm.conversations.fetchingNext}
+          loading={vm.conversations.isPending}
+          onChoose={(id) => {
+            setChatsOpen(false)
+            atBottom.current = true
+            vm.choose(id)
+          }}
+          onClose={() => setChatsOpen(false)}
+          onNewChat={() => {
+            setChatsOpen(false)
+            vm.clearThread()
+          }}
+          onNextPage={vm.conversations.nextPage}
+          onRetry={() => void vm.conversations.refetch()}
+        />
+      ) : null}
+      <AssistantConfirmSheet
+        onClose={() => setConfirmingId(null)}
+        onConfirm={(proposal) => {
+          void vm.confirm(proposal).finally(() => setConfirmingId(null))
+        }}
+        proposal={confirmingId ? (proposals.get(confirmingId) ?? null) : null}
+        working={confirmingId ? vm.working.has(confirmingId) : false}
+      />
       <AssistantProposalEditor
         proposal={editing}
         disabled={disabled}
@@ -573,7 +602,12 @@ function AskAssistantLive({
         onSave={async (fields) => {
           if (!editing) return
           setSaveFailed(null)
-          if (await vm.save(editing, fields)) setEditing(null)
+          if (await vm.save(editing, fields)) {
+            const id = editing.id
+            setEditing(null)
+            // 02 step 2: review the saved revision in the confirm sheet.
+            setConfirmingId(id)
+          }
           else
             setSaveFailed(
               "Your changes are still here. Check the chat, then save again."

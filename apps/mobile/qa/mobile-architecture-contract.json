@@ -124,6 +124,15 @@
       "tenantBoundary": "Member-owned financing requests, loans, schedules, and server-provided eligibility in the active tenant only."
     },
     {
+      "file": "src/app/(member)/financing-requests.tsx",
+      "path": "/(member)/financing-requests",
+      "feature": "financing",
+      "roles": [
+        "member"
+      ],
+      "tenantBoundary": "Cursor-paged financing requests and details owned by the active member in the active tenant."
+    },
+    {
       "file": "src/app/(member)/(tabs)/more.tsx",
       "path": "/(member)/more",
       "feature": "settings-access",

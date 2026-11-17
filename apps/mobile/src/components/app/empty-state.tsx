@@ -22,7 +22,7 @@ export function EmptyState({
   description?: string
   icon?: string
   title: string
-  tone?: "default" | "error"
+  tone?: "default" | "error" | "warning"
 }) {
   return (
     <View
@@ -34,7 +34,11 @@ export function EmptyState({
       <View
         className={cn(
           "size-[56px] items-center justify-center rounded-full",
-          tone === "error" ? "bg-tint-danger" : "bg-accent"
+          tone === "error"
+            ? "bg-tint-danger"
+            : tone === "warning"
+              ? "bg-tint-warm"
+              : "bg-accent"
         )}
       >
         <Icon
@@ -42,7 +46,9 @@ export function EmptyState({
             "size-md",
             tone === "error"
               ? "text-tint-danger-foreground"
-              : "text-accent-foreground"
+              : tone === "warning"
+                ? "text-tint-warm-foreground"
+                : "text-accent-foreground"
           )}
           name={icon}
         />

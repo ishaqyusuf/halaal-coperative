@@ -21,7 +21,7 @@ export type MobileQaFormCoverage = QaFormCoverage & {
 
 const feature = (path: string) => `src/features/${path}`
 
-const memberFinancing = feature("financing/screens/member-financing-screen.tsx")
+const memberFinancing = feature("financing/components/financing-request-form.tsx")
 const memberProcurement = feature(
   "procurement/screens/member-procurement-screen.tsx"
 )

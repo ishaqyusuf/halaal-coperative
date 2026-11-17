@@ -38,6 +38,7 @@ const requiredRoutes = [
   "src/app/(member)/(tabs)/index.tsx",
   "src/app/(member)/(tabs)/commitments.tsx",
   "src/app/(member)/(tabs)/financing.tsx",
+  "src/app/(member)/financing-requests.tsx",
   "src/app/(member)/(tabs)/shares.tsx",
   "src/app/(member)/(tabs)/more.tsx",
   "src/app/(member)/receipts.tsx",
@@ -265,7 +266,6 @@ assertIncludes("src/features/member-core/public/member-activity-history.tsx", [
 for (const screen of [
   "src/features/receipts/screens/member-receipts-screen.tsx",
   "src/features/support/screens/member-support-screen.tsx",
-  "src/features/financing/screens/member-financing-screen.tsx",
   "src/features/shares-profit/screens/member-shares-screen.tsx",
   "src/features/admin-member-lifecycle/screens/admin-members-screen.tsx",
 ]) {
@@ -276,6 +276,22 @@ for (const screen of [
   ])
 }
 
+assertIncludes("src/features/financing/screens/member-financing-screen.tsx", [
+  "useFinancingSnapshot",
+  "useIsOnline",
+  "FinanceNotice",
+  "useInvalidateAppQueries",
+])
+assertIncludes("src/features/financing/components/financing-request-form.tsx", [
+  "useMobileFormDraft",
+  "<AppSheet",
+  "<ResultScreen",
+])
+assertIncludes("src/features/financing/screens/member-financing-requests-screen.tsx", [
+  "useAppInfiniteQuery",
+  "<AppList",
+  "onEndReached",
+])
 assertIncludes(
   "src/features/admin-finance-support/hooks/use-admin-finance-support-controller.ts",
   ["useMobileFormDraft", "isMobileReadCacheStale"]
@@ -313,7 +329,6 @@ assertIncludes(
 for (const screen of [
   "src/features/receipts/screens/member-receipts-screen.tsx",
   "src/features/notifications/screens/notifications-screen.tsx",
-  "src/features/financing/screens/member-financing-screen.tsx",
   "src/features/procurement/screens/member-procurement-screen.tsx",
   "src/features/project-financing/screens/member-project-financing-screen.tsx",
   "src/features/food-purchase/screens/member-food-purchase-screen.tsx",

@@ -87,6 +87,7 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
     require("lucide-react-native/dist/esm/icons/layout-dashboard").default,
   LayoutGrid: require("lucide-react-native/dist/esm/icons/layout-grid").default,
   ListChecks: require("lucide-react-native/dist/esm/icons/list-checks").default,
+  Link2Off: require("lucide-react-native/dist/esm/icons/link-2-off").default,
   LockKeyhole: require("lucide-react-native/dist/esm/icons/lock-keyhole")
     .default,
   LoaderCircle: require("lucide-react-native/dist/esm/icons/loader-circle")

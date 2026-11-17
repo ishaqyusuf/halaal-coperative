@@ -337,8 +337,11 @@ function checkSeparatedDataEntrySurfaces() {
     "overlayActive={isReviewingSubmit}",
     '"bg-muted opacity-100 active:bg-muted"',
   ])
+  checkSourceMarkers(
+    "src/features/financing/components/financing-request-form.tsx",
+    ["<AppSheet", 'variant="form"']
+  )
   const screens = [
-    "src/features/financing/screens/member-financing-screen.tsx",
     "src/features/food-purchase/screens/member-food-purchase-screen.tsx",
     "src/features/guarantors/screens/member-guarantor-approvals-screen.tsx",
     "src/features/procurement/screens/member-procurement-screen.tsx",

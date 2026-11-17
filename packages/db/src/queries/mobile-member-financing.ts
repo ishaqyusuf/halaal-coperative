@@ -2,57 +2,29 @@ import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
 import {
-  getLoanRequestDetail,
+  calculateLoanEligibilityLimit,
+  getMemberFinancingEligibilitySavingsBase,
+  getMemberLoanRequestDetail,
   listLoanProducts,
-  listLoanRequestsPage,
+  listMemberLoanRequestsPage,
   quoteLoanRequest,
   submitLoanRequest,
   type LoanRequestQuote,
 } from "./loans"
 import { approvedNotPaidOutMetrics } from "./approved-not-paid-out"
-import { getMemberByUserId, getMemberStatementDetail } from "./members"
+import { getMemberByUserId } from "./members"
 
-type LoanRequestPageRow = Awaited<
-  ReturnType<typeof listLoanRequestsPage>
->["data"][number]
-type MobileFinancingRequestSource = {
-  availablePoolSnapshot: unknown
-  charges: Array<{
-    amount: unknown
-    chargeDefinition: { code: string | null; name: string }
-    collectionMode: string
-    id: string
-    status: string
-  }>
-  eligibleAmountSnapshot: unknown
-  estimatedMonthlyServicing: unknown
-  extraMonthlySavingsAmount: unknown
-  guarantorApprovals: Array<{
-    guarantorMember: { fullName: string; memberNumber: string }
-    id: string
-    respondedAt: Date | null
-    status: string
-  }>
-  id: string
-  loanProduct: { code: string | null; name: string }
-  purpose: string | null
-  requestedAmount: unknown
-  requestedAt: Date
-  requestedTermMonths: number
-  reviewNotes: string | null
-  status: string
-}
-type StatementDetail = NonNullable<
-  Awaited<ReturnType<typeof getMemberStatementDetail>>
+type MobileFinancingRequestSource = NonNullable<
+  Awaited<ReturnType<typeof getMemberLoanRequestDetail>>
 >
 
-type MobileFinancingMetric = {
-  detail: string
-  format: "currency" | "percent" | "count"
-  key: string
-  label: string
-  value: number
-}
+const paidOutStatuses = ["disbursed", "active", "defaulted"] as const
+const openScheduleStatuses = [
+  "due",
+  "overdue",
+  "partially_paid",
+  "pending",
+] as const
 
 type MobileFinancingRow = {
   detail: string
@@ -68,6 +40,7 @@ export type MobileFinancingProduct = {
   id: string
   loanType: string
   maxSavingsMultiple: number
+  eligibleAmount: number
   name: string
   termMonths: number
 }
@@ -110,6 +83,7 @@ export type MobileMemberFinancingSnapshot = {
     memberNumber: string
     name: string
   } | null
+  nextDueAt: string | null
   products: MobileFinancingProduct[]
   requestNextCursor: string | null
   requests: MobileFinancingRequest[]
@@ -199,6 +173,7 @@ function emptyFinancingSnapshot(
   return {
     generatedAt: new Date().toISOString(),
     member: null,
+    nextDueAt: null,
     products: [],
     requestNextCursor: null,
     requests: [],
@@ -208,10 +183,17 @@ function emptyFinancingSnapshot(
 }
 
 function toMobileProduct(
-  row: Awaited<ReturnType<typeof listLoanProducts>>[number]
+  row: Awaited<ReturnType<typeof listLoanProducts>>[number],
+  savingsBase: number,
+  policyMultiple: number
 ): MobileFinancingProduct {
   return {
     code: row.code,
+    eligibleAmount: calculateLoanEligibilityLimit(
+      savingsBase,
+      policyMultiple,
+      Number(row.maxSavingsMultiple)
+    ),
     id: row.id,
     loanType: row.loanType,
     maxSavingsMultiple: Number(row.maxSavingsMultiple ?? 0),
@@ -225,7 +207,7 @@ export function toMobileFinancingRequest(
 ): MobileFinancingRequest {
   return {
     availablePoolSnapshot: Number(row.availablePoolSnapshot ?? 0),
-    charges: (row.charges ?? []).map((charge: any) => ({
+    charges: row.charges.map((charge) => ({
       amount: Number(charge.amount ?? 0),
       code: charge.chargeDefinition?.code ?? "",
       collectionMode: charge.collectionMode ?? "deduct_from_savings",
@@ -257,14 +239,95 @@ export function toMobileFinancingRequest(
   }
 }
 
-function buildFinancingSection(detail: StatementDetail) {
+async function readFinancingActivity(
+  scope: { tenantId: string; memberId: string },
+  prisma: PrismaClient
+) {
+  const [loans, repayments, totals, nextDue] = await Promise.all([
+    prisma.loan.findMany({
+      where: scope,
+      select: {
+        id: true,
+        loanProduct: { select: { name: true } },
+        outstandingPrincipal: true,
+        status: true,
+        termMonths: true,
+        repaymentScheduleItems: {
+          where: { status: { in: [...openScheduleStatuses] } },
+          select: { dueAt: true },
+          orderBy: { dueAt: "asc" },
+          take: 1,
+        },
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 5,
+    }),
+    prisma.repayment.findMany({
+      where: { ...scope, status: "posted" },
+      select: {
+        amount: true,
+        id: true,
+        loan: { select: { loanProduct: { select: { name: true } } } },
+        paidAt: true,
+        reference: true,
+        status: true,
+      },
+      orderBy: [{ paidAt: "desc" }, { id: "desc" }],
+      take: 3,
+    }),
+    prisma.loan.groupBy({
+      by: ["status"],
+      where: { ...scope, status: { in: ["approved", ...paidOutStatuses] } },
+      _sum: {
+        estimatedMonthlyServicing: true,
+        outstandingPrincipal: true,
+        principalAmount: true,
+      },
+      _count: { _all: true },
+    }),
+    prisma.repaymentScheduleItem.findFirst({
+      where: {
+        tenantId: scope.tenantId,
+        loan: { ...scope, status: { in: [...paidOutStatuses] } },
+        status: { in: [...openScheduleStatuses] },
+      },
+      select: { dueAt: true },
+      orderBy: { dueAt: "asc" },
+    }),
+  ])
+
+  const paidOut = totals.filter((group) => group.status !== "approved")
+  const approved = totals.find((group) => group.status === "approved")
+  return {
+    loans,
+    repayments,
+    nextDueAt: nextDue?.dueAt.toISOString() ?? null,
+    summary: {
+      activeLoanCount: paidOut.reduce(
+        (sum, group) => sum + group._count._all,
+        0
+      ),
+      approvedNotPaidOutAmount: Number(approved?._sum.principalAmount ?? 0),
+      approvedNotPaidOutCount: approved?._count._all ?? 0,
+      totalEstimatedMonthlyServicing: paidOut.reduce(
+        (sum, group) => sum + Number(group._sum.estimatedMonthlyServicing),
+        0
+      ),
+      totalOutstandingPrincipal: paidOut.reduce(
+        (sum, group) => sum + Number(group._sum.outstandingPrincipal),
+        0
+      ),
+    },
+  }
+}
+
+function buildFinancingSection(
+  detail: Awaited<ReturnType<typeof readFinancingActivity>>
+) {
   const rows: MobileFinancingRow[] = []
 
-  for (const loan of detail.loans.slice(0, 5)) {
-    const next =
-      loan.repaymentScheduleItems.find((item) => item.status !== "paid") ??
-      loan.repaymentScheduleItems[0] ??
-      null
+  for (const loan of detail.loans) {
+    const next = loan.repaymentScheduleItems[0]
     rows.push({
       detail: [
         `${loan.termMonths} month term`,
@@ -280,7 +343,7 @@ function buildFinancingSection(detail: StatementDetail) {
     })
   }
 
-  for (const repayment of detail.repayments.slice(0, 3)) {
+  for (const repayment of detail.repayments) {
     rows.push({
       detail: [
         repayment.loan.loanProduct.name,
@@ -366,7 +429,15 @@ export async function getMobileMemberFinancingSnapshot(
       "Financing self-service needs the database runtime."
     )
   }
-  const member = await resolveMember(input, prisma)
+  const member = await prisma.member.findFirst({
+    where: { tenantId: input.tenantId, userId: input.userId },
+    select: {
+      fullName: true,
+      id: true,
+      memberNumber: true,
+      totalSavingsSnapshot: true,
+    },
+  })
   if (!member) {
     return emptyFinancingSnapshot(
       "member_profile_missing",
@@ -374,21 +445,28 @@ export async function getMobileMemberFinancingSnapshot(
     )
   }
 
-  const [detail, products, requestPage] = await Promise.all([
-    getMemberStatementDetail(input.tenantId, member.id, prisma),
+  const scope = { tenantId: input.tenantId, memberId: member.id }
+  const [detail, products, requestPage, policy] = await Promise.all([
+    readFinancingActivity(scope, prisma),
     listLoanProducts(input.tenantId, prisma),
-    listLoanRequestsPage(
-      input.tenantId,
-      { memberId: member.id, pageSize: 20 },
-      prisma
-    ),
+    listMemberLoanRequestsPage({ ...scope, pageSize: 20 }, prisma),
+    prisma.tenantPolicy.findUnique({
+      where: { tenantId: input.tenantId },
+      select: {
+        loanEligibilityMultiple: true,
+        specialSavingsCountsForEligibility: true,
+      },
+    }),
   ])
-  if (!detail) {
-    return emptyFinancingSnapshot(
-      "member_profile_missing",
-      "No linked member statement was found for this mobile session."
-    )
-  }
+  const savingsBase = products.length
+    ? await getMemberFinancingEligibilitySavingsBase({
+        ...scope,
+        prisma,
+        specialSavingsCountsForEligibility:
+          policy?.specialSavingsCountsForEligibility ?? true,
+        totalSavingsSnapshot: Number(member.totalSavingsSnapshot),
+      })
+    : 0
 
   return {
     generatedAt: new Date().toISOString(),
@@ -397,7 +475,14 @@ export async function getMobileMemberFinancingSnapshot(
       memberNumber: member.memberNumber,
       name: member.fullName,
     },
-    products: products.map(toMobileProduct),
+    nextDueAt: detail.nextDueAt,
+    products: products.map((product) =>
+      toMobileProduct(
+        product,
+        savingsBase,
+        Number(policy?.loanEligibilityMultiple ?? 2)
+      )
+    ),
     requestNextCursor: requestPage.meta.cursor,
     requests: requestPage.data.map(toMobileFinancingRequest),
     section: buildFinancingSection(detail),
@@ -422,9 +507,9 @@ export async function getMobileMemberFinancingRequestPage(
   if (!member) {
     return { data: [], nextCursor: null, state: "member_profile_missing" }
   }
-  const page = await listLoanRequestsPage(
-    input.tenantId,
+  const page = await listMemberLoanRequestsPage(
     {
+      tenantId: input.tenantId,
       cursor: input.cursor,
       memberId: member.id,
       pageSize: Math.min(Math.max(input.pageSize ?? 20, 1), 50),
@@ -451,7 +536,7 @@ export async function getMobileMemberFinancingRequestDetail(
   if (!prisma) throw new Error("Database not configured")
   const member = await resolveMember(input, prisma)
   if (!member) return null
-  const request = await getLoanRequestDetail(
+  const request = await getMemberLoanRequestDetail(
     {
       id: input.loanRequestId,
       memberId: member.id,
@@ -479,18 +564,11 @@ export async function quoteMobileMemberFinancingRequest(
     throw new Error(
       "Financing quote is unavailable without database configuration."
     )
-  const member = await resolveMember(input, prisma)
-  if (!member) {
-    throw ExpectedQueryError.precondition(
-      "Member profile needs linking before quoting financing requests."
-    )
-  }
-
   return quoteLoanRequest(
     {
       extraMonthlySavingsAmount: input.extraMonthlySavingsAmount ?? undefined,
       loanProductId: input.loanProductId,
-      memberId: member.id,
+      memberUserId: input.userId,
       requestedAmount: input.requestedAmount,
       requestedTermMonths: input.requestedTermMonths,
       tenantId: input.tenantId,
@@ -502,6 +580,7 @@ export async function quoteMobileMemberFinancingRequest(
 export async function createMobileMemberFinancingRequestForSession(
   input: {
     chargeQuoteHash: string
+    clientRequestId?: string
     extraMonthlySavingsAmount?: number | null
     loanProductId: string
     purpose?: string | null
@@ -524,26 +603,68 @@ export async function createMobileMemberFinancingRequestForSession(
       "Member profile needs linking before submitting financing requests."
     )
   }
-  const created = await submitLoanRequest(
-    {
-      actorUserId: input.userId,
-      expectedChargeQuoteHash: input.chargeQuoteHash,
-      extraMonthlySavingsAmount: input.extraMonthlySavingsAmount ?? undefined,
-      loanProductId: input.loanProductId,
-      memberId: member.id,
-      purpose: input.purpose ?? undefined,
-      requestedAmount: input.requestedAmount,
-      requestedTermMonths: input.requestedTermMonths,
-      tenantId: input.tenantId,
-    },
+  const scope = { memberId: member.id, tenantId: input.tenantId }
+  async function findPreviousSubmission(id: string) {
+    const previous = await prisma!.loanRequest.findFirst({
+      where: { ...scope, id, createdByUserId: input.userId },
+      select: {
+        loanProductId: true,
+        requestedAmount: true,
+        requestedTermMonths: true,
+        extraMonthlySavingsAmount: true,
+        purpose: true,
+      },
+    })
+    if (!previous) return null
+    if (
+      previous.loanProductId !== input.loanProductId ||
+      Number(previous.requestedAmount) !== input.requestedAmount ||
+      previous.requestedTermMonths !== input.requestedTermMonths ||
+      Number(previous.extraMonthlySavingsAmount) !==
+        (input.extraMonthlySavingsAmount ?? 0) ||
+      previous.purpose !== (input.purpose ?? null)
+    ) {
+      throw ExpectedQueryError.precondition(
+        "This request was already submitted with different details."
+      )
+    }
+    return getMemberLoanRequestDetail({ ...scope, id }, prisma!)
+  }
+
+  const existing = input.clientRequestId
+    ? await findPreviousSubmission(input.clientRequestId)
+    : null
+  if (existing) return toMobileFinancingRequest(existing)
+
+  let requestId: string
+  try {
+    const created = await submitLoanRequest(
+      {
+        ...scope,
+        actorUserId: input.userId,
+        clientRequestId: input.clientRequestId,
+        expectedChargeQuoteHash: input.chargeQuoteHash,
+        extraMonthlySavingsAmount: input.extraMonthlySavingsAmount ?? undefined,
+        loanProductId: input.loanProductId,
+        purpose: input.purpose ?? undefined,
+        requestedAmount: input.requestedAmount,
+        requestedTermMonths: input.requestedTermMonths,
+      },
+      prisma
+    )
+    requestId = created.id
+  } catch (error) {
+    // A concurrent retry can commit while this attempt is validating or reserving capacity.
+    const previous = input.clientRequestId
+      ? await findPreviousSubmission(input.clientRequestId)
+      : null
+    if (previous) return toMobileFinancingRequest(previous)
+    throw error
+  }
+  const request = await getMemberLoanRequestDetail(
+    { ...scope, id: requestId },
     prisma
   )
-  const page = await listLoanRequestsPage(
-    input.tenantId,
-    { memberId: member.id, pageSize: 20 },
-    prisma
-  )
-  const request = page.data.find((item) => item.id === created.id)
   if (!request)
     throw ExpectedQueryError.notFound("Financing request not found.")
 

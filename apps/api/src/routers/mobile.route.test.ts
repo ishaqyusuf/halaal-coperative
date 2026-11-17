@@ -436,6 +436,22 @@ describe("mobileRouter", () => {
     ).rejects.toThrow()
   })
 
+  test("rejects a malformed financing submission retry ID", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(
+      caller.mobile.member.financing.createRequest({
+        chargeQuoteHash: "a".repeat(64),
+        clientRequestId: "invalid",
+        loanProductId: "loan-product-1",
+        requestedAmount: 1000,
+        requestedTermMonths: 3,
+      })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" })
+  })
+
   test("rejects member financing request create without a database runtime", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin-member",

@@ -170,6 +170,7 @@ export function RecordRow({
   position,
   status,
   statusTone,
+  supporting,
   testID,
   title,
   trailing,
@@ -189,6 +190,7 @@ export function RecordRow({
   position?: RowPosition
   status?: string
   statusTone?: StatusTone
+  supporting?: ReactNode
   testID?: string
   title: string
   trailing?: ReactNode
@@ -208,6 +210,7 @@ export function RecordRow({
             {meta}
           </Text>
         ) : null}
+        {supporting}
       </View>
       {amount || status || trailing ? (
         <View className="shrink-0 items-end gap-[4px]">

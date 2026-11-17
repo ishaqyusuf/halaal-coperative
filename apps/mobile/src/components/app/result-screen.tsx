@@ -98,6 +98,7 @@ type ResultAction = {
   label: string
   onPress: () => void
   loading?: boolean
+  variant?: "ghost" | "secondary"
 }
 
 function ResultActions({
@@ -127,7 +128,7 @@ function ResultActions({
         <Button
           loading={secondary.loading}
           onPress={secondary.onPress}
-          variant="secondary"
+          variant={secondary.variant ?? "secondary"}
         >
           <Text>{secondary.label}</Text>
         </Button>
@@ -136,7 +137,13 @@ function ResultActions({
   )
 }
 
-function ResultBadge({ tone }: { tone: "success" | "error" }) {
+function ResultBadge({
+  icon,
+  tone,
+}: {
+  icon?: string
+  tone: "success" | "error"
+}) {
   return (
     <View
       className={cn(
@@ -159,7 +166,7 @@ function ResultBadge({ tone }: { tone: "success" | "error" }) {
               ? "text-tint-success-foreground"
               : "text-tint-danger-foreground"
           )}
-          name={tone === "success" ? "Check" : "CircleAlert"}
+          name={icon ?? (tone === "success" ? "Check" : "CircleAlert")}
           strokeWidth={2.4}
         />
       </View>
@@ -172,6 +179,8 @@ function ResultBadge({ tone }: { tone: "success" | "error" }) {
  * retry). `details` renders a card of ReviewRow children under the copy.
  */
 export function ResultScreen({
+  align = "center",
+  badgeIcon,
   description,
   details,
   onDone,
@@ -180,6 +189,8 @@ export function ResultScreen({
   title,
   tone,
 }: {
+  align?: "center" | "top"
+  badgeIcon?: string
   description?: ReactNode
   details?: ReactNode
   onDone?: () => void
@@ -210,10 +221,13 @@ export function ResultScreen({
         ) : null}
       </View>
       <ScrollView
-        contentContainerClassName="flex-grow items-center justify-center gap-[16px] px-[24px] pb-[24px]"
+        contentContainerClassName={cn(
+          "flex-grow items-center gap-[16px] px-[24px] pb-[24px]",
+          align === "top" ? "pt-[36px]" : "justify-center"
+        )}
         showsVerticalScrollIndicator={false}
       >
-        <ResultBadge tone={tone} />
+        <ResultBadge icon={badgeIcon} tone={tone} />
         <Text
           accessibilityLiveRegion="polite"
           accessibilityRole="header"

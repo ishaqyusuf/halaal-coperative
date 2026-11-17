@@ -94,6 +94,13 @@ describe("mobile QA form coverage", () => {
     }
   })
 
+  test("exposes financing Quick Fill from the amount and term step", () => {
+    const form = read(
+      "src/features/financing/components/financing-request-form.tsx"
+    )
+    expect(form).toMatch(/stage === "amount" \? \(\s*<DevQuickFill/)
+  })
+
   test("leaves no recipe group without a declared form", () => {
     const used = new Set(coverage.map((entry) => entry.recipe))
     expect(Object.keys(recipes).filter((key) => !used.has(key))).toEqual([])

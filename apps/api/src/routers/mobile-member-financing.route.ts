@@ -25,6 +25,7 @@ const financingQuoteInput = z.object({
 
 const financingCreateInput = financingQuoteInput.extend({
   chargeQuoteHash: z.string().regex(/^[a-f0-9]{64}$/),
+  clientRequestId: z.uuid().optional(),
   purpose: z.string().trim().max(1000).optional(),
 })
 

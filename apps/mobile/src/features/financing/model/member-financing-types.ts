@@ -3,6 +3,7 @@ import type { MobileMemberSection } from "@/features/member-core/public/member-c
 
 export type MobileFinancingProduct = {
   code: string | null
+  eligibleAmount?: number
   id: string
   loanType: string
   maxSavingsMultiple: number
@@ -45,6 +46,7 @@ export type MobileMemberFinancing = {
   cache?: MobileReadCacheState
   generatedAt: string
   member: { id: string; memberNumber: string; name: string } | null
+  nextDueAt?: string | null
   products: MobileFinancingProduct[]
   requestNextCursor: string | null
   requests: MobileFinancingRequest[]
@@ -54,6 +56,7 @@ export type MobileMemberFinancing = {
 
 export type MobileFinancingRequestInput = {
   chargeQuoteHash: string
+  clientRequestId?: string
   extraMonthlySavingsAmount?: number
   loanProductId: string
   purpose?: string
@@ -63,7 +66,7 @@ export type MobileFinancingRequestInput = {
 
 export type MobileFinancingQuoteInput = Omit<
   MobileFinancingRequestInput,
-  "purpose" | "chargeQuoteHash"
+  "purpose" | "chargeQuoteHash" | "clientRequestId"
 >
 
 export type MobileFinancingQuote = {

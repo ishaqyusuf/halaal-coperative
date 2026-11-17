@@ -3,6 +3,7 @@ import {
   approveMobileAdminProfitEntry,
   getMobileAdminProfitPeriodDetail,
   getMobileAdminShareApplicationDetail,
+  getMobileAdminShareProfitSummary,
   getMobileAdminShareProfitWorkspace,
   mobileAdminShareProfitBooks,
   publishMobileAdminProfitEntry,
@@ -124,11 +125,20 @@ export const mobileAdminShareProfitGovernanceProcedures = {
           tenantId: ctx.tenant.current.id,
         })
       ),
+    summary: permissionProcedure("view_share_profit_governance").query(
+      ({ ctx }) =>
+        getMobileAdminShareProfitSummary({
+          capabilities: assertView(ctx.auth.activeMembership.role),
+          tenantId: ctx.tenant.current.id,
+        })
+    ),
     workspace: permissionProcedure("view_share_profit_governance")
       .input(
         z.object({
           book: z.enum(mobileAdminShareProfitBooks),
           cursor: z.string().uuid().optional(),
+          /** Current builds read the summary once; older builds omit this. */
+          includeSummary: z.boolean().optional(),
           search: z.string().trim().max(120).optional(),
         })
       )

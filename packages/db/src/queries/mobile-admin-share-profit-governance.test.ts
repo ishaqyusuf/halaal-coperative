@@ -93,6 +93,21 @@ describe("mobile admin share and profit governance workspace", () => {
     }
   )
 
+  test("skips book stats when the summary is read separately", async () => {
+    const workspace = await getMobileAdminShareProfitWorkspace(
+      {
+        book: "shares",
+        capabilities,
+        includeSummary: false,
+        tenantId: "tenant-1",
+      },
+      sharePrisma("unit_based") as never
+    )
+    expect(workspace.shares && "summary" in workspace.shares).toBe(false)
+    expect("currencyCode" in workspace).toBe(false)
+    expect(workspace.shares?.applications).toHaveLength(1)
+  })
+
   test("exposes approval only when reviewed allocations reconcile", async () => {
     const now = new Date("2026-08-30T10:00:00.000Z")
     const prisma = {
@@ -113,12 +128,6 @@ describe("mobile admin share and profit governance workspace", () => {
             shareBusinessProfitEntries: [
               {
                 allocatableProfitAmount: 810_000,
-                allocations: [
-                  {
-                    allocatedProfitAmount: 810_000,
-                    status: "draft",
-                  },
-                ],
                 expenseAmount: 100_000,
                 id: "60000000-0000-4000-8000-000000000001",
                 profitAmount: 960_000,
@@ -137,6 +146,17 @@ describe("mobile admin share and profit governance workspace", () => {
       shareBusinessProfitEntry: {
         count: async (input: any) =>
           input.where.status === "reviewed" ? 1 : 0,
+      },
+      // Allocation totals come from one grouped aggregate per page.
+      shareProfitAllocation: {
+        groupBy: async () => [
+          {
+            _count: { _all: 1 },
+            _sum: { allocatedProfitAmount: 810_000 },
+            profitEntryId: "60000000-0000-4000-8000-000000000001",
+            status: "draft",
+          },
+        ],
       },
       tenant: { findUnique: async () => ({ currencyCode: "NGN" }) },
     }

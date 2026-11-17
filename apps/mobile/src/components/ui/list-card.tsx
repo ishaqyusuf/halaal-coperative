@@ -164,6 +164,7 @@ export function RecordRow({
   avatarIcon,
   avatarName,
   chevron = false,
+  compact = false,
   leading,
   meta,
   onPress,
@@ -183,6 +184,8 @@ export function RecordRow({
   /** Seeds the initials and tint; defaults to the title. */
   avatarName?: string
   chevron?: boolean
+  /** Dense icon rows with two lines of metadata and a 14pt group radius. */
+  compact?: boolean
   /** Replaces the avatar (e.g. a checkbox or icon tile). */
   leading?: ReactNode
   meta?: string
@@ -197,7 +200,10 @@ export function RecordRow({
 }) {
   const grouped = position !== undefined
   const content = (
-    <View className="min-h-[64px] flex-row items-center gap-[12px] px-[14px] py-[10px]">
+    <View className={cn(
+      "min-h-[64px] flex-row items-center gap-[12px] px-[14px]",
+      compact ? "py-[12px]" : "py-[10px]"
+    )}>
       {leading ?? (
         <TintedAvatar icon={avatarIcon} name={avatarName ?? title} />
       )}
@@ -206,7 +212,7 @@ export function RecordRow({
           {title}
         </Text>
         {meta ? (
-          <Text className="text-muted-foreground" numberOfLines={1} variant="small">
+          <Text className="text-muted-foreground" numberOfLines={compact ? 2 : 1} variant="small">
             {meta}
           </Text>
         ) : null}
@@ -237,8 +243,10 @@ export function RecordRow({
   const groupClassName = grouped
     ? cn(
         "mx-[18px] bg-card",
-        (position === "first" || position === "only") && "rounded-t-[20px]",
-        (position === "last" || position === "only") && "rounded-b-[20px]"
+        (position === "first" || position === "only") &&
+          (compact ? "rounded-t-[14px]" : "rounded-t-[20px]"),
+        (position === "last" || position === "only") &&
+          (compact ? "rounded-b-[14px]" : "rounded-b-[20px]")
       )
     : undefined
 
@@ -264,7 +272,7 @@ export function RecordRow({
   return (
     <View className={cn(groupClassName, "overflow-hidden")}>
       {position === "middle" || position === "last" ? (
-        <View className="ml-[66px] h-px bg-border" />
+        <View className={cn("h-px bg-border", compact ? "ml-[56px]" : "ml-[66px]")} />
       ) : null}
       {body}
     </View>

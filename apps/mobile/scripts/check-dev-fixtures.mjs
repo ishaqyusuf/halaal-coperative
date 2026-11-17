@@ -98,7 +98,7 @@ const quickFillScreens = [
   "src/features/receipts/screens/member-receipts-screen.tsx",
   "src/features/support/screens/member-support-screen.tsx",
   "src/features/guarantors/screens/member-guarantor-approvals-screen.tsx",
-  "src/features/shares-profit/screens/member-shares-screen.tsx",
+  "src/features/shares-profit/screens/share-request-flow.tsx",
   "src/features/admin-member-lifecycle/screens/admin-members-screen.tsx",
   "src/features/admin-member-lifecycle/screens/admin-member-detail-screen.tsx",
   "src/features/settings-access/screens/more-screen.tsx",

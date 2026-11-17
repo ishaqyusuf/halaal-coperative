@@ -1,4 +1,4 @@
-import type { PrismaClient } from "../../generated/prisma/client"
+import type { Prisma, PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
 import { getMemberByUserId } from "./members"
@@ -10,6 +10,7 @@ import {
 import {
   createMemberShareApplication,
   getMemberUnitSharePosition,
+  getMemberUnitSharePositionForLinkedMember,
   getTenantSharePolicy,
   listMemberShareApplicationPage,
   type MemberShareApplicationRow,
@@ -57,6 +58,44 @@ type MobileMemberSharePolicy = Pick<
 
 type MobileMemberSharePosition = MemberUnitSharePosition & {
   remainingOptionalUnits: number
+}
+
+export type MobileMemberShareTimelineItem =
+  | {
+      kind: "request"
+      occurredAt: string
+      application: MobileMemberShareApplication
+    }
+  | {
+      kind: "ledger"
+      occurredAt: string
+      id: string
+      amount: number
+      label: string
+      source: string | null
+    }
+
+export type MobileMemberShareTimelinePage = {
+  items: MobileMemberShareTimelineItem[]
+  nextCursor: string | null
+}
+
+export type MobileMemberShareOverview = Pick<
+  MobileMemberSharesSnapshot,
+  "generatedAt" | "member" | "position" | "state"
+> & {
+  shareBalance: number
+  profit: { count: number; total: number; latestUnpaidAmount: number | null }
+  timeline: MobileMemberShareTimelinePage
+}
+
+export type MobileMemberShareProfitPeriod = {
+  amount: number
+  id: string
+  name: string
+  periodEnd: string
+  publishedAt: string | null
+  payout: { destination: string; paidAt: string } | null
 }
 
 export type MobileMemberShareSection = {
@@ -207,7 +246,17 @@ function emptyMobileMemberSharesSnapshot(
 }
 
 function toMobileShareApplication(
-  row: MemberShareApplicationRow
+  row: Omit<
+    MemberShareApplicationRow,
+    | "shareValueSnapshot"
+    | "unitAmountSnapshot"
+    | "memberEmail"
+    | "memberName"
+    | "memberNumber"
+  > & {
+    shareValueSnapshot: unknown
+    unitAmountSnapshot: unknown
+  }
 ): MobileMemberShareApplication {
   return {
     approvedUnits: row.approvedUnits,
@@ -217,9 +266,9 @@ function toMobileShareApplication(
     requestedUnits: row.requestedUnits,
     reviewedAt: row.reviewedAt ? row.reviewedAt.toISOString() : null,
     reviewNotes: row.reviewNotes,
-    shareValueSnapshot: row.shareValueSnapshot,
+    shareValueSnapshot: Number(row.shareValueSnapshot),
     status: row.status,
-    unitAmountSnapshot: row.unitAmountSnapshot,
+    unitAmountSnapshot: Number(row.unitAmountSnapshot),
   }
 }
 
@@ -580,6 +629,251 @@ export async function getMobileMemberShareApplicationsPage(
     state: "available",
     total: page.meta.total,
   }
+}
+
+type LinkedShareMember = { memberId: string; tenantId: string }
+type ShareTimelineCursor = {
+  occurredAt: Date
+  kind: MobileMemberShareTimelineItem["kind"]
+  id: string
+}
+
+function parseShareTimelineCursor(
+  cursor?: string | null
+): ShareTimelineCursor | null {
+  if (!cursor) return null
+  const [date, kind, id, extra] = cursor.split("|")
+  const occurredAt = new Date(date ?? "")
+  if (
+    !Number.isFinite(occurredAt.getTime()) ||
+    (kind !== "ledger" && kind !== "request") ||
+    !id ||
+    !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id) ||
+    extra !== undefined
+  ) {
+    throw ExpectedQueryError.validation("Share activity cursor is invalid.")
+  }
+  return { id, kind, occurredAt }
+}
+
+function shareTimelineId(item: MobileMemberShareTimelineItem) {
+  return item.kind === "request" ? item.application.id : item.id
+}
+
+// Descending by timestamp, then requests before ledger movements, then id.
+async function readShareTimeline(
+  scope: LinkedShareMember,
+  prisma: PrismaClient,
+  cursor: ShareTimelineCursor | null,
+  now: Date
+): Promise<MobileMemberShareTimelinePage> {
+  const limit = 20
+  const requestsWhere: Prisma.MemberShareApplicationWhereInput = { ...scope }
+  const ledgerWhere: Prisma.MemberShareLedgerEntryWhereInput = {
+    ...scope,
+    effectiveDate: { lte: now },
+  }
+  if (cursor?.kind === "request") {
+    ledgerWhere.AND = { effectiveDate: { lte: cursor.occurredAt } }
+  } else if (cursor?.kind === "ledger") {
+    requestsWhere.createdAt = { lt: cursor.occurredAt }
+    ledgerWhere.OR = [
+      { effectiveDate: { lt: cursor.occurredAt } },
+      { effectiveDate: cursor.occurredAt, id: { lt: cursor.id } },
+    ]
+  }
+
+  const [requests, movements] = await Promise.all([
+    prisma.memberShareApplication.findMany({
+      // Let Postgres compare the cursor row at full timestamp precision.
+      ...(cursor?.kind === "request"
+        ? {
+            cursor: { id: cursor.id, ...scope },
+            skip: 1,
+          }
+        : {}),
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: limit + 1,
+      where: requestsWhere,
+    }),
+    prisma.memberShareLedgerEntry.findMany({
+      orderBy: [{ effectiveDate: "desc" }, { id: "desc" }],
+      take: limit + 1,
+      where: ledgerWhere,
+    }),
+  ])
+  const items: MobileMemberShareTimelineItem[] = [
+    ...requests.map((application) => ({
+      application: toMobileShareApplication(application),
+      kind: "request" as const,
+      occurredAt: application.createdAt.toISOString(),
+    })),
+    ...movements.map((entry) => ({
+      amount: Number(entry.amount),
+      id: entry.id,
+      kind: "ledger" as const,
+      label: entry.notes ?? "Share ledger movement",
+      occurredAt: entry.effectiveDate.toISOString(),
+      source: humanizeStatus(entry.sourceType),
+    })),
+  ]
+  items.sort((a, b) => {
+    if (a.occurredAt !== b.occurredAt)
+      return a.occurredAt < b.occurredAt ? 1 : -1
+    if (a.kind !== b.kind) return a.kind === "request" ? -1 : 1
+    return 0
+  })
+  const page = items.slice(0, limit)
+  const last = page.at(-1)
+  return {
+    items: page,
+    nextCursor:
+      items.length > limit && last
+        ? [last.occurredAt, last.kind, shareTimelineId(last)].join("|")
+        : null,
+  }
+}
+
+function publishedShareProfitWhere(scope: LinkedShareMember) {
+  return { ...scope, dividendPeriod: { status: "published" as const } }
+}
+
+export async function getMobileMemberShareOverview(
+  identity: { tenantId: string; userId: string },
+  prismaOverride?: PrismaClient
+): Promise<MobileMemberShareOverview> {
+  const prisma = prismaOverride ?? createPrismaClient()
+  const now = new Date()
+  const empty = {
+    generatedAt: now.toISOString(),
+    member: null,
+    position: null,
+    profit: { count: 0, total: 0, latestUnpaidAmount: null },
+    shareBalance: 0,
+    timeline: { items: [], nextCursor: null },
+  }
+  if (!prisma) return { ...empty, state: "database_unavailable" }
+  const member = await getMemberByUserId(identity, prisma)
+  if (!member) return { ...empty, state: "member_profile_missing" }
+
+  const scope = { memberId: member.id, tenantId: identity.tenantId }
+  const [policy, timeline, profit, latestUnpaid] = await Promise.all([
+    getTenantSharePolicy(scope.tenantId, prisma),
+    readShareTimeline(scope, prisma, null, now),
+    prisma.dividendAllocation.aggregate({
+      _count: { _all: true },
+      _sum: { allocationAmount: true },
+      where: publishedShareProfitWhere(scope),
+    }),
+    prisma.dividendAllocation.findFirst({
+      orderBy: [{ dividendPeriod: { periodEnd: "desc" } }, { id: "desc" }],
+      select: { allocationAmount: true },
+      where: {
+        ...scope,
+        dividendPeriod: {
+          status: "published",
+          profitPayouts: { none: { ...scope, status: "paid" } },
+        },
+      },
+    }),
+  ])
+  const unitBased = policy.configurationMode === "unit_based"
+  const [position, balance] = await Promise.all([
+    unitBased
+      ? getMemberUnitSharePositionForLinkedMember(scope, policy, prisma)
+      : null,
+    unitBased
+      ? null
+      : prisma.memberShareLedgerEntry.aggregate({
+          _sum: { amount: true },
+          where: { ...scope, effectiveDate: { lte: now } },
+        }),
+  ])
+  return {
+    generatedAt: now.toISOString(),
+    member: {
+      id: member.id,
+      memberNumber: member.memberNumber,
+      name: member.fullName,
+    },
+    position: position ? toMobileMemberSharePosition(position) : null,
+    profit: {
+      count: profit._count._all,
+      total: Number(profit._sum.allocationAmount ?? 0),
+      latestUnpaidAmount: latestUnpaid
+        ? Number(latestUnpaid.allocationAmount)
+        : null,
+    },
+    shareBalance:
+      position?.totalApprovedValue ?? Number(balance?._sum.amount ?? 0),
+    state: unitBased ? "available" : "unit_model_inactive",
+    timeline,
+  }
+}
+
+export async function getMobileMemberShareTimelinePage(
+  input: { tenantId: string; userId: string; cursor: string },
+  prismaOverride?: PrismaClient
+): Promise<MobileMemberShareTimelinePage> {
+  const cursor = parseShareTimelineCursor(input.cursor)
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Share activity is unavailable.")
+  const member = await getMemberByUserId(input, prisma)
+  if (!member) return { items: [], nextCursor: null }
+  return readShareTimeline(
+    { memberId: member.id, tenantId: input.tenantId },
+    prisma,
+    cursor,
+    new Date()
+  )
+}
+
+export async function getMobileMemberShareProfitPeriods(
+  input: { tenantId: string; userId: string },
+  prismaOverride?: PrismaClient
+): Promise<MobileMemberShareProfitPeriod[]> {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Published profit is unavailable.")
+  const member = await getMemberByUserId(input, prisma)
+  if (!member) return []
+  const scope = { memberId: member.id, tenantId: input.tenantId }
+  const allocations = await prisma.dividendAllocation.findMany({
+    orderBy: [{ dividendPeriod: { periodEnd: "desc" } }, { id: "desc" }],
+    select: {
+      allocationAmount: true,
+      dividendPeriod: {
+        select: { id: true, name: true, periodEnd: true, publishedAt: true },
+      },
+      id: true,
+    },
+    take: 12,
+    where: publishedShareProfitWhere(scope),
+  })
+  const payouts = await getMemberProfitPayouts(
+    {
+      ...scope,
+      seasonIds: allocations.map((allocation) => allocation.dividendPeriod.id),
+    },
+    prisma
+  )
+  return allocations.map(({ allocationAmount, dividendPeriod, id }) => {
+    const payout = payouts.get(dividendPeriod.id)
+    return {
+      amount: Number(allocationAmount),
+      id,
+      name: dividendPeriod.name,
+      payout: payout
+        ? {
+            destination: describeProfitPayoutDestination(
+              payout.destination as ProfitPayoutDestination
+            ),
+            paidAt: payout.paidAt,
+          }
+        : null,
+      periodEnd: dividendPeriod.periodEnd.toISOString(),
+      publishedAt: dividendPeriod.publishedAt?.toISOString() ?? null,
+    }
+  })
 }
 
 export async function createMobileMemberShareApplicationForSession(input: {

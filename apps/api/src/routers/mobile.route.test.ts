@@ -919,6 +919,23 @@ describe("mobileRouter", () => {
     })
   })
 
+  test("scopes share overview, timeline and profit to the active member workspace", async () => {
+    const staff = await createMobileCaller({
+      membershipId: "membership-amanah-admin",
+    })
+    await expect(staff.mobile.member.shares.overview()).rejects.toThrow("Switch to the member workspace")
+    await expect(staff.mobile.member.shares.timeline({ cursor: "invalid" })).rejects.toThrow("Switch to the member workspace")
+    await expect(staff.mobile.member.shares.profit()).rejects.toThrow("Switch to the member workspace")
+
+    const member = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+    const overview = await member.mobile.member.shares.overview()
+    expect(overview.state).toBe("database_unavailable")
+    expect(overview.timeline).toEqual({ items: [], nextCursor: null })
+    await expect(member.mobile.member.shares.timeline({ cursor: "invalid" })).rejects.toThrow("Share activity cursor is invalid")
+  })
+
   test("rejects member share application pages from staff workspaces", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin",

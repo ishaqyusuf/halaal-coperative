@@ -21,6 +21,7 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
     .default,
   AlertTriangle: require("lucide-react-native/dist/esm/icons/triangle-alert")
     .default,
+  ArrowDownLeft: require("lucide-react-native/dist/esm/icons/arrow-down-left").default,
   ArrowLeft: require("lucide-react-native/dist/esm/icons/arrow-left").default,
   ArrowRight: require("lucide-react-native/dist/esm/icons/arrow-right").default,
   ArrowUpRight: require("lucide-react-native/dist/esm/icons/arrow-up-right")
@@ -39,6 +40,7 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   ChartNoAxesCombined:
     require("lucide-react-native/dist/esm/icons/chart-no-axes-combined").default,
   CirclePause: require("lucide-react-native/dist/esm/icons/circle-pause").default,
+  Coins: require("lucide-react-native/dist/esm/icons/coins").default,
   Compass: require("lucide-react-native/dist/esm/icons/compass").default,
   CloudOff: require("lucide-react-native/dist/esm/icons/cloud-off").default,
   FileX: require("lucide-react-native/dist/esm/icons/file-x").default,
@@ -97,6 +99,7 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   Mail: require("lucide-react-native/dist/esm/icons/mail").default,
   Menu: require("lucide-react-native/dist/esm/icons/menu").default,
   Monitor: require("lucide-react-native/dist/esm/icons/monitor").default,
+  Minus: require("lucide-react-native/dist/esm/icons/minus").default,
   Moon: require("lucide-react-native/dist/esm/icons/moon").default,
   MessageCirclePlus:
     require("lucide-react-native/dist/esm/icons/message-circle-plus").default,

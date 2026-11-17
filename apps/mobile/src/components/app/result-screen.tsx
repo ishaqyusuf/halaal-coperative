@@ -14,6 +14,7 @@ import {
 } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useColors } from "@/hooks/use-color"
+import { OverlayStatusBar } from "@/components/app/screen-status-bar"
 import { Children, isValidElement } from "react"
 
 /**
@@ -66,22 +67,35 @@ export function ReviewSummary({
 
 /** "Member number ……… QHC-0026" inside ReviewSummary or a success card. */
 export function ReviewRow({
+  compact = false,
   label,
   value,
   tabular = false,
 }: {
+  compact?: boolean
   label: string
   value: ReactNode
   tabular?: boolean
 }) {
   return (
-    <View className="min-h-[48px] flex-row items-center justify-between gap-[16px] px-[14px] py-[12px]">
-      <Text className="text-muted-foreground" variant="body">
+    <View
+      className={cn(
+        "min-h-[48px] flex-row items-center justify-between gap-[16px]",
+        compact ? "px-[16px] py-[13px]" : "px-[14px] py-[12px]"
+      )}
+    >
+      <Text
+        className="text-muted-foreground"
+        variant={compact ? "small" : "body"}
+      >
         {label}
       </Text>
       {typeof value === "string" ? (
         <Text
-          className="min-w-0 shrink text-right"
+          className={cn(
+            "min-w-0 shrink text-right",
+            compact && "max-w-[62%] font-bold"
+          )}
           tabular={tabular}
           variant="body"
         >
@@ -102,9 +116,11 @@ type ResultAction = {
 }
 
 function ResultActions({
+  compact,
   primary,
   secondary,
 }: {
+  compact: boolean
   primary?: ResultAction
   secondary?: ResultAction
 }) {
@@ -113,7 +129,7 @@ function ResultActions({
   return (
     <View
       style={{
-        gap: 12,
+        gap: compact ? 8 : 12,
         paddingBottom: resolveDockedFooterInset(insets.bottom, Platform.OS),
         paddingHorizontal: 18,
         paddingTop: 12,
@@ -138,35 +154,62 @@ function ResultActions({
 }
 
 function ResultBadge({
+  compact,
   icon,
   tone,
 }: {
+  compact: boolean
   icon?: string
-  tone: "success" | "error"
+  tone: "success" | "error" | "warning"
 }) {
+  const palette = {
+    success: {
+      border: "border-tint-success",
+      ring: "bg-success/10",
+      fill: "bg-tint-success",
+      ink: "text-success",
+      tintedInk: "text-tint-success-foreground",
+      icon: "Check",
+    },
+    error: {
+      border: "border-tint-danger",
+      ring: "bg-destructive/10",
+      fill: "bg-tint-danger",
+      ink: "text-destructive",
+      tintedInk: "text-tint-danger-foreground",
+      icon: "CircleAlert",
+    },
+    warning: {
+      border: "border-tint-warm",
+      ring: "bg-tint-warm/55",
+      fill: "bg-tint-warm",
+      ink: "text-tint-warm-foreground",
+      tintedInk: "text-tint-warm-foreground",
+      icon: "CircleAlert",
+    },
+  }[tone]
   return (
     <View
       className={cn(
-        "size-[124px] items-center justify-center rounded-full border-2",
-        tone === "success"
-          ? "border-tint-success bg-transparent"
-          : "border-tint-danger bg-transparent"
+        "items-center justify-center rounded-full",
+        compact
+          ? cn("size-[96px]", palette.ring)
+          : cn("size-[124px] border-2", palette.border)
       )}
     >
       <View
         className={cn(
-          "size-[96px] items-center justify-center rounded-full",
-          tone === "success" ? "bg-tint-success" : "bg-tint-danger"
+          "items-center justify-center rounded-full",
+          compact ? "size-[76px]" : "size-[96px]",
+          palette.fill
         )}
       >
         <Icon
           className={cn(
-            "size-2xl",
-            tone === "success"
-              ? "text-tint-success-foreground"
-              : "text-tint-danger-foreground"
+            compact ? "size-xl" : "size-2xl",
+            compact ? palette.ink : palette.tintedInk
           )}
-          name={icon ?? (tone === "success" ? "Check" : "CircleAlert")}
+          name={icon ?? palette.icon}
           strokeWidth={2.4}
         />
       </View>
@@ -181,6 +224,7 @@ function ResultBadge({
 export function ResultScreen({
   align = "center",
   badgeIcon,
+  compact = false,
   description,
   details,
   onDone,
@@ -191,65 +235,89 @@ export function ResultScreen({
 }: {
   align?: "center" | "top"
   badgeIcon?: string
+  compact?: boolean
   description?: ReactNode
   details?: ReactNode
   onDone?: () => void
   primary?: ResultAction
   secondary?: ResultAction
   title: string
-  tone: "success" | "error"
+  tone: "success" | "error" | "warning"
 }) {
   const insets = useSafeAreaInsets()
   const colors = useColors()
   return (
     <View
-      style={{ backgroundColor: colors.background, flex: 1, paddingTop: insets.top }}
+      style={{
+        backgroundColor: colors.background,
+        flex: 1,
+        paddingTop: insets.top,
+      }}
     >
-      <View className="min-h-[56px] flex-row items-center justify-end px-[18px]">
-        {onDone ? (
-          <Pressable
-            accessibilityLabel="Done"
-            accessibilityRole="button"
-            className="min-h-[44px] justify-center px-[4px]"
-            hitSlop={8}
-            onPress={onDone}
-          >
-            <Text className="text-primary" variant="section">
-              Done
-            </Text>
-          </Pressable>
-        ) : null}
-      </View>
+      <OverlayStatusBar />
+      {!compact || onDone ? (
+        <View className="min-h-[56px] flex-row items-center justify-end px-[18px]">
+          {onDone ? (
+            <Pressable
+              accessibilityLabel="Done"
+              accessibilityRole="button"
+              className="min-h-[44px] justify-center px-[4px]"
+              hitSlop={8}
+              onPress={onDone}
+            >
+              <Text className="text-primary" variant="section">
+                Done
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
       <ScrollView
         contentContainerClassName={cn(
-          "flex-grow items-center gap-[16px] px-[24px] pb-[24px]",
+          "flex-grow items-center px-[24px] pb-[24px]",
+          compact ? "gap-[14px]" : "gap-[16px]",
           align === "top" ? "pt-[36px]" : "justify-center"
         )}
         showsVerticalScrollIndicator={false}
       >
-        <ResultBadge icon={badgeIcon} tone={tone} />
+        <ResultBadge compact={compact} icon={badgeIcon} tone={tone} />
         <Text
           accessibilityLiveRegion="polite"
           accessibilityRole="header"
           className="text-center"
-          variant="screenTitle"
+          variant={compact ? "title" : "screenTitle"}
         >
           {title}
         </Text>
         {description ? (
-          <Text className="text-center text-foreground-soft" variant="body">
+          <Text
+            className={cn(
+              "text-center",
+              compact
+                ? "max-w-[300px] text-muted-foreground"
+                : "text-foreground-soft"
+            )}
+            variant="body"
+          >
             {description}
           </Text>
         ) : null}
         {details ? (
           <View className="mt-[8px] w-full">
-            <Elevated className="overflow-hidden rounded-[20px] bg-card" radius={20}>
+            <Elevated
+              className="overflow-hidden rounded-[20px] bg-card"
+              radius={20}
+            >
               {details}
             </Elevated>
           </View>
         ) : null}
       </ScrollView>
-      <ResultActions primary={primary} secondary={secondary} />
+      <ResultActions
+        compact={compact}
+        primary={primary}
+        secondary={secondary}
+      />
     </View>
   )
 }

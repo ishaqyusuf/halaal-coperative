@@ -2198,6 +2198,15 @@ export async function getMemberUnitSharePosition(
     prisma
   )
   await assertMemberInTenant(input, prisma)
+  return getMemberUnitSharePositionForLinkedMember(input, policy, prisma)
+}
+
+/** For reads that already resolved the member in this tenant and loaded its policy. */
+export async function getMemberUnitSharePositionForLinkedMember(
+  input: { memberId: string; tenantId: string },
+  policy: TenantSharePolicySettings,
+  prisma: PrismaClient
+): Promise<MemberUnitSharePosition> {
   const totals = await getMemberShareApplicationUnitTotals(input, prisma)
 
   return toMemberUnitSharePosition(policy, totals)

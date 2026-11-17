@@ -7,3 +7,14 @@ export function describeOptionalShareUnits(pendingUnits: number) {
     ? `${formatShareUnitCount(pendingUnits)} awaiting review`
     : "No pending requests"
 }
+
+const shareDate = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+  year: "numeric",
+})
+
+export function formatShareDate(value: string) {
+  return shareDate.format(new Date(value))
+}

@@ -34,7 +34,7 @@ const memberFoodPurchase = [
 ]
 const memberReceipts = feature("receipts/screens/member-receipts-screen.tsx")
 const memberSupport = feature("support/screens/member-support-screen.tsx")
-const memberShares = feature("shares-profit/screens/member-shares-screen.tsx")
+const memberShares = feature("shares-profit/screens/share-request-flow.tsx")
 const memberGuarantor = [
   feature("guarantors/screens/member-guarantor-approvals-screen.tsx"),
   feature("guarantors/components/member-guarantor-response-form.tsx"),

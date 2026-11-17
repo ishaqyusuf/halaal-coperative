@@ -72,3 +72,41 @@ export type MobileMemberShareApplicationsPage = {
   state: "available" | "database_unavailable" | "member_profile_missing"
   total: number
 }
+
+export type ShareTimelineItem =
+  | {
+      kind: "request"
+      occurredAt: string
+      application: MobileMemberShareApplication
+    }
+  | {
+      kind: "ledger"
+      occurredAt: string
+      id: string
+      amount: number
+      label: string
+      source: string | null
+    }
+
+export type ShareTimelinePage = {
+  items: ShareTimelineItem[]
+  nextCursor: string | null
+}
+
+export type ShareOverview = Pick<
+  MobileMemberShares,
+  "generatedAt" | "member" | "position" | "state"
+> & {
+  shareBalance: number
+  profit: { count: number; total: number; latestUnpaidAmount: number | null }
+  timeline: ShareTimelinePage
+}
+
+export type ShareProfitPeriod = {
+  amount: number
+  id: string
+  name: string
+  periodEnd: string
+  publishedAt: string | null
+  payout: { destination: string; paidAt: string } | null
+}

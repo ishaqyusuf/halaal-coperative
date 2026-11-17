@@ -341,13 +341,20 @@ function checkSeparatedDataEntrySurfaces() {
     "src/features/financing/components/financing-request-form.tsx",
     ["<AppSheet", 'variant="form"']
   )
+  checkSourceMarkers(
+    "src/features/shares-profit/screens/share-request-flow.tsx",
+    ["<AppSheet", 'variant="form"']
+  )
+  checkSourceMarkers(
+    "src/features/shares-profit/screens/member-shares-screen.tsx",
+    ["<AppList", "<ShareRequestAction"]
+  )
   const screens = [
     "src/features/food-purchase/screens/member-food-purchase-screen.tsx",
     "src/features/guarantors/screens/member-guarantor-approvals-screen.tsx",
     "src/features/procurement/screens/member-procurement-screen.tsx",
     "src/features/project-financing/screens/member-project-financing-screen.tsx",
     "src/features/receipts/screens/member-receipts-screen.tsx",
-    "src/features/shares-profit/screens/member-shares-screen.tsx",
     "src/features/support/screens/member-support-screen.tsx",
     "src/features/admin-member-lifecycle/screens/admin-members-screen.tsx",
     "src/features/admin-member-lifecycle/screens/admin-member-detail-screen.tsx",

@@ -252,7 +252,6 @@ for (const variantPath of ["", "/dev", "/preview"]) {
 for (const controller of [
   "src/features/member-core/routes/member-commitments-route-controller.tsx",
   "src/features/member-core/routes/member-statement-route-controller.tsx",
-  "src/features/shares-profit/routes/member-shares-route-controller.tsx",
 ]) {
   assertIncludes(controller, ["useMemberActivity", "activeMembershipId"])
 }
@@ -266,7 +265,6 @@ assertIncludes("src/features/member-core/public/member-activity-history.tsx", [
 for (const screen of [
   "src/features/receipts/screens/member-receipts-screen.tsx",
   "src/features/support/screens/member-support-screen.tsx",
-  "src/features/shares-profit/screens/member-shares-screen.tsx",
   "src/features/admin-member-lifecycle/screens/admin-members-screen.tsx",
 ]) {
   assertIncludes(screen, [
@@ -275,6 +273,24 @@ for (const screen of [
     "CachedReadBanner",
   ])
 }
+
+assertIncludes("src/features/shares-profit/routes/member-shares-route-controller.tsx", [
+  "useAppInfiniteQuery",
+  "activeMembershipId",
+  "getMemberShareTimelinePage",
+  "useInvalidateAppQueries",
+])
+assertIncludes("src/features/shares-profit/screens/member-shares-screen.tsx", [
+  "<AppList",
+  "onEndReached=",
+  "<StatusBanner",
+])
+assertIncludes("src/features/shares-profit/screens/share-request-flow.tsx", [
+  "useMobileFormDraft",
+  "<AppSheet",
+  'variant="form"',
+  "<ResultScreen",
+])
 
 assertIncludes("src/features/financing/screens/member-financing-screen.tsx", [
   "useFinancingSnapshot",
@@ -332,7 +348,6 @@ for (const screen of [
   "src/features/procurement/screens/member-procurement-screen.tsx",
   "src/features/project-financing/screens/member-project-financing-screen.tsx",
   "src/features/food-purchase/screens/member-food-purchase-screen.tsx",
-  "src/features/shares-profit/screens/member-shares-screen.tsx",
   "src/features/admin-reports-access/screens/admin-reports-screen.tsx",
 ]) {
   assertIncludes(screen, ["VirtualizedCardList"])

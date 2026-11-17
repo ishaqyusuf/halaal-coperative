@@ -6,6 +6,9 @@ import {
   getMobileMemberCommitments,
   getMobileMemberCoreHome,
   getMobileMemberFinancingSnapshot,
+  getMobileMemberShareOverview,
+  getMobileMemberShareProfitPeriods,
+  getMobileMemberShareTimelinePage,
   getMobileMemberSharesSnapshot,
   getMobileMemberShareApplicationsPage,
   getMobileMemberStatementSnapshot,
@@ -127,6 +130,30 @@ export const mobileMemberCoreProcedures = {
       }
     ),
   shares: createTRPCRouter({
+    overview: tenantProcedure.query(({ ctx }) => {
+      assertMemberWorkspace(ctx.auth.activeMembership.role)
+      return getMobileMemberShareOverview({
+        tenantId: ctx.tenant.current.id,
+        userId: ctx.auth.session.user.id,
+      })
+    }),
+    timeline: tenantProcedure
+      .input(z.object({ cursor: z.string().trim().min(1).max(200) }))
+      .query(({ ctx, input }) => {
+        assertMemberWorkspace(ctx.auth.activeMembership.role)
+        return getMobileMemberShareTimelinePage({
+          cursor: input.cursor,
+          tenantId: ctx.tenant.current.id,
+          userId: ctx.auth.session.user.id,
+        })
+      }),
+    profit: tenantProcedure.query(({ ctx }) => {
+      assertMemberWorkspace(ctx.auth.activeMembership.role)
+      return getMobileMemberShareProfitPeriods({
+        tenantId: ctx.tenant.current.id,
+        userId: ctx.auth.session.user.id,
+      })
+    }),
     applications: tenantProcedure
       .input(mobileShareApplicationPageInput)
       .query(({ ctx, input }) => {

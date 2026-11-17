@@ -1,62 +1,65 @@
-import { createMobileTrpcClient } from "@/lib/mobile-trpc-client"
-import {
-  readCachedMobileQuery,
-  type MobileReadCacheState,
-} from "@/lib/read-cache"
-import type {
-  MobileMemberShareApplication,
-  MobileMemberShareApplicationCreateInput,
-  MobileMemberShareApplicationsPage,
-  MobileMemberShares,
-} from "../model/member-shares-types"
-import { isMobileDevFixtureSession } from "@/dev/mobile-dev-session"
 import {
   createDevShareApplication,
-  getDevMemberShareApplicationsPage,
   getDevMemberShares,
 } from "@/dev/mobile-dev-fixtures"
+import { isMobileDevFixtureSession } from "@/dev/mobile-dev-session"
+import { createMobileTrpcClient } from "@/lib/mobile-trpc-client"
+import { readCachedMobileQuery } from "@/lib/read-cache"
+import type {
+  MobileMemberShareApplicationCreateInput,
+  ShareOverview,
+  ShareProfitPeriod,
+  ShareTimelinePage,
+} from "../model/member-shares-types"
 
-export type MemberSharesCachedSnapshot = MobileMemberShares & {
-  cache: MobileReadCacheState
+export function getMemberShareOverview() {
+  return readCachedMobileQuery(
+    "member.shares.overview",
+    async (): Promise<ShareOverview> => {
+      if (!isMobileDevFixtureSession()) {
+        return createMobileTrpcClient().mobile.member.shares.overview.query()
+      }
+      const { applications, generatedAt, member, position, state } =
+        getDevMemberShares()
+      return {
+        generatedAt,
+        member,
+        position,
+        profit: { count: 0, total: 0, latestUnpaidAmount: null },
+        shareBalance: position?.totalApprovedValue ?? 0,
+        state,
+        timeline: {
+          items: applications
+            .map((application) => ({
+              application,
+              kind: "request" as const,
+              occurredAt: application.createdAt,
+            }))
+            .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)),
+          nextCursor: null,
+        },
+      }
+    }
+  )
 }
 
-export async function getMemberShareApplicationsPage(input: {
-  cursor: string | null
-}): Promise<MobileMemberShareApplicationsPage> {
-  if (isMobileDevFixtureSession()) {
-    return getDevMemberShareApplicationsPage({
-      cursor: input.cursor,
-      pageSize: 20,
-    })
-  }
-  const client = createMobileTrpcClient()
-
-  return client.mobile.member.shares.applications.query({
-    cursor: input.cursor,
-    pageSize: 20,
-  }) as Promise<MobileMemberShareApplicationsPage>
+export function getMemberShareTimelinePage(
+  cursor: string
+): Promise<ShareTimelinePage> {
+  return createMobileTrpcClient().mobile.member.shares.timeline.query({
+    cursor,
+  })
 }
 
-export async function getMemberShares(): Promise<MemberSharesCachedSnapshot> {
-  if (isMobileDevFixtureSession()) {
-    return readCachedMobileQuery("member.shares", async () =>
-      getDevMemberShares()
-    )
-  }
-  const client = createMobileTrpcClient()
-
-  return readCachedMobileQuery("member.shares", () =>
-    client.mobile.member.shares.list.query()
-  ) as Promise<MemberSharesCachedSnapshot>
+export function getMemberShareProfitPeriods(): Promise<ShareProfitPeriod[]> {
+  return createMobileTrpcClient().mobile.member.shares.profit.query()
 }
 
 export async function createMemberShareApplication(
   input: MobileMemberShareApplicationCreateInput
-): Promise<MobileMemberShareApplication> {
+) {
   if (isMobileDevFixtureSession()) return createDevShareApplication(input)
-  const client = createMobileTrpcClient()
-
-  return client.mobile.member.shares.createApplication.mutate(
+  return createMobileTrpcClient().mobile.member.shares.createApplication.mutate(
     input
-  ) as Promise<MobileMemberShareApplication>
+  )
 }

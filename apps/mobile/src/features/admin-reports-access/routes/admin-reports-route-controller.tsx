@@ -1,6 +1,6 @@
 import { canUseMobileFeatureData } from "@/dev/mobile-dev-session"
 import { getNotificationEntityIdParam } from "@/features/notifications/public/notification-destination-param"
-import { useAppQuery } from "@/hooks/use-app-query"
+import { useAppQuery, useInvalidateAppQueries } from "@/hooks/use-app-query"
 import { useAuthContext } from "@/hooks/use-auth"
 import {
   deletePrivateReportFile,
@@ -63,6 +63,7 @@ function reportErrorMessage(error: unknown, fallback: string) {
 export function AdminReportsRouteController() {
   const { profile } = useAuthContext()
   const runtime = useMobileRuntime()
+  const invalidate = useInvalidateAppQueries()
   const { lane: laneParam, notificationEntityId, qaState } = useLocalSearchParams<{
     lane?: string | string[]
     notificationEntityId?: string | string[]
@@ -170,6 +171,8 @@ export function AdminReportsRouteController() {
           uri: saved.uri,
         })
         setGeneratedFiles((current) => current.map((file) => (file.id === id ? ready : file)))
+        // The server logs a "report generated" event: refresh activity pages.
+        void invalidate(reportKeys().activityAll)
         return ready
       } catch (generationError) {
         if (cancelled()) return null
@@ -181,7 +184,7 @@ export function AdminReportsRouteController() {
         return failed
       }
     },
-    [reportActionsEnabled, runtime]
+    [invalidate, reportActionsEnabled, runtime]
   )
 
   const cancelGeneration = useCallback((file: GeneratedReportFile) => {

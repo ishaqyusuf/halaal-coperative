@@ -18,6 +18,8 @@ export function reportKeys() {
         filters.fromDate ?? "",
         filters.toDate ?? ""
       ),
+    /** Prefix of every activity page set (refresh after a write). */
+    activityAll: appQueryKey("admin-reports-activity", scope),
     event: (id: string) => appQueryKey("admin-reports-activity-event", scope, id),
     overview: appQueryKey("admin-reports-overview", scope),
   }

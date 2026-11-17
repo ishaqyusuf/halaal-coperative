@@ -1,7 +1,9 @@
 import { roleCan, type CooperativeRole } from "@halaalvest/auth"
 import {
   disburseMobileAdminFinancing,
+  getMobileAdminFinancingItem,
   getMobileAdminFinancingOperationsWorkspace,
+  getMobileAdminFinancingSummary,
   mobileAdminFinancingLanes,
   updateMobileAdminFinancingCycle,
   type MobileAdminFinancingCapabilities,
@@ -27,9 +29,30 @@ export function getMobileAdminFinancingCapabilities(
 
 export const mobileAdminFinancingOperationsProcedures = {
   financingOperations: createTRPCRouter({
+    summary: permissionProcedure("view_admin_work_queue").query(({ ctx }) =>
+      getMobileAdminFinancingSummary({
+        capabilities: getMobileAdminFinancingCapabilities(
+          ctx.auth.activeMembership.role
+        ),
+        tenantId: ctx.tenant.current.id,
+      })
+    ),
+    item: permissionProcedure("view_admin_work_queue")
+      .input(z.object({ entityId: z.string().uuid() }))
+      .query(({ ctx, input }) =>
+        getMobileAdminFinancingItem({
+          ...input,
+          capabilities: getMobileAdminFinancingCapabilities(
+            ctx.auth.activeMembership.role
+          ),
+          tenantId: ctx.tenant.current.id,
+        })
+      ),
     workspace: permissionProcedure("view_admin_work_queue")
       .input(
         z.object({
+          /** Current builds read the summary once; older builds omit this. */
+          includeSummary: z.boolean().optional(),
           lane: z.enum(mobileAdminFinancingLanes),
           cursor: z.string().min(1).max(1024).nullable().optional(),
           entityId: z.string().uuid().optional(),

@@ -11,19 +11,14 @@ import {
   mobileDevQuickFill,
   mobileDevQuickFillReference,
 } from "@/dev/mobile-dev-quick-fill"
-import { shortDate } from "@/features/admin-procurement-operations/model/procurement-ops-presentation"
-import { ServiceOpsDetailSheet } from "@/features/admin-service-operations/components/service-ops-detail"
+import { shortDate , ServiceOpsDetailSheet , ServiceOpsLanes , useOpsLane } from "@/features/admin-service-operations/public/service-ops"
 import {
   OpsContextCard,
   ServiceOpsFlowSheet,
   type OpsFlowStep,
-} from "@/features/admin-service-operations/components/service-ops-flow"
-import { ServiceOpsLanes } from "@/features/admin-service-operations/components/service-ops-lanes"
-import { useOpsLane } from "@/features/admin-service-operations/hooks/use-ops-lane"
-import type {
+
   OpsResult,
-  OpsReviewSpec,
-} from "@/features/admin-service-operations/model/service-ops-types"
+  OpsReviewSpec} from "@/features/admin-service-operations/public/service-ops"
 import { NotificationDestinationNotice } from "@/features/notifications/public/notification-destination-notice"
 import {
   appQueryKey,
@@ -70,6 +65,8 @@ import {
   structureOptions,
 } from "../model/project-financing-ops-presentation"
 
+// Form inputs render inside ServiceOpsFlowSheet, which presents them in
+// <AppSheet variant="form"> (keyboard-aware full-screen form, T21).
 type Decision = "approved" | "rejected" | "under_review"
 type Structure = Exclude<ProjectFinancingStructure, "undecided">
 

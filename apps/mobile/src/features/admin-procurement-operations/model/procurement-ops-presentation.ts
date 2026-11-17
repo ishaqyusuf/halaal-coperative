@@ -1,25 +1,16 @@
 import { formatMoney } from "@/lib/money"
+import { shortDate } from "@/features/admin-service-operations/public/service-ops"
 import type {
   OpsDetail,
   OpsLane,
   OpsRow,
-} from "@/features/admin-service-operations/model/service-ops-types"
+} from "@/features/admin-service-operations/public/service-ops"
 import type {
   ProcurementCapabilities,
   ProcurementLane,
   ProcurementOperation,
   ProcurementSummary,
 } from "./admin-procurement-operations-types"
-
-const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-
-/** "17 Nov" or "17 Nov 2026" from an ISO timestamp or a date-only string. */
-export function shortDate(value: string, withYear = false) {
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(value)
-    ? new Date(`${value}T12:00:00`)
-    : new Date(value)
-  return `${date.getDate()} ${months[date.getMonth()]}${withYear ? ` ${date.getFullYear()}` : ""}`
-}
 
 export function procurementLanes(
   summary: ProcurementSummary | undefined
@@ -179,3 +170,5 @@ export function procurementSummaryHero(summary: ProcurementSummary | undefined) 
     value: summary?.outstandingAmount,
   }
 }
+
+

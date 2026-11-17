@@ -67,8 +67,28 @@ export type FoodPurchaseApplication = {
   status: "approved" | "cancelled" | "rejected" | "submitted" | "under_review"
 }
 
+type FoodPurchaseReadCache = {
+  ageMs: number
+  cachedAt: string
+  scope: string
+  status: "live" | "stale"
+}
+
+export type FoodPurchaseCycleSummary = {
+  approvedAmount: number
+  allocationShortfallAmount: number
+  availableAmount: number
+  outstandingAmount: number
+  paidAmount: number
+  pendingApplications: number
+  requestedAmount: number
+  totalApplications: number
+}
+
+/** Cycles plus the selected cycle's totals (the legacy full workspace). */
 export type FoodPurchaseWorkspace = {
   applications: FoodPurchaseApplication[]
+  cache?: FoodPurchaseReadCache
   capabilities: FoodPurchaseCapabilities
   currencyCode: string
   cycles: FoodPurchaseCycle[]
@@ -76,16 +96,20 @@ export type FoodPurchaseWorkspace = {
   lane: FoodPurchaseLane
   nextApplicationCursor: string | null
   selectedCycle: FoodPurchaseCycle | null
-  summary: {
-    approvedAmount: number
-    allocationShortfallAmount: number
-    availableAmount: number
-    outstandingAmount: number
-    paidAmount: number
-    pendingApplications: number
-    requestedAmount: number
-    totalApplications: number
-  }
+  summary: FoodPurchaseCycleSummary
+}
+
+/** One applications page for a cycle (T21 lean read). */
+export type FoodPurchaseApplicationPage = {
+  applications: FoodPurchaseApplication[]
+  cache?: FoodPurchaseReadCache
+  capabilities: FoodPurchaseCapabilities
+  currencyCode: string
+  generatedAt: string
+  lane: FoodPurchaseLane
+  nextApplicationCursor: string | null
+  nextCursor?: string | null
+  total?: number
 }
 
 export type FoodPurchaseCommandResult = {

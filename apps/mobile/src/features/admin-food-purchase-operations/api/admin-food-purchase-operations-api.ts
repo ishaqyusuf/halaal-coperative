@@ -2,32 +2,52 @@ import { isMobileDevFixtureSession } from "@/dev/mobile-dev-session"
 import { createMobileTrpcClient } from "@/lib/mobile-trpc-client"
 import { isPersistableReadInput, readCachedMobileQuery } from "@/lib/read-cache"
 import type {
+  FoodPurchaseApplicationPage,
   FoodPurchaseCommandResult,
   FoodPurchaseCycleStatus,
-  FoodPurchaseLane,
   FoodPurchaseWorkspace,
 } from "../model/admin-food-purchase-operations-types"
 import {
   getDevFoodPurchaseApplicationDetail,
-  getDevFoodPurchaseWorkspace,
+  getDevFoodPurchaseApplicationPage,
+  getDevFoodPurchaseOverview,
   runDevFoodPurchaseCommand,
 } from "./admin-food-purchase-operations-dev-fixtures"
 
-export function getFoodPurchaseOperationsWorkspace(input: {
-  cursor?: string
-  cycleId?: string
-  lane: FoodPurchaseLane
-  search?: string
-}) {
-  if (isMobileDevFixtureSession()) return getDevFoodPurchaseWorkspace(input)
+/** Applications page size (T21). */
+export const FOOD_PURCHASE_PAGE_SIZE = 20
+
+/**
+ * Cycles plus the selected cycle's totals: one read per cycle selection
+ * (the accounting lane of the workspace skips the applications page).
+ */
+export function getFoodPurchaseOverview(cycleId?: string) {
+  if (isMobileDevFixtureSession()) return getDevFoodPurchaseOverview(cycleId)
+  const input = { cycleId, lane: "accounting" as const }
   return readCachedMobileQuery(
-    `admin.food-purchase-operations.${JSON.stringify(input)}`,
-    () =>
-      createMobileTrpcClient().mobile.admin.foodPurchaseOperations.workspace.query(
-        input
-      ),
-    { persist: isPersistableReadInput(input) }
+    `admin.food-purchase-operations.overview.${cycleId ?? "current"}`,
+    () => createMobileTrpcClient().mobile.admin.foodPurchaseOperations.workspace.query(input)
   ) as Promise<FoodPurchaseWorkspace>
+}
+
+/** One page of a cycle's applications, fetched as the lane scrolls. */
+export async function getFoodPurchaseApplicationPage(input: {
+  cursor?: string
+  cycleId: string
+  search?: string
+}): Promise<FoodPurchaseApplicationPage> {
+  if (isMobileDevFixtureSession()) return getDevFoodPurchaseApplicationPage(input)
+  const page = (await readCachedMobileQuery(
+    `admin.food-purchase-operations.applications.${JSON.stringify(input)}`,
+    () =>
+      createMobileTrpcClient().mobile.admin.foodPurchaseOperations.workspace.query({
+        ...input,
+        lane: "applications",
+        limit: FOOD_PURCHASE_PAGE_SIZE,
+      }),
+    { persist: isPersistableReadInput(input) }
+  )) as FoodPurchaseApplicationPage
+  return { ...page, nextCursor: page.nextApplicationCursor }
 }
 
 export function getFoodPurchaseApplicationDetail(applicationId: string) {

@@ -88,12 +88,45 @@ export async function getMobileAdminFoodPurchaseWorkspace(
     cursor?: string
     cycleId?: string
     lane: MobileAdminFoodPurchaseLane
+    /**
+     * T21: with `limit` and a `cycleId`, the applications lane returns only
+     * that cycle's page (no cycles, totals or counts); the redesigned screen
+     * reads those once per cycle through the accounting lane.
+     */
+    limit?: number
     search?: string
     tenantId: string
   },
   prismaOverride?: PrismaClient
 ) {
   const prisma = getPrisma(prismaOverride)
+  if (input.limit !== undefined && input.lane === "applications" && input.cycleId) {
+    const [tenant, page] = await Promise.all([
+      prisma.tenant.findUnique({
+        select: { currencyCode: true },
+        where: { id: input.tenantId },
+      }),
+      listFoodPurchaseApplicationPage(
+        {
+          cursor: input.cursor,
+          cycleId: input.cycleId,
+          pageSize: Math.min(50, Math.max(1, Math.floor(input.limit))),
+          search: input.search,
+          tenantId: input.tenantId,
+        },
+        prisma as PrismaClient
+      ),
+    ])
+    return {
+      applications: page.data.map(serializeApplication),
+      capabilities: input.capabilities,
+      currencyCode: tenant?.currencyCode ?? "NGN",
+      generatedAt: new Date().toISOString(),
+      lane: input.lane,
+      nextApplicationCursor: page.meta.cursor ?? null,
+      total: page.meta.total,
+    }
+  }
   const [tenant, cycles] = await Promise.all([
     prisma.tenant.findUnique({
       select: { currencyCode: true },

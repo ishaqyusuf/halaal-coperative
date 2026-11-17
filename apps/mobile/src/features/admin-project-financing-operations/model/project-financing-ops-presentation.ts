@@ -2,8 +2,8 @@ import type {
   OpsDetail,
   OpsLane,
   OpsRow,
-} from "@/features/admin-service-operations/model/service-ops-types"
-import { shortDate } from "@/features/admin-procurement-operations/model/procurement-ops-presentation"
+} from "@/features/admin-service-operations/public/service-ops"
+import { shortDate } from "@/features/admin-service-operations/public/service-ops"
 import { formatMoney } from "@/lib/money"
 import type {
   ProjectFinancingAction,
@@ -85,9 +85,7 @@ export function projectRow(project: ProjectFinancingProject): OpsRow {
       ? (project.outstandingPrincipal ?? project.approvedAmount ?? project.requestedAmount)
       : (project.approvedAmount ?? project.requestedAmount),
     id: project.id,
-    meta:
-      project.attention?.label ??
-      (repayableActive ? "Principal outstanding" : shortDate(project.requestedAt)),
+    meta: repayableActive ? "Principal outstanding" : shortDate(project.requestedAt),
     metaTone: project.attention?.severity === "warning" ? "danger" : "muted",
     pill: pill(project),
     subtitle: `${project.member.fullName} · ${structureName(structure)}`,
@@ -149,7 +147,7 @@ export function projectDetail(detail: ProjectFinancingDetail, currencyCode: stri
         : []),
     ],
     headline: project.businessName,
-    meta: row.meta,
+    meta: project.attention?.label ?? row.meta,
     pill: row.pill,
     schedule: detail.repayments.length
       ? {
@@ -175,7 +173,7 @@ export function projectFinancingHero(summary: ProjectFinancingSummary | undefine
     caption: "Principal outstanding",
     needAction: summary ? summary.blockedCount + summary.readyCount : undefined,
     sub: summary
-      ? `${summary.activeCount} active projects · ${summary.releaseReady} release evidence due`
+      ? `${summary.activeCount} active ${summary.activeCount === 1 ? "project" : "projects"} · ${summary.releaseReady} release evidence due`
       : undefined,
     value: summary?.outstandingPrincipal,
   }

@@ -9,19 +9,15 @@ import {
   mobileDevQuickFill,
   mobileDevQuickFillReference,
 } from "@/dev/mobile-dev-quick-fill"
-import { ServiceOpsDetailSheet } from "@/features/admin-service-operations/components/service-ops-detail"
+import { ServiceOpsDetailSheet , ServiceOpsLanes , useOpsLane , shortDate } from "@/features/admin-service-operations/public/service-ops"
 import {
   OpsContextCard,
   ServiceOpsFlowSheet,
   type OpsFlowStep,
-} from "@/features/admin-service-operations/components/service-ops-flow"
-import { ServiceOpsLanes } from "@/features/admin-service-operations/components/service-ops-lanes"
-import { useOpsLane } from "@/features/admin-service-operations/hooks/use-ops-lane"
-import type {
+
   OpsResult,
   OpsReviewSpec,
-  OpsRow,
-} from "@/features/admin-service-operations/model/service-ops-types"
+  OpsRow} from "@/features/admin-service-operations/public/service-ops"
 import { NotificationDestinationNotice } from "@/features/notifications/public/notification-destination-notice"
 import {
   appQueryKey,
@@ -57,10 +53,11 @@ import {
   procurementLanes,
   procurementRow,
   procurementSummaryHero,
-  shortDate,
 } from "../model/procurement-ops-presentation"
 
 type Kind = "activate" | "payment" | "review"
+// Form inputs render inside ServiceOpsFlowSheet, which presents them in
+// <AppSheet variant="form"> (keyboard-aware full-screen form, T21).
 type Decision = "approved" | "rejected" | "under_review"
 
 const feature = "admin-procurement"

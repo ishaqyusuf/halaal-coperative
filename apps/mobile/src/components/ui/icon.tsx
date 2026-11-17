@@ -38,9 +38,12 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
     .default,
   ChartNoAxesCombined:
     require("lucide-react-native/dist/esm/icons/chart-no-axes-combined").default,
+  CirclePause: require("lucide-react-native/dist/esm/icons/circle-pause").default,
   Compass: require("lucide-react-native/dist/esm/icons/compass").default,
   CloudOff: require("lucide-react-native/dist/esm/icons/cloud-off").default,
+  FileX: require("lucide-react-native/dist/esm/icons/file-x").default,
   Globe: require("lucide-react-native/dist/esm/icons/globe").default,
+  IdCard: require("lucide-react-native/dist/esm/icons/id-card").default,
   ScanFace: require("lucide-react-native/dist/esm/icons/scan-face").default,
   Check: require("lucide-react-native/dist/esm/icons/check").default,
   ChevronLeft: require("lucide-react-native/dist/esm/icons/chevron-left")
@@ -113,10 +116,12 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   PieChart: require("lucide-react-native/dist/esm/icons/chart-pie").default,
   Plus: require("lucide-react-native/dist/esm/icons/plus").default,
   PlusCircle: require("lucide-react-native/dist/esm/icons/circle-plus").default,
+  Receipt: require("lucide-react-native/dist/esm/icons/receipt").default,
   ReceiptText: require("lucide-react-native/dist/esm/icons/receipt-text")
     .default,
   RefreshCw: require("lucide-react-native/dist/esm/icons/refresh-cw").default,
   RotateCw: require("lucide-react-native/dist/esm/icons/rotate-cw").default,
+  Scale: require("lucide-react-native/dist/esm/icons/scale").default,
   Search: require("lucide-react-native/dist/esm/icons/search").default,
   Send: require("lucide-react-native/dist/esm/icons/send").default,
   Share: require("lucide-react-native/dist/esm/icons/share").default,
@@ -158,6 +163,7 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   WandSparkles: require("lucide-react-native/dist/esm/icons/wand-sparkles")
     .default,
   WifiOff: require("lucide-react-native/dist/esm/icons/wifi-off").default,
+  Wrench: require("lucide-react-native/dist/esm/icons/wrench").default,
   X: require("lucide-react-native/dist/esm/icons/x").default,
   Ban: require("lucide-react-native/dist/esm/icons/ban").default,
   CalendarDays: require("lucide-react-native/dist/esm/icons/calendar-days").default,

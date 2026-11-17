@@ -9,8 +9,10 @@ export type MobileAdminLifecycleQaState =
   | "empty"
   | "error"
   | "loading"
+  | "new"
   | "not-found"
   | "offline"
+  | "refresh-error"
   | "stale"
 
 export type MobileAdminMemberStatus =
@@ -112,10 +114,16 @@ export type MobileAdminOverview = {
   complianceWatch: { count: number; key: string; label: string }[]
   generatedAt: string
   recentActivity: {
+    /** Money moved; null for a financing request (T05 servers on). */
+    amount?: number | null
     detail: string
     id: string
+    kind?: "contribution" | "loan_request" | "repayment"
     label: string
+    memberName?: string
     occurredAt: string
+    /** Request status in words ("submitted"), or null for money moved. */
+    status?: string | null
   }[]
   stats: MobileOverviewMetric[]
   warnings: { key: string; label: string }[]

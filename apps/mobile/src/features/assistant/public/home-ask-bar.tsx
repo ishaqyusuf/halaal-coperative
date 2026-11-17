@@ -4,6 +4,7 @@ import { Text } from "@/components/ui/text"
 import { useLargeTextLayout } from "@/hooks/use-large-text-layout"
 import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
 import { assistantSuggestions } from "@halaalvest/assistant/suggestions"
+import { cn } from "@/lib/utils"
 import { useRouter } from "expo-router"
 import { ScrollView, View } from "react-native"
 
@@ -12,7 +13,14 @@ import { ScrollView, View } from "react-native"
  * that opens Ask with the keyboard up, and role-shaped questions from the
  * capability registry that open Ask with the question sent. Hidden offline.
  */
-export function HomeAskBar({ role }: { role: "member" | "staff" }) {
+export function HomeAskBar({
+  floating = false,
+  role,
+}: {
+  /** Raised bar without a border, for a bar that overlaps the hero's edge. */
+  floating?: boolean
+  role: "member" | "staff"
+}) {
   const router = useRouter()
   const runtime = useMobileRuntime()
   const largeText = useLargeTextLayout()
@@ -45,11 +53,19 @@ export function HomeAskBar({ role }: { role: "member" | "staff" }) {
   ))
   return (
     <View className="mt-4" testID="home-ask-bar">
-      <View className="rounded-full bg-card shadow-sm">
+      <View
+        className={cn(
+          "rounded-full bg-card",
+          floating ? "shadow-lg" : "shadow-sm"
+        )}
+      >
         <Pressable
           accessibilityLabel="Ask the assistant"
           accessibilityRole="button"
-          className="min-h-[52px] flex-row items-center gap-2.5 rounded-full border border-border py-2 pl-2.5 pr-4"
+          className={cn(
+            "min-h-[52px] flex-row items-center gap-2.5 rounded-full border py-2 pl-2.5 pr-4",
+            floating ? "border-transparent dark:border-border" : "border-border"
+          )}
           haptic
           onPress={() => open({ focus: "1" })}
           testID="home-ask-bar-open"

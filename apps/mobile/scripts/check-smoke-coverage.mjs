@@ -164,9 +164,11 @@ assertIncludes("src/features/settings-access/screens/more-screen.tsx", [
   "<ScreenStatusBar />",
 ])
 
+// T05: the overview is a ScreenShell hero screen; the shell owns the
+// status bar (transparent, light icons over the hero).
 assertIncludes(
   "src/features/admin-member-lifecycle/screens/admin-overview-screen.tsx",
-  ['<ScreenStatusBar tone="brand" />']
+  ["<ScreenShell", "<AdminOverviewHero", 'testID="admin-overview-screen"']
 )
 
 assertIncludes("src/components/app/screen-status-bar.tsx", [

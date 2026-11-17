@@ -1,18 +1,25 @@
-import { useQueryClient } from "@tanstack/react-query"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import { useRouter } from "expo-router"
 import { useAuthContext } from "@/hooks/use-auth"
+import { appQueryKey, useAppQuery, useInvalidateAppQueries } from "@/hooks/use-app-query"
 import { getToken } from "@/lib/session-store"
 import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
 import {
   acceptLegalDocuments,
   getLegalBundle,
   getLegalRecords,
-  type LegalBundle,
+  type LegalDocument,
   type LegalRecord,
 } from "../api/legal-api"
 import { legalReminderQueryKey } from "../public/use-legal-reminder"
-import { LegalAgreementsScreen } from "../screens/legal-agreements-screen"
+import {
+  LegalAgreementsScreen,
+  type LegalSheet,
+} from "../screens/legal-agreements-screen"
+
+/** The bundle changes only when new versions are published. */
+const BUNDLE_STALE_MS = 30 * 60 * 1000
+
 export function LegalAgreementsRouteController() {
   const { profile } = useAuthContext()
   return (
@@ -21,124 +28,118 @@ export function LegalAgreementsRouteController() {
     />
   )
 }
+
 function LegalContent() {
   const { profile } = useAuthContext()
-  const queryClient = useQueryClient()
   const runtime = useMobileRuntime()
   const router = useRouter()
+  const invalidate = useInvalidateAppQueries()
   const offline = runtime.state.connectivity === "offline"
-  const [bundle, setBundle] = useState<LegalBundle | null>(null)
-  const [records, setRecords] = useState<LegalRecord[]>([])
-  const [loading, setLoading] = useState(false)
+  const accountKey = profile
+    ? `${profile.user.id}:${profile.tenant.id}:${profile.activeMembershipId}`
+    : null
+  const bundleKey = appQueryKey("legal", "bundle")
+  const recordsKey = appQueryKey("legal", "records", accountKey)
+
+  // T26: cached reads (no blank refresh); writes invalidate exact keys.
+  const bundleQuery = useAppQuery({
+    enabled: !offline,
+    queryFn: getLegalBundle,
+    queryKey: bundleKey,
+    staleTime: BUNDLE_STALE_MS,
+  })
+  const recordsQuery = useAppQuery<LegalRecord[]>({
+    enabled: !offline && Boolean(accountKey),
+    placeholderData: undefined,
+    queryFn: getLegalRecords,
+    queryKey: recordsKey,
+  })
+
+  const [checked, setChecked] = useState(false)
+  const [reading, setReading] = useState<LegalDocument | null>(null)
+  const [sheet, setSheet] = useState<LegalSheet>(null)
   const [busy, setBusy] = useState(false)
-  const [reviewed, setReviewed] = useState(false)
-  const [confirming, setConfirming] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
-  const alive = useRef(true)
-  const requestNumber = useRef(0)
+  const [writeError, setWriteError] = useState<string | null>(null)
   const busyRef = useRef(false)
-  const token = useRef(getToken())
-  const current = () => alive.current && token.current === getToken()
-  const refresh = useCallback(async () => {
-    const id = ++requestNumber.current
-    setReviewed(false)
-    setConfirming(false)
-    setBundle(null)
-    setRecords([])
-    setLoading(true)
-    setError(null)
-    if (offline) {
-      setLoading(false)
-      return
-    }
-    try {
-      const [nextBundle, nextRecords] = await Promise.all([
-        getLegalBundle(),
-        getLegalRecords(),
-      ])
-      if (current() && id === requestNumber.current) {
-        setBundle(nextBundle)
-        setRecords(nextRecords)
-      }
-    } catch {
-      if (current() && id === requestNumber.current)
-        setError(
-          "Platform documents could not be loaded. Refresh to try again."
-        )
-    } finally {
-      if (current() && id === requestNumber.current) setLoading(false)
-    }
-  }, [offline])
-  useEffect(() => {
-    alive.current = true
-    void refresh()
-    return () => {
-      alive.current = false
-      requestNumber.current++
-    }
-  }, [refresh])
+  const token = getToken()
+  const current = () => token === getToken()
+  const bundle = bundleQuery.data ?? null
+
   async function accept() {
-    if (
-      !current() ||
-      offline ||
-      busyRef.current ||
-      !reviewed ||
-      !confirming ||
-      !bundle?.available
-    )
-      return
+    if (offline || busyRef.current || !checked || !bundle?.available || !current()) return
     busyRef.current = true
     setBusy(true)
-    setError(null)
     setMessage(null)
     try {
       await runtime.runOnlineOperation("command", async () => {
         if (!current()) throw new Error("Account changed")
         await acceptLegalDocuments(bundle.documents)
       })
-      void queryClient.invalidateQueries({
-        queryKey: legalReminderQueryKey(
-          profile
-            ? `${profile.user.id}:${profile.tenant.id}:${profile.activeMembershipId}`
-            : null
-        ),
-      })
-      if (current()) {
-        setMessage("Your platform document acknowledgement was recorded.")
-        await refresh()
-      }
+      if (!current()) return
+      setSheet(null)
+      setChecked(false)
+      setMessage("Your platform document acknowledgement was recorded.")
+      await invalidate(recordsKey, legalReminderQueryKey(accountKey))
     } catch {
       if (current()) {
-        setError(
+        setWriteError(
           "Documents may have changed or could not be recorded. Refresh and review the latest versions."
         )
-        setConfirming(false)
-        setReviewed(false)
+        setSheet("record-error")
+        setChecked(false)
       }
     } finally {
-      if (current()) {
-        busyRef.current = false
-        setBusy(false)
-      }
+      busyRef.current = false
+      setBusy(false)
     }
   }
+
   return (
     <LegalAgreementsScreen
       bundle={bundle}
-      records={records}
-      loading={loading}
       busy={busy}
-      offline={offline}
-      reviewed={reviewed}
-      confirming={confirming}
-      error={error}
+      checked={checked}
+      loading={bundleQuery.isFetching || recordsQuery.isFetching}
       message={message}
+      offline={offline}
+      readError={
+        bundleQuery.isError || recordsQuery.isError
+          ? "Platform documents could not be loaded. Refresh to try again."
+          : null
+      }
+      reading={reading}
+      records={recordsQuery.data ?? null}
+      refreshing={
+        (bundleQuery.isRefetching || recordsQuery.isRefetching) &&
+        Boolean(bundle && recordsQuery.data)
+      }
+      sheet={sheet}
+      writeError={writeError}
       onBack={() => (router.canGoBack() ? router.back() : router.replace("/"))}
-      onRefresh={() => void refresh()}
-      onReview={setReviewed}
-      onConfirming={setConfirming}
-      onAccept={() => void accept()}
+      onCheck={setChecked}
+      onCloseReader={() => setReading(null)}
+      onCloseSheet={() => {
+        if (busyRef.current) return
+        setSheet(null)
+        setWriteError(null)
+      }}
+      onConfirm={() => void accept()}
+      onOpenRecord={() => {
+        setWriteError(null)
+        setSheet("record")
+      }}
+      onRead={setReading}
+      onRefresh={() => {
+        setMessage(null)
+        void invalidate(bundleKey, recordsKey)
+      }}
+      onRefreshDocuments={() => {
+        setSheet(null)
+        setWriteError(null)
+        setMessage(null)
+        void invalidate(bundleKey, recordsKey)
+      }}
     />
   )
 }

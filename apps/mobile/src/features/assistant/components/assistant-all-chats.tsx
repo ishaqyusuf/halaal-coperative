@@ -97,11 +97,11 @@ export function AssistantAllChats({
     <Animated.View
       entering={FadeIn.duration(180)}
       exiting={FadeOut.duration(160)}
-      style={{ bottom: 0, left: 0, position: "absolute", right: 0, top: 0, zIndex: 10 }}
+      style={{ height: "100%", left: 0, position: "absolute", top: 0, width: "100%", zIndex: 10 }}
     >
       <View className="flex-1 bg-background" testID="assistant-all-chats">
         <OverlayStatusBar tone="background" />
-        <View style={{ paddingTop: insets.top + 8 }}>
+        <View style={{ height: insets.top + 8 }} />
         <View className="flex-row items-center gap-[10px] px-[12px] pb-[10px]">
           <Pressable
             accessibilityLabel="Close all chats"
@@ -119,7 +119,6 @@ export function AssistantAllChats({
               {chats.length || ""}
             </Text>
           </View>
-        </View>
         </View>
         <FlatList
           contentContainerStyle={{ paddingBottom: 160, paddingHorizontal: 18 }}

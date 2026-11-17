@@ -1,169 +1,335 @@
-import { ScrollView, View } from "react-native"
-import { SafeArea } from "@/components/safe-area"
-import { ScreenHeader } from "@/components/app/screen-header"
-import { ScreenBackButton } from "@/components/app/screen-back-button"
-import { SubmissionReviewSheet } from "@/components/app/submission-review-sheet"
+import { ConfirmSheet } from "@/components/app/confirm-sheet"
+import { FullScreenFormSheet } from "@/components/app/full-screen-form-sheet"
+import { ScreenShell } from "@/components/app/screen-shell"
+import {
+  StatusBlock,
+  StatusCard,
+  StatusRow,
+  StatusSection,
+  StatusSectionHeading,
+  StatusTile,
+} from "@/components/app/status-card"
 import { Button } from "@/components/ui/button"
+import { Icon } from "@/components/ui/icon"
+import { Elevated } from "@/components/ui/list-card"
+import { ListSkeleton } from "@/components/ui/skeleton"
+import { StatusBanner } from "@/components/ui/status-banner"
 import { Text } from "@/components/ui/text"
+import { View } from "react-native"
 import type { PrivacyNotice, PrivacyRequest } from "../api/account-privacy-api"
+import {
+  PrivacyReference,
+  PrivacySteps,
+} from "../components/privacy-request-progress"
+import {
+  PRIVACY_STATUS,
+  canCancelPrivacyRequest,
+  livePrivacyRequest,
+  noticeItems,
+  noticeVersionLabel,
+  pastPrivacyRequests,
+  pastRequestNote,
+  privacyDay,
+  privacyDueDay,
+} from "../model/privacy-presentation"
 
-export type PrivacyConfirmation =
-  | { kind: "request" }
-  | { kind: "cancel"; requestId: string }
-  | null
+export type PrivacySheet = "review" | "success" | "cancel" | null
+
+/**
+ * Delete account on 03 Status card (T26): one status card says where the
+ * request stands (progress steps, response date, copyable reference), the
+ * notice explains what deletion means, and the review opens full screen.
+ */
 export function AccountPrivacyScreen(props: {
-  notice: PrivacyNotice | null
-  requests: PrivacyRequest[]
-  loading: boolean
+  accountLabel: string
   busy: boolean
-  offline: boolean
-  error: string | null
+  loading: boolean
   message: string | null
-  confirmation: PrivacyConfirmation
+  notice: PrivacyNotice | null
+  offline: boolean
+  readError: string | null
+  receipt: PrivacyRequest | null
+  refreshing: boolean
+  requestsLoaded: boolean
+  requests: PrivacyRequest[]
+  sheet: PrivacySheet
+  writeError: string | null
   onBack: () => void
+  onCloseSheet: () => void
+  onConfirmCancel: () => void
+  onDone: () => void
+  onOpen: (sheet: Exclude<PrivacySheet, null | "success">) => void
   onRefresh: () => void
-  onReview: (value: PrivacyConfirmation) => void
-  onConfirm: () => void
+  onSubmit: () => void
 }) {
-  const pending = props.requests.some(
-    (request) =>
-      !["completed", "rejected", "cancelled"].includes(request.status)
-  )
-  const disabled = props.loading || props.busy || props.offline
-  return (
-    <SafeArea className="bg-background">
-      <ScrollView
-        contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 20 }}
-      >
-        <ScreenHeader
-          title="Delete account"
-          leading={<ScreenBackButton onPress={props.onBack} />}
-          description="Request account deletion and review your request’s progress."
-        />
-        {props.offline ? (
-          <Text accessibilityLiveRegion="polite">
-            Reconnect to submit or update a privacy request.
-          </Text>
-        ) : null}
-        {props.error ? (
-          <Text accessibilityLiveRegion="polite" className="text-destructive">
-            {props.error}
-          </Text>
-        ) : null}
-        {props.message ? (
-          <Text accessibilityLiveRegion="polite">{props.message}</Text>
-        ) : null}
-        <Button disabled={disabled} variant="outline" onPress={props.onRefresh}>
-          <Text>{props.loading ? "Loading…" : "Refresh requests"}</Text>
-        </Button>
-        {props.notice ? (
-          <View className="gap-3">
-            <Text className="text-lg font-semibold">
-              Before you request deletion
-            </Text>
-            <Text>{props.notice.scope}</Text>
-            {props.notice.consequences.map((item) => (
-              <Text
-                className="text-sm leading-6 text-muted-foreground"
-                key={item}
-              >
-                {item}
-              </Text>
-            ))}
+  const live = livePrivacyRequest(props.requests)
+  const past = pastPrivacyRequests(props.requests)
+  const status = live ? PRIVACY_STATUS[live.status] : null
+  const cancellable = live ? canCancelPrivacyRequest(live) : false
+  const ready = Boolean(props.notice) && props.requestsLoaded
+  const items = props.notice ? noticeItems(props.notice) : []
+
+  const footer = !ready
+    ? undefined
+    : live
+      ? cancellable
+        ? (
             <Button
-              variant="destructive"
-              disabled={disabled || pending}
-              onPress={() => props.onReview({ kind: "request" })}
+              disabled={props.offline || props.busy}
+              onPress={() => props.onOpen("cancel")}
+              testID="privacy-cancel"
+              variant="secondary"
             >
-              <Text>
-                {pending
-                  ? "Request already in progress"
-                  : "Review deletion request"}
-              </Text>
+              <Icon className="size-base text-accent-foreground" name="Undo2" />
+              <Text>Cancel deletion request</Text>
             </Button>
-          </View>
-        ) : null}
-        <View className="gap-4">
-          <Text className="text-lg font-semibold">Your requests</Text>
-          {!props.loading && !props.requests.length ? (
-            <Text className="text-muted-foreground">
-              No account deletion requests found.
+          )
+        : undefined
+      : (
+          <Button
+            disabled={props.offline || props.busy}
+            onPress={() => props.onOpen("review")}
+            testID="privacy-review"
+            variant="destructive"
+          >
+            <Icon className="size-base text-destructive-foreground" name="Trash2" />
+            <Text>Review deletion request</Text>
+          </Button>
+        )
+
+  return (
+    <ScreenShell
+      back={props.onBack}
+      footer={footer}
+      onRefresh={ready ? props.onRefresh : undefined}
+      refreshing={props.refreshing}
+      testID="account-privacy-screen"
+      title="Delete account"
+    >
+      {props.message ? <StatusBanner kind="info" title={props.message} /> : null}
+      {props.offline ? (
+        <StatusBanner kind="offline" title="Reconnect to submit or update a deletion request." />
+      ) : null}
+      {ready && props.readError ? (
+        <StatusBanner
+          kind="error"
+          onRetry={props.offline ? undefined : props.onRefresh}
+          title="Couldn’t refresh your requests"
+        />
+      ) : null}
+      {!ready && !props.loading ? (
+        <StatusBlock
+          action={props.offline ? undefined : { icon: "RefreshCw", label: "Try again", onPress: props.onRefresh }}
+          body={
+            props.readError ??
+            (props.offline
+              ? "Your requests load when you’re back online."
+              : "Privacy requests could not be loaded. Try again.")
+          }
+          icon={props.offline ? "WifiOff" : "CircleAlert"}
+          testID="privacy-error"
+          title={props.offline ? "Requests need a connection" : "Requests couldn’t load"}
+          tone={props.offline ? "warning" : "danger"}
+        />
+      ) : !ready ? (
+        <View className="gap-[9px]">
+          <StatusSectionHeading title="Your requests" />
+          <ListSkeleton rows={2} />
+        </View>
+      ) : (
+        <>
+          {live && status ? (
+            <StatusCard
+              body={status.body}
+              icon={status.icon}
+              pill={status.pill}
+              testID="privacy-status"
+              title={status.title ?? status.pill}
+              tone={status.tone}
+            >
+              <PrivacySteps
+                done={status.step ?? 0}
+                live={live.status === "processing"}
+                warm={status.tone === "warning"}
+              />
+              <Text className="text-muted-foreground" variant="small">
+                {`Requested ${privacyDay(live.requestedAt)}${live.status === "processing" ? "" : ` · We respond by ${privacyDueDay(live)}`}`}
+              </Text>
+              <PrivacyReference id={live.id} />
+            </StatusCard>
+          ) : (
+            <StatusCard
+              body={props.notice!.scope}
+              icon="Trash2"
+              pill="No request"
+              testID="privacy-status"
+              title="Delete your account"
+              tone="danger"
+            />
+          )}
+          {!live ? (
+            <StatusSection side="Current notice" title="Before you request deletion">
+              {items.map((item) => (
+                <StatusRow
+                  alignTop
+                  icon={item.icon}
+                  key={item.text}
+                  meta={item.text}
+                  title={item.heading}
+                  tone={item.tone}
+                />
+              ))}
+            </StatusSection>
+          ) : null}
+          {past.length ? (
+            <StatusSection title="Past requests">
+              {past.map((request) => {
+                const copy = PRIVACY_STATUS[request.status]
+                return (
+                  <StatusRow
+                    alignTop
+                    icon={copy.icon}
+                    key={request.id}
+                    meta={pastRequestNote(request)}
+                    title={`${copy.pill} · requested ${privacyDay(request.requestedAt)}`}
+                    tone={copy.tone}
+                  />
+                )
+              })}
+            </StatusSection>
+          ) : !live ? (
+            <Text className="px-[4px] text-muted-foreground" variant="small">
+              No account deletion requests yet.
             </Text>
           ) : null}
-          {props.requests.map((request) => (
-            <View
-              className="gap-2 rounded-xl border border-border p-4"
-              key={request.id}
+        </>
+      )}
+
+      <FullScreenFormSheet
+        footer={
+          <View className="gap-[4px]">
+            <Button
+              disabled={props.offline}
+              loading={props.busy}
+              onPress={props.onSubmit}
+              testID="privacy-submit"
+              variant="destructive"
             >
-              <Text className="font-semibold">
-                {request.status.replaceAll("_", " ")}
-              </Text>
-              <Text className="text-sm text-muted-foreground">
-                Requested {new Date(request.requestedAt).toLocaleDateString()}
-              </Text>
-              <Text selectable className="text-xs text-muted-foreground">
-                Reference: {request.id}
-              </Text>
-              {request.accessRevokedAt && !request.completedAt ? (
-                <Text>
-                  Account access has ended. Data processing is still in
-                  progress.
-                </Text>
+              {props.writeError && !props.busy ? (
+                <Icon className="size-base text-destructive-foreground" name="RefreshCw" />
               ) : null}
-              {request.completionSummary ? (
-                <Text>{request.completionSummary}</Text>
-              ) : null}
-              {!request.accessRevokedAt &&
-              ["submitted", "verified", "awaiting_information"].includes(
-                request.status
-              ) ? (
-                <Button
-                  variant="outline"
-                  disabled={disabled}
-                  onPress={() =>
-                    props.onReview({ kind: "cancel", requestId: request.id })
-                  }
-                >
-                  <Text>Cancel deletion request</Text>
-                </Button>
-              ) : null}
-            </View>
-          ))}
-        </View>
-      </ScrollView>
-      <SubmissionReviewSheet
-        title={
-          props.confirmation?.kind === "cancel"
-            ? "Cancel deletion request?"
-            : "Submit deletion request?"
+              <Text>
+                {props.busy
+                  ? "Submitting…"
+                  : props.writeError
+                    ? "Try again"
+                    : "Submit deletion request"}
+              </Text>
+            </Button>
+            <Button disabled={props.busy} onPress={props.onCloseSheet} variant="ghost">
+              <Text>Go back</Text>
+            </Button>
+          </View>
         }
-        description={
-          props.confirmation?.kind === "cancel"
-            ? "Keep your account and withdraw this request before processing begins."
-            : "This submits a request for verification and processing. Account deletion begins after review."
-        }
-        rows={
-          props.confirmation?.kind === "request"
-            ? (props.notice?.consequences ?? []).map((value, index) => ({
-                label: `${index + 1}. Please review`,
-                value,
-              }))
-            : []
-        }
-        confirmLabel={
-          props.confirmation?.kind === "cancel"
-            ? "Cancel request"
-            : "Submit request"
-        }
-        cancelLabel="Go back"
-        error={props.error}
         isSubmitting={props.busy}
-        onClose={() => {
-          if (!props.busy) props.onReview(null)
-        }}
-        onConfirm={props.onConfirm}
-        visible={props.confirmation !== null}
+        onClose={props.onCloseSheet}
+        title="Review request"
+        visible={props.sheet === "review"}
+      >
+        <View className="gap-[16px]">
+          <View className="items-center gap-[6px] px-[8px] pb-[2px]">
+            <View className="mb-[6px]">
+              <StatusTile icon="Trash2" tone="danger" />
+            </View>
+            <Text accessibilityRole="header" className="text-center" variant="title">
+              Submit deletion request?
+            </Text>
+            <Text className="text-center text-muted-foreground" variant="small">
+              This submits a request for verification and processing. Account deletion begins after review.
+            </Text>
+          </View>
+          {props.writeError ? <StatusBanner kind="error" title={props.writeError} /> : null}
+          <Elevated className="rounded-[20px] bg-card" radius={20}>
+            <View className="px-[16px] py-[4px]">
+              {[
+                ["Account", props.accountLabel],
+                ["Covers", "All your cooperatives on HalaalVest"],
+                ["Notice", props.notice ? `Version ${noticeVersionLabel(props.notice.version)}` : "—"],
+              ].map(([label, value], index) => (
+                <View
+                  className={
+                    index > 0
+                      ? "min-h-[44px] flex-row items-center justify-between gap-[12px] border-t border-border py-[10px]"
+                      : "min-h-[44px] flex-row items-center justify-between gap-[12px] py-[10px]"
+                  }
+                  key={label}
+                >
+                  <Text className="text-muted-foreground" variant="small">
+                    {label}
+                  </Text>
+                  <Text className="min-w-0 shrink text-right font-bold" variant="small">
+                    {value}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </Elevated>
+          <StatusSection title="Please review">
+            {items.map((item, index) => (
+              <StatusRow
+                alignTop
+                icon={item.icon}
+                key={item.text}
+                meta={item.text}
+                title={`${index + 1}. ${item.heading}`}
+                tone={item.tone}
+              />
+            ))}
+          </StatusSection>
+        </View>
+      </FullScreenFormSheet>
+
+      <FullScreenFormSheet
+        footer={
+          <Button onPress={props.onDone} testID="privacy-success-done">
+            <Text>Done</Text>
+          </Button>
+        }
+        onClose={props.onDone}
+        title="Delete account"
+        visible={props.sheet === "success"}
+      >
+        {props.receipt ? (
+          <View className="items-center gap-[10px] px-[8px] pt-[48px]" testID="privacy-success">
+            <StatusTile icon="Check" size={56} tone="success" />
+            <Text accessibilityRole="header" className="mt-[6px] text-center" variant="screenTitle">
+              Request received
+            </Text>
+            <Text className="mb-[8px] max-w-[300px] text-center text-muted-foreground" variant="body">
+              {`Keep this reference to follow up. We respond within 30 days, by ${privacyDueDay(props.receipt)}.`}
+            </Text>
+            <View className="self-stretch">
+              <Elevated className="rounded-[12px] bg-card" radius={12}>
+                <PrivacyReference id={props.receipt.id} raised />
+              </Elevated>
+            </View>
+          </View>
+        ) : null}
+      </FullScreenFormSheet>
+
+      <ConfirmSheet
+        cancelLabel="Go back"
+        confirmDisabled={props.offline}
+        confirmLabel={props.writeError ? "Try again" : "Cancel request"}
+        description="Keep your account and withdraw this request before processing begins."
+        error={props.writeError}
+        icon="Undo2"
+        isConfirming={props.busy}
+        onCancel={props.onCloseSheet}
+        onConfirm={props.onConfirmCancel}
+        title="Cancel deletion request?"
+        visible={props.sheet === "cancel"}
       />
-    </SafeArea>
+    </ScreenShell>
   )
 }

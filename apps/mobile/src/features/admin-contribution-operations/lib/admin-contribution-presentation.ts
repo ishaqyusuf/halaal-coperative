@@ -1,38 +1,38 @@
+import { formatCompactMoney, formatMoney } from "@/lib/money"
+
 export function formatCurrency(value: number, currencyCode: string) {
-  return new Intl.NumberFormat("en-NG", {
-    currency: currencyCode,
-    maximumFractionDigits: 0,
-    style: "currency",
-  }).format(value)
+  return formatMoney(value, { currencyCode })
 }
 
 export function formatCompactCurrency(value: number, currencyCode: string) {
-  if (Math.abs(value) < 1_000) return formatCurrency(value, currencyCode)
-  const divisor = Math.abs(value) >= 1_000_000 ? 1_000_000 : 1_000
-  const suffix = divisor === 1_000_000 ? "m" : "k"
-  return `${new Intl.NumberFormat("en-NG", {
-    currency: currencyCode,
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 0,
-    style: "currency",
-  }).format(value / divisor)}${suffix}`
+  return formatCompactMoney(value, currencyCode)
 }
 
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+]
+
+/** "3 Nov 2026" from an ISO timestamp or date-only string (UTC parts). */
 export function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value))
+  const date = new Date(value)
+  return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`
 }
 
-export function labelize(value: string) {
-  return value
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase())
-}
-
-export function money(value: string) {
-  const parsed = Number(value.replace(/,/g, ""))
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
+/** "3 Nov" for rows in the current year. */
+export function formatShortDate(value: string, now = new Date()) {
+  const date = new Date(value)
+  return date.getUTCFullYear() === now.getUTCFullYear()
+    ? `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]}`
+    : formatDate(value)
 }

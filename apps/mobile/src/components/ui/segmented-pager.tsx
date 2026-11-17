@@ -36,7 +36,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { scheduleOnRN } from "react-native-worklets"
+import { scheduleOnRN, scheduleOnUI } from "react-native-worklets"
 
 const EASING = Easing.bezier(...motion.sheet.bezier)
 
@@ -269,6 +269,16 @@ export function SegmentedPager({
           contentContainerStyle={{ gap: PAGER_GAP }}
           horizontal
           nestedScrollEnabled
+          // A pager that starts past lane 0 must re-apply its offset once
+          // the lanes are laid out; the reaction's first scrollTo runs while
+          // the content is still 0 wide and clamps to lane 0 (T18).
+          onContentSizeChange={() => {
+            const offset = position.get() * (width + PAGER_GAP)
+            scheduleOnUI(() => {
+              "worklet"
+              scrollTo(viewportRef, offset, 0, false)
+            })
+          }}
           onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
           ref={viewportRef}
           removeClippedSubviews={false}

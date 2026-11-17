@@ -51,14 +51,10 @@ const adminFinanceSupport = [
     "admin-finance-support/hooks/use-admin-finance-support-controller.ts"
   ),
 ]
-const adminContributions = feature(
-  "admin-contribution-operations/screens/admin-contribution-operations-screen.tsx"
-)
+const adminContributionForm = (file: string) =>
+  feature(`admin-contribution-operations/components/${file}`)
 const adminContributionPayment = [
-  adminContributions,
-  feature(
-    "admin-contribution-operations/components/post-contribution-payment-sheet.tsx"
-  ),
+  adminContributionForm("post-contribution-payment-sheet.tsx"),
 ]
 const adminCharges = feature(
   "admin-charge-operations/screens/admin-charge-operations-screen.tsx"
@@ -239,19 +235,19 @@ export const mobileQaFormCoverage = [
     formId: "mobile.admin.contribution-plan",
     kind: "recipe",
     recipe: "adminContributions",
-    sources: [adminContributions],
+    sources: [adminContributionForm("contribution-plan-sheet.tsx")],
   },
   {
     formId: "mobile.admin.contribution-batch",
     kind: "recipe",
     recipe: "adminContributions",
-    sources: [adminContributions],
+    sources: [adminContributionForm("contribution-batch-sheet.tsx")],
   },
   {
     formId: "mobile.admin.contribution-batch-row",
     kind: "recipe",
     recipe: "adminContributions",
-    sources: [adminContributions],
+    sources: [adminContributionForm("contribution-row-sheet.tsx")],
   },
   {
     formId: "mobile.admin.charge-application",
@@ -472,7 +468,7 @@ export const mobileQaNonFormFieldSources = [
     source: feature("auth/components/qa-profile-chooser.tsx"),
   },
   {
-    reason: "Contribution member search is not a submitted form.",
+    reason: "Contribution lane search is not a submitted form.",
     source: feature(
       "admin-contribution-operations/components/admin-contribution-workspace.tsx"
     ),

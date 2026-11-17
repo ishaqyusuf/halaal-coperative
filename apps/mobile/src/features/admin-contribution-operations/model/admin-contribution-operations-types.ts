@@ -77,28 +77,40 @@ export type CollectionBatchSummary = {
 
 export type CollectionSource = { id: string; name: string; type: string }
 
-export type ContributionWorkspace = {
-  cache?: {
-    ageMs: number
-    cachedAt: string
-    scope: string
-    status: "live" | "stale"
-  }
+export type ReadCache = {
+  ageMs: number
+  cachedAt: string
+  scope: string
+  status: "live" | "stale"
+}
+
+/** Lane-independent header data, read once per visit and after writes. */
+export type ContributionSummary = {
+  cache?: ReadCache
   capabilities: ContributionCapabilities
   currencyCode: string
-  data: (
-    | ContributionLedgerRow
-    | ContributionMemberRow
-    | CollectionBatchSummary
-  )[]
   generatedAt: string
-  lane: ContributionLane
-  nextCursor: string | null
-  sources?: CollectionSource[]
+  sources: CollectionSource[]
   stats: ContributionStats
 }
 
+export type ContributionLaneRow =
+  | ContributionLedgerRow
+  | ContributionMemberRow
+  | CollectionBatchSummary
+
+/** One cursor page of a lane (current builds send includeSummary: false). */
+export type ContributionWorkspace = {
+  cache?: ReadCache
+  capabilities: ContributionCapabilities
+  data: ContributionLaneRow[]
+  generatedAt: string
+  lane: ContributionLane
+  nextCursor: string | null
+}
+
 export type ContributionMemberWorkspace = {
+  cache?: ReadCache
   activeLoan: {
     estimatedMonthlyServicing: number
     id: string
@@ -108,8 +120,10 @@ export type ContributionMemberWorkspace = {
   commitmentTarget: number
   contributionHistory: {
     amount: number
+    channel?: string
     id: string
     postedAt: string
+    reference?: string | null
     status: string
   }[]
   deductionSourceName: string | null
@@ -147,6 +161,7 @@ export type CollectionBatchRow = {
 }
 
 export type CollectionBatchDetail = CollectionBatchSummary & {
+  cache?: ReadCache
   rows: CollectionBatchRow[]
 }
 

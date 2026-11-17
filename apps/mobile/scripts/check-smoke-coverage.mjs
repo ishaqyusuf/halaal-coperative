@@ -414,18 +414,25 @@ assertIncludes(
   "src/features/admin-contribution-operations/screens/admin-contribution-operations-screen.tsx",
   [
     "AdminContributionWorkspace",
-    "CompactFormSheet",
-    "FullScreenFormSheet",
-    "SubmissionReviewSheet",
-    "runOnlineOperation",
-    "expectedState",
-    "DevQuickFill",
+    "ContributionBatchSheet",
+    "ContributionReviewSheet",
+    "useRefreshContributions",
   ]
 )
 
 assertIncludes(
+  "src/features/admin-contribution-operations/components/contribution-review-sheet.tsx",
+  ["runOnlineOperation", "ContributionResultSheet"]
+)
+
+assertIncludes(
+  "src/features/admin-contribution-operations/components/post-contribution-payment-sheet.tsx",
+  ["expectedState", "DevQuickFill", "splitFinancingPayment"]
+)
+
+assertIncludes(
   "src/features/admin-contribution-operations/components/admin-contribution-workspace.tsx",
-  ["VirtualizedCardList", 'testID="admin-contribution-operations-screen"']
+  ["SegmentedPager", "useAppInfiniteQuery", 'testID="admin-contribution-operations-screen"']
 )
 
 assertIncludes(

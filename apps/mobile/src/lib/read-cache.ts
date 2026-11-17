@@ -49,7 +49,7 @@ function sweepLegacyReadKeys() {
 export async function readCachedMobileQuery<T extends object>(
   key: string,
   query: () => Promise<T>,
-  options: { persist?: boolean } = {}
+  options: { persist?: boolean; shouldFallback?: (error: unknown) => boolean } = {}
 ): Promise<T & { cache: MobileReadCacheState }> {
   const scope = requireMobilePersistenceScope()
   const scopedCacheKey = cacheKey(key, scope.key)
@@ -95,6 +95,7 @@ export async function readCachedMobileQuery<T extends object>(
       },
     }
   } catch (error) {
+    if (options.shouldFallback?.(error) === false) throw error
     const cachedValue = await AsyncStorage.getItem(scopedCacheKey)
 
     if (!cachedValue) {

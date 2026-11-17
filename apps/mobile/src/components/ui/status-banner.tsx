@@ -49,6 +49,7 @@ export function StatusBanner({
   retrying = false,
   retryLabel = "Retry",
   title,
+  tone,
 }: {
   className?: string
   description?: string
@@ -57,26 +58,31 @@ export function StatusBanner({
   retrying?: boolean
   retryLabel?: string
   title: string
+  tone?: "neutral"
 }) {
   const colors = useColors()
   const config = KIND[kind]
+  const foreground = tone === "neutral" ? "text-foreground-soft" : config.text
   return (
     <View
       accessibilityLiveRegion="polite"
       accessibilityRole={config.role}
       className={cn(
         "flex-row items-center gap-[12px] rounded-[18px] px-[14px] py-[12px]",
-        config.surface,
+        tone === "neutral" ? "bg-surface-raised" : config.surface,
         className
       )}
     >
-      <Icon className={cn("size-base self-start mt-[2px]", config.text)} name={config.icon} />
+      <Icon
+        className={cn("size-base mt-[2px] self-start", foreground)}
+        name={config.icon}
+      />
       <View className="min-w-0 flex-1 gap-[2px]">
-        <Text className={config.text} variant="label">
+        <Text className={foreground} variant="label">
           {title}
         </Text>
         {description ? (
-          <Text className={config.text} variant="small">
+          <Text className={foreground} variant="small">
             {description}
           </Text>
         ) : null}

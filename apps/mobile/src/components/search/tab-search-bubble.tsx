@@ -20,6 +20,8 @@ type TabSearchBubbleProps = {
   accessibilityLabel: string
   /** The tab dock is sunk; the bubble drops to the safe-area position. */
   dockHidden: boolean
+  /** Sink the button with the dock while scrolling down. */
+  hideWhenDockHidden?: boolean
   maxLength?: number
   onChangeText: (value: string) => void
   /** Reports search focus, e.g. to fold the screen's top card (useSearchFold). */
@@ -45,6 +47,7 @@ function bubbleBottom(bottomInset: number, dockHidden: boolean) {
 export function TabSearchBubble({
   accessibilityLabel,
   dockHidden,
+  hideWhenDockHidden = false,
   maxLength = 160,
   onChangeText,
   onFocusChange,
@@ -59,15 +62,17 @@ export function TabSearchBubble({
   const wasFocused = useRef(false)
   const expanded = open || value.length > 0
   const aboveDock = bubbleBottom(insets.bottom, false)
-  const targetBottom = bubbleBottom(insets.bottom, dockHidden)
+  const hidden = hideWhenDockHidden && dockHidden
+  const targetBottom = hidden ? -52 : bubbleBottom(insets.bottom, dockHidden)
   const targetRight = 20 + rightInset
   const bottom = useSharedValue(targetBottom)
   const right = useSharedValue(targetRight)
 
-  // Scrolling sinks only the dock, never the search button; it moves down
-  // with the dock's motion instead.
+  // Follow the dock motion, or sink off-screen when the caller hides the button.
   useEffect(() => {
-    bottom.set(animateDock(targetBottom, targetBottom < bottom.get(), reduceMotion))
+    bottom.set(
+      animateDock(targetBottom, targetBottom < bottom.get(), reduceMotion)
+    )
   }, [bottom, reduceMotion, targetBottom])
   useEffect(() => {
     right.set(animateDock(targetRight, false, reduceMotion))
@@ -110,7 +115,9 @@ export function TabSearchBubble({
 
   return (
     <Animated.View
-      pointerEvents="box-none"
+      pointerEvents={hidden ? "none" : "box-none"}
+      accessibilityElementsHidden={hidden}
+      importantForAccessibility={hidden ? "no-hide-descendants" : "auto"}
       style={[{ position: "absolute", zIndex: 900 }, buttonStyle]}
     >
       <FloatingSearchButton

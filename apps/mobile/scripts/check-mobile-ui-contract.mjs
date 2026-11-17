@@ -469,7 +469,7 @@ function checkScreenHeaders() {
 
   checkSourceMarkers(
     "src/features/admin-finance-support/components/admin-finance-work-queue.tsx",
-    ["<ScreenHeader"]
+    ["<ScreenShell", "<SegmentedControl", "<SegmentedPager", "<TabSearchBubble"]
   )
 
   for (const screen of screens) {

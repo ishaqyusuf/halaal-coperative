@@ -351,9 +351,9 @@ function checkAdminFinanceSupportOwnership() {
 
   const actionStack = readFileSync(join(MOBILE_DIR, required[1]), "utf8")
   for (const marker of [
-    "CompactFormSheet",
-    "FullScreenFormSheet",
-    "SubmissionReviewSheet",
+    "AppSheet",
+    "SubmittingState",
+    "ResultScreen",
     "DevQuickFill",
   ]) {
     if (!actionStack.includes(marker)) {
@@ -365,8 +365,9 @@ function checkAdminFinanceSupportOwnership() {
   for (const marker of [
     "runOnlineOperation",
     "expectedState",
-    "showSuccessAfterReviewRef.current = true",
-    "reopenIntentRef.current = intent",
+    'setPhase("success")',
+    'setPhase("error")',
+    "void invalidate()",
   ]) {
     if (!controller.includes(marker)) {
       failures.push(`${required[2]} is missing safe review marker ${marker}`)

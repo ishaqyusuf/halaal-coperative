@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
 import { Text } from "@/components/ui/text"
 import { cn } from "@/lib/utils"
+import type { ComponentProps } from "react"
 import { View } from "react-native"
 
 /**
@@ -17,7 +18,12 @@ export function EmptyState({
   title,
   tone = "default",
 }: {
-  action?: { label: string; onPress: () => void; loading?: boolean }
+  action?: {
+    label: string
+    onPress: () => void
+    loading?: boolean
+    variant?: ComponentProps<typeof Button>["variant"]
+  }
   className?: string
   description?: string
   icon?: string
@@ -58,7 +64,10 @@ export function EmptyState({
           {title}
         </Text>
         {description ? (
-          <Text className="max-w-[300px] text-center text-muted-foreground" variant="small">
+          <Text
+            className="max-w-[300px] text-center text-muted-foreground"
+            variant="small"
+          >
             {description}
           </Text>
         ) : null}
@@ -69,7 +78,7 @@ export function EmptyState({
           loading={action.loading}
           onPress={action.onPress}
           size="sm"
-          variant="secondary"
+          variant={action.variant ?? "secondary"}
         >
           <Text>{action.label}</Text>
         </Button>

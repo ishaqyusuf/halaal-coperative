@@ -328,11 +328,15 @@ assertIncludes("src/features/financing/screens/member-financing-requests-screen.
 ])
 assertIncludes(
   "src/features/admin-finance-support/hooks/use-admin-finance-support-controller.ts",
-  ["useMobileFormDraft", "isMobileReadCacheStale"]
+  ["useMobileFormDraft", "useAdminFinanceDesk"]
+)
+assertIncludes(
+  "src/features/admin-finance-support/hooks/use-admin-finance-desk.ts",
+  ["useAppInfiniteQuery", "isMobileReadCacheStale", "getNextPageParam"]
 )
 assertIncludes(
   "src/features/admin-finance-support/components/admin-finance-work-queue.tsx",
-  ["CachedReadBanner", "LegendList"]
+  ["StatusBanner", "ScreenShell", "AdminFinanceOperationsGrid"]
 )
 
 for (const screen of [
@@ -388,7 +392,6 @@ assertIncludes(
   [
     "useAdminFinanceSupportController",
     "AdminFinanceWorkQueue",
-    "AdminFinanceOperationsSheet",
     "AdminFinanceItemDetailSheet",
     "AdminFinanceActionStack",
   ]
@@ -397,11 +400,10 @@ assertIncludes(
 assertIncludes(
   "src/features/admin-finance-support/components/admin-finance-action-stack.tsx",
   [
-    "FullScreenFormSheet",
-    "CompactFormSheet",
-    "SubmissionReviewSheet",
+    "AppSheet",
+    "SubmittingState",
+    "ResultScreen",
     "DevQuickFill",
-    "CalendarPickerSheet",
   ]
 )
 
@@ -410,9 +412,9 @@ assertIncludes(
   [
     "runOnlineOperation",
     "expectedState",
-    "showSuccessAfterReviewRef.current = true",
-    "void loadOverview()",
-    "reopenIntentRef.current = intent",
+    'setPhase("success")',
+    "void invalidate()",
+    'setPhase("error")',
   ]
 )
 

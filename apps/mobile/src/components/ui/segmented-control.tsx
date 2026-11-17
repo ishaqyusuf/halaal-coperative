@@ -24,6 +24,7 @@ export type SegmentedOption<T extends string> = {
   /** Optional count shown after the label ("Ledger 34"). */
   count?: number | string
   countBadge?: boolean
+  countTone?: "attention"
   accessibilityLabel?: string
   disabled?: boolean
 }
@@ -121,7 +122,9 @@ export function SegmentedControl<T extends string>({
       transform: [
         {
           translateX:
-            positions.length > 1 ? interpolate(at, input, positions) : positions[0],
+            positions.length > 1
+              ? interpolate(at, input, positions)
+              : positions[0],
         },
       ],
       width: sizes.length > 1 ? interpolate(at, input, sizes) : sizes[0],
@@ -135,7 +138,7 @@ export function SegmentedControl<T extends string>({
         pointerEvents="none"
         style={[
           {
-            backgroundColor: colors.surfaceFloat,
+            backgroundColor: colors.segmentedIndicator,
             borderRadius: 11,
             bottom: 0,
             boxShadow: "0 1px 3px rgba(0, 0, 0, 0.10)",
@@ -176,7 +179,9 @@ export function SegmentedControl<T extends string>({
             {option.icon ? (
               <Icon
                 className={
-                  selected ? "size-sm text-primary" : "size-sm text-muted-foreground"
+                  selected
+                    ? "size-sm text-primary"
+                    : "size-sm text-muted-foreground"
                 }
                 name={option.icon}
               />
@@ -191,9 +196,15 @@ export function SegmentedControl<T extends string>({
             {option.count !== undefined ? (
               <Text
                 className={cn(
-                  "text-muted-foreground",
-                  option.countBadge && "min-w-[20px] overflow-hidden rounded-full px-[5px] text-center leading-[20px]",
-                  option.countBadge && (option.count ? "bg-primary text-primary-foreground" : "bg-muted"),
+                  option.countTone === "attention"
+                    ? "text-tint-vivid-foreground"
+                    : "text-muted-foreground",
+                  option.countBadge &&
+                    "min-w-[20px] overflow-hidden rounded-full px-[5px] text-center leading-[20px]",
+                  option.countBadge &&
+                    (option.count
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted")
                 )}
                 tabular
                 variant="caption"
@@ -211,7 +222,7 @@ export function SegmentedControl<T extends string>({
     <View
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="tablist"
-      className={cn("rounded-[14px] bg-surface-raised p-[3px]", className)}
+      className={cn("bg-surface-raised rounded-[14px] p-[3px]", className)}
     >
       {shouldScroll ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>

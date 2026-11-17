@@ -28,6 +28,7 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-surface-raised: var(--surface-raised);
   --color-surface-float: var(--surface-float);
+  --color-segmented-indicator: var(--segmented-indicator);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-brand: var(--brand);
@@ -84,6 +85,7 @@
     --popover-foreground: rgb(17, 24, 20);
     --surface-raised: rgb(235, 240, 238);
     --surface-float: rgb(255, 255, 255);
+    --segmented-indicator: rgb(255, 255, 255);
     --primary: rgb(15, 118, 110);
     --primary-foreground: rgb(255, 255, 255);
     --brand: rgb(13, 148, 136);
@@ -148,6 +150,7 @@
       --popover-foreground: rgb(250, 250, 250);
       --surface-raised: rgb(36, 38, 38);
       --surface-float: rgb(36, 38, 38);
+      --segmented-indicator: rgb(53, 56, 55);
       --primary: rgb(45, 212, 191);
       --primary-foreground: rgb(4, 47, 46);
       --brand: rgb(45, 212, 191);

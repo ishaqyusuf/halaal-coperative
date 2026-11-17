@@ -34,7 +34,7 @@ export type AdminFinanceSupportItem = {
   allowedActions: AdminFinanceSupportAction[]
   amount: number | null
   blockers: string[]
-  details: Array<{ label: string; value: string }>
+  details: { label: string; value: string }[]
   financialAdjustmentApprovalStatus: string | null
   id: string
   member: { id: string; name: string; number: string } | null
@@ -43,37 +43,9 @@ export type AdminFinanceSupportItem = {
   requestedAt: string
   requiresFinancialAdjustment: boolean
   state: string
+  displayState?: string
   subtitle: string
   title: string
-}
-
-export type AdminFinanceSupportOverview = {
-  cache?: MobileReadCacheState
-  capabilities: {
-    approveMoneyImpactSupport: boolean
-    manageSupport: boolean
-    recordCollectionFollowUp: boolean
-    reviewFinancing: boolean
-    reviewFoodPurchase: boolean
-    reviewProcurement: boolean
-    reviewProjectFinancing: boolean
-    reviewReceipts: boolean
-    reviewShares: boolean
-  }
-  generatedAt: string
-  items: AdminFinanceSupportItem[]
-  queueCounts: Array<{
-    count: number
-    key: AdminFinanceSupportQueueKey
-    label: string
-  }>
-  state: "database_unavailable" | "ready"
-  stats: Array<{
-    format: "count" | "currency" | "percent"
-    key: string
-    label: string
-    value: number
-  }>
 }
 
 export type AdminFinanceSupportCommandResult = {
@@ -86,4 +58,39 @@ export type AdminFinanceSupportCommandResult = {
 export type AdminFinanceSupportCommandBase = {
   commandId: string
   expectedState: string
+}
+
+export type FinanceDeskCursor = {
+  at: string
+  id: string
+  queueKey: AdminFinanceSupportQueueKey
+}
+
+export type FinanceDeskKey =
+  | "financing"
+  | "contributions"
+  | "repayments"
+  | "charges"
+  | "procurement"
+  | "projectFinancing"
+  | "foodPurchase"
+  | "shares"
+
+export type FinanceDeskSummary = {
+  total: number
+  blocked: number
+  queueCounts: {
+    key: AdminFinanceSupportQueueKey
+    count: number
+    blocked: number
+  }[]
+  deskCounts: Record<FinanceDeskKey, number | null>
+}
+
+export type FinanceDeskPage = {
+  cache?: MobileReadCacheState
+  generatedAt: string
+  items: AdminFinanceSupportItem[]
+  nextCursor: FinanceDeskCursor | null
+  summary: FinanceDeskSummary | null
 }

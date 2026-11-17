@@ -1,19 +1,44 @@
-import { FloatingBottomSheet } from "@/components/floating-bottom-sheet"
+import { AppSheet } from "@/components/app/app-sheet"
+import { ReviewRow } from "@/components/app/result-screen"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
+import { ListCard, TintedAvatar } from "@/components/ui/list-card"
+import { StatusBanner } from "@/components/ui/status-banner"
+import { StatusPill } from "@/components/ui/status-pill"
 import { Text } from "@/components/ui/text"
-import { Pressable, View } from "react-native"
-import type {
-  AdminFinanceSupportAction,
-  AdminFinanceSupportItem,
-} from "../model/admin-finance-support-types"
+import { View } from "react-native"
 import {
+  financeDeskItemStatus,
+  financeDeskLaneNames,
   formatAdminFinanceAge,
   formatAdminFinanceCurrency,
   formatAdminFinanceStatus,
 } from "../model/admin-finance-support-presentation"
+import type {
+  AdminFinanceSupportAction,
+  AdminFinanceSupportItem,
+} from "../model/admin-finance-support-types"
+
+function displayDetail(label: string, value: string, currencyCode: string) {
+  if (
+    /amount|cost|outstanding|unit amount|snapshot value/i.test(label) &&
+    /^\d+(\.\d+)?$/.test(value)
+  ) {
+    return formatAdminFinanceCurrency(Number(value), currencyCode)
+  }
+  if (label === "Due date" && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+    return new Date(value).toLocaleDateString("en-NG", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
+    })
+  }
+  return value.includes("_") ? formatAdminFinanceStatus(value) : value
+}
 
 export function AdminFinanceItemDetailSheet({
+  blocked,
   currencyCode,
   item,
   onAction,
@@ -21,6 +46,7 @@ export function AdminFinanceItemDetailSheet({
   onDismissed,
   visible,
 }: {
+  blocked: boolean
   currencyCode: string
   item: AdminFinanceSupportItem | null
   onAction: (action: AdminFinanceSupportAction) => void
@@ -28,159 +54,186 @@ export function AdminFinanceItemDetailSheet({
   onDismissed: () => void
   visible: boolean
 }) {
+  if (!item) return null
+  const actions = item.allowedActions
+  const primary =
+    actions.find(
+      (action) => !action.destructive && action.key !== "mark_under_review"
+    ) ?? actions[0]
+  const start = actions.find(
+    (action) => action.key === "mark_under_review" && action !== primary
+  )
+  const rest = actions.filter(
+    (action) => action !== primary && action !== start
+  )
+  const lane = financeDeskLaneNames[item.queueKey]
+  const status = financeDeskItemStatus(item)
+  // These rows and actions already establish a lower bound before text wrapping.
+  const minimumContentHeight =
+    52 +
+    16 +
+    (item.amount === null ? 26 : 54) +
+    (item.details.length ? 42 + item.details.length * 48 : 0) +
+    (item.policyEvidence.length ? 42 + item.policyEvidence.length * 20 : 0) +
+    (primary ? 80 : 0) +
+    (rest.length ? 52 : 0) +
+    (start ? 52 : 0)
   return (
-    <FloatingBottomSheet
-      accessibilityLabel={item ? `Review ${item.title}` : "Review work item"}
-      hideHandle
-      onClose={onClose}
-      onDismissed={onDismissed}
-      presentation="compact"
-      scrollable="auto"
-      visible={visible}
-    >
-      <View className="gap-5 px-5 pt-5 pb-6">
-        <View className="flex-row items-start gap-3">
-          <View className="min-w-0 flex-1 gap-1">
-            <Text
-              accessibilityRole="header"
-              className="text-xl font-black tracking-tight text-foreground"
+    <AppSheet
+      footer={
+        primary ? (
+          <View className="gap-[8px]">
+            <Button
+              disabled={blocked}
+              onPress={() => onAction(primary)}
+              testID={`admin-finance-action-${primary.key}`}
+              variant={primary.destructive ? "destructive" : "default"}
             >
-              {item?.title ?? "Review work"}
-            </Text>
-            {item ? (
-              <Text className="text-sm leading-5 text-muted-foreground">
-                {item.member?.number ?? formatAdminFinanceStatus(item.queueKey)}{" "}
-                · {item.subtitle}
-              </Text>
-            ) : null}
-          </View>
-          <Button
-            accessibilityLabel="Close work item"
-            onPress={onClose}
-            size="icon"
-            variant="ghost"
-          >
-            <Icon className="size-base text-foreground" name="X" />
-          </Button>
-        </View>
-
-        {item ? (
-          <>
-            <View className="flex-row items-end justify-between gap-3 border-b border-border pb-4">
-              <Text className="min-w-0 flex-1 text-sm font-semibold text-muted-foreground">
-                {formatAdminFinanceStatus(item.state)} ·{" "}
-                {formatAdminFinanceAge(item.ageMinutes)}
-              </Text>
-              {item.amount !== null ? (
-                <Text className="shrink-0 text-xl font-black text-foreground">
-                  {formatAdminFinanceCurrency(item.amount, currencyCode)}
-                </Text>
-              ) : null}
-            </View>
-
-            {item.details.length ? (
-              <View className="gap-3">
-                <Text className="text-sm font-bold text-foreground">
-                  Details
-                </Text>
-                {item.details.map((detail) => (
-                  <View
-                    className="flex-row items-start justify-between gap-4"
-                    key={`${detail.label}-${detail.value}`}
+              <Text>{primary.label}</Text>
+            </Button>
+            {rest.length ? (
+              <View className="flex-row flex-wrap gap-[8px]">
+                {rest.map((action) => (
+                  <Button
+                    className={
+                      action.destructive
+                        ? "bg-tint-danger flex-1"
+                        : "bg-surface-raised flex-1"
+                    }
+                    disabled={blocked}
+                    key={action.key}
+                    onPress={() => onAction(action)}
+                    size="sm"
+                    testID={`admin-finance-action-${action.key}`}
+                    variant="secondary"
                   >
-                    <Text className="text-sm text-muted-foreground">
-                      {detail.label}
+                    <Text
+                      className={
+                        action.destructive
+                          ? "text-tint-danger-foreground"
+                          : "text-foreground"
+                      }
+                    >
+                      {action.label}
                     </Text>
-                    <Text className="max-w-[60%] text-right text-sm font-semibold text-foreground">
-                      {detail.value}
-                    </Text>
-                  </View>
+                  </Button>
                 ))}
               </View>
             ) : null}
-
-            {item.policyEvidence.length ? (
-              <View className="border-brand/40 gap-2 border-l-2 pl-3">
-                <Text className="text-sm font-bold text-foreground">
-                  Evidence
+            {start ? (
+              <Button
+                disabled={blocked}
+                onPress={() => onAction(start)}
+                size="sm"
+                testID="admin-finance-action-mark_under_review"
+                variant="link"
+              >
+                <Text>Mark as in review</Text>
+              </Button>
+            ) : null}
+          </View>
+        ) : undefined
+      }
+      insetFloatingFooter
+      minimumContentHeight={minimumContentHeight}
+      onClose={onClose}
+      onDismissed={onDismissed}
+      title={lane}
+      visible={visible}
+    >
+      <View className="gap-[16px]">
+        <View className="flex-row items-center gap-[12px]">
+          <TintedAvatar name={item.title} size={52} />
+          <View className="min-w-0 flex-1 gap-[2px]">
+            <Text variant="title">{item.title}</Text>
+            <Text className="text-muted-foreground" variant="small">
+              {[item.member?.number, lane].filter(Boolean).join(" · ")}
+            </Text>
+          </View>
+        </View>
+        <View className="flex-row items-end justify-between gap-[10px]">
+          <View className="min-w-0 flex-1 gap-[2px]">
+            {item.amount === null ? (
+              <Text variant="title">{item.subtitle}</Text>
+            ) : (
+              <>
+                <Text
+                  className="text-[30px] leading-[36px]"
+                  tabular
+                  variant="screenTitle"
+                >
+                  {formatAdminFinanceCurrency(item.amount, currencyCode)}
                 </Text>
-                {item.policyEvidence.map((evidence) => (
+                <Text className="text-muted-foreground" variant="caption">
+                  {item.subtitle}
+                </Text>
+              </>
+            )}
+          </View>
+          <View className="items-end gap-[4px]">
+            <StatusPill label={status.label} tone={status.tone} />
+            <Text className="text-muted-foreground" variant="caption">
+              {formatAdminFinanceAge(item.ageMinutes)}
+            </Text>
+          </View>
+        </View>
+        {item.blockers.length ? (
+          <StatusBanner
+            description={item.blockers.join("\n")}
+            kind="error"
+            title="Blocked"
+          />
+        ) : null}
+        {blocked ? (
+          <StatusBanner
+            description="Refresh online to act on this item."
+            kind="offline"
+            title="Reviews are paused"
+          />
+        ) : null}
+        {item.details.length ? (
+          <View className="gap-[8px]">
+            <Text variant="label">Details</Text>
+            <ListCard inset={false}>
+              {item.details.map(({ label, value }) => (
+                <ReviewRow
+                  key={label}
+                  label={label}
+                  value={displayDetail(label, value, currencyCode)}
+                />
+              ))}
+            </ListCard>
+          </View>
+        ) : null}
+        {item.policyEvidence.length ? (
+          <View className="gap-[8px]">
+            <Text variant="label">Evidence</Text>
+            <View className="border-brand gap-[8px] border-l-2 pl-[12px]">
+              {item.policyEvidence.map((evidence) => (
+                <View className="flex-row items-start gap-[8px]" key={evidence}>
+                  <Icon
+                    className="text-success mt-[2px] size-[16px]"
+                    name="Check"
+                  />
                   <Text
-                    className="text-xs leading-5 text-muted-foreground"
-                    key={evidence}
+                    className="text-foreground-soft min-w-0 flex-1"
+                    variant="small"
                   >
                     {evidence}
                   </Text>
-                ))}
-              </View>
-            ) : null}
-
-            {item.blockers.length ? (
-              <View className="bg-brand-vivid/10 gap-1 px-3 py-2">
-                <Text className="text-brand-vivid text-sm font-bold">
-                  Blocked
-                </Text>
-                {item.blockers.map((blocker) => (
-                  <Text
-                    className="text-brand-vivid text-xs leading-5"
-                    key={blocker}
-                  >
-                    {blocker}
-                  </Text>
-                ))}
-              </View>
-            ) : null}
-
-            <View>
-              <Text className="pb-2 text-sm font-bold text-foreground">
-                Actions
-              </Text>
-              {item.allowedActions.length ? (
-                item.allowedActions.map((action) => (
-                  <Pressable
-                    accessibilityLabel={`${action.label} for ${item.title}`}
-                    accessibilityRole="button"
-                    className="min-h-12 flex-row items-center justify-between gap-3 border-t border-border py-3 active:bg-accent/40"
-                    key={action.key}
-                    onPress={() => onAction(action)}
-                  >
-                    <View className="min-w-0 flex-1 gap-0.5">
-                      <Text
-                        className={
-                          action.destructive
-                            ? "text-sm font-semibold text-destructive"
-                            : "text-sm font-semibold text-foreground"
-                        }
-                      >
-                        {action.label}
-                      </Text>
-                      {action.requiresEvidence || action.governanceOnly ? (
-                        <Text className="text-xs leading-5 text-muted-foreground">
-                          {action.governanceOnly
-                            ? "Governance record"
-                            : "Evidence required"}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <Icon
-                      className={
-                        action.destructive
-                          ? "size-sm text-destructive"
-                          : "size-sm text-muted-foreground"
-                      }
-                      name="ChevronRight"
-                    />
-                  </Pressable>
-                ))
-              ) : (
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  No permitted action.
-                </Text>
-              )}
+                </View>
+              ))}
             </View>
-          </>
+          </View>
+        ) : null}
+        {!primary ? (
+          <StatusBanner
+            description="Your role can’t act on this item."
+            kind="info"
+            title="View only"
+          />
         ) : null}
       </View>
-    </FloatingBottomSheet>
+    </AppSheet>
   )
 }

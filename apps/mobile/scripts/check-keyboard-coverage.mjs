@@ -137,6 +137,15 @@ const signInScreenSource = readFileSync(
   "utf8"
 )
 
+const financeActionStackSource = readFileSync(
+  join(
+    MOBILE_DIR,
+    "src/features/admin-finance-support/components/admin-finance-action-stack.tsx"
+  ),
+  "utf8"
+)
+const financeFormMarkers = ["<AppSheet", 'variant="form"', "<AdminFinanceActionForm"]
+
 for (const filePath of findTsxFiles(join(SOURCE_DIR, "features"))) {
   const source = readFileSync(filePath, "utf8")
   if (!/<(?:Input|Textarea)\b/.test(source)) continue
@@ -176,25 +185,7 @@ for (const filePath of findTsxFiles(join(SOURCE_DIR, "features"))) {
     (toMobilePath(filePath) ===
       "src/features/admin-finance-support/components/admin-finance-action-form.tsx" &&
       source.includes("export function AdminFinanceActionForm") &&
-      readFileSync(
-        join(
-          MOBILE_DIR,
-          "src/features/admin-finance-support/components/admin-finance-action-stack.tsx"
-        ),
-        "utf8"
-      ).includes("CompactFormSheet") &&
-      readFileSync(
-        join(
-          MOBILE_DIR,
-          "src/features/admin-finance-support/components/admin-finance-action-stack.tsx"
-        ),
-        "utf8"
-      ).includes("FullScreenFormSheet")) ||
-    (toMobilePath(filePath) ===
-      "src/features/admin-finance-support/components/admin-finance-work-queue.tsx" &&
-      source.includes("<LegendList") &&
-      source.includes('accessibilityLabel="Search finance queue"') &&
-      source.includes('keyboardDismissMode="on-drag"')) ||
+      financeFormMarkers.every((marker) => financeActionStackSource.includes(marker))) ||
     (toMobilePath(filePath) ===
       "src/features/admin-contribution-operations/components/admin-contribution-workspace.tsx" &&
       source.includes("<VirtualizedCardList") &&

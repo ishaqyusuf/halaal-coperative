@@ -1,364 +1,406 @@
+import { isUnrecoverableQueryError } from "@/lib/app-query-policy"
+import { matchesFinanceDeskSearch } from "../model/admin-finance-support-presentation"
 import { isMobileDevFixtureSession } from "@/dev/mobile-dev-session"
 import { createMobileTrpcClient } from "@/lib/mobile-trpc-client"
 import { isPersistableReadInput, readCachedMobileQuery } from "@/lib/read-cache"
 import type {
   AdminFinanceSupportCommandBase,
   AdminFinanceSupportCommandResult,
-  AdminFinanceSupportOverview,
+  AdminFinanceSupportAction,
+  AdminFinanceSupportActionKey,
+  AdminFinanceSupportItem,
   AdminFinanceSupportQueueKey,
+  FinanceDeskCursor,
+  FinanceDeskPage,
 } from "../model/admin-finance-support-types"
 
-let devOverview: AdminFinanceSupportOverview = {
-  capabilities: {
-    approveMoneyImpactSupport: true,
-    manageSupport: true,
-    recordCollectionFollowUp: true,
-    reviewFinancing: true,
-    reviewFoodPurchase: true,
-    reviewProcurement: true,
-    reviewProjectFinancing: true,
-    reviewReceipts: true,
-    reviewShares: true,
-  },
-  generatedAt: new Date().toISOString(),
-  items: [
+const fixtureAction = (
+  key: AdminFinanceSupportActionKey,
+  label: string
+): AdminFinanceSupportAction => ({
+  key,
+  label,
+  destructive: key === "reject",
+  governanceOnly:
+    key === "review_financial_adjustment" || key === "record_follow_up",
+  requiresConfirmation: true,
+  requiresEvidence: key !== "mark_under_review",
+})
+
+const start = fixtureAction("mark_under_review", "Start review")
+const approval = fixtureAction("approve", "Approve")
+const reject = fixtureAction("reject", "Reject")
+const correct = fixtureAction("request_correction", "Request correction")
+const review = [start, approval, reject]
+const receipt = [start, approval, correct, reject]
+const followUp = [fixtureAction("record_follow_up", "Record follow-up")]
+
+function fixtureItem(
+  key: AdminFinanceSupportQueueKey,
+  id: string,
+  title: string,
+  number: string,
+  subtitle: string,
+  amount: number | null,
+  ageMinutes: number,
+  state: string,
+  allowedActions: AdminFinanceSupportAction[],
+  extra: Partial<AdminFinanceSupportItem> = {}
+): AdminFinanceSupportItem {
+  return {
+    ageMinutes,
+    allowedActions,
+    amount,
+    blockers: [],
+    details: [],
+    financialAdjustmentApprovalStatus: null,
+    id,
+    member: { id: number, name: title, number: `QHC-${number}` },
+    policyEvidence: [],
+    queueKey: key,
+    requestedAt: new Date(Date.now() - ageMinutes * 60_000).toISOString(),
+    requiresFinancialAdjustment: false,
+    state,
+    subtitle,
+    title,
+    ...extra,
+  }
+}
+
+const receiptEvidence = [
+  "Payment proof attached",
+  "Allocation total matches the submitted amount",
+]
+
+let devItems = [
+  fixtureItem(
+    "receipts",
+    "receipt-dev-1",
+    "Yusuf Bello",
+    "0031",
+    "Ref HVC-260810 · Bank transfer",
+    85_000,
+    95,
+    "submitted",
+    receipt,
     {
-      ageMinutes: 95,
-      allowedActions: [
-        {
-          destructive: false,
-          governanceOnly: false,
-          key: "mark_under_review",
-          label: "Start review",
-          requiresConfirmation: true,
-          requiresEvidence: false,
-        },
-        {
-          destructive: false,
-          governanceOnly: false,
-          key: "approve",
-          label: "Approve",
-          requiresConfirmation: true,
-          requiresEvidence: true,
-        },
-        {
-          destructive: false,
-          governanceOnly: false,
-          key: "request_correction",
-          label: "Request correction",
-          requiresConfirmation: true,
-          requiresEvidence: true,
-        },
-        {
-          destructive: true,
-          governanceOnly: false,
-          key: "reject",
-          label: "Reject",
-          requiresConfirmation: true,
-          requiresEvidence: true,
-        },
-      ],
-      amount: 85_000,
-      blockers: [],
       details: [
         { label: "Submitted amount", value: "85000" },
-        { label: "Allocations", value: "2" },
-        { label: "Channel", value: "bank_transfer" },
+        { label: "Allocations", value: "2 · Contribution, Charges" },
+        { label: "Channel", value: "Bank transfer" },
+        { label: "Paid on", value: "14 Nov 2026" },
       ],
-      financialAdjustmentApprovalStatus: null,
-      id: "receipt-dev-1",
-      member: { id: "member-dev-1", name: "Yusuf Bello", number: "HV-1031" },
-      policyEvidence: [
-        "Payment evidence attached",
-        "Allocation total matches the submitted amount.",
-      ],
-      queueKey: "receipts",
-      requestedAt: new Date(Date.now() - 95 * 60_000).toISOString(),
-      requiresFinancialAdjustment: false,
-      state: "submitted",
-      subtitle: "Reference HVC-DEV-260810",
-      title: "Yusuf Bello",
-    },
+      policyEvidence: receiptEvidence,
+    }
+  ),
+  fixtureItem(
+    "financing",
+    "loan-dev-1",
+    "Maryam Ibrahim",
+    "0048",
+    "Murabaha · 12 months",
+    450_000,
+    190,
+    "submitted",
+    [start, reject],
     {
-      ageMinutes: 210,
-      allowedActions: [
-        {
-          destructive: false,
-          governanceOnly: false,
-          key: "mark_under_review",
-          label: "Start review",
-          requiresConfirmation: true,
-          requiresEvidence: false,
-        },
-        {
-          destructive: false,
-          governanceOnly: false,
-          key: "approve",
-          label: "Approve",
-          requiresConfirmation: true,
-          requiresEvidence: true,
-        },
-        {
-          destructive: true,
-          governanceOnly: false,
-          key: "reject",
-          label: "Reject",
-          requiresConfirmation: true,
-          requiresEvidence: true,
-        },
-      ],
-      amount: 450_000,
-      blockers: ["1 guarantor response remains."],
+      blockers: ["1 guarantor response remains"],
       details: [
         { label: "Requested amount", value: "450000" },
         { label: "Term", value: "12 months" },
-        { label: "Approvals", value: "0" },
+        { label: "Guarantors", value: "1 of 2 confirmed" },
+        { label: "Approvals", value: "0 of 2" },
       ],
-      financialAdjustmentApprovalStatus: null,
-      id: "loan-dev-1",
-      member: { id: "member-dev-2", name: "Maryam Ibrahim", number: "HV-1048" },
       policyEvidence: [
-        "Two distinct finance approvals are required.",
-        "1 of 2 guarantor responses recorded.",
+        "Savings cover 3× the monthly installment",
+        "No overdue installments on record",
       ],
-      queueKey: "financing",
-      requestedAt: new Date(Date.now() - 210 * 60_000).toISOString(),
-      requiresFinancialAdjustment: false,
-      state: "submitted",
-      subtitle: "Business equipment financing",
-      title: "Maryam Ibrahim",
-    },
+    }
+  ),
+  fixtureItem(
+    "procurement",
+    "procurement-dev-1",
+    "Aisha Bello",
+    "0042",
+    "Deep freezer · Sahad Stores",
+    180_000,
+    360,
+    "submitted",
+    review,
     {
-      ageMinutes: 265,
-      allowedActions: [
-        {
-          destructive: false,
-          governanceOnly: false,
-          key: "mark_under_review",
-          label: "Start review",
-          requiresConfirmation: true,
-          requiresEvidence: false,
-        },
-        {
-          destructive: false,
-          governanceOnly: false,
-          key: "approve",
-          label: "Approve",
-          requiresConfirmation: true,
-          requiresEvidence: true,
-        },
-        {
-          destructive: false,
-          governanceOnly: false,
-          key: "request_correction",
-          label: "Request correction",
-          requiresConfirmation: true,
-          requiresEvidence: true,
-        },
-        {
-          destructive: true,
-          governanceOnly: false,
-          key: "reject",
-          label: "Reject",
-          requiresConfirmation: true,
-          requiresEvidence: true,
-        },
-      ],
-      amount: 380_000,
-      blockers: [],
       details: [
-        { label: "Asset", value: "Commercial refrigerator" },
-        { label: "Requested term", value: "10 months" },
-        { label: "Vendor quotes", value: "2 attached" },
+        { label: "Item cost", value: "180000" },
+        { label: "Repayment", value: "6 months requested" },
+        { label: "Vendor", value: "Sahad Stores, Kano" },
+        { label: "Quote", value: "Valid to 30 Nov 2026" },
       ],
-      financialAdjustmentApprovalStatus: null,
-      id: "procurement-dev-1",
-      member: { id: "member-dev-5", name: "Fatima Musa", number: "HV-1054" },
       policyEvidence: [
-        "Two vendor quotations are attached.",
-        "Final amount and term remain subject to cooperative approval.",
+        "Vendor quote attached",
+        "Within the member’s procurement limit",
       ],
-      queueKey: "procurement",
-      requestedAt: new Date(Date.now() - 265 * 60_000).toISOString(),
-      requiresFinancialAdjustment: false,
-      state: "submitted",
-      subtitle: "Commercial refrigerator",
-      title: "Fatima Musa",
-    },
+    }
+  ),
+  fixtureItem(
+    "foodPurchase",
+    "food-dev-1",
+    "Zainab Musa",
+    "0063",
+    "Rice and oil bundle · 3 months",
+    60_000,
+    240,
+    "submitted",
+    [approval, reject]
+  ),
+  fixtureItem(
+    "collections",
+    "schedule-dev-1",
+    "Bashir Yakubu",
+    "0035",
+    "Murabaha installment 4 of 12",
+    37_500,
+    12_960,
+    "overdue",
+    followUp,
     {
-      ageMinutes: 42,
-      allowedActions: [
-        {
-          destructive: false,
-          governanceOnly: true,
-          key: "reply",
-          label: "Reply",
-          requiresConfirmation: false,
-          requiresEvidence: true,
-        },
-        {
-          destructive: false,
-          governanceOnly: true,
-          key: "update_support_status",
-          label: "Update status",
-          requiresConfirmation: true,
-          requiresEvidence: true,
-        },
-        {
-          destructive: false,
-          governanceOnly: true,
-          key: "review_financial_adjustment",
-          label: "Review adjustment evidence",
-          requiresConfirmation: true,
-          requiresEvidence: true,
-        },
-      ],
-      amount: null,
-      blockers: ["Financial adjustment evidence requires finance review."],
       details: [
-        { label: "Priority", value: "high" },
-        { label: "Category", value: "payment_issue" },
+        { label: "Outstanding", value: "37500" },
+        { label: "Due date", value: "7 Nov 2026" },
+        { label: "Last follow-up", value: "Reminded · 10 Nov" },
+      ],
+      policyEvidence: [
+        "A follow-up records contact evidence only.",
+        "Post repayments from the Repayments desk.",
+      ],
+    }
+  ),
+  fixtureItem(
+    "projectFinancing",
+    "project-dev-1",
+    "Umar Faruk",
+    "0024",
+    "Poultry expansion · 18 months",
+    1_200_000,
+    2880,
+    "under_review",
+    [approval, reject]
+  ),
+  fixtureItem(
+    "receipts",
+    "receipt-dev-2",
+    "Hauwa Garba",
+    "0058",
+    "Ref HVC-260822 · POS deposit",
+    40_000,
+    300,
+    "under_review",
+    [approval, correct, reject],
+    { policyEvidence: receiptEvidence }
+  ),
+  fixtureItem(
+    "shares",
+    "share-dev-1",
+    "Khadija Aliyu",
+    "0081",
+    "4 units requested · ₦10,000 each",
+    40_000,
+    720,
+    "pending",
+    [approval, reject]
+  ),
+  fixtureItem(
+    "receipts",
+    "receipt-dev-3",
+    "Musa Danjuma",
+    "0112",
+    "Ref HVC-260791 · Bank transfer",
+    120_000,
+    1500,
+    "submitted",
+    [correct, reject],
+    { blockers: ["Proof image is missing"] }
+  ),
+  fixtureItem(
+    "support",
+    "support-dev-1",
+    "Halima Usman",
+    "0054",
+    "Contribution posted twice",
+    null,
+    420,
+    "open",
+    [
+      fixtureAction("reply", "Reply"),
+      fixtureAction("update_support_status", "Update status"),
+      fixtureAction("review_financial_adjustment", "Review adjustment"),
+    ],
+    {
+      details: [
+        { label: "Category", value: "Contribution" },
+        { label: "Priority", value: "High" },
         { label: "Messages", value: "3" },
+        { label: "Adjustment", value: "Pending approval" },
       ],
       financialAdjustmentApprovalStatus: "pending",
-      id: "support-dev-1",
-      member: { id: "member-dev-3", name: "Aisha Musa", number: "HV-1042" },
-      policyEvidence: [
-        "Adjustment evidence is pending.",
-        "Support review cannot post or reverse finance records.",
-      ],
-      queueKey: "support",
-      requestedAt: new Date(Date.now() - 42 * 60_000).toISOString(),
       requiresFinancialAdjustment: true,
-      state: "in_progress",
-      subtitle: "Contribution allocation exception",
-      title: "Aisha Musa",
-    },
-    {
-      ageMinutes: 1440,
-      allowedActions: [
-        {
-          destructive: false,
-          governanceOnly: true,
-          key: "record_follow_up",
-          label: "Record follow-up",
-          requiresConfirmation: true,
-          requiresEvidence: true,
-        },
-      ],
-      amount: 32_500,
-      blockers: [],
-      details: [
-        { label: "Outstanding", value: "32500" },
-        {
-          label: "Due date",
-          value: new Date(Date.now() - 86_400_000).toISOString(),
-        },
-        { label: "Last follow-up", value: "reminded" },
-      ],
-      financialAdjustmentApprovalStatus: null,
-      id: "schedule-dev-1",
-      member: { id: "member-dev-4", name: "Suleiman Adamu", number: "HV-1027" },
-      policyEvidence: [
-        "This records contact evidence only.",
-        "Repayment posting is a separate command.",
-      ],
-      queueKey: "collections",
-      requestedAt: new Date(Date.now() - 86_400_000).toISOString(),
-      requiresFinancialAdjustment: false,
-      state: "overdue",
-      subtitle: "Quick financing installment 5",
-      title: "Suleiman Adamu",
-    },
-  ],
-  queueCounts: [
-    { count: 1, key: "receipts", label: "Receipts" },
-    { count: 1, key: "financing", label: "Financing" },
-    { count: 1, key: "procurement", label: "Procurement" },
-    { count: 1, key: "support", label: "Support" },
-    { count: 1, key: "collections", label: "Collections" },
-  ],
-  state: "ready",
-  stats: [
-    { format: "count", key: "visible-work", label: "Visible work", value: 5 },
-    { format: "count", key: "blocked-work", label: "Blocked", value: 2 },
-    {
-      format: "currency",
-      key: "deployable-funds",
-      label: "Deployable funds",
-      value: 4_820_000,
-    },
-  ],
-}
+    }
+  ),
+  fixtureItem(
+    "financing",
+    "loan-dev-2",
+    "Abdullahi Sule",
+    "0090",
+    "Qard hasan · 6 months",
+    300_000,
+    2900,
+    "under_review",
+    [approval, reject]
+  ),
+  fixtureItem(
+    "procurement",
+    "procurement-dev-2",
+    "Sani Kabir",
+    "0019",
+    "Laptop · Kano Computer Village",
+    95_000,
+    1700,
+    "under_review",
+    [approval, reject]
+  ),
+  fixtureItem(
+    "collections",
+    "schedule-dev-2",
+    "Ruqayya Ahmed",
+    "0070",
+    "Qard installment 2 of 6",
+    22_000,
+    2880,
+    "due",
+    followUp
+  ),
+  fixtureItem(
+    "receipts",
+    "receipt-dev-4",
+    "Fatima Lawal",
+    "0077",
+    "Ref HVC-260830 · Bank transfer",
+    25_000,
+    22,
+    "submitted",
+    receipt,
+    { policyEvidence: receiptEvidence }
+  ),
+].sort((left, right) => right.ageMinutes - left.ageMinutes)
 
-function getDevOverview(input?: {
+type FinanceDeskInput = {
+  cursor?: FinanceDeskCursor
+  entityId?: string
+  limit: number
   queueKey?: AdminFinanceSupportQueueKey
   search?: string
-}) {
-  let items = devOverview.items
-  if (input?.queueKey)
-    items = items.filter((item) => item.queueKey === input.queueKey)
-  const search = input?.search?.trim().toLowerCase()
-  if (search) {
-    items = items.filter((item) =>
-      [item.title, item.subtitle, item.member?.number]
-        .filter(Boolean)
-        .some((value) => value!.toLowerCase().includes(search))
-    )
-  }
-  return Promise.resolve({
-    ...devOverview,
+}
+
+function getDevDesk(input: FinanceDeskInput): FinanceDeskPage {
+  const allItems = devItems
+  const items = allItems.filter(
+    (item) =>
+      (!input.entityId || item.id === input.entityId) &&
+      (!input.queueKey || item.queueKey === input.queueKey) &&
+      matchesFinanceDeskSearch(item, input.search ?? "")
+  )
+  const counts = (key: AdminFinanceSupportQueueKey) =>
+    allItems.filter((item) => item.queueKey === key).length
+  return {
     generatedAt: new Date().toISOString(),
     items,
-  })
+    nextCursor: null,
+    summary:
+      input.cursor || input.queueKey || input.entityId || input.search
+        ? null
+        : {
+            total: allItems.length,
+            blocked: allItems.filter((item) => item.blockers.length).length,
+            queueCounts: [
+              ...new Set(allItems.map((item) => item.queueKey)),
+            ].map((key) => ({
+              key,
+              count: counts(key),
+              blocked: allItems.filter(
+                (item) => item.queueKey === key && item.blockers.length > 0
+              ).length,
+            })),
+            deskCounts: {
+              charges: 2,
+              contributions: 6,
+              financing: counts("financing") + 2,
+              repayments: allItems.filter(
+                (item) =>
+                  item.queueKey === "collections" && item.state === "overdue"
+              ).length,
+              procurement: counts("procurement") + 1,
+              projectFinancing: counts("projectFinancing"),
+              foodPurchase: counts("foodPurchase"),
+              shares: counts("shares"),
+            },
+          },
+  }
 }
 
 function completeDevCommand(
-  input: AdminFinanceSupportCommandBase & { entityId: string; state: string }
-) {
-  const items = devOverview.items.filter((item) => item.id !== input.entityId)
-  const queueCounts = devOverview.queueCounts
-    .map((queue) => ({
-      ...queue,
-      count: items.filter((item) => item.queueKey === queue.key).length,
-    }))
-    .filter((queue) => queue.count > 0)
-  devOverview = {
-    ...devOverview,
-    generatedAt: new Date().toISOString(),
-    items,
-    queueCounts,
-    stats: devOverview.stats.map((stat) =>
-      stat.key === "visible-work"
-        ? { ...stat, value: items.length }
-        : stat.key === "blocked-work"
-          ? {
-              ...stat,
-              value: items.filter((item) => item.blockers.length > 0).length,
-            }
-          : stat
-    ),
+  input: AdminFinanceSupportCommandBase & {
+    actionKey: string
+    entityId: string
+    state: string
   }
-  return Promise.resolve({
+): AdminFinanceSupportCommandResult {
+  devItems = devItems.flatMap((item) => {
+    if (item.id !== input.entityId) return [item]
+    if (input.actionKey === "mark_under_review")
+      return [
+        {
+          ...item,
+          state: "under_review",
+          allowedActions: item.allowedActions.filter(
+            (action) => action !== start
+          ),
+        },
+      ]
+    if (input.actionKey === "record_follow_up" || input.actionKey === "reply")
+      return [item]
+    if (input.actionKey === "review_financial_adjustment")
+      return [
+        {
+          ...item,
+          financialAdjustmentApprovalStatus: input.state,
+          allowedActions: item.allowedActions.filter(
+            (action) => action.key !== input.actionKey
+          ),
+        },
+      ]
+    if (input.actionKey === "update_support_status" && input.state !== "closed")
+      return [{ ...item, state: input.state }]
+    return []
+  })
+  return {
     commandId: input.commandId,
     entityId: input.entityId,
     replayed: false,
     state: input.state,
-  } satisfies AdminFinanceSupportCommandResult)
+  }
 }
 
-export async function getAdminFinanceSupportOverview(input?: {
-  limit?: number
-  queueKey?: AdminFinanceSupportQueueKey
-  search?: string
-}) {
-  if (isMobileDevFixtureSession()) return getDevOverview(input)
+export async function getAdminFinanceDesk(
+  input: FinanceDeskInput
+): Promise<FinanceDeskPage> {
+  if (isMobileDevFixtureSession()) return getDevDesk(input)
   const client = createMobileTrpcClient()
   return readCachedMobileQuery(
-    `admin.finance-support.${JSON.stringify(input ?? {})}`,
-    () => client.mobile.admin.finance.overview.query(input),
-    { persist: isPersistableReadInput(input) }
-  ) as Promise<AdminFinanceSupportOverview>
+    `admin.finance-desk.${JSON.stringify(input)}`,
+    () => client.mobile.admin.finance.desk.query(input),
+    {
+      persist: !input.entityId && isPersistableReadInput(input),
+      shouldFallback: (error) => !isUnrecoverableQueryError(error),
+    }
+  )
 }
 
 export async function runAdminFinanceSupportCommand(input: {
@@ -396,6 +438,7 @@ export async function runAdminFinanceSupportCommand(input: {
 }) {
   if (isMobileDevFixtureSession()) {
     return completeDevCommand({
+      actionKey: input.actionKey,
       commandId: input.commandId,
       entityId: input.itemId,
       expectedState: input.expectedState,

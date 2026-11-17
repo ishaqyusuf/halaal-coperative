@@ -35,3 +35,32 @@ export function adminFinanceActionNeedsLongForm(
     )
   )
 }
+
+export const financeActionCopy: Record<
+  AdminFinanceSupportActionKey,
+  {
+    confirm: string
+    success: string
+  }
+> = {
+  approve: { confirm: "Confirm approval", success: "Approval recorded" },
+  mark_under_review: { confirm: "Start review", success: "Review started" },
+  reject: { confirm: "Confirm rejection", success: "Rejection recorded" },
+  reply: { confirm: "Send reply", success: "Reply sent" },
+  review_financial_adjustment: {
+    confirm: "Confirm decision",
+    success: "Governance decision recorded",
+  },
+  record_follow_up: {
+    confirm: "Confirm follow-up",
+    success: "Follow-up recorded",
+  },
+  request_correction: {
+    confirm: "Confirm request",
+    success: "Correction requested",
+  },
+  update_support_status: {
+    confirm: "Confirm status",
+    success: "Status updated",
+  },
+}

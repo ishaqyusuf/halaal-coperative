@@ -1,72 +1,51 @@
 import { describe, expect, test } from "bun:test"
-import type { AdminFinanceSupportOverview } from "./admin-finance-support-types"
+import type { AdminFinanceSupportItem } from "./admin-finance-support-types"
 import {
-  buildAdminFinanceSupportPresentation,
+  financeDeskItemStatus,
   formatAdminFinanceAge,
-  getAdminFinanceQueueCount,
+  matchesFinanceDeskSearch,
 } from "./admin-finance-support-presentation"
 
-function buildOverview(
-  overrides: Partial<AdminFinanceSupportOverview> = {}
-): AdminFinanceSupportOverview {
-  return {
-    capabilities: {
-      approveMoneyImpactSupport: true,
-      manageSupport: true,
-      recordCollectionFollowUp: true,
-      reviewFinancing: true,
-      reviewFoodPurchase: true,
-      reviewProcurement: true,
-      reviewProjectFinancing: true,
-      reviewReceipts: true,
-      reviewShares: true,
-    },
-    generatedAt: "2026-09-04T09:00:00.000Z",
-    items: [],
-    queueCounts: [
-      { count: 4, key: "financing", label: "Financing" },
-      { count: 3, key: "receipts", label: "Receipts" },
-    ],
-    state: "ready",
-    stats: [
-      { format: "count", key: "visible-work", label: "Visible work", value: 7 },
-      { format: "count", key: "blocked-work", label: "Blocked", value: 2 },
-      {
-        format: "currency",
-        key: "deployable-funds",
-        label: "Deployable funds",
-        value: 4_820_000,
-      },
-    ],
-    ...overrides,
-  }
-}
+const item = {
+  ageMinutes: 1440,
+  allowedActions: [],
+  amount: 37_500,
+  blockers: [],
+  details: [],
+  displayState: "overdue",
+  financialAdjustmentApprovalStatus: null,
+  id: "schedule-1",
+  member: { id: "member-1", name: "Bashir Yakubu", number: "QHC-0035" },
+  policyEvidence: [],
+  queueKey: "collections",
+  requestedAt: "2026-11-16T09:00:00Z",
+  requiresFinancialAdjustment: false,
+  state: "due",
+  subtitle: "Murabaha installment 4 of 12",
+  title: "Bashir Yakubu",
+} satisfies AdminFinanceSupportItem
 
-describe("admin finance support presentation", () => {
-  test("preserves authoritative decision metrics", () => {
-    expect(buildAdminFinanceSupportPresentation(buildOverview())).toEqual({
-      blockedCount: 2,
-      deployableFunds: 4_820_000,
-      filteredCount: 0,
-      totalCount: 7,
+describe("admin finance desk presentation", () => {
+  test("presents derived lateness and retains the expected command state", () => {
+    expect(financeDeskItemStatus(item)).toEqual({
+      label: "Overdue",
+      tone: "danger",
     })
+    expect(item.state).toBe("due")
+    expect(
+      financeDeskItemStatus({
+        ...item,
+        displayState: undefined,
+        state: "under_review",
+      })
+    ).toEqual({ label: "In review", tone: "lilac" })
   })
 
-  test("falls back to server queue counts when summary metrics are absent", () => {
-    const result = buildAdminFinanceSupportPresentation(
-      buildOverview({ stats: [] })
-    )
-
-    expect(result.totalCount).toBe(7)
-    expect(result.blockedCount).toBe(0)
-    expect(result.deployableFunds).toBeNull()
-  })
-
-  test("returns stable filter counts without inventing missing categories", () => {
-    const overview = buildOverview()
-    expect(getAdminFinanceQueueCount(overview, "all")).toBe(7)
-    expect(getAdminFinanceQueueCount(overview, "financing")).toBe(4)
-    expect(getAdminFinanceQueueCount(overview, "support")).toBe(0)
+  test("matches a member's name, membership number, or record summary", () => {
+    expect(matchesFinanceDeskSearch(item, "  baSHIR ")).toBe(true)
+    expect(matchesFinanceDeskSearch(item, "QHC-0035")).toBe(true)
+    expect(matchesFinanceDeskSearch(item, " murabaha ")).toBe(true)
+    expect(matchesFinanceDeskSearch(item, "Ibrahim")).toBe(false)
   })
 
   test("formats queue age at minute, hour, and day boundaries", () => {

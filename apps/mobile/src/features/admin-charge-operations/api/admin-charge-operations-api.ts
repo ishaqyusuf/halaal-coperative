@@ -15,25 +15,38 @@ import type {
   ChargeCommandBase,
   ChargeCommandResult,
   ChargeFilters,
-  ChargeFormOptions,
+  ChargeApplicationRow,
+  ChargeMemberOption,
+  ChargePage,
+  ChargeRuleOption,
+  ChargeRuleRow,
+  ChargeSummary,
   ChargeLane,
-  ChargeWorkspace,
 } from "../model/admin-charge-operations-types"
 import { throwCommittedChargeResponseLoss } from "../model/admin-charge-response-loss"
 
-export async function getChargeWorkspace(input: {
-  cursor?: string | null
-  filters?: ChargeFilters
-  lane: ChargeLane
-  search?: string
-}) {
+type PickerInput = { cursor?: string | null; search?: string }
+
+export async function getChargeSummary(): Promise<ChargeSummary> {
+  if (isMobileDevFixtureSession()) return getDevChargeWorkspace("applications")
+  return readCachedMobileQuery("admin.charges.summary", () =>
+    createMobileTrpcClient().mobile.admin.charges.summary.query()
+  )
+}
+
+export async function getChargePage(
+  input: PickerInput & {
+    filters?: ChargeFilters
+    lane: ChargeLane
+  }
+): Promise<ChargePage<ChargeApplicationRow | ChargeRuleRow>> {
   if (isMobileDevFixtureSession())
     return getDevChargeWorkspace(input.lane, input.search, input.filters)
   return readCachedMobileQuery(
-    `admin.charges.${JSON.stringify(input)}`,
-    () => createMobileTrpcClient().mobile.admin.charges.workspace.query(input),
+    `admin.charges.page.${JSON.stringify(input)}`,
+    () => createMobileTrpcClient().mobile.admin.charges.page.query(input),
     { persist: isPersistableReadInput(input) }
-  ) as Promise<ChargeWorkspace>
+  )
 }
 
 export async function getChargeApplication(applicationId: string) {
@@ -45,16 +58,26 @@ export async function getChargeApplication(applicationId: string) {
   ) as Promise<ChargeApplicationDetail>
 }
 
-export async function getChargeFormOptions(search?: string) {
-  if (isMobileDevFixtureSession()) return getDevChargeFormOptions(search)
-  return readCachedMobileQuery(
-    `admin.charges.options.${search ?? ""}`,
-    () =>
-      createMobileTrpcClient().mobile.admin.charges.formOptions.query({
-        search,
-      }),
-    { persist: isPersistableReadInput({ search }) }
-  ) as Promise<ChargeFormOptions>
+export async function getChargeMembers(
+  input: PickerInput
+): Promise<ChargePage<ChargeMemberOption>> {
+  if (isMobileDevFixtureSession()) {
+    const options = await getDevChargeFormOptions(input.search)
+    return { data: options.members, nextCursor: null }
+  }
+  return createMobileTrpcClient().mobile.admin.charges.members.query(input)
+}
+
+export async function getChargeRulesForApply(
+  input: PickerInput & { assessedAt: string }
+): Promise<ChargePage<ChargeRuleOption>> {
+  if (isMobileDevFixtureSession()) {
+    const options = await getDevChargeFormOptions(input.search)
+    return { data: options.definitions, nextCursor: null }
+  }
+  return createMobileTrpcClient().mobile.admin.charges.rulesForApply.query(
+    input
+  )
 }
 
 export async function applyChargeApplication(
@@ -68,12 +91,23 @@ export async function applyChargeApplication(
   },
   qa?: { simulateResponseLossAfterCommit?: boolean }
 ) {
-  if (isMobileDevFixtureSession())
-    return runDevChargeCommand(input.commandId, input.memberId, "posted")
-  const result =
-    (await createMobileTrpcClient().mobile.admin.charges.applyCharge.mutate(
-      input
-    )) as ChargeCommandResult
+  let result: ChargeCommandResult
+  if (isMobileDevFixtureSession()) {
+    const options = await getDevChargeFormOptions()
+    const rule = options.definitions.find(
+      (definition) => definition.id === input.chargeDefinitionId
+    )
+    result = await runDevChargeCommand(
+      input.commandId,
+      input.memberId,
+      rule?.collectionMode === "pay_separately" ? "pending" : "posted"
+    )
+  } else {
+    result =
+      await createMobileTrpcClient().mobile.admin.charges.applyCharge.mutate(
+        input
+      )
+  }
   throwCommittedChargeResponseLoss({
     enabled: qa?.simulateResponseLossAfterCommit === true,
     qaClientEnabled: isMobileQaClientBuild,

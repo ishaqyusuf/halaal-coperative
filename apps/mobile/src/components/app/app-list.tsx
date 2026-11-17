@@ -42,6 +42,8 @@ export type AppListProps<T> = {
 
   /** Only the visible list in a pager renders the shared status bar. */
   active?: boolean
+  /** The parent owns the top safe area and renders the status bar. */
+  embedded?: boolean
   title?: string
   back?: boolean | (() => void)
   headerActions?: ReactNode
@@ -98,6 +100,7 @@ export function AppList<T>({
   bottomAction,
   compactHeader,
   data,
+  embedded = false,
   empty,
   error,
   errorTitle = "Couldn’t load this list",
@@ -157,7 +160,11 @@ export function AppList<T>({
           gap: 16,
           paddingBottom: 12,
           paddingHorizontal: 18,
-          paddingTop: hero ? 16 : fixedHeader ? 8 : chrome.insetsTop + 8,
+          paddingTop: hero
+            ? 16
+            : fixedHeader || embedded
+              ? 8
+              : chrome.insetsTop + 8,
         }}
       >
         {hero ? (
@@ -199,9 +206,14 @@ export function AppList<T>({
 
   return (
     <View className="flex-1 bg-background" testID={testID}>
-      {active ? chrome.chrome : null}
+      {active && !embedded ? chrome.chrome : null}
       {fixedHeader ? (
-        <View style={{ backgroundColor: colors.background, paddingTop: chrome.insetsTop }}>
+        <View
+          style={{
+            backgroundColor: colors.background,
+            paddingTop: chrome.insetsTop,
+          }}
+        >
           {fixedHeader}
         </View>
       ) : null}
@@ -227,7 +239,9 @@ export function AppList<T>({
             )}
           </View>
         }
-        ListHeaderComponent={listHeader}
+        ListHeaderComponent={
+          embedded && !header && !(error && hasData) ? undefined : listHeader
+        }
         data={data as T[]}
         drawDistance={600}
         estimatedItemSize={estimatedItemSize}

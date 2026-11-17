@@ -480,7 +480,8 @@ export const mobileQaNonFormFieldSources = [
     ),
   },
   {
-    reason: "Report search and date-range filters are not a submitted form.",
-    source: feature("admin-reports-access/screens/admin-reports-screen.tsx"),
+    reason:
+      "Report date ranges and activity filters (T23) are read filters, not a submitted form.",
+    source: feature("admin-reports-access/components/report-sheets.tsx"),
   },
 ] as const satisfies readonly { reason: string; source: string }[]

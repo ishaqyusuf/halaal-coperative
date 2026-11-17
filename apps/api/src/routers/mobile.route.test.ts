@@ -1621,6 +1621,9 @@ describe("mobileRouter", () => {
       caller.mobile.admin.reports.activity({ limit: 25 })
     ).rejects.toThrow("You do not have permission")
     await expect(
+      caller.mobile.admin.reports.activityEvent({ id: "audit-1" })
+    ).rejects.toThrow("You do not have permission")
+    await expect(
       caller.mobile.admin.reports.generate({
         key: "members",
         requestId: "00000000-0000-4000-8000-000000000929",

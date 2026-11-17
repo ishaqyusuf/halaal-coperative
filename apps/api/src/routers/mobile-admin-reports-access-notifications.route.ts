@@ -1,4 +1,5 @@
 import {
+  activityAreas,
   countMobileAdminAccessUsers,
   createAuditLogEntry,
   createMobileAdminReportExport,
@@ -7,6 +8,7 @@ import {
   listMobileAdminAccessPage,
   getMobileAdminReportsOverview,
   disableMobilePushEndpoint,
+  getActivityReportEvent,
   listActivityReportEvents,
   getMobileNotificationCenter,
   inviteMobileAdminAccessUserForSession,
@@ -102,6 +104,8 @@ function requireMobileDeviceSessionId(
 
 const reportActivityInput = z.object({
   action: z.string().trim().max(120).optional(),
+  /** T23 "Record" chips: an area of the cooperative (web uses the same filter). */
+  area: z.enum(activityAreas).optional(),
   cursor: z.string().trim().min(1).optional(),
   entityType: z.string().trim().max(120).optional(),
   fromDate: z.string().datetime().optional(),
@@ -210,6 +214,7 @@ export const mobileAdminReportsAccessNotificationProcedures = {
       .query(async ({ ctx, input }) => {
         const events = await listActivityReportEvents(ctx.tenant.current.id, {
           action: input.action,
+          area: input.area,
           cursor: input.cursor,
           entityType: input.entityType,
           fromDate: input.fromDate ? new Date(input.fromDate) : undefined,
@@ -228,6 +233,22 @@ export const mobileAdminReportsAccessNotificationProcedures = {
           })),
           nextCursor: hasNextPage ? items.at(-1)?.id ?? null : null,
         }
+      }),
+    /** T23 activity detail: one event with up to 8 safe change lines. */
+    activityEvent: permissionProcedure("view_reports")
+      .input(z.object({ id: z.string().trim().min(1).max(120) }))
+      .query(async ({ ctx, input }) => {
+        const event = await getActivityReportEvent(
+          ctx.tenant.current.id,
+          input.id
+        )
+        if (!event) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "This activity is no longer available.",
+          })
+        }
+        return { ...event, occurredAt: event.occurredAt.toISOString() }
       }),
     generate: permissionProcedure("view_reports")
       .input(generateReportInput)

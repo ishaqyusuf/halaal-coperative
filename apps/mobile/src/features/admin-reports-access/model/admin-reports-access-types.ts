@@ -45,8 +45,20 @@ export type AdminReportFilters = {
   toDate: string | null
 }
 
+/** T23 "Record" chips filter by area of the cooperative (server `area`). */
+export type AdminActivityArea =
+  | "access"
+  | "emails"
+  | "loans"
+  | "members"
+  | "money"
+  | "setup"
+  | "shares"
+  | "support"
+
 export type AdminReportActivityFilters = AdminReportFilters & {
   action: string | null
+  area?: AdminActivityArea | null
   entityType: string | null
   search: string | null
 }
@@ -56,9 +68,14 @@ export type AdminActivityEvent = {
   actionLabel: string
   actorLabel: string
   actorType: string
+  /** Newer API builds; absent on dev fixtures. */
+  area?: AdminActivityArea
   authorizationRole: string
   authorizerLabel: string
+  authorizerUserId?: string | null
   entityId: string | null
+  /** Plain words, e.g. "Payment receipt" (newer API builds). */
+  entityLabel?: string
   entityType: string
   id: string
   metadataSummary: string[]

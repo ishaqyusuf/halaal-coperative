@@ -11,8 +11,8 @@ import {
   provisionTenantUserRole,
   type MembershipRole,
 } from "./auth"
-import { getDashboardMetrics, getOverviewSummary } from "./dashboard"
-import { listCollectionFollowUps } from "./loans"
+import { getOverviewSummary } from "./dashboard"
+import { getDeployableFundsSnapshot } from "./financing-cycles"
 
 export type MobileFeatureAdminReportCard = {
   available: boolean
@@ -132,8 +132,10 @@ function queueCount(
   return summary.actionQueue.find((item) => item.key === key)?.count ?? 0
 }
 
+type ReportMetrics = { memberCount: number; outstandingLoans: number }
+
 function buildReportCards(
-  metrics: Awaited<ReturnType<typeof getDashboardMetrics>>,
+  metrics: ReportMetrics,
   summary: Awaited<ReturnType<typeof getOverviewSummary>>,
 ): MobileFeatureAdminReportCard[] {
   return getMobileReportCatalog().map((report) => {
@@ -224,43 +226,39 @@ export async function getMobileAdminReportsOverview(
     }
   }
 
-  const [summary, metrics, activityEvents, collectionFollowUps] =
-    await Promise.all([
-      getOverviewSummary(tenantId, prisma),
-      getDashboardMetrics(tenantId, prisma),
-      listActivityReportEvents(tenantId, { limit: 8 }, prisma),
-      listCollectionFollowUps(tenantId, { limit: 8 }, prisma),
-    ])
-  const reports = buildReportCards(metrics, summary)
+  // T23: one deployable-funds snapshot feeds the summary and the
+  // outstanding figure; member counts come from one grouped read instead of
+  // the dashboard KPIs (loan and schedule counts the cards never show); the
+  // screen reads activity from its own paged procedure, so the overview no
+  // longer loads 8 events and 8 collection follow-ups. Both lists stay in the
+  // payload, empty, for older builds.
+  const deployableFunds = getDeployableFundsSnapshot({ tenantId }, prisma)
+  const [summary, memberStatuses, funds] = await Promise.all([
+    getOverviewSummary(tenantId, prisma, {
+      deployableFunds,
+      queueRows: "open-items",
+    }),
+    prisma.member.groupBy({
+      _count: { _all: true },
+      by: ["status"],
+      where: { tenantId },
+    }),
+    deployableFunds,
+  ])
+  const memberCount = memberStatuses.reduce(
+    (total, row) => total + row._count._all,
+    0
+  )
+  const activeMemberCount =
+    memberStatuses.find((row) => row.status === "active")?._count._all ?? 0
+  const reports = buildReportCards(
+    { memberCount, outstandingLoans: funds.outstandingFinancingAmount },
+    summary
+  )
 
   return {
-    activityEvents: activityEvents.map((event) => ({
-      action: event.action,
-      actionLabel: event.actionLabel,
-      actorLabel: event.actorLabel,
-      actorType: event.actorType,
-      authorizationRole: event.authorizationRole,
-      authorizerLabel: event.authorizerLabel,
-      entityId: event.entityId,
-      entityType: event.entityType,
-      id: event.id,
-      metadataSummary: event.metadataSummary.slice(0, 3),
-      occurredAt: event.occurredAt.toISOString(),
-    })),
-    collectionFollowUps: collectionFollowUps.map((followUp) => ({
-      caseStage: followUp.caseStage,
-      createdAt: followUp.createdAt.toISOString(),
-      id: followUp.id,
-      loanProductName: followUp.loan.loanProduct.name,
-      memberName: followUp.member.fullName,
-      memberNumber: followUp.member.memberNumber,
-      nextActionAt: followUp.nextActionAt?.toISOString() ?? null,
-      note: followUp.note,
-      priority: followUp.priority,
-      repaymentScheduleItemId: followUp.repaymentScheduleItemId,
-      resolutionStatus: followUp.resolutionStatus,
-      status: followUp.status,
-    })),
+    activityEvents: [],
+    collectionFollowUps: [],
     generatedAt: summary.workspace.generatedAt,
     reports,
     stats: [
@@ -276,7 +274,7 @@ export async function getMobileAdminReportsOverview(
         format: "count",
         key: "active-members",
         label: "Active members",
-        value: metrics.activeMemberCount,
+        value: activeMemberCount,
       },
       {
         detail: "Open operational queue items",

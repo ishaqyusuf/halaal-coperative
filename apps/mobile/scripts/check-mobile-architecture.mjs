@@ -418,7 +418,8 @@ function checkAdminReportsAccessNotificationOwnership() {
     ),
     "utf8"
   )
-  for (const marker of ["CachedReadBanner", "Retry reports"]) {
+  // T23: lanes over a pager, a stale banner with retry, notification notice.
+  for (const marker of ["<SegmentedPager", "Retry reports", "NotificationDestinationNotice"]) {
     if (!reportsScreen.includes(marker)) {
       failures.push(`reports screen is missing hardened state marker ${marker}`)
     }

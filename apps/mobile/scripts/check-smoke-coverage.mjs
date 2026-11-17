@@ -360,11 +360,15 @@ assertIncludes(
   ["<AppList", "onEndReached=", "<SegmentedControl", "<SegmentedPager"]
 )
 
-for (const screen of [
+assertIncludes(
   "src/features/admin-reports-access/screens/admin-reports-screen.tsx",
-]) {
-  assertIncludes(screen, ["VirtualizedCardList"])
-}
+  ["<SegmentedControl", "<SegmentedPager", "<ReportsLane", "<ActivityLane"]
+)
+
+assertIncludes(
+  "src/features/admin-reports-access/components/report-lanes.tsx",
+  ["<AppList", "onEndReached=", "useAppInfiniteQuery"]
+)
 
 assertIncludes(
   "src/features/admin-member-lifecycle/screens/admin-members-screen.tsx",

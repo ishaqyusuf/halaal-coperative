@@ -827,6 +827,8 @@ export async function getOverviewSummary(
   tenantId: string,
   prismaOverride?: PrismaClient,
   options: {
+    /** Reuse a deployable-funds snapshot the caller already started (one read, not two). */
+    deployableFunds?: Promise<DeployableFundsSnapshot>
     /**
      * The tenant's operation profile when the caller already has it (the
      * dashboard's request-cached copy), to avoid a second read.
@@ -855,10 +857,8 @@ export async function getOverviewSummary(
   const { month, year } = getCurrentMonth()
   // Reads that need neither the KPI row nor the monthly record start now,
   // beside them, instead of one round later (T05: four rounds → three).
-  const deployableFundsSnapshot = getDeployableFundsSnapshot(
-    { tenantId },
-    prisma
-  )
+  const deployableFundsSnapshot =
+    options.deployableFunds ?? getDeployableFundsSnapshot({ tenantId }, prisma)
   const activityRowsRead = readOverviewRecentActivity(prisma, tenantId)
   const financingCycleHealthRead = getMonthlyFinancingCycleHealth(
     { tenantId },

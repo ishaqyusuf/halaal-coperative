@@ -274,15 +274,22 @@ assertIncludes("src/features/member-core/public/member-activity-history.tsx", [
   "MemberActivityHistoryState",
 ])
 
-for (const screen of [
-  "src/features/support/screens/member-support-screen.tsx",
-]) {
-  assertIncludes(screen, [
-    "useMobileFormDraft",
-    "isMobileReadCacheStale",
-    "CachedReadBanner",
-  ])
-}
+assertIncludes("src/features/support/routes/member-support-route-controller.tsx", [
+  "useMobileFormDraft",
+  "isMobileReadCacheStale",
+  "useAppInfiniteQuery",
+  "useAppQuery",
+])
+assertIncludes("src/features/support/screens/member-support-screen.tsx", [
+  "<AppList",
+  "<SegmentedPager",
+  "<StatusBanner",
+])
+assertIncludes("src/features/support/components/member-support-thread.tsx", [
+  '<KeyboardAvoidingView',
+  'behavior="padding"',
+  'accessibilityLabel="Send reply"',
+])
 
 assertIncludes("src/features/receipts/screens/member-receipts-screen.tsx", [
   "<AppList",

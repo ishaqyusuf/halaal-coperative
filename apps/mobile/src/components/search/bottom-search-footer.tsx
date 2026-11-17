@@ -39,6 +39,8 @@ export type BottomSearchFooterProps = {
   /** Slides the footer down out of view (see useBottomSearchScroll). It stays
    * visible while the search is focused or has text. */
   floatActions?: boolean
+  /** An inline action group that uses the entire row before search opens. */
+  fullWidthActions?: boolean
   hidden?: boolean
   includeSafeArea?: boolean
   editable?: boolean
@@ -80,6 +82,7 @@ export function BottomSearchFooter({
   children,
   actionsAboveSearch = false,
   floatActions = false,
+  fullWidthActions = false,
   hidden = false,
   includeSafeArea = true,
   editable = true,
@@ -207,7 +210,7 @@ export function BottomSearchFooter({
                 value={value}
               />
             </View>
-          ) : (
+          ) : fullWidthActions ? null : (
             <View className="flex-1" />
           )}
           {actionsAboveSearch || (floatActions && searchFocused)

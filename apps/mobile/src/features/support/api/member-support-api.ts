@@ -49,8 +49,15 @@ export async function getMemberSupport(
   const client = createMobileTrpcClient()
   return readCachedMobileQuery(
     `member.support.${cursor ?? "first"}`,
-    () =>
-      client.mobile.member.support.list.query(cursor ? { cursor } : undefined),
+    async () => {
+      const page = await client.mobile.member.support.list.query(
+        cursor ? { cursor, includeOverview: false } : undefined
+      )
+      if (page.state === "database_unavailable") {
+        throw new Error("Support cases are unavailable.")
+      }
+      return page
+    },
     { persist: !cursor }
   ) as Promise<MobileMemberSupport>
 }

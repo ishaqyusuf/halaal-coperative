@@ -370,6 +370,7 @@ function checkSeparatedDataEntrySurfaces() {
   for (const path of [
     "src/features/admin-member-lifecycle/components/create-member-sheet.tsx",
     "src/features/admin-member-lifecycle/components/member-change-sheet.tsx",
+    "src/features/support/components/member-support-create.tsx",
   ]) {
     checkSourceMarkers(path, ["<AppSheet", 'variant="form"'])
   }
@@ -378,7 +379,6 @@ function checkSeparatedDataEntrySurfaces() {
     "src/features/guarantors/screens/member-guarantor-approvals-screen.tsx",
     "src/features/procurement/screens/member-procurement-screen.tsx",
     "src/features/project-financing/screens/member-project-financing-screen.tsx",
-    "src/features/support/screens/member-support-screen.tsx",
   ]
 
   for (const screen of screens) {

@@ -865,9 +865,9 @@ describe("support case queries", () => {
           caseReads.push(input)
           return supportCaseRow()
         },
-        update: async (input: Record<string, unknown>) => {
+        updateMany: async (input: Record<string, unknown>) => {
           caseTouches.push(input)
-          return { id: "support-1" }
+          return { count: 1 }
         },
       },
       supportCaseMessage: {
@@ -920,7 +920,9 @@ describe("support case queries", () => {
       authorType: "member",
       message: "Please check the receipt again.",
     })
-    expect(caseTouches[0]).toMatchObject({ where: { id: "support-1" } })
+    expect(caseTouches[0]).toMatchObject({
+      where: { id: "support-1", memberId: "member-1", tenantId: "tenant-1", status: { not: "closed" } },
+    })
   })
 
   test("requires a resolution summary before resolving a support case", async () => {

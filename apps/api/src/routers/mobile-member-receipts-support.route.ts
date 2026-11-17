@@ -120,8 +120,11 @@ const supportReplyInput = z.object({
   message: z.string().trim().min(2).max(2000),
   supportCaseId: z.string().trim().min(1),
 })
-const listInput = z
-  .object({ cursor: z.string().trim().min(1).optional() })
+const supportListInput = z
+  .object({
+    cursor: z.string().trim().min(1).optional(),
+    includeOverview: z.boolean().optional(),
+  })
   .optional()
 
 function assertMemberWorkspace(role: string) {
@@ -213,10 +216,11 @@ export const mobileMemberReceiptsSupportProcedures = {
           userId: ctx.auth.session.user.id,
         })
       }),
-    list: tenantProcedure.input(listInput).query(({ ctx, input }) => {
+    list: tenantProcedure.input(supportListInput).query(({ ctx, input }) => {
       assertMemberWorkspace(ctx.auth.activeMembership.role)
       return getMobileMemberSupportSnapshot({
         cursor: input?.cursor,
+        includeOverview: input?.includeOverview,
         tenantId: ctx.tenant.current.id,
         userId: ctx.auth.session.user.id,
       })

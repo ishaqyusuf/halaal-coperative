@@ -13,8 +13,10 @@ import { type ReactElement, type ReactNode, useState } from "react"
 import { ActivityIndicator, RefreshControl, View } from "react-native"
 
 export type AppListSearch = {
+  autoFocus?: boolean
   value: string
   onChangeText: (value: string) => void
+  onFocusChange?: (focused: boolean) => void
   placeholder: string
   accessibilityLabel?: string
   /** The search shows only when the list has more than 10 items. */
@@ -43,6 +45,8 @@ export type AppListProps<T> = {
   headerActions?: ReactNode
   /** Pinned navigation for long pushed lists after the large title scrolls off. */
   compactHeader?: ReactNode
+  /** Navigation that stays pinned above the scrolling title and rows. */
+  fixedHeader?: ReactNode
   /** Edge-to-edge brand hero (use ScreenHero). Replaces the title header. */
   hero?: ReactNode
   /** Content between the title and the rows: summary, segments, banners. */
@@ -70,8 +74,10 @@ export type AppListProps<T> = {
   onRetry?: () => void
 
   search?: AppListSearch
+  searchBottomOffset?: number
   /** Optional floating action aligned beside search and hidden with it. */
   bottomAction?: ReactNode
+  fullWidthBottomAction?: boolean
   /** A FAB or other overlay pinned above the list. */
   overlay?: ReactNode
   testID?: string
@@ -94,6 +100,8 @@ export function AppList<T>({
   error,
   errorTitle = "Couldn’t load this list",
   estimatedItemSize = 72,
+  fixedHeader,
+  fullWidthBottomAction = false,
   header,
   headerActions,
   hero,
@@ -109,6 +117,7 @@ export function AppList<T>({
   refreshing = false,
   renderItem,
   search,
+  searchBottomOffset = 0,
   stickyIndices,
   testID,
   title,
@@ -145,7 +154,7 @@ export function AppList<T>({
           gap: 16,
           paddingBottom: 12,
           paddingHorizontal: 18,
-          paddingTop: hero ? 16 : chrome.insetsTop + 8,
+          paddingTop: hero ? 16 : fixedHeader ? 8 : chrome.insetsTop + 8,
         }}
       >
         {hero ? (
@@ -188,6 +197,11 @@ export function AppList<T>({
   return (
     <View className="flex-1 bg-background" testID={testID}>
       {active ? chrome.chrome : null}
+      {fixedHeader ? (
+        <View style={{ backgroundColor: colors.background, paddingTop: chrome.insetsTop }}>
+          {fixedHeader}
+        </View>
+      ) : null}
       <LegendList
         key={viewport.revision}
         ListEmptyComponent={<View>{listEmpty}</View>}
@@ -271,16 +285,19 @@ export function AppList<T>({
           accessibilityLabel={
             search?.accessibilityLabel ?? search?.placeholder ?? "Search"
           }
-          bottomOffset={chrome.dockLift}
+          autoFocus={search?.autoFocus}
+          bottomOffset={chrome.dockLift + searchBottomOffset}
           hidden={chrome.barsHidden}
           localSearch={search?.localSearch}
           onChangeText={search?.onChangeText ?? (() => {})}
+          onFocusChange={search?.onFocusChange}
           onHeightChange={setSearchHeight}
           placeholder={search?.placeholder ?? ""}
           searchVisible={Boolean(search)}
           totalCount={search?.totalCount ?? 0}
           value={search?.value ?? ""}
           floatActions={Boolean(bottomAction)}
+          fullWidthActions={fullWidthBottomAction}
           layout={bottomAction ? "inline" : "stacked"}
         >
           {bottomAction}

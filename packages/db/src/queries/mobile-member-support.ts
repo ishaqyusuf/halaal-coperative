@@ -1,4 +1,5 @@
-import type { PrismaClient } from "../../generated/prisma/client"
+import { AppError } from "@halaalvest/errors"
+import { Prisma, type PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
 import { getMemberByUserId } from "./members"
@@ -7,11 +8,11 @@ import {
   addMemberSupportCaseMessage,
   createMemberSupportCase,
   getMemberSupportCaseSummary,
-  getSupportCase,
-  listSupportCasePage,
+  listMemberSupportCasesPage,
   type SupportCaseCategory,
   type SupportCaseLinkedRecordType,
   type SupportCaseRow,
+  type SupportCaseMessageAuthorType,
 } from "./support"
 
 export type MobileMemberSupportCase = ReturnType<typeof toMobileSupportCase>
@@ -30,23 +31,55 @@ export type MobileMemberSupportSnapshot = {
   }
 }
 
-function toMobileSupportCase(row: SupportCaseRow, fullHistory = false) {
-  const messages = fullHistory ? row.messages : row.messages.slice(-5)
+type CaseFields = Pick<
+  SupportCaseRow,
+  | "category"
+  | "createdAt"
+  | "description"
+  | "financialAdjustmentApprovalNotes"
+  | "financialAdjustmentApprovalStatus"
+  | "id"
+  | "linkedRecordId"
+  | "linkedRecordType"
+  | "moneyImpactRequested"
+  | "priority"
+  | "requiresFinancialAdjustment"
+  | "resolutionSummary"
+  | "status"
+  | "subject"
+  | "updatedAt"
+>
+
+type MessageFields = {
+  attachmentUrl: string | null
+  authorName: string | null
+  authorType: SupportCaseMessageAuthorType
+  createdAt: Date
+  id: string
+  message: string
+}
+
+function toMobileSupportCase(
+  row: CaseFields,
+  messages: MessageFields[],
+  messageCount = messages.length
+) {
   return {
     category: row.category,
-    detail: row.messages.at(-1)?.message ?? row.description,
+    createdAt: row.createdAt.toISOString(),
+    detail: messages.at(-1)?.message ?? row.description,
     financialAdjustmentApprovalNotes: row.financialAdjustmentApprovalNotes,
     financialAdjustmentApprovalStatus: row.financialAdjustmentApprovalStatus,
     id: row.id,
     lastActivityAt: row.updatedAt.toISOString(),
     linkedRecordId: row.linkedRecordId,
     linkedRecordType: row.linkedRecordType,
-    messageCount: row.messages.length,
+    messageCount,
     moneyImpactRequested: row.moneyImpactRequested,
     priority: row.priority,
     recentMessages: messages.map((message) => ({
       attachmentUrl: message.attachmentUrl,
-      authorName: message.authorUser?.fullName ?? null,
+      authorName: message.authorName,
       authorType: message.authorType,
       createdAt: message.createdAt.toISOString(),
       id: message.id,
@@ -57,6 +90,49 @@ function toMobileSupportCase(row: SupportCaseRow, fullHistory = false) {
     status: row.status,
     subject: row.subject,
   }
+}
+
+// Limit per case in Postgres. Keep the true message count and all five
+// previews for existing clients while avoiding materializing whole histories.
+async function readMemberCasePreviews(
+  tenantId: string,
+  caseIds: string[],
+  prisma: PrismaClient
+) {
+  const byCase = new Map<string, { count: number; messages: MessageFields[] }>()
+  if (!caseIds.length) return byCase
+  const rows = await prisma.$queryRaw<
+    Array<MessageFields & { caseId: string; count: bigint }>
+  >`
+    SELECT ids.id AS "caseId", totals.count,
+      message.id, message."attachment_url" AS "attachmentUrl",
+      author."full_name" AS "authorName", message."author_type"::text AS "authorType",
+      message."created_at" AS "createdAt", message.message
+    FROM unnest(${caseIds}::uuid[]) AS ids(id)
+    CROSS JOIN LATERAL (
+      SELECT count(*) AS count
+      FROM "support_case_messages"
+      WHERE "tenant_id" = ${tenantId}::uuid AND "support_case_id" = ids.id
+    ) totals
+    CROSS JOIN LATERAL (
+      SELECT *
+      FROM "support_case_messages"
+      WHERE "tenant_id" = ${tenantId}::uuid AND "support_case_id" = ids.id
+      ORDER BY "created_at" DESC, id DESC
+      LIMIT 5
+    ) message
+    LEFT JOIN "users" author ON author.id = message."author_user_id"
+    ORDER BY message."created_at", message.id
+  `
+  for (const row of rows) {
+    const current = byCase.get(row.caseId) ?? {
+      count: Number(row.count),
+      messages: [],
+    }
+    current.messages.push(row)
+    byCase.set(row.caseId, current)
+  }
+  return byCase
 }
 
 function emptySnapshot(
@@ -85,47 +161,88 @@ async function resolveMember(
 }
 
 export async function getMobileMemberSupportSnapshot(
-  input: { cursor?: string | null; tenantId: string; userId: string },
+  input: {
+    cursor?: string | null
+    includeOverview?: boolean
+    tenantId: string
+    userId: string
+  },
   prismaOverride?: PrismaClient
 ): Promise<MobileMemberSupportSnapshot> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) return emptySnapshot("database_unavailable")
   const member = await resolveMember(input, prisma)
   if (!member) return emptySnapshot("member_profile_missing")
+  const scope = { memberId: member.id, tenantId: input.tenantId }
+  const includeOverview = !input.cursor || input.includeOverview !== false
   const [summary, page, profile] = await Promise.all([
-    getMemberSupportCaseSummary(
-      { memberId: member.id, tenantId: input.tenantId },
-      prisma
+    includeOverview ? getMemberSupportCaseSummary(scope, prisma) : null,
+    listMemberSupportCasesPage({ ...scope, cursor: input.cursor }, prisma).then(
+      async (page) => ({
+        ...page,
+        previews: await readMemberCasePreviews(
+          input.tenantId,
+          page.data.map((row) => row.id),
+          prisma
+        ),
+      })
     ),
-    listSupportCasePage(
-      {
-        cursor: input.cursor,
-        memberId: member.id,
-        pageSize: 20,
-        sort: ["updatedAt", "desc"],
-        tenantId: input.tenantId,
-      },
-      prisma
-    ),
-    getTenantOperationProfile(input.tenantId, prisma),
+    includeOverview ? getTenantOperationProfile(input.tenantId, prisma) : null,
   ])
   return {
-    canCreateCase: profile.services.support_cases.canMemberCreate,
-    cases: page.data.map((row: SupportCaseRow) => toMobileSupportCase(row)),
+    canCreateCase: profile?.services.support_cases.canMemberCreate ?? false,
+    cases: page.data.map((row) => {
+      const preview = page.previews.get(row.id)
+      return toMobileSupportCase(
+        row,
+        preview?.messages ?? [],
+        preview?.count ?? 0
+      )
+    }),
     generatedAt: new Date().toISOString(),
     member: {
       id: member.id,
       memberNumber: member.memberNumber,
       name: member.fullName,
     },
-    nextCursor: page.meta.cursor ?? null,
+    nextCursor: page.nextCursor,
     state: "available",
     summary: {
-      highPriorityOpenCases: summary.highPriorityOpenCases,
-      openCases: summary.openCases,
-      totalCases: summary.totalCases,
+      highPriorityOpenCases: summary?.highPriorityOpenCases ?? 0,
+      openCases: summary?.openCases ?? 0,
+      totalCases: summary?.totalCases ?? 0,
     },
   }
+}
+
+async function readMemberCase(
+  input: { memberId: string; supportCaseId: string; tenantId: string },
+  prisma: PrismaClient
+) {
+  const row = await prisma.supportCase.findFirst({
+    where: {
+      id: input.supportCaseId,
+      memberId: input.memberId,
+      tenantId: input.tenantId,
+    },
+  })
+  if (!row) {
+    throw new AppError({
+      code: "NOT_FOUND",
+      publicMessage: "Support case was not found.",
+    })
+  }
+  const messages = await prisma.$queryRaw<MessageFields[]>(Prisma.sql`
+    SELECT message.id, message."attachment_url" AS "attachmentUrl",
+      author."full_name" AS "authorName", message."author_type"::text AS "authorType",
+      message."created_at" AS "createdAt", message.message
+    FROM "support_case_messages" message
+    LEFT JOIN "users" author ON author.id = message."author_user_id"
+    WHERE message."tenant_id" = ${input.tenantId}::uuid
+      AND message."support_case_id" = ${row.id}::uuid
+    ORDER BY message."created_at", message.id
+  `)
+  return toMobileSupportCase(row, messages)
 }
 
 export async function getMobileMemberSupportDetail(
@@ -140,17 +257,7 @@ export async function getMobileMemberSupportDetail(
     throw ExpectedQueryError.precondition(
       "Member profile needs linking before viewing support."
     )
-  return toMobileSupportCase(
-    await getSupportCase(
-      {
-        memberId: member.id,
-        supportCaseId: input.supportCaseId,
-        tenantId: input.tenantId,
-      },
-      prisma
-    ),
-    true
-  )
+  return readMemberCase({ ...input, memberId: member.id }, prisma)
 }
 
 export async function createMobileMemberSupportCaseForSession(
@@ -180,16 +287,20 @@ export async function createMobileMemberSupportCaseForSession(
       "Support self-service is not enabled for this cooperative."
     )
   }
+  const row = await createMemberSupportCase(
+    {
+      ...input,
+      memberId: member.id,
+      openedByUserId: input.userId,
+    },
+    prisma
+  )
   return toMobileSupportCase(
-    await createMemberSupportCase(
-      {
-        ...input,
-        memberId: member.id,
-        openedByUserId: input.userId,
-      },
-      prisma
-    ),
-    true
+    row,
+    row.messages.map((message) => ({
+      ...message,
+      authorName: message.authorUser?.fullName ?? member.fullName,
+    }))
   )
 }
 
@@ -222,5 +333,5 @@ export async function replyMobileMemberSupportCaseForSession(
     },
     prisma
   )
-  return getMobileMemberSupportDetail(input, prisma)
+  return readMemberCase({ ...input, memberId: member.id }, prisma)
 }

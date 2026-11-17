@@ -24,11 +24,13 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   ArrowDownLeft: require("lucide-react-native/dist/esm/icons/arrow-down-left").default,
   ArrowLeft: require("lucide-react-native/dist/esm/icons/arrow-left").default,
   ArrowRight: require("lucide-react-native/dist/esm/icons/arrow-right").default,
+  ArrowUp: require("lucide-react-native/dist/esm/icons/arrow-up").default,
   ArrowUpRight: require("lucide-react-native/dist/esm/icons/arrow-up-right")
     .default,
   BadgeCheck: require("lucide-react-native/dist/esm/icons/badge-check").default,
   BadgeDollarSign:
     require("lucide-react-native/dist/esm/icons/badge-dollar-sign").default,
+  Banknote: require("lucide-react-native/dist/esm/icons/banknote").default,
   Bell: require("lucide-react-native/dist/esm/icons/bell").default,
   BellOff: require("lucide-react-native/dist/esm/icons/bell-off").default,
   BellRing: require("lucide-react-native/dist/esm/icons/bell-ring").default,
@@ -40,6 +42,7 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
     .default,
   ChartNoAxesCombined:
     require("lucide-react-native/dist/esm/icons/chart-no-axes-combined").default,
+  ChartPie: require("lucide-react-native/dist/esm/icons/chart-pie").default,
   CircleHelp: require("lucide-react-native/dist/esm/icons/circle-question-mark").default,
   CirclePause: require("lucide-react-native/dist/esm/icons/circle-pause").default,
   Coins: require("lucide-react-native/dist/esm/icons/coins").default,
@@ -123,6 +126,7 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
     .default,
   PackageSearch: require("lucide-react-native/dist/esm/icons/package-search")
     .default,
+  Pencil: require("lucide-react-native/dist/esm/icons/pencil").default,
   PanelsTopLeft: require("lucide-react-native/dist/esm/icons/panels-top-left")
     .default,
   PieChart: require("lucide-react-native/dist/esm/icons/chart-pie").default,
@@ -148,6 +152,8 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   ShoppingBasket: require("lucide-react-native/dist/esm/icons/shopping-basket")
     .default,
   ShoppingBag: require("lucide-react-native/dist/esm/icons/shopping-bag")
+    .default,
+  ShoppingCart: require("lucide-react-native/dist/esm/icons/shopping-cart")
     .default,
   SlidersHorizontal:
     require("lucide-react-native/dist/esm/icons/sliders-horizontal").default,

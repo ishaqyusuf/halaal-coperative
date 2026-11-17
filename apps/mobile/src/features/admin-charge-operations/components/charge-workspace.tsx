@@ -18,6 +18,7 @@ import { StatusBanner } from "@/components/ui/status-banner"
 import { StatusPill } from "@/components/ui/status-pill"
 import { Text } from "@/components/ui/text"
 import { appQueryKey, useAppInfiniteQuery } from "@/hooks/use-app-query"
+import { useColors } from "@/hooks/use-color"
 import { todayDateOnly } from "@/lib/date-only"
 import { useDebounce } from "@/hooks/use-debounce"
 import { formatCompactMoney } from "@/lib/money"
@@ -419,6 +420,7 @@ export function ChargeWorkspaceView({
   summary?: ChargeSummary
 }) {
   const router = useRouter()
+  const colors = useColors()
   const index = chargeLanes.findIndex(({ value }) => value === filterLane)
   const position = usePagerPosition(index)
   const stats = summary?.stats
@@ -477,7 +479,10 @@ export function ChargeWorkspaceView({
   )
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <SafeAreaView
+      edges={["top"]}
+      style={{ flex: 1, backgroundColor: colors.background }}
+    >
       <ScreenStatusBar />
       <View>
         <View className="h-[52px] flex-row items-center justify-between px-[12px]">

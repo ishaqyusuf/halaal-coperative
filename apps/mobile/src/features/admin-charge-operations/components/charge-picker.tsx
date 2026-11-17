@@ -2,7 +2,7 @@ import { AppList } from "@/components/app/app-list"
 import { EmptyState } from "@/components/app/empty-state"
 import { ScreenHeaderButton } from "@/components/app/screen-shell"
 import { Icon } from "@/components/ui/icon"
-import { Input } from "@/components/ui/input"
+import { FloatingSearchField } from "@/components/search/floating-search-field"
 import { RecordRow } from "@/components/ui/list-card"
 import { Text } from "@/components/ui/text"
 import { appQueryKey, useAppInfiniteQuery } from "@/hooks/use-app-query"
@@ -40,6 +40,7 @@ export function ChargePicker({
   type: "member" | "rule"
 }) {
   const [search, setSearch] = useState("")
+  const [searchFocused, setSearchFocused] = useState(false)
   const debounced = useDebounce(search.trim(), 350)
   const member = type === "member"
   const title = member ? "Choose member" : "Choose charge"
@@ -117,18 +118,17 @@ export function ChargePicker({
           </View>
         }
         header={
-          <Input
+          <FloatingSearchField
             accessibilityLabel={member ? "Search member" : "Search charge"}
-            autoCorrect={false}
-            leading={
-              <Icon className="size-base text-muted-foreground" name="Search" />
-            }
+            elevated={false}
+            focused={searchFocused}
             maxLength={120}
+            onBlur={() => setSearchFocused(false)}
             onChangeText={setSearch}
+            onFocus={() => setSearchFocused(true)}
             placeholder={
               member ? "Search name or member number" : "Search charge or code"
             }
-            returnKeyType="search"
             testID="charge-picker-search"
             value={search}
           />

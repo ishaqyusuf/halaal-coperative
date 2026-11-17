@@ -15,6 +15,7 @@ type FloatingSearchFieldProps = {
   accessibilityLabel: string
   autoFocus?: boolean
   editable?: boolean
+  elevated?: boolean
   focused: boolean
   maxLength?: number
   onBlur: () => void
@@ -25,6 +26,7 @@ type FloatingSearchFieldProps = {
   focusRequest?: number
   /** One tool inside an empty pill, such as Scan; Clear replaces it once typed. */
   trailingAction?: SearchTrailingAction
+  testID?: string
   value: string
 }
 
@@ -119,6 +121,7 @@ export function FloatingSearchField({
   accessibilityLabel,
   autoFocus,
   editable = true,
+  elevated = true,
   focused,
   maxLength,
   onBlur,
@@ -127,6 +130,7 @@ export function FloatingSearchField({
   placeholder,
   focusRequest,
   trailingAction,
+  testID,
   value,
 }: FloatingSearchFieldProps) {
   const { colorScheme } = useColorScheme()
@@ -159,6 +163,7 @@ export function FloatingSearchField({
     <View
       style={{
         ...surface,
+        boxShadow: elevated ? surface.boxShadow : "none",
         alignItems: "center",
         flexDirection: "row",
         gap: 10,
@@ -198,6 +203,7 @@ export function FloatingSearchField({
           minWidth: 0,
           padding: 0,
         }}
+        testID={testID}
         value={value}
       />
       {value && editable ? (

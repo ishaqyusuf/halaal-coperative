@@ -6,13 +6,25 @@ import type {
   ProjectFinancingDetail,
   ProjectFinancingLane,
   ProjectFinancingStructure,
+  ProjectFinancingSummary,
   ProjectFinancingWorkspace,
 } from "../model/admin-project-financing-operations-types"
 import {
   getDevProjectFinancingDetail,
+  getDevProjectFinancingSummary,
   getDevProjectFinancingWorkspace,
   runDevProjectFinancingCommand,
 } from "./admin-project-financing-operations-dev-fixtures"
+
+/** Lane page size (T21). */
+export const PROJECT_FINANCING_PAGE_SIZE = 20
+
+export function getProjectFinancingOperationsSummary() {
+  if (isMobileDevFixtureSession()) return getDevProjectFinancingSummary()
+  return readCachedMobileQuery("admin.project-financing-operations.summary", () =>
+    createMobileTrpcClient().mobile.admin.projectFinancingOperations.summary.query()
+  ) as Promise<ProjectFinancingSummary>
+}
 
 export function getProjectFinancingOperationsWorkspace(input: {
   cursor?: string
@@ -23,10 +35,10 @@ export function getProjectFinancingOperationsWorkspace(input: {
     return getDevProjectFinancingWorkspace(input)
   }
   return readCachedMobileQuery(
-    `admin.project-financing-operations.${JSON.stringify(input)}`,
+    `admin.project-financing-operations.v2.${JSON.stringify(input)}`,
     () =>
       createMobileTrpcClient().mobile.admin.projectFinancingOperations.workspace.query(
-        input
+        { ...input, limit: PROJECT_FINANCING_PAGE_SIZE }
       ),
     { persist: isPersistableReadInput(input) }
   ) as Promise<ProjectFinancingWorkspace>

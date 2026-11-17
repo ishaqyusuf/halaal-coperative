@@ -1,47 +1,48 @@
-import { CalendarDateField } from "@/components/app/calendar-date-field"
-import { CalendarPickerSheet } from "@/components/app/calendar-picker-sheet"
 import { DevQuickFill } from "@/components/app/dev-quick-fill"
-import { EmptyState } from "@/components/app/empty-state"
-import { FormStateBanner } from "@/components/app/form-state-banner"
-import { FullScreenFormSheet } from "@/components/app/full-screen-form-sheet"
-import { AppKeyboardAwareScrollView } from "@/components/app/keyboard-aware-scroll-view"
-import { ScreenHeader } from "@/components/app/screen-header"
-import { SubmissionReviewSheet } from "@/components/app/submission-review-sheet"
-import { SubmissionSuccessSheet } from "@/components/app/submission-success-sheet"
-import { FloatingBottomSheet } from "@/components/floating-bottom-sheet"
-import { LoadingSpinner } from "@/components/loading-spinner"
-import { SafeArea } from "@/components/safe-area"
-import { Button } from "@/components/ui/button"
-import { Icon } from "@/components/ui/icon"
+import { DateField } from "@/components/ui/date-field"
+import { FormField } from "@/components/ui/form-field"
 import { Input } from "@/components/ui/input"
-import { Text } from "@/components/ui/text"
+import { MoneyField } from "@/components/ui/money-field"
+import { SegmentedControl } from "@/components/ui/segmented-control"
 import { Textarea } from "@/components/ui/textarea"
-import { mobileDevQuickFill, mobileDevQuickFillReference } from "@/dev/mobile-dev-quick-fill"
-import { useDebounce } from "@/hooks/use-debounce"
-import { createClientSubmissionKey } from "@/lib/client-submission-key"
 import {
-  addMonthsDateOnly,
-  compareDateOnly,
-  formatDateOnly,
-  isValidDateOnly,
-  todayDateOnly,
-} from "@/lib/date-only"
-import { captureMobileError } from "@/lib/sentry"
+  mobileDevQuickFill,
+  mobileDevQuickFillReference,
+} from "@/dev/mobile-dev-quick-fill"
+import { ServiceOpsDetailSheet } from "@/features/admin-service-operations/components/service-ops-detail"
+import {
+  OpsContextCard,
+  ServiceOpsFlowSheet,
+  type OpsFlowStep,
+} from "@/features/admin-service-operations/components/service-ops-flow"
+import { ServiceOpsLanes } from "@/features/admin-service-operations/components/service-ops-lanes"
+import { useOpsLane } from "@/features/admin-service-operations/hooks/use-ops-lane"
+import type {
+  OpsResult,
+  OpsReviewSpec,
+  OpsRow,
+} from "@/features/admin-service-operations/model/service-ops-types"
 import { NotificationDestinationNotice } from "@/features/notifications/public/notification-destination-notice"
-import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
-import { useFocusEffect } from "@react-navigation/native"
 import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react"
-import { Keyboard, Pressable, ScrollView, View } from "react-native"
+  appQueryKey,
+  useAppQuery,
+  useInvalidateAppQueries,
+} from "@/hooks/use-app-query"
+import { useDebounce } from "@/hooks/use-debounce"
+import { readErrorCode } from "@/lib/app-query-policy"
+import { createClientSubmissionKey } from "@/lib/client-submission-key"
+import { addMonthsDateOnly, compareDateOnly, todayDateOnly } from "@/lib/date-only"
+import { formatMoney } from "@/lib/money"
+import { isMobileReadCacheStale } from "@/lib/read-cache"
+import { captureMobileError } from "@/lib/sentry"
+import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
+import { MobileOfflineOperationError } from "@/runtime/mobile-runtime-state"
+import { getMobilePersistenceScope } from "@/runtime/persistence-scope"
+import { useEffect, useRef, useState } from "react"
 import {
   activateProcurementOperation,
   getProcurementOperationDetail,
+  getProcurementOperationsSummary,
   getProcurementOperationsWorkspace,
   reviewProcurementOperation,
   submitProcurementPayment,
@@ -49,130 +50,25 @@ import {
 import type {
   ProcurementLane,
   ProcurementOperation,
-  ProcurementScheduleItem,
   ProcurementWorkspace,
 } from "../model/admin-procurement-operations-types"
+import {
+  procurementDetail,
+  procurementLanes,
+  procurementRow,
+  procurementSummaryHero,
+  shortDate,
+} from "../model/procurement-ops-presentation"
 
-const lanes: { label: string; value: ProcurementLane }[] = [
-  { label: "Review", value: "review" },
-  { label: "Activate", value: "activate" },
-  { label: "Servicing", value: "servicing" },
-  { label: "Completed", value: "completed" },
-]
+type Kind = "activate" | "payment" | "review"
+type Decision = "approved" | "rejected" | "under_review"
 
-type FormIntent =
-  | { kind: "review"; request: ProcurementOperation }
-  | { kind: "activate"; request: ProcurementOperation }
-  | {
-      kind: "payment"
-      request: ProcurementOperation
-      scheduleItem: ProcurementScheduleItem
-    }
-
-function formatCurrency(value: number, currencyCode: string) {
-  return new Intl.NumberFormat("en-NG", {
-    currency: currencyCode,
-    maximumFractionDigits: 0,
-    style: "currency",
-  }).format(value)
-}
-
-function formatCompactCurrency(value: number, currencyCode: string) {
-  if (Math.abs(value) < 1_000) return formatCurrency(value, currencyCode)
-  const divisor = Math.abs(value) >= 999_500 ? 1_000_000 : 1_000
-  const suffix = divisor === 1_000_000 ? "m" : "k"
-  return `${new Intl.NumberFormat("en-NG", {
-    currency: currencyCode,
-    maximumFractionDigits: 2,
-    style: "currency",
-  }).format(value / divisor)}${suffix}`
-}
-
-function labelize(value: string) {
-  return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase())
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-NG", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value))
-}
-
-function plusMonthDateOnly() {
-  return addMonthsDateOnly(todayDateOnly(), 1)
-}
-
-function Field({ children, label }: { children: ReactNode; label: string }) {
-  return (
-    <View className="gap-2">
-      <Text className="text-sm font-bold text-foreground">{label}</Text>
-      {children}
-    </View>
-  )
-}
-
-function ErrorBanner({ message }: { message: string }) {
-  return (
-    <View className="flex-row items-start gap-3 rounded-lg bg-destructive/10 p-3">
-      <Icon className="mt-0.5 size-sm text-destructive" name="AlertCircle" />
-      <Text className="min-w-0 flex-1 text-sm leading-5 font-medium text-destructive">
-        {message}
-      </Text>
-    </View>
-  )
-}
-
-function OperationRow({
-  currencyCode,
-  item,
-  onPress,
-}: {
-  currencyCode: string
-  item: ProcurementOperation
-  onPress: () => void
-}) {
-  const critical = item.overdueCount > 0
-  const amount = item.lane === "servicing" ? item.outstandingAmount : item.approvedCost ?? item.requestedCost
-  return (
-    <Pressable
-      accessibilityHint="Opens procurement evidence, policy snapshot, and legal actions"
-      accessibilityLabel={`${item.member.fullName}, ${item.itemName}, ${formatCurrency(amount, currencyCode)}`}
-      accessibilityRole="button"
-      className="min-h-20 flex-row items-center gap-3 border-b border-border py-3 active:bg-accent/40"
-      onPress={onPress}
-      testID={`procurement-operation-${item.lane}-${item.id}`}
-    >
-      <View className="min-w-0 flex-1 gap-1">
-        <View className="flex-row items-start justify-between gap-3">
-          <Text className="min-w-0 flex-1 text-sm font-bold text-foreground">
-            {item.member.fullName}
-          </Text>
-          <Text className="text-sm font-extrabold text-foreground">
-            {formatCurrency(amount, currencyCode)}
-          </Text>
-        </View>
-        <Text className="text-xs leading-5 text-muted-foreground">
-          {item.itemName} · {item.approvedRepaymentMonths ?? item.requestedRepaymentMonths} months
-        </Text>
-        <View className="flex-row items-center gap-2">
-          <View className={`size-2 rounded-full ${critical ? "bg-destructive" : item.lane === "completed" ? "bg-success" : item.lane === "activate" ? "bg-primary" : "bg-warn"}`} />
-          <Text className={`text-xs font-medium ${critical ? "text-destructive" : "text-muted-foreground"}`}>
-            {critical
-              ? `${item.overdueCount} overdue installment${item.overdueCount === 1 ? "" : "s"}`
-              : item.lane === "activate"
-                ? item.vendorName
-                  ? "Approved · purchase evidence required"
-                  : "Approved · vendor evidence required"
-                : labelize(item.status)}
-          </Text>
-        </View>
-      </View>
-      <Icon className="size-sm text-muted-foreground" name="ChevronRight" />
-    </Pressable>
-  )
-}
+const feature = "admin-procurement"
+const keys = (scope = getMobilePersistenceScope()?.key) => ({
+  detail: (id: string | null) => appQueryKey(feature, scope, "detail", id),
+  lanes: appQueryKey(feature, scope, "lane"),
+  summary: appQueryKey(feature, scope, "summary"),
+})
 
 export function AdminProcurementOperationsScreen({
   initialEntityId = null,
@@ -180,338 +76,595 @@ export function AdminProcurementOperationsScreen({
   initialEntityId?: string | null
 }) {
   const runtime = useMobileRuntime()
+  const offline = runtime.state.connectivity !== "online"
+  const invalidate = useInvalidateAppQueries()
+  const scope = getMobilePersistenceScope()?.key
+  const k = keys(scope)
+
+  // Reads: summary once, one paged query per visited lane and term.
   const [lane, setLane] = useState<ProcurementLane>("review")
-  const [searchDraft, setSearchDraft] = useState("")
-  const search = useDebounce(searchDraft.trim(), 350)
-  const [workspace, setWorkspace] = useState<ProcurementWorkspace | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [detail, setDetail] = useState<ProcurementOperation | null>(null)
-  const [detailVisible, setDetailVisible] = useState(false)
-  const [isDetailLoading, setIsDetailLoading] = useState(false)
-  const [formIntent, setFormIntent] = useState<FormIntent | null>(null)
-  const [reviewIntent, setReviewIntent] = useState<FormIntent | null>(null)
-  const [decision, setDecision] = useState<"approved" | "rejected" | "under_review">("approved")
-  const [approvedCost, setApprovedCost] = useState("")
-  const [approvedMonths, setApprovedMonths] = useState("")
-  const [notes, setNotes] = useState("")
-  const [purchaseDate, setPurchaseDate] = useState("")
-  const [firstDueDate, setFirstDueDate] = useState("")
-  const [purchaseReference, setPurchaseReference] = useState("")
-  const [amount, setAmount] = useState("")
-  const [paidAt, setPaidAt] = useState("")
-  const [paymentReference, setPaymentReference] = useState("")
-  const [formError, setFormError] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [success, setSuccess] = useState<string | null>(null)
-  const [calendarIntent, setCalendarIntent] = useState<
-    "purchase" | "firstDue" | "payment" | null
-  >(null)
-  const queuedFormRef = useRef<FormIntent | null>(null)
-  const queuedReviewRef = useRef<FormIntent | null>(null)
-  const queuedSuccessRef = useRef<string | null>(null)
-  const handledNotificationEntityRef = useRef<string | null>(null)
-  const [isDestinationUnavailable, setIsDestinationUnavailable] =
-    useState(false)
+  const [visited, setVisited] = useState<Record<ProcurementLane, boolean>>({
+    activate: false,
+    completed: false,
+    review: true,
+    servicing: false,
+  })
+  const [search, setSearch] = useState("")
+  const term = useDebounce(search.trim().slice(0, 120), 350)
+  const summary = useAppQuery({
+    queryFn: getProcurementOperationsSummary,
+    queryKey: k.summary,
+  })
+  const laneRead = (value: ProcurementLane) => ({
+    enabled: visited[value],
+    fetchPage: (cursor: string | null) =>
+      getProcurementOperationsWorkspace({ cursor, lane: value, search: term || undefined }),
+    offline,
+    queryKey: appQueryKey(feature, scope, "lane", value, term),
+    selectItems: (page: ProcurementWorkspace) => page.items,
+    toRow: (item: ProcurementOperation) => procurementRow(item, undefined),
+  })
+  const review = useOpsLane(laneRead("review"))
+  const activate = useOpsLane(laneRead("activate"))
+  const servicing = useOpsLane(laneRead("servicing"))
+  const completed = useOpsLane(laneRead("completed"))
+  const lanes = { activate, completed, review, servicing }
+  const capabilities =
+    review.first?.capabilities ?? lanes[lane].first?.capabilities
+  const currencyCode = summary.data?.currencyCode ?? lanes[lane].first?.currencyCode ?? "NGN"
+  const money = (value: number) => formatMoney(value, { currencyCode })
+  const stale = isMobileReadCacheStale(summary.data?.cache) || lanes[lane].stale
+  const writesBlocked = offline || stale
+  const findRequest = (id: string) =>
+    Object.values(lanes)
+      .flatMap((entry) => entry.raw)
+      .find((item) => item.id === id)
 
-  const loadWorkspace = useCallback(async () => {
-    setIsLoading(true)
-    setLoadError(null)
-    try {
-      setWorkspace(
-        await getProcurementOperationsWorkspace({
-          lane,
-          search: search || undefined,
-        })
-      )
-    } catch (error) {
-      captureMobileError(error, "mobile.procurement_operations")
-      setLoadError(error instanceof Error ? error.message : "Procurement operations could not be loaded.")
-    } finally {
-      setIsLoading(false)
-    }
-  }, [lane, search])
-
-  useFocusEffect(useCallback(() => void loadWorkspace(), [loadWorkspace]))
-
-  const openDetail = useCallback(async (
-    id: string,
-    origin: "list" | "notification" = "list"
-  ) => {
-    setDetailVisible(true)
-    setIsDetailLoading(true)
-    setIsDestinationUnavailable(false)
-    try {
-      setDetail(await getProcurementOperationDetail(id))
-    } catch (error) {
-      captureMobileError(error, "mobile.procurement_operations")
-      if (origin === "notification") {
-        setIsDestinationUnavailable(true)
-      } else {
-        setLoadError(error instanceof Error ? error.message : "Procurement details could not be loaded.")
-      }
-      setDetailVisible(false)
-    } finally {
-      setIsDetailLoading(false)
-    }
-  }, [])
-
+  // Detail (cached per request).
+  const [detailId, setDetailId] = useState<string | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [destinationMissing, setDestinationMissing] = useState(false)
+  const detail = useAppQuery({
+    enabled: Boolean(detailId),
+    placeholderData: undefined,
+    queryFn: () => getProcurementOperationDetail(detailId!),
+    queryKey: k.detail(detailId),
+  })
+  const handledEntity = useRef<string | null>(null)
   useEffect(() => {
-    if (
-      !initialEntityId ||
-      handledNotificationEntityRef.current === initialEntityId
-    ) {
-      return
+    if (!initialEntityId || handledEntity.current === initialEntityId) return
+    handledEntity.current = initialEntityId
+    setDetailId(initialEntityId)
+    setDetailOpen(true)
+  }, [initialEntityId])
+  useEffect(() => {
+    if (detailOpen && detail.isError && detailId === initialEntityId) {
+      setDetailOpen(false)
+      setDestinationMissing(true)
     }
-    handledNotificationEntityRef.current = initialEntityId
-    void openDetail(initialEntityId, "notification")
-  }, [initialEntityId, openDetail])
+  }, [detail.isError, detailId, detailOpen, initialEntityId])
 
-  const commandsBlocked = runtime.state.connectivity !== "online"
-  const currencyCode = workspace?.currencyCode ?? "NGN"
-  const actionCount = (workspace?.summary.pendingRequests ?? 0) +
-    (workspace?.summary.approvedRequests ?? 0) +
-    (workspace?.summary.overdueScheduleItems ?? 0)
+  // Write flow.
+  const [step, setStep] = useState<OpsFlowStep>("closed")
+  const [kind, setKind] = useState<Kind>("review")
+  const [target, setTarget] = useState<ProcurementOperation | null>(null)
+  const [decision, setDecision] = useState<Decision>("approved")
+  const [cost, setCost] = useState("")
+  const [termMonths, setTermMonths] = useState("")
+  const [notes, setNotes] = useState("")
+  const [purchaseDate, setPurchaseDate] = useState(todayDateOnly())
+  const [firstDueDate, setFirstDueDate] = useState(addMonthsDateOnly(todayDateOnly(), 1))
+  const [reference, setReference] = useState("")
+  const [amount, setAmount] = useState("")
+  const [paidAt, setPaidAt] = useState(todayDateOnly())
+  const [showErrors, setShowErrors] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [result, setResult] = useState<OpsResult | null>(null)
+  const commandId = useRef<string | null>(null)
+  const queued = useRef<{ kind: Kind; request: ProcurementOperation } | null>(null)
+  const reopenDetail = useRef(false)
 
-  const prepareForm = (intent: FormIntent) => {
-    setCalendarIntent(null)
-    setFormError(null)
+  function openForm(nextKind: Kind, request: ProcurementOperation) {
+    setKind(nextKind)
+    setTarget(request)
+    setDecision("approved")
+    setCost(String(request.requestedCost))
+    setTermMonths(String(request.requestedRepaymentMonths))
     setNotes("")
-    if (intent.kind === "review") {
-      setDecision("approved")
-      setApprovedCost(String(intent.request.requestedCost))
-      setApprovedMonths(String(intent.request.requestedRepaymentMonths))
-    } else if (intent.kind === "activate") {
-      setPurchaseDate(todayDateOnly())
-      setFirstDueDate(plusMonthDateOnly())
-      setPurchaseReference("")
-    } else {
-      setAmount(String(intent.scheduleItem.outstandingAmount))
-      setPaidAt(todayDateOnly())
-      setPaymentReference("")
-    }
-    setFormIntent(intent)
+    setPurchaseDate(todayDateOnly())
+    setFirstDueDate(addMonthsDateOnly(todayDateOnly(), 1))
+    setReference("")
+    setAmount(String(request.nextDue?.outstandingAmount ?? ""))
+    setPaidAt(todayDateOnly())
+    setShowErrors(false)
+    setResult(null)
+    commandId.current = null
+    setStep("form")
   }
 
-  const openFormFromDetail = (intent: FormIntent) => {
-    queuedFormRef.current = intent
-    setDetailVisible(false)
-  }
+  const kindForLane = (value: ProcurementLane): Kind | null =>
+    value === "review" ? "review" : value === "activate" ? "activate" : value === "servicing" ? "payment" : null
 
-  const validateForm = () => {
-    if (!formIntent) return
-    if (commandsBlocked) {
-      setFormError("Reconnect and refresh live data before submitting this operation.")
-      return
-    }
-    if (formIntent.kind === "review") {
+  const errors: Record<string, string> = {}
+  if (target) {
+    if (kind === "review") {
       if (decision === "approved") {
-        const cost = Number(approvedCost.replace(/,/g, ""))
-        const months = Number(approvedMonths)
-        if (!Number.isFinite(cost) || cost <= 0) return setFormError("Enter a valid approved cost.")
-        if (!Number.isInteger(months) || months <= 0 || months > formIntent.request.policyMaximumPaybackMonths) {
-          return setFormError(`Approved months must be between 1 and ${formIntent.request.policyMaximumPaybackMonths}.`)
-        }
+        const value = Number(cost)
+        const monthsValue = Number(termMonths)
+        if (!cost || !(value > 0)) errors.cost = "Enter the approved cost."
+        if (!Number.isInteger(monthsValue) || monthsValue < 1 || monthsValue > target.policyMaximumPaybackMonths)
+          errors.termMonths = `Between 1 and ${target.policyMaximumPaybackMonths} months.`
       }
-      if (decision !== "under_review" && notes.trim().length < 2) return setFormError("Add review evidence before the final decision.")
-    } else if (formIntent.kind === "activate") {
-      if (!isValidDateOnly(purchaseDate) || !isValidDateOnly(firstDueDate)) {
-        return setFormError("Choose the purchase date and first repayment due date.")
-      }
-      if (compareDateOnly(firstDueDate, purchaseDate) < 0) {
-        return setFormError("First repayment due date cannot be before the purchase date.")
-      }
-      if (purchaseReference.trim().length < 2) return setFormError("Add the supplier invoice or purchase reference.")
+      if (decision !== "under_review" && notes.trim().length < 2)
+        errors.notes = "Add the evidence for this decision."
+    } else if (kind === "activate") {
+      if (!purchaseDate) errors.purchaseDate = "Choose the purchase date."
+      if (!firstDueDate) errors.firstDueDate = "Choose the first due date."
+      else if (purchaseDate && compareDateOnly(firstDueDate, purchaseDate) < 0)
+        errors.firstDueDate = "Can’t be before the purchase date."
+      if (reference.trim().length < 2) errors.reference = "Add the invoice reference."
     } else {
-      const value = Number(amount.replace(/,/g, ""))
-      if (!Number.isFinite(value) || value <= 0 || value > formIntent.scheduleItem.outstandingAmount) return setFormError("Payment must be within the selected installment balance.")
-      if (!isValidDateOnly(paidAt)) return setFormError("Choose the payment date.")
-      if (paymentReference.trim().length < 2) return setFormError("Add the payment reference.")
+      const due = target.nextDue?.outstandingAmount ?? 0
+      const value = Number(amount)
+      if (!amount || !(value > 0)) errors.amount = "Enter an amount."
+      else if (value > due) errors.amount = `Can’t be more than the ${money(due)} balance.`
+      if (!paidAt) errors.paidAt = "Choose the payment date."
+      if (reference.trim().length < 2) errors.reference = "Add the payment reference."
     }
-    setFormError(null)
-    queuedReviewRef.current = formIntent
-    setFormIntent(null)
+  }
+  const valid = Object.keys(errors).length === 0
+  const err = (key: string) => (showErrors ? errors[key] : undefined)
+
+  const reviewSpec: OpsReviewSpec | null = !target
+    ? null
+    : kind === "review"
+      ? {
+          confirmLabel:
+            decision === "approved" ? "Approve request" : decision === "rejected" ? "Reject request" : "Keep in review",
+          note: decision === "approved" ? "These terms are frozen for the purchase." : undefined,
+          rows: [
+            ["Member", target.member.fullName],
+            ["Item", target.itemName],
+            ["Decision", decision === "approved" ? "Approve" : decision === "rejected" ? "Reject" : "Keep in review"],
+            ...(decision === "approved"
+              ? ([
+                  ["Approved cost", money(Number(cost || 0))],
+                  ["Term", `${termMonths} months`],
+                ] as [string, string][])
+              : []),
+          ],
+          title: "Confirm decision",
+        }
+      : kind === "activate"
+        ? {
+            confirmLabel: "Activate purchase",
+            note: "The repayment schedule is created once.",
+            rows: [
+              ["Member", target.member.fullName],
+              ["Invoice", reference.trim() || "—"],
+              ["Purchase date", purchaseDate ? shortDate(purchaseDate, true) : "—"],
+              ["First due", firstDueDate ? shortDate(firstDueDate, true) : "—"],
+              ["Schedule", `${target.approvedRepaymentMonths ?? target.requestedRepaymentMonths} installments`],
+            ],
+            title: "Confirm purchase",
+          }
+        : {
+            confirmLabel: "Submit receipt",
+            note: "Finance reviews the receipt before the balance changes.",
+            rows: [
+              ["Member", target.member.fullName],
+              ["Installment", String(target.nextDue?.installmentNumber ?? "–")],
+              ["Amount", money(Number(amount || 0))],
+              ["Date", paidAt ? shortDate(paidAt, true) : "—"],
+              ["Reference", reference.trim() || "—"],
+            ],
+            title: "Confirm payment",
+          }
+
+  function goReview() {
+    setShowErrors(true)
+    if (!valid || writesBlocked) return
+    commandId.current = createClientSubmissionKey()
+    setStep("review")
   }
 
-  const runCommand = async () => {
-    if (!reviewIntent) return
-    setIsSubmitting(true)
-    setFormError(null)
+  async function confirm() {
+    if (!target || submitting) return
+    const id = commandId.current ?? createClientSubmissionKey()
+    commandId.current = id
+    setSubmitting(true)
     try {
-      if (reviewIntent.kind === "review") {
+      if (kind === "review") {
         await reviewProcurementOperation({
-          approvedCost: decision === "approved" ? Number(approvedCost.replace(/,/g, "")) : undefined,
-          approvedRepaymentMonths: decision === "approved" ? Number(approvedMonths) : undefined,
-          commandId: createClientSubmissionKey(),
-          expectedState: reviewIntent.request.status as "submitted" | "under_review",
+          approvedCost: decision === "approved" ? Number(cost) : undefined,
+          approvedRepaymentMonths: decision === "approved" ? Number(termMonths) : undefined,
+          commandId: id,
+          expectedState: target.status as "submitted" | "under_review",
           notes: notes.trim() || undefined,
-          procurementRequestId: reviewIntent.request.id,
+          procurementRequestId: target.id,
           status: decision,
         })
-        queuedSuccessRef.current = `Procurement request ${labelize(decision).toLowerCase()} and confirmed by the server.`
-      } else if (reviewIntent.kind === "activate") {
+      } else if (kind === "activate") {
         await activateProcurementOperation({
-          commandId: createClientSubmissionKey(),
+          commandId: id,
           expectedState: "approved",
           firstDueDate,
-          procurementRequestId: reviewIntent.request.id,
+          procurementRequestId: target.id,
           purchaseDate,
           purchaseNotes: notes.trim() || undefined,
-          purchaseReference: purchaseReference.trim(),
+          purchaseReference: reference.trim(),
         })
-        queuedSuccessRef.current = "Purchase activated and the approved repayment schedule was created."
-      } else {
+      } else if (target.nextDue) {
         await submitProcurementPayment({
-          amount: Number(amount.replace(/,/g, "")),
-          commandId: createClientSubmissionKey(),
-          expectedState: reviewIntent.scheduleItem.status as "due" | "overdue" | "partially_paid" | "pending",
-          memberId: reviewIntent.request.member.id,
+          amount: Number(amount),
+          commandId: id,
+          expectedState: target.nextDue.status as "due" | "overdue" | "partially_paid" | "pending",
+          memberId: target.member.id,
           notes: notes.trim() || undefined,
           paidAt,
-          paymentReference: paymentReference.trim(),
-          procurementRepaymentScheduleItemId: reviewIntent.scheduleItem.id,
+          paymentReference: reference.trim(),
+          procurementRepaymentScheduleItemId: target.nextDue.id,
         })
-        queuedSuccessRef.current = "Payment receipt submitted for independent finance review. No balance changed yet."
       }
-      setReviewIntent(null)
-      await loadWorkspace()
+      const months = target.approvedRepaymentMonths ?? target.requestedRepaymentMonths
+      setResult(
+        kind === "review"
+          ? {
+              body:
+                decision === "approved"
+                  ? `${target.member.fullName} can now buy the ${target.itemName}.`
+                  : decision === "rejected"
+                    ? `${target.member.fullName}’s request is closed.`
+                    : "The request stays in review.",
+              kind: "success",
+              secondaryLabel: "Open record",
+              title: decision === "approved" ? "Request approved" : "Decision recorded",
+            }
+          : kind === "activate"
+            ? {
+                body: `${target.member.fullName}’s ${months}-month schedule has started.`,
+                kind: "success",
+                secondaryLabel: "Open record",
+                title: "Purchase activated",
+              }
+            : {
+                body: "Finance will review it before the balance changes.",
+                kind: "success",
+                secondaryLabel: "Open record",
+                title: "Receipt submitted",
+              }
+      )
+      setStep("result")
+      void invalidate(k.summary, k.lanes, k.detail(target.id))
     } catch (error) {
-      captureMobileError(error, "mobile.procurement_operations")
-      setFormError(error instanceof Error ? error.message : "The procurement command could not be completed.")
+      const code = readErrorCode(error)
+      const conflict = code === "CONFLICT" || code === "PRECONDITION_FAILED"
+      if (!(error instanceof MobileOfflineOperationError))
+        captureMobileError(error, "mobile.procurement_operations")
+      if (conflict) {
+        commandId.current = null
+        void invalidate(k.summary, k.lanes, k.detail(target.id))
+      }
+      setResult({ kind: conflict ? "conflict" : "error" })
+      setStep("result")
     } finally {
-      setIsSubmitting(false)
+      setSubmitting(false)
     }
   }
 
-  const formDirty = Boolean(
-    notes || approvedCost || approvedMonths || purchaseReference || amount || paymentReference
-  )
-  const reviewRows = useMemo(() => {
-    if (!reviewIntent) return []
-    if (reviewIntent.kind === "review") return [
-      { label: "Member", value: reviewIntent.request.member.fullName },
-      { label: "Decision", value: labelize(decision) },
-      { label: "Approved cost", value: decision === "approved" ? formatCurrency(Number(approvedCost || 0), currencyCode) : "Not applicable" },
-      { label: "Approved term", value: decision === "approved" ? `${approvedMonths} months` : "Not applicable" },
-    ]
-    if (reviewIntent.kind === "activate") return [
-      { label: "Member", value: reviewIntent.request.member.fullName },
-      { label: "Purchase reference", value: purchaseReference },
-      { label: "Purchase date", value: formatDateOnly(purchaseDate) },
-      { label: "First due date", value: formatDateOnly(firstDueDate) },
-      { label: "Schedule", value: `${reviewIntent.request.approvedRepaymentMonths} installments from approved policy snapshot` },
-    ]
-    return [
-      { label: "Member", value: reviewIntent.request.member.fullName },
-      { label: "Installment", value: String(reviewIntent.scheduleItem.installmentNumber) },
-      { label: "Amount", value: formatCurrency(Number(amount || 0), currencyCode) },
-      { label: "Reference", value: paymentReference },
-      { label: "Effect", value: "Receipt review required before settlement" },
-    ]
-  }, [amount, approvedCost, approvedMonths, currencyCode, decision, firstDueDate, paymentReference, purchaseDate, purchaseReference, reviewIntent])
+  const opened = detail.data
+  const openedKind = opened ? kindForLane(opened.lane) : null
+  const detailAction =
+    opened && openedKind
+      ? {
+          disabled:
+            writesBlocked ||
+            (openedKind === "review" && !capabilities?.review) ||
+            (openedKind === "activate" && !capabilities?.activate) ||
+            (openedKind === "payment" && (!capabilities?.submitPayment || !opened.nextDue)),
+          label: openedKind === "review" ? "Review" : openedKind === "activate" ? "Record purchase" : "Record payment",
+          onPress: () => {
+            queued.current = { kind: openedKind, request: opened }
+            setDetailOpen(false)
+          },
+          testID: "procurement-detail-action",
+        }
+      : null
+
+  const formTitle = kind === "review" ? "Review request" : kind === "activate" ? "Record purchase" : "Record payment"
+  const months = target ? target.approvedRepaymentMonths ?? target.requestedRepaymentMonths : 0
 
   return (
-    <SafeArea className="flex-1 bg-background">
-      <AppKeyboardAwareScrollView
-        bottomOffset={140}
-        contentContainerClassName="gap-5 px-5 pb-28 pt-4"
-        keyboardShouldPersistTaps="handled"
-        testID="admin-procurement-operations-screen"
-      >
-        <ScreenHeader
-          back
-          action={<Button accessibilityLabel="Refresh procurement operations" disabled={isLoading} onPress={loadWorkspace} size="icon" variant="secondary"><Icon className="size-base text-primary" name="RefreshCw" /></Button>}
-          title="Procurement operations"
-        />
-        {isDestinationUnavailable ? (
-          <NotificationDestinationNotice
-            onDismiss={() => setIsDestinationUnavailable(false)}
+    <>
+      <ServiceOpsLanes
+        currencyCode={currencyCode}
+        hero={procurementSummaryHero(summary.data)}
+        heroAction={{
+          icon: "RefreshCw",
+          label: "Refresh procurement",
+          onPress: () => {
+            void summary.refetch({ cancelRefetch: false })
+            lanes[lane].state.refetch()
+          },
+        }}
+        icon="ShoppingBag"
+        lane={lane}
+        laneState={(value) => ({
+          ...lanes[value].state,
+          items: lanes[value].raw.map((item) => procurementRow(item, capabilities)),
+        })}
+        lanes={procurementLanes(summary.data)}
+        offline={offline}
+        onAction={(row: OpsRow, value) => {
+          const request = findRequest(row.id)
+          const nextKind = kindForLane(value)
+          if (request && nextKind) openForm(nextKind, request)
+        }}
+        onLaneChange={(value) => {
+          setLane(value)
+          setVisited((current) => (current[value] ? current : { ...current, [value]: true }))
+        }}
+        onOpen={(row) => {
+          setDetailId(row.id)
+          setDetailOpen(true)
+        }}
+        onRefresh={() => {
+          void summary.refetch({ cancelRefetch: false })
+          lanes[lane].state.refetch()
+        }}
+        refreshing={summary.isRefetching || lanes[lane].state.refreshing}
+        search={search}
+        searchPlaceholder="Search member or item"
+        searchTerm={term}
+        setSearch={setSearch}
+        stale={stale}
+        summaryError={summary.isError}
+        testIdPrefix="procurement"
+        title="Procurement"
+        topSlot={
+          destinationMissing ? (
+            <NotificationDestinationNotice onDismiss={() => setDestinationMissing(false)} />
+          ) : null
+        }
+        writesBlocked={writesBlocked}
+      />
+
+      <ServiceOpsDetailSheet
+        action={detailAction}
+        currencyCode={currencyCode}
+        detail={opened ? procurementDetail(opened, currencyCode) : undefined}
+        error={detail.isError}
+        loading={detail.isPending}
+        offline={offline}
+        onClose={() => setDetailOpen(false)}
+        onDismissed={() => {
+          const next = queued.current
+          queued.current = null
+          if (next) openForm(next.kind, next.request)
+        }}
+        onRetry={() => void detail.refetch()}
+        retrying={detail.isRefetching}
+        title="Procurement request"
+        visible={detailOpen}
+      />
+
+      <ServiceOpsFlowSheet
+        cta={kind === "review" ? "Review decision" : kind === "activate" ? "Review purchase" : "Review payment"}
+        dirty={Boolean(notes.trim() || reference.trim())}
+        footerExtra={
+          <DevQuickFill
+            label={`Quick fill ${formTitle.toLowerCase()}`}
+            onPress={() => {
+              const quick = mobileDevQuickFill.adminProcurementOperations
+              if (kind === "review") setNotes(quick.reviewNotes)
+              else if (kind === "activate") {
+                setReference(mobileDevQuickFillReference("QA-INV"))
+                setNotes(quick.activateNotes)
+              } else {
+                setReference(mobileDevQuickFillReference("QA-PAY"))
+                setNotes(quick.paymentNotes)
+              }
+            }}
+            placement="footer"
+            portal={false}
           />
+        }
+        offline={offline}
+        onClose={() => {
+          setStep("closed")
+          setResult(null)
+        }}
+        onConfirm={confirm}
+        onDismissed={() => {
+          if (!reopenDetail.current || !target) return
+          reopenDetail.current = false
+          setDetailId(target.id)
+          setDetailOpen(true)
+        }}
+        onRetry={confirm}
+        onReview={goReview}
+        onSecondary={() => {
+          reopenDetail.current = true
+          setStep("closed")
+          setResult(null)
+        }}
+        result={result}
+        review={reviewSpec}
+        setStep={setStep}
+        step={step}
+        submitting={submitting}
+        title={formTitle}
+      >
+        {target ? (
+          <>
+            <OpsContextCard
+              amount={money(
+                kind === "payment"
+                  ? target.outstandingAmount
+                  : target.approvedCost ?? target.requestedCost
+              )}
+              subtitle={`${target.itemName} · ${months} months`}
+              title={`${target.member.fullName} · ${target.member.memberNumber}`}
+            />
+            {kind === "review" ? (
+              <>
+                <FormField label="Decision">
+                  <SegmentedControl
+                    accessibilityLabel="Decision"
+                    onChange={setDecision}
+                    options={[
+                      { label: "Approve", value: "approved" as const },
+                      { label: "Keep in review", value: "under_review" as const },
+                      { label: "Reject", value: "rejected" as const },
+                    ]}
+                    value={decision}
+                  />
+                </FormField>
+                {decision === "approved" ? (
+                  <>
+                    <FormField error={err("cost")} helper={`Requested ${money(target.requestedCost)}`} label="Approved cost">
+                      <MoneyField
+                        accessibilityLabel="Approved cost"
+                        currencyCode={currencyCode}
+                        onChangeValue={(raw) => setCost(raw)}
+                        testID="procurement-review-cost"
+                        value={cost}
+                      />
+                    </FormField>
+                    <FormField
+                      error={err("termMonths")}
+                      helper={`Policy allows up to ${target.policyMaximumPaybackMonths} months`}
+                      label="Repayment months"
+                    >
+                      <Input
+                        accessibilityLabel="Repayment months"
+                        keyboardType="number-pad"
+                        maxLength={2}
+                        onChangeText={(value) => setTermMonths(value.replace(/\D/g, ""))}
+                        testID="procurement-review-months"
+                        value={termMonths}
+                      />
+                    </FormField>
+                  </>
+                ) : null}
+                <FormField
+                  error={err("notes")}
+                  label="Review evidence"
+                  optional={decision === "under_review"}
+                >
+                  <Textarea
+                    accessibilityLabel="Review evidence"
+                    className="min-h-[104px] rounded-[14px] px-[14px] py-[13px]"
+                    maxLength={2000}
+                    onChangeText={setNotes}
+                    placeholder="Policy basis and what you checked"
+                    testID="procurement-review-notes"
+                    value={notes}
+                  />
+                </FormField>
+              </>
+            ) : kind === "activate" ? (
+              <>
+                <FormField error={err("purchaseDate")} label="Purchase date">
+                  <DateField
+                    maximumDate={todayDateOnly()}
+                    onChange={setPurchaseDate}
+                    sheetTitle="Purchase date"
+                    testID="procurement-activate-purchase-date"
+                    value={purchaseDate}
+                  />
+                </FormField>
+                <FormField error={err("reference")} label="Invoice reference">
+                  <Input
+                    accessibilityLabel="Invoice reference"
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    maxLength={120}
+                    onChangeText={setReference}
+                    placeholder="INV-012345"
+                    testID="procurement-activate-reference"
+                    value={reference}
+                  />
+                </FormField>
+                <FormField
+                  error={err("firstDueDate")}
+                  helper={`${months} monthly installments from the approved terms`}
+                  label="First repayment due"
+                >
+                  <DateField
+                    minimumDate={purchaseDate || undefined}
+                    onChange={setFirstDueDate}
+                    sheetTitle="First repayment due"
+                    testID="procurement-activate-first-due"
+                    value={firstDueDate}
+                  />
+                </FormField>
+                <FormField label="Purchase notes" optional>
+                  <Textarea
+                    accessibilityLabel="Purchase notes"
+                    className="min-h-[96px] rounded-[14px] px-[14px] py-[13px]"
+                    maxLength={2000}
+                    onChangeText={setNotes}
+                    placeholder="Delivery and condition checks"
+                    value={notes}
+                  />
+                </FormField>
+              </>
+            ) : (
+              <>
+                <FormField
+                  error={err("amount")}
+                  helper={
+                    target.nextDue
+                      ? `Installment ${target.nextDue.installmentNumber} balance ${money(target.nextDue.outstandingAmount)}`
+                      : undefined
+                  }
+                  label="Amount"
+                >
+                  <MoneyField
+                    accessibilityLabel="Payment amount"
+                    currencyCode={currencyCode}
+                    onChangeValue={(raw) => setAmount(raw)}
+                    testID="procurement-payment-amount"
+                    value={amount}
+                  />
+                </FormField>
+                <FormField error={err("paidAt")} label="Payment date">
+                  <DateField
+                    maximumDate={todayDateOnly()}
+                    onChange={setPaidAt}
+                    sheetTitle="Payment date"
+                    testID="procurement-payment-date"
+                    value={paidAt}
+                  />
+                </FormField>
+                <FormField error={err("reference")} label="Payment reference">
+                  <Input
+                    accessibilityLabel="Payment reference"
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    maxLength={120}
+                    onChangeText={setReference}
+                    placeholder="Bank transfer reference"
+                    testID="procurement-payment-reference"
+                    value={reference}
+                  />
+                </FormField>
+                <FormField label="Notes" optional>
+                  <Textarea
+                    accessibilityLabel="Payment notes"
+                    className="min-h-[96px] rounded-[14px] px-[14px] py-[13px]"
+                    maxLength={2000}
+                    onChangeText={setNotes}
+                    placeholder="Where the payment was received"
+                    value={notes}
+                  />
+                </FormField>
+              </>
+            )}
+          </>
         ) : null}
-        <View className="flex-row items-center gap-2 border-b border-border pb-4">
-          <View className={`size-2 rounded-full ${loadError ? "bg-destructive" : "bg-success"}`} />
-          <Text className={`text-xs font-bold ${loadError ? "text-destructive" : "text-success"}`}>
-            {loadError ? "Refresh required" : "Live fulfillment data"}
-          </Text>
-        </View>
-        {loadError ? <ErrorBanner message={loadError} /> : null}
-        {commandsBlocked ? <ErrorBanner message="Showing readable records offline. Review, activation, and payment commands require live data." /> : null}
-        <View className="gap-4 border-b border-border pb-5">
-          <View className="flex-row items-start justify-between gap-3">
-            <View className="min-w-0 flex-1 gap-1">
-              <Text className="text-3xl font-extrabold tracking-tight text-foreground">
-                {formatCompactCurrency(workspace?.summary.outstandingAmount ?? 0, currencyCode)} outstanding
-              </Text>
-              <Text className="text-xs leading-5 text-muted-foreground">
-                {workspace?.summary.activeRequests ?? 0} active obligations · {workspace?.summary.dueScheduleItems ?? 0} due installments
-              </Text>
-            </View>
-            {actionCount ? <View className="rounded-full bg-warn/15 px-3 py-2"><Text className="text-xs font-extrabold text-warn">{actionCount} need action</Text></View> : null}
-          </View>
-          <View className="flex-row divide-x divide-border">
-            <View className="flex-1 gap-1 pr-4"><Text className="text-lg font-extrabold text-foreground">{workspace?.summary.pendingRequests ?? 0}</Text><Text className="text-xs text-muted-foreground">Needs review</Text></View>
-            <View className="flex-1 gap-1 px-4"><Text className="text-lg font-extrabold text-foreground">{workspace?.summary.approvedRequests ?? 0}</Text><Text className="text-xs text-muted-foreground">Ready to activate</Text></View>
-            <View className="flex-1 gap-1 pl-4"><Text className="text-lg font-extrabold text-destructive">{workspace?.summary.overdueScheduleItems ?? 0}</Text><Text className="text-xs text-muted-foreground">Overdue</Text></View>
-          </View>
-        </View>
-        <View className="flex-row gap-2">
-          <Input accessibilityLabel="Search procurement operations" className="min-w-0 flex-1" onChangeText={setSearchDraft} onSubmitEditing={Keyboard.dismiss} placeholder="Search member or request" returnKeyType="search" testID="procurement-search-input" value={searchDraft} />
-          <Button accessibilityLabel="Search" onPress={Keyboard.dismiss} size="icon" variant="secondary"><Icon className="size-base text-foreground" name="Search" /></Button>
-        </View>
-        <ScrollView horizontal contentContainerClassName="gap-2" keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={false}>
-          {lanes.map((item) => <Button className="h-10 px-3" key={item.value} onPress={() => setLane(item.value)} testID={`procurement-lane-${item.value}`} variant={lane === item.value ? "secondary" : "ghost"}><Text>{item.label}{lane === item.value && workspace ? ` · ${workspace.items.length}` : ""}</Text></Button>)}
-        </ScrollView>
-        <View>
-          <View className="flex-row items-end justify-between gap-3 border-b border-border pb-3">
-            <Text className="text-lg font-extrabold text-foreground">{lane === "review" ? "Needs review" : lane === "activate" ? "Ready for fulfillment" : lane === "servicing" ? "Active obligations" : "Closed records"}</Text>
-            <Text className="text-xs font-medium text-muted-foreground">{lane === "servicing" ? "Exceptions first" : "Newest first"}</Text>
-          </View>
-          {isLoading && !workspace ? <View className="items-center py-16"><LoadingSpinner /></View> : (workspace?.items.length ? workspace.items.map((item) => <OperationRow currencyCode={currencyCode} item={item} key={item.id} onPress={() => void openDetail(item.id)} />) : <EmptyState description="No procurement records match this lane and search." icon="ShoppingBag" title="No fulfillment work" />)}
-        </View>
-        <View className="gap-3 border-t border-border pt-4">
-          <View className="flex-row items-center justify-between gap-3"><Text className="text-lg font-extrabold text-foreground">Fulfillment guard</Text><Text className="text-xs font-semibold text-muted-foreground">Separate legal states</Text></View>
-          <View className="flex-row items-start gap-3"><Icon className="mt-0.5 size-sm text-warn" name="ShieldCheck" /><Text className="min-w-0 flex-1 text-xs leading-5 text-muted-foreground">Approval freezes the policy snapshot. Purchase activation creates the schedule once. Staff-entered payments remain receipts until independent review posts them.</Text></View>
-        </View>
-      </AppKeyboardAwareScrollView>
-
-      <FloatingBottomSheet accessibilityLabel={detail ? `${detail.member.fullName} procurement record` : "Procurement record"} hideHandle onClose={() => setDetailVisible(false)} onDismissed={() => { const queued = queuedFormRef.current; queuedFormRef.current = null; if (queued) prepareForm(queued); else setDetail(null) }} presentation="large" scrollable visible={detailVisible}>
-        <View className="gap-5 px-5 pt-5 pb-8">
-          <View className="flex-row items-start gap-3 border-b border-border pb-4"><View className="min-w-0 flex-1 gap-1"><Text accessibilityRole="header" className="text-2xl font-extrabold tracking-tight text-foreground">{detail?.itemName ?? "Loading record"}</Text>{detail ? <Text className="text-sm text-muted-foreground">{detail.member.fullName} · {detail.member.memberNumber}</Text> : null}</View><Button accessibilityLabel="Close record" onPress={() => setDetailVisible(false)} size="icon" variant="ghost"><Icon className="size-base text-foreground" name="X" /></Button></View>
-          {isDetailLoading || !detail ? <View className="items-center py-20"><LoadingSpinner /></View> : <>
-            <View className="gap-4 border-b border-border pb-5"><View className="flex-row items-end justify-between gap-3"><View><Text className="text-3xl font-extrabold tracking-tight text-foreground">{formatCurrency(detail.approvedCost ?? detail.requestedCost, currencyCode)}</Text><Text className="mt-1 text-xs text-muted-foreground">{detail.vendorName ?? "Vendor not recorded"} · {detail.approvedRepaymentMonths ?? detail.requestedRepaymentMonths} months</Text></View><Text className="text-xs font-bold text-primary">{labelize(detail.status)}</Text></View></View>
-            <View className="gap-2"><View className="flex-row items-end justify-between border-b border-border pb-2"><Text className="text-lg font-extrabold text-foreground">Evidence timeline</Text><Text className="text-xs text-muted-foreground">Server record</Text></View>
-              <View className="gap-1 border-b border-border py-3"><Text className="text-sm font-bold text-foreground">Request submitted</Text><Text className="text-xs leading-5 text-muted-foreground">{detail.itemDescription ?? "No purpose note"}</Text><Text className="text-xs text-muted-foreground">{formatDate(detail.requestedAt)} · {detail.member.fullName}</Text></View>
-              {detail.reviewedAt ? <View className="gap-1 border-b border-border py-3"><Text className="text-sm font-bold text-foreground">Finance review {labelize(detail.status === "approved" || detail.lane === "servicing" ? "approved" : detail.status)}</Text><Text className="text-xs leading-5 text-muted-foreground">{detail.reviewNotes ?? "No review note"}</Text><Text className="text-xs text-muted-foreground">{formatDate(detail.reviewedAt)} · {detail.reviewedByUser?.fullName ?? "Finance reviewer"}</Text></View> : null}
-              {detail.purchasedAt ? <View className="gap-1 border-b border-border py-3"><Text className="text-sm font-bold text-foreground">Purchase activated</Text><Text className="text-xs leading-5 text-muted-foreground">{detail.purchaseReference ?? "No reference"} · {detail.purchaseNotes ?? "No note"}</Text><Text className="text-xs text-muted-foreground">{formatDate(detail.purchasedAt)}</Text></View> : null}
-            </View>
-            {detail.repaymentScheduleItems.length ? <View className="gap-2"><View className="flex-row items-end justify-between border-b border-border pb-2"><Text className="text-lg font-extrabold text-foreground">Repayment schedule</Text><Text className="text-xs text-muted-foreground">{detail.repaymentScheduleItems.length} installments</Text></View>{detail.repaymentScheduleItems.map((item) => <View className="flex-row items-center gap-3 border-b border-border py-3" key={item.id}><View className={`size-2 rounded-full ${item.status === "overdue" ? "bg-destructive" : item.status === "paid" ? "bg-success" : "bg-warn"}`} /><View className="min-w-0 flex-1"><Text className="text-sm font-bold text-foreground">Installment {item.installmentNumber}</Text><Text className="text-xs text-muted-foreground">{formatDate(item.dueDate)} · {labelize(item.status)}</Text></View><Text className="text-sm font-extrabold text-foreground">{formatCurrency(item.outstandingAmount || item.amount, currencyCode)}</Text></View>)}</View> : null}
-            <View className="flex-row gap-2 pt-2">
-              {detail.lane === "review" ? <Button className="h-12 flex-1" disabled={!workspace?.capabilities.review || commandsBlocked} onPress={() => openFormFromDetail({ kind: "review", request: detail })}><Text>Review request</Text></Button> : null}
-              {detail.lane === "activate" ? <Button className="h-12 flex-1" disabled={!workspace?.capabilities.activate || commandsBlocked} onPress={() => openFormFromDetail({ kind: "activate", request: detail })}><Text>Record purchase</Text></Button> : null}
-              {detail.lane === "servicing" && detail.nextDue ? <Button className="h-12 flex-1" disabled={!workspace?.capabilities.submitPayment || commandsBlocked} onPress={() => openFormFromDetail({ kind: "payment", request: detail, scheduleItem: detail.nextDue as ProcurementScheduleItem })}><Text>Record payment</Text></Button> : null}
-            </View>
-          </>}
-        </View>
-      </FloatingBottomSheet>
-
-      <FullScreenFormSheet dirty={formIntent?.kind === "review" && formDirty} footer={<View className="flex-row items-center gap-3"><DevQuickFill label="Quick fill procurement review" onPress={() => { setDecision("approved"); setApprovedCost(String(formIntent?.request.requestedCost ?? 480000)); setApprovedMonths(String(Math.min(formIntent?.request.requestedRepaymentMonths ?? 12, formIntent?.request.policyMaximumPaybackMonths ?? 12))); setNotes(mobileDevQuickFill.adminProcurementOperations.reviewNotes) }} placement="footer" portal={false} /><Button className="h-12 flex-1" onPress={validateForm}><Text>Review decision</Text></Button></View>} onClose={() => setFormIntent(null)} onDismissed={() => { const queued = queuedReviewRef.current; queuedReviewRef.current = null; if (queued) setReviewIntent(queued) }} title="Review procurement" visible={formIntent?.kind === "review"}>
-        <Text className="text-sm leading-5 text-muted-foreground">Approve the cost and repayment term against the current tenant policy. The approved values become the purchase snapshot.</Text><FormStateBanner hasDraft={formDirty} isStale={commandsBlocked} />{formError ? <ErrorBanner message={formError} /> : null}
-        <Field label="Decision"><View className="flex-row gap-2">{(["approved", "under_review", "rejected"] as const).map((value) => <Button className="flex-1" key={value} onPress={() => setDecision(value)} variant={decision === value ? "secondary" : "outline"}><Text>{labelize(value)}</Text></Button>)}</View></Field>
-        {decision === "approved" ? <><Field label="Approved cost"><Input keyboardType="decimal-pad" onChangeText={setApprovedCost} placeholder="480000" testID="procurement-approved-cost-input" value={approvedCost} /></Field><Field label={`Approved repayment months (max ${formIntent?.request.policyMaximumPaybackMonths ?? 12})`}><Input keyboardType="number-pad" onChangeText={setApprovedMonths} placeholder="12" testID="procurement-approved-months-input" value={approvedMonths} /></Field></> : null}
-        <Field label="Review evidence"><Textarea onChangeText={setNotes} placeholder="Record the decision evidence and policy basis." testID="procurement-review-notes-input" value={notes} /></Field>
-      </FullScreenFormSheet>
-
-      <FullScreenFormSheet dirty={formIntent?.kind === "activate" && formDirty} footer={<View className="flex-row items-center gap-3"><DevQuickFill label="Quick fill purchase activation" onPress={() => { setPurchaseDate(todayDateOnly()); setFirstDueDate(plusMonthDateOnly()); setPurchaseReference(mobileDevQuickFillReference("QA-PO")); setNotes(mobileDevQuickFill.adminProcurementOperations.activateNotes) }} placement="footer" portal={false} /><Button className="h-12 flex-1" onPress={validateForm}><Text>Review activation</Text></Button></View>} onClose={() => { setCalendarIntent(null); setFormIntent(null) }} onDismissed={() => { const queued = queuedReviewRef.current; queuedReviewRef.current = null; if (queued) setReviewIntent(queued) }} overlay={<CalendarPickerSheet label={calendarIntent === "firstDue" ? "First repayment due date" : "Purchase date"} minimumDate={calendarIntent === "firstDue" ? purchaseDate : undefined} onChange={calendarIntent === "firstDue" ? setFirstDueDate : setPurchaseDate} onClose={() => setCalendarIntent(null)} testID={calendarIntent === "firstDue" ? "procurement-first-due-calendar" : "procurement-purchase-date-calendar"} value={calendarIntent === "firstDue" ? firstDueDate : purchaseDate} visible={calendarIntent === "purchase" || calendarIntent === "firstDue"} />} title="Record purchase" visible={formIntent?.kind === "activate"}>
-        <Text className="text-sm leading-5 text-muted-foreground">Confirm supplier evidence and dates. This action creates the repayment schedule exactly once from the approved snapshot.</Text><FormStateBanner hasDraft={formDirty} isStale={commandsBlocked} />{formError ? <ErrorBanner message={formError} /> : null}
-        <Field label="Purchase date"><CalendarDateField accessibilityLabel="Purchase date" onPress={() => setCalendarIntent("purchase")} testID="procurement-purchase-date-input" value={purchaseDate} /></Field><Field label="First repayment due date"><CalendarDateField accessibilityLabel="First repayment due date" onPress={() => setCalendarIntent("firstDue")} testID="procurement-first-due-input" value={firstDueDate} /></Field><Field label="Supplier invoice or purchase reference"><Input autoCapitalize="characters" onChangeText={setPurchaseReference} placeholder="INV-012345" testID="procurement-purchase-reference-input" value={purchaseReference} /></Field><Field label="Purchase evidence note (optional)"><Textarea onChangeText={setNotes} placeholder="Record the vendor and delivery evidence checked." testID="procurement-purchase-notes-input" value={notes} /></Field>
-      </FullScreenFormSheet>
-
-      <FullScreenFormSheet dirty={formIntent?.kind === "payment" && formDirty} footer={<View className="flex-row items-center gap-3"><DevQuickFill label="Quick fill procurement payment" onPress={() => { setAmount(String(formIntent?.kind === "payment" ? formIntent.scheduleItem.outstandingAmount : 40000)); setPaidAt(todayDateOnly()); setPaymentReference(mobileDevQuickFillReference("QA-PAY")); setNotes(mobileDevQuickFill.adminProcurementOperations.paymentNotes) }} placement="footer" portal={false} /><Button className="h-12 flex-1" onPress={validateForm}><Text>Review payment</Text></Button></View>} onClose={() => { setCalendarIntent(null); setFormIntent(null) }} onDismissed={() => { const queued = queuedReviewRef.current; queuedReviewRef.current = null; if (queued) setReviewIntent(queued) }} overlay={<CalendarPickerSheet label="Payment date" onChange={setPaidAt} onClose={() => setCalendarIntent(null)} testID="procurement-payment-date-calendar" value={paidAt} visible={calendarIntent === "payment"} />} title="Record payment receipt" visible={formIntent?.kind === "payment"}>
-        <Text className="text-sm leading-5 text-muted-foreground">This creates a receipt for finance review. The installment balance changes only after approval.</Text><FormStateBanner hasDraft={formDirty} isStale={commandsBlocked} />{formError ? <ErrorBanner message={formError} /> : null}<Field label="Amount"><Input keyboardType="decimal-pad" onChangeText={setAmount} placeholder="40000" testID="procurement-payment-amount-input" value={amount} /></Field><Field label="Payment date"><CalendarDateField accessibilityLabel="Payment date" onPress={() => setCalendarIntent("payment")} testID="procurement-payment-date-input" value={paidAt} /></Field><Field label="Payment reference"><Input autoCapitalize="characters" onChangeText={setPaymentReference} placeholder="TRF-012345" testID="procurement-payment-reference-input" value={paymentReference} /></Field><Field label="Evidence note (optional)"><Textarea onChangeText={setNotes} placeholder="Record the payment evidence received." testID="procurement-payment-notes-input" value={notes} /></Field>
-      </FullScreenFormSheet>
-
-      <SubmissionReviewSheet confirmLabel={reviewIntent?.kind === "review" ? "Confirm decision" : reviewIntent?.kind === "activate" ? "Activate purchase" : "Submit receipt"} description={reviewIntent?.kind === "activate" ? "The server will claim the approved request and create its frozen schedule once." : reviewIntent?.kind === "payment" ? "The receipt enters independent finance review; it does not settle the schedule yet." : "Confirm the review evidence and expected request state."} error={formError} isSubmitting={isSubmitting} onClose={() => setReviewIntent(null)} onConfirm={() => void runCommand()} onDismissed={() => { const message = queuedSuccessRef.current; queuedSuccessRef.current = null; if (message) setSuccess(message) }} rows={reviewRows} title={reviewIntent?.kind === "review" ? "Review procurement decision" : reviewIntent?.kind === "activate" ? "Review purchase activation" : "Review payment receipt"} visible={Boolean(reviewIntent)} />
-      <SubmissionSuccessSheet description={success ?? "The procurement operation was confirmed."} onClose={() => setSuccess(null)} title={success?.startsWith("Purchase") ? "Purchase activated" : success?.startsWith("Payment") ? "Receipt submitted" : "Decision recorded"} visible={Boolean(success)} />
-    </SafeArea>
+      </ServiceOpsFlowSheet>
+    </>
   )
 }

@@ -168,11 +168,59 @@ function laneFilters(lane: MobileAdminProjectFinancingLane) {
   }
 }
 
+/** Summary card and lane counts (T21): tenant-keyed, one round, read once. */
+export async function getMobileAdminProjectFinancingSummary(
+  input: { tenantId: string },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = getPrisma(prismaOverride)
+  const [tenant, summary, blockedCount, activationReady, releaseReady, activeCount, closedCount] =
+    await Promise.all([
+      prisma.tenant.findUnique({
+        select: { currencyCode: true },
+        where: { id: input.tenantId },
+      }),
+      getProjectFinancingSummary(input.tenantId, prisma),
+      prisma.projectFinancingRequest.count({
+        where: { status: { in: ["submitted", "under_review"] }, tenantId: input.tenantId },
+      }),
+      prisma.projectFinancingRequest.count({
+        where: { status: "approved", tenantId: input.tenantId },
+      }),
+      prisma.projectFinancingRequest.count({
+        where: { disbursedAt: null, status: "active", tenantId: input.tenantId },
+      }),
+      prisma.projectFinancingRequest.count({
+        where: { disbursedAt: { not: null }, status: "active", tenantId: input.tenantId },
+      }),
+      prisma.projectFinancingRequest.count({
+        where: {
+          status: { in: ["cancelled", "completed", "rejected"] },
+          tenantId: input.tenantId,
+        },
+      }),
+    ])
+  return {
+    activeCount,
+    activationReady,
+    blockedCount,
+    closedCount,
+    currencyCode: tenant?.currencyCode ?? "NGN",
+    generatedAt: new Date().toISOString(),
+    outstandingPrincipal: summary.outstandingAmount,
+    readyCount: activationReady + releaseReady,
+    releaseReady,
+    totalProjects: summary.totalRequests,
+  }
+}
+
 export async function getMobileAdminProjectFinancingWorkspace(
   input: {
     capabilities: MobileAdminProjectFinancingCapabilities
     cursor?: string
     lane: MobileAdminProjectFinancingLane
+    /** Lean paged lane read (T21): no attention page, summary or counts. */
+    limit?: number
     search?: string
     tenantId: string
   },
@@ -180,6 +228,35 @@ export async function getMobileAdminProjectFinancingWorkspace(
 ) {
   const prisma = getPrisma(prismaOverride)
   const filters = laneFilters(input.lane)
+  if (input.limit !== undefined) {
+    const [tenant, page] = await Promise.all([
+      prisma.tenant.findUnique({
+        select: { currencyCode: true },
+        where: { id: input.tenantId },
+      }),
+      listProjectFinancingRequestPage(
+        {
+          ...filters,
+          cursor: input.cursor,
+          pageSize: Math.min(50, Math.max(1, Math.floor(input.limit))),
+          search: input.search,
+          tenantId: input.tenantId,
+        },
+        prisma
+      ),
+    ])
+    return {
+      capabilities: input.capabilities,
+      currencyCode: tenant?.currencyCode ?? "NGN",
+      generatedAt: new Date().toISOString(),
+      lane: input.lane,
+      nextCursor: page.meta.cursor ?? null,
+      projects: page.data.map((request: ProjectFinancingRequestRow) =>
+        serializeProjectFinancingRequest(request, input.capabilities)
+      ),
+      total: page.meta.total,
+    }
+  }
   const [
     tenant,
     page,

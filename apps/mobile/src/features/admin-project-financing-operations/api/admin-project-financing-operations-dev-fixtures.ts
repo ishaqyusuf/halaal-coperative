@@ -5,6 +5,7 @@ import type {
   ProjectFinancingProject,
   ProjectFinancingStatus,
   ProjectFinancingStructure,
+  ProjectFinancingSummary,
   ProjectFinancingWorkspace,
 } from "../model/admin-project-financing-operations-types"
 
@@ -198,6 +199,25 @@ function laneProjects(lane: ProjectFinancingLane) {
       ["cancelled", "completed", "rejected"] as ProjectFinancingStatus[]
     ).includes(item.status)
   )
+}
+
+export async function getDevProjectFinancingSummary(): Promise<ProjectFinancingSummary> {
+  const activationReady = projects.filter((item) => item.status === "approved").length
+  const releaseReady = projects.filter((item) => item.status === "active" && !item.disbursedAt).length
+  return {
+    activeCount: projects.filter((item) => item.status === "active" && item.disbursedAt).length,
+    activationReady,
+    blockedCount: projects.filter((item) => ["submitted", "under_review"].includes(item.status)).length,
+    closedCount: projects.filter((item) => ["cancelled", "completed", "rejected"].includes(item.status)).length,
+    currencyCode: "NGN",
+    generatedAt,
+    outstandingPrincipal: projects
+      .filter((item) => item.boundary === "repayable_principal")
+      .reduce((sum, item) => sum + (item.outstandingPrincipal ?? 0), 0),
+    readyCount: activationReady + releaseReady,
+    releaseReady,
+    totalProjects: projects.length,
+  }
 }
 
 export async function getDevProjectFinancingWorkspace(input: {

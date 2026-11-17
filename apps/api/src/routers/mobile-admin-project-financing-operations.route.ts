@@ -2,6 +2,7 @@ import { roleCan, type CooperativeRole } from "@halaalvest/auth"
 import {
   activateMobileAdminProjectFinancing,
   getMobileAdminProjectFinancingDetail,
+  getMobileAdminProjectFinancingSummary,
   getMobileAdminProjectFinancingWorkspace,
   mobileAdminProjectFinancingLanes,
   recordMobileAdminProjectFinancingDisbursement,
@@ -153,11 +154,18 @@ export const mobileAdminProjectFinancingOperationsProcedures = {
           tenantId: ctx.tenant.current.id,
         })
       ),
+    summary: permissionProcedure("view_admin_work_queue").query(({ ctx }) => {
+      assertMobileAdminProjectFinancingView(ctx.auth.activeMembership.role)
+      return getMobileAdminProjectFinancingSummary({ tenantId: ctx.tenant.current.id })
+    }),
     workspace: permissionProcedure("view_admin_work_queue")
       .input(
         z.object({
           cursor: z.string().max(2_000).optional(),
           lane: z.enum(mobileAdminProjectFinancingLanes),
+          // T21: the redesigned screen sends limit and reads the summary
+          // separately; older installs omit it and keep the full response.
+          limit: z.number().int().min(1).max(50).optional(),
           search: z.string().trim().max(120).optional(),
         })
       )

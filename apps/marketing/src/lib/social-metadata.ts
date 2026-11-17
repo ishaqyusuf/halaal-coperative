@@ -4,7 +4,7 @@ import type { Metadata } from "next"
 export const marketingSiteUrl = `https://${platformIdentity.rootDomain}`
 
 export const marketingSocialImage = {
-  alt: "Halaalvest — cooperative records every member can trust",
+  alt: "Halaalvest: Run your cooperative in one place, beside a sample member statement with savings and repayment progress",
   height: 630,
   path: "/opengraph-image",
   width: 1200,

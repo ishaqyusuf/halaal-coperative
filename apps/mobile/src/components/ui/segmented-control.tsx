@@ -23,6 +23,7 @@ export type SegmentedOption<T extends string> = {
   icon?: string
   /** Optional count shown after the label ("Ledger 34"). */
   count?: number | string
+  countBadge?: boolean
   accessibilityLabel?: string
   disabled?: boolean
 }
@@ -189,7 +190,11 @@ export function SegmentedControl<T extends string>({
             </Text>
             {option.count !== undefined ? (
               <Text
-                className="text-muted-foreground"
+                className={cn(
+                  "text-muted-foreground",
+                  option.countBadge && "min-w-[20px] overflow-hidden rounded-full px-[5px] text-center leading-[20px]",
+                  option.countBadge && (option.count ? "bg-primary text-primary-foreground" : "bg-muted"),
+                )}
                 tabular
                 variant="caption"
               >

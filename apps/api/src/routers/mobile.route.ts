@@ -1,4 +1,5 @@
 import { createTRPCRouter } from "../lib.trpc"
+import { mobileNotificationInboxProcedures } from "./mobile-notification-inbox.route"
 import { mobileMemberCoreProcedures } from "./mobile-member-core.route"
 import { mobileAdminMemberLifecycleProcedures } from "./mobile-admin-member-lifecycle.route"
 import { mobileAdminFinanceSupportProcedures } from "./mobile-admin-finance-support.route"
@@ -38,6 +39,7 @@ export const mobileRouter = createTRPCRouter({
   }),
   notifications: createTRPCRouter({
     ...mobileNotificationProcedures,
+    ...mobileNotificationInboxProcedures,
   }),
   sessions: createTRPCRouter(mobileDeviceSessionProcedures),
   member: createTRPCRouter({

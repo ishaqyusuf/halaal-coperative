@@ -36,6 +36,8 @@ export type AppListProps<T> = {
   }) => ReactElement | null
   estimatedItemSize?: number
 
+  /** Only the visible list in a pager renders the shared status bar. */
+  active?: boolean
   title?: string
   back?: boolean | (() => void)
   headerActions?: ReactNode
@@ -80,6 +82,7 @@ export type AppListProps<T> = {
  * screens it scrolls under the floating dock and sinks it on scroll.
  */
 export function AppList<T>({
+  active = true,
   back,
   compactHeader,
   data,
@@ -109,6 +112,15 @@ export function AppList<T>({
   const chrome = useScreenChrome({ hero: Boolean(hero) })
   const [searchHeight, setSearchHeight] = useState(0)
   const [showCompactHeader, setShowCompactHeader] = useState(false)
+  const [viewport, setViewport] = useState({ active, revision: 0 })
+  // On iOS an offscreen virtualized ScrollView can return with its entire
+  // content clipped. Recreate the incoming list and keep the outgoing one.
+  if (active !== viewport.active) {
+    setViewport({
+      active,
+      revision: viewport.revision + (active ? 1 : 0),
+    })
+  }
   const hasData = data.length > 0
   const count = data.length
 
@@ -170,8 +182,9 @@ export function AppList<T>({
 
   return (
     <View className="flex-1 bg-background" testID={testID}>
-      {chrome.chrome}
+      {active ? chrome.chrome : null}
       <LegendList
+        key={viewport.revision}
         ListEmptyComponent={<View>{listEmpty}</View>}
         ListFooterComponent={
           <View
@@ -233,7 +246,7 @@ export function AppList<T>({
         }
         stickyIndices={stickyIndices}
       />
-      {showCompactHeader && compactHeader ? (
+      {active && showCompactHeader && compactHeader ? (
         <View
           style={{
             backgroundColor: colors.background,

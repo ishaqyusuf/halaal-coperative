@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage"
+import { useQueryClient } from "@tanstack/react-query"
 import Constants from "expo-constants"
 import * as Notifications from "expo-notifications"
 import { useRouter } from "expo-router"
@@ -19,6 +20,10 @@ import {
   markNotificationsRead,
   registerNotificationPush,
 } from "@/features/notifications/api/notification-center-api"
+import {
+  notificationQueryKeys,
+  updateNotificationReadCache,
+} from "@/features/notifications/model/notification-read-cache"
 import { resolveNotificationDestination } from "@/features/notifications/model/notification-destination-registry"
 import { toNotificationPlatformColor } from "@/features/notifications/platform/notification-platform-color"
 import {
@@ -74,11 +79,9 @@ Notifications.setNotificationHandler({
 })
 
 function projectId() {
-  return (
-    Constants.expoConfig?.extra?.eas?.projectId ??
+  return (Constants.expoConfig?.extra?.eas?.projectId ??
     Constants.easConfig?.projectId ??
-    null
-  ) as string | null
+    null) as string | null
 }
 
 function permissionState(status: Notifications.PermissionStatus) {
@@ -134,6 +137,7 @@ export function NotificationRuntimeProvider({
   children: ReactNode
 }) {
   const auth = useAuthContext()
+  const queryClient = useQueryClient()
   const router = useRouter()
   const profileRef = useRef(auth.profile)
   const [destinationError, setDestinationError] = useState<string | null>(null)
@@ -263,9 +267,10 @@ export function NotificationRuntimeProvider({
 
   const processResponse = useCallback(
     async (response: Notifications.NotificationResponse) => {
+      const profile = profileRef.current
       const result = resolveNotificationDestination(
         response.notification.request.content.data,
-        profileRef.current
+        profile
       )
       if (!result.ok) {
         setDestinationError(result.message)
@@ -276,11 +281,19 @@ export function NotificationRuntimeProvider({
       }
       setDestinationError(null)
       router.push(result.href as never)
-      await markNotificationsRead([result.payload.notificationId]).catch(
-        () => undefined
-      )
+      const ids = [result.payload.notificationId]
+      await markNotificationsRead(ids)
+        .then(({ markedCount }) =>
+          updateNotificationReadCache(
+            queryClient,
+            notificationQueryKeys(profile),
+            ids,
+            markedCount
+          )
+        )
+        .catch(() => undefined)
     },
-    [router]
+    [queryClient, router]
   )
 
   useEffect(() => {

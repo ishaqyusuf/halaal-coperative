@@ -1771,6 +1771,28 @@ describe("mobileRouter", () => {
     expect(notifications.summary.totalDeliveries).toBe(0)
   })
 
+  test("serves the scoped inbox and validates notification page cursors", async () => {
+    const caller = await createMobileCaller({
+      membershipId: "membership-amanah-admin-member",
+    })
+
+    await expect(caller.mobile.notifications.inbox()).resolves.toMatchObject({
+      deliveries: [],
+      summary: { unread: 0 },
+    })
+    await expect(caller.mobile.notifications.page({ unreadOnly: true })).resolves.toEqual({
+      deliveries: [],
+      nextCursor: null,
+    })
+    await expect(caller.mobile.notifications.page({
+      cursor: "invalid",
+      unreadOnly: true,
+    })).rejects.toThrow()
+    await expect(caller.mobile.notifications.markAllRead()).rejects.toThrow(
+      "Something went wrong. Please try again."
+    )
+  })
+
   test("validates notification read synchronization and keeps database errors redacted", async () => {
     const caller = await createMobileCaller({
       membershipId: "membership-amanah-admin-member",

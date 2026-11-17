@@ -1,27 +1,40 @@
 import { canUseMobileFeatureData } from "@/dev/mobile-dev-session"
-import { appQueryKey, useInvalidateAppQueries } from "@/hooks/use-app-query"
+import { useAppInfiniteQuery } from "@/hooks/use-app-query"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
-import { useLocalSearchParams } from "expo-router"
-import { useRouter } from "expo-router"
-import { useEffect, useState } from "react"
+import type { MobileNotificationRole } from "@halaalvest/domain/mobile-notifications"
+import {
+  type InfiniteData,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query"
+import { useLocalSearchParams, useRouter } from "expo-router"
+import { useState } from "react"
 import {
   getNotificationCenter,
-  getOlderNotifications,
+  getNotificationPage,
+  markAllNotificationsRead,
   markNotificationsRead,
   updateNotificationPreference,
 } from "../api/notification-center-api"
-import type { NotificationCenterQaState } from "../model/notification-center-types"
+import { presentNotificationCenterForQa } from "../model/notification-center-qa"
 import type {
-  NotificationCenter,
+  NotificationCenterQaState,
   NotificationDelivery,
   NotificationPreference,
 } from "../model/notification-center-types"
-import { presentNotificationCenterForQa } from "../model/notification-center-qa"
 import { resolveNotificationDestination } from "../model/notification-destination-registry"
+import {
+  getInboxCenter,
+  type InboxPage,
+  notificationQueryKeys,
+  updateNotificationReadCache,
+} from "../model/notification-read-cache"
 import { useNotificationRuntime } from "../platform/notification-runtime-provider"
-import { NotificationsScreen } from "../screens/notifications-screen"
-import type { MobileNotificationRole } from "@halaalvest/domain/mobile-notifications"
+import {
+  NotificationsScreen,
+  type NotificationView,
+} from "../screens/notifications-screen"
 
 function getQaState(value: string | string[] | undefined) {
   if (!__DEV__ || typeof value !== "string") return null
@@ -33,8 +46,10 @@ function getQaState(value: string | string[] | undefined) {
     "fixture",
     "loading",
     "offline",
+    "push-denied",
     "queued",
     "stale",
+    "visual",
   ].includes(value)
     ? (value as NotificationCenterQaState)
     : null
@@ -45,170 +60,142 @@ export function NotificationsRouteController() {
   const router = useRouter()
   const runtime = useMobileRuntime()
   const notificationRuntime = useNotificationRuntime()
-  const invalidateAppQueries = useInvalidateAppQueries()
-  const { qaState } = useLocalSearchParams<{
-    qaState?: string | string[]
-  }>()
+  const queryClient = useQueryClient()
+  const { qaState } = useLocalSearchParams<{ qaState?: string | string[] }>()
   const resolvedQaState = getQaState(qaState)
-  const forceDevFixture = resolvedQaState === "fixture"
-  const [notifications, setNotifications] = useState<NotificationCenter | null>(
-    null
-  )
-  const [isLoading, setIsLoading] = useState(false)
-  const [isLoadingOlder, setIsLoadingOlder] = useState(false)
-  const [isMarkingRead, setIsMarkingRead] = useState(false)
-  const [isUpdatingPreference, setIsUpdatingPreference] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const forceDevFixture = Boolean(resolvedQaState)
+  const visualFixture =
+    resolvedQaState === "visual" ||
+    resolvedQaState === "push-denied" ||
+    resolvedQaState === "offline" ||
+    resolvedQaState === "empty"
+  const fixtureOptions = { forceDevFixture, visualFixture }
+  const keys = notificationQueryKeys(profile, resolvedQaState)
+  const [activeView, setActiveView] = useState<NotificationView>("all")
   const [destinationError, setDestinationError] = useState<string | null>(null)
-  const [refreshKey, setRefreshKey] = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
   const canUseServerNotifications =
-    resolvedQaState !== "denied" && profile
-      ? canUseMobileFeatureData(profile, profile.role)
-      : false
-  const canMutateNotifications =
-    resolvedQaState !== "offline" &&
-    resolvedQaState !== "stale" &&
-    runtime.state.connectivity === "online" &&
-    notifications?.cache?.status !== "stale"
-
-  useEffect(() => {
-    let mounted = true
-
-    if (!canUseServerNotifications) {
-      setNotifications(null)
-      setError(null)
-      setIsLoading(false)
-      return
-    }
-
-    if (resolvedQaState === "error") {
-      setNotifications(null)
-      setError("Notifications are unavailable.")
-      setIsLoading(false)
-      return
-    }
-
-    if (resolvedQaState === "loading") {
-      setNotifications(null)
-      setError(null)
-      setIsLoading(true)
-      return
-    }
-
-    setIsLoading(true)
-    setError(null)
-
-    void getNotificationCenter({ forceDevFixture })
-      .then((response) => {
-        if (mounted) {
-          setNotifications(
-            presentNotificationCenterForQa(response, resolvedQaState)
+    resolvedQaState !== "denied" &&
+    Boolean(profile && canUseMobileFeatureData(profile, profile.role))
+  const isOffline =
+    runtime.state.connectivity === "offline" || resolvedQaState === "offline"
+  const timedState =
+    resolvedQaState === "loading" || resolvedQaState === "error"
+  const enabled = canUseServerNotifications && !timedState
+  const all = useAppInfiniteQuery({
+    enabled,
+    initialPageParam: null as string | null,
+    networkMode: "always",
+    placeholderData: undefined,
+    queryKey: keys.inbox,
+    queryFn: ({ pageParam }): Promise<InboxPage> =>
+      pageParam
+        ? getNotificationPage(
+            { cursor: pageParam, unreadOnly: false },
+            fixtureOptions
           )
+        : getNotificationCenter(fixtureOptions),
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    selectItems: (page) => page.deliveries,
+  })
+  const center = getInboxCenter(all.data)
+  const notifications = center
+    ? presentNotificationCenterForQa(center, resolvedQaState)
+    : null
+  const unread = useAppInfiniteQuery({
+    enabled:
+      enabled &&
+      !isOffline &&
+      activeView === "unread" &&
+      Boolean(notifications?.summary.unread),
+    initialPageParam: null as string | null,
+    placeholderData: undefined,
+    queryKey: keys.unread,
+    queryFn: ({ pageParam }) =>
+      getNotificationPage(
+        { cursor: pageParam ?? undefined, unreadOnly: true },
+        fixtureOptions
+      ),
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    selectItems: (page) => page.deliveries,
+  })
+  const cached = notifications?.cache?.status === "stale"
+  const canMutateNotifications =
+    Boolean(notifications) &&
+    !isOffline &&
+    !cached &&
+    runtime.state.connectivity === "online"
+
+  const markRead = useMutation({
+    mutationFn: (ids: string[] | "all") =>
+      runtime.runOnlineOperation("command", () =>
+        ids === "all"
+          ? markAllNotificationsRead(fixtureOptions)
+          : markNotificationsRead(ids, fixtureOptions)
+      ),
+    onSuccess: ({ markedCount }, ids) =>
+      updateNotificationReadCache(queryClient, keys, ids, markedCount),
+  })
+  const updatePreference = useMutation({
+    mutationFn: ({
+      enabled,
+      preference,
+    }: {
+      enabled: boolean
+      preference: NotificationPreference
+    }) =>
+      runtime.runOnlineOperation("command", () =>
+        updateNotificationPreference(
+          {
+            enabled,
+            notificationType: preference.key,
+          },
+          fixtureOptions
+        )
+      ),
+    onSuccess: async (_result, { enabled, preference }) => {
+      await queryClient.cancelQueries({ exact: true, queryKey: keys.inbox })
+      queryClient.setQueryData<InfiniteData<InboxPage>>(
+        keys.inbox,
+        (current) => {
+          const first = getInboxCenter(current)
+          if (!current || !first) return current
+          const preferences = first.preferences.map((item) =>
+            item.key === preference.key ? { ...item, enabled } : item
+          )
+          return {
+            ...current,
+            pages: [
+              {
+                ...first,
+                preferences,
+                summary: {
+                  ...first.summary,
+                  enabledPreferences: preferences.filter((item) => item.enabled)
+                    .length,
+                },
+              },
+              ...current.pages.slice(1),
+            ],
+          }
         }
-      })
-      .catch(() => {
-        if (mounted) setError("Notifications are unavailable.")
-      })
-      .finally(() => {
-        if (mounted) setIsLoading(false)
-      })
-
-    return () => {
-      mounted = false
-    }
-  }, [
-    canUseServerNotifications,
-    forceDevFixture,
-    profile?.token,
-    refreshKey,
-    resolvedQaState,
-  ])
-
-  async function handleMarkRead(deliveryIds: string[]) {
-    if (!deliveryIds.length || isMarkingRead || !canMutateNotifications) return
-    setIsMarkingRead(true)
-    setError(null)
-
-    try {
-      await runtime.runOnlineOperation("command", () =>
-        markNotificationsRead(deliveryIds, { forceDevFixture })
       )
-      // Member home's bell badge reads the unread count (T04).
-      void invalidateAppQueries(appQueryKey("member-core", "home"))
-      const markedIds = new Set(deliveryIds)
-      setNotifications((current) => {
-        if (!current) return current
-        const newlyRead = current.deliveries.filter(
-          (delivery) => !delivery.isRead && markedIds.has(delivery.id)
-        ).length
-        return {
-          ...current,
-          deliveries: current.deliveries.map((delivery) =>
-            markedIds.has(delivery.id)
-              ? { ...delivery, isRead: true }
-              : delivery
-          ),
-          summary: {
-            ...current.summary,
-            unread: Math.max(0, current.summary.unread - newlyRead),
-          },
-        }
-      })
+    },
+  })
 
-      try {
-        setNotifications(await getNotificationCenter({ forceDevFixture }))
-      } catch {
-        setError("Read state saved. Refresh when the connection is restored.")
-      }
-    } catch {
-      setError("Notification read state could not be synchronized.")
-    } finally {
-      setIsMarkingRead(false)
-    }
-  }
-
-  async function handleLoadOlder() {
-    const cursor = notifications?.nextCursor
-    if (!cursor || isLoadingOlder || runtime.state.connectivity !== "online")
-      return
-    setIsLoadingOlder(true)
-    setError(null)
-    try {
-      const older = await getOlderNotifications(cursor, { forceDevFixture })
-      setNotifications((current) => {
-        if (!current || current.nextCursor !== cursor) return current
-        const known = new Set(current.deliveries.map((item) => item.id))
-        return {
-          ...current,
-          deliveries: [
-            ...current.deliveries,
-            ...older.deliveries.filter((item) => !known.has(item.id)),
-          ],
-          nextCursor: older.nextCursor ?? null,
-          // Server totals cover every delivery, not just the loaded pages.
-          summary: {
-            ...older.summary,
-            enabledPreferences: current.summary.enabledPreferences,
-          },
-        }
-      })
-    } catch {
-      setError("Older notifications could not be loaded.")
-    } finally {
-      setIsLoadingOlder(false)
-    }
+  function handleMarkRead(ids: string[] | "all") {
+    if (canMutateNotifications && !markRead.isPending) markRead.mutate(ids)
   }
 
   function handleOpenDelivery(delivery: NotificationDelivery) {
     if (!profile) return
-    const intendedRole =
-      delivery.intendedRole ??
-      ((profile.cooperativeRole ?? profile.role) as MobileNotificationRole)
     const result = resolveNotificationDestination(
       {
         action: delivery.action,
         ...(delivery.entityId ? { entityId: delivery.entityId } : {}),
-        intendedRole,
+        intendedRole:
+          delivery.intendedRole ??
+          ((profile.cooperativeRole ?? profile.role) as MobileNotificationRole),
         notificationId: delivery.id,
         tenantId: profile.tenant.id,
         version: 1,
@@ -221,84 +208,124 @@ export function NotificationsRouteController() {
     }
     setDestinationError(null)
     router.push(result.href as never)
-    if (!delivery.isRead) void handleMarkRead([delivery.id])
+    if (!delivery.isRead) handleMarkRead([delivery.id])
   }
 
-  async function handleUpdatePreference(
-    preference: NotificationPreference,
-    enabled: boolean
-  ) {
-    if (
-      preference.mandatory ||
-      isUpdatingPreference ||
-      !canMutateNotifications
-    ) {
-      return
-    }
-    setIsUpdatingPreference(true)
-    setError(null)
+  async function refresh() {
+    if (!enabled || isOffline) return
+    setRefreshing(true)
+    markRead.reset()
     try {
-      await runtime.runOnlineOperation("command", () =>
-        updateNotificationPreference({
-          enabled,
-          notificationType: preference.key,
-        }, { forceDevFixture })
-      )
-      setNotifications((current) => {
-        if (!current) return current
-        const preferences = current.preferences.map((item) =>
-          item.key === preference.key ? { ...item, enabled } : item
-        )
-        return {
-          ...current,
-          preferences,
-          summary: {
-            ...current.summary,
-            enabledPreferences: preferences.filter((item) => item.enabled)
-              .length,
-          },
-        }
-      })
-    } catch {
-      setError("Notification setting could not be saved.")
+      await Promise.all([
+        all.refetch(),
+        ...(activeView === "unread" && notifications?.summary.unread
+          ? [unread.refetch()]
+          : []),
+      ])
     } finally {
-      setIsUpdatingPreference(false)
+      setRefreshing(false)
+    }
+  }
+
+  const empty = resolvedQaState === "empty"
+  const allDeliveries = empty
+    ? []
+    : [
+        ...(notifications?.deliveries ?? []),
+        ...all.items.slice(center?.deliveries.length ?? 0),
+      ]
+  const unreadDeliveries = !notifications?.summary.unread
+    ? []
+    : unread.data
+      ? unread.items
+      : allDeliveries.filter((delivery) => !delivery.isRead)
+
+  function lanePage(query: typeof all | typeof unread) {
+    return {
+      hasMore: !empty && query.hasNextPage,
+      isLoadingMore: query.isFetchingNextPage,
+      olderError: query.isFetchNextPageError,
+      loadMore: () => {
+        if (!isOffline && !cached && !query.isFetching && !markRead.isPending) {
+          void query.fetchNextPage({ cancelRefetch: false })
+        }
+      },
     }
   }
 
   return (
     <NotificationsScreen
+      activeView={activeView}
+      all={{ ...lanePage(all), deliveries: allDeliveries }}
       canMutateNotifications={canMutateNotifications}
       canUseServerNotifications={canUseServerNotifications}
       destinationError={
         destinationError ?? notificationRuntime.destinationError
       }
-      error={error}
-      isLoading={isLoading}
-      isLoadingOlder={isLoadingOlder}
-      isMarkingRead={isMarkingRead}
+      error={
+        resolvedQaState === "error" ||
+        (all.isError && !all.isFetchNextPageError)
+      }
+      isLoading={resolvedQaState === "loading" || (enabled && all.isPending)}
+      isMarkingRead={markRead.isPending}
+      isOffline={isOffline}
       isSignedIn={Boolean(profile)}
-      isUpdatingPreference={isUpdatingPreference}
+      markReadError={markRead.isError}
       notifications={notifications}
       onBack={() => router.back()}
+      onChangeView={setActiveView}
       onClearDestinationError={() => {
         setDestinationError(null)
         notificationRuntime.clearDestinationError()
       }}
       onEnablePush={() => void notificationRuntime.requestPermission()}
-      onLoadOlder={
-        notifications?.nextCursor ? () => void handleLoadOlder() : undefined
-      }
-      onMarkRead={(deliveryIds) => void handleMarkRead(deliveryIds)}
+      onMarkRead={handleMarkRead}
       onOpenDelivery={handleOpenDelivery}
       onOpenSystemSettings={() => void notificationRuntime.openSystemSettings()}
-      onRetry={() => setRefreshKey((value) => value + 1)}
+      onRefresh={() => void refresh()}
       onRetryRegistration={() => void notificationRuntime.retryRegistration()}
-      onUpdatePreference={(preference, enabled) =>
-        void handleUpdatePreference(preference, enabled)
+      onUpdatePreference={(preference, enabled) => {
+        if (
+          canMutateNotifications &&
+          preference.available &&
+          !preference.mandatory &&
+          !updatePreference.isPending
+        ) {
+          updatePreference.mutate({ enabled, preference })
+        }
+      }}
+      permissionState={
+        resolvedQaState === "push-denied"
+          ? "denied"
+          : visualFixture
+            ? "granted"
+            : notificationRuntime.permissionState
       }
-      permissionState={notificationRuntime.permissionState}
-      registrationState={notificationRuntime.registrationState}
+      preferenceError={
+        updatePreference.isError
+          ? updatePreference.variables.preference.title
+          : null
+      }
+      refreshing={refreshing}
+      registrationState={
+        visualFixture ? "registered" : notificationRuntime.registrationState
+      }
+      savingPreference={
+        updatePreference.isPending
+          ? updatePreference.variables.preference.key
+          : null
+      }
+      unread={{
+        ...lanePage(unread),
+        deliveries: unreadDeliveries,
+        isLoadingMore: unread.isFetching,
+        olderError: unread.isError,
+        loadMore: () => {
+          if (unread.isFetching) return
+          if (unread.isError && !unread.isFetchNextPageError) void unread.refetch()
+          else lanePage(unread).loadMore()
+        },
+      }}
     />
   )
 }

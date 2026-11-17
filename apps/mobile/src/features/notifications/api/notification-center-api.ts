@@ -6,6 +6,7 @@ import {
 } from "@/lib/read-cache"
 import { createMobileTrpcClient } from "@/lib/mobile-trpc-client"
 import { getSessionProfile } from "@/lib/session-store"
+import { visualNotificationFixture } from "../model/notification-visual-fixture"
 import type { NotificationCenter } from "../model/notification-center-types"
 import type { MobileNotificationCategoryKey } from "@halaalvest/domain/mobile-notifications"
 
@@ -13,23 +14,37 @@ const devReadIds = new Set<string>()
 const devPreferenceOverrides = new Map<MobileNotificationCategoryKey, boolean>()
 let devPushRegistration: NotificationCenter["pushRegistration"] = null
 
+type FixtureOptions = { forceDevFixture?: boolean; visualFixture?: boolean }
+
 function shouldUseDevFixture(forceDevFixture = false) {
   return isMobileDevFixtureSession() || (__DEV__ && forceDevFixture)
 }
 
-function getDevCenter(): NotificationCenter {
+function getDevCenter(visual = false): NotificationCenter {
   const profile = getSessionProfile()
-  const fixture = getDevNotifications(
-    profile?.cooperativeRole ?? (profile?.role === "admin" ? "tenant_admin" : "member")
+  const raw = getDevNotifications(
+    profile?.cooperativeRole ??
+      (profile?.role === "admin" ? "tenant_admin" : "member")
   )
+  const fixture = visual
+    ? visualNotificationFixture({
+        ...raw,
+        deliveries: raw.deliveries.map((delivery) => ({
+          ...delivery,
+          isRead: false,
+        })),
+        summary: { ...raw.summary, unread: raw.deliveries.length },
+      })
+    : raw
   const deliveries = fixture.deliveries.map((delivery) => ({
     ...delivery,
-    isRead: devReadIds.has(delivery.id),
+    isRead:
+      ("isRead" in delivery && Boolean(delivery.isRead)) ||
+      devReadIds.has(delivery.id),
   }))
   const preferences = fixture.preferences.map((preference) => ({
     ...preference,
-    enabled:
-      devPreferenceOverrides.get(preference.key) ?? preference.enabled,
+    enabled: devPreferenceOverrides.get(preference.key) ?? preference.enabled,
   }))
   return {
     ...fixture,
@@ -79,50 +94,75 @@ export async function disableNotificationPush(
   return result
 }
 
-export async function updateNotificationPreference(input: {
-  enabled: boolean
-  notificationType: MobileNotificationCategoryKey
-}, options?: { forceDevFixture?: boolean }) {
+export async function updateNotificationPreference(
+  input: {
+    enabled: boolean
+    notificationType: MobileNotificationCategoryKey
+  },
+  options?: FixtureOptions
+) {
   if (shouldUseDevFixture(options?.forceDevFixture)) {
     devPreferenceOverrides.set(input.notificationType, input.enabled)
     return input
   }
   const client = createMobileTrpcClient()
-  const result = await client.mobile.notifications.updatePreference.mutate(input)
+  const result =
+    await client.mobile.notifications.updatePreference.mutate(input)
   await removeCachedMobileQuery("notifications")
   return result
 }
 
-export async function getNotificationCenter(options?: {
-  forceDevFixture?: boolean
-}) {
-  if (shouldUseDevFixture(options?.forceDevFixture)) return getDevCenter()
+export async function getNotificationCenter(options?: FixtureOptions) {
+  if (shouldUseDevFixture(options?.forceDevFixture))
+    return getDevCenter(options?.visualFixture)
   const client = createMobileTrpcClient()
   return readCachedMobileQuery("notifications", () =>
-    client.mobile.notifications.overview.query()
+    client.mobile.notifications.inbox.query()
   ) as Promise<NotificationCenter>
 }
 
-/** Older deliveries after `cursor`; live only, never persisted (M4/M5). */
-export async function getOlderNotifications(
-  cursor: string,
-  options?: { forceDevFixture?: boolean }
-): Promise<NotificationCenter> {
+/** Filtered and older pages are live only. The first inbox page is persisted. */
+export async function getNotificationPage(
+  input: { cursor?: string; unreadOnly: boolean },
+  options?: FixtureOptions
+): Promise<Pick<NotificationCenter, "deliveries" | "nextCursor">> {
   if (shouldUseDevFixture(options?.forceDevFixture)) {
-    return { ...getDevCenter(), deliveries: [], nextCursor: null }
+    return {
+      deliveries: input.cursor
+        ? []
+        : getDevCenter(options?.visualFixture).deliveries.filter(
+            (delivery) => !input.unreadOnly || !delivery.isRead
+          ),
+      nextCursor: null,
+    }
   }
-  return createMobileTrpcClient().mobile.notifications.overview.query({
-    cursor,
-  }) as Promise<NotificationCenter>
+  return createMobileTrpcClient().mobile.notifications.page.query(input)
+}
+
+export async function markAllNotificationsRead(options?: FixtureOptions) {
+  if (shouldUseDevFixture(options?.forceDevFixture)) {
+    const unread = getDevCenter(options?.visualFixture).deliveries.filter(
+      (delivery) => !delivery.isRead
+    )
+    unread.forEach(({ id }) => devReadIds.add(id))
+    return { markedCount: unread.length }
+  }
+  const result =
+    await createMobileTrpcClient().mobile.notifications.markAllRead.mutate()
+  await removeCachedMobileQuery("notifications")
+  return result
 }
 
 export async function markNotificationsRead(
   deliveryIds: string[],
-  options?: { forceDevFixture?: boolean }
+  options?: FixtureOptions
 ) {
   if (shouldUseDevFixture(options?.forceDevFixture)) {
-    deliveryIds.forEach((id) => devReadIds.add(id))
-    return { markedCount: deliveryIds.length }
+    const unreadIds = [...new Set(deliveryIds)].filter(
+      (id) => !devReadIds.has(id)
+    )
+    unreadIds.forEach((id) => devReadIds.add(id))
+    return { markedCount: unreadIds.length }
   }
   const client = createMobileTrpcClient()
   const result = await client.mobile.notifications.markRead.mutate({

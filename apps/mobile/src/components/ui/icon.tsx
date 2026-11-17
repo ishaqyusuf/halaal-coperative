@@ -48,6 +48,7 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   IdCard: require("lucide-react-native/dist/esm/icons/id-card").default,
   ScanFace: require("lucide-react-native/dist/esm/icons/scan-face").default,
   Check: require("lucide-react-native/dist/esm/icons/check").default,
+  CheckCheck: require("lucide-react-native/dist/esm/icons/check-check").default,
   ChevronLeft: require("lucide-react-native/dist/esm/icons/chevron-left")
     .default,
   ChevronRight: require("lucide-react-native/dist/esm/icons/chevron-right")
@@ -90,6 +91,8 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   LayoutGrid: require("lucide-react-native/dist/esm/icons/layout-grid").default,
   ListChecks: require("lucide-react-native/dist/esm/icons/list-checks").default,
   Link2Off: require("lucide-react-native/dist/esm/icons/link-2-off").default,
+  Lock: require("lucide-react-native/dist/esm/icons/lock").default,
+  Megaphone: require("lucide-react-native/dist/esm/icons/megaphone").default,
   LockKeyhole: require("lucide-react-native/dist/esm/icons/lock-keyhole")
     .default,
   LoaderCircle: require("lucide-react-native/dist/esm/icons/loader-circle")

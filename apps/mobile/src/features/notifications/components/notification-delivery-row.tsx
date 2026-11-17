@@ -1,177 +1,181 @@
 import { Icon } from "@/components/ui/icon"
 import { Text } from "@/components/ui/text"
 import type { NotificationDelivery } from "@/features/notifications/model/notification-center-types"
-import { useColors } from "@/hooks/use-color"
+import { useLargeTextLayout } from "@/hooks/use-large-text-layout"
 import { cn } from "@/lib/utils"
-import { Pressable, View, type TextStyle } from "react-native"
+import { Pressable, View } from "react-native"
 
-const notificationDateFormatter = new Intl.DateTimeFormat("en-NG", {
+const dateFormat = new Intl.DateTimeFormat("en-NG", {
   day: "numeric",
   month: "short",
 })
-const notificationTimeFormatter = new Intl.DateTimeFormat("en-NG", {
+const timeFormat = new Intl.DateTimeFormat("en-US", {
   hour: "numeric",
   minute: "2-digit",
 })
 
-function scaledTextStyle(
-  accessibilityScale: number,
-  fontSize: number,
-  lineHeight: number,
-  overrides?: Pick<TextStyle, "color" | "fontWeight">
-) {
-  return {
-    fontSize: fontSize * accessibilityScale,
-    lineHeight: lineHeight * accessibilityScale,
-    ...overrides,
-  }
-}
-
 function formatDate(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return "Time unavailable"
-
-  return date.toDateString() === new Date().toDateString()
-    ? notificationTimeFormatter.format(date)
-    : notificationDateFormatter.format(date)
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  return [new Date().toDateString(), yesterday.toDateString()].includes(
+    date.toDateString()
+  )
+    ? timeFormat.format(date)
+    : dateFormat.format(date)
 }
 
-function getNotificationIcon(notificationType?: string) {
-  const normalized = notificationType?.toLowerCase() ?? ""
-  if (normalized.includes("receipt") || normalized.includes("payment")) {
-    return "ReceiptText" as const
+const kind = {
+  receipt: ["ReceiptText", "bg-tint-success", "text-tint-success-foreground"],
+  financing: ["HandCoins", "bg-tint-sky", "text-tint-sky-foreground"],
+  project: ["BriefcaseBusiness", "bg-tint-warm", "text-tint-warm-foreground"],
+  guarantor: ["ShieldCheck", "bg-tint-lilac", "text-tint-lilac-foreground"],
+  cooperative: ["Megaphone", "bg-tint-vivid", "text-tint-vivid-foreground"],
+  support: ["Headphones", "bg-accent", "text-accent-foreground"],
+  security: ["Shield", "bg-tint-danger", "text-tint-danger-foreground"],
+  other: ["Bell", "bg-accent", "text-accent-foreground"],
+} as const
+
+function getKind(delivery: NotificationDelivery) {
+  switch (delivery.action) {
+    case "open_receipts":
+      return kind.receipt
+    case "open_financing":
+      return delivery.notificationType.toLowerCase().includes("project")
+        ? kind.project
+        : kind.financing
+    case "open_guarantors":
+      return kind.guarantor
+    case "open_support":
+      return kind.support
+    case "open_updates":
+      return kind.cooperative
+    case "open_security":
+      return kind.security
+    default:
+      return kind.other
   }
-  if (normalized.includes("financing") || normalized.includes("loan")) {
-    return "HandCoins" as const
-  }
-  if (normalized.includes("guarantor")) return "ShieldCheck" as const
-  if (normalized.includes("support")) return "Headphones" as const
-  if (normalized.includes("security")) return "Shield" as const
-  return "Bell" as const
 }
 
 export function notificationDeliveryActionLabel(
   delivery: NotificationDelivery
 ) {
-  if (delivery.status === "failed") return "Open in app"
-  if (delivery.action === "open_receipts") return "Open receipt"
-  if (delivery.action === "open_guarantors") return "Review"
-  if (delivery.action === "open_support") return "Open support"
-  if (delivery.action === "open_financing") return "View financing"
-  if (delivery.action === "open_reports") return "Open report"
-  if (delivery.action === "open_security") return "Review security"
-  return "Open"
+  switch (delivery.action) {
+    case "open_receipts":
+      return "Open receipt"
+    case "open_guarantors":
+      return "Review"
+    case "open_support":
+      return "Open support"
+    case "open_financing":
+      return "View financing"
+    case "open_reports":
+      return "Open report"
+    case "open_security":
+      return "Review security"
+    default:
+      return "Open"
+  }
 }
 
 export function NotificationDeliveryRow({
-  accessibilityScale,
   delivery,
-  isLast,
-  largeTextLayout,
+  onActions,
   onOpen,
 }: {
-  accessibilityScale: number
   delivery: NotificationDelivery
-  isLast: boolean
-  largeTextLayout: boolean
+  onActions: (delivery: NotificationDelivery) => void
   onOpen: (delivery: NotificationDelivery) => void
 }) {
-  const colors = useColors()
+  const largeTextLayout = useLargeTextLayout()
+  const [icon, surface, ink] = getKind(delivery)
   const actionLabel = notificationDeliveryActionLabel(delivery)
+  const failed = delivery.status === "failed"
 
   return (
     <Pressable
-      accessibilityHint="Opens the related activity"
-      accessibilityLabel={`${delivery.safeTitle}. ${delivery.safeSummary}. ${actionLabel}`}
+      accessibilityActions={[
+        { name: "options", label: "Notification actions" },
+      ]}
+      accessibilityHint="Opens the related activity. Touch and hold for actions."
+      accessibilityLabel={`${delivery.isRead ? "" : "Unread. "}${delivery.safeTitle}. ${delivery.safeSummary}. ${actionLabel}`}
       accessibilityRole="button"
-      className={cn(
-        "relative flex-row items-start gap-3 active:bg-accent/40",
-        largeTextLayout ? "py-5" : "min-h-24 py-4"
-      )}
+      className="min-h-[76px] flex-row items-start gap-[12px] px-[14px] py-[14px] active:bg-muted"
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === "options") onActions(delivery)
+      }}
+      onLongPress={() => onActions(delivery)}
       onPress={() => onOpen(delivery)}
       testID={`notification-row-${delivery.id}`}
     >
       <View
         className={cn(
-          "size-10 shrink-0 items-center justify-center rounded-full",
-          delivery.status === "failed" ? "bg-warn/10" : "bg-accent"
+          "size-[42px] shrink-0 items-center justify-center rounded-[14px]",
+          delivery.isRead ? "bg-muted" : surface
         )}
       >
         <Icon
           className={cn(
-            "size-sm",
-            delivery.status === "failed"
-              ? "text-warn"
-              : "text-accent-foreground"
+            "size-[20px]",
+            delivery.isRead ? "text-muted-foreground" : ink
           )}
-          name={getNotificationIcon(delivery.notificationType)}
+          name={icon}
         />
       </View>
-      <View className="min-w-0 flex-1 gap-1">
+      <View className="min-w-0 flex-1 gap-[2px]">
         <Text
-          allowFontScaling={false}
-          className="text-sm font-extrabold text-foreground"
-          style={scaledTextStyle(accessibilityScale, 14, 20, {
-            color: colors.foreground,
-            fontWeight: "800",
-          })}
+          className={
+            delivery.isRead ? "text-secondary-foreground" : "font-bold"
+          }
+          numberOfLines={largeTextLayout ? undefined : 1}
+          variant="body"
         >
           {delivery.safeTitle}
         </Text>
         <Text
-          allowFontScaling={false}
-          className="text-sm leading-5 text-muted-foreground"
-          style={scaledTextStyle(accessibilityScale, 13, 19, {
-            color: colors.mutedForeground,
-          })}
+          className="text-muted-foreground"
+          numberOfLines={largeTextLayout ? undefined : 2}
+          variant="small"
         >
           {delivery.safeSummary}
         </Text>
-        <View
-          className={cn(
-            "gap-1 pt-0.5",
-            largeTextLayout ? "items-start" : "flex-row flex-wrap items-center"
-          )}
-        >
-          <Text
-            allowFontScaling={false}
-            className="text-xs font-semibold text-muted-foreground"
-            style={scaledTextStyle(accessibilityScale, 11, 16, {
-              color: colors.mutedForeground,
-              fontWeight: "600",
-            })}
-          >
+        <View className="mt-[3px] flex-row flex-wrap items-center gap-x-[6px] gap-y-[2px]">
+          <Text className="text-muted-foreground" tabular variant="caption">
             {formatDate(delivery.occurredAt)}
           </Text>
-          <Text
-            allowFontScaling={false}
-            className={cn(
-              "text-xs font-extrabold",
-              delivery.status === "failed"
-                ? "text-destructive"
-                : "text-brand"
-            )}
-            style={scaledTextStyle(accessibilityScale, 11, 16, {
-              color:
-                delivery.status === "failed"
-                  ? colors.destructive
-                  : colors.brand,
-              fontWeight: "800",
-            })}
-          >
-            {largeTextLayout ? actionLabel : `· ${actionLabel}`}
+          <Text className="text-muted-foreground" variant="caption">
+            ·
           </Text>
+          <Text
+            className={
+              delivery.isRead ? "text-muted-foreground" : "text-primary"
+            }
+            variant="caption"
+          >
+            {actionLabel}
+          </Text>
+          {failed ? (
+            <View className="flex-row items-center gap-[4px]">
+              <Icon
+                className="size-[13px] text-tint-warm-foreground"
+                name="CircleAlert"
+              />
+              <Text className="text-tint-warm-foreground" variant="caption">
+                {delivery.channel === "push"
+                  ? "Not delivered to phone"
+                  : "Delivery failed"}
+              </Text>
+            </View>
+          ) : null}
         </View>
       </View>
-      {!delivery.isRead ? (
-        <View
-          accessibilityLabel="Unread"
-          className="mt-1.5 size-2 shrink-0 rounded-full bg-brand"
-        />
-      ) : null}
-      {!isLast ? (
-        <View className="absolute right-0 bottom-0 left-[52px] h-px bg-border" />
-      ) : null}
+      <View
+        className={cn(
+          "mt-[6px] size-[10px] shrink-0 rounded-full",
+          !delivery.isRead && "bg-primary"
+        )}
+      />
     </Pressable>
   )
 }

@@ -8,6 +8,7 @@ import {
   pagerReleaseIndex,
 } from "@/lib/segmented-pager-motion"
 import {
+  type ComponentRef,
   type ReactNode,
   type RefObject,
   useCallback,
@@ -24,6 +25,9 @@ import {
 import { Gesture, GestureDetector } from "react-native-gesture-handler"
 import Animated, {
   Easing,
+  scrollTo,
+  useAnimatedReaction,
+  useAnimatedRef,
   type SharedValue,
   useAnimatedStyle,
   useReducedMotion,
@@ -85,15 +89,20 @@ export function useLaneTabsAnchor() {
  * takes the height of the current page.
  */
 export function SegmentedPager({
+  disabled = false,
   eager = false,
+  fill = false,
   index,
   onIndexChange,
   onTapTransition,
   pages,
   position,
 }: {
+  disabled?: boolean
   /** Mount every lane up front (dev gallery poses); default is lazy. */
   eager?: boolean
+  /** Give independent virtualized lanes the viewport height. */
+  fill?: boolean
   index: number
   onIndexChange: (index: number) => void
   /** Runs when a tab tap (not a swipe) starts a transition. */
@@ -114,6 +123,7 @@ export function SegmentedPager({
   const fromGesture = useRef(false)
   const count = pages.length
   const startIndex = useSharedValue(index)
+  const viewportRef = useAnimatedRef<ComponentRef<typeof Animated.ScrollView>>()
 
   useEffect(() => {
     setVisited((current) =>
@@ -148,6 +158,7 @@ export function SegmentedPager({
 
   const touchStart = useSharedValue({ x: 0, y: 0 })
   const pan = Gesture.Pan()
+    .enabled(!disabled)
     // Horizontal lock: |dx| > 1.2·|dy|, so vertical scroll and
     // pull-to-refresh are never captured by the lane swipe.
     .manualActivation(true)
@@ -221,9 +232,58 @@ export function SegmentedPager({
     transform: [{ translateX: -position.get() * (width + PAGER_GAP) }],
   }))
 
+  useAnimatedReaction(
+    () => fill && width ? position.get() * (width + PAGER_GAP) : null,
+    (offset) => {
+      if (offset !== null) scrollTo(viewportRef, offset, 0, false)
+    }
+  )
+
+  const lanes = pages.map((render, pageIndex) => (
+    <View
+      accessibilityElementsHidden={pageIndex !== index}
+      importantForAccessibility={
+        pageIndex === index ? "auto" : "no-hide-descendants"
+      }
+      key={pageIndex}
+      onLayout={(event) => {
+        if (fill) return
+        const next = event.nativeEvent.layout.height
+        setHeights((current) => {
+          if (current[pageIndex] === next) return current
+          const copy = [...current]
+          copy[pageIndex] = next
+          return copy
+        })
+      }}
+      {...(width ? { style: { width } } : null)}
+    >
+      {visited.has(pageIndex) ? render() : null}
+    </View>
+  ))
+
+  if (fill) {
+    return (
+      <GestureDetector gesture={pan}>
+        <Animated.ScrollView
+          contentContainerStyle={{ gap: PAGER_GAP }}
+          horizontal
+          nestedScrollEnabled
+          onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+          ref={viewportRef}
+          removeClippedSubviews={false}
+          scrollEnabled={false}
+          showsHorizontalScrollIndicator={false}
+          style={{ flex: 1 }}
+        >
+          {width ? lanes : null}
+        </Animated.ScrollView>
+      </GestureDetector>
+    )
+  }
+
   // Eager (posed) pagers size to the tallest lane; lazy ones to the current.
   const height = eager ? undefined : heights[index]
-
   return (
     <GestureDetector gesture={pan}>
       <View
@@ -236,27 +296,7 @@ export function SegmentedPager({
             rowStyle,
           ]}
         >
-          {pages.map((render, pageIndex) => (
-            <View
-              accessibilityElementsHidden={pageIndex !== index}
-              importantForAccessibility={
-                pageIndex === index ? "auto" : "no-hide-descendants"
-              }
-              key={pageIndex}
-              onLayout={(event) => {
-                const next = event.nativeEvent.layout.height
-                setHeights((current) => {
-                  if (current[pageIndex] === next) return current
-                  const copy = [...current]
-                  copy[pageIndex] = next
-                  return copy
-                })
-              }}
-              {...(width ? { style: { width } } : null)}
-            >
-              {visited.has(pageIndex) ? render() : null}
-            </View>
-          ))}
+          {lanes}
         </Animated.View>
       </View>
     </GestureDetector>

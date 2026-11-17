@@ -341,6 +341,7 @@ describe("mobile notification center", () => {
         auditLog: {
           createMany: async () => {
             writes += 1
+            return { count: 1 }
           },
           findMany: async () => {
             reads += 1

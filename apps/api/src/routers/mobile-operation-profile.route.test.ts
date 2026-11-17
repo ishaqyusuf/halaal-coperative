@@ -113,6 +113,23 @@ describe("mobile Operation Profile route", () => {
     })
   })
 
+  test("includes the last reviewer name alongside the existing audit fields", () => {
+    const profile = {
+      ...profileWith("office_only"),
+      reviewedAt: new Date("2026-11-14T09:24:00.000Z"),
+      reviewedByUserId: "a-reviewer",
+    }
+    const snapshot = buildMobileOperationProfileSnapshot({
+      profile,
+      reviewedByName: "Ibrahim Yusuf",
+      tenantName: "Amana",
+    })
+
+    expect(snapshot.reviewedAt).toBe("2026-11-14T09:24:00.000Z")
+    expect(snapshot.reviewedByUserId).toBe("a-reviewer")
+    expect(snapshot.reviewedByName).toBe("Ibrahim Yusuf")
+  })
+
   test("does not disclose Operation Profile settings to member workspaces", async () => {
     const caller = await callerFor({
       membershipId: "membership-amanah-admin-member",

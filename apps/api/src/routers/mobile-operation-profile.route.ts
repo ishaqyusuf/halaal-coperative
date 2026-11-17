@@ -1,5 +1,5 @@
 import {
-  getTenantOperationProfile,
+  getMobileAdminOperationProfile,
   tenantServiceAccessModes,
   tenantServiceKeys,
   updateTenantOperationProfileService,
@@ -33,11 +33,13 @@ export const MOBILE_OPERATION_PROFILE_SUBSCRIPTION = {
 export function buildMobileOperationProfileSnapshot(input: {
   now?: Date
   profile: TenantOperationProfileReadModel
+  reviewedByName?: string | null
   tenantName: string
 }) {
   return {
     policy: input.profile.policy,
     reviewedAt: input.profile.reviewedAt?.toISOString() ?? null,
+    reviewedByName: input.reviewedByName ?? null,
     reviewedByUserId: input.profile.reviewedByUserId,
     services: tenantServiceKeys.map((serviceKey) => {
       const configured = input.profile.services[serviceKey]
@@ -62,10 +64,11 @@ export const mobileOperationProfileProcedures = {
   operationProfile: createTRPCRouter({
     overview: permissionProcedure("manage_operation_profile").query(
       async ({ ctx }) => {
-        const profile = await getTenantOperationProfile(ctx.tenant.current.id)
+        const profile = await getMobileAdminOperationProfile(ctx.tenant.current.id)
 
         return buildMobileOperationProfileSnapshot({
           profile,
+          reviewedByName: profile.reviewedByName,
           tenantName: ctx.tenant.current.name,
         })
       }
@@ -81,6 +84,10 @@ export const mobileOperationProfileProcedures = {
 
         return buildMobileOperationProfileSnapshot({
           profile,
+          reviewedByName:
+            profile.reviewedByUserId === ctx.auth.session.user.id
+              ? ctx.auth.session.user.fullName
+              : null,
           tenantName: ctx.tenant.current.name,
         })
       }),

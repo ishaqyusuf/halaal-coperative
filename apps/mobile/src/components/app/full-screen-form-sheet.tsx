@@ -56,6 +56,7 @@ export function FullScreenFormSheet({
   contentKey,
   dirty = false,
   footer,
+  footerOnCard = false,
   isSubmitting = false,
   onClose,
   onDismissed,
@@ -72,6 +73,7 @@ export function FullScreenFormSheet({
   contentKey?: string
   dirty?: boolean
   footer?: ReactNode
+  footerOnCard?: boolean
   /** Small right-aligned header text, e.g. a step "1 of 2". */
   headerOnCard?: boolean
   headerTrailing?: ReactNode
@@ -315,12 +317,19 @@ export function FullScreenFormSheet({
                       setFooterHeight(event.nativeEvent.layout.height)
                     }
                     style={{
-                      backgroundColor: colors.background,
+                      backgroundColor: footerOnCard
+                        ? colors.card
+                        : colors.background,
                       elevation: 4,
                       paddingBottom: Math.max(insets.bottom, 12),
                     }}
                   >
-                    <View className="border-t border-border bg-background px-5 pt-3">
+                    <View
+                      className={cn(
+                        "border-t border-border px-5 pt-3",
+                        footerOnCard ? "bg-card" : "bg-background"
+                      )}
+                    >
                       {form.footer}
                     </View>
                   </View>

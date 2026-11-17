@@ -117,18 +117,26 @@ type ResultAction = {
 
 function ResultActions({
   compact,
+  onCard,
   primary,
   secondary,
 }: {
   compact: boolean
+  onCard?: boolean
   primary?: ResultAction
   secondary?: ResultAction
 }) {
   const insets = useSafeAreaInsets()
+  const colors = useColors()
   if (!primary && !secondary) return null
   return (
     <View
       style={{
+        ...(onCard && {
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+          borderTopWidth: 1,
+        }),
         gap: compact ? 8 : 12,
         paddingBottom: resolveDockedFooterInset(insets.bottom, Platform.OS),
         paddingHorizontal: 18,
@@ -239,6 +247,7 @@ export function ResultScreen({
   description,
   details,
   dismissIcon,
+  headerTitle,
   onDone,
   primary,
   secondary,
@@ -253,6 +262,7 @@ export function ResultScreen({
   description?: ReactNode
   details?: ReactNode
   dismissIcon?: string
+  headerTitle?: string
   onDone?: () => void
   primary?: ResultAction
   secondary?: ResultAction
@@ -267,36 +277,54 @@ export function ResultScreen({
       style={{
         backgroundColor: colors.background,
         flex: 1,
-        paddingTop: insets.top,
+        paddingTop: headerTitle ? 0 : insets.top,
       }}
     >
       <OverlayStatusBar />
-      {!compact || onDone ? (
-        <View className="min-h-[56px] flex-row items-center justify-end px-[18px]">
-          {onDone ? (
-            <Pressable
-              accessibilityLabel={dismissIcon ? "Close result" : "Done"}
-              accessibilityRole="button"
-              className={cn(
-                "min-h-[44px] justify-center px-[4px]",
-                dismissIcon &&
-                  "size-[44px] items-center rounded-full bg-card shadow-sm"
-              )}
-              hitSlop={8}
-              onPress={onDone}
-            >
-              {dismissIcon ? (
-                <Icon
-                  className="size-base text-foreground"
-                  name={dismissIcon}
-                />
-              ) : (
-                <Text className="text-primary" variant="section">
-                  Done
-                </Text>
-              )}
-            </Pressable>
-          ) : null}
+      {!compact || onDone || headerTitle ? (
+        <View
+          style={
+            headerTitle
+              ? {
+                  backgroundColor: colors.card,
+                  borderBottomColor: colors.border,
+                  borderBottomWidth: 1,
+                  paddingTop: insets.top,
+                }
+              : {}
+          }
+        >
+          <View className="min-h-[56px] flex-row items-center justify-end px-[18px]">
+            {headerTitle ? (
+              <Text className="min-w-0 flex-1 text-center" variant="section">
+                {headerTitle}
+              </Text>
+            ) : null}
+            {onDone ? (
+              <Pressable
+                accessibilityLabel={dismissIcon ? "Close result" : "Done"}
+                accessibilityRole="button"
+                className={cn(
+                  "min-h-[44px] justify-center px-[4px]",
+                  dismissIcon &&
+                    "size-[44px] items-center rounded-full bg-card shadow-sm"
+                )}
+                hitSlop={8}
+                onPress={onDone}
+              >
+                {dismissIcon ? (
+                  <Icon
+                    className="size-base text-foreground"
+                    name={dismissIcon}
+                  />
+                ) : (
+                  <Text className="text-primary" variant="section">
+                    Done
+                  </Text>
+                )}
+              </Pressable>
+            ) : null}
+          </View>
         </View>
       ) : null}
       <ScrollView
@@ -347,6 +375,7 @@ export function ResultScreen({
       </ScrollView>
       <ResultActions
         compact={compact}
+        onCard={Boolean(headerTitle)}
         primary={primary}
         secondary={secondary}
       />

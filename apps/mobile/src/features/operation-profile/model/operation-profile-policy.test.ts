@@ -42,31 +42,33 @@ describe("mobile Operation Profile policy", () => {
     ).toBe(false)
   })
 
-  test("blocks writes for offline, stale, and subscription-restricted states", () => {
+  test("blocks writes for offline, stale, and platform-limited states", () => {
     expect(
       isOperationProfileReadOnly({
+        isLimited: false,
         isOnline: false,
-        subscriptionAccessEnabled: true,
+        isStale: false,
       })
     ).toBe(true)
     expect(
       isOperationProfileReadOnly({
-        cacheStatus: "stale",
+        isLimited: false,
         isOnline: true,
-        subscriptionAccessEnabled: true,
+        isStale: true,
       })
     ).toBe(true)
     expect(
       isOperationProfileReadOnly({
+        isLimited: true,
         isOnline: true,
-        subscriptionAccessEnabled: false,
+        isStale: false,
       })
     ).toBe(true)
     expect(
       isOperationProfileReadOnly({
-        cacheStatus: "live",
+        isLimited: false,
         isOnline: true,
-        subscriptionAccessEnabled: true,
+        isStale: false,
       })
     ).toBe(false)
   })

@@ -93,6 +93,7 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   Info: require("lucide-react-native/dist/esm/icons/info").default,
   KeyRound: require("lucide-react-native/dist/esm/icons/key-round").default,
   Landmark: require("lucide-react-native/dist/esm/icons/landmark").default,
+  Layers: require("lucide-react-native/dist/esm/icons/layers").default,
   LayoutDashboard:
     require("lucide-react-native/dist/esm/icons/layout-dashboard").default,
   LayoutGrid: require("lucide-react-native/dist/esm/icons/layout-grid").default,

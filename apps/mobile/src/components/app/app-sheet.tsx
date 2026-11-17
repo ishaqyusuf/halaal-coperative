@@ -38,6 +38,7 @@ export type AppSheetProps = {
   minimumContentHeight?: number
   /** Docked actions; ride the keyboard in the form presentation. */
   footer?: ReactNode
+  footerOnCard?: boolean
   /** Add the floating sheet's action gutters around its fixed footer. */
   insetFloatingFooter?: boolean
   /** Form only: confirm before discarding edits. */
@@ -70,6 +71,7 @@ export function AppSheet({
   dismissible = true,
   expandedTitle,
   footer,
+  footerOnCard = false,
   headerOnCard = false,
   headerTrailing,
   insetFloatingFooter = false,
@@ -217,6 +219,7 @@ export function AppSheet({
         contentKey={contentKey}
         dirty={variant === "form" ? dirty : false}
         footer={footer}
+        footerOnCard={footerOnCard}
         headerOnCard={headerOnCard}
         headerTrailing={headerTrailing}
         isSubmitting={isSubmitting}

@@ -60,6 +60,7 @@ describe("Operation Profile stale-conflict recovery", () => {
   test("requires another review when the latest mode differs from the draft", () => {
     expect(
       resolveOperationProfileConflictRefresh({
+        changeReason: "Approved service change.",
         nextAccessMode: "disabled",
         serviceKey: "procurement",
         snapshot: snapshot("office_only"),
@@ -70,9 +71,24 @@ describe("Operation Profile stale-conflict recovery", () => {
     })
   })
 
+  test("returns to the reason field if the refreshed mode makes the draft restrictive", () => {
+    expect(
+      resolveOperationProfileConflictRefresh({
+        changeReason: "  ",
+        nextAccessMode: "office_only",
+        serviceKey: "procurement",
+        snapshot: snapshot("member_self_service"),
+      })
+    ).toEqual({
+      expectedAccessMode: "member_self_service",
+      status: "reason_required",
+    })
+  })
+
   test("recognizes when another admin already applied the draft mode", () => {
     expect(
       resolveOperationProfileConflictRefresh({
+        changeReason: "",
         nextAccessMode: "disabled",
         serviceKey: "procurement",
         snapshot: snapshot("disabled"),
@@ -89,6 +105,7 @@ describe("Operation Profile stale-conflict recovery", () => {
 
     expect(
       resolveOperationProfileConflictRefresh({
+        changeReason: "",
         nextAccessMode: "disabled",
         serviceKey: "procurement",
         snapshot: value,

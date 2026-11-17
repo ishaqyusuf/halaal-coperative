@@ -1,7 +1,5 @@
-import { GateMark } from "@/components/app/gate-hero"
 import { OverlayStatusBar } from "@/components/app/screen-status-bar"
 import { Button } from "@/components/ui/button"
-import { Elevated } from "@/components/ui/list-card"
 import { Icon } from "@/components/ui/icon"
 import { Text } from "@/components/ui/text"
 import {
@@ -9,9 +7,11 @@ import {
   type BootstrapScreenMode,
 } from "@/features/bootstrap/model/bootstrap-presentation"
 import { useColors } from "@/hooks/use-color"
+import { SPLASH_LOGO, SPLASH_LOGO_SIZE } from "@/lib/splash-logo"
 import { useEffect } from "react"
-import { View } from "react-native"
+import { Image, useWindowDimensions, View } from "react-native"
 import Animated, {
+  FadeIn,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -40,12 +40,14 @@ export function BootstrapScreen({
 }: BootstrapScreenProps) {
   const presentation = projectBootstrapPresentation({ mode, retrying })
   const insets = useSafeAreaInsets()
-  const failed = mode !== "loading" && presentation.chip
+  const chip = mode === "loading" ? null : presentation.chip
+
+  if (!chip) return <BootstrapSplash presentation={presentation} />
 
   return (
     <View
       className="flex-1 bg-background"
-      testID={failed ? "bootstrap-error" : "bootstrap-loading"}
+      testID="bootstrap-error"
     >
       <OverlayStatusBar />
       {/* Style-only: padding follows the runtime safe-area insets. */}
@@ -58,30 +60,22 @@ export function BootstrapScreen({
         }}
       >
         <View className="flex-1 items-center justify-center gap-[12px]">
-          {failed && presentation.chip ? (
-            <View
+          <View
+            className={
+              chip.tone === "danger"
+                ? "size-[44px] items-center justify-center rounded-[14px] bg-tint-danger"
+                : "size-[44px] items-center justify-center rounded-[14px] bg-tint-warm"
+            }
+          >
+            <Icon
               className={
-                presentation.chip.tone === "danger"
-                  ? "size-[44px] items-center justify-center rounded-[14px] bg-tint-danger"
-                  : "size-[44px] items-center justify-center rounded-[14px] bg-tint-warm"
+                chip.tone === "danger"
+                  ? "size-[22px] text-tint-danger-foreground"
+                  : "size-[22px] text-tint-warm-foreground"
               }
-            >
-              <Icon
-                className={
-                  presentation.chip.tone === "danger"
-                    ? "size-[22px] text-tint-danger-foreground"
-                    : "size-[22px] text-tint-warm-foreground"
-                }
-                name={presentation.chip.icon}
-              />
-            </View>
-          ) : (
-            <Elevated className="rounded-[20px] bg-card" radius={20}>
-              <View className="size-[64px] items-center justify-center">
-                <GateMark identity={{ kind: "brand" }} size={44} />
-              </View>
-            </Elevated>
-          )}
+              name={chip.icon}
+            />
+          </View>
           <Text
             accessibilityRole="header"
             className="mt-[6px] max-w-[320px] text-center"
@@ -96,25 +90,21 @@ export function BootstrapScreen({
           >
             {presentation.description}
           </Text>
-          {failed ? (
-            onRetry ? (
-              <View className="mt-[14px] w-full">
-                <Button
-                  accessibilityLabel={presentation.actionLabel ?? undefined}
-                  loading={retrying}
-                  onPress={onRetry}
-                >
-                  <Icon
-                    className="size-base text-primary-foreground"
-                    name="RefreshCw"
-                  />
-                  <Text>{presentation.actionLabel}</Text>
-                </Button>
-              </View>
-            ) : null
-          ) : (
-            <ProgressDots />
-          )}
+          {onRetry ? (
+            <View className="mt-[14px] w-full">
+              <Button
+                accessibilityLabel={presentation.actionLabel ?? undefined}
+                loading={retrying}
+                onPress={onRetry}
+              >
+                <Icon
+                  className="size-base text-primary-foreground"
+                  name="RefreshCw"
+                />
+                <Text>{presentation.actionLabel}</Text>
+              </Button>
+            </View>
+          ) : null}
         </View>
         <View className="flex-row items-start gap-[10px] border-t border-border pt-[16px]">
           <Icon className="size-sm text-success" name="ShieldCheck" />
@@ -123,6 +113,93 @@ export function BootstrapScreen({
           </Text>
         </View>
       </View>
+    </View>
+  )
+}
+
+/**
+ * Loading splash (01 Calm title) that continues the native launch screen: the
+ * same tile (SPLASH_LOGO, 64pt) at the exact screen centre on the same
+ * canvas colour, so the hand-off has no jump. The title, copy, dots and note
+ * fade in around it.
+ */
+function BootstrapSplash({
+  presentation,
+}: {
+  presentation: ReturnType<typeof projectBootstrapPresentation>
+}) {
+  const insets = useSafeAreaInsets()
+  const { width } = useWindowDimensions()
+  const reduceMotion = useReducedMotion()
+  const fadeIn = reduceMotion ? undefined : FadeIn.duration(280).delay(80)
+  const textWidth = Math.min(width - 56, 340)
+  return (
+    <View className="flex-1 bg-background" testID="bootstrap-loading">
+      <OverlayStatusBar />
+      {/* Style-only: absolute centring that matches the native launch image. */}
+      <View
+        style={{
+          alignItems: "center",
+          bottom: 0,
+          justifyContent: "center",
+          left: 0,
+          position: "absolute",
+          right: 0,
+          top: 0,
+        }}
+      >
+        <View style={{ height: SPLASH_LOGO_SIZE, width: SPLASH_LOGO_SIZE }}>
+          <Image
+            accessibilityIgnoresInvertColors
+            accessible={false}
+            fadeDuration={0}
+            source={SPLASH_LOGO}
+            style={{ height: SPLASH_LOGO_SIZE, width: SPLASH_LOGO_SIZE }}
+          />
+          <Animated.View
+            entering={fadeIn}
+            style={{
+              alignItems: "center",
+              gap: 12,
+              left: (SPLASH_LOGO_SIZE - textWidth) / 2,
+              position: "absolute",
+              top: SPLASH_LOGO_SIZE + 18,
+              width: textWidth,
+            }}
+          >
+            <Text
+              accessibilityRole="header"
+              className="text-center"
+              variant="screenTitle"
+            >
+              {presentation.title}
+            </Text>
+            <Text
+              className="text-center text-foreground-soft"
+              variant="body"
+            >
+              {presentation.description}
+            </Text>
+            <ProgressDots />
+          </Animated.View>
+        </View>
+      </View>
+      <Animated.View
+        entering={fadeIn}
+        style={{
+          bottom: Math.max(insets.bottom, 16) + 14,
+          left: 28,
+          position: "absolute",
+          right: 28,
+        }}
+      >
+        <View className="flex-row items-start gap-[10px] border-t border-border pt-[16px]">
+          <Icon className="size-sm text-success" name="ShieldCheck" />
+          <Text className="flex-1 text-muted-foreground" variant="small">
+            {presentation.note}
+          </Text>
+        </View>
+      </Animated.View>
     </View>
   )
 }

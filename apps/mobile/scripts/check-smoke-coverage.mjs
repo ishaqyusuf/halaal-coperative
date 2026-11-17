@@ -81,7 +81,7 @@ assertIncludes("src/app/index.tsx", [
 
 assertIncludes("src/features/bootstrap/screens/bootstrap-screen.tsx", [
   'mode = "loading"',
-  'mode !== "loading"',
+  "<BootstrapSplash",
   "<ProgressDots",
   'accessibilityRole="progressbar"',
   "presentation.note",

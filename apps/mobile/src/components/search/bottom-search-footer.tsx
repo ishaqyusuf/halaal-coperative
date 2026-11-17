@@ -13,6 +13,7 @@ import {
 } from "@/lib/dock-motion"
 import { shouldShowListSearch } from "@/lib/list-search"
 import { useIsOnline } from "@/lib/online-status"
+import { resolveSearchFooterKeyboardOffset } from "@/lib/search-footer-keyboard"
 import type { ReactNode } from "react"
 import { useEffect, useRef, useState } from "react"
 import { View } from "react-native"
@@ -239,7 +240,10 @@ export function BottomSearchFooter({
     </View>
   ) : (
     <KeyboardStickyView
-      offset={{ closed: -bottomOffset, opened: 0 }}
+      offset={resolveSearchFooterKeyboardOffset({
+        bottomOffset,
+        safeAreaPadding: paddingBottom,
+      })}
       pointerEvents="box-none"
       style={containerStyle}
       testID="bottom-search-footer"

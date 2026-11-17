@@ -56,10 +56,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Select a JPG, PNG or PDF." }, { status: 400 })
   }
 
+  // Native multipart uploads use the cached file's basename. The storage
+  // adapter sanitizes the selected name before saving it.
+  const pickedName = mobile ? formData.get("fileName") : null
+  const uploadFile =
+    typeof pickedName === "string" && pickedName.trim() && pickedName.length <= 160
+      ? new File([file], pickedName, { type: file.type })
+      : file
+
   try {
     const { saveDashboardUpload } = await import("@/lib/uploads/local-upload-storage")
     const upload = await saveDashboardUpload({
-      file,
+      file: uploadFile,
       purpose,
       tenantId: actor.tenantId,
       userId: actor.userId,

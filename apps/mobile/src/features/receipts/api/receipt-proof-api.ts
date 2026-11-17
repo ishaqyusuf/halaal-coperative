@@ -141,7 +141,7 @@ export async function uploadReceiptProof(proof: ReceiptProofFile) {
       headers,
       httpMethod: "POST",
       mimeType: proof.contentType,
-      parameters: { purpose: proofPurpose },
+      parameters: { fileName: proof.fileName, purpose: proofPurpose },
       uploadType: FileSystem.FileSystemUploadType.MULTIPART,
     })
     const timer = setTimeout(

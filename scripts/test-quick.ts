@@ -66,7 +66,6 @@ export const suites = {
   domain: [
     "packages/domain/src/modules/finance.test.ts",
     "packages/domain/src/modules/qa-accelerator.test.ts",
-    "packages/domain/src/modules/subscriptions.test.ts",
     "packages/utils/src/qa-testing.test.ts",
     "packages/utils/src/qa-fixtures.test.ts",
     "packages/utils/src/runtime-url.test.ts",

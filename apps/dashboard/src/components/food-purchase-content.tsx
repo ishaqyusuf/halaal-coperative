@@ -395,6 +395,17 @@ export function FoodPurchaseApplicationDetails({
               : null,
           },
           {
+            label: "Cooperative's profit in this",
+            value:
+              approved && application.approvedMarkup > 0
+                ? formatCurrency(application.approvedMarkup)
+                : null,
+          },
+          {
+            label: "Food given out",
+            value: formatDayMonthYear(application.goodsReleasedAt),
+          },
+          {
             label: "Paid so far",
             value: approved ? formatCurrency(application.paidAmount) : null,
           },
@@ -435,8 +446,12 @@ function FoodPurchaseDecision({
   const [approvedPaybackMonths, setApprovedPaybackMonths] = useState(
     String(application.requestedPaybackMonths)
   )
+  const [approvedMarkup, setApprovedMarkup] = useState("")
   const amount = Number(approvedAmount)
   const months = Number(approvedPaybackMonths)
+  const markup = approvedMarkup.trim() ? Number(approvedMarkup) : 0
+  // The cooperative's profit is part of the price, so it stays below it.
+  const markupValid = Number.isFinite(markup) && markup >= 0 && markup < amount
 
   async function decide(
     status: "approved" | "rejected" | "under_review",
@@ -447,6 +462,7 @@ function FoodPurchaseDecision({
         objectToFormData({
           applicationId: application.id,
           approvedAmount: status === "approved" ? approvedAmount : "",
+          approvedMarkup: status === "approved" ? String(markup) : "",
           approvedPaybackMonths:
             status === "approved" ? approvedPaybackMonths : "",
           notes,
@@ -485,8 +501,12 @@ function FoodPurchaseDecision({
           value: formatMonthYear(application.cycle.periodMonth),
         },
         { label: "Amount", value: amountLine(amount, months) },
+        {
+          label: "Cooperative's profit in this",
+          value: markup > 0 ? formatCurrency(markup) : null,
+        },
       ]}
-      canApprove={monthlyAmount(amount, months) !== null}
+      canApprove={markupValid && monthlyAmount(amount, months) !== null}
       onApprove={() => decide("approved")}
       onDecline={(reason) => decide("rejected", reason)}
       onStartChecking={
@@ -511,6 +531,18 @@ function FoodPurchaseDecision({
             inputMode="numeric"
             onChange={(event) => setApprovedPaybackMonths(event.target.value)}
             value={approvedPaybackMonths}
+          />
+        </RequestField>
+        <RequestField
+          hint="The part of the amount that is the cooperative's profit."
+          label="Cooperative's profit in this (₦)"
+          optional
+        >
+          <Input
+            inputMode="decimal"
+            onChange={(event) => setApprovedMarkup(event.target.value)}
+            placeholder="0"
+            value={approvedMarkup}
           />
         </RequestField>
       </div>

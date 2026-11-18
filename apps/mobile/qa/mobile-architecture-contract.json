@@ -124,6 +124,15 @@
       "tenantBoundary": "Member-owned financing requests, loans, schedules, and server-provided eligibility in the active tenant only."
     },
     {
+      "file": "src/app/(member)/financing-requests.tsx",
+      "path": "/(member)/financing-requests",
+      "feature": "financing",
+      "roles": [
+        "member"
+      ],
+      "tenantBoundary": "Cursor-paged financing requests and details owned by the active member in the active tenant."
+    },
+    {
       "file": "src/app/(member)/(tabs)/more.tsx",
       "path": "/(member)/more",
       "feature": "settings-access",
@@ -374,6 +383,16 @@
       "tenantBoundary": "Settings and access surfaces render server permissions."
     },
     {
+      "file": "src/app/(admin)/workspace-access.tsx",
+      "path": "/workspace-access",
+      "feature": "settings-access",
+      "roles": [
+        "tenant_admin",
+        "super_admin"
+      ],
+      "tenantBoundary": "Workspace users, role counts and invitation permissions are scoped to the active tenant and checked by the API."
+    },
+    {
       "file": "src/app/(admin)/operation-profile.tsx",
       "path": "/(admin)/operation-profile",
       "feature": "operation-profile",
@@ -497,10 +516,10 @@
       "tenantBoundary": "Authenticated account-owned privacy requests across memberships; submission uses active tenant context, with no paid-plan or financial-readiness requirement. Confirmation, idempotency and current session checks guard mutations."
     },
     {
-      "file": "src/app/legal-agreements.tsx",
-      "path": "/legal-agreements",
-      "feature": "legal",
-      "controller": "@/features/legal/routes/legal-agreements-route-controller",
+      "file": "src/app/about.tsx",
+      "path": "/about",
+      "feature": "about",
+      "controller": "@/features/about/routes/about-route-controller",
       "roles": [
         "member",
         "tenant_admin",
@@ -508,7 +527,7 @@
         "operations_officer",
         "super_admin"
       ],
-      "tenantBoundary": "Current published terms/privacy snapshots and own acceptance evidence only; writes bind to signed account and active tenant after server revision check."
+      "tenantBoundary": "Static platform information (company, contact, app version, public document links); no API reads and no tenant or account data."
     },
     {
       "file": "src/app/mobile-access.tsx",
@@ -552,6 +571,20 @@
         "super_admin"
       ],
       "tenantBoundary": "Signed account required. Lists only the signed user's own memberships in active cooperatives (QA sessions stay bound to their tenant) and switches only through auth.mobile.switchRole; available before paid access without granting business data."
+    },
+    {
+      "file": "src/app/design-system.tsx",
+      "path": "/design-system",
+      "feature": "design-system",
+      "controller": "@/features/design-system/routes/design-system-route-controller",
+      "roles": [
+        "member",
+        "tenant_admin",
+        "finance_officer",
+        "operations_officer",
+        "super_admin"
+      ],
+      "tenantBoundary": "Dev/QA-only static design-system gallery with fixture copy; it reads no tenant data and redirects home in production builds."
     }
   ],
   "stateContracts": {

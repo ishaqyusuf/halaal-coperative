@@ -22,7 +22,9 @@ export function getDomainStatus(
 
   if (domain.verificationStatus === "verified") {
     return {
-      detail: "It points to Halaalvest.",
+      // Hosting is attached by Halaalvest staff by hand (triage 5.3).
+      detail:
+        "It points to Halaalvest. Contact support so we can finish connecting it. It won't open until we do.",
       ready: true,
       word: "Ready",
     }

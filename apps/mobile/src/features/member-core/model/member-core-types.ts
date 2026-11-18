@@ -11,11 +11,24 @@ export type MobileOverviewMetric = {
 }
 
 export type MobileMemberActivityKind = "commitments" | "shares" | "statement"
+export type MobileStatementActivityCategory =
+  | "savings"
+  | "financing"
+  | "shares"
+  | "charges"
+
+export type MobileMemberActivityRow = MobileMemberSectionRow & {
+  channel?: string | null
+  entryCount?: number
+  extraSavings?: number
+  postedAt?: string
+  reference?: string | null
+}
 
 export type MobileMemberActivityPage = {
   cache?: MobileReadCacheState
   generatedAt: string
-  items: MobileMemberSectionRow[]
+  items: MobileMemberActivityRow[]
   kind: MobileMemberActivityKind
   nextCursor: string | null
   state: "available" | "database_unavailable" | "member_profile_missing"
@@ -46,6 +59,8 @@ export type MobileMemberHome = {
     name: string
     status: string
   } | null
+  /** Bell badge (T04). Optional: cached reads from older servers lack it. */
+  notifications?: { unread: number }
   readiness: {
     detail: string
     percentage: number
@@ -64,6 +79,7 @@ export type MobileMemberSectionKey = "commitments" | "financing" | "shares"
 
 export type MobileMemberSectionRow = {
   detail: string
+  interval?: string
   format: MobileMetricFormat | null
   key: string
   label: string

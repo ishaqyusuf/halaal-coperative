@@ -23,11 +23,18 @@ function createPlan() {
 describe("production-contract negative journey plan", () => {
   test("covers every required denial and idempotency category", () => {
     expect(() => assertProductionQaNegativeJourneyDefinitions()).not.toThrow()
-    expect(PRODUCTION_QA_NEGATIVE_JOURNEYS).toHaveLength(7)
+    expect(PRODUCTION_QA_NEGATIVE_JOURNEYS).toHaveLength(6)
     expect(
       new Set(PRODUCTION_QA_NEGATIVE_JOURNEYS.map(({ category }) => category))
         .size
     ).toBe(PRODUCTION_QA_NEGATIVE_CATEGORIES.length)
+    // Triage 2.8: there is no plan member cap, so no entitlement-limit denial.
+    expect(PRODUCTION_QA_NEGATIVE_CATEGORIES).not.toContain(
+      "entitlement_limits" as never
+    )
+    expect(
+      PRODUCTION_QA_NEGATIVE_JOURNEYS.map(({ key }) => key)
+    ).not.toContain("member-capacity-limit")
     expect(
       PRODUCTION_QA_NEGATIVE_JOURNEYS.every(({ steps }) =>
         steps.some(({ surface }) => surface === "android")
@@ -38,7 +45,7 @@ describe("production-contract negative journey plan", () => {
   test("binds each denial to a real scenario and role identity", () => {
     const journeys = createProductionQaNegativeJourneyPlan(createPlan())
 
-    expect(journeys).toHaveLength(7)
+    expect(journeys).toHaveLength(6)
     expect(
       journeys.every(
         ({ cooperativeNumber, email, tenantSlug }) =>
@@ -101,8 +108,8 @@ describe("production-contract negative journey plan", () => {
       plan: createPlan(),
     })
 
-    expect(report).toContain("Negative journeys: 7")
-    expect(report).toContain("Categories: 7/7")
+    expect(report).toContain("Negative journeys: 6")
+    expect(report).toContain("Categories: 6/6")
     expect(report).not.toContain("QSH-")
     expect(report).not.toContain("@ishaq.qa.test")
     expect(report).not.toMatch(/password|otp|credential|sessionToken/i)

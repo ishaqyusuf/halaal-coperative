@@ -3,28 +3,145 @@
   "exceptions": [
     {
       "file": "src/components/app/dev-quick-fill.tsx",
-      "allow": ["native-inline-style"],
+      "allow": [
+        "native-inline-style"
+      ],
       "reason": "Floating placement keeps position:absolute with its runtime safe-area offset. Android footer-baseline-v2 measures a stable 116px form-footer displacement when NativeWind positioning alone leaves the 48dp control in flow. Classes retain size, shape and semantic colors; footer placement stays in flow."
     },
     {
       "file": "src/app/_layout.tsx",
-      "allow": ["native-inline-style"],
+      "allow": [
+        "native-inline-style"
+      ],
       "reason": "GestureHandlerRootView requires a native flex style before NativeWind providers mount."
     },
     {
       "file": "src/components/app-auto-update-modal.tsx",
-      "allow": ["native-inline-style", "native-style-sheet"],
+      "allow": [
+        "native-inline-style",
+        "native-style-sheet"
+      ],
       "reason": "Expo Updates progress and status-bar native APIs require animated/runtime style props; ticket 09 owns its feature migration."
     },
     {
       "file": "src/components/floating-bottom-sheet.tsx",
-      "allow": ["native-inline-style", "native-style-sheet"],
+      "allow": [
+        "native-inline-style",
+        "native-style-sheet"
+      ],
       "reason": "Gorhom Bottom Sheet background, container, handle, and detached sheet APIs require native style objects. The current-detent outer clip follows measured library geometry on the UI thread, preserving the inner keyboard scroll viewport."
     },
     {
-      "file": "src/components/ui/modal.tsx",
-      "allow": ["native-inline-style"],
-      "reason": "The Gorhom animated backdrop requires a native runtime style; its color comes from the semantic overlay theme token."
+      "file": "src/components/app/dock-tab-bar.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "T01 (16 Nov 2026): react-native-css 3.0.1 drops an element's className styles when it also receives an inline style, and Reanimated views take no className. Runtime values (shadows, safe-area insets, animated transforms, measured sizes) therefore live on style-only wrappers; static styling stays in className on sibling/child elements."
+    },
+    {
+      "file": "src/components/app/full-screen-form-sheet.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "T01 (16 Nov 2026): react-native-css 3.0.1 drops an element's className styles when it also receives an inline style, and Reanimated views take no className. Runtime values (shadows, safe-area insets, animated transforms, measured sizes) therefore live on style-only wrappers; static styling stays in className on sibling/child elements."
+    },
+    {
+      "file": "src/components/app/result-screen.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "T01 (16 Nov 2026): react-native-css 3.0.1 drops an element's className styles when it also receives an inline style, and Reanimated views take no className. Runtime values (shadows, safe-area insets, animated transforms, measured sizes) therefore live on style-only wrappers; static styling stays in className on sibling/child elements."
+    },
+    {
+      "file": "src/components/app/screen-shell.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "T01 (16 Nov 2026): react-native-css 3.0.1 drops an element's className styles when it also receives an inline style, and Reanimated views take no className. Runtime values (shadows, safe-area insets, animated transforms, measured sizes) therefore live on style-only wrappers; static styling stays in className on sibling/child elements."
+    },
+    {
+      "file": "src/components/search/bottom-search-footer.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "T01 (16 Nov 2026): react-native-css 3.0.1 drops an element's className styles when it also receives an inline style, and Reanimated views take no className. Runtime values (shadows, safe-area insets, animated transforms, measured sizes) therefore live on style-only wrappers; static styling stays in className on sibling/child elements."
+    },
+    {
+      "file": "src/components/search/floating-search-field.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "T01 (16 Nov 2026): react-native-css 3.0.1 drops an element's className styles when it also receives an inline style, and Reanimated views take no className. Runtime values (shadows, safe-area insets, animated transforms, measured sizes) therefore live on style-only wrappers; static styling stays in className on sibling/child elements."
+    },
+    {
+      "file": "src/components/search/search-fold.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "T01 (16 Nov 2026): react-native-css 3.0.1 drops an element's className styles when it also receives an inline style, and Reanimated views take no className. Runtime values (shadows, safe-area insets, animated transforms, measured sizes) therefore live on style-only wrappers; static styling stays in className on sibling/child elements."
+    },
+    {
+      "file": "src/components/search/tab-search-bubble.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "T01 (16 Nov 2026): react-native-css 3.0.1 drops an element's className styles when it also receives an inline style, and Reanimated views take no className. Runtime values (shadows, safe-area insets, animated transforms, measured sizes) therefore live on style-only wrappers; static styling stays in className on sibling/child elements."
+    },
+    {
+      "file": "src/components/ui/list-card.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "T01 (16 Nov 2026): react-native-css 3.0.1 drops an element's className styles when it also receives an inline style, and Reanimated views take no className. Runtime values (shadows, safe-area insets, animated transforms, measured sizes) therefore live on style-only wrappers; static styling stays in className on sibling/child elements."
+    },
+    {
+      "file": "src/components/ui/segmented-pager.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "T01 (16 Nov 2026): react-native-css 3.0.1 drops an element's className styles when it also receives an inline style, and Reanimated views take no className. Runtime values (shadows, safe-area insets, animated transforms, measured sizes) therefore live on style-only wrappers; static styling stays in className on sibling/child elements."
+    },
+    {
+      "file": "src/components/app/app-list.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "T01 (16 Nov 2026): react-native-css 3.0.1 drops an element's className styles when it also receives an inline style, and Reanimated views take no className. Runtime values (shadows, safe-area insets, animated transforms, measured sizes) therefore live on style-only wrappers; static styling stays in className on sibling/child elements."
+    },
+    {
+      "file": "src/features/auth/components/qa-access-panel.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "T02: the floating QA button's position uses runtime safe-area insets on a style-only wrapper (ADR-20261116 style composition: className and style never share an element); the 52pt button and badge keep semantic classes."
+    },
+    {
+      "file": "src/features/app-lock/components/app-lock-pin-pad.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "PIN keys style from Pressable's pressed state (react-native-css left className :active stuck after disabled toggles, T02), with a window-measured key height; the dots row is a Reanimated shake and each dot's fill/ring follows runtime PIN state (T03)."
+    },
+    {
+      "file": "src/features/app-lock/components/app-lock-gate.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "Unlock gate footers pad by the runtime safe-area inset (resolveDockedFooterInset) under the PIN pad (T03)."
+    },
+    {
+      "file": "src/features/app-lock/screens/app-lock-screen.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "The PIN step sizes itself to the visible sheet height (window minus insets) so the pad sits at the bottom of the scrolling form body (T03)."
+    },
+    {
+      "file": "src/features/bootstrap/screens/bootstrap-screen.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "Splash progress dots are a Reanimated width pulse with token colours; the error footer pads by the runtime safe-area inset (T03)."
     }
   ]
 }

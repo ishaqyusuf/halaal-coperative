@@ -1,1222 +1,1003 @@
-import { CachedReadBanner } from "@/components/app/cached-read-banner"
-import { CompactFormSheet } from "@/components/app/compact-form-sheet"
+import { AppSheet } from "@/components/app/app-sheet"
 import { DevQuickFill } from "@/components/app/dev-quick-fill"
-import { EmptyState } from "@/components/app/empty-state"
-import { FormStateBanner } from "@/components/app/form-state-banner"
-import { FullScreenFormSheet } from "@/components/app/full-screen-form-sheet"
-import { CalendarDateField } from "@/components/app/calendar-date-field"
-import { useFormCalendar } from "@/hooks/use-form-calendar"
-import { AppKeyboardAwareScrollView } from "@/components/app/keyboard-aware-scroll-view"
-import { ScreenHeader } from "@/components/app/screen-header"
-import { SubmissionReviewSheet } from "@/components/app/submission-review-sheet"
-import { SubmissionSuccessSheet } from "@/components/app/submission-success-sheet"
-import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
-import { FloatingBottomSheet } from "@/components/floating-bottom-sheet"
-import { LoadingSpinner } from "@/components/loading-spinner"
-import { SafeArea } from "@/components/safe-area"
+import { ReviewRow } from "@/components/app/result-screen"
+import { ScreenShell } from "@/components/app/screen-shell"
+import { BottomSearchFooter } from "@/components/search/bottom-search-footer"
 import { Button } from "@/components/ui/button"
+import { DateField } from "@/components/ui/date-field"
+import { FormField } from "@/components/ui/form-field"
 import { Icon } from "@/components/ui/icon"
 import { Input } from "@/components/ui/input"
+import { Elevated, TintedAvatar } from "@/components/ui/list-card"
+import { MoneyField } from "@/components/ui/money-field"
+import { SegmentedControl } from "@/components/ui/segmented-control"
+import { useLaneTabsAnchor } from "@/components/ui/segmented-pager"
+import { StatusBanner } from "@/components/ui/status-banner"
 import { Text } from "@/components/ui/text"
 import { Textarea } from "@/components/ui/textarea"
 import {
   mobileDevQuickFill,
   mobileDevQuickFillReference,
 } from "@/dev/mobile-dev-quick-fill"
-import { useDebounce } from "@/hooks/use-debounce"
+import { useBottomSearchScroll } from "@/hooks/use-bottom-search-scroll"
+import { readErrorCode } from "@/lib/app-query-policy"
 import { createClientSubmissionKey } from "@/lib/client-submission-key"
-import { isMobileReadCacheStale } from "@/lib/read-cache"
+import { formatCompactMoney, formatMoney } from "@/lib/money"
 import { captureMobileError } from "@/lib/sentry"
+import { cn } from "@/lib/utils"
 import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
-import { useFocusEffect } from "@react-navigation/native"
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react"
-import { Keyboard, Pressable, ScrollView, View } from "react-native"
+import { MobileOfflineOperationError } from "@/runtime/mobile-runtime-state"
+import { useRouter } from "expo-router"
+import { type ReactNode, useEffect, useRef, useState } from "react"
 import {
-  getRepaymentFacility,
-  getRepaymentOperationsWorkspace,
+  BackHandler,
+  Keyboard,
+  Pressable,
+  View,
+} from "react-native"
+import Animated, { FadeIn, FadeOut, SlideInDown } from "react-native-reanimated"
+import {
   postRepaymentOperation,
   recordCollectionFollowUpOperation,
 } from "../api/admin-repayment-operations-api"
+import { RepaymentFacilitySheet, IconTile } from "../components/repayment-facility-sheet"
+import {
+  RepaymentLanes,
+  RepaymentSummaryCard,
+} from "../components/repayment-lanes"
+import {
+  useAdminRepayments,
+  useRepaymentFacility,
+  useRepaymentInvalidation,
+} from "../hooks/use-admin-repayments"
 import type {
   RepaymentFacility,
-  RepaymentLane,
-  RepaymentWorkspace,
   RepaymentWorkspaceItem,
 } from "../model/admin-repayment-operations-types"
+import {
+  dateOnlyFromNow,
+  dayCount,
+  followUpCaseStage,
+  followUpOutcomes,
+  followUpPriorities,
+  type FollowUpDraft,
+  formatRepaymentDate,
+  friendlyDate,
+  outcomeFor,
+  priorityLabel,
+  type RepaymentDraft,
+  toDateOnly,
+  validateFollowUpDraft,
+  validateRepaymentDraft,
+} from "../model/admin-repayment-presentation"
 
-const lanes: { label: string; value: RepaymentLane }[] = [
-  { label: "Due", value: "due" },
-  { label: "Collections", value: "collections" },
-  { label: "Posted", value: "posted" },
-]
+type FormKind = "followUp" | "repayment"
 
-type FormIntent =
-  | { facility: RepaymentFacility; kind: "repayment" }
-  | {
-      facility: RepaymentFacility
-      kind: "followUp"
-      scheduleItem: NonNullable<RepaymentFacility["nextDue"]>
-    }
-
-function formatCurrency(value: number, currencyCode: string) {
-  return new Intl.NumberFormat("en-NG", {
-    currency: currencyCode,
-    maximumFractionDigits: 0,
-    style: "currency",
-  }).format(value)
+/** What a write needs, from a lane row or from the facility detail. */
+type FormTarget = {
+  agingDays: number
+  dueAmount: number
+  dueAt: string
+  installmentNumber: number | null
+  loanId: string
+  loanState: string
+  member: { name: string; number: string }
+  outstanding: number
+  scheduleItemId: string
+  scheduleState: string
+  term: number | null
 }
 
-function formatCompactCurrency(value: number, currencyCode: string) {
-  if (Math.abs(value) < 1_000) return formatCurrency(value, currencyCode)
-  const divisor = Math.abs(value) >= 999_500 ? 1_000_000 : 1_000
-  const suffix = divisor === 1_000_000 ? "m" : "k"
-  return `${new Intl.NumberFormat("en-NG", {
-    currency: currencyCode,
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 0,
-    style: "currency",
-  }).format(value / divisor)}${suffix}`
+type Outcome =
+  | { kind: "success"; formKind: FormKind }
+  | { kind: "conflict" | "error" }
+
+function targetFromRow(item: RepaymentWorkspaceItem): FormTarget {
+  return {
+    agingDays: item.agingDays,
+    dueAmount: item.amount,
+    dueAt: item.dueAt,
+    installmentNumber: item.installmentNumber,
+    loanId: item.loan.id,
+    loanState: item.loan.status,
+    member: item.member,
+    outstanding: item.loan.outstandingPrincipal,
+    scheduleItemId: item.id,
+    scheduleState: item.state,
+    term: null,
+  }
 }
 
-function labelize(value: string) {
-  return value
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+function targetFromFacility(facility: RepaymentFacility): FormTarget | null {
+  const next = facility.nextDue
+  if (!next) return null
+  return {
+    agingDays: next.agingDays,
+    dueAmount: next.outstandingAmount,
+    dueAt: next.dueAt,
+    installmentNumber: next.installmentNumber,
+    loanId: facility.id,
+    loanState: facility.state,
+    member: facility.member,
+    outstanding: facility.outstandingPrincipal,
+    scheduleItemId: next.id,
+    scheduleState: next.state,
+    term: facility.schedule.length || facility.termMonths,
+  }
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-NG", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value))
+function emptyRepayment(target: FormTarget | null): RepaymentDraft {
+  return {
+    amount: target ? String(Math.round(target.dueAmount)) : "",
+    paidAt: toDateOnly(new Date()),
+    reference: "",
+  }
 }
 
-function todayDateOnly() {
-  return new Date().toISOString().slice(0, 10)
+function emptyFollowUp(target: FormTarget | null): FollowUpDraft {
+  return {
+    nextActionAt: dateOnlyFromNow(2),
+    note: "",
+    priority: target && target.agingDays >= 30 ? "high" : "normal",
+    promiseToPayAt: "",
+    status: "reminded",
+  }
 }
 
-function plusDaysDateOnly(days: number) {
-  const value = new Date()
-  value.setUTCDate(value.getUTCDate() + days)
-  return value.toISOString().slice(0, 10)
+function instalmentLine(target: FormTarget) {
+  const instalment = target.installmentNumber
+    ? `Inst ${target.installmentNumber}${target.term ? ` of ${target.term}` : ""}`
+    : "Instalment"
+  const when =
+    target.agingDays > 0
+      ? `${dayCount(target.agingDays)} overdue`
+      : `due ${formatRepaymentDate(target.dueAt)}`
+  return `${instalment} · ${when}`
 }
 
-function displayState(item: { agingDays: number; state: string }) {
-  return item.agingDays > 0 &&
-    !["paid", "posted", "waived"].includes(item.state)
-    ? "overdue"
-    : item.state
-}
-
-function RepaymentRow({
-  currencyCode,
-  item,
-  onPress,
+function ContextCard({
+  money,
+  target,
 }: {
-  currencyCode: string
-  item: RepaymentWorkspaceItem
-  onPress: () => void
+  money: (value: number) => string
+  target: FormTarget
 }) {
-  const state = displayState(item)
-  const critical = state === "overdue"
+  return (
+    <Elevated
+      className="flex-row items-center gap-[12px] rounded-[20px] bg-card px-[14px] py-[12px]"
+      radius={20}
+    >
+      <TintedAvatar name={target.member.name} />
+      <View className="min-w-0 flex-1">
+        <Text className="font-bold" numberOfLines={1} variant="body">
+          {target.member.name}
+        </Text>
+        <Text className="text-muted-foreground" numberOfLines={1} variant="caption">
+          {instalmentLine(target)}
+        </Text>
+      </View>
+      <View className="items-end">
+        <Text variant="money">{money(target.dueAmount)}</Text>
+        <Text className="text-muted-foreground" variant="caption">
+          due
+        </Text>
+      </View>
+    </Elevated>
+  )
+}
+
+function Chip({
+  label,
+  onPress,
+  selected,
+}: {
+  label: string
+  onPress: () => void
+  selected: boolean
+}) {
   return (
     <Pressable
-      accessibilityHint="Opens the financing schedule, payments, and collection evidence"
-      accessibilityLabel={`${item.member.name}, ${formatCurrency(item.amount, currencyCode)}, ${labelize(state)}`}
       accessibilityRole="button"
-      className="min-h-20 flex-row items-center gap-3 border-b border-border py-3 active:bg-accent/40"
+      accessibilityState={{ selected }}
+      className={cn(
+        "min-h-[40px] justify-center rounded-full border px-[14px] active:opacity-80",
+        selected ? "border-accent bg-accent" : "border-border bg-card"
+      )}
       onPress={onPress}
-      testID={`repayment-operation-${item.lane}-${item.id}`}
     >
-      <View className="min-w-0 flex-1 gap-1">
-        <View className="flex-row items-start justify-between gap-3">
-          <Text className="min-w-0 flex-1 text-sm font-bold text-foreground">
-            {item.member.name}
-          </Text>
-          <Text className="text-sm font-extrabold text-foreground">
-            {formatCurrency(item.amount, currencyCode)}
-          </Text>
-        </View>
-        <Text className="text-xs leading-5 text-muted-foreground">
-          {item.loan.productName}
-          {item.installmentNumber
-            ? ` · installment ${item.installmentNumber}`
-            : ""}
-        </Text>
-        <View className="flex-row items-center gap-2">
-          <View
-            className={`size-2 rounded-full ${critical ? "bg-destructive" : state === "posted" ? "bg-success" : "bg-warn"}`}
-          />
-          <Text
-            className={`text-xs font-medium ${critical ? "text-destructive" : "text-muted-foreground"}`}
-          >
-            {critical
-              ? `${item.agingDays} days overdue`
-              : item.lane === "posted"
-                ? `${formatDate(item.dueAt)}${item.reference ? ` · ${item.reference}` : ""}`
-                : `${labelize(state)} · due ${formatDate(item.dueAt)}`}
-          </Text>
-        </View>
-      </View>
-      <View className="items-end gap-1">
-        <Text className="text-xs font-semibold text-muted-foreground">
-          {formatCompactCurrency(item.loan.outstandingPrincipal, currencyCode)}{" "}
-          left
-        </Text>
-        <Icon className="size-sm text-muted-foreground" name="ChevronRight" />
-      </View>
+      <Text
+        className={selected ? "text-accent-foreground" : "text-foreground-soft"}
+        variant="label"
+      >
+        {label}
+      </Text>
     </Pressable>
   )
 }
 
-function Field({ children, label }: { children: ReactNode; label: string }) {
+/** A floating panel over the open form (02 review and result). No inputs. */
+function FloatingPanel({
+  children,
+  onDismiss,
+}: {
+  children: ReactNode
+  onDismiss?: () => void
+}) {
   return (
-    <View className="gap-2">
-      <Text className="text-sm font-bold text-foreground">{label}</Text>
-      {children}
-    </View>
-  )
-}
-
-function ErrorBanner({ message }: { message: string }) {
-  return (
-    <View className="flex-row items-start gap-3 rounded-lg bg-destructive/10 p-3">
-      <Icon className="size-sm mt-0.5 text-destructive" name="AlertCircle" />
-      <Text className="min-w-0 flex-1 text-sm leading-5 font-medium text-destructive">
-        {message}
-      </Text>
+    <View className="absolute inset-0 justify-end">
+      <Animated.View
+        entering={FadeIn.duration(180)}
+        exiting={FadeOut.duration(160)}
+        style={{ height: "100%", left: 0, position: "absolute", top: 0, width: "100%" }}
+      >
+        <Pressable
+          accessibilityLabel="Close"
+          accessibilityRole="button"
+          className="flex-1 bg-overlay"
+          disabled={!onDismiss}
+          onPress={onDismiss}
+        />
+      </Animated.View>
+      <Animated.View entering={SlideInDown.duration(300)} style={{ margin: 8, marginBottom: 24 }}>
+        <Elevated className="gap-[16px] rounded-[32px] bg-card px-[20px] pt-[20px] pb-[20px]" radius={32}>
+          {children}
+        </Elevated>
+      </Animated.View>
     </View>
   )
 }
 
 export function AdminRepaymentOperationsScreen() {
   const runtime = useMobileRuntime()
-  const [lane, setLane] = useState<RepaymentLane>("due")
-  const [searchDraft, setSearchDraft] = useState("")
-  const search = useDebounce(searchDraft.trim(), 350)
-  const [workspace, setWorkspace] = useState<RepaymentWorkspace | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [facility, setFacility] = useState<RepaymentFacility | null>(null)
-  const [detailVisible, setDetailVisible] = useState(false)
-  const [isDetailLoading, setIsDetailLoading] = useState(false)
-  const [formIntent, setFormIntent] = useState<FormIntent | null>(null)
-  const [reviewIntent, setReviewIntent] = useState<FormIntent | null>(null)
-  const [amount, setAmount] = useState("")
-  const [paidAt, setPaidAt] = useState("")
-  const repaymentCalendar = useFormCalendar(formIntent?.kind === "repayment")
-  const followUpCalendar = useFormCalendar(formIntent?.kind === "followUp")
-  const [reference, setReference] = useState("")
-  const [followUpStatus, setFollowUpStatus] = useState<
-    "promise_to_pay" | "reminded" | "settled" | "unreachable"
-  >("reminded")
-  const [priority, setPriority] = useState<"high" | "low" | "normal">("normal")
-  const [nextActionAt, setNextActionAt] = useState("")
-  const [promiseToPayAt, setPromiseToPayAt] = useState("")
-  const [note, setNote] = useState("")
-  const [formError, setFormError] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [success, setSuccess] = useState<string | null>(null)
-  const queuedFormRef = useRef<FormIntent | null>(null)
-  const queuedReviewRef = useRef<FormIntent | null>(null)
-  const queuedSuccessRef = useRef<string | null>(null)
-  const workspaceRequestRef = useRef(0)
-  const pageRequestRef = useRef<number | null>(null)
-  const facilityRequestRef = useRef(0)
-
-  const loadWorkspace = useCallback(
-    async (cursor?: string) => {
-      if (cursor && pageRequestRef.current !== null) return
-      const request = ++workspaceRequestRef.current
-      pageRequestRef.current = cursor ? request : null
-      setIsLoading(true)
-      setLoadError(null)
-      try {
-        const nextWorkspace = await getRepaymentOperationsWorkspace({
-          cursor,
-          lane,
-          search: search || undefined,
-        })
-        if (request === workspaceRequestRef.current)
-          setWorkspace((current) => {
-            if (!cursor) return nextWorkspace
-            if (!current || current.nextCursor !== cursor) return current
-            const seen = new Set(current.items.map((item) => item.id))
-            return {
-              ...nextWorkspace,
-              items: [
-                ...current.items,
-                ...nextWorkspace.items.filter((item) => !seen.has(item.id)),
-              ],
-            }
-          })
-      } catch (error) {
-        if (request !== workspaceRequestRef.current) return
-        captureMobileError(error, "mobile.repayment_operations")
-        setLoadError(
-          error instanceof Error
-            ? error.message
-            : "Repayment operations could not be loaded."
-        )
-      } finally {
-        if (pageRequestRef.current === request) pageRequestRef.current = null
-        if (request === workspaceRequestRef.current) setIsLoading(false)
-      }
-    },
-    [lane, search]
-  )
-
-  useFocusEffect(
-    useCallback(() => {
-      setWorkspace(null)
-      void loadWorkspace()
-      return () => {
-        workspaceRequestRef.current += 1
-        pageRequestRef.current = null
-        facilityRequestRef.current += 1
-      }
-    }, [loadWorkspace])
-  )
-
-  const openFacility = useCallback(async (loanId: string) => {
-    const request = ++facilityRequestRef.current
-    setFacility(null)
-    setIsDetailLoading(true)
-    setDetailVisible(true)
-    try {
-      const nextFacility = await getRepaymentFacility(loanId)
-      if (request === facilityRequestRef.current) setFacility(nextFacility)
-    } catch (error) {
-      if (request !== facilityRequestRef.current) return
-      captureMobileError(error, "mobile.repayment_operations")
-      setLoadError(
-        error instanceof Error
-          ? error.message
-          : "Facility details could not be loaded."
-      )
-      setDetailVisible(false)
-    } finally {
-      if (request === facilityRequestRef.current) setIsDetailLoading(false)
-    }
-  }, [])
-
+  const router = useRouter()
   const offline = runtime.state.connectivity !== "online"
-  const stale = isMobileReadCacheStale(workspace?.cache)
-  const commandsBlocked = offline || stale
-  const currencyCode = workspace?.currencyCode ?? "NGN"
-  const actionCount =
-    workspace?.items.filter((item) => item.agingDays > 0).length ?? 0
-  const progress = workspace?.summary.principal
-    ? Math.max(
-        0,
-        Math.min(
-          100,
-          (workspace.summary.paidPrincipal / workspace.summary.principal) * 100
-        )
-      )
-    : 0
+  const data = useAdminRepayments(offline)
+  const anchor = useLaneTabsAnchor()
+  const searchScroll = useBottomSearchScroll()
+  const invalidateAfterWrite = useRepaymentInvalidation()
+  const currencyCode = data.currencyCode
+  const money = (value: number) => formatMoney(value, { currencyCode })
+  const writesBlocked = offline || data.stale
 
-  const openFormFromDetail = (intent: FormIntent) => {
-    queuedFormRef.current = intent
-    setDetailVisible(false)
+  // Facility detail (cached per loan).
+  const [facilityLoanId, setFacilityLoanId] = useState<string | null>(null)
+  const [facilityOpen, setFacilityOpen] = useState(false)
+  const facilityQuery = useRepaymentFacility(facilityLoanId)
+  const queuedForm = useRef<{ kind: FormKind; target: FormTarget } | null>(null)
+
+  // Write flow: form → review (floating) → submitting → result (floating).
+  const [formKind, setFormKind] = useState<FormKind>("repayment")
+  const [target, setTarget] = useState<FormTarget | null>(null)
+  const [step, setStep] = useState<"closed" | "form" | "review" | "result">(
+    "closed"
+  )
+  const [repayment, setRepayment] = useState<RepaymentDraft>(emptyRepayment(null))
+  const [followUp, setFollowUp] = useState<FollowUpDraft>(emptyFollowUp(null))
+  const [showErrors, setShowErrors] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [outcome, setOutcome] = useState<Outcome | null>(null)
+  const commandIdRef = useRef<string | null>(null)
+  const viewFacilityAfterClose = useRef(false)
+
+  const repaymentErrors = target
+    ? validateRepaymentDraft(repayment, target.outstanding, money)
+    : {}
+  const followUpErrors = validateFollowUpDraft(followUp)
+  const errors = formKind === "repayment" ? repaymentErrors : followUpErrors
+  const valid = Object.keys(errors).length === 0
+  const baseline =
+    formKind === "repayment" ? emptyRepayment(target) : emptyFollowUp(target)
+  const dirty =
+    formKind === "repayment"
+      ? JSON.stringify(repayment) !== JSON.stringify(baseline)
+      : JSON.stringify(followUp) !== JSON.stringify(baseline)
+
+  useEffect(() => {
+    if (step !== "review" && step !== "result") return
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        if (submitting) return true
+        if (step === "review") setStep("form")
+        else closeFlow()
+        return true
+      }
+    )
+    return () => subscription.remove()
+  }, [step, submitting])
+
+  function openForm(kind: FormKind, next: FormTarget) {
+    setFormKind(kind)
+    setTarget(next)
+    setRepayment(emptyRepayment(next))
+    setFollowUp(emptyFollowUp(next))
+    setShowErrors(false)
+    setOutcome(null)
+    commandIdRef.current = null
+    setStep("form")
   }
 
-  const prepareForm = (intent: FormIntent) => {
-    setFormError(null)
-    if (intent.kind === "repayment") {
-      setAmount(intent.facility.nextDue?.outstandingAmount.toFixed(0) ?? "")
-      setPaidAt(todayDateOnly())
-      setReference("")
-    } else {
-      setFollowUpStatus("reminded")
-      setPriority(intent.scheduleItem.agingDays >= 30 ? "high" : "normal")
-      setNextActionAt(plusDaysDateOnly(2))
-      setPromiseToPayAt("")
-      setNote("")
-    }
-    setFormIntent(intent)
+  function closeFlow() {
+    setOutcome(null)
+    setStep("closed")
   }
 
-  const validateForm = () => {
-    if (!formIntent) return
-    if (commandsBlocked) {
-      setFormError(
-        "Reconnect and refresh live data before submitting this operation."
-      )
-      return
-    }
-    if (formIntent.kind === "repayment") {
-      const value = Number(amount.replace(/,/g, ""))
-      if (!Number.isFinite(value) || value <= 0) {
-        setFormError("Enter a valid repayment amount.")
-        return
-      }
-      if (value > formIntent.facility.outstandingPrincipal) {
-        setFormError("The repayment cannot exceed the outstanding principal.")
-        return
-      }
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(paidAt)) {
-        setFormError("Use YYYY-MM-DD for the repayment date.")
-        return
-      }
-      if (reference.trim().length < 2) {
-        setFormError("Enter the payment reference before review.")
-        return
-      }
-    } else {
-      if (note.trim().length < 4) {
-        setFormError("Record the collection evidence before review.")
-        return
-      }
-      if (nextActionAt && !/^\d{4}-\d{2}-\d{2}$/.test(nextActionAt)) {
-        setFormError("Use YYYY-MM-DD for the next action date.")
-        return
-      }
-      if (promiseToPayAt && !/^\d{4}-\d{2}-\d{2}$/.test(promiseToPayAt)) {
-        setFormError("Use YYYY-MM-DD for the promise date.")
-        return
-      }
-    }
-    setFormError(null)
-    queuedReviewRef.current = formIntent
-    setFormIntent(null)
+  function openFacility(loanId: string) {
+    setFacilityLoanId(loanId)
+    setFacilityOpen(true)
   }
 
-  const runCommand = async () => {
-    if (!reviewIntent) return
-    setIsSubmitting(true)
-    setFormError(null)
+  function startFromFacility(kind: FormKind) {
+    const facility = facilityQuery.data
+    const next = facility ? targetFromFacility(facility) : null
+    if (!next) return
+    queuedForm.current = { kind, target: next }
+    setFacilityOpen(false)
+  }
+
+  function review() {
+    Keyboard.dismiss()
+    setShowErrors(true)
+    if (!valid || writesBlocked) return
+    commandIdRef.current = createClientSubmissionKey()
+    setStep("review")
+  }
+
+  async function confirm() {
+    if (!target || submitting || writesBlocked) return
+    const commandId = commandIdRef.current ?? createClientSubmissionKey()
+    commandIdRef.current = commandId
+    setSubmitting(true)
     try {
-      if (reviewIntent.kind === "repayment") {
+      if (formKind === "repayment") {
         await postRepaymentOperation({
-          amount: Number(amount.replace(/,/g, "")),
-          commandId: createClientSubmissionKey(),
-          expectedOutstandingPrincipal:
-            reviewIntent.facility.outstandingPrincipal,
-          expectedState: reviewIntent.facility.state as "active" | "disbursed",
-          loanId: reviewIntent.facility.id,
-          paidAt,
-          reference: reference.trim(),
+          amount: Number(repayment.amount),
+          commandId,
+          expectedOutstandingPrincipal: target.outstanding,
+          expectedState: target.loanState as "active" | "disbursed",
+          loanId: target.loanId,
+          paidAt: repayment.paidAt,
+          reference: repayment.reference.trim(),
         })
-        queuedSuccessRef.current = `Repayment posted. ${reference.trim()} is now linked to the server-confirmed financial record.`
       } else {
         await recordCollectionFollowUpOperation({
-          caseStage:
-            followUpStatus === "settled"
-              ? "resolved"
-              : followUpStatus === "promise_to_pay"
-                ? "promise_tracking"
-                : priority === "high"
-                  ? "escalated"
-                  : "active",
-          commandId: createClientSubmissionKey(),
-          expectedState: reviewIntent.scheduleItem.state as
+          caseStage: followUpCaseStage(followUp.status, followUp.priority),
+          commandId,
+          expectedState: target.scheduleState as
             | "due"
             | "overdue"
             | "partially_paid"
             | "pending",
-          nextActionAt: nextActionAt || null,
-          note: note.trim(),
-          priority,
-          promiseToPayAt: promiseToPayAt || null,
-          repaymentScheduleItemId: reviewIntent.scheduleItem.id,
-          status: followUpStatus,
+          nextActionAt: followUp.nextActionAt || null,
+          note: followUp.note.trim(),
+          priority: followUp.priority,
+          promiseToPayAt:
+            followUp.status === "promise_to_pay"
+              ? followUp.promiseToPayAt || null
+              : null,
+          repaymentScheduleItemId: target.scheduleItemId,
+          status: followUp.status,
         })
-        queuedSuccessRef.current =
-          "Collection follow-up recorded. The outstanding principal was not changed."
       }
-      await loadWorkspace()
-      setReviewIntent(null)
+      setOutcome({ formKind, kind: "success" })
+      setStep("result")
+      void invalidateAfterWrite(formKind, target.loanId)
     } catch (error) {
-      captureMobileError(error, "mobile.repayment_operations")
-      setFormError(
-        error instanceof Error
-          ? error.message
-          : "The operation could not be confirmed."
-      )
+      const code = readErrorCode(error)
+      const conflict = code === "CONFLICT" || code === "PRECONDITION_FAILED"
+      if (!(error instanceof MobileOfflineOperationError))
+        captureMobileError(error, "mobile.repayment_operations")
+      if (conflict) {
+        commandIdRef.current = null
+        void invalidateAfterWrite(formKind, target.loanId)
+      }
+      setOutcome({ kind: conflict ? "conflict" : "error" })
+      setStep("result")
     } finally {
-      setIsSubmitting(false)
+      setSubmitting(false)
     }
   }
 
-  const repaymentDirty =
-    formIntent?.kind === "repayment" &&
-    (amount !==
-      (formIntent.facility.nextDue?.outstandingAmount.toFixed(0) ?? "") ||
-      paidAt !== todayDateOnly() ||
-      Boolean(reference.trim()))
-  const followUpDirty = Boolean(note || promiseToPayAt)
-  const reviewRows = useMemo(() => {
-    if (!reviewIntent) return []
-    if (reviewIntent.kind === "repayment") {
-      return [
-        { label: "Member", value: reviewIntent.facility.member.name },
-        {
-          label: "Amount",
-          value: formatCurrency(Number(amount || 0), currencyCode),
-        },
-        { label: "Date", value: paidAt },
-        { label: "Reference", value: reference.trim() },
-        {
-          label: "Outstanding after",
-          value: formatCurrency(
-            reviewIntent.facility.outstandingPrincipal - Number(amount || 0),
-            currencyCode
-          ),
-        },
-      ]
-    }
-    return [
-      { label: "Member", value: reviewIntent.facility.member.name },
-      { label: "Status", value: labelize(followUpStatus) },
-      { label: "Priority", value: labelize(priority) },
-      { label: "Next action", value: nextActionAt || "Not scheduled" },
-      { label: "Financial effect", value: "None" },
-    ]
-  }, [
-    amount,
-    currencyCode,
-    followUpStatus,
-    nextActionAt,
-    paidAt,
-    priority,
-    reference,
-    reviewIntent,
-  ])
+  const reviewRows: [string, string][] = target
+    ? formKind === "repayment"
+      ? [
+          ["Member", `${target.member.name} · ${target.member.number}`],
+          [
+            "Instalment",
+            `${target.installmentNumber ?? "–"}${target.term ? ` of ${target.term}` : ""} · ${money(target.dueAmount)} due`,
+          ],
+          ["Payment date", repayment.paidAt ? friendlyDate(repayment.paidAt) : "–"],
+          ["Reference", repayment.reference.trim()],
+          [
+            "Outstanding after",
+            money(Math.max(0, target.outstanding - Number(repayment.amount || 0))),
+          ],
+        ]
+      : [
+          ["Member", `${target.member.name} · ${target.member.number}`],
+          ["Outcome", outcomeFor(followUp.status).label],
+          ["Priority", priorityLabel(followUp.priority)],
+          ...(followUp.status === "promise_to_pay" && followUp.promiseToPayAt
+            ? ([["Promise date", friendlyDate(followUp.promiseToPayAt)]] as [string, string][])
+            : []),
+          [
+            "Next action",
+            followUp.nextActionAt ? friendlyDate(followUp.nextActionAt) : "Not scheduled",
+          ],
+          ["Notes", followUp.note.trim()],
+          ["Balance change", "None"],
+        ]
+    : []
 
-  return (
-    <SafeArea className="bg-background">
-      <AppKeyboardAwareScrollView
-        bottomOffset={140}
-        contentContainerClassName="gap-5 px-5 pb-28 pt-4"
-        keyboardShouldPersistTaps="handled"
-      >
-        <ScreenHeader
-          action={
-            <Button
-              accessibilityLabel="Refresh repayment operations"
-              onPress={() => void loadWorkspace()}
-              size="icon"
-              variant="secondary"
-            >
-              <Icon className="size-base text-primary" name="RefreshCw" />
-            </Button>
-          }
-          title="Repayment operations"
-        />
-
-        <View className="flex-row items-center gap-2 border-b border-border pb-4">
-          <View
-            className={`size-2 rounded-full ${loadError ? "bg-destructive" : workspace ? "bg-success" : "bg-muted"}`}
-          />
-          <Text
-            className={`text-xs font-bold ${loadError ? "text-destructive" : workspace ? "text-success" : "text-muted-foreground"}`}
-          >
-            {loadError
-              ? "Refresh required"
-              : workspace
-                ? "Servicing data available"
-                : "Servicing data unavailable"}
+  const reviewPanel =
+    step === "review" && target ? (
+      <FloatingPanel onDismiss={submitting ? undefined : () => setStep("form")}>
+        <View className="flex-row items-center justify-between">
+          <Text accessibilityRole="header" variant="title">
+            {formKind === "repayment" ? "Review repayment" : "Review follow-up"}
           </Text>
-        </View>
-
-        {workspace?.cache ? (
-          <CachedReadBanner
-            cache={workspace.cache}
-            label="repayment operations"
-          />
-        ) : null}
-        {offline && !workspace?.cache ? (
-          <View className="bg-warn/10 flex-row items-start gap-3 rounded-lg p-3">
-            <Icon className="size-sm text-warn mt-0.5" name="WifiOff" />
-            <Text className="text-warn min-w-0 flex-1 text-sm leading-5">
-              Commands are unavailable while offline. Reconnect and refresh live
-              data.
-            </Text>
-          </View>
-        ) : null}
-        {loadError ? <ErrorBanner message={loadError} /> : null}
-
-        {workspace ? (
-          <View className="gap-4 border-b border-border pb-5">
-            <View className="flex-row items-start justify-between gap-3">
-              <View className="gap-1">
-                <Text className="text-3xl font-extrabold tracking-tight text-foreground">
-                  {formatCompactCurrency(
-                    workspace.summary.outstanding,
-                    currencyCode
-                  )}{" "}
-                  left
-                </Text>
-                <Text className="text-xs leading-5 text-muted-foreground">
-                  {formatCompactCurrency(
-                    workspace.summary.paidPrincipal,
-                    currencyCode
-                  )}{" "}
-                  principal cleared · {workspace.summary.activeFacilities}{" "}
-                  active facilities
-                </Text>
-              </View>
-              {actionCount ? (
-                <View className="bg-warn/15 rounded-full px-3 py-2">
-                  <Text className="text-warn text-xs font-extrabold">
-                    {actionCount} need action
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-            <View className="h-2 overflow-hidden rounded-full bg-muted">
-              <View
-                className="h-full bg-primary"
-                style={{ width: `${progress}%` }}
-              />
-            </View>
-            <View className="flex-row divide-x divide-border">
-              <View className="flex-1 gap-1 pr-4">
-                <Text className="text-lg font-extrabold text-foreground">
-                  {formatCompactCurrency(
-                    workspace.summary.dueThisMonth,
-                    currencyCode
-                  )}
-                </Text>
-                <Text className="text-xs text-muted-foreground">
-                  Due this month
-                </Text>
-              </View>
-              <View className="flex-1 gap-1 pl-4">
-                <Text className="text-lg font-extrabold text-foreground">
-                  {formatCompactCurrency(
-                    workspace.summary.overdue,
-                    currencyCode
-                  )}
-                </Text>
-                <Text className="text-xs text-muted-foreground">
-                  Overdue principal
-                </Text>
-              </View>
-            </View>
-          </View>
-        ) : null}
-
-        <View className="flex-row gap-2">
-          <Input
-            accessibilityLabel="Search repayment operations"
-            className="min-w-0 flex-1"
-            onChangeText={setSearchDraft}
-            onSubmitEditing={Keyboard.dismiss}
-            placeholder="Search member or number"
-            returnKeyType="search"
-            testID="repayment-search-input"
-            value={searchDraft}
-          />
-          <Button
-            accessibilityLabel="Search"
-            onPress={Keyboard.dismiss}
-            size="icon"
-            variant="secondary"
+          <Pressable
+            accessibilityLabel="Back to edit"
+            accessibilityRole="button"
+            className="size-[44px] items-center justify-center rounded-full bg-surface-raised"
+            disabled={submitting}
+            onPress={() => setStep("form")}
           >
-            <Icon className="size-base text-foreground" name="Search" />
+            <Icon className="size-[18px] text-foreground" name="X" />
+          </Pressable>
+        </View>
+        {formKind === "repayment" ? (
+          <View className="items-center gap-[2px]">
+            <Text className="text-muted-foreground" variant="label">
+              Amount received
+            </Text>
+            <Text variant="hero">{money(Number(repayment.amount || 0))}</Text>
+          </View>
+        ) : (
+          <View className="flex-row items-center gap-[12px]">
+            <IconTile
+              icon={outcomeFor(followUp.status).icon}
+              size={40}
+              tone={outcomeFor(followUp.status).tone}
+            />
+            <Text variant="section">{outcomeFor(followUp.status).label}</Text>
+          </View>
+        )}
+        <View>
+          {reviewRows.map(([label, value], index) => (
+            <View key={label}>
+              {index ? <View className="h-px bg-border" /> : null}
+              <ReviewRow compact label={label} value={value} />
+            </View>
+          ))}
+        </View>
+        <View className="gap-[8px]">
+          <Button
+            loading={submitting}
+            onPress={confirm}
+            testID="repayment-confirm"
+          >
+            <Text>
+              {submitting
+                ? formKind === "repayment"
+                  ? "Posting"
+                  : "Saving"
+                : formKind === "repayment"
+                  ? `Post ${money(Number(repayment.amount || 0))}`
+                  : "Save follow-up"}
+            </Text>
+          </Button>
+          <Button
+            disabled={submitting}
+            onPress={() => setStep("form")}
+            variant="ghost"
+          >
+            <Text>Edit</Text>
           </Button>
         </View>
+      </FloatingPanel>
+    ) : null
 
-        <ScrollView
-          horizontal
-          contentContainerClassName="gap-2"
-          keyboardShouldPersistTaps="handled"
-          showsHorizontalScrollIndicator={false}
-        >
-          {lanes.map((item) => (
-            <Button
-              className="h-10 px-3"
-              key={item.value}
-              onPress={() => setLane(item.value)}
-              testID={`repayment-lane-${item.value}`}
-              variant={lane === item.value ? "secondary" : "ghost"}
-            >
-              <Text>
-                {item.label}
-                {lane === item.value && workspace
-                  ? ` · ${workspace.items.length}`
-                  : ""}
-              </Text>
-            </Button>
-          ))}
-        </ScrollView>
+  const resultCopy =
+    outcome && target
+      ? outcome.kind === "success"
+        ? outcome.formKind === "repayment"
+          ? {
+              body: `${money(Number(repayment.amount))} from ${target.member.name} is recorded against instalment ${target.installmentNumber ?? "–"}.`,
+              icon: "Check",
+              title: "Repayment posted",
+              tone: "success" as const,
+            }
+          : {
+              body: `${followUp.nextActionAt ? `Next action on ${formatRepaymentDate(followUp.nextActionAt)}.` : "No next action scheduled."} The balance hasn’t changed.`,
+              icon: "Check",
+              title: "Follow-up saved",
+              tone: "success" as const,
+            }
+        : outcome.kind === "conflict"
+          ? {
+              body: "Another change was recorded after you opened it. Refresh to check the new balance before you try again.",
+              icon: "RefreshCw",
+              title: "This facility changed",
+              tone: "warning" as const,
+            }
+          : {
+              body: "The connection dropped before the server confirmed it. Nothing was recorded, so it’s safe to try again.",
+              icon: "CircleAlert",
+              title:
+                formKind === "repayment"
+                  ? "Couldn’t post the repayment"
+                  : "Couldn’t save the follow-up",
+              tone: "danger" as const,
+            }
+      : null
 
-        <View>
-          <View className="flex-row items-end justify-between gap-3 border-b border-border pb-3">
-            <Text className="text-lg font-extrabold text-foreground">
-              {lane === "due"
-                ? "Due and upcoming"
-                : lane === "collections"
-                  ? "Collection follow-ups"
-                  : "Posted repayments"}
-            </Text>
-            <Text className="text-xs font-medium text-muted-foreground">
-              {lane === "posted" ? "Newest first" : "Earliest obligation first"}
-            </Text>
-          </View>
-          {isLoading && !workspace ? (
-            <View className="items-center py-16">
-              <LoadingSpinner />
-            </View>
-          ) : !workspace ? (
-            <EmptyState
-              description="Refresh to load the cooperative's repayment position."
-              icon="CircleAlert"
-              title="Repayment data unavailable"
-            />
-          ) : (
-            <VirtualizedCardList
-              data={workspace.items}
-              empty={
-                <EmptyState
-                  description="No repayment records match this lane and search."
-                  icon="ReceiptText"
-                  title="No servicing work"
-                />
-              }
-              estimatedItemSize={92}
-              keyExtractor={(item) => `${item.lane}-${item.id}`}
-              maxHeight={560}
-              renderItem={({ item }) => (
-                <RepaymentRow
-                  currencyCode={currencyCode}
-                  item={item}
-                  onPress={() => void openFacility(item.loan.id)}
-                />
-              )}
-            />
-          )}
-          {workspace?.nextCursor ? (
-            <Button
-              className="mt-4"
-              accessibilityState={{ busy: isLoading }}
-              disabled={isLoading || offline || stale}
-              onPress={() =>
-                void loadWorkspace(workspace.nextCursor ?? undefined)
-              }
-              variant="ghost"
-            >
-              <Text>{isLoading ? "Loading…" : "Load more"}</Text>
-            </Button>
-          ) : null}
+  const resultPanel =
+    step === "result" && resultCopy && outcome ? (
+      <FloatingPanel>
+        <View className="items-center gap-[10px] pt-[8px]">
+          <IconTile
+            icon={resultCopy.icon}
+            size={40}
+            tone={resultCopy.tone}
+          />
+          <Text accessibilityRole="header" className="text-center" variant="title">
+            {resultCopy.title}
+          </Text>
+          <Text className="text-center text-muted-foreground" variant="body">
+            {resultCopy.body}
+          </Text>
         </View>
-
-        <View className="gap-3 border-t border-border pt-4">
-          <View className="flex-row items-center justify-between gap-3">
-            <Text className="text-lg font-extrabold text-foreground">
-              Posting guard
-            </Text>
-            <Text className="text-xs font-semibold text-muted-foreground">
-              Separate workflows
-            </Text>
-          </View>
-          <View className="flex-row items-start gap-3">
-            <Icon className="size-sm text-warn mt-0.5" name="ShieldCheck" />
-            <Text className="min-w-0 flex-1 text-xs leading-5 text-muted-foreground">
-              Repayments change principal only after review and server
-              confirmation. Collection follow-ups keep contact evidence without
-              changing money.
-            </Text>
-          </View>
-        </View>
-      </AppKeyboardAwareScrollView>
-
-      <FloatingBottomSheet
-        accessibilityLabel={
-          facility
-            ? `${facility.member.name} repayment facility`
-            : "Repayment facility"
-        }
-        hideHandle
-        onClose={() => {
-          facilityRequestRef.current += 1
-          setIsDetailLoading(false)
-          setDetailVisible(false)
-        }}
-        onDismissed={() => {
-          const queued = queuedFormRef.current
-          queuedFormRef.current = null
-          if (queued) prepareForm(queued)
-          else setFacility(null)
-        }}
-        presentation="large"
-        scrollable
-        visible={detailVisible}
-      >
-        <View className="gap-5 px-5 pt-5 pb-8">
-          <View className="flex-row items-start gap-3 border-b border-border pb-4">
-            <View className="min-w-0 flex-1 gap-1">
-              <Text
-                accessibilityRole="header"
-                className="text-2xl font-extrabold tracking-tight text-foreground"
+        <View className="gap-[8px]">
+          {outcome.kind === "success" ? (
+            <>
+              <Button onPress={closeFlow} testID="repayment-result-done">
+                <Text>Done</Text>
+              </Button>
+              <Button
+                onPress={() => {
+                  viewFacilityAfterClose.current = true
+                  closeFlow()
+                }}
+                variant="ghost"
               >
-                {facility?.member.name ?? "Loading facility"}
-              </Text>
-              {facility ? (
-                <Text className="text-sm text-muted-foreground">
-                  {facility.member.number} · {facility.productName}
-                </Text>
-              ) : null}
-            </View>
-            <Button
-              accessibilityLabel="Close facility"
-              onPress={() => setDetailVisible(false)}
-              size="icon"
-              variant="ghost"
-            >
-              <Icon className="size-base text-foreground" name="X" />
-            </Button>
-          </View>
-          {isDetailLoading || !facility ? (
-            <View className="items-center py-20">
-              <LoadingSpinner />
-            </View>
+                <Text>View facility</Text>
+              </Button>
+            </>
+          ) : outcome.kind === "conflict" ? (
+            <>
+              <Button
+                onPress={() => {
+                  viewFacilityAfterClose.current = true
+                  closeFlow()
+                }}
+              >
+                <Text>Refresh facility</Text>
+              </Button>
+              <Button onPress={closeFlow} variant="ghost">
+                <Text>Cancel</Text>
+              </Button>
+            </>
           ) : (
             <>
-              <View className="gap-4 border-b border-border pb-5">
-                <View className="flex-row items-end justify-between gap-3">
-                  <View>
-                    <Text className="text-3xl font-extrabold tracking-tight text-foreground">
-                      {formatCurrency(
-                        facility.outstandingPrincipal,
-                        currencyCode
-                      )}{" "}
-                      left
-                    </Text>
-                    <Text className="mt-1 text-xs text-muted-foreground">
-                      {formatCurrency(facility.paidPrincipal, currencyCode)}{" "}
-                      paid of{" "}
-                      {formatCurrency(facility.principalAmount, currencyCode)}{" "}
-                      principal
-                    </Text>
-                  </View>
-                  <Text className="text-xs font-bold text-primary">
-                    {labelize(facility.state)}
-                  </Text>
-                </View>
-                {facility.nextDue ? (
-                  <View className="flex-row divide-x divide-border">
-                    <View className="flex-1 gap-1 pr-4">
-                      <Text className="text-base font-extrabold text-foreground">
-                        {formatCurrency(
-                          facility.nextDue.outstandingAmount,
-                          currencyCode
-                        )}
-                      </Text>
-                      <Text className="text-xs text-muted-foreground">
-                        Next obligation
-                      </Text>
-                    </View>
-                    <View className="flex-1 gap-1 pl-4">
-                      <Text className="text-base font-extrabold text-foreground">
-                        {facility.nextDue.agingDays
-                          ? `${facility.nextDue.agingDays} days`
-                          : formatDate(facility.nextDue.dueAt)}
-                      </Text>
-                      <Text className="text-xs text-muted-foreground">
-                        {facility.nextDue.agingDays
-                          ? "Current aging"
-                          : "Due date"}
-                      </Text>
-                    </View>
-                  </View>
-                ) : null}
-              </View>
-
-              <View className="gap-2">
-                <View className="flex-row items-end justify-between border-b border-border pb-2">
-                  <Text className="text-lg font-extrabold text-foreground">
-                    Schedule
-                  </Text>
-                  <Text className="text-xs text-muted-foreground">
-                    {facility.schedule.length} installments
-                  </Text>
-                </View>
-                {facility.schedule.map((item) => (
-                  <View
-                    className="flex-row items-center gap-3 border-b border-border py-3"
-                    key={item.id}
-                  >
-                    <View
-                      className={`size-2 rounded-full ${displayState(item) === "overdue" ? "bg-destructive" : item.state === "paid" ? "bg-success" : "bg-warn"}`}
-                    />
-                    <View className="min-w-0 flex-1">
-                      <Text className="text-sm font-bold text-foreground">
-                        Installment {item.installmentNumber}
-                      </Text>
-                      <Text className="text-xs text-muted-foreground">
-                        {formatDate(item.dueAt)} ·{" "}
-                        {labelize(displayState(item))}
-                      </Text>
-                    </View>
-                    <Text className="text-sm font-extrabold text-foreground">
-                      {formatCurrency(
-                        item.outstandingAmount || item.totalDue,
-                        currencyCode
-                      )}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-
-              <View className="gap-2">
-                <View className="flex-row items-end justify-between border-b border-border pb-2">
-                  <Text className="text-lg font-extrabold text-foreground">
-                    Posted repayments
-                  </Text>
-                  <Text className="text-xs text-muted-foreground">
-                    {facility.repayments.length} records
-                  </Text>
-                </View>
-                {facility.repayments.length ? (
-                  facility.repayments.map((item) => (
-                    <View
-                      className="flex-row items-center gap-3 border-b border-border py-3"
-                      key={item.id}
-                    >
-                      <View className="min-w-0 flex-1">
-                        <Text className="text-sm font-bold text-foreground">
-                          {item.reference ?? "No reference"}
-                        </Text>
-                        <Text className="text-xs text-muted-foreground">
-                          {formatDate(item.paidAt)} · Received by{" "}
-                          {item.receivedByName}
-                        </Text>
-                      </View>
-                      <Text className="text-sm font-extrabold text-foreground">
-                        {formatCurrency(item.amount, currencyCode)}
-                      </Text>
-                    </View>
-                  ))
-                ) : (
-                  <Text className="py-3 text-sm text-muted-foreground">
-                    No repayments have been posted.
-                  </Text>
-                )}
-              </View>
-
-              <View className="gap-2">
-                <View className="flex-row items-end justify-between border-b border-border pb-2">
-                  <Text className="text-lg font-extrabold text-foreground">
-                    Collection evidence
-                  </Text>
-                  <Text className="text-xs text-muted-foreground">
-                    Non-financial
-                  </Text>
-                </View>
-                {facility.collectionFollowUps.length ? (
-                  facility.collectionFollowUps.map((item) => (
-                    <View
-                      className="gap-1 border-b border-border py-3"
-                      key={item.id}
-                    >
-                      <View className="flex-row justify-between gap-3">
-                        <Text className="text-sm font-bold text-foreground">
-                          {labelize(item.status)}
-                        </Text>
-                        <Text className="text-xs font-semibold text-muted-foreground">
-                          {labelize(item.priority)}
-                        </Text>
-                      </View>
-                      <Text className="text-xs leading-5 text-muted-foreground">
-                        {item.note}
-                      </Text>
-                      <Text className="text-xs text-muted-foreground">
-                        {formatDate(item.createdAt)} · Recorded by{" "}
-                        {item.actorName}
-                      </Text>
-                    </View>
-                  ))
-                ) : (
-                  <Text className="py-3 text-sm text-muted-foreground">
-                    No collection follow-up has been recorded.
-                  </Text>
-                )}
-              </View>
-
-              <View className="flex-row gap-2 pt-2">
-                <Button
-                  className="h-12 flex-1"
-                  disabled={
-                    !workspace?.capabilities.followUp ||
-                    !facility.nextDue ||
-                    commandsBlocked
-                  }
-                  onPress={() =>
-                    facility.nextDue &&
-                    openFormFromDetail({
-                      facility,
-                      kind: "followUp",
-                      scheduleItem: facility.nextDue,
-                    })
-                  }
-                  variant="outline"
-                >
-                  <Text>Follow up</Text>
-                </Button>
-                <Button
-                  className="h-12 flex-1"
-                  disabled={
-                    !workspace?.capabilities.post ||
-                    commandsBlocked ||
-                    facility.outstandingPrincipal <= 0
-                  }
-                  onPress={() =>
-                    openFormFromDetail({ facility, kind: "repayment" })
-                  }
-                >
-                  <Text>Post repayment</Text>
-                </Button>
-              </View>
+              <Button
+                disabled={writesBlocked}
+                loading={submitting}
+                onPress={confirm}
+              >
+                <Text>Try again</Text>
+              </Button>
+              <Button onPress={() => setStep("form")} variant="ghost">
+                <Text>Back to edit</Text>
+              </Button>
             </>
           )}
         </View>
-      </FloatingBottomSheet>
+      </FloatingPanel>
+    ) : null
 
-      <CompactFormSheet
-        dirty={formIntent?.kind === "repayment" && repaymentDirty}
-        overlay={repaymentCalendar.overlay}
-        isSubmitting={isSubmitting}
-        overlayActive={repaymentCalendar.isOpen}
-        footer={
-          <View className="flex-row items-center gap-3 px-5 pt-3 pb-5">
-            <DevQuickFill
-              label="Quick fill repayment"
-              onPress={() => {
-                setAmount(
-                  formIntent?.kind === "repayment"
-                    ? String(
-                        formIntent.facility.nextDue?.outstandingAmount ??
-                          mobileDevQuickFill.adminRepaymentOperations
-                            .repaymentAmount
-                      )
-                    : mobileDevQuickFill.adminRepaymentOperations
-                        .repaymentAmount
-                )
-                setPaidAt(todayDateOnly())
-                setReference(mobileDevQuickFillReference("QA-REP"))
-              }}
-              placement="footer"
-              portal={false}
-            />
-            <Button className="h-12 flex-1" onPress={validateForm}>
-              <Text>Review repayment</Text>
-            </Button>
-          </View>
+  const formFooter = (
+    <View className="gap-[6px]">
+      <DevQuickFill
+        label={
+          formKind === "repayment"
+            ? "Quick fill repayment"
+            : "Quick fill follow-up"
         }
-        onClose={() => setFormIntent(null)}
-        onDismissed={() => {
-          const queued = queuedReviewRef.current
-          queuedReviewRef.current = null
-          if (queued) setReviewIntent(queued)
+        onPress={() => {
+          if (formKind === "repayment") {
+            setRepayment((current) => ({
+              ...current,
+              amount: String(
+                Math.min(
+                  Number(mobileDevQuickFill.adminRepaymentOperations.repaymentAmount),
+                  target?.outstanding ?? Number.POSITIVE_INFINITY
+                )
+              ),
+              reference: mobileDevQuickFillReference("QA-REP"),
+            }))
+          } else {
+            setFollowUp((current) => ({
+              ...current,
+              note: mobileDevQuickFill.adminRepaymentOperations.followUpNote,
+              status: "promise_to_pay",
+              promiseToPayAt: dateOnlyFromNow(2),
+            }))
+          }
         }}
-        title="Post repayment"
-        visible={formIntent?.kind === "repayment"}
+        placement="footer"
+        portal={false}
+      />
+      <Button
+        disabled={writesBlocked}
+        onPress={review}
+        testID="repayment-review"
       >
-        <Text className="text-sm leading-5 text-muted-foreground">
-          Payments settle the earliest unpaid instalment first.
+        <Text>
+          {formKind === "repayment" ? "Review repayment" : "Review follow-up"}
         </Text>
-        <FormStateBanner hasDraft={repaymentDirty} isStale={commandsBlocked} />
-        {formError ? <ErrorBanner message={formError} /> : null}
-        <Field label="Amount">
-          <Input
-            keyboardType="decimal-pad"
-            onChangeText={setAmount}
-            placeholder="25000"
+      </Button>
+    </View>
+  )
+
+  const fieldError = (key: string) =>
+    showErrors ? (errors as Record<string, string | undefined>)[key] : undefined
+
+  const repaymentForm = target ? (
+    <View className="gap-[18px]">
+      <ContextCard money={money} target={target} />
+      <View className="items-center gap-[10px]">
+        <Text className="text-muted-foreground" variant="label">
+          Amount received
+        </Text>
+        <View className="w-[250px]">
+          <MoneyField
+            accessibilityLabel="Amount received in naira"
+            className={cn(
+              "bg-transparent",
+              fieldError("amount") ? "border-destructive" : "border-border"
+            )}
+            currencyCode={currencyCode}
+            display="large"
+            onChangeValue={(raw) =>
+              setRepayment((current) => ({ ...current, amount: raw }))
+            }
+            style={{ paddingRight: 24, textAlign: "center" }}
             testID="repayment-amount-input"
-            value={amount}
+            value={repayment.amount}
           />
-        </Field>
-        <Field label="Payment date">
-          <CalendarDateField
-            accessibilityLabel="Repayment date"
+        </View>
+        <View className="flex-row flex-wrap justify-center gap-[8px]">
+          <Chip
+            label={`Instalment ${money(target.dueAmount)}`}
             onPress={() =>
-              repaymentCalendar.open({
-                label: "Payment date",
-                value: paidAt,
-                onChange: setPaidAt,
-                maximumDate: todayDateOnly(),
-              })
+              setRepayment((current) => ({
+                ...current,
+                amount: String(Math.round(target.dueAmount)),
+              }))
             }
-            testID="repayment-date-input"
-            value={paidAt}
+            selected={Number(repayment.amount) === Math.round(target.dueAmount)}
           />
-        </Field>
-        <Field label="Reference">
-          <Input
-            autoCapitalize="characters"
-            onChangeText={setReference}
-            placeholder="TRF-012345"
-            returnKeyType="done"
-            testID="repayment-reference-input"
-            value={reference}
+          <Chip
+            label={`Full balance ${formatCompactMoney(target.outstanding, currencyCode)}`}
+            onPress={() =>
+              setRepayment((current) => ({
+                ...current,
+                amount: String(target.outstanding),
+              }))
+            }
+            selected={Number(repayment.amount) === target.outstanding}
           />
-        </Field>
-      </CompactFormSheet>
-
-      <FullScreenFormSheet
-        dirty={formIntent?.kind === "followUp" && followUpDirty}
-        overlay={followUpCalendar.overlay}
-        overlayActive={followUpCalendar.isOpen}
-        footer={
-          <View className="flex-row items-center gap-3">
-            <DevQuickFill
-              label="Quick fill collection follow-up"
-              onPress={() => {
-                setFollowUpStatus("promise_to_pay")
-                setPriority("high")
-                setNextActionAt(plusDaysDateOnly(2))
-                setPromiseToPayAt(plusDaysDateOnly(2))
-                setNote(
-                  mobileDevQuickFill.adminRepaymentOperations.followUpNote
-                )
-              }}
-              placement="footer"
-              portal={false}
-            />
-            <Button className="h-12 flex-1" onPress={validateForm}>
-              <Text>Review follow-up</Text>
-            </Button>
-          </View>
-        }
-        onClose={() => setFormIntent(null)}
-        onDismissed={() => {
-          const queued = queuedReviewRef.current
-          queuedReviewRef.current = null
-          if (queued) setReviewIntent(queued)
-        }}
-        title="Record follow-up"
-        visible={formIntent?.kind === "followUp"}
-      >
-        <Text className="text-sm leading-5 text-muted-foreground">
-          A follow-up does not record a payment.
+        </View>
+        <Text
+          className={cn(
+            "text-center",
+            fieldError("amount") ? "text-destructive" : "text-muted-foreground"
+          )}
+          variant="small"
+        >
+          {fieldError("amount") ?? `Up to ${money(target.outstanding)} outstanding`}
         </Text>
-        <FormStateBanner hasDraft={followUpDirty} isStale={commandsBlocked} />
-        {formError ? <ErrorBanner message={formError} /> : null}
-        <Field label="Outcome">
-          <ScrollView
-            horizontal
-            contentContainerClassName="gap-2"
-            keyboardShouldPersistTaps="always"
-            showsHorizontalScrollIndicator={false}
-          >
-            {(
-              ["reminded", "promise_to_pay", "unreachable", "settled"] as const
-            ).map((value) => (
-              <Button
-                key={value}
-                onPress={() => setFollowUpStatus(value)}
-                variant={followUpStatus === value ? "secondary" : "outline"}
+      </View>
+      <FormField error={fieldError("paidAt")} label="Payment date">
+        <DateField
+          maximumDate={toDateOnly(new Date())}
+          onChange={(value) =>
+            setRepayment((current) => ({ ...current, paidAt: value }))
+          }
+          sheetTitle="Payment date"
+          testID="repayment-date-input"
+          value={repayment.paidAt}
+        />
+      </FormField>
+      <FormField
+        error={fieldError("reference")}
+        helper="Bank transfer or receipt number"
+        label="Payment reference"
+      >
+        <Input
+          autoCapitalize="characters"
+          autoCorrect={false}
+          maxLength={120}
+          onChangeText={(value) =>
+            setRepayment((current) => ({ ...current, reference: value }))
+          }
+          placeholder="e.g. TRF-048213"
+          returnKeyType="done"
+          testID="repayment-reference-input"
+          value={repayment.reference}
+        />
+      </FormField>
+    </View>
+  ) : null
+
+  const followUpForm = target ? (
+    <View className="gap-[18px]">
+      <ContextCard money={money} target={target} />
+      <FormField label="Outcome">
+        <View
+          accessibilityRole="radiogroup"
+          className="flex-row flex-wrap gap-[10px]"
+        >
+          {followUpOutcomes.map((option) => {
+            const selected = followUp.status === option.value
+            return (
+              <Pressable
+                accessibilityRole="radio"
+                accessibilityState={{ checked: selected }}
+                className={cn(
+                  "min-h-[64px] grow basis-[45%] flex-row items-center gap-[10px] rounded-[16px] border px-[12px] py-[10px] active:opacity-80",
+                  selected ? "border-primary bg-accent" : "border-border bg-card"
+                )}
+                key={option.value}
+                onPress={() =>
+                  setFollowUp((current) => ({ ...current, status: option.value }))
+                }
+                testID={`follow-up-outcome-${option.value}`}
               >
-                <Text>{labelize(value)}</Text>
-              </Button>
-            ))}
-          </ScrollView>
-        </Field>
-        <Field label="Priority">
-          <View className="flex-row gap-2">
-            {(["low", "normal", "high"] as const).map((value) => (
-              <Button
-                className="flex-1"
-                key={value}
-                onPress={() => setPriority(value)}
-                variant={priority === value ? "secondary" : "outline"}
-              >
-                <Text>{labelize(value)}</Text>
-              </Button>
-            ))}
-          </View>
-        </Field>
-        <Field label="Next action date (optional)">
-          <CalendarDateField
-            accessibilityLabel="Next action date"
-            onPress={() =>
-              followUpCalendar.open({
-                label: "Next action date",
-                value: nextActionAt,
-                onChange: setNextActionAt,
-              })
+                <IconTile icon={option.icon} tone={option.tone} />
+                <View className="min-w-0 flex-1">
+                  <Text className="font-bold" numberOfLines={1} variant="small">
+                    {option.label}
+                  </Text>
+                  <Text className="text-muted-foreground" numberOfLines={1} variant="caption">
+                    {option.description}
+                  </Text>
+                </View>
+              </Pressable>
+            )
+          })}
+        </View>
+      </FormField>
+      <FormField label="Priority">
+        <SegmentedControl
+          accessibilityLabel="Priority"
+          onChange={(value) =>
+            setFollowUp((current) => ({ ...current, priority: value }))
+          }
+          options={followUpPriorities}
+          value={followUp.priority}
+        />
+      </FormField>
+      {followUp.status === "promise_to_pay" ? (
+        <FormField error={fieldError("promiseToPayAt")} label="Promise date">
+          <DateField
+            minimumDate={toDateOnly(new Date())}
+            onChange={(value) =>
+              setFollowUp((current) => ({ ...current, promiseToPayAt: value }))
             }
-            testID="follow-up-next-action-input"
-            value={nextActionAt}
-          />
-          {nextActionAt ? (
-            <Button onPress={() => setNextActionAt("")} variant="ghost">
-              <Text>Clear next action date</Text>
-            </Button>
-          ) : null}
-        </Field>
-        <Field label="Promise date (optional)">
-          <CalendarDateField
-            accessibilityLabel="Promise date"
-            onPress={() =>
-              followUpCalendar.open({
-                label: "Promise date",
-                value: promiseToPayAt,
-                onChange: setPromiseToPayAt,
-              })
-            }
+            sheetTitle="Promise date"
             testID="follow-up-promise-input"
-            value={promiseToPayAt}
+            value={followUp.promiseToPayAt}
           />
-          {promiseToPayAt ? (
-            <Button onPress={() => setPromiseToPayAt("")} variant="ghost">
-              <Text>Clear promise date</Text>
-            </Button>
-          ) : null}
-        </Field>
-        <Field label="Notes">
-          <Textarea
-            onChangeText={setNote}
-            placeholder="Record what happened and the agreed next action."
-            testID="follow-up-note-input"
-            value={note}
+        </FormField>
+      ) : null}
+      <View className="gap-[10px]">
+        <FormField label="Next action" optional>
+          <DateField
+            minimumDate={toDateOnly(new Date())}
+            onChange={(value) =>
+              setFollowUp((current) => ({ ...current, nextActionAt: value }))
+            }
+            sheetTitle="Next action"
+            testID="follow-up-next-action-input"
+            value={followUp.nextActionAt}
           />
-        </Field>
-      </FullScreenFormSheet>
+        </FormField>
+        <View className="flex-row flex-wrap gap-[8px]">
+          {(
+            [
+              [1, "Tomorrow"],
+              [2, "In 2 days"],
+              [7, "In a week"],
+            ] as const
+          ).map(([days, label]) => (
+            <Chip
+              key={days}
+              label={label}
+              onPress={() =>
+                setFollowUp((current) => ({
+                  ...current,
+                  nextActionAt: dateOnlyFromNow(days),
+                }))
+              }
+              selected={followUp.nextActionAt === dateOnlyFromNow(days)}
+            />
+          ))}
+        </View>
+      </View>
+      <FormField error={fieldError("note")} label="Notes">
+        <Textarea
+          accessibilityLabel="Notes"
+          className="min-h-[104px] rounded-[14px] px-[14px] py-[13px]"
+          maxLength={2000}
+          onChangeText={(value) =>
+            setFollowUp((current) => ({ ...current, note: value }))
+          }
+          placeholder="What happened, and what was agreed?"
+          testID="follow-up-note-input"
+          value={followUp.note}
+        />
+      </FormField>
+      <View className="flex-row items-start gap-[10px] px-[4px]">
+        <Icon className="mt-[1px] size-base text-muted-foreground" name="Info" />
+        <Text className="flex-1 text-muted-foreground" variant="small">
+          A follow-up doesn’t change the balance. Use Record repayment for money
+          received.
+        </Text>
+      </View>
+    </View>
+  ) : null
 
-      <SubmissionReviewSheet
-        confirmLabel={
-          reviewIntent?.kind === "repayment"
-            ? "Post repayment"
-            : "Record follow-up"
+  const updatedTime = data.updatedAt
+    ? new Date(data.updatedAt).toLocaleTimeString("en-NG", {
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : null
+  // The pill hides on an empty, failed or short lane (shows above 10 rows).
+  const searchTotal = data.active.hasNext
+    ? (data.summary?.counts[data.lane] ?? data.active.items.length)
+    : data.active.items.length
+
+  return (
+    <>
+      <ScreenShell
+        back={() =>
+          router.canGoBack() ? router.back() : router.replace("/(admin)/(tabs)/finance")
         }
-        description={
-          reviewIntent?.kind === "repayment"
-            ? "Confirm the financial evidence. The server will allocate the amount and return the final receipt."
-            : "Confirm the collection evidence. This action cannot post or imply a repayment."
-        }
-        error={formError}
-        isSubmitting={isSubmitting}
-        onClose={() => setReviewIntent(null)}
-        onConfirm={() => void runCommand()}
-        onDismissed={() => {
-          const message = queuedSuccessRef.current
-          queuedSuccessRef.current = null
-          if (message) setSuccess(message)
+        compactTitle
+        contentClassName="gap-[14px] pb-[72px]"
+        onRefresh={data.refresh}
+        onScroll={(event) => {
+          anchor.onScroll(event)
+          searchScroll.onScroll(event)
+          const { contentOffset, contentSize, layoutMeasurement } =
+            event.nativeEvent
+          if (
+            contentSize.height - contentOffset.y - layoutMeasurement.height <
+            320
+          )
+            data.active.nextPage()
         }}
-        rows={reviewRows}
-        title={
-          reviewIntent?.kind === "repayment"
-            ? "Review repayment"
-            : "Review follow-up"
+        overlay={
+          <BottomSearchFooter
+            accessibilityLabel="Search repayments"
+            hidden={searchScroll.hidden}
+            maxLength={120}
+            onChangeText={data.setSearch}
+            placeholder="Search member or number"
+            alwaysShowSearch={Boolean(data.search)}
+            searchVisible
+            totalCount={searchTotal}
+            value={data.search}
+          />
         }
-        visible={Boolean(reviewIntent)}
+        refreshing={data.refreshing}
+        scrollRef={anchor.scrollRef}
+        testID="admin-repayment-operations-screen"
+        title="Repayments"
+      >
+        {offline ? (
+          <StatusBanner
+            description={
+              updatedTime
+                ? `Showing data from ${updatedTime}. Recording is paused until you reconnect.`
+                : "Recording is paused until you reconnect."
+            }
+            kind="offline"
+            title="You’re offline"
+            tone="neutral"
+          />
+        ) : data.stale ? (
+          <StatusBanner
+            kind="stale"
+            onRetry={data.refresh}
+            retryLabel="Refresh"
+            retrying={data.refreshing}
+            title="Refresh before recording"
+          />
+        ) : data.summaryError && data.summary ? (
+          <StatusBanner
+            kind="error"
+            onRetry={data.refresh}
+            retrying={data.refreshing}
+            title="Couldn’t refresh the summary"
+          />
+        ) : null}
+        <RepaymentSummaryCard currencyCode={currencyCode} summary={data.summary} />
+        <RepaymentLanes
+          anchor={anchor}
+          data={data}
+          offline={offline}
+          onFollowUp={(item) => openForm("followUp", targetFromRow(item))}
+          onOpen={(item) => openFacility(item.loan.id)}
+          onRecord={(item) => openForm("repayment", targetFromRow(item))}
+          writesBlocked={writesBlocked}
+        />
+      </ScreenShell>
+
+      <RepaymentFacilitySheet
+        capabilities={data.capabilities}
+        currencyCode={currencyCode}
+        error={facilityQuery.isError}
+        facility={facilityQuery.data}
+        loading={facilityQuery.isPending}
+        offline={offline}
+        onClose={() => setFacilityOpen(false)}
+        onDismissed={() => {
+          const queued = queuedForm.current
+          queuedForm.current = null
+          if (queued) openForm(queued.kind, queued.target)
+        }}
+        onFollowUp={() => startFromFacility("followUp")}
+        onRecord={() => startFromFacility("repayment")}
+        onRetry={() => void facilityQuery.refetch()}
+        retrying={facilityQuery.isRefetching}
+        stale={false}
+        visible={facilityOpen}
+        writesBlocked={writesBlocked || facilityQuery.isRefetching}
       />
 
-      <SubmissionSuccessSheet
-        description={success ?? "The operation was confirmed."}
-        onClose={() => setSuccess(null)}
-        title={
-          success?.startsWith("Repayment")
-            ? "Repayment posted"
-            : "Follow-up recorded"
-        }
-        visible={Boolean(success)}
-      />
-    </SafeArea>
+      <AppSheet
+        dirty={dirty && step === "form"}
+        footer={formFooter}
+        isSubmitting={submitting}
+        onClose={closeFlow}
+        onDismissed={() => {
+          if (!viewFacilityAfterClose.current || !target) return
+          viewFacilityAfterClose.current = false
+          openFacility(target.loanId)
+        }}
+        overlay={reviewPanel ?? resultPanel}
+        overlayActive={step === "review" || step === "result"}
+        title={formKind === "repayment" ? "Record repayment" : "Record follow-up"}
+        variant="form"
+        visible={step !== "closed"}
+      >
+        <View className="gap-[18px]">
+          {offline ? (
+            <StatusBanner
+              description={
+                formKind === "repayment"
+                  ? "Reconnect to post this repayment; your entries stay here."
+                  : "Reconnect to save this follow-up; your notes stay here."
+              }
+              kind="offline"
+              title="You’re offline"
+            />
+          ) : data.stale ? (
+            <StatusBanner
+              kind="stale"
+              onRetry={data.refresh}
+              retryLabel="Refresh"
+              retrying={data.refreshing}
+              title="Refresh before recording"
+            />
+          ) : null}
+          {formKind === "repayment" ? repaymentForm : followUpForm}
+        </View>
+      </AppSheet>
+    </>
   )
 }

@@ -1,4 +1,6 @@
+import { ScreenStatusBar } from "@/components/app/screen-status-bar"
 import { Icon } from "@/components/ui/icon"
+import { Elevated } from "@/components/ui/list-card"
 import { Pressable } from "@/components/ui/pressable"
 import { Text } from "@/components/ui/text"
 import { useColors } from "@/hooks/use-color"
@@ -9,6 +11,7 @@ import { type ReactNode, useRef, useState } from "react"
 import {
   ActivityIndicator,
   LayoutAnimation,
+  ScrollView,
   Text as NativeText,
   TextInput,
   useWindowDimensions,
@@ -42,6 +45,20 @@ type HeaderIcon = {
   onPress: () => void
 }
 
+/** The assistant's mark: a warm circle with the wand (T25). */
+export function AssistantMark({ size = 32 }: { size?: 28 | 32 | 36 | 56 }) {
+  const box = { 28: "size-[28px]", 32: "size-[32px]", 36: "size-[36px]", 56: "size-[56px]" }[size]
+  const glyph = size === 56 ? "size-[26px]" : size === 28 ? "size-[14px]" : "size-[17px]"
+  return (
+    <View
+      accessible={false}
+      className={cn("items-center justify-center rounded-full bg-brand-warm", box)}
+    >
+      <Icon className={cn(glyph, "text-hero-mark-foreground")} name="WandSparkles" />
+    </View>
+  )
+}
+
 export function AssistantHeader({
   title,
   subtitle,
@@ -57,6 +74,7 @@ export function AssistantHeader({
   const router = useRouter()
   return (
     <View className="border-b border-border bg-card px-[18px] pb-3 pt-2">
+      <ScreenStatusBar tone="surface" />
       <View className="flex-row items-center gap-3">
         <Pressable
           accessibilityRole="button"
@@ -68,6 +86,7 @@ export function AssistantHeader({
         >
           <Icon name="X" className="size-[20px] text-foreground" />
         </Pressable>
+        <AssistantMark size={36} />
         <View className="min-w-0 flex-1">
           <Text
             accessibilityRole="header"
@@ -95,6 +114,7 @@ export function AssistantHeader({
             className="size-11 items-center justify-center rounded-full"
             disabled={disabled}
             onPress={item.onPress}
+            testID={`assistant-header-${item.icon}`}
           >
             <Icon
               name={item.icon}
@@ -163,8 +183,13 @@ export function AssistantComposer({
   disabled,
   reason,
   inputRef,
+  followUps,
+  onFollowUp,
 }: {
   inputRef?: { current: TextInput | null }
+  /** 03 chat: one-tap follow-up questions above the box (hidden while typing). */
+  followUps?: string[]
+  onFollowUp?: (text: string) => void
   value: string
   placeholder?: string
   onChange: (value: string) => void
@@ -204,8 +229,32 @@ export function AssistantComposer({
       <Icon name="Send" className="size-[19px] text-background" />
     </Pressable>
   )
+  const showLead = !value && !keyboardVisible && !stacked
+  const chips =
+    followUps?.length && !keyboardVisible && !value && !busy && !disabled
+      ? followUps
+      : null
   return (
-    <View className="gap-2 border-t border-border bg-card px-3 pt-1.5">
+    <View className="gap-2 bg-background px-3 pt-1.5">
+      {chips ? (
+        <ScrollView
+          contentContainerClassName="gap-2 px-1"
+          horizontal
+          keyboardShouldPersistTaps="handled"
+          showsHorizontalScrollIndicator={false}
+        >
+          {chips.map((text) => (
+            <Pressable
+              accessibilityRole="button"
+              className="min-h-[36px] justify-center rounded-full border border-border bg-card px-[14px] active:opacity-80"
+              key={text}
+              onPress={() => onFollowUp?.(text)}
+            >
+              <Text className="text-[14px] font-bold text-foreground">{text}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      ) : null}
       {reason ? (
         <Text
           accessibilityLiveRegion="polite"
@@ -222,9 +271,11 @@ export function AssistantComposer({
           Shorten the message to 4,000 characters before sending.
         </Text>
       ) : null}
+      <Elevated className="rounded-[28px]" radius={28}>
       <View
         className={cn(
-          "gap-1.5 border border-border bg-card",
+          "gap-1.5 border",
+          disabled ? "border-transparent bg-surface-raised" : "border-border bg-card",
           stacked ? "rounded-[28px] p-2" : "rounded-full p-[5px]"
         )}
       >
@@ -233,6 +284,11 @@ export function AssistantComposer({
             stacked ? "flex-col items-stretch gap-0.5" : "flex-row items-center gap-1"
           )}
         >
+          {showLead ? (
+            <View className="ml-[2px]">
+              <AssistantMark size={32} />
+            </View>
+          ) : null}
           <View className={stacked ? undefined : "flex-1"}>
             <TextInput
               ref={inputRef}
@@ -293,6 +349,7 @@ export function AssistantComposer({
           )}
         </View>
       </View>
+      </Elevated>
       {/* The keyboard already covers the system bar, so the safe-area gap
           only applies while it is closed. */}
       <View

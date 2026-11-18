@@ -1,6 +1,7 @@
 import { canUseMobileFeatureData } from "@/dev/mobile-dev-session"
+import { getNotificationEntityIdParam } from "@/features/notifications/public/notification-destination-param"
+import { useAppQuery, useInvalidateAppQueries } from "@/hooks/use-app-query"
 import { useAuthContext } from "@/hooks/use-auth"
-import { createClientSubmissionKey } from "@/lib/client-submission-key"
 import {
   deletePrivateReportFile,
   savePrivateReportFile,
@@ -8,17 +9,20 @@ import {
 } from "@/platform/private-report-file"
 import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
 import { useLocalSearchParams } from "expo-router"
-import { getNotificationEntityIdParam } from "@/features/notifications/public/notification-destination-param"
 import { useCallback, useEffect, useRef, useState } from "react"
-import {
-  generateAdminReport,
-  getAdminReportActivity,
-  getAdminReports,
-} from "../api/admin-reports-access-api"
+import { generateAdminReport, getAdminReports } from "../api/admin-reports-access-api"
 import {
   canUseMobileReportActions,
   canViewMobileAdminReports,
 } from "../model/admin-reports-access-policy"
+import type {
+  AdminActivityEvent,
+  AdminReportActivityFilters,
+  AdminReportCard,
+  AdminReportFilters,
+  AdminReportsQaState,
+} from "../model/admin-reports-access-types"
+import { presentAdminReportsForQa } from "../model/admin-reports-qa"
 import {
   cancelReportFile,
   completeReportFile,
@@ -27,104 +31,106 @@ import {
   failReportFile,
   type GeneratedReportFile,
 } from "../model/generated-report-file"
-import type {
-  AdminActivityEvent,
-  AdminReportActivityFilters,
-  AdminReportCard,
-  AdminReportFilters,
-  AdminReports,
-  AdminReportsQaState,
-} from "../model/admin-reports-access-types"
-import { presentAdminReportsForQa } from "../model/admin-reports-qa"
-import { AdminReportsScreen } from "../screens/admin-reports-screen"
-
-const initialReportFilters: AdminReportFilters = {
-  fromDate: null,
-  toDate: null,
-}
+import { reportKeys } from "../model/report-queries"
+import { reportsLaneFromParams, reportsParamsKey } from "../model/report-route-params"
+import { AdminReportsScreen, type ReportsLaneKey } from "../screens/admin-reports-screen"
 
 const initialActivityFilters: AdminReportActivityFilters = {
-  ...initialReportFilters,
   action: null,
+  area: null,
   entityType: null,
+  fromDate: null,
   search: null,
+  toDate: null,
 }
 
 function getQaState(value: string | string[] | undefined) {
   if (!__DEV__ || typeof value !== "string") return null
-  return ["denied", "empty", "error", "loading", "offline", "stale"].includes(
-    value
-  )
+  return ["denied", "empty", "error", "loading", "offline", "stale"].includes(value)
     ? (value as AdminReportsQaState)
     : null
 }
 
 function reportErrorMessage(error: unknown, fallback: string) {
-  return error instanceof Error && error.message.trim()
-    ? error.message
-    : fallback
+  return error instanceof Error && error.message.trim() ? error.message : fallback
 }
 
+/**
+ * T23 reports tab. The overview (report cards) is one cached read per visit,
+ * refreshed on focus, reconnect and pull; activity pages separately per
+ * filter set, so a filter change never refetches the overview. Generated
+ * CSVs stay private on the phone and expire after 15 minutes.
+ */
 export function AdminReportsRouteController() {
   const { profile } = useAuthContext()
   const runtime = useMobileRuntime()
-  const { notificationEntityId, qaState } = useLocalSearchParams<{
+  const invalidate = useInvalidateAppQueries()
+  const params = useLocalSearchParams<{
+    lane?: string | string[]
     notificationEntityId?: string | string[]
     qaState?: string | string[]
+    tab?: string | string[]
   }>()
-  const resolvedQaState = getQaState(qaState)
-  const loadRequestIdRef = useRef(0)
+  const { notificationEntityId, qaState } = params
+  const qa = getQaState(qaState)
   const cancelledIdsRef = useRef(new Set<string>())
   const generatedFilesRef = useRef<GeneratedReportFile[]>([])
-  const [reports, setReports] = useState<AdminReports | null>(null)
-  const [activityEvents, setActivityEvents] = useState<AdminActivityEvent[]>([])
-  const [activityNextCursor, setActivityNextCursor] = useState<string | null>(
-    null
-  )
-  const [reportFilters, setReportFilters] =
-    useState<AdminReportFilters>(initialReportFilters)
-  const [activityFilters, setActivityFilters] =
-    useState<AdminReportActivityFilters>(initialActivityFilters)
-  const [generatedFiles, setGeneratedFiles] = useState<GeneratedReportFile[]>(
-    []
-  )
   const generationEpochRef = useRef(0)
-  const [isLoading, setIsLoading] = useState(false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [isActivityLoadingMore, setIsActivityLoadingMore] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [activityError, setActivityError] = useState<string | null>(null)
+  const [generatedFiles, setGeneratedFiles] = useState<GeneratedReportFile[]>([])
+  const [activityFilters, setActivityFilters] = useState(initialActivityFilters)
+  const [lane, setLane] = useState<ReportsLaneKey>(() => reportsLaneFromParams(params) ?? "reports")
+  // A deep link that changes params on the mounted tab re-syncs the lane
+  // and remounts the pager (see reportsParamsKey).
+  const paramsKey = reportsParamsKey(params)
+  const [syncedParamsKey, setSyncedParamsKey] = useState(paramsKey)
+  if (syncedParamsKey !== paramsKey) {
+    setSyncedParamsKey(paramsKey)
+    const paramLane = reportsLaneFromParams(params)
+    if (paramLane) setLane(paramLane)
+  }
+  const [openReport, setOpenReport] = useState<AdminReportCard | null>(null)
+  const [openEvent, setOpenEvent] = useState<{ id: string; seed: AdminActivityEvent | null } | null>(null)
+  const [handledEntityId, setHandledEntityId] = useState<string | null>(null)
+  const [destinationUnavailable, setDestinationUnavailable] = useState(false)
+  const [shareError, setShareError] = useState<string | null>(null)
+
   const canUseServerReports =
-    resolvedQaState !== "denied" &&
+    qa !== "denied" &&
     canUseMobileFeatureData(profile, "admin") &&
     canViewMobileAdminReports(profile?.cooperativeRole)
-  const reportActionsEnabled =
-    canUseMobileReportActions(reports?.cache?.status) &&
-    resolvedQaState !== "offline" &&
-    runtime.state.connectivity === "online"
+  const forcedState = qa === "error" || qa === "loading"
+  const overview = useAppQuery({
+    enabled: canUseServerReports && !forcedState,
+    networkMode: "always",
+    queryFn: getAdminReports,
+    queryKey: reportKeys().overview,
+  })
+  const reports =
+    overview.data && !forcedState ? presentAdminReportsForQa(overview.data, qa) : null
+  const offline = qa === "offline" || runtime.state.connectivity !== "online"
+  const stale = canUseMobileReportActions(reports?.cache?.status) === false
+  const reportActionsEnabled = !stale && !offline
 
   useEffect(() => {
     generatedFilesRef.current = generatedFiles
   }, [generatedFiles])
 
+  // A new session (or losing report access) removes every private file.
   useEffect(() => {
     generationEpochRef.current += 1
-    for (const file of generatedFilesRef.current) {
-      deletePrivateReportFile(file.uri)
-    }
+    for (const file of generatedFilesRef.current) deletePrivateReportFile(file.uri)
     setGeneratedFiles([])
+    cancelledIdsRef.current.clear()
     return () => {
       generationEpochRef.current += 1
-      for (const file of generatedFilesRef.current) {
-        deletePrivateReportFile(file.uri)
-      }
+      for (const file of generatedFilesRef.current) deletePrivateReportFile(file.uri)
     }
-  }, [profile?.token])
+  }, [profile?.token, canUseServerReports])
 
-  const hasGeneratedFiles = generatedFiles.length > 0
+  const hasReadyFiles = generatedFiles.some((file) => file.status === "ready")
   useEffect(() => {
-    // Local expiry only; no timer runs while there is nothing to expire.
-    if (!hasGeneratedFiles) return
+    // Local expiry only; no timer runs while nothing can expire.
+    if (!hasReadyFiles) return
     const interval = setInterval(() => {
       setGeneratedFiles((current) =>
         current.map((file) => {
@@ -133,97 +139,20 @@ export function AdminReportsRouteController() {
           return next
         })
       )
-    }, 30_000)
+    }, 15_000)
     return () => clearInterval(interval)
-  }, [hasGeneratedFiles])
-
-  const load = useCallback(
-    async (refreshing = false) => {
-      const requestId = ++loadRequestIdRef.current
-      if (!canUseServerReports) {
-        setReports(null)
-        setActivityEvents([])
-        setActivityNextCursor(null)
-        setError(null)
-        setActivityError(null)
-        setIsLoading(false)
-        setIsRefreshing(false)
-        return
-      }
-      if (resolvedQaState === "error") {
-        setReports(null)
-        setActivityEvents([])
-        setError("Reports are unavailable.")
-        setIsLoading(false)
-        setIsRefreshing(false)
-        return
-      }
-      if (resolvedQaState === "loading") {
-        setReports(null)
-        setActivityEvents([])
-        setError(null)
-        setIsLoading(true)
-        setIsRefreshing(false)
-        return
-      }
-
-      if (refreshing) setIsRefreshing(true)
-      else setIsLoading(true)
-      setError(null)
-      setActivityError(null)
-      try {
-        const [overview, activity] = await Promise.all([
-          getAdminReports(),
-          getAdminReportActivity({
-            cursor: null,
-            filters: activityFilters,
-            limit: 25,
-          }),
-        ])
-        if (requestId !== loadRequestIdRef.current) return
-        setReports(presentAdminReportsForQa(overview, resolvedQaState))
-        setActivityEvents(resolvedQaState === "empty" ? [] : activity.items)
-        setActivityNextCursor(
-          resolvedQaState === "empty" ? null : activity.nextCursor
-        )
-      } catch (loadError) {
-        if (requestId === loadRequestIdRef.current) {
-          setError(reportErrorMessage(loadError, "Reports are unavailable."))
-        }
-      } finally {
-        if (requestId === loadRequestIdRef.current) {
-          setIsLoading(false)
-          setIsRefreshing(false)
-        }
-      }
-    },
-    [activityFilters, canUseServerReports, resolvedQaState]
-  )
-
-  useEffect(() => {
-    if (!canUseServerReports) {
-      generationEpochRef.current += 1
-      loadRequestIdRef.current += 1
-      for (const file of generatedFilesRef.current) {
-        deletePrivateReportFile(file.uri)
-      }
-      setGeneratedFiles([])
-      cancelledIdsRef.current.clear()
-    }
-    void load()
-    return () => {
-      loadRequestIdRef.current += 1
-    }
-  }, [load, profile?.token, canUseServerReports])
+  }, [hasReadyFiles])
 
   const generateReport = useCallback(
     async (
       report: AdminReportCard,
-      filters: AdminReportFilters = reportFilters
-    ) => {
-      if (!report.available || !reportActionsEnabled) return
-      const id = createClientSubmissionKey()
-      const generationEpoch = generationEpochRef.current
+      filters: AdminReportFilters,
+      id: string
+    ): Promise<GeneratedReportFile | null> => {
+      if (!report.available || !reportActionsEnabled) return null
+      const epoch = generationEpochRef.current
+      const cancelled = () =>
+        epoch !== generationEpochRef.current || cancelledIdsRef.current.has(id)
       const pending = createPendingReportFile({
         filterSnapshot: filters,
         id,
@@ -232,78 +161,57 @@ export function AdminReportsRouteController() {
       })
       cancelledIdsRef.current.delete(id)
       setGeneratedFiles((current) => [pending, ...current].slice(0, 8))
-      setError(null)
-
       try {
         const generated = await runtime.runOnlineOperation("command", () =>
           generateAdminReport({ filters, key: report.key, requestId: id })
         )
-        if (
-          generationEpoch !== generationEpochRef.current ||
-          cancelledIdsRef.current.has(id)
-        )
-          return
+        if (cancelled()) return null
         const saved = savePrivateReportFile({
           content: generated.content,
           filename: generated.filename,
         })
-        if (
-          generationEpoch !== generationEpochRef.current ||
-          cancelledIdsRef.current.has(id)
-        ) {
+        if (cancelled()) {
           deletePrivateReportFile(saved.uri)
-          return
+          return null
         }
-        setGeneratedFiles((current) =>
-          current.map((file) =>
-            file.id === id
-              ? completeReportFile(file, {
-                  expiresAt: generated.expiresAt,
-                  filename: generated.filename,
-                  generatedAt: generated.generatedAt,
-                  mimeType: generated.mimeType,
-                  rowCount: generated.rowCount,
-                  uri: saved.uri,
-                })
-              : file
-          )
-        )
+        const ready = completeReportFile(pending, {
+          expiresAt: generated.expiresAt,
+          filename: generated.filename,
+          generatedAt: generated.generatedAt,
+          mimeType: generated.mimeType,
+          rowCount: generated.rowCount,
+          uri: saved.uri,
+        })
+        setGeneratedFiles((current) => current.map((file) => (file.id === id ? ready : file)))
+        // The server logs a "report generated" event: refresh activity pages.
+        void invalidate(reportKeys().activityAll)
+        return ready
       } catch (generationError) {
-        if (
-          generationEpoch !== generationEpochRef.current ||
-          cancelledIdsRef.current.has(id)
+        if (cancelled()) return null
+        const failed = failReportFile(
+          pending,
+          reportErrorMessage(generationError, "The report could not be generated.")
         )
-          return
-        const message = reportErrorMessage(
-          generationError,
-          "The report could not be generated."
-        )
-        setGeneratedFiles((current) =>
-          current.map((file) =>
-            file.id === id ? failReportFile(file, message) : file
-          )
-        )
+        setGeneratedFiles((current) => current.map((file) => (file.id === id ? failed : file)))
+        return failed
       }
     },
-    [reportActionsEnabled, reportFilters, runtime]
+    [invalidate, reportActionsEnabled, runtime]
   )
 
   const cancelGeneration = useCallback((file: GeneratedReportFile) => {
     cancelledIdsRef.current.add(file.id)
     deletePrivateReportFile(file.uri)
     setGeneratedFiles((current) =>
-      current.map((item) =>
-        item.id === file.id ? cancelReportFile(item) : item
-      )
+      current.map((item) => (item.id === file.id ? cancelReportFile(item) : item))
     )
   }, [])
 
   const shareGeneratedFile = useCallback(async (file: GeneratedReportFile) => {
     const current = expireGeneratedReportFile(file)
+    setShareError(null)
     if (current.status !== "ready" || !current.uri || !current.filename) {
-      setGeneratedFiles((files) =>
-        files.map((item) => (item.id === file.id ? current : item))
-      )
+      setGeneratedFiles((files) => files.map((item) => (item.id === file.id ? current : item)))
       return
     }
     try {
@@ -313,75 +221,84 @@ export function AdminReportsRouteController() {
         uri: current.uri,
       })
     } catch (shareError) {
-      setError(
-        reportErrorMessage(shareError, "The report could not be shared.")
-      )
+      setShareError(reportErrorMessage(shareError, "The report could not be shared."))
     }
   }, [])
 
   const retryGeneratedFile = useCallback(
     (file: GeneratedReportFile) => {
-      const report = reports?.reports.find(
-        (item) => item.key === file.reportKey
-      )
-      if (!report) return
-      void generateReport(report, file.filterSnapshot ?? reportFilters)
+      const report = reports?.reports.find((item) => item.key === file.reportKey)
+      if (report) setOpenReport(report)
     },
-    [generateReport, reportFilters, reports?.reports]
+    [reports?.reports]
   )
 
-  const loadMoreActivity = useCallback(async () => {
-    if (!activityNextCursor || isActivityLoadingMore) return
-    setIsActivityLoadingMore(true)
-    setActivityError(null)
-    try {
-      const page = await getAdminReportActivity({
-        cursor: activityNextCursor,
-        filters: activityFilters,
-        limit: 25,
-      })
-      setActivityEvents((current) => [
-        ...current,
-        ...page.items.filter(
-          (item) => !current.some((existing) => existing.id === item.id)
-        ),
-      ])
-      setActivityNextCursor(page.nextCursor)
-    } catch (loadError) {
-      setActivityError(
-        reportErrorMessage(loadError, "More activity could not be loaded.")
-      )
-    } finally {
-      setIsActivityLoadingMore(false)
+  // Notification deep link: a report key opens Generate; otherwise the id is
+  // an activity event, opened from its own detail read.
+  const entityId = getNotificationEntityIdParam(notificationEntityId)
+  useEffect(() => {
+    if (!entityId || !reports || handledEntityId === entityId) return
+    setHandledEntityId(entityId)
+    const report = reports.reports.find((item) => item.key === entityId)
+    if (report) {
+      setLane("reports")
+      setOpenReport(report)
+      return
     }
-  }, [activityFilters, activityNextCursor, isActivityLoadingMore])
+    if (/^[\w-]{8,}$/.test(entityId)) {
+      setLane("activity")
+      setOpenEvent({ id: entityId, seed: null })
+      return
+    }
+    setDestinationUnavailable(true)
+  }, [entityId, handledEntityId, reports])
+
+  const refresh = useCallback(() => overview.refetch(), [overview])
+  const openEventFromRow = useCallback(
+    (event: AdminActivityEvent) => setOpenEvent({ id: event.id, seed: event }),
+    []
+  )
 
   return (
     <AdminReportsScreen
-      activityError={activityError}
-      activityEvents={activityEvents}
+      activityEnabled={canUseServerReports && !forcedState && qa !== "empty"}
       activityFilters={activityFilters}
       canUseServerReports={canUseServerReports}
+      cooperativeName={profile?.tenant.name ?? "your cooperative"}
       currencyCode={profile?.tenant.currencyCode ?? "NGN"}
-      error={error}
+      destinationUnavailable={destinationUnavailable}
+      error={
+        qa === "error"
+          ? "Check your connection and try again."
+          : overview.isError && !overview.data
+            ? reportErrorMessage(overview.error, "Check your connection and try again.")
+            : null
+      }
       generatedFiles={generatedFiles}
-      hasMoreActivity={Boolean(activityNextCursor)}
-      isActivityLoadingMore={isActivityLoadingMore}
-      isLoading={isLoading}
-      isRefreshing={isRefreshing}
+      isLoading={qa === "loading" || (canUseServerReports && overview.isPending && !overview.isError)}
+      lane={lane}
+      layoutKey={paramsKey}
+      offline={offline}
       onApplyActivityFilters={setActivityFilters}
-      onApplyReportFilters={setReportFilters}
       onCancelGeneratedFile={cancelGeneration}
-      onGenerateReport={(report) => void generateReport(report)}
-      onLoadMoreActivity={() => void loadMoreActivity()}
-      onRefresh={() => void load(true)}
-      onRetry={() => void load()}
+      onCloseEvent={() => setOpenEvent(null)}
+      onDismissDestination={() => setDestinationUnavailable(false)}
+      onDismissShareError={() => setShareError(null)}
+      onGenerateReport={generateReport}
+      onLaneChange={setLane}
+      onOpenEvent={openEventFromRow}
+      onOpenReport={setOpenReport}
+      onRefresh={refresh}
+      onRetry={() => void overview.refetch()}
       onRetryGeneratedFile={retryGeneratedFile}
       onShareGeneratedFile={(file) => void shareGeneratedFile(file)}
+      openEventId={openEvent?.id ?? null}
+      openEventSeed={openEvent?.seed ?? null}
+      openReport={openReport}
       reportActionsEnabled={reportActionsEnabled}
-      reportFilters={reportFilters}
       reports={reports}
-      initialEntityId={getNotificationEntityIdParam(notificationEntityId)}
+      shareError={shareError}
+      stale={stale}
     />
   )
 }

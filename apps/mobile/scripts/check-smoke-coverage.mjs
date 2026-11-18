@@ -38,6 +38,7 @@ const requiredRoutes = [
   "src/app/(member)/(tabs)/index.tsx",
   "src/app/(member)/(tabs)/commitments.tsx",
   "src/app/(member)/(tabs)/financing.tsx",
+  "src/app/(member)/financing-requests.tsx",
   "src/app/(member)/(tabs)/shares.tsx",
   "src/app/(member)/(tabs)/more.tsx",
   "src/app/(member)/receipts.tsx",
@@ -81,28 +82,29 @@ assertIncludes("src/app/index.tsx", [
 
 assertIncludes("src/features/bootstrap/screens/bootstrap-screen.tsx", [
   'mode = "loading"',
-  'mode === "fatal"',
+  "<BootstrapSplash",
+  "<ProgressDots",
   'accessibilityRole="progressbar"',
   "presentation.note",
 ])
 
 assertIncludes("src/features/auth/screens/sign-in-screen.tsx", [
-  "AppKeyboardAwareScrollView",
-  "bottomOffset={224}",
-  "Sign in to mobile workspace",
-  "<QaAccessPanel />",
+  "<DockedHeroScreen",
+  "<SignInHero",
+  "<QaAccessPanel bottomInset={dockHeight} />",
   "<SignInForm",
+  "loading={signIn.submitting}",
 ])
 
 assertIncludes("src/features/auth/components/sign-in-form.tsx", [
   'submitBehavior="submit"',
-  "const submitDisabled = !canSubmit || isSubmitting",
-  'submitDisabled && "bg-muted opacity-100 active:bg-muted"',
-  "disabled={submitDisabled}",
+  "<AuthErrorBanner",
+  "error={fieldErrors.cooperativeNumber}",
+  "error={fieldErrors.password}",
 ])
 
 assertIncludes("src/features/auth/components/qa-access-panel.tsx", [
-  '"Opens QA Domain setup above the keyboard"',
+  '"Opens QA domain setup above the keyboard"',
   '"Set up QA access"',
   "Open ${count} QA profiles",
   "Keyboard.dismiss()",
@@ -111,29 +113,31 @@ assertIncludes("src/features/auth/components/qa-access-panel.tsx", [
 ])
 assertIncludes("src/features/auth/components/qa-profile-chooser.tsx", [
   "qaChooserLayout",
-  "<CompactFormSheet",
-  "<FullScreenFormSheet",
-  "Change QA Domain",
+  "<AppSheet",
+  'variant="form"',
+  "Change QA domain",
 ])
 
 assertIncludes("src/features/auth/screens/recovery-screen.tsx", [
-  "AuthScreenShell",
+  "DockedHeroScreen",
   "Quick fill recovery",
   "<RecoveryRequestStep",
   "<RecoveryCodeStep",
   "<RecoveryPasswordStep",
+  "<ResultScreen",
 ])
 
 assertIncludes("src/features/auth/components/recovery-step-content.tsx", [
   "Six-digit code",
-  "presentation.actionLabel",
+  "Resend code in",
   "PasswordField",
+  "<PasswordRules",
 ])
 
-assertIncludes("src/features/auth/components/auth-screen-shell.tsx", [
+assertIncludes("src/components/app/docked-hero-screen.tsx", [
   "AppKeyboardAwareScrollView",
-  "bottomOffset={224}",
-  "contentContainerClassName",
+  "<KeyboardStickyView",
+  "useScreenChrome",
 ])
 
 assertIncludes("src/app/(member)/(tabs)/_layout.tsx", [
@@ -153,32 +157,46 @@ assertIncludes("src/app/(admin)/(tabs)/_layout.tsx", [
 ])
 
 assertIncludes("src/features/settings-access/screens/more-screen.tsx", [
-  "handleOpenManagedDeviceAccess",
+  "<ScreenShell",
   "Device access",
-  "Sign out",
-  "CachedReadBanner",
-  "<ScreenStatusBar />",
+  "<ConfirmSheet",
+  "<StatusBanner",
+  "/workspace-access",
 ])
 
+// T05: the overview is a ScreenShell hero screen; the shell owns the
+// status bar (transparent, light icons over the hero).
 assertIncludes(
   "src/features/admin-member-lifecycle/screens/admin-overview-screen.tsx",
-  ['<ScreenStatusBar tone="brand" />']
+  ["<ScreenShell", "<AdminOverviewHero", 'testID="admin-overview-screen"']
 )
 
 assertIncludes("src/components/app/screen-status-bar.tsx", [
   "useIsFocused()",
-  "return appearance ? <StatusBar {...appearance} /> : null",
+  "return appearance ? <StatusBar animated {...appearance} /> : null",
 ])
 
 assertIncludes(
   "src/features/settings-access/routes/more-route-controller.tsx",
   [
     "switchRole(membershipId)",
-    "inviteAdminAccessUser(input)",
-    "getAdminAccess()",
-    "getMemberMore()",
+    "getWorkspaceAccessCount",
+    "getMemberMore",
+    "useAppQuery",
   ]
 )
+
+assertIncludes("src/features/settings-access/screens/workspace-access-screen.tsx", [
+  "<AppList",
+  "useAppInfiniteQuery",
+  "onEndReached=",
+  'pathname: "/sessions"',
+])
+assertIncludes("src/features/settings-access/components/invite-user-sheet.tsx", [
+  '<AppSheet',
+  'variant="form"',
+  "inviteAdminAccessUser(input)",
+])
 
 assertIncludes(
   "src/features/device-sessions/routes/device-sessions-route-controller.tsx",
@@ -203,10 +221,11 @@ assertIncludes(
 )
 
 assertIncludes("src/features/app-lock/screens/app-lock-screen.tsx", [
-  "FullScreenFormSheet",
-  "ConfirmationSheet",
+  "<AppSheet",
+  'variant="form"',
+  "<ConfirmSheet",
   "AppLockPinPad",
-  "After leaving the app",
+  "Relock after leaving the app",
   "Privacy protection is active",
 ])
 
@@ -244,7 +263,6 @@ for (const variantPath of ["", "/dev", "/preview"]) {
 for (const controller of [
   "src/features/member-core/routes/member-commitments-route-controller.tsx",
   "src/features/member-core/routes/member-statement-route-controller.tsx",
-  "src/features/shares-profit/routes/member-shares-route-controller.tsx",
 ]) {
   assertIncludes(controller, ["useMemberActivity", "activeMembershipId"])
 }
@@ -255,70 +273,113 @@ assertIncludes("src/features/member-core/public/member-activity-history.tsx", [
   "MemberActivityHistoryState",
 ])
 
-for (const screen of [
-  "src/features/receipts/screens/member-receipts-screen.tsx",
-  "src/features/support/screens/member-support-screen.tsx",
-  "src/features/financing/screens/member-financing-screen.tsx",
-  "src/features/shares-profit/screens/member-shares-screen.tsx",
-  "src/features/admin-member-lifecycle/screens/admin-members-screen.tsx",
-]) {
-  assertIncludes(screen, [
-    "useMobileFormDraft",
-    "isMobileReadCacheStale",
-    "CachedReadBanner",
-  ])
-}
+assertIncludes("src/features/support/routes/member-support-route-controller.tsx", [
+  "useMobileFormDraft",
+  "isMobileReadCacheStale",
+  "useAppInfiniteQuery",
+  "useAppQuery",
+])
+assertIncludes("src/features/support/screens/member-support-screen.tsx", [
+  "<AppList",
+  "<SegmentedPager",
+  "<StatusBanner",
+])
+assertIncludes("src/features/support/components/member-support-thread.tsx", [
+  '<KeyboardAvoidingView',
+  'behavior="padding"',
+  'accessibilityLabel="Send reply"',
+])
 
+assertIncludes("src/features/receipts/screens/member-receipts-screen.tsx", [
+  "<AppList",
+  "useAppInfiniteQuery",
+  "useMobileFormDraft",
+  "isMobileReadCacheStale",
+  "<StatusBanner",
+])
+
+assertIncludes("src/features/shares-profit/routes/member-shares-route-controller.tsx", [
+  "useAppInfiniteQuery",
+  "activeMembershipId",
+  "getMemberShareTimelinePage",
+  "useInvalidateAppQueries",
+])
+assertIncludes("src/features/shares-profit/screens/member-shares-screen.tsx", [
+  "<AppList",
+  "onEndReached=",
+  "<StatusBanner",
+])
+assertIncludes("src/features/shares-profit/screens/share-request-flow.tsx", [
+  "useMobileFormDraft",
+  "<AppSheet",
+  'variant="form"',
+  "<ResultScreen",
+])
+
+assertIncludes("src/features/financing/screens/member-financing-screen.tsx", [
+  "useFinancingSnapshot",
+  "useIsOnline",
+  "FinanceNotice",
+  "useInvalidateAppQueries",
+])
+assertIncludes("src/features/financing/components/financing-request-form.tsx", [
+  "useMobileFormDraft",
+  "<AppSheet",
+  "<ResultScreen",
+])
+assertIncludes("src/features/financing/screens/member-financing-requests-screen.tsx", [
+  "useAppInfiniteQuery",
+  "<AppList",
+  "onEndReached",
+])
 assertIncludes(
   "src/features/admin-finance-support/hooks/use-admin-finance-support-controller.ts",
-  ["useMobileFormDraft", "isMobileReadCacheStale"]
+  ["useMobileFormDraft", "useAdminFinanceDesk"]
+)
+assertIncludes(
+  "src/features/admin-finance-support/hooks/use-admin-finance-desk.ts",
+  ["useAppInfiniteQuery", "isMobileReadCacheStale", "getNextPageParam"]
 )
 assertIncludes(
   "src/features/admin-finance-support/components/admin-finance-work-queue.tsx",
-  ["CachedReadBanner", "LegendList"]
+  ["StatusBanner", "ScreenShell", "AdminFinanceOperationsGrid"]
 )
-
-for (const screen of [
-  "src/features/procurement/screens/member-procurement-screen.tsx",
-  "src/features/project-financing/screens/member-project-financing-screen.tsx",
-]) {
-  assertIncludes(screen, [
-    "useMobileFormDraft",
-    "isMobileReadCacheStale",
-    "CooperativeServiceFreshness",
-    "CooperativeServiceStateNotice",
-  ])
-}
 
 assertIncludes(
-  "src/features/food-purchase/hooks/use-member-food-purchase-controller.ts",
-  ["useMobileFormDraft", "isMobileReadCacheStale"]
+  "src/features/member-service-requests/member-service-request-screen.tsx",
+  ["useMobileFormDraft", "isMobileReadCacheStale", "useAppQuery", "useAppInfiniteQuery"]
 )
 assertIncludes(
-  "src/features/food-purchase/screens/member-food-purchase-screen.tsx",
-  [
-    "useMemberFoodPurchaseController",
-    "CooperativeServiceFreshness",
-    "CooperativeServiceStateNotice",
-  ]
+  "src/features/member-service-requests/service-request-overview.tsx",
+  ["<AppList", "onEndReached=", "<SegmentedControl", "<SegmentedPager", "<RequestNotice"]
 )
 
-for (const screen of [
-  "src/features/receipts/screens/member-receipts-screen.tsx",
+assertIncludes(
   "src/features/notifications/screens/notifications-screen.tsx",
-  "src/features/financing/screens/member-financing-screen.tsx",
-  "src/features/procurement/screens/member-procurement-screen.tsx",
-  "src/features/project-financing/screens/member-project-financing-screen.tsx",
-  "src/features/food-purchase/screens/member-food-purchase-screen.tsx",
-  "src/features/shares-profit/screens/member-shares-screen.tsx",
+  ["<AppList", "onEndReached=", "<SegmentedControl", "<SegmentedPager"]
+)
+
+assertIncludes(
   "src/features/admin-reports-access/screens/admin-reports-screen.tsx",
-]) {
-  assertIncludes(screen, ["VirtualizedCardList"])
-}
+  ["<SegmentedControl", "<SegmentedPager", "<ReportsLane", "<ActivityLane"]
+)
+
+assertIncludes(
+  "src/features/admin-reports-access/components/report-lanes.tsx",
+  ["<AppList", "onEndReached=", "useAppInfiniteQuery"]
+)
 
 assertIncludes(
   "src/features/admin-member-lifecycle/screens/admin-members-screen.tsx",
-  ["FullScreenFormSheet", "CompactFormSheet", "SubmissionReviewSheet"]
+  ["<AppList", "<CreateMemberSheet", "<MemberChangeSheet", "isMobileReadCacheStale"]
+)
+assertIncludes(
+  "src/features/admin-member-lifecycle/components/create-member-sheet.tsx",
+  ["<AppSheet", "useMobileFormDraft", "<ReviewSummary", "<ResultScreen"]
+)
+assertIncludes(
+  "src/features/admin-member-lifecycle/components/member-change-sheet.tsx",
+  ["<AppSheet", "<ReviewSummary", "<ResultScreen"]
 )
 
 assertIncludes(
@@ -326,7 +387,6 @@ assertIncludes(
   [
     "useAdminFinanceSupportController",
     "AdminFinanceWorkQueue",
-    "AdminFinanceOperationsSheet",
     "AdminFinanceItemDetailSheet",
     "AdminFinanceActionStack",
   ]
@@ -335,11 +395,10 @@ assertIncludes(
 assertIncludes(
   "src/features/admin-finance-support/components/admin-finance-action-stack.tsx",
   [
-    "FullScreenFormSheet",
-    "CompactFormSheet",
-    "SubmissionReviewSheet",
+    "AppSheet",
+    "SubmittingState",
+    "ResultScreen",
     "DevQuickFill",
-    "CalendarPickerSheet",
   ]
 )
 
@@ -348,9 +407,9 @@ assertIncludes(
   [
     "runOnlineOperation",
     "expectedState",
-    "showSuccessAfterReviewRef.current = true",
-    "void loadOverview()",
-    "reopenIntentRef.current = intent",
+    'setPhase("success")',
+    "void invalidate()",
+    'setPhase("error")',
   ]
 )
 
@@ -358,29 +417,43 @@ assertIncludes(
   "src/features/admin-contribution-operations/screens/admin-contribution-operations-screen.tsx",
   [
     "AdminContributionWorkspace",
-    "CompactFormSheet",
-    "FullScreenFormSheet",
-    "SubmissionReviewSheet",
-    "runOnlineOperation",
-    "expectedState",
-    "DevQuickFill",
+    "ContributionBatchSheet",
+    "ContributionReviewSheet",
+    "useRefreshContributions",
   ]
 )
 
 assertIncludes(
+  "src/features/admin-contribution-operations/components/contribution-review-sheet.tsx",
+  ["runOnlineOperation", "ContributionResultSheet"]
+)
+
+assertIncludes(
+  "src/features/admin-contribution-operations/components/post-contribution-payment-sheet.tsx",
+  ["expectedState", "DevQuickFill", "splitFinancingPayment"]
+)
+
+assertIncludes(
   "src/features/admin-contribution-operations/components/admin-contribution-workspace.tsx",
-  ["VirtualizedCardList", 'testID="admin-contribution-operations-screen"']
+  ["SegmentedPager", "useAppInfiniteQuery", 'testID="admin-contribution-operations-screen"']
 )
 
 assertIncludes(
   "src/features/admin-share-profit-governance/screens/admin-share-profit-governance-screen.tsx",
   [
-    "VirtualizedCardList",
-    "FloatingBottomSheet",
-    "DevQuickFill",
-    "commandsBlocked",
-    "expectedState",
+    "ShareProfitBooks",
     'testID="admin-share-profit-governance-screen"',
+    'captureMobileError(summary.error, "mobile.share_profit_governance")',
+  ]
+)
+
+assertIncludes(
+  "src/features/admin-share-profit-governance/components/share-profit-flows.tsx",
+  [
+    "DevQuickFill",
+    "expectedState",
+    "runOnlineOperation",
+    "ConfirmSheet",
     'captureMobileError(error, "mobile.share_profit_governance")',
   ]
 )
@@ -443,8 +516,8 @@ console.log(
 assertIncludes(
   "src/features/mobile-app-access/routes/mobile-app-access-route-controller.tsx",
   [
-    "Contact your cooperative to request mobile access.",
+    "projectAccessGate(",
     "access.refresh()",
-    "LegalLinks",
+    '"/account-privacy"',
   ]
 )

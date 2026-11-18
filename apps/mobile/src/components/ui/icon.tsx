@@ -21,24 +21,43 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
     .default,
   AlertTriangle: require("lucide-react-native/dist/esm/icons/triangle-alert")
     .default,
+  ArrowDownLeft: require("lucide-react-native/dist/esm/icons/arrow-down-left").default,
   ArrowLeft: require("lucide-react-native/dist/esm/icons/arrow-left").default,
   ArrowRight: require("lucide-react-native/dist/esm/icons/arrow-right").default,
+  ArrowUp: require("lucide-react-native/dist/esm/icons/arrow-up").default,
   ArrowUpRight: require("lucide-react-native/dist/esm/icons/arrow-up-right")
     .default,
   BadgeCheck: require("lucide-react-native/dist/esm/icons/badge-check").default,
   BadgeDollarSign:
     require("lucide-react-native/dist/esm/icons/badge-dollar-sign").default,
+  Banknote: require("lucide-react-native/dist/esm/icons/banknote").default,
   Bell: require("lucide-react-native/dist/esm/icons/bell").default,
   BellOff: require("lucide-react-native/dist/esm/icons/bell-off").default,
   BellRing: require("lucide-react-native/dist/esm/icons/bell-ring").default,
   BriefcaseBusiness:
     require("lucide-react-native/dist/esm/icons/briefcase-business").default,
   Calendar: require("lucide-react-native/dist/esm/icons/calendar").default,
+  Camera: require("lucide-react-native/dist/esm/icons/camera").default,
   CalendarClock: require("lucide-react-native/dist/esm/icons/calendar-clock")
     .default,
   ChartNoAxesCombined:
     require("lucide-react-native/dist/esm/icons/chart-no-axes-combined").default,
+  ChartPie: require("lucide-react-native/dist/esm/icons/chart-pie").default,
+  CircleHelp: require("lucide-react-native/dist/esm/icons/circle-question-mark").default,
+  CirclePause: require("lucide-react-native/dist/esm/icons/circle-pause").default,
+  Coins: require("lucide-react-native/dist/esm/icons/coins").default,
+  Compass: require("lucide-react-native/dist/esm/icons/compass").default,
+  CloudOff: require("lucide-react-native/dist/esm/icons/cloud-off").default,
+  Facebook: require("lucide-react-native/dist/esm/icons/facebook").default,
+  FileX: require("lucide-react-native/dist/esm/icons/file-x").default,
+  Gift: require("lucide-react-native/dist/esm/icons/gift").default,
+  Globe: require("lucide-react-native/dist/esm/icons/globe").default,
+  IdCard: require("lucide-react-native/dist/esm/icons/id-card").default,
+  Instagram: require("lucide-react-native/dist/esm/icons/instagram").default,
+  Linkedin: require("lucide-react-native/dist/esm/icons/linkedin").default,
+  ScanFace: require("lucide-react-native/dist/esm/icons/scan-face").default,
   Check: require("lucide-react-native/dist/esm/icons/check").default,
+  CheckCheck: require("lucide-react-native/dist/esm/icons/check-check").default,
   ChevronLeft: require("lucide-react-native/dist/esm/icons/chevron-left")
     .default,
   ChevronRight: require("lucide-react-native/dist/esm/icons/chevron-right")
@@ -61,10 +80,18 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   Delete: require("lucide-react-native/dist/esm/icons/delete").default,
   Eye: require("lucide-react-native/dist/esm/icons/eye").default,
   EyeOff: require("lucide-react-native/dist/esm/icons/eye-off").default,
+  Ellipsis: require("lucide-react-native/dist/esm/icons/ellipsis").default,
   ExternalLink: require("lucide-react-native/dist/esm/icons/external-link")
     .default,
   FileCheck: require("lucide-react-native/dist/esm/icons/file-check").default,
   FileText: require("lucide-react-native/dist/esm/icons/file-text").default,
+  Archive: require("lucide-react-native/dist/esm/icons/archive").default,
+  ArrowLeftRight: require("lucide-react-native/dist/esm/icons/arrow-left-right").default,
+  Copy: require("lucide-react-native/dist/esm/icons/copy").default,
+  FileCheck2: require("lucide-react-native/dist/esm/icons/file-check-2").default,
+  Tablet: require("lucide-react-native/dist/esm/icons/tablet").default,
+  Twitter: require("lucide-react-native/dist/esm/icons/twitter").default,
+  Undo2: require("lucide-react-native/dist/esm/icons/undo-2").default,
   Fingerprint: require("lucide-react-native/dist/esm/icons/fingerprint")
     .default,
   FolderCheck: require("lucide-react-native/dist/esm/icons/folder-check")
@@ -73,13 +100,19 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   Headphones: require("lucide-react-native/dist/esm/icons/headphones").default,
   History: require("lucide-react-native/dist/esm/icons/history").default,
   Home: require("lucide-react-native/dist/esm/icons/house").default,
+  Image: require("lucide-react-native/dist/esm/icons/image").default,
   Info: require("lucide-react-native/dist/esm/icons/info").default,
   KeyRound: require("lucide-react-native/dist/esm/icons/key-round").default,
   Landmark: require("lucide-react-native/dist/esm/icons/landmark").default,
+  Layers: require("lucide-react-native/dist/esm/icons/layers").default,
   LayoutDashboard:
     require("lucide-react-native/dist/esm/icons/layout-dashboard").default,
   LayoutGrid: require("lucide-react-native/dist/esm/icons/layout-grid").default,
   ListChecks: require("lucide-react-native/dist/esm/icons/list-checks").default,
+  Link: require("lucide-react-native/dist/esm/icons/link").default,
+  Link2Off: require("lucide-react-native/dist/esm/icons/link-2-off").default,
+  Lock: require("lucide-react-native/dist/esm/icons/lock").default,
+  Megaphone: require("lucide-react-native/dist/esm/icons/megaphone").default,
   LockKeyhole: require("lucide-react-native/dist/esm/icons/lock-keyhole")
     .default,
   LoaderCircle: require("lucide-react-native/dist/esm/icons/loader-circle")
@@ -89,6 +122,7 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   Mail: require("lucide-react-native/dist/esm/icons/mail").default,
   Menu: require("lucide-react-native/dist/esm/icons/menu").default,
   Monitor: require("lucide-react-native/dist/esm/icons/monitor").default,
+  Minus: require("lucide-react-native/dist/esm/icons/minus").default,
   Moon: require("lucide-react-native/dist/esm/icons/moon").default,
   MessageCirclePlus:
     require("lucide-react-native/dist/esm/icons/message-circle-plus").default,
@@ -102,17 +136,21 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
     .default,
   PackagePlus: require("lucide-react-native/dist/esm/icons/package-plus")
     .default,
+  Package: require("lucide-react-native/dist/esm/icons/package").default,
   PackageSearch: require("lucide-react-native/dist/esm/icons/package-search")
     .default,
+  Pencil: require("lucide-react-native/dist/esm/icons/pencil").default,
   PanelsTopLeft: require("lucide-react-native/dist/esm/icons/panels-top-left")
     .default,
   PieChart: require("lucide-react-native/dist/esm/icons/chart-pie").default,
   Plus: require("lucide-react-native/dist/esm/icons/plus").default,
   PlusCircle: require("lucide-react-native/dist/esm/icons/circle-plus").default,
+  Receipt: require("lucide-react-native/dist/esm/icons/receipt").default,
   ReceiptText: require("lucide-react-native/dist/esm/icons/receipt-text")
     .default,
   RefreshCw: require("lucide-react-native/dist/esm/icons/refresh-cw").default,
   RotateCw: require("lucide-react-native/dist/esm/icons/rotate-cw").default,
+  Scale: require("lucide-react-native/dist/esm/icons/scale").default,
   Search: require("lucide-react-native/dist/esm/icons/search").default,
   Send: require("lucide-react-native/dist/esm/icons/send").default,
   Share: require("lucide-react-native/dist/esm/icons/share").default,
@@ -128,14 +166,18 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
     .default,
   ShoppingBag: require("lucide-react-native/dist/esm/icons/shopping-bag")
     .default,
+  ShoppingCart: require("lucide-react-native/dist/esm/icons/shopping-cart")
+    .default,
   SlidersHorizontal:
     require("lucide-react-native/dist/esm/icons/sliders-horizontal").default,
   Smartphone: require("lucide-react-native/dist/esm/icons/smartphone").default,
+  SquarePen: require("lucide-react-native/dist/esm/icons/square-pen").default,
   Star: require("lucide-react-native/dist/esm/icons/star").default,
   Sun: require("lucide-react-native/dist/esm/icons/sun").default,
   Trash2: require("lucide-react-native/dist/esm/icons/trash-2").default,
   TriangleAlert: require("lucide-react-native/dist/esm/icons/triangle-alert")
     .default,
+  Upload: require("lucide-react-native/dist/esm/icons/upload").default,
   User: require("lucide-react-native/dist/esm/icons/user").default,
   UserCheck: require("lucide-react-native/dist/esm/icons/user-check").default,
   UserPlus: require("lucide-react-native/dist/esm/icons/user-plus").default,
@@ -154,7 +196,20 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   WandSparkles: require("lucide-react-native/dist/esm/icons/wand-sparkles")
     .default,
   WifiOff: require("lucide-react-native/dist/esm/icons/wifi-off").default,
+  Wrench: require("lucide-react-native/dist/esm/icons/wrench").default,
   X: require("lucide-react-native/dist/esm/icons/x").default,
+  Ban: require("lucide-react-native/dist/esm/icons/ban").default,
+  CalendarDays: require("lucide-react-native/dist/esm/icons/calendar-days").default,
+  ChevronDown: require("lucide-react-native/dist/esm/icons/chevron-down").default,
+  ChevronUp: require("lucide-react-native/dist/esm/icons/chevron-up").default,
+  CircleCheckBig: require("lucide-react-native/dist/esm/icons/circle-check-big").default,
+  Clock: require("lucide-react-native/dist/esm/icons/clock").default,
+  Inbox: require("lucide-react-native/dist/esm/icons/inbox").default,
+  ListFilter: require("lucide-react-native/dist/esm/icons/list-filter").default,
+  Phone: require("lucide-react-native/dist/esm/icons/phone").default,
+  SearchX: require("lucide-react-native/dist/esm/icons/search-x").default,
+  Sparkles: require("lucide-react-native/dist/esm/icons/sparkles").default,
+  Youtube: require("lucide-react-native/dist/esm/icons/youtube").default,
   Zap: require("lucide-react-native/dist/esm/icons/zap").default,
 }
 
@@ -223,7 +278,8 @@ export function Icon({
   const themeOverride =
     theme === "dark" || theme === "light" ? theme : undefined
   const scheme = themeOverride ?? (inverted ? "dark" : colorScheme)
-  const resolvedClassName = cn("text-foreground", className)
+  // An explicit `color` (e.g. a tab bar tint) wins over the default ink.
+  const resolvedClassName = cn(color ? undefined : "text-foreground", className)
   const resolvedColor = resolveColor(resolvedClassName, scheme)
   const IconComponent = as ?? iconRegistry[name] ?? iconRegistry.Circle
   const wrapperClassName = resolvedClassName

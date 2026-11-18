@@ -45,52 +45,75 @@ export type FinancingUsage = {
   requestedReservedAmount: number
 }
 
-export type FinancingWorkspace = {
-  cache?: {
-    ageMs: number
-    cachedAt: string
-    scope: string
-    status: "live" | "stale"
+export type ReadCache = {
+  ageMs: number
+  cachedAt: string
+  scope: string
+  status: "live" | "stale"
+}
+
+export type FinancingCycle = {
+  collectionCoverage: number
+  deployableFunds: {
+    approvedHoldAmount: number
+    deployableFunds: number
+    outstandingFinancingAmount: number
+    reserveBufferAmount: number
+    totalContributionAmount: number
   }
+  id: string | null
+  intakeStatus: "closed" | "missing" | "open" | "paused"
+  normal: FinancingUsage
+  normalAllocationPercentage: number
+  periodEnd: string
+  periodStart: string
+  projectedCommitmentAmount: number
+  quick: FinancingUsage
+  quickAllocationPercentage: number
+  receivedContributionAmount: number
+  reserveBufferAmount: number
+  status: Exclude<FinancingCycleState, "missing"> | null
+  totalCapacityAmount: number
+  warnings: {
+    key: string
+    label: string
+    severity: "critical" | "warning"
+  }[]
+}
+
+/** Read once per visit: cycle, currency, lane counts, approval policy. */
+export type FinancingSummary = {
+  cache?: ReadCache
   capabilities: FinancingCapabilities
   currencyCode: string
-  cycle: {
-    collectionCoverage: number
-    deployableFunds: {
-      approvedHoldAmount: number
-      deployableFunds: number
-      outstandingFinancingAmount: number
-      reserveBufferAmount: number
-      totalContributionAmount: number
-    }
-    id: string | null
-    intakeStatus: "closed" | "missing" | "open" | "paused"
-    normal: FinancingUsage
-    normalAllocationPercentage: number
-    periodEnd: string
-    periodStart: string
-    projectedCommitmentAmount: number
-    quick: FinancingUsage
-    quickAllocationPercentage: number
-    receivedContributionAmount: number
-    reserveBufferAmount: number
-    status: Exclude<FinancingCycleState, "missing"> | null
-    totalCapacityAmount: number
-    warnings: {
-      key: string
-      label: string
-      severity: "critical" | "warning"
-    }[]
-  }
+  cycle: FinancingCycle
+  generatedAt: string
+  lanes: Record<
+    Exclude<FinancingLane, "activity">,
+    { count: number; totalAmount: number }
+  >
+  requiresDualApproval: boolean
+}
+
+/** One cursor page of a lane (current builds send includeSummary: false). */
+export type FinancingWorkspace = {
+  cache?: ReadCache
+  capabilities: FinancingCapabilities
   generatedAt: string
   items: FinancingItem[]
-  nextCursor?: string | null
   lane: FinancingLane
+  nextCursor?: string | null
   stats: {
     blocked: number
     count: number
     totalAmount: number
   }
+}
+
+export type FinancingItemRead = {
+  cache?: ReadCache
+  item: FinancingItem
+  lane: FinancingLane
 }
 
 export type FinancingCommandResult = {

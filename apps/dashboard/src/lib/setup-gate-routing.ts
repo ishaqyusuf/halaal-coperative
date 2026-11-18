@@ -10,7 +10,6 @@ export const initialMigrationSetupPaths = [
   "/settings/finance/migration",
   "/settings/imports",
   "/settings/profile",
-  "/settings/platform-documents",
 ]
 
 export const navigationLockedAfterSetupLabel = "After setup"

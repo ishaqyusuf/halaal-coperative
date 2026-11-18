@@ -68,15 +68,40 @@ export type ProjectFinancingProject = {
   updatedAt: string
 }
 
+type ProjectFinancingReadCache = {
+  ageMs: number
+  cachedAt: string
+  scope: string
+  status: "live" | "stale"
+}
+
+/** Summary card and lane counts (T21, `projectFinancingOperations.summary`). */
+export type ProjectFinancingSummary = {
+  activeCount: number
+  activationReady: number
+  blockedCount: number
+  cache?: ProjectFinancingReadCache
+  closedCount: number
+  currencyCode: string
+  generatedAt: string
+  outstandingPrincipal: number
+  readyCount: number
+  releaseReady: number
+  totalProjects: number
+}
+
 export type ProjectFinancingWorkspace = {
-  attention: ProjectFinancingProject[]
+  /** Only in the legacy (no `limit`) response. */
+  attention?: ProjectFinancingProject[]
+  cache?: ProjectFinancingReadCache
   capabilities: ProjectFinancingCapabilities
   currencyCode: string
   generatedAt: string
   lane: ProjectFinancingLane
   nextCursor: string | null
   projects: ProjectFinancingProject[]
-  summary: {
+  /** Only in the legacy (no `limit`) response. */
+  summary?: {
     blockedCount: number
     closedCount: number
     outstandingPrincipal: number

@@ -514,77 +514,57 @@ export async function checkTenantSignupAvailability(input: {
     }
   }
 
-  const [
-    existingTenantByCodePrefix,
-    existingTenantByName,
-    existingTenantBySlug,
-    existingDomain,
-  ] = await Promise.all([
-    normalizedCodePrefix
-      ? prisma.tenant.findUnique({
-          where: { cooperativeCodePrefix: normalizedCodePrefix },
-          select: { id: true },
-        })
-      : null,
-    normalizedName
-      ? prisma.tenant.findFirst({
-          where: {
-            name: {
-              equals: normalizedName,
-              mode: "insensitive",
-            },
-          },
-          select: {
-            id: true,
-          },
-        })
-      : null,
-    normalizedSlug
-      ? prisma.tenant.findUnique({
-          where: {
-            slug: normalizedSlug,
-          },
-          select: {
-            id: true,
-          },
-        })
-      : null,
-    hostname
-      ? prisma.tenantDomain.findUnique({
-          where: {
-            hostname,
-          },
-          select: {
-            id: true,
-          },
-        })
-      : null,
-  ])
+  const canUsePrefix = /^[A-Z]{3,5}$/.test(normalizedCodePrefix)
+  const canUseSlug = Boolean(normalizedSlug) && !isReservedSlug
+  const [conflicts] =
+    normalizedName || canUsePrefix || canUseSlug
+      ? await prisma.$queryRaw<
+          { nameTaken: boolean; prefixTaken: boolean; workspaceTaken: boolean }[]
+        >`
+          SELECT
+            EXISTS (
+              SELECT 1 FROM tenants
+              WHERE name ILIKE ${normalizedName || null}
+            ) AS "nameTaken",
+            EXISTS (
+              SELECT 1 FROM tenants
+              WHERE cooperative_code_prefix = ${canUsePrefix ? normalizedCodePrefix : null}
+            ) AS "prefixTaken",
+            (
+              EXISTS (SELECT 1 FROM tenants WHERE slug = ${canUseSlug ? normalizedSlug : null})
+              OR EXISTS (SELECT 1 FROM tenant_domains WHERE hostname = ${canUseSlug ? hostname : null})
+            ) AS "workspaceTaken"
+        `
+      : []
 
   return {
     cooperativeCodePrefix: {
-      available:
-        /^[A-Z]{3,5}$/.test(normalizedCodePrefix) &&
-        !existingTenantByCodePrefix,
+      available: canUsePrefix && !conflicts?.prefixTaken,
       normalized: normalizedCodePrefix,
     },
     cooperativeName: {
-      available: Boolean(normalizedName) && !existingTenantByName,
+      available: Boolean(normalizedName) && !conflicts?.nameTaken,
       normalized: normalizedName,
     },
     workspaceSlug: {
-      available:
-        Boolean(normalizedSlug) &&
-        !isReservedSlug &&
-        !existingTenantBySlug &&
-        !existingDomain,
+      available: canUseSlug && !conflicts?.workspaceTaken,
       hostname,
       normalized: normalizedSlug,
     },
   }
 }
 
-export async function getTenantByIdAsync(tenantId: string) {
+export async function getTenantByIdAsync(
+  tenantId: string,
+  options: {
+    /**
+     * Count the tenant's members (`memberCount`). Sign-in and other hot
+     * auth paths pass false: they never read the count, and counting grows
+     * with the cooperative. Without it `memberCount` is 0.
+     */
+    withMemberCount?: boolean
+  } = {}
+) {
   const prisma = createPrismaClient()
 
   if (!prisma) {
@@ -595,9 +575,9 @@ export async function getTenantByIdAsync(tenantId: string) {
     where: {
       id: tenantId,
     },
-    include: {
-      _count: { select: { members: true } },
-    },
+    ...(options.withMemberCount === false
+      ? {}
+      : { include: { _count: { select: { members: true } } } }),
   })
 
   return tenant ? mapPrismaTenantRecord(tenant) : null
@@ -627,7 +607,11 @@ export async function findTenantBySlugAsync(slug: string | null | undefined) {
 }
 
 export async function findTenantByCooperativeCodePrefixAsync(
-  cooperativeCodePrefix: string | null | undefined
+  cooperativeCodePrefix: string | null | undefined,
+  options: {
+    /** See `getTenantByIdAsync`: public auth paths pass false. */
+    withMemberCount?: boolean
+  } = {}
 ) {
   const normalizedPrefix = normalizeCooperativeCodePrefix(cooperativeCodePrefix)
   if (!normalizedPrefix) return null
@@ -643,9 +627,9 @@ export async function findTenantByCooperativeCodePrefixAsync(
 
   const tenant = await prisma.tenant.findUnique({
     where: { cooperativeCodePrefix: normalizedPrefix },
-    include: {
-      _count: { select: { members: true } },
-    },
+    ...(options.withMemberCount === false
+      ? {}
+      : { include: { _count: { select: { members: true } } } }),
   })
 
   return tenant ? mapPrismaTenantRecord(tenant) : null
@@ -1089,89 +1073,10 @@ export async function createTenantCustomDomain(input: {
   return mapTenantDomainRecord(domain)
 }
 
-export async function setTenantDomainPrimary(input: {
-  actorUserId: string
-  domainId: string
-  tenantId: string
-}) {
-  const prisma = createPrismaClient()
-
-  if (!prisma) {
-    throw new Error("Database not configured")
-  }
-
-  return prisma.$transaction(async (tx) => {
-    const domain = await tx.tenantDomain.findFirst({
-      where: {
-        id: input.domainId,
-        tenantId: input.tenantId,
-      },
-    })
-
-    if (!domain) {
-      throw ExpectedQueryError.notFound("Domain not found")
-    }
-
-    if (domain.kind === "custom" && domain.verificationStatus !== "verified") {
-      throw ExpectedQueryError.precondition(
-        "Custom domains must be verified before they can become primary."
-      )
-    }
-
-    const scopedDomains = await tx.tenantDomain.findMany({
-      where: {
-        tenantId: input.tenantId,
-      },
-      select: {
-        id: true,
-      },
-    })
-
-    const scopedDomainIds = scopedDomains.map((item) => item.id)
-
-    await tx.tenantDomain.updateMany({
-      where: {
-        id: {
-          in: scopedDomainIds,
-        },
-      },
-      data: {
-        isPrimary: false,
-      },
-    })
-
-    const updated = await tx.tenantDomain.update({
-      where: {
-        id: domain.id,
-      },
-      data: {
-        isPrimary: true,
-      },
-    })
-
-    await tx.auditLog.create({
-      data: {
-        action: "tenant_domain.primary_set",
-        actorType: "user",
-        actorUserId: input.actorUserId,
-        entityId: updated.id,
-        entityType: "TenantDomain",
-        metadata: {
-          hostname: updated.hostname,
-          kind: updated.kind,
-        },
-        occurredAt: new Date(),
-        tenantId: input.tenantId,
-      },
-    })
-
-    return mapTenantDomainRecord(updated)
-  })
-}
-
 /**
- * Removes a cooperative's own web address. The Halaalvest address and the
- * main address can't be removed (make another address the main one first).
+ * Removes a cooperative's own web address. The Halaalvest address can't be
+ * removed. (isPrimary is display-only and no longer set from the dashboard,
+ * so it doesn't block removal.)
  */
 export async function removeTenantCustomDomain(
   input: {
@@ -1202,12 +1107,6 @@ export async function removeTenantCustomDomain(
     if (domain.kind !== "custom") {
       throw ExpectedQueryError.precondition(
         "Your Halaalvest address can't be removed."
-      )
-    }
-
-    if (domain.isPrimary) {
-      throw ExpectedQueryError.precondition(
-        "This is your main address. Make another address the main one first."
       )
     }
 

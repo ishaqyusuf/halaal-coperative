@@ -90,7 +90,7 @@ export const reportExports: ReportExport[] = [
     group: "loans",
     href: "/reports/loans-export",
     key: "loans",
-    line: "Loan requests and loans being repaid.",
+    line: "Loans by the day paid out; requests not paid out yet by the day asked.",
     title: "Loans",
   },
   {

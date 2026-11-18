@@ -9,7 +9,6 @@ export const PRODUCTION_QA_NEGATIVE_JOURNEY_CONTRACT_VERSION = 1 as const
 export const PRODUCTION_QA_NEGATIVE_CATEGORIES = [
   "offline_write_blocking",
   "stale_state_rejection",
-  "entitlement_limits",
   "operation_profile_modes",
   "role_boundaries",
   "cross_tenant_denial",
@@ -130,30 +129,6 @@ export const PRODUCTION_QA_NEGATIVE_JOURNEYS = [
           "Android keeps the server value, explains the refresh requirement, and offers one recovery action.",
         expectation: "CONFLICT",
         key: "android-stale",
-      }),
-    ],
-  },
-  {
-    category: "entitlement_limits",
-    fixturePrerequisites: ["active_member_capacity_reached"],
-    key: "member-capacity-limit",
-    role: "tenant_admin",
-    scenarioKey: "starter-capacity",
-    steps: [
-      apiStep({
-        contract: "mobile.admin.members.create",
-        evidence:
-          "Creating another active member is denied by the current subscription capacity.",
-        expectation: "PERMISSION_DENIED",
-        key: "reject-member-create",
-        operation: "mutation",
-      }),
-      androidStep({
-        contract: "admin/members-capacity-limit",
-        evidence:
-          "Android retains the directory and presents the plan-capacity recovery path without claiming creation.",
-        expectation: "PERMISSION_DENIED",
-        key: "android-capacity",
       }),
     ],
   },

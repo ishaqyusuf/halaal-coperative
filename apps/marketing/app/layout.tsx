@@ -11,7 +11,7 @@ import {
   marketingSiteUrl,
 } from "@/lib/social-metadata"
 import "./readability.css"
-import "./one-place-v4.css"
+import "./homepage.css"
 
 const hedvigSans = Hedvig_Letters_Sans({
   weight: "400",

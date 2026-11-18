@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import { buildBackfillDraft } from "./generator"
+import {
+  groupRowsByEffectiveDateSegment,
+  projectBackfillDraftToMemberLedgerRows,
+} from "./migration"
 
 describe("backfill draft generator", () => {
   test("uses loan-period savings and principal-only opening balance while a legacy loan is active", () => {
@@ -305,5 +309,58 @@ describe("backfill draft generator", () => {
       netDeposit: 4400,
       share: 600,
     })
+  })
+  // Triage 1.10: defaulting rules are deferred. A month with no record is
+  // "no record": never a default, a missed payment or a pause.
+  test("a month with no record is never a default or a missed payment", () => {
+    const draft = buildBackfillDraft({
+      amountLogs: [{ amount: 15000, effectiveFrom: "2025-03" }],
+      chargeDefinitions: [],
+      defaultShareVersions: [{ amount: 0, effectiveFrom: "2025-01" }],
+      endMonth: "2025-05",
+      loanEvents: [],
+      memberJoinedMonth: "2025-01",
+      startMonth: "2025-01",
+    })
+
+    expect(draft.rows.map((row) => row.status)).toEqual([
+      "active",
+      "active",
+      "active",
+      "active",
+      "active",
+    ])
+    expect(draft.rows.some((row) => row.statusReason !== undefined)).toBe(
+      false
+    )
+    // No commitment recorded for Jan–Feb: nothing is expected of the member.
+    expect(draft.rows.slice(0, 2).map((row) => row.amount)).toEqual([0, 0])
+    expect(draft.rows[2]?.amount).toBe(15000)
+
+    const segments = groupRowsByEffectiveDateSegment(
+      projectBackfillDraftToMemberLedgerRows(draft)
+    )
+    expect(
+      segments.flatMap((segment) => segment.reasonList)
+    ).not.toContain("Defaulting")
+  })
+
+  test("only a saved missed month reads as defaulting", () => {
+    const draft = buildBackfillDraft({
+      amountLogs: [{ amount: 15000, effectiveFrom: "2025-01" }],
+      chargeDefinitions: [],
+      defaultShareVersions: [{ amount: 0, effectiveFrom: "2025-01" }],
+      endMonth: "2025-03",
+      loanEvents: [],
+      memberJoinedMonth: "2025-01",
+      rowAdjustments: [{ month: "2025-02", status: "missed" }],
+      startMonth: "2025-01",
+    })
+
+    expect(draft.rows.map((row) => row.status)).toEqual([
+      "active",
+      "missed",
+      "active",
+    ])
   })
 })

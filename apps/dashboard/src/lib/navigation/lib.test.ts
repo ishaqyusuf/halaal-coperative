@@ -45,21 +45,6 @@ describe("dashboard navigation operation profile filtering", () => {
 
     expect(hrefs).toContain("/loans")
   })
-
-  test("makes current platform documents reachable to members and staff", () => {
-    for (const role of [
-      "member",
-      "finance_officer",
-      "operations_officer",
-      "tenant_admin",
-      "super_admin",
-    ] as const) {
-      expect(visibleHrefs([], role)).toContain("/settings/platform-documents")
-      expect(canAccessDashboardPath("/settings/platform-documents", role)).toBe(
-        true
-      )
-    }
-  })
 })
 
 describe("dashboard navigation route titles", () => {

@@ -27,6 +27,7 @@ export type MobileFoodPurchaseApplication = {
     releasedAmount: number
     status: string
   }
+  goodsReleasedAt?: string | null
   id: string
   itemDescription: string | null
   paidAmount: number
@@ -40,6 +41,7 @@ export type MobileFoodPurchaseApplication = {
 }
 
 export type MobileMemberFoodPurchase = {
+  activeRequest?: MobileFoodPurchaseApplication | null
   applicationNextCursor: string | null
   applications: MobileFoodPurchaseApplication[]
   cache?: MobileReadCacheState

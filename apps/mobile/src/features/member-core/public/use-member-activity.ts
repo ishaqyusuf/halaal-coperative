@@ -1,58 +1,76 @@
+import { appQueryKey, useAppInfiniteQuery } from "@/hooks/use-app-query"
 import {
   getMemberActivityPage,
   type MemberCoreCachedActivityPage,
 } from "../api/member-core-api"
 import type {
-  MemberActivityHistoryState,
   MobileMemberActivityKind,
+  MobileMemberActivityRow,
+  MobileStatementActivityCategory,
 } from "../model/member-core-types"
-import { useInfiniteQuery } from "@tanstack/react-query"
-import { useMemo } from "react"
 
 export function useMemberActivity(input: {
+  category?: MobileStatementActivityCategory
   enabled: boolean
   kind: MobileMemberActivityKind
   membershipId?: string
   tenantId?: string
   userId?: string
-}): MemberActivityHistoryState {
-  const query = useInfiniteQuery({
+}) {
+  const query = useAppInfiniteQuery({
     enabled: input.enabled,
-    getNextPageParam: (lastPage: MemberCoreCachedActivityPage) =>
-      lastPage.nextCursor ?? undefined,
+    getNextPageParam: (page: MemberCoreCachedActivityPage) =>
+      page.cache.status === "live" ? (page.nextCursor ?? undefined) : undefined,
     initialPageParam: null as string | null,
     networkMode: "always",
+    // A previous key can belong to a different member or category.
+    placeholderData: undefined,
     queryFn: ({ pageParam }) =>
-      getMemberActivityPage({ cursor: pageParam, kind: input.kind }),
-    queryKey: [
-      "mobile",
+      getMemberActivityPage({
+        category: input.category,
+        cursor: pageParam,
+        kind: input.kind,
+      }),
+    queryKey: appQueryKey(
       "member-core",
       "activity",
-      input.kind,
       input.tenantId,
       input.userId,
       input.membershipId,
-    ],
-    retry: false,
+      input.kind,
+      input.category
+    ),
+    selectItems: (
+      page: MemberCoreCachedActivityPage
+    ): MobileMemberActivityRow[] => page.items,
   })
-  const rows = useMemo(
-    () =>
-      query.data?.pages.flatMap(
-        (page: MemberCoreCachedActivityPage) => page.items
-      ) ?? [],
-    [query.data?.pages]
-  )
-  const { fetchNextPage } = query
+  const firstPage = query.data?.pages[0]
+  const unavailable = firstPage?.state === "database_unavailable"
 
   return {
-    error: query.isError ? "Member activity is unavailable." : null,
+    cache: firstPage?.cache,
+    error:
+      (query.isError &&
+        (input.kind === "shares" || !query.isFetchNextPageError)) ||
+      unavailable
+        ? "Member activity is unavailable."
+        : null,
     hasNextPage: Boolean(query.hasNextPage),
     isFetchingNextPage: query.isFetchingNextPage,
     isLoading: input.enabled && query.isPending,
+    isRefreshing: query.isRefetching,
     onLoadMore: () => {
-      if (!query.hasNextPage || query.isFetchingNextPage) return
-      void fetchNextPage()
+      if (!query.isFetching) query.onEndReached()
     },
-    rows,
+    onRefresh: () => {
+      if (input.enabled) void query.refetch()
+    },
+    pageError: query.isFetchNextPageError,
+    retryPage: () => {
+      if (query.hasNextPage && !query.isFetching) void query.fetchNextPage()
+    },
+    rows: query.items,
   }
 }
+
+export type MemberActivityRead = ReturnType<typeof useMemberActivity>

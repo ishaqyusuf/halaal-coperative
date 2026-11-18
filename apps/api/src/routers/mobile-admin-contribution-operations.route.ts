@@ -3,6 +3,7 @@ import {
   closeMobileMemberContributionPlan,
   getMobileAdminContributionBatch,
   getMobileAdminContributionMemberWorkspace,
+  getMobileAdminContributionSummary,
   getMobileAdminContributionWorkspace,
   mobileAdminContributionLanes,
   postMobileCollectionSourceBatchRows,
@@ -34,7 +35,9 @@ export function getMobileAdminContributionCapabilities(
 }
 
 const workspaceInput = z.object({
-  cursor: z.string().nullable().optional(),
+  cursor: z.string().trim().max(80).nullable().optional(),
+  /** Current builds read the summary once; older builds omit this (true). */
+  includeSummary: z.boolean().optional(),
   lane: z.enum(mobileAdminContributionLanes),
   search: z.string().trim().max(120).optional(),
 })
@@ -58,6 +61,15 @@ const rowUpdate = z
 
 export const mobileAdminContributionProcedures = {
   contributions: createTRPCRouter({
+    summary: permissionProcedure("view_contribution_operations").query(
+      ({ ctx }) =>
+        getMobileAdminContributionSummary({
+          capabilities: getMobileAdminContributionCapabilities(
+            ctx.auth.activeMembership.role
+          ),
+          tenantId: ctx.tenant.current.id,
+        })
+    ),
     workspace: permissionProcedure("view_contribution_operations")
       .input(workspaceInput)
       .query(({ ctx, input }) =>

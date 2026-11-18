@@ -21,11 +21,7 @@ export type MemberCommitmentsPresentation = {
   }
 }
 
-function findMetric(
-  section: MobileMemberSection,
-  key: string,
-  label: string
-) {
+function findMetric(section: MobileMemberSection, key: string, label: string) {
   return (
     section.stats.find((metric) => metric.key === key) ??
     section.stats.find(
@@ -77,7 +73,10 @@ export function buildMemberCommitmentsPresentation(
   )
   const activeCommitmentValue = metricValue(activeCommitment)
   const contributionCountValue = metricValue(contributionCount)
-  const hasActivePlan = activeCommitmentValue > 0
+  const plan = section.rows.find((row) => row.key.startsWith("plan-"))
+  const hasActivePlan = plan
+    ? plan.status?.toLowerCase() === "active"
+    : activeCommitmentValue > 0
 
   return {
     activePlan: {
@@ -85,7 +84,11 @@ export function buildMemberCommitmentsPresentation(
         hasActivePlan && activeCommitment?.detail
           ? formatPlanDetail(activeCommitment.detail)
           : null,
-      label: hasActivePlan ? "Monthly commitment" : "No active plan",
+      label: hasActivePlan
+        ? plan?.interval && plan.interval !== "Monthly"
+          ? "Active commitment"
+          : "Monthly commitment"
+        : "No active plan",
       status: hasActivePlan ? "Active" : null,
       value: hasActivePlan
         ? formatCurrency(activeCommitmentValue, currencyCode)

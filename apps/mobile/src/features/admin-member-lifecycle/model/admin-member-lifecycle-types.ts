@@ -9,8 +9,10 @@ export type MobileAdminLifecycleQaState =
   | "empty"
   | "error"
   | "loading"
+  | "new"
   | "not-found"
   | "offline"
+  | "refresh-error"
   | "stale"
 
 export type MobileAdminMemberStatus =
@@ -87,7 +89,35 @@ export type MobileAdminMembers = {
   total: number
 }
 
+export type MobileAdminMemberDirectorySummary = Pick<
+  MobileAdminMembers,
+  | "cache"
+  | "generatedAt"
+  | "memberExpansion"
+  | "onboardingRequests"
+  | "reviewQueues"
+  | "total"
+> & {
+  statusCounts: Record<MobileAdminMemberStatus, number>
+  kycCounts: Record<MobileAdminMemberKycStatus, number>
+}
+
+export type MobileAdminMemberDirectoryPage = Pick<
+  MobileAdminMembers,
+  "cache" | "generatedAt" | "members" | "page" | "pageSize" | "total"
+>
+
+export type MemberRecentChange = {
+  actor: string | null
+  id: string
+  kind: "created" | "kyc" | "status"
+  notes: string | null
+  occurredAt: string
+  value: string | null
+}
+
 export type MobileAdminMemberDetail = {
+  recentChanges?: MemberRecentChange[]
   cache?: MobileReadCacheState
   generatedAt: string
   member:
@@ -112,16 +142,23 @@ export type MobileAdminOverview = {
   complianceWatch: { count: number; key: string; label: string }[]
   generatedAt: string
   recentActivity: {
+    /** Money moved; null for a financing request (T05 servers on). */
+    amount?: number | null
     detail: string
     id: string
+    kind?: "contribution" | "loan_request" | "repayment"
     label: string
+    memberName?: string
     occurredAt: string
+    /** Request status in words ("submitted"), or null for money moved. */
+    status?: string | null
   }[]
   stats: MobileOverviewMetric[]
   warnings: { key: string; label: string }[]
 }
 
 export type MobileAdminMembersListInput = {
+  needsReview?: boolean
   kycStatus?: MobileAdminMemberKycStatus
   page?: number
   pageSize?: number

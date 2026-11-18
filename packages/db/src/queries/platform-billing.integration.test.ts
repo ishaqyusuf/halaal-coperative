@@ -143,17 +143,17 @@ run("platform billing month close", () => {
     expect(bill.status).toBe("issued")
     expect(bill.seatFeePayer).toBe("members")
     expect(bill.lines.map((line) => [line.kind, line.amount])).toEqual([
-      ["seat_fee", 105],
+      ["seat_fee", 150],
       ["ai_overage", 30],
     ])
-    expect(bill.totalAmount).toBe(135)
+    expect(bill.totalAmount).toBe(180)
     expect(bill.chargedSeats).toBe(3)
 
-    // Accrual: platform fees 135 Dr / payable 135 Cr. Seat charges: savings
-    // 105 Dr / platform fees 105 Cr, so members carry the seat fee.
+    // Accrual: platform fees 180 Dr / payable 180 Cr. Seat charges: savings
+    // 150 Dr / platform fees 150 Cr, so members carry the seat fee.
     expect(await ledgerBalance(tenantId, "5210")).toBe(30)
-    expect(await ledgerBalance(tenantId, "2100")).toBe(-135)
-    expect(await ledgerBalance(tenantId, "1000")).toBe(105)
+    expect(await ledgerBalance(tenantId, "2100")).toBe(-180)
+    expect(await ledgerBalance(tenantId, "1000")).toBe(150)
   })
 
   it("records the chosen source on the payment posting", async () => {
@@ -163,7 +163,7 @@ run("platform billing month close", () => {
     })
     const sources = await listPlatformBillFundingSources(tenantId, db!)
     const seatCharge = sources.find((source) => source.name === "Platform seat fee")
-    expect(seatCharge).toMatchObject({ type: "charge", received: 105, paidOut: 0 })
+    expect(seatCharge).toMatchObject({ type: "charge", received: 150, paidOut: 0 })
 
     await choosePlatformBillFundingSource(
       {
@@ -203,7 +203,7 @@ run("platform billing month close", () => {
       )
     ).rejects.toThrow(/unpaid bill/)
     const after = await listPlatformBillFundingSources(tenantId, db!)
-    expect(after.find((source) => source.id === seatCharge!.id)?.paidOut).toBe(135)
+    expect(after.find((source) => source.id === seatCharge!.id)?.paidOut).toBe(180)
   })
 
   it("charges no members when the cooperative pays", async () => {
@@ -214,8 +214,8 @@ run("platform billing month close", () => {
     )
     expect(closed?.seatCharges).toBe(0)
     const bill = await getPlatformBill({ tenantId, billId: closed!.billId }, db!)
-    expect(bill.totalAmount).toBe(70)
-    expect(await ledgerBalance(tenantId, "5210")).toBe(70)
+    expect(bill.totalAmount).toBe(100)
+    expect(await ledgerBalance(tenantId, "5210")).toBe(100)
     expect(await ledgerBalance(tenantId, "1000")).toBe(0)
   })
 })

@@ -122,6 +122,9 @@ export function BusinessList({ canRecord }: { canRecord: boolean }) {
                     >
                       {word.label}
                     </Badge>
+                    {business.isAutomatic ? (
+                      <Badge variant="outline">Added automatically</Badge>
+                    ) : null}
                   </span>
                   <span className="mt-1 block text-base text-muted-foreground">
                     {formatBusinessDates(business.startDate, business.endDate)}

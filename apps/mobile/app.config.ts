@@ -93,8 +93,8 @@ const variantConfig = isDevelopmentBuild
       iosBundleIdentifier: "com.halaalvest.mobile.dev",
       androidPackage: "com.halaalvest.mobile.dev",
       iconBackgroundColor: "#FFF1CC",
-      splashBackgroundColor: "#FFF2C7",
-      splashDarkBackgroundColor: "#2A240E",
+      splashBackgroundColor: "#F3F6F5",
+      splashDarkBackgroundColor: "#0E0F0F",
       icons: {
         app: "./assets/icons/dev-app-icon.png",
         adaptive: "./assets/icons/dev-adaptive-icon.png",
@@ -111,8 +111,8 @@ const variantConfig = isDevelopmentBuild
         iosBundleIdentifier: "com.halaalvest.mobile.preview",
         androidPackage: "com.halaalvest.mobile.preview",
         iconBackgroundColor: "#EAF2FF",
-        splashBackgroundColor: "#E6F7F2",
-        splashDarkBackgroundColor: "#14201A",
+        splashBackgroundColor: "#F3F6F5",
+        splashDarkBackgroundColor: "#0E0F0F",
         icons: {
           app: "./assets/icons/preview-app-icon.png",
           adaptive: "./assets/icons/preview-adaptive-icon.png",
@@ -131,8 +131,8 @@ const variantConfig = isDevelopmentBuild
             : undefined,
         androidPackage: "com.halaalvest.mobile",
         iconBackgroundColor: "#F7FAF7",
-        splashBackgroundColor: "#F7FAF7",
-        splashDarkBackgroundColor: "#071B2C",
+        splashBackgroundColor: "#F3F6F5",
+        splashDarkBackgroundColor: "#0E0F0F",
         icons: {
           app: "./assets/icons/app-icon.png",
           adaptive: "./assets/icons/adaptive-icon.png",
@@ -280,6 +280,18 @@ const config: ExpoConfig = {
       },
     ],
     [
+      // T11 receipt proof upload (added in T03's single dev-client rebuild).
+      "expo-image-picker",
+      {
+        cameraPermission:
+          "HalaalVest uses the camera so you can photograph proof for a receipt.",
+        microphonePermission: false,
+        photosPermission:
+          "HalaalVest uses your photos so you can attach proof to a receipt.",
+      },
+    ],
+    "expo-document-picker",
+    [
       "expo-splash-screen",
       {
         backgroundColor: variantConfig.splashBackgroundColor,
@@ -288,7 +300,11 @@ const config: ExpoConfig = {
           image: variantConfig.icons.splashDark,
         },
         image: variantConfig.icons.splashLight,
-        imageWidth: 200,
+        // The splash logo is already a rounded tile. At 64pt it matches the JS
+        // splash tile (bootstrap-screen.tsx), so the hand-off has no logo jump
+        // (T03). The background is the app canvas in every variant; the icons
+        // still tell dev, preview and production apart.
+        imageWidth: 64,
         resizeMode: "contain",
       },
     ],

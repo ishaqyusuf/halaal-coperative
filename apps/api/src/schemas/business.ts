@@ -22,6 +22,7 @@ export const profitSeasonIdSchema = z.object({ seasonId: z.string().uuid() })
 
 export const listProfitSeasonSharesSchema = z.object({
   cursor: z.string().nullable().optional(),
+  payout: z.enum(["owed", "paid"]).nullable().optional(),
   q: z.string().trim().max(120).nullable().optional(),
   seasonId: z.string().uuid(),
 })

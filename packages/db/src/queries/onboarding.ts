@@ -4,7 +4,6 @@ import {
   type LegalAcknowledgement,
 } from "../legal-publication"
 import { recordLegalAcceptanceInTransaction } from "./legal-acceptance"
-import type { PrismaClient } from "../../generated/prisma/client"
 import {
   buildTenantSiteHostname,
   composeCooperativeAccessCode,
@@ -16,9 +15,12 @@ import {
 } from "@halaalvest/utils"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
-import { ensureTenantLedgerAccounts } from "./ledger"
+import { insertTenantLedgerAccounts } from "./ledger"
 import { listSeedMemberships, listSeedUsers } from "./auth"
-import { ensureTenantOperationProfileDefaults } from "./operation-profile"
+import {
+  defaultTenantServiceAccessModes,
+  tenantServiceKeys,
+} from "./operation-profile"
 import {
   listSeedTenantDomains,
   getTenantById,
@@ -119,7 +121,6 @@ function toTenantRecord(input: {
   status: TenantRecord["status"]
   dataClassification: TenantRecord["dataClassification"]
   qaPurgeStartedAt?: Date | null
-  members?: { id: string }[]
 }) {
   return {
     id: input.id,
@@ -141,7 +142,7 @@ function toTenantRecord(input: {
     status: input.status,
     dataClassification: input.dataClassification,
     qaPurgeStartedAt: input.qaPurgeStartedAt?.toISOString() ?? null,
-    memberCount: input.members?.length ?? 0,
+    memberCount: 0,
   } satisfies TenantRecord
 }
 
@@ -257,62 +258,40 @@ export async function getTenantOnboardingState(tenantId: string) {
     })
   }
 
-  const tenant = await prisma.tenant.findUnique({
-    where: {
-      id: tenantId,
-    },
-    include: {
-      domains: true,
-      policies: true,
-      users: {
-        where: {
-          deletedAt: null,
-        },
-        select: {
-          id: true,
-        },
-      },
-      memberships: {
-        where: {
-          role: "tenant_admin",
-          isDefault: true,
-        },
-        select: {
-          id: true,
-        },
-      },
-      chargeDefinitions: {
-        where: {
-          isActive: true,
-        },
-        select: {
-          id: true,
-        },
-      },
-      ledgerAccounts: {
-        select: {
-          id: true,
-        },
-      },
-    },
-  })
+  const [tenant] = await prisma.$queryRaw<
+    {
+      hasWorkspaceOwner: boolean
+      hasPolicyDefaults: boolean
+      hasChargeSetup: boolean
+      hasLedgerBootstrap: boolean
+      primarySiteHostname: string | null
+    }[]
+  >`
+    SELECT
+      (SELECT hostname FROM tenant_domains
+       WHERE tenant_id = tenant.id AND kind = 'site' AND is_primary
+       LIMIT 1) AS "primarySiteHostname",
+      (EXISTS (SELECT 1 FROM users WHERE tenant_id = tenant.id AND deleted_at IS NULL)
+       AND EXISTS (SELECT 1 FROM memberships
+                   WHERE tenant_id = tenant.id AND role = 'tenant_admin' AND is_default))
+        AS "hasWorkspaceOwner",
+      EXISTS (SELECT 1 FROM tenant_policies WHERE tenant_id = tenant.id) AS "hasPolicyDefaults",
+      EXISTS (SELECT 1 FROM charge_definitions WHERE tenant_id = tenant.id AND is_active)
+        AS "hasChargeSetup",
+      EXISTS (SELECT 1 FROM ledger_accounts WHERE tenant_id = tenant.id) AS "hasLedgerBootstrap"
+    FROM tenants AS tenant
+    WHERE tenant.id = ${tenantId}::uuid
+  `
 
-  const primarySiteDomain =
-    tenant?.domains.find(
-      (domain) => domain.kind === "site" && domain.isPrimary
-    ) ?? null
   return buildTenantOnboardingSnapshot({
     hasTenantProfile: Boolean(tenant),
-    hasPrimarySiteDomain: Boolean(primarySiteDomain),
-    hasWorkspaceAccess: Boolean(primarySiteDomain),
-    hasWorkspaceOwner: Boolean(
-      tenant?.users.length && tenant.memberships.length
-    ),
-    hasPolicyDefaults: Boolean(tenant?.policies),
-    hasChargeSetup: Boolean(tenant?.chargeDefinitions.length),
-    hasLedgerBootstrap: Boolean(tenant?.ledgerAccounts.length),
-    primarySiteHostname: primarySiteDomain?.hostname ?? null,
-    primaryDashboardHostname: primarySiteDomain?.hostname ?? null,
+    hasPrimarySiteDomain: tenant?.primarySiteHostname != null,
+    hasWorkspaceAccess: tenant?.primarySiteHostname != null,
+    hasWorkspaceOwner: tenant?.hasWorkspaceOwner ?? false,
+    hasPolicyDefaults: tenant?.hasPolicyDefaults ?? false,
+    hasChargeSetup: tenant?.hasChargeSetup ?? false,
+    hasLedgerBootstrap: tenant?.hasLedgerBootstrap ?? false,
+    primarySiteHostname: tenant?.primarySiteHostname,
   })
 }
 
@@ -359,7 +338,7 @@ export async function createTenantWorkspaceBootstrap(
   if (requiresLegalAcceptance)
     validateLegalAcknowledgement(input.legalAcknowledgement)
 
-  const tenant = await prisma.$transaction(
+  const { ownerUserId, tenant } = await prisma.$transaction(
     async (tx) => {
       const existingTenant = await tx.tenant.findFirst({
         where: {
@@ -430,13 +409,6 @@ export async function createTenantWorkspaceBootstrap(
           qaMarkedAt: input.qaSourceDomain ? new Date() : null,
           qaSourceDomain: input.qaSourceDomain ?? null,
         },
-        include: {
-          members: {
-            select: {
-              id: true,
-            },
-          },
-        },
       })
 
       await tx.tenantDomain.createMany({
@@ -464,6 +436,7 @@ export async function createTenantWorkspaceBootstrap(
                 )
               : null,
         },
+        select: { id: true },
       })
 
       await tx.membership.create({
@@ -473,6 +446,7 @@ export async function createTenantWorkspaceBootstrap(
           role: "tenant_admin",
           isDefault: true,
         },
+        select: { id: true },
       })
 
       if (requiresLegalAcceptance) {
@@ -497,6 +471,7 @@ export async function createTenantWorkspaceBootstrap(
               : new Date(),
             status: "active",
           },
+          select: { id: true },
         })
       }
 
@@ -523,17 +498,22 @@ export async function createTenantWorkspaceBootstrap(
             input.allowOfflineFinancialCapture ??
             defaultBootstrapPolicy.allowOfflineFinancialCapture,
         },
+        select: { id: true },
       })
 
-      await ensureTenantOperationProfileDefaults(
-        createdTenant.id,
-        tx as unknown as PrismaClient
-      )
-
-      await ensureTenantLedgerAccounts(
-        createdTenant.id,
-        tx as unknown as PrismaClient
-      )
+      const operationProfile = await tx.tenantOperationProfile.create({
+        data: { tenantId: createdTenant.id },
+        select: { id: true },
+      })
+      await tx.tenantServiceSetting.createMany({
+        data: tenantServiceKeys.map((serviceKey) => ({
+          accessMode: defaultTenantServiceAccessModes[serviceKey],
+          operationProfileId: operationProfile.id,
+          serviceKey,
+          tenantId: createdTenant.id,
+        })),
+      })
+      await insertTenantLedgerAccounts(createdTenant.id, tx)
 
       return {
         ownerUserId: owner.id,
@@ -545,13 +525,22 @@ export async function createTenantWorkspaceBootstrap(
     }
   )
 
-  const onboarding = await getTenantOnboardingState(tenant.tenant.id)
-
   return {
-    tenant: toTenantRecord(tenant.tenant),
-    ownerUserId: tenant.ownerUserId,
+    tenant: toTenantRecord(tenant),
+    ownerUserId,
     primarySiteHostname,
     primaryDashboardHostname,
-    onboarding,
+    // These rows were created in the transaction. Charges are configured later.
+    onboarding: buildTenantOnboardingSnapshot({
+      hasTenantProfile: true,
+      hasPrimarySiteDomain: true,
+      hasWorkspaceAccess: true,
+      hasWorkspaceOwner: true,
+      hasPolicyDefaults: true,
+      hasChargeSetup: false,
+      hasLedgerBootstrap: true,
+      primarySiteHostname,
+      primaryDashboardHostname,
+    }),
   }
 }

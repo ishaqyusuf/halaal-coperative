@@ -1,3 +1,4 @@
+import type { RequestFilter } from "@/features/member-service-requests/public/request-filter"
 import { isMobileDevFixtureSession } from "@/dev/mobile-dev-session"
 import {
   createDevFoodPurchaseApplication,
@@ -25,8 +26,10 @@ export async function getMobileMemberFoodPurchase() {
 }
 
 export async function getMobileMemberFoodPurchaseApplications(input: {
-  cursor: string
+  cursor?: string
+  filter?: RequestFilter
   pageSize?: number
+  search?: string
 }) {
   if (isMobileDevFixtureSession()) {
     return {

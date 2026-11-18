@@ -2,11 +2,18 @@ import type {
   RepaymentCommandResult,
   RepaymentFacility,
   RepaymentLane,
+  RepaymentSummary,
   RepaymentWorkspace,
   RepaymentWorkspaceItem,
 } from "../model/admin-repayment-operations-types"
 
 const now = new Date()
+
+/** Dev-only switch for device QA of the empty and error lane states. */
+let fixtureMode: "empty" | "error" | "normal" = "normal"
+export function setDevRepaymentFixtureMode(mode: typeof fixtureMode) {
+  fixtureMode = mode
+}
 const isoDaysFromNow = (days: number) => {
   const value = new Date(now)
   value.setUTCDate(value.getUTCDate() + days)
@@ -64,9 +71,56 @@ const dueItems: RepaymentWorkspaceItem[] = [
   },
 ]
 
+// Enough rows for the floating search (more than 10) and grouped sections.
+const extraMembers: [string, string, number][] = [
+  ["Halima Garba", "QHC-0311", 41],
+  ["Musa Abdullahi", "QHC-0187", 33],
+  ["Bashir Aliyu", "QHC-0254", 19],
+  ["Aisha Bello", "QHC-0042", 6],
+  ["Ibrahim Yusuf", "QHC-0007", 0],
+  ["Idris Bello", "QHC-0071", -2],
+  ["Hadiza Umar", "QHC-0316", -5],
+  ["Khadija Sanni", "QHC-0115", -9],
+  ["Usman Danjuma", "QHC-0245", -14],
+  ["Safiya Mustapha", "QHC-0182", -21],
+]
+dueItems.push(
+  ...extraMembers.map(([name, number, aging], index) => {
+    const suffix = String(index).padStart(2, "0")
+    return {
+      agingDays: Math.max(0, aging),
+      amount: [37_500, 25_000, 12_500, 50_000][index % 4]!,
+      dueAt: isoDaysFromNow(-aging),
+      id: `66666666-6666-4666-8666-6666666666${suffix}`,
+      installmentNumber: 2 + (index % 5),
+      lane: "due" as const,
+      latestFollowUp:
+        index === 0
+          ? { nextActionAt: isoDaysFromNow(1), priority: "high", status: "unreachable" }
+          : index === 1
+            ? { nextActionAt: isoDaysFromNow(3), priority: "high", status: "promise_to_pay" }
+            : null,
+      loan: {
+        id: `77777777-7777-4777-8777-7777777777${suffix}`,
+        outstandingPrincipal: 150_000 + index * 25_000,
+        productName: index % 2 ? "Murabaha · Appliances" : "Qard hasan",
+        status: "active",
+      },
+      member: {
+        id: `88888888-8888-4888-8888-8888888888${suffix}`,
+        name,
+        number,
+      },
+      reference: null,
+      state: aging > 0 ? "overdue" : aging === 0 ? "due" : "pending",
+    }
+  })
+)
+dueItems.sort((left, right) => left.dueAt.localeCompare(right.dueAt))
+
 const postedItems: RepaymentWorkspaceItem[] = [
   {
-    ...dueItems[0]!,
+    ...dueItems.find((item) => item.member.number === "HV-1021")!,
     agingDays: 0,
     amount: 25_000,
     dueAt: isoDaysFromNow(-1),
@@ -83,6 +137,7 @@ export async function getDevRepaymentWorkspace(input: {
   lane: RepaymentLane
   search?: string
 }): Promise<RepaymentWorkspace> {
+  if (fixtureMode === "error") throw new Error("Dev fixture: lane unavailable")
   const source =
     input.lane === "posted"
       ? postedItems
@@ -90,7 +145,7 @@ export async function getDevRepaymentWorkspace(input: {
         ? dueItems.filter((item) => item.agingDays > 0)
         : dueItems
   const query = input.search?.trim().toLowerCase()
-  const items = query
+  const items = fixtureMode === "empty" ? [] : query
     ? source.filter((item) =>
         [item.member.name, item.member.number, item.loan.productName]
           .join(" ")
@@ -104,14 +159,26 @@ export async function getDevRepaymentWorkspace(input: {
     generatedAt: now.toISOString(),
     items,
     lane: input.lane,
-    summary: {
-      activeFacilities: 11,
-      dueThisMonth: 520_000,
-      outstanding: 2_840_000,
-      overdue: 300_000,
-      paidPrincipal: 1_160_000,
-      principal: 4_000_000,
+    nextCursor: null,
+  }
+}
+
+export async function getDevRepaymentSummary(): Promise<RepaymentSummary> {
+  const overdue = dueItems.filter((item) => item.agingDays > 0)
+  return {
+    activeFacilities: 37,
+    counts: {
+      collections: overdue.length,
+      due: dueItems.length,
+      posted: postedItems.length,
     },
+    currencyCode: "NGN",
+    dueThisMonth: 612_500,
+    generatedAt: now.toISOString(),
+    outstanding: 4_820_000,
+    overdue: overdue.reduce((sum, item) => sum + item.amount, 0),
+    paidPrincipal: 2_310_000,
+    principal: 7_130_000,
   }
 }
 
@@ -120,6 +187,7 @@ export async function getDevRepaymentFacility(
 ): Promise<RepaymentFacility> {
   const item = dueItems.find((row) => row.loan.id === loanId) ?? dueItems[0]!
   return {
+    counts: { followUps: 1, repayments: 1 },
     collectionFollowUps: [
       {
         actorName: "Ishaq Yusuf",
@@ -149,8 +217,10 @@ export async function getDevRepaymentFacility(
       totalDue: item.amount,
     },
     outstandingPrincipal: item.loan.outstandingPrincipal,
-    paidPrincipal: 100_000,
-    principalAmount: item.loan.outstandingPrincipal + 100_000,
+    paidPrincipal: ((item.installmentNumber ?? 1) - 1) * item.amount,
+    principalAmount:
+      item.loan.outstandingPrincipal +
+      ((item.installmentNumber ?? 1) - 1) * item.amount,
     productName: item.loan.productName,
     repayments: [
       {
@@ -162,18 +232,33 @@ export async function getDevRepaymentFacility(
         status: "posted",
       },
     ],
-    schedule: Array.from({ length: 4 }, (_, index) => ({
-      agingDays: index === 0 ? item.agingDays : 0,
-      amountPaid: index === 0 ? 0 : 25_000,
-      dueAt: isoDaysFromNow((index - 1) * 30),
-      id: index === 0 ? item.id : `55555555-5555-4555-8555-55555555555${index}`,
-      installmentNumber: index + 1,
-      outstandingAmount: index === 0 ? item.amount : 0,
-      state: index === 0 ? item.state : "paid",
-      totalDue: 25_000,
-    })),
+    schedule: Array.from({ length: 6 }, (_, index) => {
+      const number = index + 1
+      const current = item.installmentNumber ?? 1
+      const offset = number - current
+      return {
+        agingDays: offset === 0 ? item.agingDays : 0,
+        amountPaid: offset < 0 ? item.amount : 0,
+        dueAt:
+          offset === 0
+            ? item.dueAt
+            : isoDaysFromNow(
+                offset < 0
+                  ? offset * 30 - item.agingDays
+                  : Math.max(offset * 30 - item.agingDays, offset * 9)
+              ),
+        id:
+          offset === 0
+            ? item.id
+            : `55555555-5555-4555-8555-55555555555${index}`,
+        installmentNumber: number,
+        outstandingAmount: offset < 0 ? 0 : item.amount,
+        state: offset < 0 ? "paid" : offset === 0 ? item.state : "pending",
+        totalDue: item.amount,
+      }
+    }),
     state: item.loan.status,
-    termMonths: 12,
+    termMonths: 6,
     updatedAt: now.toISOString(),
   }
 }

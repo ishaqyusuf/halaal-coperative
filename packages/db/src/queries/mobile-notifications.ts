@@ -1,4 +1,4 @@
-import type { PrismaClient } from "../../generated/prisma/client"
+import { Prisma, type PrismaClient } from "../../generated/prisma/client"
 import { createHash } from "node:crypto"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
@@ -16,6 +16,7 @@ import {
 
 export type MobileFeatureNotificationDelivery = {
   action: MobileNotificationAction
+  channel?: "push" | "email"
   entityId: string | null
   errorMessage: string | null
   id: string
@@ -89,14 +90,16 @@ function deliveryStatus(
 
 function metadataNotificationAction(metadata: unknown) {
   const value = metadataString(metadata, "action")
-  return value && MOBILE_NOTIFICATION_ACTIONS.includes(value as MobileNotificationAction)
+  return value &&
+    MOBILE_NOTIFICATION_ACTIONS.includes(value as MobileNotificationAction)
     ? (value as MobileNotificationAction)
     : null
 }
 
 function metadataNotificationRole(metadata: unknown) {
   const value = metadataString(metadata, "intendedRole")
-  return value && MOBILE_NOTIFICATION_ROLES.includes(value as MobileNotificationRole)
+  return value &&
+    MOBILE_NOTIFICATION_ROLES.includes(value as MobileNotificationRole)
     ? (value as MobileNotificationRole)
     : null
 }
@@ -130,7 +133,6 @@ function safeCopy(type: string) {
 export const MOBILE_NOTIFICATION_PAGE_SIZE = 25
 
 type NotificationCenterInput = {
-  memberLoginEnabled: boolean
   mobileDeviceSessionId?: string | null
   role: MembershipRole
   tenantId: string
@@ -171,6 +173,175 @@ function isOwnDelivery(
   )
 }
 
+type NotificationInboxScope = {
+  emails: string[]
+  role: MembershipRole
+  tenantId: string
+  userId: string
+}
+
+function inboxScope(input: NotificationInboxScope) {
+  return Prisma.sql`
+    d.tenant_id = ${input.tenantId}::uuid
+    AND d.action LIKE 'notification.%'
+    AND (
+      NULLIF(BTRIM(d.metadata->>'intendedRole'), '') IS NULL
+      OR NOT (d.metadata->>'intendedRole' = ANY(${[...MOBILE_NOTIFICATION_ROLES]}::text[]))
+      OR d.metadata->>'intendedRole' = ${input.role}
+    )
+    AND (
+      d.metadata->>'recipientUserId' = ${input.userId}
+      OR (
+        NULLIF(BTRIM(d.metadata->>'recipientUserId'), '') IS NULL
+        AND d.metadata->>'recipient' = ANY(${input.emails}::text[])
+      )
+    )`
+}
+
+function inboxReadMarker(userId: string) {
+  return Prisma.sql`EXISTS (
+    SELECT 1 FROM audit_logs r
+    WHERE r.tenant_id = d.tenant_id
+      AND r.action = 'mobile.notification.read'
+      AND r.actor_user_id = ${userId}::uuid
+      AND r.entity_id = d.id::text
+  )`
+}
+
+type NotificationPageOptions = {
+  cursor?: string | null
+  limit?: number
+  unreadOnly?: boolean
+}
+
+export async function getMobileNotificationPage(
+  input: NotificationCenterInput & NotificationPageOptions,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) return { deliveries: [], nextCursor: null }
+  const limit = Math.min(
+    Math.max(input.limit ?? MOBILE_NOTIFICATION_PAGE_SIZE, 1),
+    50
+  )
+  const readMarker = inboxReadMarker(input.userId)
+  const rows = await prisma.$queryRaw<
+    Array<{
+      action: string
+      id: string
+      metadata: unknown
+      occurredAt: Date
+      isRead: boolean
+    }>
+  >`
+    SELECT d.action, d.id, d.metadata, d.occurred_at AS "occurredAt",
+      ${input.unreadOnly ? Prisma.sql`FALSE` : readMarker} AS "isRead"
+    FROM audit_logs d
+    WHERE ${inboxScope({ ...input, emails: recipientEmailVariants(input.userEmail) })}
+      ${
+        input.cursor
+          ? Prisma.sql`AND (d.occurred_at, d.id) < (
+        SELECT c.occurred_at, c.id FROM audit_logs c
+        WHERE c.id = ${input.cursor}::uuid AND c.tenant_id = d.tenant_id
+      )`
+          : Prisma.empty
+      }
+      ${input.unreadOnly ? Prisma.sql`AND NOT ${readMarker}` : Prisma.empty}
+    ORDER BY d.occurred_at DESC, d.id DESC
+    LIMIT ${limit + 1}
+  `
+  const page = rows.slice(0, limit)
+  return {
+    deliveries: page.map((log) => presentDelivery(log, log.isRead)),
+    nextCursor: rows.length > limit ? (page.at(-1)?.id ?? null) : null,
+  }
+}
+
+export async function markAllMobileNotificationsRead(
+  input: NotificationCenterInput,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma)
+    throw new Error(
+      "Notifications are unavailable without database configuration."
+    )
+  return prisma.$transaction(async (tx) => {
+    const unread = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT d.id
+      FROM audit_logs d
+      WHERE ${inboxScope({ ...input, emails: recipientEmailVariants(input.userEmail) })}
+        AND NOT ${inboxReadMarker(input.userId)}
+      ORDER BY d.id
+    `
+    let markedCount = 0
+    const occurredAt = new Date()
+    // Keep each insert bounded and use the same IDs as the individual command.
+    for (let start = 0; start < unread.length; start += 250) {
+      const { count } = await tx.auditLog.createMany({
+        data: unread
+          .slice(start, start + 250)
+          .map(({ id }) =>
+            readAuditData(input.tenantId, input.userId, id, occurredAt)
+          ),
+        skipDuplicates: true,
+      })
+      markedCount += count
+    }
+    return { markedCount }
+  })
+}
+
+function readAuditData(
+  tenantId: string,
+  actorUserId: string,
+  entityId: string,
+  occurredAt: Date
+) {
+  return {
+    action: "mobile.notification.read",
+    actorType: "user" as const,
+    actorUserId,
+    entityId,
+    entityType: "NotificationDelivery",
+    id: deriveMobileNotificationReadAuditId(tenantId, actorUserId, entityId),
+    metadata: { readFrom: "mobile" },
+    occurredAt,
+    tenantId,
+  }
+}
+
+function presentDelivery(
+  log: { action: string; id: string; metadata: unknown; occurredAt: Date },
+  isRead: boolean
+): MobileFeatureNotificationDelivery {
+  const notificationType =
+    metadataString(log.metadata, "notificationType") ?? "notification.email"
+  const status = deliveryStatus(log.action)
+  return {
+    action:
+      metadataNotificationAction(log.metadata) ??
+      notificationAction(notificationType),
+    ...(log.action.startsWith("notification.push_")
+      ? { channel: "push" as const }
+      : {}),
+    ...(log.action.startsWith("notification.email_")
+      ? { channel: "email" as const }
+      : {}),
+    entityId: metadataString(log.metadata, "entityId"),
+    errorMessage:
+      status === "failed" ? "Delivery could not be completed." : null,
+    id: log.id,
+    intendedRole: metadataNotificationRole(log.metadata),
+    isRead,
+    notificationType,
+    occurredAt: log.occurredAt.toISOString(),
+    ...safeCopy(notificationType),
+    source: metadataString(log.metadata, "source"),
+    status,
+  }
+}
+
 function countAsNumber(value: unknown) {
   if (typeof value === "bigint") return Number(value)
   if (typeof value === "number") return value
@@ -197,7 +368,6 @@ async function readNotificationSummaryCounts(
 ): Promise<NotificationSummaryCounts | null> {
   const raw = prisma as unknown as { $queryRaw?: unknown }
   if (typeof raw.$queryRaw !== "function") return null
-  const roles = [...MOBILE_NOTIFICATION_ROLES]
   const rows = (await prisma.$queryRaw`
     SELECT
       COUNT(*) AS "totalDeliveries",
@@ -208,30 +378,9 @@ async function readNotificationSummaryCounts(
       COUNT(*) FILTER (
         WHERE d.action IN ('notification.email_sent', 'notification.push_sent')
       ) AS "sent",
-      COUNT(*) FILTER (
-        WHERE NOT EXISTS (
-          SELECT 1 FROM audit_logs r
-          WHERE r.tenant_id = d.tenant_id
-            AND r.action = 'mobile.notification.read'
-            AND r.actor_user_id = ${input.userId}::uuid
-            AND r.entity_id = d.id::text
-        )
-      ) AS "unread"
+      COUNT(*) FILTER (WHERE NOT ${inboxReadMarker(input.userId)}) AS "unread"
     FROM audit_logs d
-    WHERE d.tenant_id = ${input.tenantId}::uuid
-      AND d.action LIKE 'notification.%'
-      AND (
-        NULLIF(BTRIM(d.metadata->>'intendedRole'), '') IS NULL
-        OR NOT (d.metadata->>'intendedRole' = ANY(${roles}::text[]))
-        OR d.metadata->>'intendedRole' = ${input.role}
-      )
-      AND (
-        d.metadata->>'recipientUserId' = ${input.userId}
-        OR (
-          NULLIF(BTRIM(d.metadata->>'recipientUserId'), '') IS NULL
-          AND d.metadata->>'recipient' = ANY(${input.emails}::text[])
-        )
-      )
+    WHERE ${inboxScope(input)}
   `) as Array<Record<keyof NotificationSummaryCounts, unknown>>
   const row = rows[0]
   return {
@@ -243,11 +392,36 @@ async function readNotificationSummaryCounts(
   }
 }
 
+/**
+ * The bell badge on mobile home: the notification center's unread total
+ * (same recipient rule and read markers), in one statement.
+ */
+export async function getMobileNotificationUnreadCount(
+  input: {
+    role: MembershipRole
+    tenantId: string
+    userEmail: string
+    userId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<number> {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) return 0
+  const counts = await readNotificationSummaryCounts(prisma, {
+    emails: recipientEmailVariants(input.userEmail),
+    role: input.role,
+    tenantId: input.tenantId,
+    userId: input.userId,
+  })
+  return counts?.unread ?? 0
+}
+
 export async function getMobileNotificationCenter(
   input: NotificationCenterInput & {
     /** The last delivery id of the previous page. */
     cursor?: string | null
     limit?: number
+    scopedPage?: boolean
   },
   prismaOverride?: PrismaClient
 ) {
@@ -266,6 +440,32 @@ export async function getMobileNotificationCenter(
         sent: 0,
         totalDeliveries: 0,
         unread: 0,
+      },
+    }
+  }
+  if (input.scopedPage) {
+    const [page, counts, preferences, pushRegistration] = await Promise.all([
+      getMobileNotificationPage(input, prisma),
+      readNotificationSummaryCounts(prisma, {
+        ...input,
+        emails: recipientEmailVariants(input.userEmail),
+      }),
+      getMobileUserNotificationPreferences(input, prisma),
+      getMobilePushRegistrationState(input, prisma),
+    ])
+    return {
+      ...page,
+      generatedAt: new Date().toISOString(),
+      preferences,
+      pushRegistration,
+      summary: {
+        failed: 0,
+        queued: 0,
+        sent: 0,
+        totalDeliveries: 0,
+        unread: 0,
+        ...counts,
+        enabledPreferences: preferences.filter((item) => item.enabled).length,
       },
     }
   }
@@ -302,7 +502,6 @@ export async function getMobileNotificationCenter(
       readNotificationSummaryCounts(prisma, { ...scope, emails }),
       getMobileUserNotificationPreferences(
         {
-          memberLoginEnabled: input.memberLoginEnabled,
           role: input.role,
           tenantId: input.tenantId,
           userId: input.userId,
@@ -339,27 +538,9 @@ export async function getMobileNotificationCenter(
       .map((log) => log.entityId)
       .filter((id): id is string => Boolean(id))
   )
-  const deliveries = ownLogs.map((log) => {
-    const notificationType =
-      metadataString(log.metadata, "notificationType") ?? "notification.email"
-    const status = deliveryStatus(log.action)
-    return {
-      action:
-        metadataNotificationAction(log.metadata) ??
-        notificationAction(notificationType),
-      entityId: metadataString(log.metadata, "entityId"),
-      errorMessage:
-        status === "failed" ? "Delivery could not be completed." : null,
-      id: log.id,
-      intendedRole: metadataNotificationRole(log.metadata),
-      isRead: readIds.has(log.id),
-      notificationType,
-      occurredAt: log.occurredAt.toISOString(),
-      ...safeCopy(notificationType),
-      source: metadataString(log.metadata, "source"),
-      status,
-    }
-  })
+  const deliveries = ownLogs.map((log) =>
+    presentDelivery(log, readIds.has(log.id))
+  )
   const pageCounts: NotificationSummaryCounts = {
     failed: deliveries.filter((item) => item.status === "failed").length,
     queued: deliveries.filter((item) => item.status === "queued").length,
@@ -413,7 +594,8 @@ export async function markMobileNotificationsRead(
         metadataString(log.metadata, "recipient")?.trim().toLowerCase() !==
         email
       )
-    }) || logs.length !== ids.length
+    }) ||
+    logs.length !== ids.length
   ) {
     throw ExpectedQueryError.permission(
       "One or more notifications do not belong to this account."
@@ -431,24 +613,14 @@ export async function markMobileNotificationsRead(
   const existingIds = new Set(existing.map((item) => item.entityId))
   const unreadIds = ids.filter((id) => !existingIds.has(id))
   if (unreadIds.length) {
-    await prisma.auditLog.createMany({
-      data: unreadIds.map((id) => ({
-        action: "mobile.notification.read",
-        actorType: "user" as const,
-        actorUserId: input.actorUserId,
-        entityId: id,
-        entityType: "NotificationDelivery",
-        id: deriveMobileNotificationReadAuditId(
-          input.tenantId,
-          input.actorUserId,
-          id
-        ),
-        metadata: { readFrom: "mobile" },
-        occurredAt: new Date(),
-        tenantId: input.tenantId,
-      })),
+    const occurredAt = new Date()
+    const { count } = await prisma.auditLog.createMany({
+      data: unreadIds.map((id) =>
+        readAuditData(input.tenantId, input.actorUserId, id, occurredAt)
+      ),
       skipDuplicates: true,
     })
+    return { markedCount: count }
   }
-  return { markedCount: unreadIds.length }
+  return { markedCount: 0 }
 }

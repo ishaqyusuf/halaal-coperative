@@ -1,21 +1,26 @@
 import { isMobileDevFixtureSession } from "@/dev/mobile-dev-session"
+import { isUnrecoverableQueryError } from "@/lib/app-query-policy"
 import { createMobileTrpcClient } from "@/lib/mobile-trpc-client"
 import { readCachedMobileQuery } from "@/lib/read-cache"
+import { MobileOfflineOperationError } from "@/runtime/mobile-runtime-state"
 import type {
   MobileOperationProfileSnapshot,
   UpdateMobileOperationProfileServiceInput,
 } from "../model/operation-profile-types"
 
 const DEV_TENANT_ID = "tenant-qa-operation-profile"
+const readCacheKey = "admin.operation-profile"
+const devReviewedAt = "2026-11-14T09:24:00.000Z"
+let devReviewed = false
 let devModes: Record<
   string,
   MobileOperationProfileSnapshot["services"][number]["accessMode"]
 > = {
   collection_source_batch_posting: "disabled",
-  collection_sources: "disabled",
-  food_purchase: "disabled",
-  payment_receipts: "office_only",
-  procurement: "disabled",
+  collection_sources: "office_only",
+  food_purchase: "member_self_service",
+  payment_receipts: "member_self_service",
+  procurement: "office_only",
   support_cases: "member_self_service",
 }
 
@@ -48,7 +53,8 @@ function getDevSnapshot(): MobileOperationProfileSnapshot {
       foodPurchaseRequiresOpenCycle: true,
       procurementMaximumActiveObligationsPerMember: 1,
     },
-    reviewedAt: updatedAt,
+    reviewedAt: devReviewed ? updatedAt : devReviewedAt,
+    reviewedByName: "Ibrahim Yusuf",
     reviewedByUserId: "qa-admin-user",
     services: [
       capability("payment_receipts"),
@@ -67,30 +73,46 @@ function getDevSnapshot(): MobileOperationProfileSnapshot {
     },
     tenant: {
       id: DEV_TENANT_ID,
-      name: "Ishaq QA Cooperative",
+      name: "Amana Savings Cooperative",
     },
     updatedAt,
   }
 }
 
-export async function getMobileOperationProfile() {
-  if (isMobileDevFixtureSession()) {
-    return readCachedMobileQuery("admin.operation-profile", async () =>
-      getDevSnapshot()
-    )
-  }
-
-  const client = createMobileTrpcClient()
-  return readCachedMobileQuery("admin.operation-profile", () =>
-    client.mobile.admin.operationProfile.overview.query()
-  ) as Promise<MobileOperationProfileSnapshot>
+export function getMobileOperationProfile({
+  offline,
+  signal,
+}: {
+  offline: boolean
+  signal: AbortSignal
+}) {
+  return readCachedMobileQuery(
+    readCacheKey,
+    async (): Promise<MobileOperationProfileSnapshot> => {
+      if (isMobileDevFixtureSession()) return getDevSnapshot()
+      if (offline) throw new MobileOfflineOperationError("read")
+      const client = createMobileTrpcClient()
+      return client.mobile.admin.operationProfile.overview.query(undefined, {
+        signal,
+      })
+    },
+    {
+      shouldFallback: (error) =>
+        !signal.aborted && (offline || !isUnrecoverableQueryError(error)),
+    }
+  )
 }
 
 export async function updateMobileOperationProfileService(
-  input: UpdateMobileOperationProfileServiceInput
+  input: UpdateMobileOperationProfileServiceInput,
+  simulateConflict = false
 ) {
   if (isMobileDevFixtureSession()) {
-    if (devModes[input.serviceKey] !== input.expectedAccessMode) {
+    if (simulateConflict) devModes[input.serviceKey] = "read_only"
+    if (
+      simulateConflict ||
+      devModes[input.serviceKey] !== input.expectedAccessMode
+    ) {
       throw Object.assign(
         new Error(
           "This service access mode changed on another device. Refresh before saving."
@@ -99,6 +121,7 @@ export async function updateMobileOperationProfileService(
       )
     }
     devModes = { ...devModes, [input.serviceKey]: input.nextAccessMode }
+    devReviewed = true
     return getDevSnapshot()
   }
 
@@ -106,4 +129,12 @@ export async function updateMobileOperationProfileService(
   return client.mobile.admin.operationProfile.updateService.mutate(
     input
   ) as Promise<MobileOperationProfileSnapshot>
+}
+
+export function cacheUpdatedOperationProfile(
+  snapshot: MobileOperationProfileSnapshot
+) {
+  return readCachedMobileQuery(readCacheKey, async () => snapshot, {
+    shouldFallback: () => false,
+  }).catch(() => snapshot)
 }

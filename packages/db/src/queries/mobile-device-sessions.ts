@@ -350,22 +350,26 @@ export async function listMobileDeviceSessionsForAdmin(
     "Administrative mobile device session listing",
     prismaOverride
   )
-  const owner = await prisma.user.findFirst({
-    select: { fullName: true, id: true },
-    where: {
-      deletedAt: null,
-      id: input.userId,
-      tenantId: input.tenantId,
-    },
-  })
+  // Both reads are scoped to the tenant and user, so they run in one round
+  // (T26); sessions are discarded when the owner check fails.
+  const [owner, sessions] = await Promise.all([
+    prisma.user.findFirst({
+      select: { fullName: true, id: true },
+      where: {
+        deletedAt: null,
+        id: input.userId,
+        tenantId: input.tenantId,
+      },
+    }),
+    prisma.mobileDeviceSession.findMany({
+      orderBy: [{ revokedAt: "asc" }, { lastUsedAt: "desc" }],
+      take: 25,
+      where: { tenantId: input.tenantId, userId: input.userId },
+    }),
+  ])
   if (!owner) {
     throw ExpectedQueryError.notFound("Workspace user was not found.")
   }
-  const sessions = await prisma.mobileDeviceSession.findMany({
-    orderBy: [{ revokedAt: "asc" }, { lastUsedAt: "desc" }],
-    take: 25,
-    where: { tenantId: input.tenantId, userId: input.userId },
-  })
   return {
     owner: owner satisfies MobileDeviceSessionOwnerSummary,
     sessions: sessions.map((session) => toSummary(session)),

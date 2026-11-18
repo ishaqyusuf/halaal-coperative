@@ -7,6 +7,14 @@ import { Input } from "@halaalvest/ui/components/input"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { formatCurrency } from "@halaalvest/utils"
 import { LabeledSelectInput } from "@/components/labeled-select-input"
+import {
+  applyMissedMonthsRange,
+  canApplyMissedMonthsRange,
+  initialMissedMonths,
+  initialMissedMonthsRange,
+  missedMonthsRangeActionOptions,
+  type MissedMonthsRangeAction,
+} from "./missed-months-range"
 
 type MissedMonthsRangeGridRow = {
   month: string
@@ -50,43 +58,17 @@ export function MissedMonthsRangeGrid({
   rows,
   selectedMonth,
 }: MissedMonthsRangeGridProps) {
-  const [fromMonth, setFromMonth] = useState(rows[0]?.month ?? "")
-  const [toMonth, setToMonth] = useState(rows.at(-1)?.month ?? "")
-  const [rangeAction, setRangeAction] = useState<"committed" | "missed">(
-    "missed"
-  )
-  const [missedMonths, setMissedMonths] = useState(
-    () =>
-      new Set(
-        rows.filter((row) => row.status === "missed").map((row) => row.month)
-      )
+  // Nothing is chosen up front: a month with no record stays "no record".
+  const [range, setRange] = useState(initialMissedMonthsRange)
+  const [missedMonths, setMissedMonths] = useState(() =>
+    initialMissedMonths(rows)
   )
   const yearGroups = useMemo(() => groupRowsByYear(rows), [rows])
   const minMonth = rows[0]?.month
   const maxMonth = rows.at(-1)?.month
 
   function applyRange() {
-    if (!fromMonth || !toMonth) {
-      return
-    }
-
-    const rangeStart = fromMonth <= toMonth ? fromMonth : toMonth
-    const rangeEnd = fromMonth <= toMonth ? toMonth : fromMonth
-    const nextMissedMonths = new Set(missedMonths)
-
-    for (const row of rows) {
-      if (row.month < rangeStart || row.month > rangeEnd) {
-        continue
-      }
-
-      if (rangeAction === "missed") {
-        nextMissedMonths.add(row.month)
-      } else {
-        nextMissedMonths.delete(row.month)
-      }
-    }
-
-    setMissedMonths(nextMissedMonths)
+    setMissedMonths(applyMissedMonthsRange(rows, missedMonths, range))
   }
 
   return (
@@ -99,8 +81,10 @@ export function MissedMonthsRangeGrid({
             max={maxMonth}
             min={minMonth}
             type="month"
-            value={fromMonth}
-            onChange={(event) => setFromMonth(event.target.value)}
+            value={range.fromMonth}
+            onChange={(event) =>
+              setRange({ ...range, fromMonth: event.target.value })
+            }
           />
         </label>
         <label className="grid gap-1 text-xs font-medium text-muted-foreground">
@@ -110,26 +94,31 @@ export function MissedMonthsRangeGrid({
             max={maxMonth}
             min={minMonth}
             type="month"
-            value={toMonth}
-            onChange={(event) => setToMonth(event.target.value)}
+            value={range.toMonth}
+            onChange={(event) =>
+              setRange({ ...range, toMonth: event.target.value })
+            }
           />
         </label>
         <label className="grid gap-1 text-xs font-medium text-muted-foreground">
           Status
           <LabeledSelectInput
             disabled={disabled}
-            options={[
-              { label: "Mark as missed", value: "missed" },
-              { label: "Mark as committed", value: "committed" },
-            ]}
-            value={rangeAction}
+            options={missedMonthsRangeActionOptions}
+            placeholder="Choose"
+            value={range.action}
             onValueChange={(value) =>
-              setRangeAction(value as "committed" | "missed")
+              setRange({
+                ...range,
+                action: value as MissedMonthsRangeAction | "",
+              })
             }
           />
         </label>
         <Button
-          disabled={disabled || rows.length === 0}
+          disabled={
+            disabled || rows.length === 0 || !canApplyMissedMonthsRange(range)
+          }
           size="sm"
           type="button"
           onClick={applyRange}

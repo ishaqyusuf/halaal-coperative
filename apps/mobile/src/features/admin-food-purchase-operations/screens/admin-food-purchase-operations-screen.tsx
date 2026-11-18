@@ -1,44 +1,51 @@
-import { CalendarDateField } from "@/components/app/calendar-date-field"
-import { CalendarPickerSheet } from "@/components/app/calendar-picker-sheet"
+import { AppSheet } from "@/components/app/app-sheet"
 import { DevQuickFill } from "@/components/app/dev-quick-fill"
-import { EmptyState } from "@/components/app/empty-state"
-import { FormStateBanner } from "@/components/app/form-state-banner"
-import { FullScreenFormSheet } from "@/components/app/full-screen-form-sheet"
-import { AppKeyboardAwareScrollView } from "@/components/app/keyboard-aware-scroll-view"
-import { ScreenHeader } from "@/components/app/screen-header"
-import { SubmissionReviewSheet } from "@/components/app/submission-review-sheet"
-import { SubmissionSuccessSheet } from "@/components/app/submission-success-sheet"
-import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
-import { FloatingBottomSheet } from "@/components/floating-bottom-sheet"
-import { LoadingSpinner } from "@/components/loading-spinner"
-import { SafeArea } from "@/components/safe-area"
-import { Button } from "@/components/ui/button"
+import { DateField } from "@/components/ui/date-field"
+import { FormField } from "@/components/ui/form-field"
 import { Icon } from "@/components/ui/icon"
 import { Input } from "@/components/ui/input"
+import { Elevated } from "@/components/ui/list-card"
+import { MoneyField } from "@/components/ui/money-field"
+import { SegmentedControl } from "@/components/ui/segmented-control"
+import { StatusPill } from "@/components/ui/status-pill"
 import { Text } from "@/components/ui/text"
 import { Textarea } from "@/components/ui/textarea"
 import { mobileDevQuickFill } from "@/dev/mobile-dev-quick-fill"
+import { shortDate , ServiceOpsDetailSheet , ServiceOpsLanes , useOpsLane } from "@/features/admin-service-operations/public/service-ops"
+import {
+  OpsContextCard,
+  ServiceOpsFlowSheet,
+  type OpsFlowStep,
+
+  OpsLaneState,
+  OpsResult,
+  OpsReviewSpec} from "@/features/admin-service-operations/public/service-ops"
+import { NotificationDestinationNotice } from "@/features/notifications/public/notification-destination-notice"
+import {
+  appQueryKey,
+  useAppQuery,
+  useInvalidateAppQueries,
+} from "@/hooks/use-app-query"
+import { useColors } from "@/hooks/use-color"
 import { useDebounce } from "@/hooks/use-debounce"
+import { readErrorCode } from "@/lib/app-query-policy"
 import { createClientSubmissionKey } from "@/lib/client-submission-key"
 import { todayDateOnly } from "@/lib/date-only"
+import { formatCompactMoney, formatMoney } from "@/lib/money"
+import { isMobileReadCacheStale } from "@/lib/read-cache"
 import { captureMobileError } from "@/lib/sentry"
-import { NotificationDestinationNotice } from "@/features/notifications/public/notification-destination-notice"
+import { cn } from "@/lib/utils"
 import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
-import { useFocusEffect } from "@react-navigation/native"
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react"
-import { Keyboard, Pressable, ScrollView, View } from "react-native"
+import { MobileOfflineOperationError } from "@/runtime/mobile-runtime-state"
+import { getMobilePersistenceScope } from "@/runtime/persistence-scope"
+import { useEffect, useRef, useState } from "react"
+import { Pressable, View } from "react-native"
 import {
   completeFoodPurchaseCycle,
   createFoodPurchaseCycle,
   getFoodPurchaseApplicationDetail,
-  getFoodPurchaseOperationsWorkspace,
+  getFoodPurchaseApplicationPage,
+  getFoodPurchaseOverview,
   reviewFoodPurchaseAccounting,
   reviewFoodPurchaseApplication,
   submitFoodPurchaseAccounting,
@@ -46,155 +53,53 @@ import {
 } from "../api/admin-food-purchase-operations-api"
 import type {
   FoodPurchaseApplication,
+  FoodPurchaseApplicationPage,
   FoodPurchaseCycle,
   FoodPurchaseLane,
-  FoodPurchaseWorkspace,
 } from "../model/admin-food-purchase-operations-types"
+import {
+  accountingStatuses,
+  applicationDetail,
+  applicationRow,
+  cycleAction,
+  cycleActionLabel,
+  cycleDetail,
+  cycleMonth,
+  cycleRow,
+  cycleStatusPill,
+  foodPurchaseHero,
+  foodPurchaseLanes,
+  historyStatuses,
+  intakeTransition,
+} from "../model/food-purchase-ops-presentation"
 
-const lanes: { label: string; value: FoodPurchaseLane }[] = [
-  { label: "Applications", value: "applications" },
-  { label: "Accounting", value: "accounting" },
-  { label: "History", value: "history" },
-]
+type Kind = "acct" | "acctrev" | "app" | "complete" | "cycle" | "intake"
+type Decision = "approved" | "rejected" | "under_review"
 
-type FormIntent =
-  | { kind: "release" }
-  | { application: FoodPurchaseApplication; kind: "reviewApplication" }
-  | { cycle: FoodPurchaseCycle; kind: "submitAccounting" }
-  | { cycle: FoodPurchaseCycle; kind: "reviewAccounting" }
+const feature = "admin-food-purchase"
 
-type ReviewIntent =
-  | FormIntent
-  | {
-      cycle: FoodPurchaseCycle
-      kind: "cycleTransition"
-      transition:
-        | "cancel"
-        | "close_intake"
-        | "complete"
-        | "open_intake"
-        | "reopen_intake"
-    }
-
-function formatCurrency(value: number, currencyCode: string) {
-  return new Intl.NumberFormat("en-NG", {
-    currency: currencyCode,
-    maximumFractionDigits: 0,
-    style: "currency",
-  }).format(value)
+/** The next six cycle months as YYYY-MM-01. */
+function upcomingMonths() {
+  const today = new Date()
+  return Array.from({ length: 6 }, (_, index) => {
+    const date = new Date(today.getFullYear(), today.getMonth() + index, 1)
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`
+  })
 }
 
-function formatCompactCurrency(value: number, currencyCode: string) {
-  if (Math.abs(value) < 1_000) return formatCurrency(value, currencyCode)
-  const divisor = Math.abs(value) >= 999_500 ? 1_000_000 : 1_000
-  return `${new Intl.NumberFormat("en-NG", {
-    currency: currencyCode,
-    maximumFractionDigits: 2,
-    style: "currency",
-  }).format(value / divisor)}${divisor === 1_000_000 ? "m" : "k"}`
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-NG", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value))
-}
-
-function formatMonth(value: string) {
-  return new Intl.DateTimeFormat("en-NG", {
-    month: "long",
-    year: "numeric",
-  }).format(new Date(value))
-}
-
-function labelize(value: string) {
-  return value
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase())
-}
-
-function monthStartDateOnly() {
-  return `${todayDateOnly().slice(0, 8)}01`
-}
-
-function getCycleTransitionSuccessMessage(
-  transition: "cancel" | "close_intake" | "open_intake" | "reopen_intake"
-) {
-  if (transition === "cancel") return "Foodstuff Purchase cycle cancelled."
-  if (transition === "close_intake") return "Application intake closed."
-  if (transition === "open_intake") return "Application intake opened."
-  return "Application intake reopened."
-}
-
-function Field({ children, label }: { children: ReactNode; label: string }) {
-  return (
-    <View className="gap-2">
-      <Text className="text-sm font-bold text-foreground">{label}</Text>
-      {children}
-    </View>
-  )
-}
-
-function ErrorBanner({ message }: { message: string }) {
-  return (
-    <View className="flex-row items-start gap-3 rounded-lg bg-destructive/10 p-3">
-      <Icon className="size-sm mt-0.5 text-destructive" name="AlertCircle" />
-      <Text className="min-w-0 flex-1 text-sm leading-5 font-medium text-destructive">
-        {message}
-      </Text>
-    </View>
-  )
-}
-
-function ApplicationRow({
-  application,
-  currencyCode,
-  onPress,
-}: {
-  application: FoodPurchaseApplication
-  currencyCode: string
-  onPress: () => void
-}) {
-  const amount = application.approvedAmount ?? application.requestedAmount
-  return (
-    <Pressable
-      accessibilityLabel={`${application.member.fullName}, ${formatCurrency(amount, currencyCode)}, ${labelize(application.status)}`}
-      accessibilityRole="button"
-      className="min-h-20 flex-row items-center gap-3 border-b border-border py-3 active:bg-accent/40"
-      onPress={onPress}
-      testID={`food-purchase-application-${application.id}`}
-    >
-      <View className="min-w-0 flex-1 gap-1">
-        <View className="flex-row items-start justify-between gap-3">
-          <Text className="min-w-0 flex-1 text-sm font-bold text-foreground">
-            {application.member.fullName}
-          </Text>
-          <Text className="text-sm font-extrabold text-foreground">
-            {formatCurrency(amount, currencyCode)}
-          </Text>
-        </View>
-        <Text className="text-xs leading-5 text-muted-foreground">
-          {application.itemDescription ?? "Foodstuff Purchase"} ·{" "}
-          {application.approvedPaybackMonths ??
-            application.requestedPaybackMonths}{" "}
-          months
-        </Text>
-        <View className="flex-row items-center gap-2">
-          <View
-            className={`size-2 rounded-full ${application.status === "approved" ? "bg-success" : application.status === "rejected" ? "bg-destructive" : application.status === "under_review" ? "bg-primary" : "bg-warn"}`}
-          />
-          <Text className="text-xs font-medium text-muted-foreground">
-            {application.status === "approved"
-              ? `${formatCurrency(application.outstandingAmount, currencyCode)} outstanding`
-              : labelize(application.status)}
-          </Text>
-        </View>
-      </View>
-      <Icon className="size-sm text-muted-foreground" name="ChevronRight" />
-    </Pressable>
-  )
+function staticLane(items: OpsLaneState["items"], loading: boolean, error: boolean, refetch: () => void, refreshing: boolean): OpsLaneState {
+  return {
+    error,
+    fetchingNext: false,
+    hasData: !loading,
+    hasNext: false,
+    items,
+    loading,
+    nextPage: () => undefined,
+    refetch,
+    refreshing,
+    updating: false,
+  }
 }
 
 export function AdminFoodPurchaseOperationsScreen({
@@ -203,1342 +108,820 @@ export function AdminFoodPurchaseOperationsScreen({
   initialEntityId?: string | null
 }) {
   const runtime = useMobileRuntime()
+  const colors = useColors()
+  const offline = runtime.state.connectivity !== "online"
+  const invalidate = useInvalidateAppQueries()
+  const scope = getMobilePersistenceScope()?.key
+  const overviewPrefix = appQueryKey(feature, scope, "overview")
+  const lanePrefix = appQueryKey(feature, scope, "applications")
+  const detailKey = (id: string | null) => appQueryKey(feature, scope, "detail", id)
+
   const [lane, setLane] = useState<FoodPurchaseLane>("applications")
-  const [searchDraft, setSearchDraft] = useState("")
-  const search = useDebounce(searchDraft.trim(), 350)
-  const [selectedCycleId, setSelectedCycleId] = useState<string | undefined>()
-  const [workspace, setWorkspace] = useState<FoodPurchaseWorkspace | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [detail, setDetail] = useState<FoodPurchaseApplication | null>(null)
-  const [detailVisible, setDetailVisible] = useState(false)
-  const [isDetailLoading, setIsDetailLoading] = useState(false)
-  const [formIntent, setFormIntent] = useState<FormIntent | null>(null)
-  const [reviewIntent, setReviewIntent] = useState<ReviewIntent | null>(null)
-  const [calendarIntent, setCalendarIntent] = useState<
-    "period" | "release" | null
-  >(null)
-  const [periodMonth, setPeriodMonth] = useState(monthStartDateOnly())
-  const [releasedAt, setReleasedAt] = useState(todayDateOnly())
-  const [releasedAmount, setReleasedAmount] = useState("")
-  const [decision, setDecision] = useState<
-    "approved" | "rejected" | "under_review"
-  >("approved")
-  const [approvedAmount, setApprovedAmount] = useState("")
-  const [approvedMonths, setApprovedMonths] = useState("")
-  const [salesAmount, setSalesAmount] = useState("")
-  const [purchaseCostAmount, setPurchaseCostAmount] = useState("")
-  const [expenseAmount, setExpenseAmount] = useState("")
-  const [notes, setNotes] = useState("")
-  const [formError, setFormError] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [success, setSuccess] = useState<string | null>(null)
-  const queuedFormRef = useRef<FormIntent | null>(null)
-  const queuedReviewRef = useRef<ReviewIntent | null>(null)
-  const queuedSuccessRef = useRef<string | null>(null)
-  const handledNotificationEntityRef = useRef<string | null>(null)
-  const [isDestinationUnavailable, setIsDestinationUnavailable] =
-    useState(false)
+  const [cycleId, setCycleId] = useState<string | undefined>(undefined)
+  const [search, setSearch] = useState("")
+  const term = useDebounce(search.trim().slice(0, 120), 350)
+  const overview = useAppQuery({
+    queryFn: () => getFoodPurchaseOverview(cycleId),
+    queryKey: appQueryKey(feature, scope, "overview", cycleId ?? "current"),
+  })
+  const selected = overview.data?.selectedCycle ?? null
+  const capabilities = overview.data?.capabilities
+  const currencyCode = overview.data?.currencyCode ?? "NGN"
+  const money = (value: number) => formatMoney(value, { currencyCode })
+  const applications = useOpsLane({
+    enabled: Boolean(selected),
+    fetchPage: (cursor: string | null) =>
+      getFoodPurchaseApplicationPage({
+        cursor: cursor ?? undefined,
+        cycleId: selected!.id,
+        search: term || undefined,
+      }),
+    offline,
+    queryKey: appQueryKey(feature, scope, "applications", selected?.id ?? null, term),
+    selectItems: (page: FoodPurchaseApplicationPage) => page.applications,
+    toRow: (item: FoodPurchaseApplication) => applicationRow(item, undefined),
+  })
+  const stale = isMobileReadCacheStale(overview.data?.cache) || applications.stale
+  const writesBlocked = offline || stale
+  const cycles = overview.data?.cycles ?? []
+  const matches = (cycle: FoodPurchaseCycle) =>
+    !term || cycleMonth(cycle.periodMonth).toLowerCase().includes(term.toLowerCase())
+  const accountingCycles = cycles.filter((cycle) => accountingStatuses.includes(cycle.status) && matches(cycle))
+  const historyCycles = cycles.filter((cycle) => historyStatuses.includes(cycle.status) && matches(cycle))
+  const refreshOverview = () => void overview.refetch({ cancelRefetch: false })
 
-  const loadWorkspace = useCallback(async () => {
-    setIsLoading(true)
-    setLoadError(null)
-    try {
-      setWorkspace(
-        await getFoodPurchaseOperationsWorkspace({
-          cycleId: selectedCycleId,
-          lane,
-          search: search || undefined,
-        })
-      )
-    } catch (error) {
-      captureMobileError(error, "mobile.food_purchase_operations")
-      setLoadError(
-        error instanceof Error
-          ? error.message
-          : "Foodstuff Purchase operations could not be loaded."
-      )
-    } finally {
-      setIsLoading(false)
-    }
-  }, [lane, search, selectedCycleId])
-
-  useFocusEffect(useCallback(() => void loadWorkspace(), [loadWorkspace]))
-
-  const loadMoreApplications = useCallback(async () => {
-    const cursor = workspace?.nextApplicationCursor
-    if (!cursor || isLoadingMore) return
-    setIsLoadingMore(true)
-    try {
-      const next = await getFoodPurchaseOperationsWorkspace({
-        cursor,
-        cycleId: selectedCycleId,
-        lane,
-        search: search || undefined,
-      })
-      setWorkspace((current) =>
-        current
-          ? {
-              ...next,
-              applications: [...current.applications, ...next.applications],
-            }
-          : next
-      )
-    } catch (error) {
-      captureMobileError(error, "mobile.food_purchase_operations")
-      setLoadError(
-        error instanceof Error
-          ? error.message
-          : "More Foodstuff Purchase applications could not be loaded."
-      )
-    } finally {
-      setIsLoadingMore(false)
-    }
-  }, [isLoadingMore, lane, search, selectedCycleId, workspace])
-
-  const openDetail = useCallback(async (
-    applicationId: string,
-    origin: "list" | "notification" = "list"
-  ) => {
-    setDetailVisible(true)
-    setIsDetailLoading(true)
-    setIsDestinationUnavailable(false)
-    try {
-      setDetail(
-        (await getFoodPurchaseApplicationDetail(
-          applicationId
-        )) as FoodPurchaseApplication
-      )
-    } catch (error) {
-      captureMobileError(error, "mobile.food_purchase_operations")
-      if (origin === "notification") {
-        setIsDestinationUnavailable(true)
-      } else {
-        setLoadError(
-          error instanceof Error
-            ? error.message
-            : "Application details could not be loaded."
-        )
-      }
-      setDetailVisible(false)
-    } finally {
-      setIsDetailLoading(false)
-    }
-  }, [])
-
+  // Detail: an application (fetched, cached) or a cycle (from the overview).
+  const [detailRef, setDetailRef] = useState<{ id: string; type: "application" | "cycle" } | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [destinationMissing, setDestinationMissing] = useState(false)
+  const applicationDetailQuery = useAppQuery({
+    enabled: detailRef?.type === "application",
+    placeholderData: undefined,
+    queryFn: () => getFoodPurchaseApplicationDetail(detailRef!.id),
+    queryKey: detailKey(detailRef?.type === "application" ? detailRef.id : null),
+  })
+  const handledEntity = useRef<string | null>(null)
   useEffect(() => {
-    if (
-      !initialEntityId ||
-      handledNotificationEntityRef.current === initialEntityId
-    ) {
-      return
+    if (!initialEntityId || handledEntity.current === initialEntityId) return
+    handledEntity.current = initialEntityId
+    setDetailRef({ id: initialEntityId, type: "application" })
+    setDetailOpen(true)
+  }, [initialEntityId])
+  useEffect(() => {
+    if (detailOpen && applicationDetailQuery.isError && detailRef?.id === initialEntityId) {
+      setDetailOpen(false)
+      setDestinationMissing(true)
     }
-    handledNotificationEntityRef.current = initialEntityId
-    void openDetail(initialEntityId, "notification")
-  }, [initialEntityId, openDetail])
+  }, [applicationDetailQuery.isError, detailOpen, detailRef, initialEntityId])
+  const openedCycle = detailRef?.type === "cycle" ? cycles.find((cycle) => cycle.id === detailRef.id) : undefined
+  const openedApplication = detailRef?.type === "application" ? applicationDetailQuery.data : undefined
 
-  const commandsBlocked = runtime.state.connectivity !== "online"
-  const currencyCode = workspace?.currencyCode ?? "NGN"
-  const cycle = workspace?.selectedCycle ?? null
+  // Cycle picker.
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const pickable = cycles.filter((cycle) => !historyStatuses.includes(cycle.status))
 
-  const prepareForm = (intent: FormIntent) => {
-    setFormError(null)
+  // Write flow.
+  const [step, setStep] = useState<OpsFlowStep>("closed")
+  const [kind, setKind] = useState<Kind>("app")
+  const [application, setApplication] = useState<FoodPurchaseApplication | null>(null)
+  const [cycle, setCycle] = useState<FoodPurchaseCycle | null>(null)
+  const [decision, setDecision] = useState<Decision>("approved")
+  const [amount, setAmount] = useState("")
+  const [months, setMonths] = useState("")
+  const [notes, setNotes] = useState("")
+  const [periodMonth, setPeriodMonth] = useState(upcomingMonths()[0]!)
+  const [releasedAt, setReleasedAt] = useState(todayDateOnly())
+  const [sales, setSales] = useState("")
+  const [cost, setCost] = useState("")
+  const [opex, setOpex] = useState("")
+  const [accountingDecision, setAccountingDecision] = useState<"approved" | "rejected">("approved")
+  const [showErrors, setShowErrors] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [result, setResult] = useState<OpsResult | null>(null)
+  const commandId = useRef<string | null>(null)
+  const queued = useRef<(() => void) | null>(null)
+
+  function reset() {
+    setDecision("approved")
     setNotes("")
-    setCalendarIntent(null)
-    if (intent.kind === "release") {
-      setPeriodMonth(monthStartDateOnly())
-      setReleasedAt(todayDateOnly())
-      setReleasedAmount("")
-    } else if (intent.kind === "reviewApplication") {
-      setDecision("approved")
-      setApprovedAmount(String(intent.application.requestedAmount))
-      setApprovedMonths(String(intent.application.requestedPaybackMonths))
-    } else if (intent.kind === "submitAccounting") {
-      setSalesAmount(String(intent.cycle.salesAmount ?? ""))
-      setPurchaseCostAmount(String(intent.cycle.purchaseCostAmount ?? ""))
-      setExpenseAmount(String(intent.cycle.operatingExpenseAmount ?? 0))
-      setNotes(intent.cycle.accountingNotes ?? "")
-    } else {
-      setDecision("approved")
-    }
-    setFormIntent(intent)
+    setSales("")
+    setCost("")
+    setOpex("")
+    setAccountingDecision("approved")
+    setShowErrors(false)
+    setResult(null)
+    commandId.current = null
+  }
+  function openApplicationForm(item: FoodPurchaseApplication) {
+    reset()
+    setKind("app")
+    setApplication(item)
+    setCycle(null)
+    setAmount(String(item.approvedAmount ?? item.requestedAmount))
+    setMonths(String(item.approvedPaybackMonths ?? item.requestedPaybackMonths))
+    setStep("form")
+  }
+  function openCycleForm(nextKind: Exclude<Kind, "app" | "cycle">, item: FoodPurchaseCycle) {
+    reset()
+    setKind(nextKind)
+    setCycle(item)
+    setApplication(null)
+    setStep("form")
+  }
+  function openNewCycle() {
+    reset()
+    const taken = new Set(cycles.map((item) => item.periodMonth.slice(0, 7)))
+    setPeriodMonth(upcomingMonths().find((month) => !taken.has(month.slice(0, 7))) ?? upcomingMonths()[0]!)
+    setAmount("")
+    setReleasedAt(todayDateOnly())
+    setKind("cycle")
+    setCycle(null)
+    setApplication(null)
+    setStep("form")
   }
 
-  const openFormFromDetail = (intent: FormIntent) => {
-    queuedFormRef.current = intent
-    setDetailVisible(false)
+  const takenMonths = new Set(cycles.map((item) => item.periodMonth.slice(0, 7)))
+  const profit = Number(sales || 0) - Number(cost || 0) - Number(opex || 0)
+  const errors: Record<string, string> = {}
+  if (kind === "app" && application) {
+    if (decision === "approved") {
+      if (!(Number(amount) > 0)) errors.amount = "Enter the approved amount."
+      const value = Number(months)
+      if (!Number.isInteger(value) || value < 1 || value > application.policyMaximumPaybackMonths)
+        errors.months = `Between 1 and ${application.policyMaximumPaybackMonths} months.`
+    }
+    if (decision !== "under_review" && notes.trim().length < 2) errors.notes = "Add the evidence for this decision."
+  } else if (kind === "cycle") {
+    if (takenMonths.has(periodMonth.slice(0, 7))) errors.periodMonth = "That month already has a cycle."
+    if (!(Number(amount) > 0)) errors.amount = "Enter the release amount."
+    if (!releasedAt) errors.releasedAt = "Choose the release date."
+  } else if (kind === "acct") {
+    if (!sales || !cost || !opex) errors.figures = "Enter sales, purchase cost and expenses."
+  } else if (kind === "acctrev") {
+    if (accountingDecision === "rejected" && notes.trim().length < 2) errors.notes = "Explain the correction needed."
+  }
+  const valid = Object.keys(errors).length === 0
+  const err = (key: string) => (showErrors ? errors[key] : undefined)
+  const intake = cycle ? intakeTransition(cycle) : null
+
+  const reviewSpec: OpsReviewSpec | null =
+    kind === "app" && application
+      ? {
+          confirmLabel:
+            decision === "approved" ? "Approve application" : decision === "rejected" ? "Reject application" : "Keep in review",
+          rows: [
+            ["Member", application.member.fullName],
+            ["Items", application.itemDescription ?? "Foodstuff"],
+            ["Decision", decision === "approved" ? "Approve" : decision === "rejected" ? "Reject" : "Keep in review"],
+            ...(decision === "approved"
+              ? ([
+                  ["Amount", money(Number(amount || 0))],
+                  ["Payback", `${months} months`],
+                ] as [string, string][])
+              : []),
+          ],
+          title: "Confirm decision",
+        }
+      : kind === "cycle"
+        ? {
+            confirmLabel: "Create cycle",
+            note: "Intake stays closed until you open it.",
+            rows: [
+              ["Cycle", cycleMonth(periodMonth)],
+              ["Release amount", money(Number(amount || 0))],
+              ["Release date", shortDate(releasedAt, true)],
+            ],
+            title: "Confirm new cycle",
+          }
+        : cycle && kind === "acct"
+          ? {
+              confirmLabel: "Submit accounting",
+              note: "Recorded for the committee. No member posting.",
+              rows: [
+                ["Cycle", cycleMonth(cycle.periodMonth)],
+                ["Sales", money(Number(sales || 0))],
+                ["Purchase cost", money(Number(cost || 0))],
+                ["Expenses", money(Number(opex || 0))],
+                ["Profit", money(profit)],
+              ],
+              title: "Confirm accounting",
+            }
+          : cycle && kind === "acctrev"
+            ? {
+                confirmLabel: accountingDecision === "approved" ? "Approve accounting" : "Return accounting",
+                rows: [
+                  ["Cycle", cycleMonth(cycle.periodMonth)],
+                  ["Decision", accountingDecision === "approved" ? "Approve" : "Return"],
+                  ["Profit", money(cycle.profitAmount ?? 0)],
+                ],
+                title: "Confirm review",
+              }
+            : cycle && kind === "complete"
+              ? {
+                  confirmLabel: "Complete cycle",
+                  note: "The cycle moves to History.",
+                  rows: [
+                    ["Cycle", cycleMonth(cycle.periodMonth)],
+                    ["Released", money(cycle.releasedAmount)],
+                    ["Profit", money(cycle.profitAmount ?? 0)],
+                  ],
+                  title: "Complete cycle",
+                }
+              : cycle && intake
+                ? {
+                    confirmLabel: intake.label,
+                    rows: [
+                      ["Cycle", cycleMonth(cycle.periodMonth)],
+                      ["Status", cycleStatusPill(cycle).label],
+                    ],
+                    title: `${intake.label}?`,
+                  }
+                : null
+
+  function goReview() {
+    setShowErrors(true)
+    if (!valid || writesBlocked) return
+    commandId.current = createClientSubmissionKey()
+    setStep("review")
   }
 
-  const validateForm = () => {
-    setFormError(null)
-    if (!formIntent) return
-    if (formIntent.kind === "release" && Number(releasedAmount) <= 0) {
-      setFormError("Enter the committee release amount.")
-      return
-    }
-    if (
-      formIntent.kind === "reviewApplication" &&
-      decision === "approved" &&
-      (Number(approvedAmount) <= 0 || Number(approvedMonths) <= 0)
-    ) {
-      setFormError("Enter the approved amount and payback months.")
-      return
-    }
-    if (
-      formIntent.kind === "reviewApplication" &&
-      decision !== "under_review" &&
-      notes.trim().length < 2
-    ) {
-      setFormError("Record the review evidence for a final decision.")
-      return
-    }
-    if (
-      formIntent.kind === "submitAccounting" &&
-      [salesAmount, purchaseCostAmount, expenseAmount].some(
-        (value) => !value || Number(value) < 0
-      )
-    ) {
-      setFormError("Enter valid sales, purchase cost, and expense totals.")
-      return
-    }
-    if (
-      formIntent.kind === "reviewAccounting" &&
-      decision === "rejected" &&
-      notes.trim().length < 2
-    ) {
-      setFormError("Explain the correction required.")
-      return
-    }
-    queuedReviewRef.current = formIntent
-    setFormIntent(null)
-  }
-
-  const runCommand = async () => {
-    if (!reviewIntent) return
-    setIsSubmitting(true)
-    setFormError(null)
+  async function confirm() {
+    if (submitting) return
+    const id = commandId.current ?? createClientSubmissionKey()
+    commandId.current = id
+    setSubmitting(true)
+    let success: OpsResult
     try {
-      if (reviewIntent.kind === "release") {
-        await createFoodPurchaseCycle({
-          commandId: createClientSubmissionKey(),
-          periodMonth: `${periodMonth.slice(0, 8)}01`,
-          releasedAmount: Number(releasedAmount),
-          releasedAt,
-          releaseNotes: notes.trim() || undefined,
-        })
-        queuedSuccessRef.current =
-          "Release evidence recorded as a draft cycle. No cash ledger posting was created."
-      } else if (reviewIntent.kind === "reviewApplication") {
+      if (kind === "app" && application) {
         await reviewFoodPurchaseApplication({
-          applicationId: reviewIntent.application.id,
-          approvedAmount:
-            decision === "approved" ? Number(approvedAmount) : undefined,
-          approvedPaybackMonths:
-            decision === "approved" ? Number(approvedMonths) : undefined,
-          commandId: createClientSubmissionKey(),
-          expectedState: reviewIntent.application.status as
-            | "submitted"
-            | "under_review",
+          applicationId: application.id,
+          approvedAmount: decision === "approved" ? Number(amount) : undefined,
+          approvedPaybackMonths: decision === "approved" ? Number(months) : undefined,
+          commandId: id,
+          expectedState: application.status as "submitted" | "under_review",
           notes: notes.trim() || undefined,
           status: decision,
         })
-        queuedSuccessRef.current =
-          "Application decision recorded against the cycle and policy snapshot."
-      } else if (reviewIntent.kind === "submitAccounting") {
-        await submitFoodPurchaseAccounting({
-          commandId: createClientSubmissionKey(),
-          cycleId: reviewIntent.cycle.id,
-          expectedState: reviewIntent.cycle.status as
-            | "accounting_rejected"
-            | "intake_closed",
-          notes: notes.trim() || undefined,
-          operatingExpenseAmount: Number(expenseAmount),
-          purchaseCostAmount: Number(purchaseCostAmount),
-          salesAmount: Number(salesAmount),
+        success = {
+          body: decision === "approved" ? `${application.member.fullName} can collect the items.` : "The application has been updated.",
+          kind: "success",
+          title: decision === "approved" ? "Application approved" : "Decision recorded",
+        }
+      } else if (kind === "cycle") {
+        await createFoodPurchaseCycle({
+          commandId: id,
+          periodMonth,
+          releasedAmount: Number(amount),
+          releasedAt,
+          releaseNotes: notes.trim() || undefined,
         })
-        queuedSuccessRef.current =
-          "Accounting evidence submitted for independent finance review. Profit was not distributed."
-      } else if (reviewIntent.kind === "reviewAccounting") {
+        success = { body: "Open intake when members can apply.", kind: "success", title: "Cycle created" }
+      } else if (cycle && kind === "acct") {
+        await submitFoodPurchaseAccounting({
+          commandId: id,
+          cycleId: cycle.id,
+          expectedState: cycle.status as "accounting_rejected" | "intake_closed",
+          notes: notes.trim() || undefined,
+          operatingExpenseAmount: Number(opex),
+          purchaseCostAmount: Number(cost),
+          salesAmount: Number(sales),
+        })
+        success = { body: "A second admin reviews it next.", kind: "success", title: "Accounting submitted" }
+      } else if (cycle && kind === "acctrev") {
         await reviewFoodPurchaseAccounting({
-          commandId: createClientSubmissionKey(),
-          cycleId: reviewIntent.cycle.id,
-          decision: decision === "approved" ? "approved" : "rejected",
+          commandId: id,
+          cycleId: cycle.id,
+          decision: accountingDecision,
           expectedState: "accounting_submitted",
           notes: notes.trim() || undefined,
         })
-        queuedSuccessRef.current =
-          decision === "approved"
-            ? "Accounting accepted as governance evidence. No profit allocation was created."
-            : "Accounting returned to the committee for correction."
-      } else if (reviewIntent.transition === "complete") {
+        success =
+          accountingDecision === "approved"
+            ? { body: "You can complete the cycle now.", kind: "success", title: "Accounting approved" }
+            : { body: "The submitter can correct it.", kind: "success", title: "Accounting returned" }
+      } else if (cycle && kind === "complete") {
         await completeFoodPurchaseCycle({
-          commandId: createClientSubmissionKey(),
-          cycleId: reviewIntent.cycle.id,
+          commandId: id,
+          cycleId: cycle.id,
           expectedState: "accounting_approved",
           notes: notes.trim() || undefined,
           transition: "complete",
         })
-        queuedSuccessRef.current =
-          "Foodstuff Purchase cycle completed without creating a profit distribution."
-      } else {
+        success = { body: `${cycleMonth(cycle.periodMonth)} moved to History.`, kind: "success", title: "Cycle completed" }
+      } else if (cycle && intake) {
         await transitionFoodPurchaseCycle({
-          commandId: createClientSubmissionKey(),
-          cycleId: reviewIntent.cycle.id,
-          expectedState: reviewIntent.cycle.status,
+          commandId: id,
+          cycleId: cycle.id,
+          expectedState: cycle.status,
           notes: notes.trim() || undefined,
-          transition: reviewIntent.transition,
+          transition: intake.transition,
         })
-        queuedSuccessRef.current = getCycleTransitionSuccessMessage(
-          reviewIntent.transition
-        )
+        success = {
+          body:
+            intake.transition === "close_intake"
+              ? "Members can no longer apply. Submit accounting when ready."
+              : "Members can apply in this cycle.",
+          kind: "success",
+          title: intake.transition === "close_intake" ? "Intake closed" : "Intake opened",
+        }
+      } else {
+        return
       }
-      setReviewIntent(null)
-      await loadWorkspace()
+      setResult(success)
+      setStep("result")
+      void invalidate(overviewPrefix, lanePrefix, ...(application ? [detailKey(application.id)] : []))
     } catch (error) {
-      captureMobileError(error, "mobile.food_purchase_operations")
-      setFormError(
-        error instanceof Error
-          ? error.message
-          : "The Foodstuff Purchase command could not be completed."
-      )
+      const code = readErrorCode(error)
+      const conflict = code === "CONFLICT" || code === "PRECONDITION_FAILED"
+      if (!(error instanceof MobileOfflineOperationError))
+        captureMobileError(error, "mobile.food_purchase_operations")
+      if (conflict) {
+        commandId.current = null
+        void invalidate(overviewPrefix, lanePrefix)
+      }
+      setResult({ kind: conflict ? "conflict" : "error" })
+      setStep("result")
     } finally {
-      setIsSubmitting(false)
+      setSubmitting(false)
     }
   }
 
-  const cycleAction = useMemo(() => {
-    if (!cycle) return null
-    if (cycle.status === "draft")
-      return { label: "Open intake", transition: "open_intake" as const }
-    if (cycle.status === "open")
-      return { label: "Close intake", transition: "close_intake" as const }
-    if (cycle.status === "intake_closed")
-      return { label: "Reopen intake", transition: "reopen_intake" as const }
-    if (cycle.status === "accounting_approved")
-      return { label: "Complete cycle", transition: "complete" as const }
-    return null
-  }, [cycle])
+  const titles: Record<Kind, string> = {
+    acct: "Cycle accounting",
+    acctrev: "Review accounting",
+    app: "Review application",
+    complete: "Complete cycle",
+    cycle: "New cycle",
+    intake: intake?.label ?? "Cycle intake",
+  }
+  const ctas: Record<Kind, string> = {
+    acct: "Review accounting",
+    acctrev: "Review decision",
+    app: "Review decision",
+    complete: "Review",
+    cycle: "Review cycle",
+    intake: "Review",
+  }
+  const quick = mobileDevQuickFill.adminFoodPurchaseOperations
 
-  const reviewRows = useMemo(() => {
-    if (!reviewIntent) return []
-    if (reviewIntent.kind === "release")
-      return [
-        { label: "Cycle", value: formatMonth(`${periodMonth}T12:00:00.000Z`) },
-        {
-          label: "Release amount",
-          value: formatCurrency(Number(releasedAmount || 0), currencyCode),
-        },
-        {
-          label: "Release date",
-          value: formatDate(`${releasedAt}T12:00:00.000Z`),
-        },
-        {
-          label: "Effect",
-          value: "Operational evidence only; no cash posting",
-        },
-      ]
-    if (reviewIntent.kind === "reviewApplication")
-      return [
-        { label: "Member", value: reviewIntent.application.member.fullName },
-        { label: "Decision", value: labelize(decision) },
-        {
-          label: "Approved amount",
-          value:
-            decision === "approved"
-              ? formatCurrency(Number(approvedAmount || 0), currencyCode)
-              : "Not applicable",
-        },
-        {
-          label: "Payback",
-          value:
-            decision === "approved"
-              ? `${approvedMonths} months`
-              : "Not applicable",
-        },
-      ]
-    if (reviewIntent.kind === "submitAccounting") {
-      const profit =
-        Number(salesAmount || 0) -
-        Number(purchaseCostAmount || 0) -
-        Number(expenseAmount || 0)
-      return [
-        {
-          label: "Sales",
-          value: formatCurrency(Number(salesAmount || 0), currencyCode),
-        },
-        {
-          label: "Purchase cost",
-          value: formatCurrency(Number(purchaseCostAmount || 0), currencyCode),
-        },
-        {
-          label: "Expenses",
-          value: formatCurrency(Number(expenseAmount || 0), currencyCode),
-        },
-        {
-          label: "Calculated profit",
-          value: formatCurrency(profit, currencyCode),
-        },
-        { label: "Effect", value: "Governance evidence only; no distribution" },
-      ]
-    }
-    if (reviewIntent.kind === "reviewAccounting")
-      return [
-        { label: "Cycle", value: formatMonth(reviewIntent.cycle.periodMonth) },
-        {
-          label: "Decision",
-          value:
-            decision === "approved"
-              ? "Accept accounting"
-              : "Request correction",
-        },
-        {
-          label: "Recorded profit",
-          value: formatCurrency(
-            reviewIntent.cycle.profitAmount ?? 0,
-            currencyCode
-          ),
-        },
-        { label: "Effect", value: "No member or dividend posting" },
-      ]
-    return [
-      { label: "Cycle", value: formatMonth(reviewIntent.cycle.periodMonth) },
-      { label: "Current state", value: labelize(reviewIntent.cycle.status) },
-      { label: "Action", value: labelize(reviewIntent.transition) },
-    ]
-  }, [
-    approvedAmount,
-    approvedMonths,
-    currencyCode,
-    decision,
-    expenseAmount,
-    periodMonth,
-    purchaseCostAmount,
-    releasedAmount,
-    releasedAt,
-    reviewIntent,
-    salesAmount,
-  ])
-
-  const formDirty = Boolean(
-    notes ||
-    releasedAmount ||
-    approvedAmount ||
-    approvedMonths ||
-    salesAmount ||
-    purchaseCostAmount ||
-    expenseAmount
-  )
+  const cycleCard = selected ? (
+    <Elevated className="gap-[12px] rounded-[20px] bg-card p-[16px]" radius={20}>
+      <Pressable
+        accessibilityHint="Choose another cycle"
+        accessibilityLabel={`Cycle ${cycleMonth(selected.periodMonth)}`}
+        accessibilityRole="button"
+        className="flex-row items-center gap-[10px]"
+        disabled={pickable.length < 2}
+        onPress={() => setPickerOpen(true)}
+        testID="food-purchase-cycle-picker"
+      >
+        <View className="min-w-0 flex-1">
+          <Text className="text-muted-foreground" variant="caption">
+            Cycle
+          </Text>
+          <Text variant="section">{cycleMonth(selected.periodMonth)}</Text>
+        </View>
+        <StatusPill label={cycleStatusPill(selected).label} tone={cycleStatusPill(selected).tone} />
+        {pickable.length > 1 ? <Icon className="size-[18px] text-muted-foreground" name="ChevronDown" /> : null}
+      </Pressable>
+      <View className="h-[6px] overflow-hidden rounded-full bg-surface-raised">
+        <View
+          style={{
+            backgroundColor: colors.primary,
+            borderRadius: 999,
+            height: "100%",
+            width: `${Math.min(100, selected.releasedAmount ? ((overview.data?.summary.approvedAmount ?? 0) / selected.releasedAmount) * 100 : 0)}%`,
+          }}
+        />
+      </View>
+      <View className="flex-row">
+        {[
+          ["Released", selected.releasedAmount],
+          ["Approved", overview.data?.summary.approvedAmount ?? 0],
+          ["Available", overview.data?.summary.availableAmount ?? 0],
+        ].map(([label, value]) => (
+          <View className="flex-1 gap-[2px]" key={label as string}>
+            <Text className="text-muted-foreground" variant="caption">
+              {label}
+            </Text>
+            <Text variant="money">{formatCompactMoney(value as number, currencyCode)}</Text>
+          </View>
+        ))}
+      </View>
+      {capabilities?.releaseFunds ? (
+        <View className="flex-row gap-[8px]">
+          {intakeTransition(selected) ? (
+            <Pressable
+              accessibilityRole="button"
+              className={cn("min-h-[40px] flex-1 items-center justify-center rounded-[12px] bg-surface-raised active:opacity-80", writesBlocked && "opacity-40")}
+              onPress={writesBlocked ? undefined : () => openCycleForm("intake", selected)}
+              testID="food-purchase-intake"
+            >
+              <Text variant="label">{intakeTransition(selected)!.label}</Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            className={cn("min-h-[40px] flex-1 flex-row items-center justify-center gap-[6px] rounded-[12px] bg-accent active:opacity-80", writesBlocked && "opacity-40")}
+            onPress={writesBlocked ? undefined : openNewCycle}
+            testID="food-purchase-new-cycle"
+          >
+            <Icon className="size-[16px] text-accent-foreground" name="Plus" />
+            <Text className="text-accent-foreground" variant="label">
+              New cycle
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </Elevated>
+  ) : null
 
   return (
-    <SafeArea className="flex-1 bg-background">
-      <AppKeyboardAwareScrollView
-        bottomOffset={140}
-        contentContainerClassName="gap-5 px-5 pb-28 pt-4"
-        keyboardShouldPersistTaps="handled"
-        testID="admin-food-purchase-operations-screen"
-      >
-        <ScreenHeader
-          action={
-            <Button
-              accessibilityLabel="Refresh Foodstuff Purchase operations"
-              disabled={isLoading}
-              onPress={loadWorkspace}
-              size="icon"
-              variant="secondary"
-            >
-              <Icon className="size-base text-primary" name="RefreshCw" />
-            </Button>
-          }
-          title="Foodstuff Purchase"
-        />
-        {isDestinationUnavailable ? (
-          <NotificationDestinationNotice
-            onDismiss={() => setIsDestinationUnavailable(false)}
-          />
-        ) : null}
-        <View className="flex-row items-center gap-2 border-b border-border pb-4">
-          <View
-            className={`size-2 rounded-full ${loadError ? "bg-destructive" : "bg-success"}`}
-          />
-          <Text
-            className={`text-xs font-bold ${loadError ? "text-destructive" : "text-success"}`}
-          >
-            {loadError ? "Refresh required" : "Live cycle data"}
-          </Text>
-        </View>
-        {loadError ? <ErrorBanner message={loadError} /> : null}
-        {commandsBlocked ? (
-          <ErrorBanner message="Records remain readable offline. Cycle, review, and accounting commands require live data." />
-        ) : null}
-
-        {cycle ? (
-          <View className="gap-4 border-b border-border pb-5">
-            <View className="flex-row items-start justify-between gap-3">
-              <View className="min-w-0 flex-1 gap-1">
-                <Text className="text-3xl font-extrabold tracking-tight text-foreground">
-                  {formatMonth(cycle.periodMonth)}
-                </Text>
-                <Text className="text-xs leading-5 text-muted-foreground">
-                  {formatCompactCurrency(cycle.releasedAmount, currencyCode)}{" "}
-                  committee release · {formatDate(cycle.releasedAt)}
-                </Text>
-              </View>
-              <View className="rounded-full bg-primary/10 px-3 py-2">
-                <Text className="text-xs font-extrabold text-primary">
-                  {labelize(cycle.status)}
-                </Text>
-              </View>
-            </View>
-            <View className="flex-row border-y border-border">
-              {[
-                ["1", "Release", true],
-                ["2", "Applications", cycle.status !== "draft"],
-                [
-                  "3",
-                  "Accounting",
-                  cycle.status.startsWith("accounting") ||
-                    ["completed", "closed"].includes(cycle.status),
-                ],
-                [
-                  "4",
-                  "Complete",
-                  ["completed", "closed"].includes(cycle.status),
-                ],
-              ].map(([number, label, active], index) => (
-                <View
-                  className={`flex-1 items-center gap-1 py-3 ${index ? "border-l border-border" : ""}`}
-                  key={String(label)}
-                >
-                  <View
-                    className={`size-7 items-center justify-center rounded-full ${active ? "bg-primary" : "bg-muted"}`}
-                  >
-                    <Text
-                      className={`text-xs font-extrabold ${active ? "text-primary-foreground" : "text-muted-foreground"}`}
-                    >
-                      {String(number)}
-                    </Text>
-                  </View>
-                  <Text className="text-[10px] font-bold text-muted-foreground">
-                    {String(label)}
-                  </Text>
-                </View>
-              ))}
-            </View>
-            <View className="flex-row divide-x divide-border">
-              <View className="flex-1 gap-1 pr-4">
-                <Text className="text-lg font-extrabold text-foreground">
-                  {formatCompactCurrency(
-                    workspace?.summary.approvedAmount ?? 0,
-                    currencyCode
-                  )}
-                </Text>
-                <Text className="text-xs text-muted-foreground">Approved</Text>
-              </View>
-              <View className="flex-1 gap-1 px-4">
-                <Text className="text-lg font-extrabold text-foreground">
-                  {formatCompactCurrency(
-                    workspace?.summary.paidAmount ?? 0,
-                    currencyCode
-                  )}
-                </Text>
-                <Text className="text-xs text-muted-foreground">Paid</Text>
-              </View>
-              <View className="flex-1 gap-1 pl-4">
-                <Text className="text-lg font-extrabold text-foreground">
-                  {formatCompactCurrency(
-                    workspace?.summary.availableAmount ?? 0,
-                    currencyCode
-                  )}
-                </Text>
-                <Text className="text-xs text-muted-foreground">Available</Text>
-              </View>
-            </View>
-            {(workspace?.summary.allocationShortfallAmount ?? 0) > 0 ? (
-              <View className="border-warn/30 flex-row items-start gap-3 border-y py-3">
-                <Icon
-                  className="size-sm text-warn mt-0.5"
-                  name="AlertTriangle"
-                />
-                <Text className="min-w-0 flex-1 text-xs leading-5 text-muted-foreground">
-                  Approved applications exceed the recorded committee release by{" "}
-                  {formatCurrency(
-                    workspace?.summary.allocationShortfallAmount ?? 0,
-                    currencyCode
-                  )}
-                  . Available funds are shown as zero; review the historical
-                  release and approval evidence before continuing.
-                </Text>
-              </View>
-            ) : null}
-            <View className="flex-row gap-2">
-              {cycleAction ? (
-                <Button
-                  className="h-11 flex-1"
-                  disabled={
-                    commandsBlocked || !workspace?.capabilities.releaseFunds
-                  }
-                  onPress={() =>
-                    setReviewIntent({
-                      cycle,
-                      kind: "cycleTransition",
-                      transition: cycleAction.transition,
-                    })
-                  }
-                  variant="secondary"
-                >
-                  <Text>{cycleAction.label}</Text>
-                </Button>
-              ) : null}
-              {cycle.status === "intake_closed" ||
-              cycle.status === "accounting_rejected" ? (
-                <Button
-                  className="h-11 flex-1"
-                  disabled={
-                    commandsBlocked || !workspace?.capabilities.submitAccounting
-                  }
-                  onPress={() =>
-                    prepareForm({ cycle, kind: "submitAccounting" })
-                  }
-                >
-                  <Text>
-                    {cycle.status === "accounting_rejected"
-                      ? "Correct accounting"
-                      : "Submit accounting"}
-                  </Text>
-                </Button>
-              ) : null}
-              {cycle.status === "accounting_submitted" ? (
-                <Button
-                  className="h-11 flex-1"
-                  disabled={
-                    commandsBlocked || !workspace?.capabilities.reviewAccounting
-                  }
-                  onPress={() =>
-                    prepareForm({ cycle, kind: "reviewAccounting" })
-                  }
-                >
-                  <Text>Review accounting</Text>
-                </Button>
-              ) : null}
-            </View>
-          </View>
-        ) : (
-          <EmptyState
-            description="Record committee release evidence to start a monthly cycle."
-            icon="ShoppingBasket"
-            title="No Foodstuff Purchase cycle"
-          />
-        )}
-
-        <ScrollView
-          horizontal
-          contentContainerClassName="gap-2"
-          showsHorizontalScrollIndicator={false}
-        >
-          {workspace?.cycles.map((item) => (
-            <Button
-              className="h-10 px-3"
-              key={item.id}
-              onPress={() => setSelectedCycleId(item.id)}
-              variant={cycle?.id === item.id ? "secondary" : "ghost"}
-            >
-              <Text>{formatMonth(item.periodMonth)}</Text>
-            </Button>
-          ))}
-          {workspace?.capabilities.releaseFunds ? (
-            <Button
-              accessibilityLabel="Record committee release"
-              className="h-10 px-3"
-              disabled={commandsBlocked}
-              onPress={() => prepareForm({ kind: "release" })}
-              variant="outline"
-            >
-              <Icon className="size-sm mr-1 text-foreground" name="Plus" />
-              <Text>New cycle</Text>
-            </Button>
-          ) : null}
-        </ScrollView>
-
-        <ScrollView
-          horizontal
-          contentContainerClassName="gap-2"
-          showsHorizontalScrollIndicator={false}
-        >
-          {lanes.map((item) => (
-            <Button
-              className="h-10 px-3"
-              key={item.value}
-              onPress={() => setLane(item.value)}
-              testID={`food-purchase-lane-${item.value}`}
-              variant={lane === item.value ? "secondary" : "ghost"}
-            >
-              <Text>
-                {item.label}
-                {item.value === "applications" && workspace
-                  ? ` · ${workspace.summary.totalApplications}`
-                  : ""}
-              </Text>
-            </Button>
-          ))}
-        </ScrollView>
-
-        {lane === "applications" ? (
-          <>
-            <View className="flex-row gap-2">
-              <Input
-                accessibilityLabel="Search Foodstuff Purchase applications"
-                className="min-w-0 flex-1"
-                onChangeText={setSearchDraft}
-                onSubmitEditing={Keyboard.dismiss}
-                placeholder="Search member or item"
-                returnKeyType="search"
-                testID="food-purchase-search-input"
-                value={searchDraft}
-              />
-              <Button
-                accessibilityLabel="Search"
-                onPress={Keyboard.dismiss}
-                size="icon"
-                variant="secondary"
-              >
-                <Icon className="size-base text-foreground" name="Search" />
-              </Button>
-            </View>
-            <View>
-              <View className="flex-row items-end justify-between gap-3 border-b border-border pb-3">
-                <Text className="text-lg font-extrabold text-foreground">
-                  Applications
-                </Text>
-                <Text className="text-xs font-medium text-muted-foreground">
-                  {workspace?.summary.pendingApplications ?? 0} need review
-                </Text>
-              </View>
-              {isLoading && !workspace ? (
-                <View className="items-center py-16">
-                  <LoadingSpinner />
-                </View>
-              ) : (
-                <VirtualizedCardList
-                  data={workspace?.applications ?? []}
-                  empty={
-                    <EmptyState
-                      description="No applications match this cycle and search."
-                      icon="ClipboardList"
-                      title="No applications"
-                    />
-                  }
-                  estimatedItemSize={92}
-                  keyExtractor={(application) => application.id}
-                  maxHeight={552}
-                  renderItem={({ item: application }) => (
-                    <ApplicationRow
-                      application={application}
-                      currencyCode={currencyCode}
-                      onPress={() => void openDetail(application.id)}
-                    />
-                  )}
-                />
-              )}
-              {workspace?.nextApplicationCursor ? (
-                <Button
-                  className="mt-3 h-11"
-                  disabled={isLoadingMore}
-                  onPress={() => void loadMoreApplications()}
-                  variant="secondary"
-                >
-                  {isLoadingMore ? (
-                    <LoadingSpinner />
-                  ) : (
-                    <Text>Load more applications</Text>
-                  )}
-                </Button>
-              ) : null}
-            </View>
-          </>
-        ) : lane === "accounting" ? (
-          <View className="gap-3">
-            <View className="flex-row items-end justify-between border-b border-border pb-3">
-              <Text className="text-lg font-extrabold text-foreground">
-                Accounting evidence
-              </Text>
-              <Text className="text-xs text-muted-foreground">
-                Governance record
-              </Text>
-            </View>
-            {cycle?.accountingSubmittedAt ? (
-              <>
-                {[
-                  ["Sales", cycle.salesAmount ?? 0],
-                  ["Purchase cost", cycle.purchaseCostAmount ?? 0],
-                  ["Operating expenses", cycle.operatingExpenseAmount ?? 0],
-                  ["Recorded profit", cycle.profitAmount ?? 0],
-                ].map(([label, value]) => (
-                  <View
-                    className="flex-row items-center justify-between border-b border-border py-3"
-                    key={String(label)}
-                  >
-                    <Text className="text-sm text-muted-foreground">
-                      {String(label)}
-                    </Text>
-                    <Text className="text-sm font-extrabold text-foreground">
-                      {formatCurrency(Number(value), currencyCode)}
-                    </Text>
-                  </View>
-                ))}
-                <Text className="text-xs leading-5 text-muted-foreground">
-                  {cycle.accountingNotes ?? "No accounting note"}
-                </Text>
-              </>
-            ) : (
-              <EmptyState
-                description="Close application intake before the committee submits month-end accounting."
-                icon="ReceiptText"
-                title="Accounting not submitted"
-              />
-            )}
-          </View>
-        ) : (
-          <View>
-            <View className="flex-row items-end justify-between border-b border-border pb-3">
-              <Text className="text-lg font-extrabold text-foreground">
-                Cycle history
-              </Text>
-              <Text className="text-xs text-muted-foreground">
-                Newest first
-              </Text>
-            </View>
-            {workspace?.cycles.map((item) => (
-              <Pressable
-                accessibilityHint="Opens the released cycle details"
-                accessibilityLabel={`${formatMonth(item.periodMonth)} cycle, ${labelize(item.status)}, released ${formatCurrency(item.releasedAmount, currencyCode)}`}
-                accessibilityRole="button"
-                className="flex-row items-center gap-3 border-b border-border py-4"
-                key={item.id}
-                onPress={() => setSelectedCycleId(item.id)}
-              >
-                <View className="min-w-0 flex-1 gap-1">
-                  <Text className="text-sm font-bold text-foreground">
-                    {formatMonth(item.periodMonth)}
-                  </Text>
-                  <Text className="text-xs text-muted-foreground">
-                    {labelize(item.status)} · released{" "}
-                    {formatDate(item.releasedAt)}
-                  </Text>
-                </View>
-                <Text className="text-sm font-extrabold text-foreground">
-                  {formatCurrency(item.releasedAmount, currencyCode)}
-                </Text>
-                <Icon
-                  className="size-sm text-muted-foreground"
-                  name="ChevronRight"
-                />
-              </Pressable>
-            ))}
-          </View>
-        )}
-
-        <View className="flex-row items-start gap-3 border-t border-border pt-4">
-          <Icon className="size-sm text-warn mt-0.5" name="ShieldCheck" />
-          <Text className="min-w-0 flex-1 text-xs leading-5 text-muted-foreground">
-            Committee release, settlement, and accounting are operational
-            evidence. This workspace does not post cash or distribute Foodstuff
-            Purchase profit.
-          </Text>
-        </View>
-      </AppKeyboardAwareScrollView>
-
-      <FloatingBottomSheet
-        accessibilityLabel={
-          detail
-            ? `${detail.member.fullName} Foodstuff Purchase application`
-            : "Foodstuff Purchase application"
+    <>
+      <ServiceOpsLanes
+        currencyCode={currencyCode}
+        hero={foodPurchaseHero(overview.data, currencyCode)}
+        heroAction={
+          capabilities?.releaseFunds
+            ? { icon: "Plus", label: "New cycle", onPress: () => !writesBlocked && openNewCycle() }
+            : undefined
         }
-        hideHandle
-        onClose={() => setDetailVisible(false)}
-        onDismissed={() => {
-          const queued = queuedFormRef.current
-          queuedFormRef.current = null
-          if (queued) prepareForm(queued)
-          else setDetail(null)
-        }}
-        presentation="large"
-        scrollable
-        visible={detailVisible}
-      >
-        <View className="gap-5 px-5 pt-5 pb-8">
-          <View className="flex-row items-start gap-3 border-b border-border pb-4">
-            <View className="min-w-0 flex-1 gap-1">
-              <Text
-                accessibilityRole="header"
-                className="text-2xl font-extrabold tracking-tight text-foreground"
-              >
-                {detail?.member.fullName ?? "Loading application"}
-              </Text>
-              {detail ? (
-                <Text className="text-sm text-muted-foreground">
-                  {detail.member.memberNumber} ·{" "}
-                  {detail.itemDescription ?? "Foodstuff Purchase"}
-                </Text>
-              ) : null}
-            </View>
-            <Button
-              accessibilityLabel="Close application"
-              onPress={() => setDetailVisible(false)}
-              size="icon"
-              variant="ghost"
-            >
-              <Icon className="size-base text-foreground" name="X" />
-            </Button>
-          </View>
-          {isDetailLoading || !detail ? (
-            <View className="items-center py-20">
-              <LoadingSpinner />
-            </View>
-          ) : (
-            <>
-              <View className="flex-row items-end justify-between border-b border-border pb-4">
-                <View>
-                  <Text className="text-3xl font-extrabold tracking-tight text-foreground">
-                    {formatCurrency(
-                      detail.approvedAmount ?? detail.requestedAmount,
-                      currencyCode
-                    )}
-                  </Text>
-                  <Text className="mt-1 text-xs text-muted-foreground">
-                    {detail.approvedPaybackMonths ??
-                      detail.requestedPaybackMonths}{" "}
-                    months · {labelize(detail.status)}
-                  </Text>
-                </View>
-                <Text className="text-xs font-bold text-primary">
-                  {detail.policyMaximumPaybackMonths} month cap
-                </Text>
-              </View>
-              <View className="gap-1 border-b border-border pb-4">
-                <Text className="text-sm font-bold text-foreground">
-                  Settlement
-                </Text>
-                <Text className="text-xs leading-5 text-muted-foreground">
-                  {formatCurrency(detail.paidAmount, currencyCode)} paid ·{" "}
-                  {formatCurrency(detail.outstandingAmount, currencyCode)}{" "}
-                  outstanding
-                </Text>
-              </View>
-              <View className="gap-1 border-b border-border pb-4">
-                <Text className="text-sm font-bold text-foreground">
-                  Policy snapshot
-                </Text>
-                <Text className="text-xs leading-5 text-muted-foreground">
-                  Maximum {detail.policyMaximumPaybackMonths} months ·
-                  commitment reduction{" "}
-                  {detail.allowsCommitmentReductionDuringPayback
-                    ? "allowed"
-                    : "locked"}
-                </Text>
-              </View>
-              {detail.status === "submitted" ||
-              detail.status === "under_review" ? (
-                <Button
-                  className="h-12"
-                  disabled={
-                    commandsBlocked ||
-                    !workspace?.capabilities.reviewApplications ||
-                    cycle?.status !== "open"
-                  }
-                  onPress={() =>
-                    openFormFromDetail({
-                      application: detail,
-                      kind: "reviewApplication",
-                    })
-                  }
-                >
-                  <Text>Review application</Text>
-                </Button>
-              ) : null}
-            </>
-          )}
-        </View>
-      </FloatingBottomSheet>
-
-      <FullScreenFormSheet
-        dirty={formIntent?.kind === "release" && formDirty}
-        footer={
-          <View className="flex-row items-center gap-3">
-            <DevQuickFill
-              label="Quick fill committee release"
-              onPress={() => {
-                setPeriodMonth(monthStartDateOnly())
-                setReleasedAt(todayDateOnly())
-                setReleasedAmount(
-                  mobileDevQuickFill.adminFoodPurchaseOperations.releasedAmount
-                )
-                setNotes(
-                  mobileDevQuickFill.adminFoodPurchaseOperations.releaseNotes
-                )
-              }}
-              placement="footer"
-              portal={false}
-            />
-            <Button className="h-12 flex-1" onPress={validateForm}>
-              <Text>Review release</Text>
-            </Button>
-          </View>
-        }
-        onClose={() => {
-          setCalendarIntent(null)
-          setFormIntent(null)
-        }}
-        onDismissed={() => {
-          const queued = queuedReviewRef.current
-          queuedReviewRef.current = null
-          if (queued) setReviewIntent(queued)
-        }}
-        overlay={
-          <CalendarPickerSheet
-            label={calendarIntent === "period" ? "Cycle month" : "Release date"}
-            onChange={
-              calendarIntent === "period" ? setPeriodMonth : setReleasedAt
-            }
-            onClose={() => setCalendarIntent(null)}
-            testID={
-              calendarIntent === "period"
-                ? "food-purchase-period-calendar"
-                : "food-purchase-release-calendar"
-            }
-            value={calendarIntent === "period" ? periodMonth : releasedAt}
-            visible={Boolean(calendarIntent)}
-          />
-        }
-        title="Record committee release"
-        visible={formIntent?.kind === "release"}
-      >
-        <Text className="text-sm leading-5 text-muted-foreground">
-          Record separately governed release evidence. This does not post cash
-          or a general-ledger transaction.
-        </Text>
-        <FormStateBanner hasDraft={formDirty} isStale={commandsBlocked} />
-        {formError ? <ErrorBanner message={formError} /> : null}
-        <Field label="Cycle month">
-          <CalendarDateField
-            accessibilityLabel="Cycle month"
-            onPress={() => setCalendarIntent("period")}
-            testID="food-purchase-period-input"
-            value={periodMonth}
-          />
-        </Field>
-        <Field label="Release amount">
-          <Input
-            keyboardType="decimal-pad"
-            onChangeText={setReleasedAmount}
-            placeholder="1200000"
-            testID="food-purchase-release-amount-input"
-            value={releasedAmount}
-          />
-        </Field>
-        <Field label="Release date">
-          <CalendarDateField
-            accessibilityLabel="Release date"
-            onPress={() => setCalendarIntent("release")}
-            testID="food-purchase-release-date-input"
-            value={releasedAt}
-          />
-        </Field>
-        <Field label="Release evidence note (optional)">
-          <Textarea
-            onChangeText={setNotes}
-            placeholder="Record the committee authorization evidence checked."
-            testID="food-purchase-release-notes-input"
-            value={notes}
-          />
-        </Field>
-      </FullScreenFormSheet>
-
-      <FullScreenFormSheet
-        dirty={formIntent?.kind === "reviewApplication" && formDirty}
-        footer={
-          <View className="flex-row items-center gap-3">
-            <DevQuickFill
-              label="Quick fill application review"
-              onPress={() => {
-                setDecision("approved")
-                setApprovedAmount(
-                  String(
-                    formIntent?.kind === "reviewApplication"
-                      ? formIntent.application.requestedAmount
-                      : 180000
-                  )
-                )
-                setApprovedMonths(
-                  String(
-                    formIntent?.kind === "reviewApplication"
-                      ? formIntent.application.requestedPaybackMonths
-                      : 4
-                  )
-                )
-                setNotes(
-                  mobileDevQuickFill.adminFoodPurchaseOperations.applicationReviewNotes
-                )
-              }}
-              placement="footer"
-              portal={false}
-            />
-            <Button className="h-12 flex-1" onPress={validateForm}>
-              <Text>Review decision</Text>
-            </Button>
-          </View>
-        }
-        onClose={() => setFormIntent(null)}
-        onDismissed={() => {
-          const queued = queuedReviewRef.current
-          queuedReviewRef.current = null
-          if (queued) setReviewIntent(queued)
-        }}
-        title="Review application"
-        visible={formIntent?.kind === "reviewApplication"}
-      >
-        <FormStateBanner hasDraft={formDirty} isStale={commandsBlocked} />
-        {formError ? <ErrorBanner message={formError} /> : null}
-        <Field label="Decision">
-          <View className="flex-row gap-2">
-            {(["approved", "under_review", "rejected"] as const).map(
-              (value) => (
-                <Button
-                  className="flex-1"
-                  key={value}
-                  onPress={() => setDecision(value)}
-                  variant={decision === value ? "secondary" : "outline"}
-                >
-                  <Text>{labelize(value)}</Text>
-                </Button>
+        icon="ShoppingBasket"
+        lane={lane}
+        laneState={(value) =>
+          value === "applications"
+            ? {
+                ...applications.state,
+                items: applications.raw.map((item) => applicationRow(item, capabilities)),
+                loading: applications.state.loading || overview.isPending,
+              }
+            : staticLane(
+                (value === "accounting" ? accountingCycles : historyCycles).map((item) =>
+                  cycleRow(item, capabilities, currencyCode)
+                ),
+                overview.isPending,
+                overview.isError && !overview.data,
+                refreshOverview,
+                overview.isRefetching
               )
-            )}
-          </View>
-        </Field>
-        {decision === "approved" ? (
+        }
+        lanes={foodPurchaseLanes(overview.data)}
+        lead={(value) => (value === "applications" ? cycleCard : null)}
+        offline={offline}
+        onAction={(row, value) => {
+          if (value === "applications") {
+            const item = applications.raw.find((entry) => entry.id === row.id)
+            if (item) openApplicationForm(item)
+            return
+          }
+          const item = cycles.find((entry) => entry.id === row.id)
+          const action = item ? cycleAction(item, capabilities) : null
+          if (item && action) openCycleForm(action, item)
+        }}
+        onLaneChange={setLane}
+        onOpen={(row, value) => {
+          setDetailRef({ id: row.id, type: value === "applications" ? "application" : "cycle" })
+          setDetailOpen(true)
+        }}
+        onRefresh={() => {
+          refreshOverview()
+          applications.state.refetch()
+        }}
+        refreshing={overview.isRefetching || applications.state.refreshing}
+        search={search}
+        searchPlaceholder="Search member or items"
+        searchTerm={term}
+        setSearch={setSearch}
+        stale={stale}
+        summaryError={overview.isError && Boolean(overview.data)}
+        testIdPrefix="food-purchase"
+        title="Foodstuff purchase"
+        topSlot={
+          destinationMissing ? (
+            <NotificationDestinationNotice onDismiss={() => setDestinationMissing(false)} />
+          ) : null
+        }
+        writesBlocked={writesBlocked}
+      />
+
+      <AppSheet onClose={() => setPickerOpen(false)} title="Choose cycle" variant="picker" visible={pickerOpen}>
+        <View className="gap-[8px]">
+          {pickable.map((item) => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: item.id === selected?.id }}
+              className={cn(
+                "min-h-[52px] flex-row items-center gap-[10px] rounded-[14px] px-[14px] active:opacity-80",
+                item.id === selected?.id ? "bg-accent" : "bg-surface-raised"
+              )}
+              key={item.id}
+              onPress={() => {
+                setCycleId(item.id)
+                setPickerOpen(false)
+              }}
+            >
+              <Text className="flex-1" variant="body">
+                {cycleMonth(item.periodMonth)}
+              </Text>
+              <StatusPill label={cycleStatusPill(item).label} tone={cycleStatusPill(item).tone} />
+            </Pressable>
+          ))}
+        </View>
+      </AppSheet>
+
+      <ServiceOpsDetailSheet
+        action={
+          openedApplication && ["submitted", "under_review"].includes(openedApplication.status)
+            ? {
+                disabled: writesBlocked || !capabilities?.reviewApplications,
+                label: "Review",
+                onPress: () => {
+                  queued.current = () => openApplicationForm(openedApplication)
+                  setDetailOpen(false)
+                },
+                testID: "food-purchase-detail-action",
+              }
+            : openedCycle && cycleAction(openedCycle, capabilities)
+              ? {
+                  disabled: writesBlocked,
+                  label: cycleActionLabel[cycleAction(openedCycle, capabilities)!],
+                  onPress: () => {
+                    const action = cycleAction(openedCycle, capabilities)!
+                    queued.current = () => openCycleForm(action, openedCycle)
+                    setDetailOpen(false)
+                  },
+                  testID: "food-purchase-detail-action",
+                }
+              : null
+        }
+        currencyCode={currencyCode}
+        detail={
+          openedApplication
+            ? applicationDetail(openedApplication, currencyCode, overview.data?.summary.availableAmount)
+            : openedCycle
+              ? cycleDetail(openedCycle, currencyCode)
+              : undefined
+        }
+        error={detailRef?.type === "application" && applicationDetailQuery.isError}
+        loading={detailRef?.type === "application" && applicationDetailQuery.isPending}
+        offline={offline}
+        onClose={() => setDetailOpen(false)}
+        onDismissed={() => {
+          const next = queued.current
+          queued.current = null
+          next?.()
+        }}
+        onRetry={() => void applicationDetailQuery.refetch()}
+        retrying={applicationDetailQuery.isRefetching}
+        title={detailRef?.type === "cycle" ? "Foodstuff cycle" : "Foodstuff application"}
+        visible={detailOpen}
+      />
+
+      <ServiceOpsFlowSheet
+        cta={ctas[kind]}
+        dirty={Boolean(notes.trim() || sales || cost || opex)}
+        footerExtra={
+          kind === "intake" || kind === "complete" ? undefined : (
+            <DevQuickFill
+              label={`Quick fill ${titles[kind].toLowerCase()}`}
+              onPress={() => {
+                if (kind === "app") setNotes(quick.applicationReviewNotes)
+                else if (kind === "cycle") {
+                  setAmount(quick.releasedAmount)
+                  setNotes(quick.releaseNotes)
+                } else if (kind === "acct") {
+                  setSales(quick.salesAmount)
+                  setCost(quick.purchaseCostAmount)
+                  setOpex(quick.expenseAmount)
+                  setNotes(quick.cycleAccountingNotes)
+                } else setNotes(quick.accountingReviewNotes)
+              }}
+              placement="footer"
+              portal={false}
+            />
+          )
+        }
+        offline={offline}
+        onClose={() => {
+          setStep("closed")
+          setResult(null)
+        }}
+        onConfirm={confirm}
+        onRetry={confirm}
+        onReview={goReview}
+        onSecondary={() => {
+          setStep("closed")
+          setResult(null)
+        }}
+        result={result}
+        review={reviewSpec}
+        setStep={setStep}
+        step={step}
+        submitting={submitting}
+        title={titles[kind]}
+      >
+        {kind === "app" && application ? (
           <>
-            <Field label="Approved amount">
-              <Input
-                keyboardType="decimal-pad"
-                onChangeText={setApprovedAmount}
-                placeholder="180000"
-                testID="food-purchase-approved-amount-input"
-                value={approvedAmount}
+            <OpsContextCard
+              amount={money(application.requestedAmount)}
+              subtitle={application.itemDescription ?? "Foodstuff"}
+              title={`${application.member.fullName} · ${application.member.memberNumber}`}
+            />
+            <FormField label="Decision">
+              <SegmentedControl
+                accessibilityLabel="Decision"
+                onChange={setDecision}
+                options={[
+                  { label: "Approve", value: "approved" as const },
+                  { label: "Keep in review", value: "under_review" as const },
+                  { label: "Reject", value: "rejected" as const },
+                ]}
+                value={decision}
               />
-            </Field>
-            <Field label="Approved payback months">
-              <Input
-                keyboardType="number-pad"
-                onChangeText={setApprovedMonths}
-                placeholder="4"
-                testID="food-purchase-approved-months-input"
-                value={approvedMonths}
+            </FormField>
+            {decision === "approved" ? (
+              <>
+                <FormField
+                  error={err("amount")}
+                  helper={`Requested ${money(application.requestedAmount)}${overview.data ? ` · ${formatCompactMoney(overview.data.summary.availableAmount, currencyCode)} available` : ""}`}
+                  label="Approved amount"
+                >
+                  <MoneyField
+                    accessibilityLabel="Approved amount"
+                    currencyCode={currencyCode}
+                    onChangeValue={(raw) => setAmount(raw)}
+                    testID="food-purchase-review-amount"
+                    value={amount}
+                  />
+                </FormField>
+                <FormField
+                  error={err("months")}
+                  helper={`Policy allows up to ${application.policyMaximumPaybackMonths} months`}
+                  label="Payback months"
+                >
+                  <Input
+                    accessibilityLabel="Payback months"
+                    keyboardType="number-pad"
+                    maxLength={2}
+                    onChangeText={(value) => setMonths(value.replace(/\D/g, ""))}
+                    testID="food-purchase-review-months"
+                    value={months}
+                  />
+                </FormField>
+              </>
+            ) : null}
+            <FormField error={err("notes")} label="Review notes" optional={decision === "under_review"}>
+              <Textarea
+                accessibilityLabel="Review notes"
+                className="min-h-[104px] rounded-[14px] px-[14px] py-[13px]"
+                maxLength={2000}
+                onChangeText={setNotes}
+                placeholder="Cycle capacity and member obligations checked"
+                testID="food-purchase-review-notes"
+                value={notes}
               />
-            </Field>
+            </FormField>
+          </>
+        ) : kind === "cycle" ? (
+          <>
+            <FormField error={err("periodMonth")} label="Cycle month">
+              <View className="flex-row flex-wrap gap-[8px]">
+                {upcomingMonths().map((month) => {
+                  const taken = takenMonths.has(month.slice(0, 7))
+                  const selectedMonth = month === periodMonth
+                  return (
+                    <Pressable
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: selectedMonth, disabled: taken }}
+                      className={cn(
+                        "min-h-[52px] basis-[47%] grow items-center justify-center rounded-[14px] border px-[10px]",
+                        selectedMonth ? "border-primary bg-accent" : "border-border bg-card",
+                        taken && "opacity-40"
+                      )}
+                      key={month}
+                      onPress={taken ? undefined : () => setPeriodMonth(month)}
+                    >
+                      <Text className={selectedMonth ? "text-accent-foreground" : undefined} variant="label">
+                        {cycleMonth(month)}
+                      </Text>
+                      {taken ? (
+                        <Text className="text-muted-foreground" variant="caption">
+                          Has a cycle
+                        </Text>
+                      ) : null}
+                    </Pressable>
+                  )
+                })}
+              </View>
+            </FormField>
+            <FormField error={err("amount")} helper="Funds the committee released for this cycle" label="Release amount">
+              <MoneyField
+                accessibilityLabel="Release amount"
+                currencyCode={currencyCode}
+                onChangeValue={(raw) => setAmount(raw)}
+                testID="food-purchase-cycle-amount"
+                value={amount}
+              />
+            </FormField>
+            <FormField error={err("releasedAt")} label="Release date">
+              <DateField
+                maximumDate={todayDateOnly()}
+                onChange={setReleasedAt}
+                sheetTitle="Release date"
+                testID="food-purchase-cycle-date"
+                value={releasedAt}
+              />
+            </FormField>
+            <FormField label="Committee note" optional>
+              <Textarea
+                accessibilityLabel="Committee note"
+                className="min-h-[96px] rounded-[14px] px-[14px] py-[13px]"
+                maxLength={2000}
+                onChangeText={setNotes}
+                placeholder="Approved at the committee meeting"
+                value={notes}
+              />
+            </FormField>
+          </>
+        ) : cycle ? (
+          <>
+            <OpsContextCard
+              amount={money(cycle.releasedAmount)}
+              subtitle={cycleStatusPill(cycle).label}
+              title={`${cycleMonth(cycle.periodMonth)} cycle`}
+            />
+            {kind === "acct" ? (
+              <>
+                <FormField label="Sales">
+                  <MoneyField accessibilityLabel="Sales" currencyCode={currencyCode} onChangeValue={(raw) => setSales(raw)} testID="food-purchase-acct-sales" value={sales} />
+                </FormField>
+                <FormField label="Purchase cost">
+                  <MoneyField accessibilityLabel="Purchase cost" currencyCode={currencyCode} onChangeValue={(raw) => setCost(raw)} testID="food-purchase-acct-cost" value={cost} />
+                </FormField>
+                <FormField error={err("figures")} helper="Transport, storage and handling" label="Operating expenses">
+                  <MoneyField accessibilityLabel="Operating expenses" currencyCode={currencyCode} onChangeValue={(raw) => setOpex(raw)} testID="food-purchase-acct-opex" value={opex} />
+                </FormField>
+                <View className="flex-row items-center justify-between rounded-[16px] bg-surface-raised px-[16px] py-[14px]">
+                  <Text className="text-muted-foreground" variant="label">
+                    Calculated profit
+                  </Text>
+                  <Text className={profit < 0 ? "text-destructive" : undefined} variant="money">
+                    {sales ? money(profit) : "—"}
+                  </Text>
+                </View>
+              </>
+            ) : kind === "acctrev" || kind === "complete" ? (
+              <>
+                <Elevated className="rounded-[16px] bg-card px-[14px] py-[8px]" radius={16}>
+                  {[
+                    ["Sales", cycle.salesAmount ?? 0],
+                    ["Purchase cost", cycle.purchaseCostAmount ?? 0],
+                    ["Operating expenses", cycle.operatingExpenseAmount ?? 0],
+                    ["Profit", cycle.profitAmount ?? 0],
+                  ].map(([label, value]) => (
+                    <View className="min-h-[36px] flex-row items-center justify-between" key={label as string}>
+                      <Text className="text-muted-foreground" variant="small">
+                        {label}
+                      </Text>
+                      <Text className="font-bold" tabular variant="small">
+                        {money(value as number)}
+                      </Text>
+                    </View>
+                  ))}
+                </Elevated>
+                {kind === "acctrev" ? (
+                  <FormField label="Decision">
+                    <SegmentedControl
+                      accessibilityLabel="Accounting decision"
+                      onChange={setAccountingDecision}
+                      options={[
+                        { label: "Approve", value: "approved" as const },
+                        { label: "Return", value: "rejected" as const },
+                      ]}
+                      value={accountingDecision}
+                    />
+                  </FormField>
+                ) : null}
+              </>
+            ) : null}
+            <FormField
+              error={err("notes")}
+              label={kind === "acct" ? "Accounting notes" : kind === "acctrev" ? "Review note" : "Note"}
+              optional={!(kind === "acctrev" && accountingDecision === "rejected")}
+            >
+              <Textarea
+                accessibilityLabel="Notes"
+                className="min-h-[96px] rounded-[14px] px-[14px] py-[13px]"
+                maxLength={2000}
+                onChangeText={setNotes}
+                placeholder={kind === "acct" ? "Sales, supplier cost and expense evidence" : "Optional note for the record"}
+                testID="food-purchase-cycle-notes"
+                value={notes}
+              />
+            </FormField>
           </>
         ) : null}
-        <Field label="Review evidence">
-          <Textarea
-            onChangeText={setNotes}
-            placeholder="Record the policy and decision evidence."
-            testID="food-purchase-review-notes-input"
-            value={notes}
-          />
-        </Field>
-      </FullScreenFormSheet>
-
-      <FullScreenFormSheet
-        dirty={formIntent?.kind === "submitAccounting" && formDirty}
-        footer={
-          <View className="flex-row items-center gap-3">
-            <DevQuickFill
-              label="Quick fill cycle accounting"
-              onPress={() => {
-                const fixture = mobileDevQuickFill.adminFoodPurchaseOperations
-                setSalesAmount(fixture.salesAmount)
-                setPurchaseCostAmount(fixture.purchaseCostAmount)
-                setExpenseAmount(fixture.expenseAmount)
-                setNotes(fixture.cycleAccountingNotes)
-              }}
-              placement="footer"
-              portal={false}
-            />
-            <Button className="h-12 flex-1" onPress={validateForm}>
-              <Text>Review accounting</Text>
-            </Button>
-          </View>
-        }
-        onClose={() => setFormIntent(null)}
-        onDismissed={() => {
-          const queued = queuedReviewRef.current
-          queuedReviewRef.current = null
-          if (queued) setReviewIntent(queued)
-        }}
-        title="Submit cycle accounting"
-        visible={formIntent?.kind === "submitAccounting"}
-      >
-        <Text className="text-sm leading-5 text-muted-foreground">
-          These totals are governance evidence. Submission does not distribute
-          the calculated profit.
-        </Text>
-        <FormStateBanner hasDraft={formDirty} isStale={commandsBlocked} />
-        {formError ? <ErrorBanner message={formError} /> : null}
-        <Field label="Sales total">
-          <Input
-            keyboardType="decimal-pad"
-            onChangeText={setSalesAmount}
-            placeholder="1386500"
-            testID="food-purchase-sales-input"
-            value={salesAmount}
-          />
-        </Field>
-        <Field label="Purchase cost">
-          <Input
-            keyboardType="decimal-pad"
-            onChangeText={setPurchaseCostAmount}
-            placeholder="1120000"
-            testID="food-purchase-cost-input"
-            value={purchaseCostAmount}
-          />
-        </Field>
-        <Field label="Operating expenses">
-          <Input
-            keyboardType="decimal-pad"
-            onChangeText={setExpenseAmount}
-            placeholder="80000"
-            testID="food-purchase-expense-input"
-            value={expenseAmount}
-          />
-        </Field>
-        <Field label="Accounting evidence note (optional)">
-          <Textarea
-            onChangeText={setNotes}
-            placeholder="Record the evidence reconciled by the committee."
-            testID="food-purchase-accounting-notes-input"
-            value={notes}
-          />
-        </Field>
-      </FullScreenFormSheet>
-
-      <FullScreenFormSheet
-        dirty={formIntent?.kind === "reviewAccounting" && formDirty}
-        footer={
-          <View className="flex-row items-center gap-3">
-            <DevQuickFill
-              label="Quick fill accounting review"
-              onPress={() => {
-                setDecision("approved")
-                setNotes(
-                  mobileDevQuickFill.adminFoodPurchaseOperations.accountingReviewNotes
-                )
-              }}
-              placement="footer"
-              portal={false}
-            />
-            <Button className="h-12 flex-1" onPress={validateForm}>
-              <Text>Review decision</Text>
-            </Button>
-          </View>
-        }
-        onClose={() => setFormIntent(null)}
-        onDismissed={() => {
-          const queued = queuedReviewRef.current
-          queuedReviewRef.current = null
-          if (queued) setReviewIntent(queued)
-        }}
-        title="Review cycle accounting"
-        visible={formIntent?.kind === "reviewAccounting"}
-      >
-        <Text className="text-sm leading-5 text-muted-foreground">
-          Acceptance records governance evidence only. It does not create member
-          obligations or allocate profit.
-        </Text>
-        <FormStateBanner hasDraft={formDirty} isStale={commandsBlocked} />
-        {formError ? <ErrorBanner message={formError} /> : null}
-        <Field label="Decision">
-          <View className="flex-row gap-2">
-            <Button
-              className="flex-1"
-              onPress={() => setDecision("approved")}
-              variant={decision === "approved" ? "secondary" : "outline"}
-            >
-              <Text>Accept</Text>
-            </Button>
-            <Button
-              className="flex-1"
-              onPress={() => setDecision("rejected")}
-              variant={decision === "rejected" ? "secondary" : "outline"}
-            >
-              <Text>Request correction</Text>
-            </Button>
-          </View>
-        </Field>
-        <Field
-          label={
-            decision === "rejected"
-              ? "Correction required"
-              : "Review note (optional)"
-          }
-        >
-          <Textarea
-            onChangeText={setNotes}
-            placeholder={
-              decision === "rejected"
-                ? "Explain what the committee must correct."
-                : "Record the evidence reviewed."
-            }
-            testID="food-purchase-accounting-review-notes-input"
-            value={notes}
-          />
-        </Field>
-      </FullScreenFormSheet>
-
-      <SubmissionReviewSheet
-        confirmLabel={
-          reviewIntent?.kind === "cycleTransition"
-            ? reviewIntent.transition === "complete"
-              ? "Complete cycle"
-              : labelize(reviewIntent.transition)
-            : reviewIntent?.kind === "release"
-              ? "Record release"
-              : reviewIntent?.kind === "reviewApplication"
-                ? "Confirm decision"
-                : reviewIntent?.kind === "submitAccounting"
-                  ? "Submit accounting"
-                  : "Confirm accounting review"
-        }
-        description="The server will verify the current tenant, permission, and expected record state before applying this command."
-        error={formError}
-        isSubmitting={isSubmitting}
-        onClose={() => setReviewIntent(null)}
-        onConfirm={() => void runCommand()}
-        onDismissed={() => {
-          const message = queuedSuccessRef.current
-          queuedSuccessRef.current = null
-          if (message) setSuccess(message)
-        }}
-        rows={reviewRows}
-        title={
-          reviewIntent?.kind === "release"
-            ? "Review committee release"
-            : reviewIntent?.kind === "reviewApplication"
-              ? "Review application decision"
-              : reviewIntent?.kind === "submitAccounting"
-                ? "Review cycle accounting"
-                : reviewIntent?.kind === "reviewAccounting"
-                  ? "Review accounting decision"
-                  : "Review cycle action"
-        }
-        visible={Boolean(reviewIntent)}
-      />
-      <SubmissionSuccessSheet
-        description={
-          success ?? "The Foodstuff Purchase operation was confirmed."
-        }
-        onClose={() => setSuccess(null)}
-        title="Operation recorded"
-        visible={Boolean(success)}
-      />
-    </SafeArea>
+      </ServiceOpsFlowSheet>
+    </>
   )
 }

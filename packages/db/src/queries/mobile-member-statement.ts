@@ -1,16 +1,17 @@
 import { createPrismaClient } from "../prisma"
-import { getMemberByUserId, getMemberStatementDetail } from "./members"
+import { getMemberStatementSummary } from "./members"
 import {
   buildMobileMemberCommitments,
   type MobileMemberCoreMetric,
 } from "./mobile-member-core"
+import { approvedNotPaidOutMetrics } from "./approved-not-paid-out"
 import {
   getMobileMemberSharesSnapshot,
   type MobileMemberShareSection,
 } from "./mobile-member-shares"
 
 type StatementDetail = NonNullable<
-  Awaited<ReturnType<typeof getMemberStatementDetail>>
+  Awaited<ReturnType<typeof readMobileStatementDetail>>
 >
 
 type MobileMemberStatementRow = {
@@ -59,6 +60,8 @@ export type MobileMemberStatementSnapshot = {
 
 type StatementSummary = {
   activeLoanCount: number
+  approvedNotPaidOutAmount?: number
+  approvedNotPaidOutCount?: number
   contributionsCount: number
   dividendAllocationCount: number
   totalDividendAllocations: number
@@ -187,6 +190,7 @@ export function buildMobileMemberStatementStats(input: {
       label: "Financing",
       value: input.summary?.totalOutstandingPrincipal ?? 0,
     },
+    ...approvedNotPaidOutMetrics(input.summary),
     {
       detail:
         (input.summary?.dividendAllocationCount ?? 0) > 0
@@ -403,7 +407,7 @@ function buildChargesSection(
   detail: StatementDetail
 ): MobileMemberStatementSnapshotSection {
   const pending = detail.chargeApplications.filter(
-    (charge: any) => charge.status === "pending"
+    (charge) => charge.status === "pending"
   )
   const rows: MobileMemberStatementRow[] = [
     {
@@ -422,11 +426,11 @@ function buildChargesSection(
   for (const charge of detail.chargeApplications.slice(0, 6)) {
     const source = charge.procurementRequest
       ? `Procurement - ${charge.procurementRequest.itemName}`
-      : charge.foodPurchaseApplication
+      : charge.foodPurchaseApplicationId
         ? "Foodstuff Purchase"
         : charge.projectFinancingRequest
           ? `Project financing - ${charge.projectFinancingRequest.businessName}`
-          : charge.loanRequest
+          : charge.loanRequestId
             ? "Financing request"
             : (charge.chargeApplicability?.workflow?.replace(/_/g, " ") ??
               "Manual charge")
@@ -572,26 +576,117 @@ function toStatementSharesSection(
   }
 }
 
-export async function getMobileMemberStatementSnapshot(input: {
-  tenantId: string
-  userId: string
-}): Promise<MobileMemberStatementSnapshot> {
-  const prisma = createPrismaClient()
+async function readMobileStatementDetail(
+  input: {
+    includeLedger?: boolean
+    forExport?: boolean
+    tenantId: string
+    userId: string
+  },
+  prisma: NonNullable<ReturnType<typeof createPrismaClient>>
+) {
+  const member = await prisma.member.findFirst({
+    where: { tenantId: input.tenantId, userId: input.userId },
+    include: {
+      deductionSource: { select: { name: true } },
+      user: { select: { email: true } },
+      documents: { orderBy: { uploadedAt: "desc" }, take: 6 },
+      contributionPlans: {
+        orderBy: [{ isActive: "desc" }, { startsAt: "desc" }, { id: "desc" }],
+        take: 1,
+      },
+    },
+  })
+  if (!member) return null
+
+  const where = { tenantId: input.tenantId, memberId: member.id }
+  const [
+    contributions,
+    loans,
+    repayments,
+    chargeApplications,
+    ledgerTransactions,
+    summary,
+    shares,
+  ] = await Promise.all([
+    prisma.contribution.findMany({
+      where,
+      orderBy: [{ postedAt: "desc" }, { id: "desc" }],
+      take: 4,
+    }),
+    prisma.loan.findMany({
+      where,
+      include: {
+        loanProduct: { select: { name: true } },
+        repaymentScheduleItems: {
+          orderBy: { installmentNumber: "asc" },
+          take: 6,
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    }),
+    prisma.repayment.findMany({
+      where,
+      include: {
+        loan: { include: { loanProduct: { select: { name: true } } } },
+      },
+      orderBy: { paidAt: "desc" },
+      take: 3,
+    }),
+    prisma.chargeApplication.findMany({
+      where,
+      include: {
+        chargeApplicability: { select: { workflow: true } },
+        chargeDefinition: { select: { name: true } },
+        procurementRequest: { select: { itemName: true } },
+        projectFinancingRequest: { select: { businessName: true } },
+      },
+      orderBy: { assessedAt: "desc" },
+      take: 25,
+    }),
+    input.includeLedger === false
+      ? []
+      : prisma.ledgerTransaction.findMany({
+          where,
+          include: { entries: { select: { amount: true, direction: true } } },
+          orderBy: [{ postedAt: "desc" }, { id: "desc" }],
+          take: 8,
+        }),
+    input.forExport
+      ? null
+      : getMemberStatementSummary(where.tenantId, where.memberId, prisma),
+    getMobileMemberSharesSnapshot(input, prisma, member),
+  ])
+
+  return {
+    chargeApplications,
+    contributions,
+    ledgerTransactions,
+    loans,
+    member,
+    repayments,
+    shares,
+    summary,
+  }
+}
+
+export async function getMobileMemberStatementSnapshot(
+  input: {
+    includeLedger?: boolean
+    forExport?: boolean
+    tenantId: string
+    userId: string
+  },
+  prismaOverride?: NonNullable<ReturnType<typeof createPrismaClient>>
+): Promise<MobileMemberStatementSnapshot> {
+  const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) return emptyMobileMemberStatement()
 
-  const member = await getMemberByUserId(input, prisma)
-  if (!member) return emptyMobileMemberStatement()
+  const detail = await readMobileStatementDetail(input, prisma)
+  if (!detail) return emptyMobileMemberStatement()
 
-  const [detail, shares] = await Promise.all([
-    getMemberStatementDetail(input.tenantId, member.id, prisma),
-    getMobileMemberSharesSnapshot(input, prisma),
-  ])
-  if (!detail) {
-    return emptyMobileMemberStatement(
-      "No statement detail was found for this member profile."
-    )
-  }
-
+  const member = detail.member
   const activePlan =
     detail.member.contributionPlans.find((plan) => plan.isActive) ??
     detail.member.contributionPlans[0] ??
@@ -617,10 +712,10 @@ export async function getMobileMemberStatementSnapshot(input: {
       buildProfileSection(detail),
       buildCommitmentsSection(detail),
       buildFinancingSection(detail),
-      toStatementSharesSection(shares.section),
+      toStatementSharesSection(detail.shares.section),
       buildChargesSection(detail),
       buildDocumentsSection(detail),
-      buildLedgerSection(detail),
+      ...(input.includeLedger === false ? [] : [buildLedgerSection(detail)]),
     ],
     stats: buildMobileMemberStatementStats({
       activePlan: activePlan

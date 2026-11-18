@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { resolveMemberOperationalReadiness } from "./member-readiness"
 
 import {
+  countLateProcurementScheduleItems,
   deriveMobileFoodPurchaseAvailability,
   deriveMobileProcurementAvailability,
   getMobileMemberFoodPurchaseApplicationDetail,
@@ -260,5 +261,34 @@ describe("mobile member cooperative-service availability", () => {
     expect(memberLookups[0]).toMatchObject({
       where: { tenantId: "tenant-1", userId: "user-1" },
     })
+  })
+})
+
+describe("mobile procurement late installments", () => {
+  test("counts unpaid installments due before today, not the stored overdue status", () => {
+    const asOf = new Date("2026-11-16T00:00:00.000Z")
+    const requests = [
+      {
+        scheduleItems: [
+          // Late: unpaid and due before today, whatever status was saved.
+          { dueDate: "2026-10-01T00:00:00.000Z", status: "overdue" },
+          { dueDate: "2026-10-15T00:00:00.000Z", status: "pending" },
+          { dueDate: "2026-11-01T00:00:00.000Z", status: "partially_paid" },
+          // Not late: a stored "overdue" on an installment not yet due.
+          { dueDate: "2026-12-01T00:00:00.000Z", status: "overdue" },
+          // Not late: due today, paid, or waived.
+          { dueDate: "2026-11-16T00:00:00.000Z", status: "due" },
+          { dueDate: "2026-09-01T00:00:00.000Z", status: "paid" },
+          { dueDate: "2026-09-01T00:00:00.000Z", status: "waived" },
+        ],
+      },
+      {
+        scheduleItems: [
+          { dueDate: new Date("2026-11-15T00:00:00.000Z"), status: "due" },
+        ],
+      },
+    ]
+    expect(countLateProcurementScheduleItems(requests, asOf)).toBe(4)
+    expect(countLateProcurementScheduleItems([], asOf)).toBe(0)
   })
 })

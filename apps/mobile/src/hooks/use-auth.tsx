@@ -18,10 +18,14 @@ import {
   switchMobileRole,
   type MobileSignInCredentials,
 } from "@/lib/mobile-auth-api"
-import { disableCooperativeShortcutsForSignOut } from "@/features/cooperative-shortcuts/public/shortcut-session-cleanup"
 import { refreshMobileDeviceSession } from "@/features/device-sessions/api/device-session-api"
 import { shouldRefreshMobileDeviceSession } from "@/features/device-sessions/model/device-session-types"
 import { clearMobileFormDrafts } from "@/hooks/use-mobile-form-draft"
+import { type MobileAppAccessSnapshot } from "@/features/mobile-app-access/api/mobile-app-access-api"
+import {
+  clearPrimedMobileAppAccessSnapshot,
+  primeMobileAppAccessSnapshot,
+} from "@/features/mobile-app-access/model/primed-access-snapshot"
 import {
   clearInvalidatedMobileSessionState,
   registerMobileSessionInvalidationHandler,
@@ -51,12 +55,15 @@ type AuthContextValue = {
   signInWithPassword: (
     input: MobileSignInCredentials,
     beforeActivate?: (profile: MobileProfile) => Promise<void> | void
-  ) => Promise<void>
+  ) => Promise<MobileProfile>
   role: MobileRole | null
   signInAs: (role: MobileRole) => Promise<void>
   signOut: () => Promise<void>
   switchRole: (membershipId: string) => Promise<MobileProfile>
-  acceptServerProfile: (profile: MobileProfile) => Promise<void>
+  acceptServerProfile: (
+    profile: MobileProfile,
+    accessSnapshot?: MobileAppAccessSnapshot
+  ) => Promise<void>
   invalidateLocalSession: () => Promise<void>
   refreshSession: (force?: boolean) => Promise<MobileProfile | null>
 }
@@ -94,6 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     authGenerationRef.current += 1
 
     const invalidation = (async () => {
+      clearPrimedMobileAppAccessSnapshot()
       try {
         await clearInvalidatedMobileSessionState({
           clearDrafts: clearMobileFormDrafts,
@@ -101,7 +109,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           clearReads: clearMobileReadCache,
           clearSession,
           clearDeviceId: clearMobileDeviceId,
-          disableLauncherShortcuts: disableCooperativeShortcutsForSignOut,
         })
       } finally {
         setProfile(null)
@@ -167,9 +174,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hydrateSession = useCallback(async () => {
     setInitializing(true)
     setHydrationError(null)
-    await clearPrivateReportFiles()
+    // Report-file cleanup is local and independent of the profile read, so it
+    // runs alongside it instead of delaying the cold-start request (T03).
+    const cleanup = clearPrivateReportFiles()
     const token = getToken()
     const cachedProfile = getSessionProfile()
+
+    if (!token || (canUseDevelopmentMockSession && isMockSessionToken(token))) {
+      await cleanup
+    }
 
     if (!token) {
       if (cachedProfile) await clearSession()
@@ -194,7 +207,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const response = await getCurrentMobileProfile()
+      const [response] = await Promise.all([getCurrentMobileProfile(), cleanup])
       const nextProfile = shouldRefreshMobileDeviceSession(
         response.profile.sessionExpiresAt,
         Date.now(),
@@ -209,6 +222,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         persistToken: setToken,
         profile: nextProfile,
       })
+      // Cold start: the profile read carries the app-access snapshot, so the
+      // access gate opens the workspace without a second request. A refreshed
+      // session has a new token, so the gate reads the snapshot itself.
+      if (nextProfile.token === response.profile.token) {
+        primeMobileAppAccessSnapshot(nextProfile.token, response.accessSnapshot)
+      }
       setProfile(nextProfile)
     } catch (error) {
       if (isUnauthorizedMobileSessionError(error)) {
@@ -266,16 +285,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const acceptServerProfile = useCallback(
-    async (nextProfile: MobileProfile) => {
-      await clearMobileFormDrafts()
-      await clearPrivateReportFiles()
-      await clearMobileReadCache()
+    async (
+      nextProfile: MobileProfile,
+      accessSnapshot?: MobileAppAccessSnapshot
+    ) => {
+      await Promise.all([
+        clearMobileFormDrafts(),
+        clearPrivateReportFiles(),
+        clearMobileReadCache(),
+      ])
       await persistMobileSessionAtomically({
         clearSession,
         persistProfile: setSessionProfile,
         persistToken: setToken,
         profile: nextProfile,
       })
+      primeMobileAppAccessSnapshot(nextProfile.token, accessSnapshot)
       setProfile(nextProfile)
     },
     []
@@ -286,18 +311,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       input: MobileSignInCredentials,
       beforeActivate?: (profile: MobileProfile) => Promise<void> | void
     ) => {
-      await clearMobileFormDrafts()
-      await clearPrivateReportFiles()
-      await clearMobileReadCache()
-      const response = await signInWithMobileAuth(input)
-      await beforeActivate?.(response.profile)
-      await persistMobileSessionAtomically({
-        clearSession,
-        persistProfile: setSessionProfile,
-        persistToken: setToken,
-        profile: response.profile,
-      })
+      // The previous account's local data is cleared while the request is in
+      // flight instead of before it; both finish before the new session is
+      // stored.
+      const [response] = await Promise.all([
+        signInWithMobileAuth(input),
+        clearMobileFormDrafts(),
+        clearPrivateReportFiles(),
+        clearMobileReadCache(),
+      ])
+      await Promise.all([
+        beforeActivate?.(response.profile),
+        persistMobileSessionAtomically({
+          clearSession,
+          persistProfile: setSessionProfile,
+          persistToken: setToken,
+          profile: response.profile,
+        }),
+      ])
+      primeMobileAppAccessSnapshot(
+        response.profile.token,
+        response.accessSnapshot
+      )
       setProfile(response.profile)
+      return response.profile
     },
     []
   )

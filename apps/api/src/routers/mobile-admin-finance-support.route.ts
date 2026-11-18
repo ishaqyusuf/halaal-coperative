@@ -1,5 +1,6 @@
 import { roleCan, type CooperativeRole } from "@halaalvest/auth"
 import {
+  getMobileAdminFinanceDesk,
   getMobileAdminFinanceSupportOverview,
   mobileAdminFinanceSupportQueueKeys,
   recordMobileAdminFinanceCollectionFollowUp,
@@ -18,6 +19,7 @@ import { z } from "zod"
 import { isSafeSupportAttachmentUrl } from "@halaalvest/utils"
 
 import { createTRPCRouter, permissionProcedure } from "../lib.trpc"
+import { getMobileAdminFoodPurchaseCapabilities } from "./mobile-admin-food-purchase-operations.route"
 
 const commandBase = {
   commandId: z.string().uuid(),
@@ -227,6 +229,41 @@ export function getMobileAdminFinanceSupportCapabilities(
 
 export const mobileAdminFinanceSupportProcedures = {
   finance: createTRPCRouter({
+    desk: permissionProcedure("view_admin_work_queue")
+      .input(
+        z.object({
+          cursor: z
+            .object({
+              at: z.iso.datetime(),
+              id: z.uuid(),
+              queueKey: z.enum(mobileAdminFinanceSupportQueueKeys),
+            })
+            .optional(),
+          entityId: z.uuid().optional(),
+          limit: z.number().int().min(1).max(30).default(15),
+          queueKey: z.enum(mobileAdminFinanceSupportQueueKeys).optional(),
+          search: z.string().trim().max(120).optional(),
+        })
+      )
+      .query(({ ctx, input }) => {
+        const role = ctx.auth.activeMembership.role
+        return getMobileAdminFinanceDesk({
+          ...input,
+          access: {
+            charges: roleCan(role, "view_charge_operations"),
+            contributions: roleCan(role, "view_contribution_operations"),
+            foodPurchase: getMobileAdminFoodPurchaseCapabilities(role).view,
+            shares: roleCan(role, "view_share_profit_governance"),
+          },
+          capabilities: getMobileAdminFinanceSupportCapabilities(role),
+          summary:
+            !input.cursor &&
+            !input.entityId &&
+            !input.queueKey &&
+            !input.search,
+          tenantId: ctx.tenant.current.id,
+        })
+      }),
     overview: permissionProcedure("view_admin_work_queue")
       .input(overviewInput)
       .query(({ ctx, input }) =>

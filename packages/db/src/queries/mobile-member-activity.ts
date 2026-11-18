@@ -1,4 +1,4 @@
-import type { PrismaClient } from "../../generated/prisma/client"
+import type { Prisma, PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
 import { getMemberByUserId } from "./members"
@@ -12,11 +12,65 @@ export const mobileMemberActivityKindKeys = [
 export type MobileMemberActivityKind =
   (typeof mobileMemberActivityKindKeys)[number]
 
+export const mobileStatementActivityCategories = [
+  "savings",
+  "financing",
+  "shares",
+  "charges",
+] as const
+
+export type MobileStatementActivityCategory =
+  (typeof mobileStatementActivityCategories)[number]
+
+const statementCategories: Record<
+  MobileStatementActivityCategory,
+  Prisma.LedgerTransactionWhereInput
+> = {
+  savings: {
+    OR: [
+      { transactionType: "contribution" },
+      {
+        transactionType: "adjustment",
+        entries: { some: { ledgerAccount: { code: "1000" } } },
+      },
+    ],
+  },
+  financing: {
+    OR: [
+      { transactionType: { in: ["loan_disbursement", "loan_repayment"] } },
+      {
+        transactionType: "adjustment",
+        entries: { some: { ledgerAccount: { code: "1100" } } },
+      },
+    ],
+  },
+  shares: {
+    OR: [
+      { transactionType: "dividend" },
+      {
+        transactionType: "adjustment",
+        entries: { some: { ledgerAccount: { code: "3200" } } },
+      },
+    ],
+  },
+  charges: {
+    OR: [
+      { transactionType: { in: ["charge", "levy"] } },
+      { chargeApplicationId: { not: null } },
+    ],
+  },
+}
+
 export type MobileMemberActivityRow = {
+  channel?: string | null
   detail: string
+  entryCount?: number
+  extraSavings?: number
   format: "currency" | "percent" | "count" | null
   key: string
   label: string
+  postedAt?: string
+  reference?: string | null
   status: string | null
   value: number | null
 }
@@ -55,7 +109,9 @@ function encodeCursor(cursor: ActivityCursor) {
   return `${cursor.occurredAt.toISOString()}|${cursor.id}`
 }
 
-function decodeCursor(cursor: string | null | undefined): ActivityCursor | null {
+function decodeCursor(
+  cursor: string | null | undefined
+): ActivityCursor | null {
   if (!cursor) return null
 
   const separator = cursor.indexOf("|")
@@ -89,13 +145,17 @@ function pageSize(value: number | undefined) {
   return Math.min(Math.max(value ?? 20, 1), 50)
 }
 
-export async function getMobileMemberActivityPage(input: {
-  cursor?: string | null
-  kind: MobileMemberActivityKind
-  limit?: number
-  tenantId: string
-  userId: string
-}, prismaOverride?: PrismaClient): Promise<MobileMemberActivityPage> {
+export async function getMobileMemberActivityPage(
+  input: {
+    category?: MobileStatementActivityCategory
+    cursor?: string | null
+    kind: MobileMemberActivityKind
+    limit?: number
+    tenantId: string
+    userId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<MobileMemberActivityPage> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) return emptyActivityPage(input.kind, "database_unavailable")
 
@@ -130,6 +190,7 @@ export async function getMobileMemberActivityPage(input: {
     return {
       generatedAt: new Date().toISOString(),
       items: pageRows.map((row) => ({
+        channel: humanizeStatus(row.channel),
         detail: [
           humanizeStatus(row.channel),
           `Posted ${formatDateLabel(row.postedAt)}`,
@@ -141,8 +202,11 @@ export async function getMobileMemberActivityPage(input: {
           .filter(Boolean)
           .join(" - "),
         format: "currency",
+        extraSavings: Number(row.extraSavingsAmount),
         key: `contribution-${row.id}`,
         label: row.periodLabel ?? "Contribution posted",
+        postedAt: row.postedAt.toISOString(),
+        reference: row.reference,
         status: "Posted",
         value: Number(row.amount),
       })),
@@ -199,6 +263,7 @@ export async function getMobileMemberActivityPage(input: {
     where: {
       memberId: member.id,
       tenantId: input.tenantId,
+      ...(input.category ? { AND: [statementCategories[input.category]] } : {}),
       ...(cursor
         ? {
             OR: [
@@ -208,7 +273,7 @@ export async function getMobileMemberActivityPage(input: {
           }
         : {}),
     },
-    include: { entries: true },
+    include: { entries: { select: { amount: true, direction: true } } },
     orderBy: [{ postedAt: "desc" }, { id: "desc" }],
     take: take + 1,
   })
@@ -229,6 +294,7 @@ export async function getMobileMemberActivityPage(input: {
       )
 
       return {
+        entryCount: row.entries.length,
         detail: [
           `Posted ${formatDateLabel(row.postedAt)}`,
           row.reference ? `Ref ${row.reference}` : null,
@@ -242,6 +308,8 @@ export async function getMobileMemberActivityPage(input: {
           row.narration ??
           humanizeStatus(row.transactionType) ??
           "Ledger transaction",
+        postedAt: row.postedAt.toISOString(),
+        reference: row.reference,
         status: humanizeStatus(row.transactionType),
         value: amount > 0 ? amount : null,
       }

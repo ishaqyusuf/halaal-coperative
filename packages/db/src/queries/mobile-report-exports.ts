@@ -1,10 +1,12 @@
 import type { MobileReportKey } from "@halaalvest/domain/mobile-reports"
+import type { PrismaClient } from "../../generated/prisma/client"
 import { ExpectedQueryError } from "../query-error"
 import { listActivityReportEvents } from "./audit"
 import { listChargeApplications } from "./charges"
 import { listContributions } from "./contributions"
 import { listFoodPurchaseApplications } from "./food-purchase"
-import { listLoans, listLoanRequests, listRepayments } from "./loans"
+import { listLoanExportBatch, type LoanExportRow } from "./loan-export"
+import { listRepayments } from "./loans"
 import {
   listMembers,
   listMemberStatementSummaries,
@@ -97,7 +99,7 @@ export function finalizeMobileReportExport(input: {
 }): MobileReportExportResult {
   if (input.rows.length > input.rowLimit) {
     throw ExpectedQueryError.validation(
-      `This export exceeds the ${input.rowLimit.toLocaleString("en")} row limit for the active subscription. Narrow the date range and retry.`,
+      `This export exceeds the ${input.rowLimit.toLocaleString("en")} row limit for one export. Narrow the date range and retry.`,
     )
   }
 
@@ -107,6 +109,28 @@ export function finalizeMobileReportExport(input: {
     mimeType: "text/csv",
     rowCount: input.rows.length,
   }
+}
+
+/** Loan export rows, one more than the limit so the limit check can fire. */
+async function listLoanExportRowsBounded(input: {
+  filters: MobileReportExportFilters
+  rowLimit: number
+  tenantId: string
+}) {
+  const rows: LoanExportRow[] = []
+  let cursor: string | null = null
+  while (rows.length <= input.rowLimit) {
+    const batch = await listLoanExportBatch(input.tenantId, {
+      cursor,
+      fromDate: input.filters.fromDate,
+      limit: Math.min(1_000, input.rowLimit + 1 - rows.length),
+      toDate: input.filters.toDate,
+    })
+    rows.push(...batch.rows)
+    if (!batch.nextCursor) break
+    cursor = batch.nextCursor
+  }
+  return rows
 }
 
 async function listMembersBounded(tenantId: string, rowLimit: number) {
@@ -199,6 +223,10 @@ export async function createMobileAdminReportExport(input: {
         { header: "Procurement Outstanding", path: "procurementOutstanding" },
         { header: "Food Purchase Outstanding", path: "foodPurchaseOutstanding" },
         { header: "Outstanding Principal", path: "totalOutstandingPrincipal" },
+        {
+          header: "Approved, Not Yet Paid Out",
+          path: "approvedNotPaidOutAmount",
+        },
         { header: "Published Dividends", path: "totalDividendAllocations" },
       ],
       filename,
@@ -245,22 +273,21 @@ export async function createMobileAdminReportExport(input: {
   }
 
   if (input.key === "financing") {
-    const [requests, loans] = await Promise.all([
-      listLoanRequests(input.tenantId),
-      listLoans(input.tenantId),
-    ])
-    const rows = [
-      ...requests.map((row) => ({ ...row, recordType: "request" })),
-      ...loans.map((row) => ({ ...row, recordType: "facility" })),
-    ].filter((row) =>
-      withinDateRange(row, ["requestedAt", "createdAt"], input.filters),
-    )
+    // Same rule as the dashboard loans export (triage 0.8): loans by the
+    // payout date, requests not yet paid out by the date asked for, in SQL.
+    const rows = await listLoanExportRowsBounded({
+      filters: input.filters,
+      rowLimit: input.rowLimit,
+      tenantId: input.tenantId,
+    })
     return finalizeMobileReportExport({
       columns: [
         { header: "Record Type", path: "recordType" },
-        { header: "Member", path: "member.fullName" },
-        { header: "Member Number", path: "member.memberNumber" },
-        { header: "Product", path: "loanProduct.name" },
+        { header: "Member", path: "memberName" },
+        { header: "Member Number", path: "memberNumber" },
+        { header: "Product", path: "productName" },
+        { header: "Date Used", path: "dateUsedLabel" },
+        { header: "Date", path: "dateUsed" },
         { header: "Requested Amount", path: "requestedAmount" },
         { header: "Principal", path: "principalAmount" },
         { header: "Outstanding Principal", path: "outstandingPrincipal" },
@@ -500,15 +527,22 @@ export async function createMobileAdminReportExport(input: {
   })
 }
 
-export async function createMobileMemberStatementExport(input: {
-  tenantId: string
-  tenantSlug: string
-  userId: string
-}): Promise<MobileReportExportResult> {
-  const statement = await getMobileMemberStatementSnapshot({
-    tenantId: input.tenantId,
-    userId: input.userId,
-  })
+export async function createMobileMemberStatementExport(
+  input: {
+    tenantId: string
+    tenantSlug: string
+    userId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<MobileReportExportResult> {
+  const statement = await getMobileMemberStatementSnapshot(
+    {
+      forExport: true,
+      tenantId: input.tenantId,
+      userId: input.userId,
+    },
+    prismaOverride
+  )
   if (!statement.member) {
     throw ExpectedQueryError.notFound("Member statement was not found.")
   }
@@ -520,7 +554,7 @@ export async function createMobileMemberStatementExport(input: {
       section: section.title,
       status: row.status,
       value: row.value,
-    })),
+    }))
   )
   return finalizeMobileReportExport({
     columns: [

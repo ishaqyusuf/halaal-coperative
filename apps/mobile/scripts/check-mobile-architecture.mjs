@@ -351,9 +351,9 @@ function checkAdminFinanceSupportOwnership() {
 
   const actionStack = readFileSync(join(MOBILE_DIR, required[1]), "utf8")
   for (const marker of [
-    "CompactFormSheet",
-    "FullScreenFormSheet",
-    "SubmissionReviewSheet",
+    "AppSheet",
+    "SubmittingState",
+    "ResultScreen",
     "DevQuickFill",
   ]) {
     if (!actionStack.includes(marker)) {
@@ -365,8 +365,9 @@ function checkAdminFinanceSupportOwnership() {
   for (const marker of [
     "runOnlineOperation",
     "expectedState",
-    "showSuccessAfterReviewRef.current = true",
-    "reopenIntentRef.current = intent",
+    'setPhase("success")',
+    'setPhase("error")',
+    "void invalidate()",
   ]) {
     if (!controller.includes(marker)) {
       failures.push(`${required[2]} is missing safe review marker ${marker}`)
@@ -417,7 +418,8 @@ function checkAdminReportsAccessNotificationOwnership() {
     ),
     "utf8"
   )
-  for (const marker of ["CachedReadBanner", "Retry reports"]) {
+  // T23: lanes over a pager, a stale banner with retry, notification notice.
+  for (const marker of ["<SegmentedPager", "Retry reports", "NotificationDestinationNotice"]) {
     if (!reportsScreen.includes(marker)) {
       failures.push(`reports screen is missing hardened state marker ${marker}`)
     }
@@ -482,9 +484,9 @@ function checkAdminReportsAccessNotificationOwnership() {
     "utf8"
   )
   for (const marker of [
-    "getAdminAccess",
+    "getWorkspaceAccessCount",
     "getMemberMore",
-    "inviteAdminAccessUser",
+    "useAppQuery",
     "runOnlineOperation",
     "switchRole",
     "signOut",
@@ -498,7 +500,7 @@ function checkAdminReportsAccessNotificationOwnership() {
     join(SOURCE_DIR, "features/settings-access/screens/more-screen.tsx"),
     "utf8"
   )
-  for (const marker of ["FullScreenFormSheet", "Signing out"]) {
+  for (const marker of ["ScreenShell", "ConfirmSheet", "InviteUserSheet"]) {
     if (!moreScreen.includes(marker)) {
       failures.push(`more screen is missing hardened state marker ${marker}`)
     }

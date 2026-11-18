@@ -10,12 +10,17 @@ model ShareBusiness {
   status                 ShareBusinessStatus @default(planned)
   notes                  String?
   createdByUserId        String?             @map("created_by_user_id") @db.Uuid
+  // Set on the one business Halaalvest keeps itself ("member_purchase_sales":
+  // procurement and foodstuff profit). Staff cannot edit it by hand.
+  systemKey              String?             @map("system_key")
   createdAt              DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   tenant               Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   linkedDividendPeriod DividendPeriod?            @relation(fields: [linkedDividendPeriodId], references: [id], onDelete: SetNull)
   profitEntries        ShareBusinessProfitEntry[]
+
+  @@unique([tenantId, systemKey], map: "share_businesses_tenant_system_key")
 
   @@index([tenantId, status], map: "share_businesses_tenant_status_idx")
   @@index([tenantId, startDate], map: "share_businesses_tenant_start_date_idx")

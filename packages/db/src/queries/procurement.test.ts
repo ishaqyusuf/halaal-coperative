@@ -88,6 +88,7 @@ function createProcurementPrismaStub(input?: {
   const procurementRequestCounts: unknown[] = []
   const procurementRepaymentScheduleCreates: unknown[] = []
   const procurementRequestUpdates: unknown[] = []
+  const ledgerTransactionCreates: any[] = []
   const serviceSettings = [
     {
       accessMode: input?.procurementAccessMode ?? "office_only",
@@ -165,7 +166,13 @@ function createProcurementPrismaStub(input?: {
           ...args.data,
         }
       },
-      findFirst: async () => existingProcurementRequest,
+      // After a purchase, the release reads the schedule it just created.
+      findFirst: async () => ({
+        ...existingProcurementRequest,
+        repaymentScheduleItems:
+          (procurementRepaymentScheduleCreates.at(-1) as any)?.data ??
+          existingProcurementRequest.repaymentScheduleItems,
+      }),
       update: async (args: any) => {
         procurementRequestUpdates.push(args)
         existingProcurementRequest = {
@@ -203,6 +210,21 @@ function createProcurementPrismaStub(input?: {
         return { count: args.data.length }
       },
     },
+    ledgerAccount: {
+      createMany: async () => ({ count: 3 }),
+      findMany: async () =>
+        ["1200", "2200", "3300", "2000", "4000"].map((code) => ({
+          code,
+          id: `account-${code}`,
+        })),
+    },
+    ledgerTransaction: {
+      create: async (args: any) => {
+        ledgerTransactionCreates.push(args.data)
+        return { ...args.data, entries: [], id: "posting-1" }
+      },
+      findUnique: async () => null,
+    },
     tenantPolicy: {
       findUnique: async () => ({
         activeFinancingBlocksProcurement: true,
@@ -223,6 +245,7 @@ function createProcurementPrismaStub(input?: {
       count: async () => 0,
     },
     auditLogCreates,
+    ledgerTransactionCreates,
     backfillBatch: {
       count: async () => 0,
       findMany: async () => [],
@@ -639,6 +662,47 @@ describe("procurement request workflow", () => {
     expect(request.allowsCommitmentReductionDuringPayback).toBe(true)
   })
 
+  test("adds the cooperative's profit to what the member pays back", async () => {
+    const prisma = createProcurementPrismaStub()
+
+    const request = await reviewProcurementRequest(
+      {
+        actorUserId: "reviewer-1",
+        approvedCost: 180000,
+        approvedMarkup: 18000,
+        approvedRepaymentMonths: 9,
+        procurementRequestId: "procurement-1",
+        status: "approved",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(prisma.procurementRequestUpdates[0]).toMatchObject({
+      data: {
+        approvedCost: 180000,
+        approvedMarkup: 18000,
+        approvedMonthlyRepayment: 22000,
+      },
+    })
+    expect(request.approvedMarkup).toBe(18000)
+
+    await expect(
+      reviewProcurementRequest(
+        {
+          actorUserId: "reviewer-1",
+          approvedCost: 180000,
+          approvedMarkup: -1,
+          approvedRepaymentMonths: 9,
+          procurementRequestId: "procurement-1",
+          status: "approved",
+          tenantId: "tenant-1",
+        },
+        createProcurementPrismaStub() as never
+      )
+    ).rejects.toThrow("Added profit cannot be negative")
+  })
+
   test("blocks approved procurement repayment months above tenant cap", async () => {
     const prisma = createProcurementPrismaStub({
       policyOverrides: { procurementMaximumPaybackMonths: 3 },
@@ -895,7 +959,29 @@ describe("procurement request workflow", () => {
       purchaseReference: "INV-100",
       status: "active",
     })
-    expect((prisma as any).auditLogCreates.at(-1)).toMatchObject({
+    // The purchase releases the goods: Dr receivable / Cr cash, once.
+    const [release] = (prisma as any).ledgerTransactionCreates
+    expect((prisma as any).ledgerTransactionCreates).toHaveLength(1)
+    expect(release).toMatchObject({
+      idempotencyKey: "member-purchase-release:procurement:procurement-1",
+      memberId: "member-1",
+      transactionType: "member_purchase_release",
+    })
+    expect(
+      release.entries.create.map((entry: any) => [
+        entry.ledgerAccountId,
+        entry.direction,
+        entry.amount,
+      ])
+    ).toEqual([
+      ["account-1200", "debit", 180000],
+      ["account-2000", "credit", 180000],
+    ])
+    expect(
+      (prisma as any).auditLogCreates.find(
+        (entry: any) => entry.data.action === "procurement.purchase_recorded"
+      )
+    ).toMatchObject({
       data: {
         action: "procurement.purchase_recorded",
         actorUserId: "buyer-1",

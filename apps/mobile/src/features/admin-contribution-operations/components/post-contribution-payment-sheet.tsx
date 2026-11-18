@@ -1,318 +1,343 @@
-import { CalendarDateField } from "@/components/app/calendar-date-field"
-import { CalendarPickerSheet } from "@/components/app/calendar-picker-sheet"
+import { AppSheet } from "@/components/app/app-sheet"
 import { DevQuickFill } from "@/components/app/dev-quick-fill"
-import { FormStateBanner } from "@/components/app/form-state-banner"
-import { FullScreenFormSheet } from "@/components/app/full-screen-form-sheet"
 import { Button } from "@/components/ui/button"
-import { Icon } from "@/components/ui/icon"
+import { DateField } from "@/components/ui/date-field"
+import { FormField } from "@/components/ui/form-field"
 import { Input } from "@/components/ui/input"
+import { Elevated } from "@/components/ui/list-card"
+import { MoneyField } from "@/components/ui/money-field"
+import { SelectField } from "@/components/ui/select-field"
+import { StatusBanner } from "@/components/ui/status-banner"
 import { Text } from "@/components/ui/text"
-import { useLargeTextLayout } from "@/hooks/use-large-text-layout"
+import {
+  mobileDevQuickFill,
+  mobileDevQuickFillReference,
+} from "@/dev/mobile-dev-quick-fill"
+import { createClientSubmissionKey } from "@/lib/client-submission-key"
 import { todayDateOnly } from "@/lib/date-only"
+import { useMobileFormDraft } from "@/hooks/use-mobile-form-draft"
+import { useState, type ReactNode } from "react"
 import { View } from "react-native"
+import {
+  recordContributionPayment,
+  updateAllocationPreference,
+} from "../api/admin-contribution-operations-api"
+import {
+  formatCurrency,
+  formatDate,
+} from "../lib/admin-contribution-presentation"
+import type {
+  AllocationPreference,
+  ContributionMemberWorkspace,
+} from "../model/admin-contribution-operations-types"
+import {
+  allocationLabel,
+  allocationOptions,
+  paymentTotal,
+  splitFinancingPayment,
+  validatePayment,
+  type PaymentDraft,
+} from "../model/contribution-forms"
+import { ContributionMemberSummary } from "./contribution-member-summary"
+import type { ContributionReview } from "./contribution-review-sheet"
 
-import { formatCurrency } from "../lib/admin-contribution-presentation"
-import type { ContributionMemberWorkspace } from "../model/admin-contribution-operations-types"
-
-function FieldLabel({ children }: { children: string }) {
+function Group({ children }: { children: ReactNode }) {
   return (
-    <Text className="text-sm font-semibold text-foreground">{children}</Text>
+    <Elevated className="gap-[14px] rounded-[20px] bg-card p-[16px]" radius={20}>
+      {children}
+    </Elevated>
   )
 }
 
-function SubmitError({ message }: { message: string | null }) {
-  if (!message) return null
-  return (
-    <View className="bg-destructive/10 px-3 py-2">
-      <Text className="text-sm leading-5 text-destructive">{message}</Text>
-    </View>
-  )
-}
-
-function Initials({ name }: { name: string }) {
-  const initials = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("")
-
-  return (
-    <View className="size-11 items-center justify-center rounded-xl bg-card">
-      <Text className="text-brand-surface text-xs font-extrabold">
-        {initials}
-      </Text>
-    </View>
-  )
-}
-
-function AmountField({
-  accessibilityLabel,
-  currencySymbol,
-  label,
-  onChangeText,
-  testID,
-  value,
-}: {
-  accessibilityLabel: string
-  label: string
-  onChangeText: (value: string) => void
-  testID: string
-  value: string
-  currencySymbol?: string
-}) {
-  return (
-    <View className="min-w-0 flex-1 gap-2">
-      <FieldLabel>{label}</FieldLabel>
-      <Input
-        accessibilityLabel={accessibilityLabel}
-        keyboardType="decimal-pad"
-        leading={
-          <Text className="text-base font-bold text-muted-foreground">
-            {currencySymbol}
-          </Text>
-        }
-        onChangeText={onChangeText}
-        placeholder="0"
-        testID={testID}
-        value={value}
-      />
-    </View>
-  )
-}
-
+/**
+ * T18 screen 5 (01 Large title): record one member payment. Allocation
+ * lives here (it was on Set plan); a change is saved before the payment.
+ * "Financing payment" shows only with active financing and splits into
+ * scheduled servicing (up to the amount due) and early payoff.
+ */
 export function PostContributionPaymentSheet({
-  calendarVisible,
-  committedAmount,
+  blocked,
   currencyCode,
-  extraPayoff,
-  extraSavings,
-  hasDraft,
-  isStale,
-  isWritable,
-  isSubmitting,
-  reviewVisible,
   member,
   onClose,
-  onCloseCalendar,
-  onOpenCalendar,
-  onQuickFill,
   onReview,
-  onSetCommittedAmount,
-  onSetExtraPayoff,
-  onSetExtraSavings,
-  onSetPaymentDate,
-  onSetPaymentReference,
-  onSetScheduledServicing,
-  paymentDate,
-  paymentReference,
-  scheduledServicing,
-  submitError,
-  total,
-  visible,
+  reviewActive,
 }: {
-  calendarVisible: boolean
-  committedAmount: string
+  blocked: boolean
   currencyCode: string
-  extraPayoff: string
-  extraSavings: string
-  hasDraft: boolean
-  isStale: boolean
-  isWritable: boolean
-  isSubmitting: boolean
-  reviewVisible: boolean
-  member: ContributionMemberWorkspace | null
+  member: ContributionMemberWorkspace
   onClose: () => void
-  onCloseCalendar: () => void
-  onOpenCalendar: () => void
-  onQuickFill: () => void
-  onReview: () => void
-  onSetCommittedAmount: (value: string) => void
-  onSetExtraPayoff: (value: string) => void
-  onSetExtraSavings: (value: string) => void
-  onSetPaymentDate: (value: string) => void
-  onSetPaymentReference: (value: string) => void
-  onSetScheduledServicing: (value: string) => void
-  paymentDate: string
-  paymentReference: string
-  scheduledServicing: string
-  submitError: string | null
-  total: number
-  visible: boolean
+  onReview: (review: ContributionReview) => void
+  reviewActive: boolean
 }) {
-  const largeTextLayout = useLargeTextLayout()
-  const currencySymbol =
-    new Intl.NumberFormat("en-NG", {
-      currency: currencyCode,
-      style: "currency",
+  const loan = member.activeLoan
+  const hasFinancing = Boolean(loan)
+  const initial: PaymentDraft = {
+    committed: member.commitmentTarget ? String(member.commitmentTarget) : "",
+    financing: loan ? String(loan.estimatedMonthlyServicing || "") : "",
+    special: "",
+  }
+  const [amounts, setAmounts] = useState<PaymentDraft>(initial)
+  const [allocation, setAllocation] = useState<AllocationPreference>(
+    member.paymentAllocationPreference
+  )
+  const [postedOn, setPostedOn] = useState(todayDateOnly())
+  const [reference, setReference] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [restored, setRestored] = useState(false)
+  const draft = { allocation, amounts, postedOn, reference }
+  const pristine =
+    JSON.stringify(amounts) === JSON.stringify(initial) &&
+    allocation === member.paymentAllocationPreference &&
+    postedOn === todayDateOnly() &&
+    !reference.trim()
+  const clearDraft = useMobileFormDraft({
+    key: `admin.contributions.payment.${member.id}`,
+    onHydrate: (saved: typeof draft) => {
+      if (
+        JSON.stringify(saved.amounts) === JSON.stringify(initial) &&
+        saved.allocation === member.paymentAllocationPreference &&
+        !saved.reference.trim()
+      )
+        return
+      setAmounts(saved.amounts)
+      setAllocation(saved.allocation)
+      setPostedOn(saved.postedOn)
+      setReference(saved.reference)
+      setRestored(true)
+    },
+    value: draft,
+  })
+  const total = paymentTotal(amounts, hasFinancing)
+
+  function setAmount(key: keyof PaymentDraft, raw: string) {
+    setAmounts((current) => ({ ...current, [key]: raw }))
+    setError(null)
+  }
+
+  function review() {
+    const checked = validatePayment(amounts, hasFinancing)
+    if (!checked.ok) {
+      setError(checked.error)
+      return
+    }
+    const split = splitFinancingPayment(
+      checked.financing,
+      loan?.estimatedMonthlyServicing ?? 0
+    )
+    const allocationChanged = allocation !== member.paymentAllocationPreference
+    const preference = {
+      commandId: createClientSubmissionKey(),
+      expectedState: member.paymentAllocationPreference,
+      memberId: member.id,
+      preference: allocation,
+    }
+    const payment = {
+      channel: "manual" as const,
+      commandId: createClientSubmissionKey(),
+      committedSavingsAmount: checked.committed,
+      contributionPlanId: member.activePlanId ?? undefined,
+      expectedState: member.workspaceState,
+      extraLoanPaymentAmount: split.extraPayoff,
+      extraSavingsAmount: checked.special,
+      loanId: loan?.id,
+      memberId: member.id,
+      postedAt: `${postedOn}T00:00:00.000Z`,
+      reference: reference.trim() || undefined,
+      scheduledLoanServicingAmount: split.scheduled,
+      totalAmount: checked.total,
+    }
+    // The same command ids are reused on retry, so a saved allocation
+    // change replays instead of failing its state check.
+    const money = formatCurrency(checked.total, currencyCode)
+    onReview({
+      amount: money,
+      busyLabel: "Posting",
+      cta: "Post payment",
+      failure: "The payment wasn’t posted. Nothing was recorded. Try again.",
+      rows: [
+        ["Commitment savings", formatCurrency(checked.committed, currencyCode)],
+        ["Special savings", formatCurrency(checked.special, currencyCode)],
+        ...(hasFinancing
+          ? ([
+              [
+                "Financing payment",
+                formatCurrency(checked.financing, currencyCode),
+              ],
+            ] as const)
+          : []),
+        [
+          "Allocation",
+          `${allocationLabel(allocation)}${allocationChanged ? " · changed" : ""}`,
+        ],
+        ["Posting date", formatDate(payment.postedAt)],
+        ...(payment.reference
+          ? ([["Reference", payment.reference]] as const)
+          : []),
+      ],
+      run: async () => {
+        if (allocationChanged) await updateAllocationPreference(preference)
+        await recordContributionPayment(payment)
+        await clearDraft()
+      },
+      sub: `for ${member.name}`,
+      success: [
+        "Payment posted",
+        `${money} posted for ${member.name}. Their statement and the ledger are updated.`,
+      ],
+      title: "Review payment",
     })
-      .formatToParts(0)
-      .find((part) => part.type === "currency")?.value ?? currencyCode
+  }
 
   return (
-    <FullScreenFormSheet
-      dirty={hasDraft}
-      isSubmitting={isSubmitting}
+    <AppSheet
+      dirty={!pristine}
       footer={
-        <View className="flex-row items-center gap-3">
-          <DevQuickFill
-            onPress={onQuickFill}
-            placement="footer"
-            portal={false}
-          />
-          <Button
-            accessibilityLabel={`Review payment, ${formatCurrency(total, currencyCode)}`}
-            className="min-h-12 min-w-0 flex-1 py-2"
-            disabled={!isWritable || isSubmitting || total <= 0}
-            onPress={onReview}
-          >
-            <Icon className="size-sm text-primary-foreground" name="Check" />
-            <View className="min-w-0 items-center">
+        <View className="gap-[10px]">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-muted-foreground" variant="label">
+              Total
+            </Text>
+            <Text testID="contribution-payment-total" variant="money">
+              {formatCurrency(total, currencyCode)}
+            </Text>
+          </View>
+          <View className="flex-row items-center gap-[10px]">
+            <DevQuickFill
+              onPress={() => {
+                setAmounts({
+                  committed: String(member.commitmentTarget || 25000),
+                  financing: loan
+                    ? String(loan.estimatedMonthlyServicing || "")
+                    : "",
+                  special: mobileDevQuickFill.adminContributions.extraSavings,
+                })
+                setPostedOn(todayDateOnly())
+                setReference(mobileDevQuickFillReference("QA-CON"))
+              }}
+              placement="footer"
+              portal={false}
+            />
+            <Button
+              className="flex-1"
+              disabled={blocked}
+              onPress={review}
+              testID="contribution-payment-review"
+            >
               <Text>Review payment</Text>
-              {total > 0 ? (
-                <Text className="text-[10px] text-primary-foreground/70">
-                  {formatCurrency(total, currencyCode)}
-                </Text>
-              ) : null}
-            </View>
-          </Button>
+            </Button>
+          </View>
         </View>
       }
       onClose={onClose}
-      overlay={
-        <CalendarPickerSheet
-          label="Posting date"
-          maximumDate={todayDateOnly()}
-          onChange={onSetPaymentDate}
-          onClose={onCloseCalendar}
-          testID="contribution-payment-date-calendar"
-          value={paymentDate}
-          visible={calendarVisible}
-        />
-      }
-      overlayActive={calendarVisible || reviewVisible}
-      title="Post contribution"
-      visible={visible}
+      overlayActive={reviewActive}
+      title="Record payment"
+      variant="form"
+      visible
     >
-      <FormStateBanner hasDraft={hasDraft} isStale={isStale} />
-      <SubmitError message={submitError} />
-
-      {member ? (
-        <View className="bg-brand-surface -mx-5 -mt-5 overflow-hidden px-5 py-4">
-          <View className="bg-brand-warm/15 absolute -right-10 -bottom-16 size-36 rounded-full" />
-          <View className="flex-row items-center gap-3">
-            <Initials name={member.name} />
-            <View className="min-w-0 flex-1 gap-1">
-              <Text className="text-brand-surface-foreground text-base font-extrabold">
-                {member.name}
-              </Text>
-              <Text className="text-brand-surface-foreground/75 text-xs">
-                {member.number} · Monthly target{" "}
-                {formatCurrency(member.commitmentTarget, currencyCode)}
-              </Text>
-            </View>
-            <View className="bg-success size-2 rounded-full" />
-          </View>
-        </View>
-      ) : null}
-
-      <View className="gap-4 border-b border-border pb-5">
-        <View className="flex-row items-baseline justify-between gap-3">
-          <Text className="text-base font-extrabold text-foreground">
-            Savings allocation
+      <View className="gap-[16px]">
+        {blocked ? (
+          <StatusBanner
+            description="Your entries are kept on this phone. Review needs a connection."
+            kind="offline"
+            title="Offline"
+          />
+        ) : null}
+        {restored ? (
+          <StatusBanner
+            kind="info"
+            onRetry={() => {
+              setAmounts(initial)
+              setAllocation(member.paymentAllocationPreference)
+              setPostedOn(todayDateOnly())
+              setReference("")
+              setRestored(false)
+              void clearDraft()
+            }}
+            retryLabel="Discard"
+            title="Restored your unsent entries."
+          />
+        ) : null}
+        <ContributionMemberSummary
+          detail={`${member.number} · ${formatCurrency(member.totalSavings, currencyCode)} saved`}
+          name={member.name}
+        />
+        <FormField label="Allocation">
+          <SelectField
+            onChange={setAllocation}
+            options={allocationOptions}
+            sheetTitle="Allocation"
+            testID="contribution-payment-allocation"
+            value={allocation}
+          />
+        </FormField>
+        <View className="flex-row items-baseline justify-between px-[2px]">
+          <Text variant="section">Amounts</Text>
+          <Text className="text-muted-foreground" variant="caption">
+            {hasFinancing ? "3 parts" : "2 parts"}
           </Text>
-          <Text className="text-sm font-extrabold text-accent-foreground">
-            {formatCurrency(
-              (Number(committedAmount.replace(/,/g, "")) || 0) +
-                (Number(extraSavings.replace(/,/g, "")) || 0),
-              currencyCode
-            )}
-          </Text>
         </View>
-        <View className={largeTextLayout ? "gap-4" : "flex-row gap-3"}>
-          <AmountField
-            accessibilityLabel="Commitment savings"
+        {error ? <StatusBanner kind="error" title={error} /> : null}
+        <Group>
+          <FormField
+            helper={
+              member.commitmentTarget
+                ? `Monthly commitment ${formatCurrency(member.commitmentTarget, currencyCode)}`
+                : undefined
+            }
             label="Commitment savings"
-            currencySymbol={currencySymbol}
-            onChangeText={onSetCommittedAmount}
-            testID="contribution-payment-commitment-input"
-            value={committedAmount}
-          />
-          <AmountField
-            accessibilityLabel="Special savings"
-            label="Special savings"
-            currencySymbol={currencySymbol}
-            onChangeText={onSetExtraSavings}
-            testID="contribution-payment-special-input"
-            value={extraSavings}
-          />
-        </View>
-      </View>
-
-      {member?.activeLoan ? (
-        <View className="gap-4 border-b border-border pb-5">
-          <View className="flex-row items-baseline justify-between gap-3">
-            <Text className="text-base font-extrabold text-foreground">
-              Loan payment
-            </Text>
-            <Text className="text-xs text-muted-foreground">
-              Scheduled{" "}
-              {formatCurrency(
-                member.activeLoan.estimatedMonthlyServicing,
-                currencyCode
-              )}
-            </Text>
-          </View>
-          <View className={largeTextLayout ? "gap-4" : "flex-row gap-3"}>
-            <AmountField
-              accessibilityLabel="Scheduled servicing"
-              label="Scheduled servicing"
-              currencySymbol={currencySymbol}
-              onChangeText={onSetScheduledServicing}
-              testID="contribution-payment-servicing-input"
-              value={scheduledServicing}
+          >
+            <MoneyField
+              accessibilityLabel="Commitment savings"
+              currencyCode={currencyCode}
+              onChangeValue={(raw) => setAmount("committed", raw)}
+              testID="contribution-payment-committed-input"
+              value={amounts.committed}
             />
-            <AmountField
-              accessibilityLabel="Extra payoff"
-              label="Extra payoff"
-              currencySymbol={currencySymbol}
-              onChangeText={onSetExtraPayoff}
-              testID="contribution-payment-payoff-input"
-              value={extraPayoff}
+          </FormField>
+          <FormField label="Special savings">
+            <MoneyField
+              accessibilityLabel="Special savings"
+              currencyCode={currencyCode}
+              onChangeValue={(raw) => setAmount("special", raw)}
+              testID="contribution-payment-special-input"
+              value={amounts.special}
             />
-          </View>
-        </View>
-      ) : null}
-
-      <View className="gap-4">
-        <Text className="text-base font-extrabold text-foreground">
-          Payment details
-        </Text>
-        <View className="gap-2">
-          <FieldLabel>Posting date</FieldLabel>
-          <CalendarDateField
-            accessibilityLabel="Posting date"
-            onPress={onOpenCalendar}
+          </FormField>
+          {loan ? (
+            <FormField
+              helper={`${formatCurrency(loan.estimatedMonthlyServicing, currencyCode)} due this month · ${formatCurrency(loan.outstandingPrincipal, currencyCode)} outstanding`}
+              label="Financing payment"
+            >
+              <MoneyField
+                accessibilityLabel="Financing payment"
+                currencyCode={currencyCode}
+                onChangeValue={(raw) => setAmount("financing", raw)}
+                testID="contribution-payment-financing-input"
+                value={amounts.financing}
+              />
+            </FormField>
+          ) : null}
+        </Group>
+        <FormField label="Posting date">
+          <DateField
+            maximumDate={todayDateOnly()}
+            onChange={setPostedOn}
+            sheetTitle="Posting date"
             testID="contribution-payment-date-input"
-            value={paymentDate}
+            value={postedOn}
           />
-        </View>
-        <View className="gap-2">
-          <View className="flex-row items-center justify-between gap-3">
-            <FieldLabel>Reference</FieldLabel>
-            <Text className="text-[10px] font-semibold text-muted-foreground">
-              Optional
-            </Text>
-          </View>
+        </FormField>
+        <FormField label="Reference" optional>
           <Input
             accessibilityLabel="Payment reference"
-            onChangeText={onSetPaymentReference}
+            onChangeText={setReference}
             placeholder="Bank or receipt reference"
             testID="contribution-payment-reference-input"
-            value={paymentReference}
+            value={reference}
           />
-        </View>
+        </FormField>
       </View>
-    </FullScreenFormSheet>
+    </AppSheet>
   )
 }

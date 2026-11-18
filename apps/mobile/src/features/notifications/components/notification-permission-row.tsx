@@ -1,128 +1,180 @@
-import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
 import { Text } from "@/components/ui/text"
 import type {
   NotificationPermissionState,
   NotificationRegistrationState,
 } from "@/features/notifications/platform/notification-runtime-provider"
-import { useColors } from "@/hooks/use-color"
+import { useLargeTextLayout } from "@/hooks/use-large-text-layout"
 import { cn } from "@/lib/utils"
-import { View, type TextStyle } from "react-native"
+import { ActivityIndicator, Pressable, View } from "react-native"
+import { useColors } from "@/hooks/use-color"
 
-function scaledTextStyle(
-  accessibilityScale: number,
-  fontSize: number,
-  lineHeight: number,
-  overrides?: Pick<TextStyle, "color" | "fontWeight">
-) {
-  return {
-    fontSize: fontSize * accessibilityScale,
-    lineHeight: lineHeight * accessibilityScale,
-    ...overrides,
-  }
-}
-
-export function NotificationPermissionRow({
-  accessibilityScale,
-  largeTextLayout,
-  onEnable,
-  onOpenSettings,
-  onRetry,
-  permissionState,
-  registrationState,
-}: {
-  accessibilityScale: number
-  largeTextLayout: boolean
+export type NotificationPushControls = {
+  disabled: boolean
   onEnable: () => void
   onOpenSettings: () => void
   onRetry: () => void
   permissionState: NotificationPermissionState
   registrationState: NotificationRegistrationState
+}
+
+export function pushPresentation(
+  permission: NotificationPermissionState,
+  registration: NotificationRegistrationState
+) {
+  if (permission === "denied") return "denied"
+  if (permission === "unavailable") return "unavailable"
+  if (permission === "granted") {
+    if (registration === "registered") return "on"
+    if (registration === "failed") return "failed"
+  }
+  return "off"
+}
+
+const PRESENTATION = {
+  on: {
+    icon: "BellRing",
+    surface: "bg-tint-success",
+    ink: "text-tint-success-foreground",
+    title: "",
+    description: "",
+    detail: "On · alerts arrive on this phone",
+    action: null,
+  },
+  off: {
+    icon: "BellRing",
+    surface: "bg-accent",
+    ink: "text-accent-foreground",
+    title: "Get alerts on this phone",
+    description: "Turn on push for receipts, financing and security alerts.",
+    detail: "Off · alerts stay in your inbox",
+    action: "Turn on",
+  },
+  denied: {
+    icon: "BellOff",
+    surface: "bg-tint-warm",
+    ink: "text-tint-warm-foreground",
+    title: "Push is blocked",
+    description: "Allow notifications for HalaalVest in your phone settings.",
+    detail: "Blocked in phone settings",
+    action: "Open Settings",
+  },
+  failed: {
+    icon: "CircleAlert",
+    surface: "bg-tint-danger",
+    ink: "text-tint-danger-foreground",
+    title: "This phone isn’t registered",
+    description: "Alerts can’t reach this phone yet.",
+    detail: "Couldn’t register this phone",
+    action: "Retry",
+  },
+  unavailable: {
+    icon: "BellOff",
+    surface: "bg-muted",
+    ink: "text-muted-foreground",
+    title: "Push isn’t available here",
+    description: "Alerts still arrive in this inbox.",
+    detail: "Unavailable on this device",
+    action: null,
+  },
+} as const
+
+export function NotificationPermissionRow({
+  disabled,
+  onEnable,
+  onOpenSettings,
+  onRetry,
+  permissionState,
+  registrationState,
+  inSettings = false,
+  onDismiss,
+}: NotificationPushControls & {
+  inSettings?: boolean
+  onDismiss?: () => void
 }) {
   const colors = useColors()
-  const isRegistered =
-    permissionState === "granted" && registrationState === "registered"
-  const isDenied = permissionState === "denied"
-  const isFailed =
-    permissionState === "granted" && registrationState === "failed"
-  const unavailable = permissionState === "unavailable"
-  const title = isRegistered
-    ? "Push notifications are on"
-    : isDenied
-      ? "Push notifications are blocked"
-      : isFailed
-        ? "Push registration needs attention"
-        : unavailable
-          ? "Push notifications are unavailable"
-          : "Push notifications are off"
-  const description = isRegistered
-    ? "This device can receive updates."
-    : isDenied
-      ? "Enable notifications in system settings."
-      : "Updates still appear in this inbox."
-  const action = isDenied
-    ? { label: "Settings", onPress: onOpenSettings }
-    : isFailed
-      ? { label: "Retry", onPress: onRetry }
-      : !isRegistered && !unavailable
-        ? { label: "Enable", onPress: onEnable }
-        : null
-
+  const largeText = useLargeTextLayout()
+  const state = pushPresentation(permissionState, registrationState)
+  const config = PRESENTATION[state]
+  const busy = registrationState === "registering"
+  if (state === "on" && !inSettings) return null
   return (
     <View
-      accessibilityLabel={`${title}. ${description}`}
       className={cn(
-        "gap-3 border-b border-border py-4",
-        largeTextLayout ? "items-start" : "flex-row items-center"
+        "gap-[12px] px-[14px]",
+        largeText ? "items-start" : "flex-row items-center",
+        inSettings
+          ? "min-h-[64px] py-[11px]"
+          : cn("rounded-[20px] py-[14px]", config.surface)
       )}
     >
-      <View className="size-10 shrink-0 items-center justify-center rounded-full bg-accent">
-        <Icon
-          className="size-sm text-accent-foreground"
-          name={isRegistered ? "BellRing" : "BellOff"}
-        />
-      </View>
       <View
-        className={cn("min-w-0", largeTextLayout ? "w-full" : "flex-1")}
+        className={cn(
+          "size-[40px] shrink-0 items-center justify-center",
+          inSettings
+            ? cn("rounded-[14px]", config.surface)
+            : "rounded-full bg-card"
+        )}
       >
+        <Icon name={config.icon} className={cn("size-[20px]", config.ink)} />
+      </View>
+      <View className={cn("min-w-0 gap-[2px]", !largeText && "flex-1")}>
         <Text
-          allowFontScaling={false}
-          className="text-sm font-extrabold text-foreground"
-          style={scaledTextStyle(accessibilityScale, 14, 20, {
-            color: colors.foreground,
-            fontWeight: "800",
-          })}
+          className={inSettings ? "font-bold" : "text-[14px]"}
+          variant={inSettings ? "body" : "label"}
         >
-          {title}
+          {inSettings ? "Push on this phone" : config.title}
         </Text>
         <Text
-          allowFontScaling={false}
-          className="mt-0.5 text-xs leading-4 text-muted-foreground"
-          style={scaledTextStyle(accessibilityScale, 12, 17, {
-            color: colors.mutedForeground,
-          })}
+          className="text-[13px] leading-[18px] text-muted-foreground"
+          variant="small"
         >
-          {description}
+          {inSettings ? config.detail : config.description}
         </Text>
       </View>
-      {action ? (
-        <Button
-          className={cn(largeTextLayout && "min-h-11 self-stretch")}
-          onPress={action.onPress}
-          size="sm"
-          variant="ghost"
+      {config.action ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ busy, disabled }}
+          className="min-h-[40px] shrink-0 items-center justify-center rounded-full bg-primary px-[12px] disabled:opacity-50"
+          disabled={busy || (disabled && state !== "denied")}
+          hitSlop={2}
+          onPress={
+            state === "denied"
+              ? onOpenSettings
+              : state === "failed"
+                ? onRetry
+                : onEnable
+          }
         >
-          <Text
-            allowFontScaling={false}
-            className="text-sm font-bold text-foreground"
-            style={scaledTextStyle(accessibilityScale, 13, 18, {
-              color: colors.foreground,
-              fontWeight: "700",
-            })}
-          >
-            {action.label}
+          {busy ? (
+            <ActivityIndicator color={colors.primaryForeground} />
+          ) : (
+            <Text className="text-primary-foreground" variant="label">
+              {config.action}
+            </Text>
+          )}
+        </Pressable>
+      ) : state === "on" && inSettings ? (
+        <View className="min-h-[26px] shrink-0 flex-row items-center gap-[5px] rounded-full bg-tint-success px-[10px]">
+          <Icon
+            className="size-[13px] text-tint-success-foreground"
+            name="Check"
+          />
+          <Text className="text-tint-success-foreground" variant="caption">
+            On
           </Text>
-        </Button>
+        </View>
+      ) : null}
+      {onDismiss && state === "off" ? (
+        <Pressable
+          accessibilityLabel="Not now"
+          accessibilityRole="button"
+          hitSlop={12}
+          onPress={onDismiss}
+        >
+          <Icon className="size-[16px] text-muted-foreground" name="X" />
+        </Pressable>
       ) : null}
     </View>
   )

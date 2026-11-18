@@ -3,7 +3,9 @@ import type {
   CollectionBatchSummary,
   ContributionCommandResult,
   ContributionLane,
+  ContributionLaneRow,
   ContributionMemberWorkspace,
+  ContributionSummary,
   ContributionWorkspace,
 } from "../model/admin-contribution-operations-types"
 
@@ -182,29 +184,50 @@ function command(
   return { commandId, entityId, replayed: false, state }
 }
 
-export async function getDevContributionWorkspace(
-  lane: ContributionLane,
+const devCapabilities = {
+  manageBatches: true,
+  manageMemberContributions: true,
+  view: true,
+}
+
+export async function getDevContributionSummary(): Promise<ContributionSummary> {
+  return {
+    capabilities: devCapabilities,
+    currencyCode: "NGN",
+    generatedAt,
+    sources,
+    stats: { exceptions: 3, members: 42, postedThisMonth: 1_820_000 },
+  }
+}
+
+const DEV_PAGE_SIZE = 30
+
+export async function getDevContributionWorkspace(input: {
+  cursor?: string | null
+  lane: ContributionLane
   search?: string
-): Promise<ContributionWorkspace> {
-  const rows =
-    lane === "ledger" ? ledger : lane === "commitments" ? members : batches
-  const query = search?.toLowerCase()
-  const data = query
+}): Promise<ContributionWorkspace> {
+  const rows: ContributionLaneRow[] =
+    input.lane === "ledger"
+      ? ledger
+      : input.lane === "commitments"
+        ? members
+        : batches
+  const query = input.search?.toLowerCase()
+  const matches = query
     ? rows.filter((row) => JSON.stringify(row).toLowerCase().includes(query))
     : rows
+  const start = input.cursor
+    ? matches.findIndex((row) => row.id === input.cursor) + 1
+    : 0
+  const data = matches.slice(start, start + DEV_PAGE_SIZE)
   return {
-    capabilities: {
-      manageBatches: true,
-      manageMemberContributions: true,
-      view: true,
-    },
-    currencyCode: "NGN",
+    capabilities: devCapabilities,
     data,
     generatedAt,
-    lane,
-    nextCursor: null,
-    sources: lane === "collections" ? sources : undefined,
-    stats: { exceptions: 3, members: 42, postedThisMonth: 1_820_000 },
+    lane: input.lane,
+    nextCursor:
+      start + DEV_PAGE_SIZE < matches.length ? (data.at(-1)?.id ?? null) : null,
   }
 }
 
@@ -227,8 +250,10 @@ export async function getDevContributionMember(
       .filter((item) => item.memberId === row.id)
       .map((item) => ({
         amount: item.amount,
+        channel: item.channel,
         id: item.id,
         postedAt: item.postedAt,
+        reference: item.reference,
         status: item.status,
       })),
     deductionSourceName: row.deductionSourceName,

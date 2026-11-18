@@ -8,6 +8,9 @@ model ContributionPlan {
   startsAt  DateTime                 @map("starts_at") @db.Timestamptz(6)
   endsAt    DateTime?                @map("ends_at") @db.Timestamptz(6)
   isActive  Boolean                  @default(true) @map("is_active")
+  /// Entered during setup: starts on the first day of the go-live month
+  /// (going live moves `startsAt` there). Triage 1.8.
+  startsAtGoLive Boolean            @default(false) @map("starts_at_go_live")
   createdAt DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -47,6 +50,7 @@ model Contribution {
   collectionSourceBatchRows CollectionSourceContributionBatchRow[]
 
   @@index([tenantId, memberId, postedAt], map: "contributions_tenant_member_posted_at_idx")
+  @@index([tenantId, postedAt, id], map: "contributions_tenant_posted_at_id_idx")
   // Status lookups use the prefix; the home overview reads the latest posted.
   @@index([tenantId, status, postedAt], map: "contributions_tenant_status_posted_at_idx")
   @@index([contributionPlanId], map: "contributions_contribution_plan_id_idx")

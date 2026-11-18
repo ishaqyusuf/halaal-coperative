@@ -31,9 +31,6 @@ describe("mobile session invalidation", () => {
         clearDeviceId: () => {
           cleared.add("device-id")
         },
-        disableLauncherShortcuts: () => {
-          cleared.add("launcher-shortcuts")
-        },
       })
     } finally {
       unregister()
@@ -47,25 +44,7 @@ describe("mobile session invalidation", () => {
         "reads",
         "local-security",
         "device-id",
-        "launcher-shortcuts",
       ])
-    )
-  })
-
-  test("a launcher shortcut failure never blocks session invalidation", async () => {
-    const cleared = new Set<string>()
-    await clearInvalidatedMobileSessionState({
-      clearDrafts: async () => void cleared.add("drafts"),
-      clearFiles: async () => void cleared.add("files"),
-      clearReads: async () => void cleared.add("reads"),
-      clearSession: async () => void cleared.add("session"),
-      clearDeviceId: async () => void cleared.add("device-id"),
-      disableLauncherShortcuts: () => {
-        throw new Error("launcher unavailable")
-      },
-    })
-    expect(cleared).toEqual(
-      new Set(["session", "drafts", "files", "reads", "device-id"])
     )
   })
 

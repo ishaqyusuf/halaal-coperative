@@ -4,6 +4,7 @@ import { isPersistableReadInput, readCachedMobileQuery } from "@/lib/read-cache"
 import {
   getDevContributionBatch,
   getDevContributionMember,
+  getDevContributionSummary,
   getDevContributionWorkspace,
   runDevContributionCommand,
   stageDevContributionBatch,
@@ -14,20 +15,31 @@ import type {
   ContributionCommandResult,
   ContributionLane,
   ContributionMemberWorkspace,
+  ContributionSummary,
   ContributionWorkspace,
 } from "../model/admin-contribution-operations-types"
 
+/** Stats, currency, capabilities and collection sources: once per visit. */
+export async function getContributionSummary() {
+  if (isMobileDevFixtureSession()) return getDevContributionSummary()
+  const client = createMobileTrpcClient()
+  return readCachedMobileQuery("admin.contributions.summary", () =>
+    client.mobile.admin.contributions.summary.query()
+  ) as Promise<ContributionSummary>
+}
+
+/** One cursor page of a lane, without the summary (read separately). */
 export async function getContributionWorkspace(input: {
   cursor?: string | null
   lane: ContributionLane
   search?: string
 }) {
-  if (isMobileDevFixtureSession())
-    return getDevContributionWorkspace(input.lane, input.search)
+  if (isMobileDevFixtureSession()) return getDevContributionWorkspace(input)
   const client = createMobileTrpcClient()
+  const request = { ...input, includeSummary: false }
   return readCachedMobileQuery(
-    `admin.contributions.${JSON.stringify(input)}`,
-    () => client.mobile.admin.contributions.workspace.query(input),
+    `admin.contributions.${JSON.stringify(request)}`,
+    () => client.mobile.admin.contributions.workspace.query(request),
     { persist: isPersistableReadInput(input) }
   ) as Promise<ContributionWorkspace>
 }

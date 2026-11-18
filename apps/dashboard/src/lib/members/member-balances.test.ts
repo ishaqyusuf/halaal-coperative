@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import {
   buildMemberBalanceTextLines,
+  describeApprovedNotPaidOut,
   describeOtherObligations,
   describeSpecialSavings,
   getOtherObligationsOutstanding,
@@ -48,5 +49,23 @@ describe("member balances", () => {
       "Procurement and food: ₦525,000 (Procurement ₦500,000 · Food ₦25,000)"
     )
     expect(lines).toContain("Total owed: ₦1,771,667")
+    expect(lines.some((line) => line.startsWith("Approved"))).toBe(false)
+  })
+
+  test("approved loans not yet paid out get their own line, outside what is owed", () => {
+    const lines = buildMemberBalanceTextLines({
+      ...(summary as object),
+      approvedNotPaidOutAmount: 40000,
+      approvedNotPaidOutCount: 1,
+    } as never)
+
+    expect(lines).toContain(
+      "Approved, not yet paid out: ₦40,000 (not counted in what you owe)"
+    )
+    expect(lines).toContain("Loans: ₦1,246,667")
+    expect(lines).toContain("Total owed: ₦1,771,667")
+    expect(
+      describeApprovedNotPaidOut({ approvedNotPaidOutCount: 2 } as never)
+    ).toBe("2 loans approved. Not owed until they are paid out.")
   })
 })

@@ -23,9 +23,13 @@ export async function getMemberFinancing(): Promise<MobileMemberFinancing> {
     })) as Promise<MobileMemberFinancing>
   }
   const client = createMobileTrpcClient()
-  return readCachedMobileQuery("member.financing", () =>
-    client.mobile.member.financing.list.query()
-  ) as Promise<MobileMemberFinancing>
+  return readCachedMobileQuery("member.financing", async () => {
+    const snapshot = await client.mobile.member.financing.list.query()
+    if (snapshot.state === "database_unavailable") {
+      throw new Error("Financing is temporarily unavailable.")
+    }
+    return snapshot
+  })
 }
 
 export async function quoteMemberFinancing(
@@ -56,13 +60,21 @@ export async function getMemberFinancingRequestPage(input: {
   cursor: string | null
 }): Promise<MobileFinancingRequestPage> {
   if (isMobileDevFixtureSession()) {
-    return { data: [], nextCursor: null, state: "available" }
+    return {
+      data: getDevMemberFinancing().requests,
+      nextCursor: null,
+      state: "available",
+    }
   }
   const client = createMobileTrpcClient()
-  return client.mobile.member.financing.requests.query({
+  const page = await client.mobile.member.financing.requests.query({
     cursor: input.cursor,
     pageSize: 20,
-  }) as Promise<MobileFinancingRequestPage>
+  })
+  if (page.state === "database_unavailable") {
+    throw new Error("Financing requests are temporarily unavailable.")
+  }
+  return page
 }
 
 export async function getMemberFinancingRequestDetail(

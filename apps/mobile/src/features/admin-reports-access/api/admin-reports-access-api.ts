@@ -9,6 +9,7 @@ import { isMobileDevFixtureSession } from "@/dev/mobile-dev-session"
 import { readCachedMobileQuery } from "@/lib/read-cache"
 import { createMobileTrpcClient } from "@/lib/mobile-trpc-client"
 import type {
+  AdminActivityEvent,
   AdminAccess,
   AdminAccessInviteInput,
   AdminAccessInviteResult,
@@ -45,6 +46,7 @@ export async function getAdminReportActivity(input: {
   const client = createMobileTrpcClient()
   return client.mobile.admin.reports.activity.query({
     action: input.filters.action ?? undefined,
+    area: input.filters.area ?? undefined,
     cursor: input.cursor ?? undefined,
     entityType: input.filters.entityType ?? undefined,
     fromDate: toApiDateTime(input.filters.fromDate),
@@ -52,6 +54,23 @@ export async function getAdminReportActivity(input: {
     search: input.filters.search ?? undefined,
     toDate: toApiDateTime(input.filters.toDate, true),
   }) as Promise<AdminReportActivityPage>
+}
+
+/** T23 activity detail: one event with up to 8 change lines. */
+export async function getAdminReportActivityEvent(
+  id: string
+): Promise<AdminActivityEvent> {
+  if (isMobileDevFixtureSession()) {
+    const event = getDevAdminReportActivity({ limit: 50 }).items.find(
+      (item) => item.id === id
+    )
+    if (!event) throw new Error("This activity is no longer available.")
+    return event
+  }
+  const client = createMobileTrpcClient()
+  return client.mobile.admin.reports.activityEvent.query({
+    id,
+  }) as Promise<AdminActivityEvent>
 }
 
 export async function generateAdminReport(input: {

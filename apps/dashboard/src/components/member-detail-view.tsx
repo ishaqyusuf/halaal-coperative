@@ -124,6 +124,7 @@ export function MemberDetailView({
   canChangeWorkplace,
   canManageCommitments,
   canManageMembers,
+  commitmentStartsAtGoLive,
   detail,
   operationalReadiness,
   quickFillEnabled,
@@ -269,7 +270,9 @@ export function MemberDetailView({
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {activePlan
-              ? `Since ${formatDayMonthYear(activePlan.startsAt)}`
+              ? activePlan.startsAtGoLive && commitmentStartsAtGoLive
+                ? "Starts the month you go live"
+                : `Since ${formatDayMonthYear(activePlan.startsAt)}`
               : "No amount set yet"}
           </p>
           {member.contributionPlans.length > 1 ? (
@@ -447,6 +450,7 @@ export function MemberDetailView({
       <MemberDetailSheet
         activePlan={activePlan}
         canChangeWorkplace={canChangeWorkplace}
+        commitmentStartsAtGoLive={commitmentStartsAtGoLive}
         devMode={quickFillEnabled}
         documents={member.documents}
         member={member}

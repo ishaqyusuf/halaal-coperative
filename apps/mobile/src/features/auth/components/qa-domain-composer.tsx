@@ -81,26 +81,27 @@ export function QaDomainComposer({
           zIndex: 100,
         }}
       >
-        <View className="gap-2 border-t border-border bg-background px-4 pt-2 pb-3">
-          <Text className="text-brand text-xs font-extrabold tracking-[1.4px] uppercase">
+        <View className="gap-[8px] border-t border-border bg-card px-[18px] pt-[10px] pb-[12px]">
+          <Text className="text-primary uppercase" variant="caption">
             QA access
           </Text>
           {errorText ? (
             <Text
               accessibilityLiveRegion="polite"
-              className="px-1 text-xs font-medium text-destructive"
+              className="text-destructive"
+              variant="small"
             >
               {errorText}
             </Text>
           ) : null}
-          <View className="flex-row items-center gap-2">
+          <View className="flex-row items-center gap-[8px]">
             <View className="min-w-0 flex-1">
               <Input
                 accessibilityLabel="QA Domain"
                 autoCapitalize="none"
                 autoCorrect={false}
                 autoFocus
-                className="rounded-full px-2"
+                className="rounded-full"
                 editable={!loading}
                 keyboardType="url"
                 onChangeText={onChangeText}
@@ -116,7 +117,7 @@ export function QaDomainComposer({
               accessibilityRole="button"
               accessibilityState={{ busy: loading, disabled: !canSubmit }}
               className={cn(
-                "h-12 w-12 items-center justify-center rounded-full",
+                "size-[52px] items-center justify-center rounded-full",
                 canSubmit ? "bg-primary" : "bg-muted"
               )}
               disabled={!canSubmit}

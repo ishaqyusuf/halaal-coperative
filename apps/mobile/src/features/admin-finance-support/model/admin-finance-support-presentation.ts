@@ -1,14 +1,8 @@
+import type { StatusTone } from "@/components/ui/status-pill"
 import type {
-  AdminFinanceSupportOverview,
+  AdminFinanceSupportItem,
   AdminFinanceSupportQueueKey,
 } from "./admin-finance-support-types"
-
-export type AdminFinanceSupportPresentation = {
-  blockedCount: number
-  deployableFunds: number | null
-  filteredCount: number
-  totalCount: number
-}
 
 export const adminFinanceQueueFilters: readonly {
   label: string
@@ -38,29 +32,8 @@ export function formatAdminFinanceCurrency(
 ) {
   return new Intl.NumberFormat("en-NG", {
     currency: currencyCode,
-    maximumFractionDigits: 0,
-    style: "currency",
-  }).format(value)
-}
-
-export function formatAdminFinanceCompactCurrency(
-  value: number,
-  currencyCode: string
-) {
-  const divisor = Math.abs(value) >= 1_000_000 ? 1_000_000 : 1_000
-  const suffix = divisor === 1_000_000 ? "m" : "k"
-
-  if (Math.abs(value) >= 1_000) {
-    return `${new Intl.NumberFormat("en-NG", {
-      currency: currencyCode,
-      maximumFractionDigits: 1,
-      style: "currency",
-    }).format(value / divisor)}${suffix}`
-  }
-
-  return new Intl.NumberFormat("en-NG", {
-    currency: currencyCode,
-    maximumFractionDigits: 1,
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
     style: "currency",
   }).format(value)
 }
@@ -71,40 +44,51 @@ export function formatAdminFinanceAge(minutes: number) {
   return `${Math.floor(minutes / 1440)}d waiting`
 }
 
-export function getAdminFinanceQueueCount(
-  overview: AdminFinanceSupportOverview | null,
-  queueKey: "all" | AdminFinanceSupportQueueKey
+export function matchesFinanceDeskSearch(
+  item: AdminFinanceSupportItem,
+  search: string
 ) {
-  if (!overview) return 0
-  if (queueKey === "all") {
-    return overview.queueCounts.reduce((total, queue) => total + queue.count, 0)
-  }
+  const term = search.trim().toLowerCase()
   return (
-    overview.queueCounts.find((queue) => queue.key === queueKey)?.count ?? 0
+    !term ||
+    [
+      item.title,
+      item.subtitle,
+      item.member?.number,
+      item.state,
+      item.details.find((detail) => detail.label === "Vendor")?.value,
+    ].some((value) => value?.toLowerCase().includes(term))
   )
 }
 
-export function buildAdminFinanceSupportPresentation(
-  overview: AdminFinanceSupportOverview
-): AdminFinanceSupportPresentation {
-  const totalCountMetric = overview.stats.find(
-    (metric) => metric.key === "visible-work"
-  )
-  const blockedMetric = overview.stats.find(
-    (metric) => metric.key === "blocked-work"
-  )
-  const deployableFundsMetric = overview.stats.find(
-    (metric) => metric.key === "deployable-funds"
-  )
-
-  return {
-    blockedCount:
-      blockedMetric?.value ??
-      overview.items.filter((item) => item.blockers.length > 0).length,
-    deployableFunds: deployableFundsMetric?.value ?? null,
-    filteredCount: overview.items.length,
-    totalCount:
-      totalCountMetric?.value ??
-      overview.queueCounts.reduce((total, queue) => total + queue.count, 0),
+export function financeDeskItemStatus(item: AdminFinanceSupportItem): {
+  label: string
+  tone: StatusTone
+} {
+  const state = item.displayState ?? item.state
+  const label =
+    state === "under_review" ? "In review" : formatAdminFinanceStatus(state)
+  switch (state) {
+    case "under_review":
+      return { label, tone: "lilac" }
+    case "due":
+    case "pending":
+      return { label, tone: "warning" }
+    case "overdue":
+      return { label, tone: "danger" }
+    default:
+      return { label, tone: "info" }
   }
 }
+
+export const financeDeskLaneNames: Record<AdminFinanceSupportQueueKey, string> =
+  {
+    receipts: "Receipt",
+    financing: "Financing",
+    procurement: "Procurement",
+    foodPurchase: "Foodstuff",
+    projectFinancing: "Project",
+    shares: "Shares",
+    collections: "Collection",
+    support: "Support",
+  }

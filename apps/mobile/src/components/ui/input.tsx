@@ -3,6 +3,7 @@ import {
   useBottomSheetInputFocus,
 } from "@/components/ui/bottom-sheet-input-context"
 import { useKeyboardScrollFallback } from "@/components/app/keyboard-aware-scroll-view"
+import { useFormFieldControl } from "@/components/ui/form-field"
 import { cn } from "@/lib/utils"
 import { useColors } from "@/hooks/use-color"
 import { useLargeTextLayout } from "@/hooks/use-large-text-layout"
@@ -43,6 +44,7 @@ const Input = forwardRef<TextInput, InputProps>(function Input(
   const isBottomSheetInput = useBottomSheetInput()
   const onBottomSheetInputFocus = useBottomSheetInputFocus()
   const scrollInputIntoView = useKeyboardScrollFallback()
+  const field = useFormFieldControl()
   const hasSecureValue =
     secureTextEntry &&
     (typeof props.value === "string"
@@ -52,13 +54,14 @@ const Input = forwardRef<TextInput, InputProps>(function Input(
   const NativeInput = isBottomSheetInput
     ? NativeBottomSheetTextInput
     : TextInput
-  const hasError = className?.includes("border-destructive")
+  const hasError =
+    Boolean(field?.invalid) || Boolean(className?.includes("border-destructive"))
 
   return (
     <View
       className={cn(
-        largeTextLayout ? "h-16" : "h-12",
-        "w-full flex-row items-center overflow-hidden rounded-lg border bg-card",
+        largeTextLayout ? "h-16" : "h-[52px]",
+        "w-full flex-row items-center overflow-hidden rounded-[14px] border bg-card",
         hasError
           ? "border-destructive"
           : isFocused
@@ -85,6 +88,8 @@ const Input = forwardRef<TextInput, InputProps>(function Input(
       ) : null}
       <NativeInput
         ref={ref}
+        accessibilityLabel={props.accessibilityLabel ?? field?.label}
+        aria-invalid={hasError || undefined}
         {...props}
         placeholderTextColor={colors.mutedForeground}
         selectionColor={colors.primary}
@@ -95,12 +100,14 @@ const Input = forwardRef<TextInput, InputProps>(function Input(
         }
         onFocus={(event) => {
           setIsFocused(true)
+          field?.setFocused(true)
           onBottomSheetInputFocus?.(event.nativeEvent.target)
           props.onFocus?.(event)
           scrollInputIntoView?.(event.nativeEvent.target)
         }}
         onBlur={(event) => {
           setIsFocused(false)
+          field?.setFocused(false)
           props.onBlur?.(event)
         }}
         secureTextEntry={secureTextEntry}
@@ -110,7 +117,7 @@ const Input = forwardRef<TextInput, InputProps>(function Input(
             flex: 1,
             fontSize: 16,
             height: "100%",
-            paddingHorizontal: 12,
+            paddingHorizontal: 16,
             paddingVertical: props.multiline ? 12 : 0,
             textAlignVertical:
               props.textAlignVertical ?? (props.multiline ? "top" : "center"),

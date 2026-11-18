@@ -264,11 +264,165 @@ const loanInclude = {
   member: { select: { fullName: true, id: true, memberNumber: true } },
 } as const
 
+function serializeCycle(
+  health: Awaited<ReturnType<typeof getMonthlyFinancingCycleHealth>>
+) {
+  return {
+    collectionCoverage: health.collectionCoverage,
+    deployableFunds: health.deployableFunds,
+    id: health.cycle?.id ?? null,
+    intakeStatus: health.intakeStatus,
+    normal: health.normal,
+    normalAllocationPercentage: health.normalAllocationPercentage,
+    periodEnd: health.periodEnd.toISOString(),
+    periodStart: health.periodStart.toISOString(),
+    projectedCommitmentAmount: health.projectedCommitmentAmount,
+    quick: health.quick,
+    quickAllocationPercentage: health.quickAllocationPercentage,
+    receivedContributionAmount: health.receivedContributionAmount,
+    reserveBufferAmount: health.reserveBufferAmount,
+    status: health.cycle?.status ?? null,
+    totalCapacityAmount: health.totalCapacityAmount,
+    warnings: health.warnings,
+  }
+}
+
+const reviewStatuses = ["submitted", "under_review"] as const
+
+/** Members in this page who already hold approved or running financing. */
+async function activeFinancingMembers(
+  tenantId: string,
+  memberIds: string[],
+  prisma: PrismaClient
+) {
+  if (!memberIds.length) return new Set<string>()
+  const loans = await prisma.loan.findMany({
+    distinct: ["memberId"],
+    select: { memberId: true },
+    where: {
+      memberId: { in: [...new Set(memberIds)] },
+      status: { in: ["approved", "disbursed", "active"] },
+      tenantId,
+    },
+  })
+  return new Set(loans.map((loan) => loan.memberId))
+}
+
+/**
+ * The header for mobile financing operations: cycle health, currency,
+ * lane counts and the dual-approval policy. Read once per visit (and after
+ * writes) instead of with every lane page or search keystroke.
+ */
+export async function getMobileAdminFinancingSummary(
+  input: { capabilities: MobileAdminFinancingCapabilities; tenantId: string },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = getPrisma(prismaOverride)
+  const [tenant, health, policy, review, disbursement] = await Promise.all([
+    prisma.tenant.findUnique({
+      select: { currencyCode: true },
+      where: { id: input.tenantId },
+    }),
+    getMonthlyFinancingCycleHealth({ tenantId: input.tenantId }, prisma),
+    prisma.tenantPolicy.findUnique({
+      select: { requiresDualLoanApproval: true },
+      where: { tenantId: input.tenantId },
+    }),
+    prisma.loanRequest.aggregate({
+      _count: { _all: true },
+      _sum: { requestedAmount: true },
+      where: { status: { in: [...reviewStatuses] }, tenantId: input.tenantId },
+    }),
+    prisma.loan.aggregate({
+      _count: { _all: true },
+      _sum: { principalAmount: true },
+      where: { status: "approved", tenantId: input.tenantId },
+    }),
+  ])
+  return {
+    capabilities: input.capabilities,
+    currencyCode: tenant?.currencyCode ?? "NGN",
+    cycle: serializeCycle(health),
+    generatedAt: new Date().toISOString(),
+    lanes: {
+      disbursement: {
+        count: disbursement._count._all,
+        totalAmount: Number(disbursement._sum.principalAmount ?? 0),
+      },
+      review: {
+        count: review._count._all,
+        totalAmount: Number(review._sum.requestedAmount ?? 0),
+      },
+    },
+    requiresDualApproval: Boolean(policy?.requiresDualLoanApproval),
+  }
+}
+
+/**
+ * One financing record for a notification deep link: an approved loan
+ * (Disburse) or a request (Needs review / All activity). Capacity blockers
+ * come from the summary on the client, like lane pages.
+ */
+export async function getMobileAdminFinancingItem(
+  input: {
+    capabilities: MobileAdminFinancingCapabilities
+    entityId: string
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = getPrisma(prismaOverride)
+  const [loan, request, policy] = await Promise.all([
+    prisma.loan.findFirst({
+      include: loanInclude,
+      where: { id: input.entityId, status: "approved", tenantId: input.tenantId },
+    }),
+    prisma.loanRequest.findFirst({
+      include: requestInclude,
+      where: {
+        OR: [{ id: input.entityId }, { loan: { is: { id: input.entityId } } }],
+        tenantId: input.tenantId,
+      },
+    }),
+    prisma.tenantPolicy.findUnique({
+      select: { requiresDualLoanApproval: true },
+      where: { tenantId: input.tenantId },
+    }),
+  ])
+  if (loan) {
+    return {
+      item: mapLoan(loan, {
+        capabilities: input.capabilities,
+        deployableFunds: Number.POSITIVE_INFINITY,
+      }),
+      lane: "disbursement" as MobileAdminFinancingLane,
+    }
+  }
+  if (!request) throw ExpectedQueryError.notFound("Financing record not found.")
+  const inReview = (reviewStatuses as readonly string[]).includes(request.status)
+  const active = inReview
+    ? await activeFinancingMembers(input.tenantId, [request.memberId], prisma)
+    : new Set<string>()
+  const item = mapRequest(request, {
+    activeFinancingMemberIds: active,
+    capabilities: input.capabilities,
+    normalRemainingAmount: Number.POSITIVE_INFINITY,
+    quickRemainingAmount: Number.POSITIVE_INFINITY,
+    requiresDualApproval: Boolean(policy?.requiresDualLoanApproval),
+  })
+  return {
+    item: inReview ? item : { ...item, actions: [] },
+    lane: (inReview ? "review" : "activity") as MobileAdminFinancingLane,
+  }
+}
+
 export async function getMobileAdminFinancingOperationsWorkspace(
   input: {
     capabilities: MobileAdminFinancingCapabilities
     cursor?: string | null
     entityId?: string
+    /** Older app builds read the cycle with every lane page (default). */
+    includeSummary?: boolean
     lane: MobileAdminFinancingLane
     search?: string
     tenantId: string
@@ -276,26 +430,26 @@ export async function getMobileAdminFinancingOperationsWorkspace(
   prismaOverride?: PrismaClient
 ) {
   const prisma = getPrisma(prismaOverride)
+  const includeSummary = input.includeSummary ?? true
   const scope = operationsCursorScope(input, "financing")
   const cursor = readOperationsCursor(input.cursor, scope)
-  const [tenant, health, policy, activeFinancing] = await Promise.all([
-    prisma.tenant.findUnique({
-      select: { currencyCode: true },
-      where: { id: input.tenantId },
-    }),
-    getMonthlyFinancingCycleHealth({ tenantId: input.tenantId }, prisma),
-    prisma.tenantPolicy.findUnique({ where: { tenantId: input.tenantId } }),
-    prisma.loan.findMany({
-      select: { memberId: true },
-      where: {
-        status: { in: ["approved", "disbursed", "active"] },
-        tenantId: input.tenantId,
-      },
-    }),
+  const [tenant, health, policy] = await Promise.all([
+    includeSummary
+      ? prisma.tenant.findUnique({
+          select: { currencyCode: true },
+          where: { id: input.tenantId },
+        })
+      : null,
+    includeSummary
+      ? getMonthlyFinancingCycleHealth({ tenantId: input.tenantId }, prisma)
+      : null,
+    input.lane === "disbursement"
+      ? null
+      : prisma.tenantPolicy.findUnique({
+          select: { requiresDualLoanApproval: true },
+          where: { tenantId: input.tenantId },
+        }),
   ])
-  const activeFinancingMemberIds = new Set(
-    activeFinancing.map((loan) => loan.memberId)
-  )
   const searchFilter = input.search
     ? {
         member: {
@@ -336,7 +490,8 @@ export async function getMobileAdminFinancingOperationsWorkspace(
     items = page.map((loan) =>
       mapLoan(loan, {
         capabilities: input.capabilities,
-        deployableFunds: health.deployableFunds.deployableFunds,
+        deployableFunds:
+          health?.deployableFunds.deployableFunds ?? Number.POSITIVE_INFINITY,
       })
     )
   } else {
@@ -361,7 +516,7 @@ export async function getMobileAdminFinancingOperationsWorkspace(
           { requestedAt: cursor.at, id: { lt: cursor.id } },
         ] }] } : {}),
         ...(input.lane === "review"
-          ? { status: { in: ["submitted", "under_review"] } }
+          ? { status: { in: [...reviewStatuses] } }
           : {}),
         tenantId: input.tenantId,
       },
@@ -369,12 +524,22 @@ export async function getMobileAdminFinancingOperationsWorkspace(
     const page = requests.slice(0, 50)
     const last = page.at(-1)
     if (requests.length > 50 && last) nextCursor = writeOperationsCursor(scope, last.id, last.requestedAt)
+    const activeFinancingMemberIds =
+      input.lane === "review"
+        ? await activeFinancingMembers(
+            input.tenantId,
+            page.map((request) => request.memberId),
+            prisma
+          )
+        : new Set<string>()
     items = page.map((request) =>
       mapRequest(request, {
         activeFinancingMemberIds,
         capabilities: input.capabilities,
-        normalRemainingAmount: health.normal.remainingAmount,
-        quickRemainingAmount: health.quick.remainingAmount,
+        normalRemainingAmount:
+          health?.normal.remainingAmount ?? Number.POSITIVE_INFINITY,
+        quickRemainingAmount:
+          health?.quick.remainingAmount ?? Number.POSITIVE_INFINITY,
         requiresDualApproval: Boolean(policy?.requiresDualLoanApproval),
       })
     )
@@ -385,25 +550,12 @@ export async function getMobileAdminFinancingOperationsWorkspace(
 
   return {
     capabilities: input.capabilities,
-    currencyCode: tenant?.currencyCode ?? "NGN",
-    cycle: {
-      collectionCoverage: health.collectionCoverage,
-      deployableFunds: health.deployableFunds,
-      id: health.cycle?.id ?? null,
-      intakeStatus: health.intakeStatus,
-      normal: health.normal,
-      normalAllocationPercentage: health.normalAllocationPercentage,
-      periodEnd: health.periodEnd.toISOString(),
-      periodStart: health.periodStart.toISOString(),
-      projectedCommitmentAmount: health.projectedCommitmentAmount,
-      quick: health.quick,
-      quickAllocationPercentage: health.quickAllocationPercentage,
-      receivedContributionAmount: health.receivedContributionAmount,
-      reserveBufferAmount: health.reserveBufferAmount,
-      status: health.cycle?.status ?? null,
-      totalCapacityAmount: health.totalCapacityAmount,
-      warnings: health.warnings,
-    },
+    ...(includeSummary && health
+      ? {
+          currencyCode: tenant?.currencyCode ?? "NGN",
+          cycle: serializeCycle(health),
+        }
+      : {}),
     generatedAt: new Date().toISOString(),
     items,
     lane: input.lane,

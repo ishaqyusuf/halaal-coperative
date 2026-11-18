@@ -4,7 +4,6 @@ import { platformBillingPrices } from "./platform-billing"
 import {
   policyPublications,
   publicPolicies,
-  publicPolicyRevision,
 } from "./public-policies"
 
 const naira = (amount: number) => `₦${amount.toLocaleString("en-US")}`
@@ -25,9 +24,12 @@ describe("public billing policy", () => {
       "Seat fee",
       "Website assistant",
       "Mobile access",
+      "When billing starts",
       "The monthly bill",
-      "Questions about a charge",
-      "Review before launch",
+      "Late payment",
+      "Mistakes, refunds and disputed bills",
+      "Questions about a member charge",
+      "Price changes",
     ])
   })
 
@@ -38,7 +40,7 @@ describe("public billing policy", () => {
     const text = billingPolicyText()
     expect(platformBillingPrices).toMatchObject({
       currencyCode: "NGN",
-      seatFee: 35,
+      seatFee: 50,
       assistantFreeMessages: 500,
       assistantMessagePrice: 15,
     })
@@ -72,10 +74,10 @@ describe("public billing policy", () => {
     expect(fees?.body).toContain("Account closure does not settle charges")
   })
 
-  test("stays a draft until owner and legal approval", () => {
-    expect(policyPublications["billing-policy"]).toEqual({
-      status: "draft",
-      version: publicPolicyRevision,
+  test("is republished with the ₦50 seat fee", () => {
+    expect(policyPublications["billing-policy"]).toMatchObject({
+      status: "published",
+      version: "2026-11-18-seat-50",
     })
   })
 })

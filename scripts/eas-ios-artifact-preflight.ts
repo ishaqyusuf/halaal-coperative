@@ -70,13 +70,49 @@ function readPlist(path: string, entry: string) {
   }
 }
 
+// With the fingerprint policy, expo-updates writes this sentinel to Expo.plist
+// and reads the real runtime from EXUpdates.bundle/fingerprint at launch.
+const fingerprintFileSentinel = "file:fingerprint"
+
+function readEntryText(path: string, entry: string) {
+  try {
+    return execFileSync("unzip", ["-p", path, entry], {
+      encoding: "utf8",
+      maxBuffer: 64_000,
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+  } catch {
+    return undefined
+  }
+}
+
+// The app uses the fingerprint runtime policy, so the expected runtime is the
+// exact value EAS recorded for the selected build, never the app version.
+export function easBuildRuntimeVersion(buildValue: unknown) {
+  const runtimeVersion = record(buildValue)?.runtimeVersion
+  return typeof runtimeVersion === "string" && runtimeVersion.trim()
+    ? runtimeVersion
+    : undefined
+}
+
 export function inspectIosBundleMetadata(
-  input: { info: unknown; expo: unknown; privacy: unknown },
+  input: {
+    info: unknown
+    expo: unknown
+    privacy: unknown
+    expectedRuntimeVersion: string | undefined
+    fingerprintFile?: string | undefined
+  },
   expectedBundleIdentifier = approvedIosReleaseIdentity().bundleIdentifier
 ) {
   const info = record(input.info)
   const expo = record(input.expo)
   const privacy = record(input.privacy)
+  const expectedRuntimeVersion = input.expectedRuntimeVersion?.trim()
+  const embeddedRuntimeVersion =
+    expo?.EXUpdatesRuntimeVersion === fingerprintFileSentinel
+      ? input.fingerprintFile?.trim()
+      : expo?.EXUpdatesRuntimeVersion
   const collected = Array.isArray(privacy?.NSPrivacyCollectedDataTypes)
     ? privacy.NSPrivacyCollectedDataTypes
     : []
@@ -112,7 +148,8 @@ export function inspectIosBundleMetadata(
     ...(expo?.EXUpdatesURL === `https://u.expo.dev/${projectId}`
       ? []
       : ["update-url"]),
-    ...(expo?.EXUpdatesRuntimeVersion === MOBILE_STORE_APP_VERSION
+    ...(expectedRuntimeVersion &&
+    embeddedRuntimeVersion === expectedRuntimeVersion
       ? []
       : ["update-runtime"]),
     ...(privacy?.NSPrivacyTracking === false ? [] : ["privacy-tracking"]),
@@ -126,7 +163,10 @@ export function inspectIosBundleMetadata(
   return { matches: mismatches.length === 0, mismatches }
 }
 
-export async function inspectIosIpa(path: string) {
+export async function inspectIosIpa(
+  path: string,
+  expectedRuntimeVersion: string | undefined
+) {
   const entries = archiveEntries(path)
   const rootInfo = entries.filter((entry) =>
     /^Payload\/[^/]+\.app\/Info\.plist$/.test(entry)
@@ -142,6 +182,10 @@ export async function inspectIosIpa(path: string) {
     info: readPlist(path, rootInfo[0]),
     expo: readPlist(path, `${appRoot}Expo.plist`),
     privacy: readPlist(path, `${appRoot}PrivacyInfo.xcprivacy`),
+    expectedRuntimeVersion,
+    fingerprintFile: entries.includes(`${appRoot}EXUpdates.bundle/fingerprint`)
+      ? readEntryText(path, `${appRoot}EXUpdates.bundle/fingerprint`)
+      : undefined,
   })
   if (!metadata.matches)
     throw new Error(
@@ -197,20 +241,20 @@ export async function inspectEasIosArtifact(
   if (!total) throw new Error("Selected iOS IPA is empty.")
   const bytes = Buffer.concat(chunks, total)
   await writeFile(path, bytes, { mode: 0o600 })
-  await inspectArtifact(path)
+  await inspectArtifact(path, easBuildRuntimeVersion(buildValue))
   return createHash("sha256").update(bytes).digest("hex")
 }
 
 if (import.meta.main) {
-  const [candidate] = process.argv.slice(2)
-  if (!candidate || !candidate.endsWith(".ipa"))
+  const [candidate, runtimeVersion] = process.argv.slice(2)
+  if (!candidate || !candidate.endsWith(".ipa") || !runtimeVersion?.trim())
     throw new Error(
-      "Usage: bun scripts/eas-ios-artifact-preflight.ts <candidate.ipa>"
+      "Usage: bun scripts/eas-ios-artifact-preflight.ts <candidate.ipa> <eas-build-runtime-version>"
     )
   const path = resolve(candidate)
   if (!(await stat(path)).isFile())
     throw new Error("Expected a local IPA file.")
-  await inspectIosIpa(path)
+  await inspectIosIpa(path, runtimeVersion)
   console.log(
     "iOS IPA identity, version and app-owned privacy manifest check passed."
   )

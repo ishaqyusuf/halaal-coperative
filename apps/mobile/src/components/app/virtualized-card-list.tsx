@@ -4,6 +4,12 @@ import { View } from "react-native"
 
 import { resolveVirtualizedListHeight } from "./virtualized-list-height"
 
+/**
+ * @deprecated Legacy (T01): a fixed-height list nested inside a page scroll.
+ * New and migrated screens use AppList (components/app/app-list.tsx), which
+ * is the screen's own scroll with pull-to-refresh and onEndReached paging.
+ * Kept only until the screen threads migrate its remaining callers.
+ */
 export function VirtualizedCardList<T>({
   data,
   empty,

@@ -22,11 +22,13 @@ import {
 import {
   BackHandler,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
 } from "react-native"
+import { Icon } from "@/components/ui/icon"
 import { useKeyboardState } from "react-native-keyboard-controller"
 import {
   Easing,
@@ -119,6 +121,8 @@ export type FloatingBottomSheetProps = {
   header?: ReactNode
   keyboardExpandable?: boolean
   enableContentPanningGesture?: boolean
+  /** 02 Brand native: a round X beside the centred title. */
+  showCloseButton?: boolean
 }
 
 export function FloatingBottomSheet({
@@ -144,6 +148,7 @@ export function FloatingBottomSheet({
   header,
   keyboardExpandable = false,
   enableContentPanningGesture = true,
+  showCloseButton = false,
 }: FloatingBottomSheetProps) {
   "use no memo"
 
@@ -202,7 +207,7 @@ export function FloatingBottomSheet({
   const viewportHeight = height
   const resolvedBottomInset =
     bottomInset ??
-    Math.max(Platform.OS === "android" ? 20 : 28, safeAreaInsets.bottom + 8)
+    Math.max(Platform.OS === "android" ? 20 : 28, safeAreaInsets.bottom + 12)
   const resolvedMaxDynamicContentSize =
     maxDynamicContentSize ??
     (presentation === "compact"
@@ -467,13 +472,28 @@ export function FloatingBottomSheet({
             {title}
           </Text>
         ) : null}
+        {title && showCloseButton && dismissible ? (
+          <Pressable
+            accessibilityLabel={`Close ${title}`}
+            accessibilityRole="button"
+            hitSlop={6}
+            onPress={onClose}
+            style={[styles.closeButton, { backgroundColor: colors.surfaceRaised }]}
+          >
+            <Icon className="size-base text-foreground" name="X" />
+          </Pressable>
+        ) : null}
       </View>
     )
   }, [
     colors.foreground,
     colors.mutedForeground,
+    colors.surfaceRaised,
+    dismissible,
     hideHandle,
     largeTextLayout,
+    onClose,
+    showCloseButton,
     title,
     titleTextScale,
   ])
@@ -558,6 +578,8 @@ export function FloatingBottomSheet({
       }
       onDismiss={handleDismiss}
       onChange={handleSheetChange}
+      // Keep rows and picker choices individually reachable by VoiceOver.
+      accessible={false}
       accessibilityLabel={accessibilityLabel}
     >
       {header ? (
@@ -660,6 +682,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.18,
     shadowRadius: 28,
     zIndex: APP_BOTTOM_SHEET_ELEVATION,
+  },
+  closeButton: {
+    alignItems: "center",
+    borderRadius: 999,
+    height: 40,
+    justifyContent: "center",
+    position: "absolute",
+    right: 14,
+    top: 18,
+    width: 40,
   },
   content: { overflow: "hidden" },
   footer: { borderTopWidth: StyleSheet.hairlineWidth },

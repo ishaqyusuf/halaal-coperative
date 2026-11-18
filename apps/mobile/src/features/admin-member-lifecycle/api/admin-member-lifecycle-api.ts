@@ -14,10 +14,11 @@ import type {
   MobileAdminActionResult,
   MobileAdminMemberCreateInput,
   MobileAdminMemberDetail,
+  MobileAdminMemberDirectoryPage,
+  MobileAdminMemberDirectorySummary,
   MobileAdminMemberKycUpdateInput,
   MobileAdminMemberOnboardingReviewInput,
   MobileAdminMemberRow,
-  MobileAdminMembers,
   MobileAdminMembersListInput,
   MobileAdminMemberStatusUpdateInput,
   MobileAdminOverview,
@@ -32,22 +33,60 @@ export async function getAdminLifecycleOverview() {
 }
 
 export async function getAdminMemberDirectory(
-  input?: MobileAdminMembersListInput
-) {
-  if (isMobileDevFixtureSession()) return getDevAdminMembers(input)
+  input: MobileAdminMembersListInput
+): Promise<MobileAdminMemberDirectoryPage> {
+  if (isMobileDevFixtureSession()) {
+    const { members, ...directory } = getDevAdminMembers(input)
+    const page = input.page ?? 1
+    const pageSize = input.pageSize ?? 20
+    return {
+      ...directory,
+      members: members.slice((page - 1) * pageSize, page * pageSize),
+    }
+  }
   const client = createMobileTrpcClient()
   return readCachedMobileQuery(
-    `admin.member-directory.${JSON.stringify(input ?? {})}`,
-    () => client.mobile.admin.members.list.query(input),
-    { persist: isPersistableReadInput(input) }
-  ) as Promise<MobileAdminMembers>
+    `admin.member-directory-page.${JSON.stringify(input)}`,
+    () => client.mobile.admin.members.list.query({ ...input, compact: true }),
+    { persist: isPersistableReadInput(input) && !input.needsReview }
+  )
+}
+
+export async function getAdminMemberDirectorySummary(): Promise<MobileAdminMemberDirectorySummary> {
+  if (isMobileDevFixtureSession()) {
+    const directory = getDevAdminMembers()
+    const countStatus = (status: string) =>
+      directory.members.filter((member) => member.status === status).length
+    const countKyc = (status: string) =>
+      directory.members.filter((member) => member.kycStatus === status).length
+    return {
+      ...directory,
+      statusCounts: {
+        active: countStatus("active"),
+        exited: countStatus("exited"),
+        inactive: countStatus("inactive"),
+        pending: countStatus("pending"),
+        suspended: countStatus("suspended"),
+      },
+      kycCounts: {
+        not_started: countKyc("not_started"),
+        pending: countKyc("pending"),
+        rejected: countKyc("rejected"),
+        verified: countKyc("verified"),
+      },
+    }
+  }
+  const client = createMobileTrpcClient()
+  return readCachedMobileQuery("admin.member-directory-summary", () =>
+    client.mobile.admin.members.summary.query()
+  )
 }
 
 export async function getAdminMemberDetail(memberId: string) {
   if (isMobileDevFixtureSession()) return getDevAdminMemberDetail(memberId)
   const client = createMobileTrpcClient()
-  return readCachedMobileQuery(`admin.member-lifecycle.${memberId}`, () =>
-    client.mobile.admin.members.detail.query({ memberId })
+  return readCachedMobileQuery(`admin.member-profile.${memberId}`, () =>
+    client.mobile.admin.members.detail.query({ compact: true, memberId })
   ) as Promise<MobileAdminMemberDetail>
 }
 

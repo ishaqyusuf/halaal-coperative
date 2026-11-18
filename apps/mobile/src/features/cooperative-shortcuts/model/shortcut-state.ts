@@ -1,38 +1,40 @@
+import { buildShortcutLabels, sanitizeShortcutMark } from "./shortcut-label"
 import { parseShortcutId } from "./shortcut-intent"
 
 /**
- * Pin state is separate from authentication state. `pin_observed` means the
- * launcher reported approval or listed the pin; it does not prove a tile is
- * still on a particular home-screen page.
+ * A launcher shortcut belongs to this phone and a cooperative, not to the
+ * account that added it. It survives sign-out, so another account of the
+ * same cooperative is not asked to add it again, and tapping it while signed
+ * out opens that cooperative's sign-in. `pin_observed` means the launcher
+ * reported approval or listed the pin; it does not prove a tile is still on a
+ * particular home-screen page.
  */
-export type ShortcutLifecycle =
-  | "unavailable"
-  | "not_offered"
-  | "deferred"
+export type ShortcutAssociationStatus =
   | "request_prepared"
   | "request_sent"
   | "pin_observed"
+  | "removed"
   | "disabled"
-  | "cleanup_pending"
-
-export type ShortcutAssociationStatus = Extract<
-  ShortcutLifecycle,
-  "deferred" | "request_prepared" | "request_sent" | "pin_observed" | "disabled"
->
 
 export type ShortcutAssociation = {
   label: string
   mark: string
-  membershipId: string
-  shortcutId: string | null
+  shortcutId: string
   status: ShortcutAssociationStatus
+  tenantId: string
+  updatedAt: number
+  variant: string
+}
+
+/** "Not now" on the add offer: per account, so one person's no is theirs. */
+export type ShortcutDeferral = {
   tenantId: string
   updatedAt: number
   userId: string
   variant: string
 }
 
-/** Opaque cleanup id kept after the account mapping has been erased. */
+/** Opaque id that still needs a native disable. */
 export type ShortcutTombstone = {
   shortcutId: string
   status: "cleanup_pending"
@@ -40,30 +42,43 @@ export type ShortcutTombstone = {
 
 export type ShortcutRegistry = {
   associations: ShortcutAssociation[]
+  deferrals: ShortcutDeferral[]
   tombstones: ShortcutTombstone[]
-  version: 1
+  version: 2
 }
 
+/** The cooperative the current session is signed in to, if any. */
 export type ShortcutOwner = {
-  activeMembershipId: string
+  cooperativeName: string
+  mark: string
   tenantId: string
-  userId: string
 }
 
-export type PinnedShortcut = { enabled: boolean; id: string }
+/**
+ * A pinned launcher shortcut. Shortcuts added since registry v2 carry their
+ * cooperative in the launcher's extras; older tiles only have a label.
+ */
+export type PinnedShortcut = {
+  enabled: boolean
+  id: string
+  label?: string | null
+  mark?: string | null
+  tenantId?: string | null
+}
 
 export const MAX_SHORTCUT_ASSOCIATIONS = 8
+const MAX_DEFERRALS = 16
 const MAX_TOMBSTONES = 32
 const ASSOCIATION_STATUSES = new Set<string>([
-  "deferred",
   "request_prepared",
   "request_sent",
   "pin_observed",
+  "removed",
   "disabled",
 ])
 
 export function emptyShortcutRegistry(): ShortcutRegistry {
-  return { associations: [], tombstones: [], version: 1 }
+  return { associations: [], deferrals: [], tombstones: [], version: 2 }
 }
 
 function isBoundedString(value: unknown, max = 128): value is string {
@@ -73,13 +88,10 @@ function isBoundedString(value: unknown, max = 128): value is string {
 function parseAssociation(value: unknown): ShortcutAssociation | null {
   if (!value || typeof value !== "object") return null
   const item = value as Record<string, unknown>
-  const shortcutId =
-    item.shortcutId === null ? null : parseShortcutId(item.shortcutId)
-  if (item.shortcutId !== null && !shortcutId) return null
+  const shortcutId = parseShortcutId(item.shortcutId)
   if (
-    !isBoundedString(item.userId) ||
+    !shortcutId ||
     !isBoundedString(item.tenantId) ||
-    !isBoundedString(item.membershipId) ||
     !isBoundedString(item.variant, 32) ||
     !isBoundedString(item.label, 160) ||
     !isBoundedString(item.mark, 8) ||
@@ -89,18 +101,83 @@ function parseAssociation(value: unknown): ShortcutAssociation | null {
   ) {
     return null
   }
-  if (item.status !== "deferred" && !shortcutId) return null
   return {
     label: item.label,
     mark: item.mark,
-    membershipId: item.membershipId,
     shortcutId,
     status: item.status as ShortcutAssociationStatus,
+    tenantId: item.tenantId,
+    updatedAt: item.updatedAt,
+    variant: item.variant,
+  }
+}
+
+function parseDeferral(value: unknown): ShortcutDeferral | null {
+  if (!value || typeof value !== "object") return null
+  const item = value as Record<string, unknown>
+  if (
+    !isBoundedString(item.tenantId) ||
+    !isBoundedString(item.userId) ||
+    !isBoundedString(item.variant, 32) ||
+    typeof item.updatedAt !== "number"
+  ) {
+    return null
+  }
+  return {
     tenantId: item.tenantId,
     updatedAt: item.updatedAt,
     userId: item.userId,
     variant: item.variant,
   }
+}
+
+function parseTombstones(value: unknown) {
+  return (Array.isArray(value) ? value : [])
+    .map((item) => parseShortcutId(item?.shortcutId))
+    .filter((id): id is string => id !== null)
+    .slice(-MAX_TOMBSTONES)
+    .map((shortcutId) => ({ shortcutId, status: "cleanup_pending" as const }))
+}
+
+/**
+ * Registry v1 keyed shortcuts by account. Its active shortcuts become
+ * cooperative shortcuts; a second account's tile for the same cooperative is
+ * queued for disable, since one cooperative now has one shortcut.
+ */
+function migrateV1(value: Record<string, unknown>): ShortcutRegistry {
+  let registry: ShortcutRegistry = {
+    ...emptyShortcutRegistry(),
+    tombstones: parseTombstones(value.tombstones),
+  }
+  const items = (Array.isArray(value.associations) ? value.associations : [])
+    .filter((item): item is Record<string, unknown> =>
+      Boolean(item && typeof item === "object")
+    )
+    // Pinned first, then newest, so the best tile wins its cooperative.
+    .sort((a, b) => {
+      const pinned =
+        Number(b.status === "pin_observed") - Number(a.status === "pin_observed")
+      return pinned || Number(b.updatedAt ?? 0) - Number(a.updatedAt ?? 0)
+    })
+  const losers: string[] = []
+  for (const item of items) {
+    if (item.status === "deferred" && item.shortcutId === null) {
+      const deferral = parseDeferral(item)
+      if (deferral) registry = addShortcutDeferral(registry, deferral)
+      continue
+    }
+    const association = parseAssociation({
+      ...item,
+      status: item.status === "deferred" ? "removed" : item.status,
+    })
+    if (!association) continue
+    if (findShortcutAssociation(registry, association)) {
+      losers.push(association.shortcutId)
+      continue
+    }
+    registry = upsertShortcutAssociation(registry, association)
+  }
+  return queueShortcutCleanup(registry, losers)
 }
 
 /**
@@ -110,8 +187,9 @@ function parseAssociation(value: unknown): ShortcutAssociation | null {
 export function parseShortcutRegistry(raw: string | null): ShortcutRegistry {
   if (!raw) return emptyShortcutRegistry()
   try {
-    const value = JSON.parse(raw) as Partial<ShortcutRegistry>
-    if (value?.version !== 1) return emptyShortcutRegistry()
+    const value = JSON.parse(raw) as Record<string, unknown> | null
+    if (value?.version === 1) return migrateV1(value)
+    if (value?.version !== 2) return emptyShortcutRegistry()
     return {
       associations: (Array.isArray(value.associations)
         ? value.associations
@@ -120,15 +198,12 @@ export function parseShortcutRegistry(raw: string | null): ShortcutRegistry {
         .map(parseAssociation)
         .filter((item): item is ShortcutAssociation => item !== null)
         .slice(0, MAX_SHORTCUT_ASSOCIATIONS),
-      tombstones: (Array.isArray(value.tombstones) ? value.tombstones : [])
-        .map((item) => parseShortcutId(item?.shortcutId))
-        .filter((id): id is string => id !== null)
-        .slice(0, MAX_TOMBSTONES)
-        .map((shortcutId) => ({
-          shortcutId,
-          status: "cleanup_pending" as const,
-        })),
-      version: 1,
+      deferrals: (Array.isArray(value.deferrals) ? value.deferrals : [])
+        .map(parseDeferral)
+        .filter((item): item is ShortcutDeferral => item !== null)
+        .slice(0, MAX_DEFERRALS),
+      tombstones: parseTombstones(value.tombstones),
+      version: 2,
     }
   } catch {
     return emptyShortcutRegistry()
@@ -137,14 +212,11 @@ export function parseShortcutRegistry(raw: string | null): ShortcutRegistry {
 
 export function findShortcutAssociation(
   registry: ShortcutRegistry,
-  key: { tenantId: string; userId: string; variant: string }
+  key: { tenantId: string; variant: string }
 ) {
   return (
     registry.associations.find(
-      (item) =>
-        item.userId === key.userId &&
-        item.tenantId === key.tenantId &&
-        item.variant === key.variant
+      (item) => item.tenantId === key.tenantId && item.variant === key.variant
     ) ?? null
   )
 }
@@ -154,11 +226,24 @@ export function findShortcutById(
   shortcutId: string
 ) {
   return (
-    registry.associations.find((item) => item.shortcutId === shortcutId) ?? null
+    registry.associations.find((item) => item.shortcutId === shortcutId) ??
+    null
   )
 }
 
-/** One association per account/cooperative/variant; role changes reuse it. */
+export function hasShortcutDeferral(
+  registry: ShortcutRegistry,
+  key: { tenantId: string; userId: string; variant: string }
+) {
+  return registry.deferrals.some(
+    (item) =>
+      item.tenantId === key.tenantId &&
+      item.userId === key.userId &&
+      item.variant === key.variant
+  )
+}
+
+/** One shortcut per cooperative and variant; a re-add reuses its id. */
 export function upsertShortcutAssociation(
   registry: ShortcutRegistry,
   association: ShortcutAssociation
@@ -166,18 +251,17 @@ export function upsertShortcutAssociation(
   const others = registry.associations.filter(
     (item) =>
       !(
-        item.userId === association.userId &&
         item.tenantId === association.tenantId &&
         item.variant === association.variant
       )
   )
   const associations = [association, ...others]
   while (associations.length > MAX_SHORTCUT_ASSOCIATIONS) {
-    // Drop the oldest unpinned deferral first; never the new association.
+    // Drop the oldest shortcut that is no longer live; never the new one.
     let dropIndex = associations.length - 1
     for (let index = associations.length - 1; index > 0; index -= 1) {
-      const item = associations[index]
-      if (item?.status === "deferred" && item.shortcutId === null) {
+      const status = associations[index]?.status
+      if (status === "removed" || status === "disabled") {
         dropIndex = index
         break
       }
@@ -185,6 +269,17 @@ export function upsertShortcutAssociation(
     associations.splice(dropIndex, 1)
   }
   return { ...registry, associations }
+}
+
+export function addShortcutDeferral(
+  registry: ShortcutRegistry,
+  deferral: ShortcutDeferral
+): ShortcutRegistry {
+  if (hasShortcutDeferral(registry, deferral)) return registry
+  return {
+    ...registry,
+    deferrals: [deferral, ...registry.deferrals].slice(0, MAX_DEFERRALS),
+  }
 }
 
 export function setShortcutStatus(
@@ -203,30 +298,18 @@ export function setShortcutStatus(
   }
 }
 
-function withTombstones(registry: ShortcutRegistry, ids: string[]) {
+/** Queues opaque ids for a native disable that may not finish this run. */
+export function queueShortcutCleanup(
+  registry: ShortcutRegistry,
+  ids: readonly string[]
+): ShortcutRegistry {
   const known = new Set(registry.tombstones.map((item) => item.shortcutId))
-  const added = ids
+  const added = [...new Set(ids)]
     .filter((id) => !known.has(id))
     .map((shortcutId) => ({ shortcutId, status: "cleanup_pending" as const }))
-  return [...registry.tombstones, ...added].slice(-MAX_TOMBSTONES)
-}
-
-/**
- * First, durable step of sign-out cleanup: erase every account/cooperative
- * mapping and keep only opaque ids that still need a native disable.
- */
-export function beginShortcutSignOutCleanup(registry: ShortcutRegistry) {
-  const ids = registry.associations
-    .map((item) => item.shortcutId)
-    .filter((id): id is string => id !== null)
-  const next: ShortcutRegistry = {
-    associations: [],
-    tombstones: withTombstones(registry, ids),
-    version: 1,
-  }
   return {
-    disableIds: next.tombstones.map((item) => item.shortcutId),
-    registry: next,
+    ...registry,
+    tombstones: [...registry.tombstones, ...added].slice(-MAX_TOMBSTONES),
   }
 }
 
@@ -244,9 +327,16 @@ export function completeShortcutCleanup(
 }
 
 /**
- * Reconciles launcher state against the signed owner before anything is
- * enabled: pins not owned by the current account on this variant are
- * disabled; owned pins observed by the launcher advance to `pin_observed`.
+ * Reconciles the registry with the launcher. Signing in or out never
+ * changes a shortcut. The plan:
+ * - advances shortcuts the launcher approved or lists, and marks a tile the
+ *   user removed as `removed` (offered again only when they ask);
+ * - revives a tile the launcher shows disabled while the registry says it is
+ *   live (for example one an older version disabled at sign-out);
+ * - recovers pins that carry their cooperative after local storage was lost;
+ * - adopts one legacy tile labelled with the signed-in cooperative's name;
+ * - disables queued ids, user-disabled shortcuts that are still enabled, and
+ *   enabled pins nothing accounts for (fail closed).
  */
 export function planShortcutReconcile(input: {
   now: number
@@ -256,78 +346,102 @@ export function planShortcutReconcile(input: {
   registry: ShortcutRegistry
   variant: string
 }) {
-  if (!input.owner) {
-    const cleanup = beginShortcutSignOutCleanup(input.registry)
-    const enabledPins = (input.pinned ?? [])
-      .filter((item) => item.enabled)
-      .map((item) => item.id)
-    return {
-      disableIds: [...new Set([...cleanup.disableIds, ...enabledPins])],
-      registry: cleanup.registry,
-    }
-  }
-
-  const owner = input.owner
-  const owned: ShortcutAssociation[] = []
-  const foreignIds: string[] = []
-  for (const item of input.registry.associations) {
-    if (item.userId === owner.userId && item.variant === input.variant) {
-      owned.push(item)
-    } else if (item.shortcutId) {
-      foreignIds.push(item.shortcutId)
-    }
-  }
-
   const pinnedById = input.pinned
     ? new Map(input.pinned.map((item) => [item.id, item]))
     : null
   const observed = new Set(input.observedIds)
-  const associations = owned.map((item) => {
-    let next = item
-    if (
-      item.tenantId === owner.tenantId &&
-      item.membershipId !== owner.activeMembershipId
-    ) {
-      next = {
-        ...next,
-        membershipId: owner.activeMembershipId,
-        updatedAt: input.now,
-      }
-    }
-    if (!item.shortcutId || item.status === "disabled") return next
-    const pin = pinnedById?.get(item.shortcutId)
-    if (observed.has(item.shortcutId) || pin?.enabled) {
-      return item.status === "pin_observed"
-        ? next
-        : { ...next, status: "pin_observed" as const, updatedAt: input.now }
-    }
-    if (pinnedById && !pin && item.status === "pin_observed") {
-      // The user removed the tile; offer retry, never recreate it unasked.
-      return { ...next, status: "deferred" as const, updatedAt: input.now }
-    }
-    return next
-  })
-
-  const activeOwnedIds = new Set(
-    associations
-      .filter((item) => item.shortcutId && item.status !== "disabled")
-      .map((item) => item.shortcutId as string)
+  const reviveIds: string[] = []
+  const disableIds = new Set(
+    input.registry.tombstones.map((item) => item.shortcutId)
   )
-  const unknownPins = (input.pinned ?? [])
-    .filter((item) => item.enabled && !activeOwnedIds.has(item.id))
-    .map((item) => item.id)
-  const registry: ShortcutRegistry = {
-    associations,
-    tombstones: withTombstones(input.registry, foreignIds),
-    version: 1,
+
+  let registry: ShortcutRegistry = {
+    ...input.registry,
+    associations: input.registry.associations.map((item) => {
+      if (item.variant !== input.variant) return item
+      const pin = pinnedById?.get(item.shortcutId)
+      if (item.status === "disabled") {
+        if (pin?.enabled) disableIds.add(item.shortcutId)
+        return item
+      }
+      if (observed.has(item.shortcutId) || pin?.enabled) {
+        return item.status === "pin_observed"
+          ? item
+          : { ...item, status: "pin_observed" as const, updatedAt: input.now }
+      }
+      if (pin && !pin.enabled) {
+        reviveIds.push(item.shortcutId)
+        return { ...item, status: "pin_observed" as const, updatedAt: input.now }
+      }
+      if (pinnedById && !pin && item.status === "pin_observed") {
+        // The user removed the tile; offer it again only when they ask.
+        return { ...item, status: "removed" as const, updatedAt: input.now }
+      }
+      return item
+    }),
   }
-  return {
-    disableIds: [
-      ...new Set([
-        ...registry.tombstones.map((item) => item.shortcutId),
-        ...unknownPins,
-      ]),
-    ],
-    registry,
+
+  const accounted = new Set([
+    ...registry.associations.map((item) => item.shortcutId),
+    ...disableIds,
+  ])
+  const unaccounted = (input.pinned ?? []).filter(
+    (pin) => !accounted.has(pin.id)
+  )
+
+  for (const pin of unaccounted) {
+    const tenantId = isBoundedString(pin.tenantId) ? pin.tenantId : null
+    if (!tenantId) continue
+    accounted.add(pin.id)
+    if (findShortcutAssociation(registry, { tenantId, variant: input.variant })) {
+      // The cooperative already has its shortcut; this is a stray copy.
+      if (pin.enabled) disableIds.add(pin.id)
+      continue
+    }
+    registry = upsertShortcutAssociation(registry, {
+      label: isBoundedString(pin.label, 160) ? pin.label : "HalaalVest",
+      mark: sanitizeShortcutMark(pin.mark),
+      shortcutId: pin.id,
+      status: pin.enabled ? "pin_observed" : "disabled",
+      tenantId,
+      updatedAt: input.now,
+      variant: input.variant,
+    })
   }
+
+  const owner = input.owner
+  if (
+    owner &&
+    !findShortcutAssociation(registry, {
+      tenantId: owner.tenantId,
+      variant: input.variant,
+    })
+  ) {
+    const { shortLabel } = buildShortcutLabels(owner.cooperativeName)
+    const candidates = unaccounted.filter(
+      (pin) =>
+        !accounted.has(pin.id) && !pin.tenantId && pin.label === shortLabel
+    )
+    // Exactly one match, so a tile is never adopted by guesswork.
+    const legacy = candidates.length === 1 ? candidates[0] : undefined
+    if (legacy) {
+      accounted.add(legacy.id)
+      if (!legacy.enabled) reviveIds.push(legacy.id)
+      registry = upsertShortcutAssociation(registry, {
+        label: owner.cooperativeName,
+        mark: sanitizeShortcutMark(owner.mark),
+        shortcutId: legacy.id,
+        status: "pin_observed",
+        tenantId: owner.tenantId,
+        updatedAt: input.now,
+        variant: input.variant,
+      })
+    }
+  }
+
+  for (const pin of unaccounted) {
+    if (!accounted.has(pin.id) && pin.enabled) disableIds.add(pin.id)
+  }
+
+  return { disableIds: [...disableIds], registry, reviveIds }
 }

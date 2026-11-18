@@ -1,6 +1,14 @@
-import type { MembershipRole, TenantStaffPerson } from "@halaalvest/db"
+import type {
+  MembershipRole,
+  RemovedTenantPerson,
+  TenantStaffPerson,
+} from "@halaalvest/db"
 import { OpenRoleSettingsSheet } from "@/components/open-role-settings-sheet"
 import { RoleSettingsSheet } from "@/components/sheets/role-settings-sheet"
+import {
+  RemovePersonButton,
+  RestorePersonButton,
+} from "@/components/workspace-settings/remove-person-button"
 import { RemoveRoleButton } from "@/components/workspace-settings/remove-role-button"
 import {
   SettingsEmpty,
@@ -44,7 +52,39 @@ function getKeepReason({
     if (person.id === currentUserId) return "You"
     if (role === "tenant_admin" && adminCount <= 1) return "Only admin"
   }
+  // A last role is never removed on its own: "Remove from cooperative".
+  if (person.roles.length <= 1) return null
   return undefined
+}
+
+/** Whether the person can be removed from the cooperative by this admin. */
+function canRemovePerson({
+  actorRole,
+  adminCount,
+  currentUserId,
+  person,
+}: {
+  actorRole: MembershipRole | null
+  adminCount: number
+  currentUserId: string | null
+  person: TenantStaffPerson
+}) {
+  const roles = person.roles.map((entry) => entry.role)
+
+  if (person.id === currentUserId) return false
+  // Member logins are managed from the member's record.
+  if (roles.includes("member")) return false
+  if (roles.includes("super_admin") && actorRole !== "super_admin") return false
+  if (roles.includes("tenant_admin") && adminCount <= 1) return false
+  return true
+}
+
+function formatRemovedOn(date: Date) {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date)
 }
 
 export function RoleSettingsView({
@@ -54,6 +94,7 @@ export function RoleSettingsView({
   devMode,
   givableRoles,
   people,
+  removed = [],
 }: {
   actorRole: MembershipRole | null
   canManageRoles: boolean
@@ -61,6 +102,7 @@ export function RoleSettingsView({
   devMode: boolean
   givableRoles: MembershipRole[]
   people: TenantStaffPerson[]
+  removed?: RemovedTenantPerson[]
 }) {
   const adminCount = people.filter((person) =>
     person.roles.some((entry) => entry.role === "tenant_admin")
@@ -85,19 +127,33 @@ export function RoleSettingsView({
                 data-role-person={person.fullName}
                 key={person.id}
               >
-                <div className="min-w-0">
-                  <p className="text-lg font-semibold text-foreground">
-                    {person.fullName}
-                    {person.id === currentUserId ? (
-                      <span className="font-normal text-muted-foreground">
-                        {" "}
-                        (you)
-                      </span>
-                    ) : null}
-                  </p>
-                  <p className="text-base [overflow-wrap:anywhere] text-muted-foreground">
-                    {person.email}
-                  </p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-lg font-semibold text-foreground">
+                      {person.fullName}
+                      {person.id === currentUserId ? (
+                        <span className="font-normal text-muted-foreground">
+                          {" "}
+                          (you)
+                        </span>
+                      ) : null}
+                    </p>
+                    <p className="text-base [overflow-wrap:anywhere] text-muted-foreground">
+                      {person.email}
+                    </p>
+                  </div>
+                  {canManageRoles &&
+                  canRemovePerson({
+                    actorRole,
+                    adminCount,
+                    currentUserId,
+                    person,
+                  }) ? (
+                    <RemovePersonButton
+                      name={person.fullName}
+                      userId={person.id}
+                    />
+                  ) : null}
                 </div>
                 <ul className="grid gap-2">
                   {person.roles.map((entry) => {
@@ -150,6 +206,47 @@ export function RoleSettingsView({
           Members aren&apos;t listed here. They sign in with their own login.
         </p>
       </SettingsSection>
+
+      {canManageRoles && removed.length > 0 ? (
+        <SettingsSection title="Removed from the cooperative">
+          <ul className="divide-y divide-border border-y border-border">
+            {removed.map((person) => (
+              <li
+                className="flex flex-col gap-3 px-1 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-3"
+                data-removed-person={person.fullName}
+                key={person.removalId}
+              >
+                <div className="min-w-0">
+                  <p className="text-lg font-semibold text-foreground">
+                    {person.fullName}
+                  </p>
+                  <p className="text-base [overflow-wrap:anywhere] text-muted-foreground">
+                    {person.email}
+                  </p>
+                  <p className="text-base text-muted-foreground">
+                    Was{" "}
+                    {person.roles
+                      .map((role) => getRoleWord(role).toLowerCase())
+                      .join(" and ")}
+                    . Removed {formatRemovedOn(person.removedAt)}.
+                  </p>
+                </div>
+                {person.roles.includes("super_admin") &&
+                actorRole !== "super_admin" ? null : (
+                  <RestorePersonButton
+                    name={person.fullName}
+                    removalId={person.removalId}
+                  />
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="text-base text-muted-foreground">
+            They can&apos;t sign in to this cooperative. Their account and
+            history are kept. Restore gives back the roles they had.
+          </p>
+        </SettingsSection>
+      ) : null}
 
       <SettingsSection title="What each role can do">
         <dl className="divide-y divide-border border-y border-border">

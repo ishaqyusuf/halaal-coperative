@@ -113,6 +113,7 @@ runIntegration("finance setup actions", () => {
     ["updateLoanProductSettingsAction", [["loanType", "quick"]]],
     ["openMonthlyFinancingCycleAction", []],
     ["updateTenantFinanceStartDateAction", [["startDate", "2024-01-01"]]],
+    ["setTenantOpeningCashAction", [["amount", "5000"]]],
   ] as Array<[string, Array<[string, string]>]>)(
     "a member can't run %s",
     async (action, fields) => {
@@ -163,5 +164,21 @@ runIntegration("finance setup actions", () => {
         fields: [["startDate", "2024-01-01"]],
       })
     ).rejects.toThrow("Initial migration tools are locked")
+  })
+
+  test("opening cash can't change once live", async () => {
+    if (!prisma) throw new Error("Database integration test not configured.")
+    const caller = await callerFor(admin)
+
+    await expect(
+      caller.dashboardActions.setTenantOpeningCashAction({
+        fields: [["amount", "5000"]],
+      })
+    ).rejects.toThrow("Opening cash can't change after")
+    expect(
+      await prisma.ledgerTransaction.count({
+        where: { reference: "opening-cash", tenantId },
+      })
+    ).toBe(0)
   })
 })

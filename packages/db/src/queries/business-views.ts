@@ -4,6 +4,10 @@ import { ExpectedQueryError } from "../query-error"
 import { getTenantMigrationWriteAccess } from "./migration"
 import { runMobileAdminCommand } from "./mobile-admin-finance-support"
 import {
+  recognizeSeasonBusinessProfit,
+  recordProfitOwedForSeason,
+} from "./profit-payouts"
+import {
   generateShareProfitAllocations,
   rebuildDividendPeriodAllocationsFromPublishedProfit,
 } from "./tenant-finance"
@@ -72,6 +76,7 @@ export async function listBusinessRows(
       notes: true,
       startDate: true,
       status: true,
+      systemKey: true,
     },
     skip,
     take: pageSize + 1,
@@ -106,6 +111,8 @@ export async function listBusinessRows(
         capitalAmount: money(row.capitalAmount),
         endDate: dateOnly(row.endDate),
         id: row.id,
+        /** Kept by Halaalvest (procurement and foodstuff profit); read-only. */
+        isAutomatic: Boolean(row.systemKey),
         lastProfitDate: dateOnly(total?.last_profit_date),
         name: row.name,
         notes: row.notes,
@@ -224,6 +231,7 @@ export async function getBusinessDetail(
       },
       startDate: true,
       status: true,
+      systemKey: true,
     },
     where: { id: input.businessId, tenantId: input.tenantId },
   })
@@ -248,6 +256,7 @@ export async function getBusinessDetail(
     capitalAmount: money(business.capitalAmount),
     endDate: dateOnly(business.endDate),
     id: business.id,
+    isAutomatic: Boolean(business.systemKey),
     linkedDividendPeriodId: business.linkedDividendPeriodId,
     name: business.name,
     notes: business.notes,
@@ -367,7 +376,7 @@ export async function getProfitSeasonDetail(
   prismaOverride?: PrismaClient
 ) {
   const prisma = getPrisma(prismaOverride)
-  const [period, entries, entryTotals, memberTotals, leftOut] =
+  const [period, entries, entryTotals, memberTotals, leftOut, payoutTotals] =
     await Promise.all([
       prisma.dividendPeriod.findFirst({
         select: {
@@ -392,6 +401,7 @@ export async function getProfitSeasonDetail(
           profitAmount: true,
           profitDate: true,
           shareBusiness: { select: { id: true, name: true } },
+          sourceType: true,
           status: true,
         },
         where: {
@@ -442,6 +452,28 @@ export async function getProfitSeasonDetail(
         input.tenantId,
         input.seasonId
       ),
+      // Who is paid and who is still owed once the season is shared (1.1).
+      prisma.$queryRawUnsafe<
+        Array<{
+          owed_count: bigint
+          owed_total: string
+          paid_count: bigint
+          paid_total: string
+        }>
+      >(
+        `SELECT
+          count(*) FILTER (WHERE p.status::text = 'paid') AS paid_count,
+          coalesce(sum(p.amount) FILTER (WHERE p.status::text = 'paid'), 0)::text AS paid_total,
+          count(*) FILTER (WHERE p.id IS NULL OR p.status::text <> 'paid') AS owed_count,
+          coalesce(sum(d.allocation_amount) FILTER (WHERE p.id IS NULL OR p.status::text <> 'paid'), 0)::text AS owed_total
+        FROM dividend_allocations d
+        LEFT JOIN profit_payouts p ON p.dividend_period_id = d.dividend_period_id
+          AND p.member_id = d.member_id
+        WHERE d.tenant_id = $1::uuid AND d.dividend_period_id = $2::uuid
+          AND d.allocation_amount > 0`,
+        input.tenantId,
+        input.seasonId
+      ),
     ])
 
   if (!period) return null
@@ -480,6 +512,9 @@ export async function getProfitSeasonDetail(
   )
   const unshared = serializedEntries.filter((entry) => !entry.isShared)
   const members = memberTotals[0]
+  const payouts = payoutTotals[0]
+  // Seasons brought in from before Halaalvest were settled outside it.
+  const hasLiveProfit = entries.some((entry) => entry.sourceType === "manual")
 
   return {
     entries: serializedEntries,
@@ -490,6 +525,15 @@ export async function getProfitSeasonDetail(
       names: leftOut.map((row) => row.full_name),
     },
     name: period.name,
+    payout:
+      period.status === "published" && hasLiveProfit
+        ? {
+            owedCount: Number(payouts?.owed_count ?? 0),
+            owedTotal: money(payouts?.owed_total),
+            paidCount: Number(payouts?.paid_count ?? 0),
+            paidTotal: money(payouts?.paid_total),
+          }
+        : null,
     periodEnd: dateOnly(period.periodEnd) as string,
     periodStart: dateOnly(period.periodStart) as string,
     publishedAt: dateOnly(period.publishedAt),
@@ -517,6 +561,8 @@ export async function listProfitSeasonShares(
   input: {
     cursor?: string | null
     pageSize?: number
+    /** Only members still owed, or only members paid (shared seasons). */
+    payout?: "owed" | "paid" | null
     q?: string | null
     seasonId: string
     tenantId: string
@@ -534,26 +580,40 @@ export async function listProfitSeasonShares(
       full_name: string
       member_id: string
       member_number: string | null
+      paid_at: Date | null
+      payout_destination: "bank_transfer" | "cash" | "savings" | null
+      payout_id: string | null
+      payout_reference: string | null
+      payout_status: "paid" | "reversed" | null
       published: boolean
     }>
   >(
     `SELECT a.member_id::text AS member_id, m.full_name, m.member_number,
         coalesce(sum(a.allocated_profit_amount), 0)::text AS amount,
-        bool_and(a.status::text = 'published') AS published
+        bool_and(a.status::text = 'published') AS published,
+        p.id::text AS payout_id, p.status::text AS payout_status,
+        p.destination::text AS payout_destination, p.paid_at,
+        p.reference AS payout_reference
       FROM share_profit_allocations a
       JOIN share_business_profit_entries e ON e.id = a.profit_entry_id
       JOIN members m ON m.id = a.member_id
+      LEFT JOIN profit_payouts p ON p.tenant_id = a.tenant_id
+        AND p.dividend_period_id = $2::uuid AND p.member_id = a.member_id
       WHERE a.tenant_id = $1::uuid AND e.linked_dividend_period_id = $2::uuid
         AND e.status::text <> 'archived' AND a.status::text <> 'cancelled'
         AND ($3::text IS NULL OR m.full_name ILIKE $3 OR m.member_number ILIKE $3)
-      GROUP BY a.member_id, m.full_name, m.member_number
+        AND ($6::text IS NULL
+          OR ($6::text = 'paid' AND p.status::text = 'paid')
+          OR ($6::text = 'owed' AND (p.id IS NULL OR p.status::text <> 'paid')))
+      GROUP BY a.member_id, m.full_name, m.member_number, p.id
       ORDER BY sum(a.allocated_profit_amount) DESC, m.full_name ASC
       LIMIT $4 OFFSET $5`,
     input.tenantId,
     input.seasonId,
     q,
     pageSize + 1,
-    skip
+    skip,
+    input.payout ?? null
   )
   const hasNextPage = rows.length > pageSize
   const page = hasNextPage ? rows.slice(0, pageSize) : rows
@@ -564,6 +624,15 @@ export async function listProfitSeasonShares(
       memberId: row.member_id,
       memberName: row.full_name,
       memberNumber: row.member_number,
+      payout:
+        row.payout_id && row.payout_status === "paid"
+          ? {
+              destination: row.payout_destination ?? "savings",
+              id: row.payout_id,
+              paidAt: dateOnly(row.paid_at) as string,
+              reference: row.payout_reference,
+            }
+          : null,
       published: row.published,
     })),
     meta: {
@@ -669,6 +738,15 @@ export async function closeProfitSeason(
                 tenantId: input.tenantId,
               },
             })
+            // The season's profit is fixed: bring it into the books (1.1).
+            const recognised = await recognizeSeasonBusinessProfit(
+              {
+                actorUserId: input.actorUserId,
+                seasonId: input.seasonId,
+                tenantId: input.tenantId,
+              },
+              tx
+            )
             await tx.auditLog.create({
               data: {
                 action: "business.profit_season.closed",
@@ -680,6 +758,7 @@ export async function closeProfitSeason(
                   costs: sum("expenseAmount"),
                   profit: sum("profitAmount"),
                   profitEntryCount: entries.length,
+                  profitPostedToBooks: recognised.total,
                   toShare: sum("allocatableProfitAmount"),
                 },
                 occurredAt: new Date(),
@@ -880,6 +959,17 @@ export async function shareProfitSeason(
                 { dividendPeriodId: input.seasonId, tenantId: input.tenantId },
                 tx
               )
+            // Fully shared: each member's share is now owed to them (1.1).
+            const owed = summary.allLinkedEntriesPublished
+              ? await recordProfitOwedForSeason(
+                  {
+                    actorUserId: input.actorUserId,
+                    seasonId: input.seasonId,
+                    tenantId: input.tenantId,
+                  },
+                  tx
+                )
+              : { created: 0, total: 0 }
 
             await tx.auditLog.create({
               data: {
@@ -891,6 +981,7 @@ export async function shareProfitSeason(
                 metadata: {
                   memberCount: summary.periodAllocationCount,
                   note: input.note?.trim().slice(0, 500) || null,
+                  owedPostingCount: owed.created,
                   profitEntryIds: ids,
                   publishedAllocationCount: published.count,
                   seasonShared: summary.allLinkedEntriesPublished,

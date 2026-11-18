@@ -2,6 +2,7 @@ import { roleCan, type CooperativeRole } from "@halaalvest/auth"
 import {
   activateMobileAdminProcurementPurchase,
   getMobileAdminProcurementDetail,
+  getMobileAdminProcurementSummary,
   getMobileAdminProcurementWorkspace,
   mobileAdminProcurementLanes,
   reviewMobileAdminProcurementOperation,
@@ -120,10 +121,17 @@ export const mobileAdminProcurementOperationsProcedures = {
           tenantId: ctx.tenant.current.id,
         })
       ),
+    summary: permissionProcedure("view_admin_work_queue").query(({ ctx }) =>
+      getMobileAdminProcurementSummary({ tenantId: ctx.tenant.current.id })
+    ),
     workspace: permissionProcedure("view_admin_work_queue")
       .input(
         z.object({
+          // T21: the redesigned screen pages each lane (limit + cursor) and
+          // reads the summary separately; older installs send lane + search.
+          cursor: z.string().min(1).max(1024).nullable().optional(),
           lane: z.enum(mobileAdminProcurementLanes),
+          limit: z.number().int().min(1).max(50).optional(),
           search: z.string().trim().max(120).optional(),
         })
       )

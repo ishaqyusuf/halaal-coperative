@@ -76,6 +76,12 @@ assertIncludes("src/components/app/dev-quick-fill.tsx", [
   '"absolute left-4 h-12 w-12"',
 ])
 
+// T01 design-system gallery: dev/QA builds only; production redirects home.
+assertIncludes(
+  "src/features/design-system/routes/design-system-route-controller.tsx",
+  ['if (!isMobileQaClientBuild) return <Redirect href="/" />']
+)
+
 assertIncludes("src/dev/mobile-dev-quick-fill.ts", [
   "foodPurchase: {",
   'requestedPaybackMonths: "3"',
@@ -85,47 +91,39 @@ assertIncludes("src/dev/mobile-dev-quick-fill.ts", [
 
 const quickFillScreens = [
   "src/features/auth/screens/recovery-screen.tsx",
-  "src/features/financing/screens/member-financing-screen.tsx",
-  "src/features/procurement/screens/member-procurement-screen.tsx",
-  "src/features/project-financing/screens/member-project-financing-screen.tsx",
-  "src/features/food-purchase/screens/member-food-purchase-screen.tsx",
-  "src/features/receipts/screens/member-receipts-screen.tsx",
-  "src/features/support/screens/member-support-screen.tsx",
-  "src/features/guarantors/screens/member-guarantor-approvals-screen.tsx",
-  "src/features/shares-profit/screens/member-shares-screen.tsx",
-  "src/features/admin-member-lifecycle/screens/admin-members-screen.tsx",
-  "src/features/admin-member-lifecycle/screens/admin-member-detail-screen.tsx",
-  "src/features/settings-access/screens/more-screen.tsx",
+  "src/features/financing/components/financing-request-form.tsx",
+  "src/features/receipts/components/receipt-submit-flow.tsx",
+  "src/features/receipts/components/receipt-support-flow.tsx",
+  "src/features/support/components/member-support-create.tsx",
+  "src/features/support/components/member-support-thread.tsx",
+  "src/features/guarantors/components/member-guarantor-response-form.tsx",
+  "src/features/shares-profit/screens/share-request-flow.tsx",
+  "src/features/admin-member-lifecycle/components/create-member-sheet.tsx",
+  "src/features/admin-member-lifecycle/components/member-change-sheet.tsx",
+  "src/features/settings-access/components/invite-user-sheet.tsx",
   "src/features/operation-profile/components/operation-profile-edit-sheet.tsx",
   "src/features/admin-charge-operations/screens/admin-charge-operations-screen.tsx",
-  "src/features/admin-contribution-operations/screens/admin-contribution-operations-screen.tsx",
-  "src/features/admin-financing-operations/screens/admin-financing-operations-screen.tsx",
+  "src/features/admin-contribution-operations/components/contribution-batch-sheet.tsx",
+  "src/features/admin-contribution-operations/components/contribution-plan-sheet.tsx",
+  "src/features/admin-contribution-operations/components/contribution-row-sheet.tsx",
+  "src/features/admin-contribution-operations/components/post-contribution-payment-sheet.tsx",
+  "src/features/admin-financing-operations/components/financing-action-sheets.tsx",
   "src/features/admin-food-purchase-operations/screens/admin-food-purchase-operations-screen.tsx",
   "src/features/admin-procurement-operations/screens/admin-procurement-operations-screen.tsx",
   "src/features/admin-project-financing-operations/screens/admin-project-financing-operations-screen.tsx",
   "src/features/admin-repayment-operations/screens/admin-repayment-operations-screen.tsx",
-  "src/features/admin-share-profit-governance/screens/admin-share-profit-governance-screen.tsx",
+  "src/features/admin-share-profit-governance/components/share-profit-flows.tsx",
 ]
 
 for (const screen of quickFillScreens) {
-  if (
-    screen ===
-    "src/features/food-purchase/screens/member-food-purchase-screen.tsx"
-  ) {
-    assertIncludes(screen, ["MemberFoodPurchaseQuickFill"])
-    assertIncludes(
-      "src/features/food-purchase/components/member-food-purchase-application-form.tsx",
-      ["DevQuickFill"]
-    )
-    assertIncludes(
-      "src/features/food-purchase/hooks/use-member-food-purchase-controller.ts",
-      ["mobileDevQuickFill"]
-    )
-    continue
-  }
-
   assertIncludes(screen, ["DevQuickFill", "mobileDevQuickFill"])
 }
+
+assertIncludes("src/features/member-service-requests/service-request-editor.tsx", ["<DevQuickFill"])
+assertIncludes(
+  "src/features/member-service-requests/service-request-adapters.ts",
+  ["mobileDevQuickFill.procurement", "mobileDevQuickFill.projectFinancing", "mobileDevQuickFill.foodPurchase"]
+)
 
 // Passwords, OTPs, app PINs, and QA Domains stay manual. The per-form
 // inventory and its discovery test live in src/dev/mobile-qa-form-coverage*.
@@ -160,11 +158,11 @@ assertIncludes(
 )
 
 assertIncludes("src/features/auth/screens/sign-in-screen.tsx", [
-  "<QaAccessPanel />",
-  "<LivingCooperativeHero",
-  "profile={verifiedProfile}",
+  "<QaAccessPanel bottomInset={dockHeight} />",
+  "<SignInHero",
+  "profile={signIn.confirmedProfile}",
 ])
-assertIncludes("src/features/auth/components/living-cooperative-hero.tsx", [
+assertIncludes("src/features/auth/components/auth-hero.tsx", [
   "profile?.tenant.name",
   "Cooperative confirmed",
 ])
@@ -206,8 +204,6 @@ const fixtureFunctions = [
   "getDevAdminReports",
   "getDevNotifications",
   "getDevAdminAccess",
-  "getDevSubscriptionSnapshot",
-  "requestDevPlanChange",
 ]
 
 assertIncludes(
@@ -216,8 +212,8 @@ assertIncludes(
 )
 
 const fixtureAdapters = [
-  "src/lib/mobile-subscription-api.ts",
   "src/features/settings-access/api/member-more-api.ts",
+  "src/features/settings-access/api/workspace-access-api.ts",
   "src/features/member-core/api/member-core-api.ts",
   "src/features/shares-profit/api/member-shares-api.ts",
   "src/features/financing/api/member-financing-api.ts",

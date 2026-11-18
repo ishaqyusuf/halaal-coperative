@@ -1,3 +1,4 @@
+import { createPrismaClient } from "../prisma"
 import { findMembershipsForUserAsync, type MembershipRecord } from "./auth"
 import { getTenantByIdAsync, type TenantRecord } from "./tenants"
 
@@ -62,6 +63,31 @@ export function projectMobileWorkspaces(input: {
   )
 }
 
+/**
+ * The tenants a workspace list needs, in one query (T27). It reads only the
+ * four projected fields; the previous per-tenant `getTenantByIdAsync` also
+ * counted every cooperative's members. Seed mode keeps the old lookup.
+ */
+async function findWorkspaceTenantsAsync(
+  tenantIds: readonly string[]
+): Promise<MobileWorkspaceTenant[]> {
+  if (!tenantIds.length) return []
+  const prisma = createPrismaClient()
+  if (!prisma) {
+    return (
+      await Promise.all(
+        tenantIds.map((tenantId) =>
+          getTenantByIdAsync(tenantId, { withMemberCount: false })
+        )
+      )
+    ).filter((tenant): tenant is TenantRecord => tenant !== null)
+  }
+  return prisma.tenant.findMany({
+    select: { dataClassification: true, id: true, name: true, status: true },
+    where: { id: { in: [...tenantIds] } },
+  })
+}
+
 export async function listMobileWorkspacesForUserAsync(input: {
   currentTenantId: string
   qaSession: boolean
@@ -71,9 +97,7 @@ export async function listMobileWorkspacesForUserAsync(input: {
   const tenantIds = [
     ...new Set(memberships.map((membership) => membership.tenantId)),
   ]
-  const tenants = (
-    await Promise.all(tenantIds.map((tenantId) => getTenantByIdAsync(tenantId)))
-  ).filter((tenant): tenant is TenantRecord => tenant !== null)
+  const tenants = await findWorkspaceTenantsAsync(tenantIds)
 
   return projectMobileWorkspaces({ ...input, memberships, tenants })
 }

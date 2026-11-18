@@ -6,12 +6,15 @@ import {
   getMobileMemberCommitments,
   getMobileMemberCoreHome,
   getMobileMemberFinancingSnapshot,
+  getMobileMemberShareOverview,
+  getMobileMemberShareProfitPeriods,
+  getMobileMemberShareTimelinePage,
   getMobileMemberSharesSnapshot,
   getMobileMemberShareApplicationsPage,
   getMobileMemberStatementSnapshot,
-  getTenantSubscriptionSnapshot,
   mobileMemberSectionKeys,
   mobileMemberActivityKindKeys,
+  mobileStatementActivityCategories,
   type MobileMemberCommitments,
   type MobileMemberShareSection,
 } from "@halaalvest/db"
@@ -28,11 +31,17 @@ const mobileMemberSectionInput = z.object({
   section: z.enum(mobileMemberSectionKeys),
 })
 
-const mobileMemberActivityInput = z.object({
-  cursor: z.string().trim().min(1).max(200).nullish(),
-  kind: z.enum(mobileMemberActivityKindKeys),
-  limit: z.number().int().min(1).max(50).optional(),
-})
+const mobileMemberActivityInput = z
+  .object({
+    category: z.enum(mobileStatementActivityCategories).optional(),
+    cursor: z.string().trim().min(1).max(200).nullish(),
+    kind: z.enum(mobileMemberActivityKindKeys),
+    limit: z.number().int().min(1).max(50).optional(),
+  })
+  .refine(({ category, kind }) => !category || kind === "statement", {
+    message: "Activity categories apply to the statement.",
+    path: ["category"],
+  })
 
 const mobileShareApplicationCreateInput = z.object({
   notes: z.string().trim().max(1000).optional(),
@@ -64,6 +73,7 @@ export const mobileMemberCoreProcedures = {
       assertMemberWorkspace(ctx.auth.activeMembership.role)
 
       return getMobileMemberActivityPage({
+        category: input.category,
         cursor: input.cursor,
         kind: input.kind,
         limit: input.limit,
@@ -71,19 +81,23 @@ export const mobileMemberCoreProcedures = {
         userId: ctx.auth.session.user.id,
       })
     }),
-  commitments: tenantProcedure.query(({ ctx }) => {
-    assertMemberWorkspace(ctx.auth.activeMembership.role)
+  commitments: tenantProcedure
+    .input(z.object({ summaryOnly: z.boolean().optional() }).optional())
+    .query(({ ctx, input }) => {
+      assertMemberWorkspace(ctx.auth.activeMembership.role)
 
-    return getMobileMemberCommitments({
-      tenantId: ctx.tenant.current.id,
-      userId: ctx.auth.session.user.id,
-    })
-  }),
+      return getMobileMemberCommitments({
+        summaryOnly: input?.summaryOnly,
+        tenantId: ctx.tenant.current.id,
+        userId: ctx.auth.session.user.id,
+      })
+    }),
   home: tenantProcedure.query(({ ctx }) => {
     assertMemberWorkspace(ctx.auth.activeMembership.role)
 
     return getMobileMemberCoreHome({
       tenantId: ctx.tenant.current.id,
+      userEmail: ctx.auth.session.user.email,
       userId: ctx.auth.session.user.id,
     })
   }),
@@ -116,6 +130,30 @@ export const mobileMemberCoreProcedures = {
       }
     ),
   shares: createTRPCRouter({
+    overview: tenantProcedure.query(({ ctx }) => {
+      assertMemberWorkspace(ctx.auth.activeMembership.role)
+      return getMobileMemberShareOverview({
+        tenantId: ctx.tenant.current.id,
+        userId: ctx.auth.session.user.id,
+      })
+    }),
+    timeline: tenantProcedure
+      .input(z.object({ cursor: z.string().trim().min(1).max(200) }))
+      .query(({ ctx, input }) => {
+        assertMemberWorkspace(ctx.auth.activeMembership.role)
+        return getMobileMemberShareTimelinePage({
+          cursor: input.cursor,
+          tenantId: ctx.tenant.current.id,
+          userId: ctx.auth.session.user.id,
+        })
+      }),
+    profit: tenantProcedure.query(({ ctx }) => {
+      assertMemberWorkspace(ctx.auth.activeMembership.role)
+      return getMobileMemberShareProfitPeriods({
+        tenantId: ctx.tenant.current.id,
+        userId: ctx.auth.session.user.id,
+      })
+    }),
     applications: tenantProcedure
       .input(mobileShareApplicationPageInput)
       .query(({ ctx, input }) => {
@@ -149,30 +187,21 @@ export const mobileMemberCoreProcedures = {
       })
     }),
   }),
-  statement: tenantProcedure.query(({ ctx }) => {
-    assertMemberWorkspace(ctx.auth.activeMembership.role)
+  statement: tenantProcedure
+    .input(z.object({ includeLedger: z.boolean().optional() }).optional())
+    .query(({ ctx, input }) => {
+      assertMemberWorkspace(ctx.auth.activeMembership.role)
 
-    return getMobileMemberStatementSnapshot({
-      tenantId: ctx.tenant.current.id,
-      userId: ctx.auth.session.user.id,
-    })
-  }),
+      return getMobileMemberStatementSnapshot({
+        includeLedger: input?.includeLedger,
+        tenantId: ctx.tenant.current.id,
+        userId: ctx.auth.session.user.id,
+      })
+    }),
   statementExport: tenantProcedure
     .input(mobileStatementExportInput)
     .mutation(async ({ ctx, input }) => {
       assertMemberWorkspace(ctx.auth.activeMembership.role)
-      const subscription = await getTenantSubscriptionSnapshot({
-        tenantId: ctx.tenant.current.id,
-      })
-      if (
-        subscription.entitlements.memberStatements !== "member_and_admin"
-      ) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message:
-            "Member statement downloads are not included in the active subscription.",
-        })
-      }
 
       const generated = await createMobileMemberStatementExport({
         tenantId: ctx.tenant.current.id,

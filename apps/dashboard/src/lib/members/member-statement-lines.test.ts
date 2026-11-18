@@ -61,6 +61,30 @@ describe("member statement lines", () => {
     expect(lines[4]?.description).toBe("Loan repayment")
   })
 
+  test("shows goods bought for the member and paid back", () => {
+    const lines = buildMemberStatementLines([
+      transaction("g", "member_purchase_release", "Goods bought for you: Freezer", [
+        entry("1200", "debit", 112000),
+        entry("2000", "credit", 100000),
+        entry("2200", "credit", 12000),
+      ]),
+      transaction("q", "member_purchase_repayment", null, [
+        entry("2000", "debit", 28000),
+        entry("1200", "credit", 28000),
+        entry("2200", "debit", 3000),
+        entry("3300", "credit", 3000),
+      ]),
+    ])
+
+    expect(lines.map((line) => [line.id, line.moves])).toEqual([
+      ["g", [{ amount: 112000, kind: "goods_given" }]],
+      ["q", [{ amount: 28000, kind: "goods_repaid" }]],
+    ])
+    expect(lines[1]?.description).toBe("Goods repayment")
+    expect(isMoneyIn("goods_repaid")).toBe(true)
+    expect(isMoneyIn("goods_given")).toBe(false)
+  })
+
   test("drops transactions that move none of the member's money", () => {
     const lines = buildMemberStatementLines([
       transaction("x", "adjustment", "Internal", [

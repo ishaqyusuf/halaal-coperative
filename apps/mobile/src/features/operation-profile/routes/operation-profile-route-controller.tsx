@@ -1,213 +1,161 @@
+import { appQueryKey, useAppQuery } from "@/hooks/use-app-query"
 import { useAuthContext } from "@/hooks/use-auth"
+import { APP_QUERY_STALE_TIME, readErrorCode } from "@/lib/app-query-policy"
 import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
-import { useLocalSearchParams, useRouter } from "expo-router"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
+import { useLocalSearchParams } from "expo-router"
+import { useRef, useState } from "react"
 import {
+  cacheUpdatedOperationProfile,
   getMobileOperationProfile,
   updateMobileOperationProfileService,
 } from "../api/operation-profile-api"
-import { canManageMobileOperationProfile } from "../model/operation-profile-policy"
 import { isOperationProfileConflictError } from "../model/operation-profile-conflict"
+import { canManageMobileOperationProfile } from "../model/operation-profile-policy"
 import type {
-  MobileOperationProfileSnapshot,
   UpdateMobileOperationProfileServiceInput,
   UpdateMobileOperationProfileServiceResult,
 } from "../model/operation-profile-types"
 import { OperationProfileScreen } from "../screens/operation-profile-screen"
 
-type OperationProfileQaState =
-  | "denied"
-  | "error"
-  | "offline"
-  | "stale"
-  | "subscription"
-
-function getQaState(value: string | string[] | undefined) {
-  if (!__DEV__ || typeof value !== "string") return null
-  return ["denied", "error", "offline", "stale", "subscription"].includes(value)
-    ? (value as OperationProfileQaState)
-    : null
-}
-
 export function OperationProfileRouteController() {
-  const router = useRouter()
-  const { qaState: qaStateParam } = useLocalSearchParams<{
-    qaState?: string | string[]
-  }>()
+  const { qaState: qaParam } = useLocalSearchParams<{ qaState?: string }>()
+  const [qaRecovered, setQaRecovered] = useState(false)
+  const qaState =
+    __DEV__ && !(qaParam === "error" && qaRecovered) ? qaParam : undefined
   const { profile } = useAuthContext()
   const runtime = useMobileRuntime()
-  const requestIdRef = useRef(0)
-  const qaState = getQaState(qaStateParam)
-  const [snapshot, setSnapshot] =
-    useState<MobileOperationProfileSnapshot | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isRefreshing, setIsRefreshing] = useState(false)
+  const queryClient = useQueryClient()
+  const [pulling, setPulling] = useState(false)
+  const saving = useRef(false)
+  const simulatedConflict = useRef(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const isOnline =
+    qaState !== "offline" && runtime.state.connectivity === "online"
   const canManage =
     qaState !== "denied" &&
     canManageMobileOperationProfile(profile?.cooperativeRole)
-  const isOnline =
-    qaState !== "offline" && runtime.state.connectivity === "online"
-  const presentedSnapshot = useMemo(
-    () =>
-      snapshot
-        ? {
-            ...snapshot,
-            ...(qaState === "stale" && snapshot.cache
-              ? {
-                  cache: {
-                    ...snapshot.cache,
-                    status: "stale" as const,
-                  },
-                }
-              : {}),
-            ...(qaState === "subscription"
-              ? {
-                  services: snapshot.services.map((service) => ({
-                    ...service,
-                    effectiveAccessMode:
-                      service.accessMode === "disabled"
-                        ? ("disabled" as const)
-                        : ("read_only" as const),
-                    effectiveCanMemberCreate: false,
-                    effectiveCanStaffCreate: false,
-                  })),
-                  subscription: {
-                    ...snapshot.subscription,
-                    accessEnabled: false,
-                    reason: "qa_subscription_restriction",
-                    status: "suspended",
-                  },
-                }
-              : {}),
-          }
-        : null,
-    [qaState, snapshot]
+  const queryKey = appQueryKey(
+    "operation-profile",
+    profile?.tenant.id,
+    profile?.user.id,
+    profile?.activeMembershipId
   )
-  const visibleSnapshot =
-    qaState === "denied" || qaState === "error" ? null : presentedSnapshot
-
-  const load = useCallback(
-    async (
-      refreshing = false
-    ): Promise<MobileOperationProfileSnapshot | null> => {
-      const requestId = ++requestIdRef.current
-      if (refreshing) setIsRefreshing(true)
-      else setIsLoading(true)
-      setError(null)
-      setSubmitError(null)
-
-      try {
-        const response = await getMobileOperationProfile()
-        if (requestId === requestIdRef.current) setSnapshot(response)
-        return response
-      } catch (loadError) {
-        if (requestId === requestIdRef.current) {
-          setError(
-            loadError instanceof Error
-              ? loadError.message
-              : "Operation Profile is unavailable."
-          )
-        }
-        return null
-      } finally {
-        if (requestId === requestIdRef.current) {
-          setIsLoading(false)
-          setIsRefreshing(false)
-        }
-      }
-    },
-    []
+  const overview = useAppQuery({
+    enabled: canManage && qaState !== "error" && !isSubmitting,
+    networkMode: "always", // The persistence cache can answer offline.
+    placeholderData: undefined, // Never carry a snapshot into a different workspace.
+    queryFn: ({ signal }) =>
+      getMobileOperationProfile({
+        offline: runtime.state.connectivity === "offline",
+        signal,
+      }),
+    queryKey,
+    refetchOnReconnect: "always",
+    staleTime: (query) =>
+      query.state.data?.cache?.status === "stale" ? 0 : APP_QUERY_STALE_TIME,
+  })
+  const forbidden = ["FORBIDDEN", "UNAUTHORIZED"].includes(
+    readErrorCode(overview.error) ?? ""
   )
+  const snapshot =
+    canManage && !forbidden && qaState !== "error" ? overview.data : undefined
+  const limited =
+    qaState === "limited" || snapshot?.subscription.accessEnabled === false
+  const stale =
+    qaState === "stale" ||
+    snapshot?.cache?.status === "stale" ||
+    overview.isRefetchError
 
-  useEffect(() => {
-    if (!canManage) {
-      requestIdRef.current += 1
-      setError(null)
-      setSubmitError(null)
-      setIsLoading(false)
-      return
-    }
+  async function refresh() {
+    if (!isOnline) return null
     if (qaState === "error") {
-      requestIdRef.current += 1
-      setError("Operation Profile could not be loaded. No settings changed.")
-      setIsLoading(false)
-      return
+      setQaRecovered(true)
+      return null
     }
-    void load()
-    return () => {
-      requestIdRef.current += 1
+    const result = await overview.refetch({ cancelRefetch: false })
+    if (result.isError || result.data?.cache?.status === "stale") return null
+    return result.data ?? null
+  }
+
+  async function pullToRefresh() {
+    setPulling(true)
+    try {
+      await refresh()
+    } finally {
+      setPulling(false)
     }
-  }, [canManage, load, profile?.activeMembershipId, qaState])
+  }
 
-  const updateService = useCallback(
-    async (
-      input: UpdateMobileOperationProfileServiceInput
-    ): Promise<UpdateMobileOperationProfileServiceResult> => {
-      if (!snapshot || isSubmitting || !isOnline) return { status: "failed" }
-      if (presentedSnapshot?.cache?.status === "stale") {
-        setSubmitError("Refresh Operation Profile before saving this change.")
-        return { status: "failed" }
-      }
-      if (!presentedSnapshot?.subscription.accessEnabled) {
-        setSubmitError(
-          "Operation Profile changes are unavailable while subscription access is restricted."
-        )
-        return { status: "failed" }
-      }
+  async function updateService(
+    input: UpdateMobileOperationProfileServiceInput
+  ): Promise<UpdateMobileOperationProfileServiceResult> {
+    if (saving.current) return { status: "failed" }
+    if (!snapshot || !isOnline || stale || limited) {
+      setSubmitError(
+        "Refresh the operation profile when connected before saving."
+      )
+      return { status: "failed" }
+    }
 
-      setIsSubmitting(true)
-      setSubmitError(null)
-      try {
-        const response = await runtime.runOnlineOperation("command", () =>
-          updateMobileOperationProfileService(input)
-        )
-        const cachedAt = new Date().toISOString()
-        setSnapshot({
-          ...response,
-          cache: {
-            ageMs: 0,
-            cachedAt,
-            scope: snapshot.cache?.scope ?? response.tenant.id,
-            status: "live",
-          },
-        })
-        return { status: "saved" }
-      } catch (submitFailure) {
-        if (isOperationProfileConflictError(submitFailure)) {
-          setSubmitError(null)
-          return { status: "conflict" }
-        }
-        setSubmitError(
-          submitFailure instanceof Error
-            ? submitFailure.message
-            : "The service access change could not be saved."
-        )
-        return { status: "failed" }
-      } finally {
-        setIsSubmitting(false)
+    saving.current = true
+    setIsSubmitting(true)
+    setSubmitError(null)
+    try {
+      await queryClient.cancelQueries({ exact: true, queryKey })
+      const shouldSimulateConflict =
+        qaState === "conflict" && !simulatedConflict.current
+      simulatedConflict.current = true
+      const response = await runtime.runOnlineOperation("command", () =>
+        updateMobileOperationProfileService(input, shouldSimulateConflict)
+      )
+      const updated = await cacheUpdatedOperationProfile(response)
+      queryClient.setQueryData(queryKey, updated)
+      return { status: "saved" }
+    } catch (error) {
+      if (isOperationProfileConflictError(error)) {
+        return { status: "conflict" }
       }
-    },
-    [isOnline, isSubmitting, presentedSnapshot, runtime, snapshot]
-  )
+      setSubmitError(
+        "The service access change could not be saved. Try again when connected."
+      )
+      return { status: "failed" }
+    } finally {
+      saving.current = false
+      setIsSubmitting(false)
+    }
+  }
 
   return (
     <OperationProfileScreen
-      canManage={canManage}
-      error={error}
-      isLoading={isLoading}
+      key={profile?.activeMembershipId}
+      actorName={
+        snapshot?.tenant.id === "tenant-qa-operation-profile"
+          ? "Ibrahim Yusuf"
+          : profile?.user.name
+      }
+      canManage={canManage && !forbidden}
+      hasError={qaState === "error" || overview.isError}
+      isLimited={limited}
+      isLoading={
+        canManage &&
+        qaState !== "error" &&
+        overview.isPending &&
+        !overview.isError
+      }
       isOnline={isOnline}
-      isRefreshing={isRefreshing}
+      isRefreshing={pulling}
+      isRetrying={overview.isFetching}
+      isStale={stale}
       isSubmitting={isSubmitting}
-      onBack={() => router.back()}
-      onRefresh={() => void load(true)}
-      onRefreshForConflict={() => load(true)}
-      onRetry={() => void load()}
+      onRefresh={() => void pullToRefresh()}
+      onRefreshForConflict={refresh}
+      onRetry={() => void refresh()}
       onUpdateService={updateService}
-      snapshot={visibleSnapshot}
+      snapshot={snapshot}
       submitError={submitError}
+      tenantName={profile?.tenant.name}
     />
   )
 }

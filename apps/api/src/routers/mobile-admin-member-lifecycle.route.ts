@@ -4,7 +4,10 @@ import {
   decideMobileAdminMemberOnboarding,
   getMobileAdminLifecycleOverview,
   getMobileAdminMemberDirectory,
+  getMobileAdminMemberDirectoryPage,
+  getMobileAdminMemberDirectorySummary,
   getMobileAdminMemberLifecycleDetail,
+  getMobileAdminMemberProfile,
   mobileAdminMemberLifecycleKycStatusKeys,
   mobileAdminMemberLifecycleStatusKeys,
   reviewMobileAdminMemberKyc,
@@ -15,6 +18,8 @@ import { createTRPCRouter, permissionProcedure } from "../lib.trpc"
 
 const membersListInput = z
   .object({
+    compact: z.boolean().optional(),
+    needsReview: z.boolean().optional(),
     kycStatus: z.enum(mobileAdminMemberLifecycleKycStatusKeys).optional(),
     page: z.number().int().positive().optional(),
     pageSize: z.number().int().min(1).max(50).optional(),
@@ -24,6 +29,7 @@ const membersListInput = z
   .optional()
 
 const memberDetailInput = z.object({
+  compact: z.boolean().optional(),
   memberId: z.string().trim().min(1),
 })
 
@@ -31,7 +37,10 @@ const memberCreateInput = z.object({
   address: z.string().trim().max(500).optional(),
   email: z.string().trim().email().optional(),
   fullName: z.string().trim().min(2).max(160),
-  joinedAt: z.string().datetime().transform((value) => new Date(value)),
+  joinedAt: z
+    .string()
+    .datetime()
+    .transform((value) => new Date(value)),
   memberNumber: z.string().trim().min(1).max(80),
   memberType: z.enum(["civil_servant", "individual", "business"]),
   monthlyCommitment: z.number().positive().optional(),
@@ -75,17 +84,27 @@ export const mobileAdminMemberLifecycleProcedures = {
       ),
     detail: manageMembersProcedure
       .input(memberDetailInput)
-      .query(({ ctx, input }) =>
-        getMobileAdminMemberLifecycleDetail({
+      .query(async ({ ctx, input }) => {
+        const args = {
           memberId: input.memberId,
           tenantId: ctx.tenant.current.id,
-        })
-      ),
-    list: manageMembersProcedure.input(membersListInput).query(({ ctx, input }) =>
-      getMobileAdminMemberDirectory({
-        ...input,
-        tenantId: ctx.tenant.current.id,
-      })
+        }
+        // Await each reader so the resolver returns one Promise of the
+        // union; a union of two Promises can't infer one output type.
+        return input.compact
+          ? await getMobileAdminMemberProfile(args)
+          : await getMobileAdminMemberLifecycleDetail(args)
+      }),
+    list: manageMembersProcedure
+      .input(membersListInput)
+      .query(({ ctx, input }) => {
+        const read = input?.compact
+          ? getMobileAdminMemberDirectoryPage
+          : getMobileAdminMemberDirectory
+        return read({ ...input, tenantId: ctx.tenant.current.id })
+      }),
+    summary: manageMembersProcedure.query(({ ctx }) =>
+      getMobileAdminMemberDirectorySummary(ctx.tenant.current.id)
     ),
     reviewOnboarding: manageMembersProcedure
       .input(onboardingReviewInput)

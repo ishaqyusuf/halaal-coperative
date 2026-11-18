@@ -7,7 +7,6 @@ import {
 import {
   createMobileDeviceSession,
   createPrismaClient,
-  transitionTenantSubscription,
 } from "@halaalvest/db"
 
 import { buildRequestContext } from "../context"
@@ -59,16 +58,6 @@ runIntegration("mobile device session API", () => {
     ])
     primaryTenantId = primaryTenant.id
     otherTenantId = otherTenant.id
-    await transitionTenantSubscription(
-      {
-        planCode: "standard",
-        reason: "mobile device session integration coverage",
-        source: "manual",
-        status: "active",
-        tenantId: primaryTenant.id,
-      },
-      prisma
-    )
 
     async function createIdentity(input: {
       label: string

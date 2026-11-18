@@ -13,6 +13,7 @@ import {
   NativeSelectOption,
 } from "@halaalvest/ui/components/native-select"
 import { Textarea } from "@halaalvest/ui/components/textarea"
+import { privacyRequestDueAt } from "@halaalvest/domain/account-privacy-notice"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { PrivacyProcessingCountList } from "@/components/privacy-processing-count-list"
@@ -33,6 +34,7 @@ import {
 import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 import { useTRPC } from "@/trpc/client"
 import { formatDateAndTime } from "@/utils/format"
+import { ClosingMoneyPosition } from "./closing-money-position"
 import { PlatformBadge } from "./platform-badge"
 
 const minNote = 20
@@ -142,6 +144,17 @@ function PrivacyRequestContent({ requestId }: { requestId: string }) {
             label: "Access ended on",
             value: formatDateAndTime(request.accessRevokedAt),
           },
+          request.status === "completed"
+            ? {
+                label: "Finished on",
+                value: formatDateAndTime(request.completedAt),
+              }
+            : {
+                label: "Finish by",
+                value: formatDateAndTime(
+                  privacyRequestDueAt(request.requestedAt)
+                ),
+              },
           { label: "Request number", value: request.id },
         ]}
       />
@@ -163,8 +176,23 @@ function PrivacyRequestContent({ requestId }: { requestId: string }) {
         <EndAccess name={name} requestId={request.id} />
       ) : null}
 
+      {request.status === "completed" && request.completionSummary ? (
+        <RequestSection title="What we told them">
+          <p className="text-base [overflow-wrap:anywhere] whitespace-pre-wrap">
+            {request.completionSummary}
+          </p>
+        </RequestSection>
+      ) : null}
+
       {accessEnded || request.status === "processing" ? (
-        <RecordsStillHeld requestId={request.id} />
+        <RecordsStillHeld
+          done={request.status === "completed"}
+          requestId={request.id}
+        />
+      ) : null}
+
+      {request.status === "processing" && accessEnded ? (
+        <FinishRequest name={name} requestId={request.id} />
       ) : null}
     </SheetFrame>
   )
@@ -267,6 +295,8 @@ function EndAccess({ name, requestId }: { name: string; requestId: string }) {
     trpc.accountPrivacy.revocationScope.queryOptions({ requestId })
   )
   const memberships = scope.data?.memberships ?? []
+  const moneyPosition = scope.data?.moneyPosition
+  const settled = moneyPosition?.canCloseLogin ?? false
   const revoke = useMutation(
     trpc.accountPrivacy.revokeAccess.mutationOptions({
       onSuccess: async () => {
@@ -322,6 +352,13 @@ function EndAccess({ name, requestId }: { name: string; requestId: string }) {
         </div>
       )}
 
+      {moneyPosition ? (
+        <div className="grid gap-2">
+          <h4 className="text-base font-medium">Their money</h4>
+          <ClosingMoneyPosition position={moneyPosition} />
+        </div>
+      ) : null}
+
       <NoteField
         hint="If they run a cooperative, name who takes over. Don't write passwords or ID numbers."
         id="privacy-handover-note"
@@ -337,7 +374,10 @@ function EndAccess({ name, requestId }: { name: string; requestId: string }) {
       <Button
         className="h-12 justify-self-start px-6 text-base"
         disabled={
-          !scope.data || scope.isFetching || note.trim().length < minNote
+          !scope.data ||
+          scope.isFetching ||
+          !settled ||
+          note.trim().length < minNote
         }
         onClick={() => setConfirming(true)}
         variant="destructive"
@@ -374,7 +414,13 @@ function EndAccess({ name, requestId }: { name: string; requestId: string }) {
   )
 }
 
-function RecordsStillHeld({ requestId }: { requestId: string }) {
+function RecordsStillHeld({
+  done,
+  requestId,
+}: {
+  done: boolean
+  requestId: string
+}) {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
   const [category, setCategory] = useState<PrivacyNoteCategory>(
@@ -430,8 +476,9 @@ function RecordsStillHeld({ requestId }: { requestId: string }) {
     <>
       <RequestSection title="What is still kept">
         <p className="text-base">
-          {plural(linked, "record")} still point to this person. Removing them
-          is a separate step; nothing here deletes records.
+          {done
+            ? `${plural(linked, "record")} still point to this person. They keep the name and member number, with no contact or ID details.`
+            : `${plural(linked, "record")} still point to this person. Money records stay; finishing removes their contact and ID details.`}
         </p>
         <details className="rounded-lg border border-border p-4 text-base">
           <summary className="min-h-11 cursor-pointer content-center font-medium">
@@ -468,48 +515,189 @@ function RecordsStillHeld({ requestId }: { requestId: string }) {
             Nothing written yet.
           </p>
         )}
-        <div className="grid gap-2">
-          <label className="text-base font-medium" htmlFor="privacy-note-kind">
-            About
-          </label>
-          {/* NativeSelect sizes its wrapper; the select inside stays 48px. */}
-          <NativeSelect
-            className="w-full [&_select]:h-12 [&_select]:text-base"
-            id="privacy-note-kind"
-            onChange={(event) =>
-              setCategory(event.target.value as PrivacyNoteCategory)
-            }
-            value={category}
-          >
-            {Object.entries(privacyNoteCategoryWords).map(([value, label]) => (
-              <NativeSelectOption key={value} value={value}>
-                {label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </div>
-        <NoteField
-          hint="Say what was removed or kept, where, and why. Don't write passwords or ID numbers."
-          id="privacy-done-note"
-          label="What did you do?"
-          onChange={setNote}
-          value={note}
-        />
-        {save.isError ? (
-          <p className="text-base text-destructive" role="alert">
-            The note could not be saved. Try again.
-          </p>
-        ) : null}
-        <Button
-          className="h-12 justify-self-start px-6 text-base"
-          disabled={save.isPending || note.trim().length < minNote}
-          onClick={() =>
-            save.mutate({ requestId, category, evidence: note.trim() })
-          }
-        >
-          {save.isPending ? "Saving…" : "Save note"}
-        </Button>
+        {done ? null : (
+          <>
+            <div className="grid gap-2">
+              <label
+                className="text-base font-medium"
+                htmlFor="privacy-note-kind"
+              >
+                About
+              </label>
+              {/* NativeSelect sizes its wrapper; the select inside stays 48px. */}
+              <NativeSelect
+                className="w-full [&_select]:h-12 [&_select]:text-base"
+                id="privacy-note-kind"
+                onChange={(event) =>
+                  setCategory(event.target.value as PrivacyNoteCategory)
+                }
+                value={category}
+              >
+                {Object.entries(privacyNoteCategoryWords).map(
+                  ([value, label]) => (
+                    <NativeSelectOption key={value} value={value}>
+                      {label}
+                    </NativeSelectOption>
+                  )
+                )}
+              </NativeSelect>
+            </div>
+            <NoteField
+              hint="Say what was removed or kept, where, and why. Don't write passwords or ID numbers."
+              id="privacy-done-note"
+              label="What did you do?"
+              onChange={setNote}
+              value={note}
+            />
+            {save.isError ? (
+              <p className="text-base text-destructive" role="alert">
+                The note could not be saved. Try again.
+              </p>
+            ) : null}
+            <Button
+              className="h-12 justify-self-start px-6 text-base"
+              disabled={save.isPending || note.trim().length < minNote}
+              onClick={() =>
+                save.mutate({ requestId, category, evidence: note.trim() })
+              }
+            >
+              {save.isPending ? "Saving…" : "Save note"}
+            </Button>
+          </>
+        )}
       </RequestSection>
     </>
+  )
+}
+
+/**
+ * The last step (ADR-20261116 privacy request completion): erase their
+ * personal details, email them that it is done, and mark the request done.
+ * If the email fails, the operator tells them another way and writes how.
+ */
+function FinishRequest({
+  name,
+  requestId,
+}: {
+  name: string
+  requestId: string
+}) {
+  const trpc = useTRPC()
+  const queryClient = useQueryClient()
+  const refresh = useRefreshPrivacy(requestId)
+  const inventory = useQuery(
+    trpc.accountPrivacy.processingInventory.queryOptions({ requestId })
+  )
+  const [kept, setKept] = useState<string | null>(null)
+  const [howTold, setHowTold] = useState("")
+  const [confirming, setConfirming] = useState(false)
+  const complete = useMutation(
+    trpc.accountPrivacy.complete.mutationOptions({
+      onSettled: async () => {
+        setConfirming(false)
+        await Promise.all([
+          refresh(),
+          queryClient.invalidateQueries(
+            trpc.accountPrivacy.processingInventory.queryFilter({ requestId })
+          ),
+        ])
+      },
+    })
+  )
+  const data = inventory.data
+  if (!data) return null
+
+  const keptText = kept ?? data.retentionSummary ?? ""
+  const keptReady = keptText.trim().length >= minNote
+  const emailFailed =
+    data.completionNotification === "failed" ||
+    (complete.data && !complete.data.completed)
+
+  return (
+    <RequestSection title="Finish the request">
+      <p className="text-base">
+        Their member profile, documents, sign-up details and support messages
+        without money are deleted or anonymised. Money records stay under their
+        name and member number. We email them, then mark this done.
+      </p>
+      {!data.externalProcessorsReviewed ? (
+        <p className="text-base text-muted-foreground">
+          First write a note about “
+          {privacyNoteCategoryWords.external_processors_backups}”.
+        </p>
+      ) : null}
+      <NoteField
+        hint="This goes in the email to them. Don't write passwords or ID numbers."
+        id="privacy-kept-note"
+        label="What is kept, and why?"
+        onChange={setKept}
+        value={keptText}
+      />
+      {emailFailed ? (
+        <div className="grid gap-3" role="alert">
+          <p className="text-base">
+            Their personal details are erased, but the email to them did not go
+            out. Try again, or tell them another way and write down how.
+          </p>
+          <NoteField
+            hint="For example: told them by phone on a date."
+            id="privacy-told-note"
+            label="How did you tell them?"
+            onChange={setHowTold}
+            value={howTold}
+          />
+          <Button
+            className="h-12 justify-self-start px-6 text-base"
+            disabled={
+              complete.isPending ||
+              !keptReady ||
+              howTold.trim().length < minNote
+            }
+            onClick={() =>
+              complete.mutate({
+                requestId,
+                confirmed: true,
+                retentionSummary: keptText.trim(),
+                operatorConfirmationNote: howTold.trim(),
+              })
+            }
+            variant="outline"
+          >
+            {complete.isPending ? "Saving…" : "Mark done"}
+          </Button>
+        </div>
+      ) : null}
+      {complete.isError ? (
+        <p className="text-base text-destructive" role="alert">
+          The request was not finished. {complete.error.message}
+        </p>
+      ) : null}
+      <Button
+        className="h-12 justify-self-start px-6 text-base"
+        disabled={
+          !data.externalProcessorsReviewed || !keptReady || complete.isPending
+        }
+        onClick={() => setConfirming(true)}
+        variant="destructive"
+      >
+        {emailFailed ? "Try the email again…" : "Finish request…"}
+      </Button>
+      <RequestConfirmDialog
+        confirmLabel="Finish request"
+        description="Their contact and ID details, documents and support messages are removed. Money records stay under their name. They get an email saying it is done. This cannot be undone."
+        destructive
+        onConfirm={() =>
+          complete.mutate({
+            requestId,
+            confirmed: true,
+            retentionSummary: keptText.trim(),
+          })
+        }
+        onOpenChange={setConfirming}
+        open={confirming}
+        pending={complete.isPending}
+        title={`Finish ${name}'s request?`}
+      />
+    </RequestSection>
   )
 }

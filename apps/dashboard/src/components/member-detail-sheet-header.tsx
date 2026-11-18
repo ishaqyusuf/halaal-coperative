@@ -30,15 +30,26 @@ const sheetCopy: Record<
   "portal-access": { title: "Send sign-in email" },
 }
 
+/** During setup a new amount starts the month the cooperative goes live. */
+const setupCommitmentCopy = {
+  description: "It starts the month your cooperative goes live.",
+  title: "Set monthly savings",
+}
+
 export function MemberDetailSheetHeader({
+  commitmentStartsAtGoLive = false,
   presentation,
 }: {
+  commitmentStartsAtGoLive?: boolean
   presentation: "dialog" | "sheet"
 }) {
   const { memberDetailSheetType } = useMemberDetailParams()
-  const copy = memberDetailSheetType
-    ? sheetCopy[memberDetailSheetType]
-    : { description: undefined, title: "Member" }
+  const copy =
+    memberDetailSheetType === "commitment" && commitmentStartsAtGoLive
+      ? setupCommitmentCopy
+      : memberDetailSheetType
+        ? sheetCopy[memberDetailSheetType]
+        : { description: undefined, title: "Member" }
 
   if (presentation === "dialog") {
     return (

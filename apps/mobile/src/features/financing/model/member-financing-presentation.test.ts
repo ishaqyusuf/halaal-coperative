@@ -62,6 +62,7 @@ describe("member financing presentation", () => {
           value: 320_000,
         },
       ],
+      approvedNotPaidOut: null,
       monthlyServicing: {
         detail: "Estimated monthly servicing",
         value: "₦40,000",
@@ -101,5 +102,46 @@ describe("member financing presentation", () => {
     expect(presentation.outstanding).toBeNull()
     expect(presentation.monthlyServicing).toBeNull()
     expect(presentation.activeRows).toEqual([])
+  })
+
+  test("shows approved loans not yet paid out on their own line", () => {
+    const presentation = buildMemberFinancingPresentation(
+      section(
+        [],
+        [
+          {
+            detail: "No active financing",
+            format: "currency",
+            key: "outstanding-principal",
+            label: "Outstanding",
+            value: 0,
+          },
+          {
+            detail: "1 loan approved. Not owed until it is paid out.",
+            format: "currency",
+            key: "approved-not-paid-out",
+            label: "Approved, not yet paid out",
+            value: 40_000,
+          },
+        ]
+      ),
+      "NGN"
+    )
+
+    expect(presentation.outstanding).toBeNull()
+    expect(presentation.approvedNotPaidOut).toEqual({
+      detail: "1 loan approved. Not owed until it is paid out.",
+      label: "Approved, not yet paid out",
+      value: expect.stringContaining("40,000"),
+    })
+  })
+
+  test("older servers without the line show nothing extra", () => {
+    const presentation = buildMemberFinancingPresentation(
+      section([], []),
+      "NGN"
+    )
+
+    expect(presentation.approvedNotPaidOut).toBeNull()
   })
 })

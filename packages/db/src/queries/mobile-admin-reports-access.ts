@@ -5,15 +5,14 @@ import {
   getMobileReportCatalog,
   type MobileReportKey,
 } from "@halaalvest/domain/mobile-reports"
-import type { SubscriptionEntitlements } from "@halaalvest/domain/subscriptions"
 import { listActivityReportEvents } from "./audit"
 import {
   listTenantUsersWithMemberships,
   provisionTenantUserRole,
   type MembershipRole,
 } from "./auth"
-import { getDashboardMetrics, getOverviewSummary } from "./dashboard"
-import { listCollectionFollowUps } from "./loans"
+import { getOverviewSummary } from "./dashboard"
+import { getDeployableFundsSnapshot } from "./financing-cycles"
 
 export type MobileFeatureAdminReportCard = {
   available: boolean
@@ -133,12 +132,13 @@ function queueCount(
   return summary.actionQueue.find((item) => item.key === key)?.count ?? 0
 }
 
+type ReportMetrics = { memberCount: number; outstandingLoans: number }
+
 function buildReportCards(
-  metrics: Awaited<ReturnType<typeof getDashboardMetrics>>,
+  metrics: ReportMetrics,
   summary: Awaited<ReturnType<typeof getOverviewSummary>>,
-  entitlements: SubscriptionEntitlements,
 ): MobileFeatureAdminReportCard[] {
-  return getMobileReportCatalog(entitlements).map((report) => {
+  return getMobileReportCatalog().map((report) => {
     const metric = {
       audit: ["Recent events", summary.recentActivity.length, "count"],
       charges: ["Open queue", queueCount(summary, "charges"), "count"],
@@ -206,7 +206,6 @@ function buildReportCards(
 
 export async function getMobileAdminReportsOverview(
   tenantId: string,
-  entitlements: SubscriptionEntitlements,
 ): Promise<MobileFeatureAdminReports> {
   const prisma = createPrismaClient()
   if (!prisma) {
@@ -227,43 +226,39 @@ export async function getMobileAdminReportsOverview(
     }
   }
 
-  const [summary, metrics, activityEvents, collectionFollowUps] =
-    await Promise.all([
-      getOverviewSummary(tenantId, prisma),
-      getDashboardMetrics(tenantId, prisma),
-      listActivityReportEvents(tenantId, { limit: 8 }, prisma),
-      listCollectionFollowUps(tenantId, { limit: 8 }, prisma),
-    ])
-  const reports = buildReportCards(metrics, summary, entitlements)
+  // T23: one deployable-funds snapshot feeds the summary and the
+  // outstanding figure; member counts come from one grouped read instead of
+  // the dashboard KPIs (loan and schedule counts the cards never show); the
+  // screen reads activity from its own paged procedure, so the overview no
+  // longer loads 8 events and 8 collection follow-ups. Both lists stay in the
+  // payload, empty, for older builds.
+  const deployableFunds = getDeployableFundsSnapshot({ tenantId }, prisma)
+  const [summary, memberStatuses, funds] = await Promise.all([
+    getOverviewSummary(tenantId, prisma, {
+      deployableFunds,
+      queueRows: "open-items",
+    }),
+    prisma.member.groupBy({
+      _count: { _all: true },
+      by: ["status"],
+      where: { tenantId },
+    }),
+    deployableFunds,
+  ])
+  const memberCount = memberStatuses.reduce(
+    (total, row) => total + row._count._all,
+    0
+  )
+  const activeMemberCount =
+    memberStatuses.find((row) => row.status === "active")?._count._all ?? 0
+  const reports = buildReportCards(
+    { memberCount, outstandingLoans: funds.outstandingFinancingAmount },
+    summary
+  )
 
   return {
-    activityEvents: activityEvents.map((event) => ({
-      action: event.action,
-      actionLabel: event.actionLabel,
-      actorLabel: event.actorLabel,
-      actorType: event.actorType,
-      authorizationRole: event.authorizationRole,
-      authorizerLabel: event.authorizerLabel,
-      entityId: event.entityId,
-      entityType: event.entityType,
-      id: event.id,
-      metadataSummary: event.metadataSummary.slice(0, 3),
-      occurredAt: event.occurredAt.toISOString(),
-    })),
-    collectionFollowUps: collectionFollowUps.map((followUp) => ({
-      caseStage: followUp.caseStage,
-      createdAt: followUp.createdAt.toISOString(),
-      id: followUp.id,
-      loanProductName: followUp.loan.loanProduct.name,
-      memberName: followUp.member.fullName,
-      memberNumber: followUp.member.memberNumber,
-      nextActionAt: followUp.nextActionAt?.toISOString() ?? null,
-      note: followUp.note,
-      priority: followUp.priority,
-      repaymentScheduleItemId: followUp.repaymentScheduleItemId,
-      resolutionStatus: followUp.resolutionStatus,
-      status: followUp.status,
-    })),
+    activityEvents: [],
+    collectionFollowUps: [],
     generatedAt: summary.workspace.generatedAt,
     reports,
     stats: [
@@ -279,7 +274,7 @@ export async function getMobileAdminReportsOverview(
         format: "count",
         key: "active-members",
         label: "Active members",
-        value: metrics.activeMemberCount,
+        value: activeMemberCount,
       },
       {
         detail: "Open operational queue items",
@@ -348,6 +343,170 @@ export async function getMobileAdminAccessOverview(
       workspaceUsers: users.length,
     },
     users,
+  }
+}
+
+type AccessUser = MobileFeatureAdminAccess["users"][number]
+type AccessCursor = { id: string; group: "staff" | "members" }
+
+export async function countMobileAdminAccessUsers(tenantId: string) {
+  const prisma = createPrismaClient()
+  const workspaceUsers = prisma
+    ? await prisma.user.count({ where: { tenantId, deletedAt: null } })
+    : (await listTenantUsersWithMemberships(tenantId)).length
+  return { workspaceUsers }
+}
+
+export async function getMobileAdminAccessStats(tenantId: string) {
+  const prisma = createPrismaClient()
+  if (!prisma) {
+    const { summary, roles } = await getMobileAdminAccessOverview(tenantId)
+    return { summary, roles }
+  }
+
+  const where = { tenantId, deletedAt: null }
+  const [workspaceUsers, staffUsers, defaultRoles, roleGroups] =
+    await Promise.all([
+      prisma.user.count({ where }),
+      prisma.user.count({
+        where: {
+          ...where,
+          memberships: { some: { tenantId, role: { not: "member" } } },
+        },
+      }),
+      prisma.user.count({
+        where: {
+          ...where,
+          memberships: { some: { tenantId, isDefault: true } },
+        },
+      }),
+      prisma.membership.groupBy({
+        by: ["role", "isDefault"],
+        where: { tenantId, user: where },
+        _count: { _all: true },
+      }),
+    ])
+  const catalogue = roles.map((role) => ({
+    defaultUsersCount:
+      roleGroups.find((group) => group.role === role && group.isDefault)?._count
+        ._all ?? 0,
+    label: roleLabel(role),
+    role,
+    scope: roleScope(role),
+    usersCount: roleGroups.reduce(
+      (sum, group) => sum + (group.role === role ? group._count._all : 0),
+      0
+    ),
+  }))
+  return {
+    roles: catalogue,
+    summary: {
+      defaultRoles,
+      memberUsers:
+        catalogue.find((role) => role.role === "member")?.usersCount ?? 0,
+      roleAssignments: roleGroups.reduce(
+        (sum, group) => sum + group._count._all,
+        0
+      ),
+      staffUsers,
+      workspaceUsers,
+    },
+  }
+}
+
+export async function listMobileAdminAccessPage(input: {
+  tenantId: string
+  cursor?: AccessCursor | null
+  limit: number
+  search?: string
+}): Promise<{ users: AccessUser[]; nextCursor: AccessCursor | null }> {
+  const { cursor, limit, search, tenantId } = input
+  const prisma = createPrismaClient()
+  const staff = { tenantId, role: { not: "member" as const } }
+
+  async function readGroup(group: AccessCursor["group"], take: number) {
+    const after = cursor?.group === group ? cursor.id : undefined
+    if (!prisma) {
+      const { users } = await getMobileAdminAccessOverview(tenantId)
+      const term = search?.toLowerCase()
+      return users
+        .filter(
+          (user) =>
+            user.memberships.some(
+              (membership) => membership.role !== "member"
+            ) ===
+              (group === "staff") &&
+            (!after || user.id > after) &&
+            (!term ||
+              [user.fullName, user.email].some((field) =>
+                field.toLowerCase().includes(term)
+              ))
+        )
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .slice(0, take)
+    }
+
+    // Escape LIKE wildcards so search treats their characters literally.
+    const contains = search?.replace(/[\\%_]/g, "\\$&")
+    const users = await prisma.user.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        id: after ? { gt: after } : undefined,
+        memberships: group === "staff" ? { some: staff } : { none: staff },
+        OR: contains
+          ? [
+              { fullName: { contains, mode: "insensitive" } },
+              { email: { contains, mode: "insensitive" } },
+            ]
+          : undefined,
+      },
+      orderBy: { id: "asc" },
+      take,
+      select: {
+        email: true,
+        fullName: true,
+        id: true,
+        isPlatformOwner: true,
+        memberships: {
+          where: { tenantId },
+          select: { id: true, isDefault: true, role: true },
+          orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+        },
+      },
+    })
+    return users.map((user) => {
+      const memberships = user.memberships.map((membership) => ({
+        ...membership,
+        label: roleLabel(membership.role),
+      }))
+      return {
+        ...user,
+        defaultRoleLabel:
+          memberships.find((membership) => membership.isDefault)?.label ?? null,
+        memberships,
+      }
+    })
+  }
+
+  const staffUsers =
+    cursor?.group === "members" ? [] : await readGroup("staff", limit + 1)
+  const memberUsers =
+    staffUsers.length > limit
+      ? []
+      : await readGroup("members", limit + 1 - staffUsers.length)
+  const candidates = [...staffUsers, ...memberUsers]
+  const users = candidates.slice(0, limit)
+  const last = users.at(-1)
+  return {
+    users,
+    nextCursor:
+      candidates.length > limit && last
+        ? {
+            id: last.id,
+            group: staffUsers.length >= limit ? "staff" : "members",
+          }
+        : null,
   }
 }
 

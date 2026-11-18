@@ -53,6 +53,7 @@ export type MobileProjectFinancingRequest = {
 }
 
 export type MobileMemberProjectFinancing = {
+  activeRequest?: MobileProjectFinancingRequest | null
   cache?: MobileReadCacheState
   canCreateRequest: boolean
   chargeOptions: MobileWorkflowChargeOption[]

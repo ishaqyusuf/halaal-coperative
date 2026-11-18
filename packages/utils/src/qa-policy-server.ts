@@ -4,6 +4,7 @@ import {
   type QaPolicyEntry,
   isQaForbiddenRuntime,
   parseQaPolicy,
+  qaRuntimeProfile,
 } from "./qa-policy"
 
 const validityMs = 60_000
@@ -17,7 +18,7 @@ export function qaPolicyTarget(
   env: RuntimeEnv = process.env,
 ): QaEnvironment | null {
   if (isQaForbiddenRuntime(env)) return null
-  const value = (env.APP_ENV || env.NODE_ENV || "").trim().toLowerCase()
+  const value = qaRuntimeProfile(env)
   if (["local", "dev", "development"].includes(value)) return "development"
   if (value === "preview") return "preview"
   return null

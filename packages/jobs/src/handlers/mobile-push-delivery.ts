@@ -2,7 +2,6 @@ import {
   createAuditLogEntry,
   createPrismaClient,
   disableMobilePushEndpointForProviderFailure,
-  getTenantSubscriptionSnapshot,
   listEligibleMobilePushRegistrations,
 } from "@halaalvest/db"
 import {
@@ -30,7 +29,6 @@ export type MobilePushDeliveryPayload = {
 type MobilePushDeliveryDependencies = {
   createAudit: typeof createAuditLogEntry
   disableRegistration: typeof disableMobilePushEndpointForProviderFailure
-  getSubscription: typeof getTenantSubscriptionSnapshot
   listRegistrations: typeof listEligibleMobilePushRegistrations
   prisma: NonNullable<ReturnType<typeof createPrismaClient>>
   scheduleReceipt: (payload: MobilePushReceiptPayload) => Promise<void>
@@ -70,8 +68,6 @@ function dependencies(
     disableRegistration:
       overrides?.disableRegistration ??
       disableMobilePushEndpointForProviderFailure,
-    getSubscription:
-      overrides?.getSubscription ?? getTenantSubscriptionSnapshot,
     listRegistrations:
       overrides?.listRegistrations ?? listEligibleMobilePushRegistrations,
     prisma,
@@ -95,14 +91,9 @@ export async function mobilePushDeliveryHandler(
     return { delivered: 0, duplicate: true, failed: 0, suppressed: 0 }
   }
 
-  const subscription = await runtime.getSubscription(
-    { tenantId: payload.tenantId },
-    runtime.prisma
-  )
   const registrations = await runtime.listRegistrations(
     {
       category: payload.category,
-      memberLoginEnabled: subscription.enforcement.memberLoginEnabled,
       role: payload.intendedRole,
       tenantId: payload.tenantId,
       userId: payload.userId,

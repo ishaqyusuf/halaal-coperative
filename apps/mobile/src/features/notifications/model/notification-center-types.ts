@@ -13,11 +13,14 @@ export type NotificationCenterQaState =
   | "fixture"
   | "loading"
   | "offline"
+  | "push-denied"
+  | "visual"
   | "queued"
   | "stale"
 
 export type NotificationDelivery = {
   action: MobileNotificationAction
+  channel?: "push" | "email"
   entityId: string | null
   errorMessage: string | null
   id: string

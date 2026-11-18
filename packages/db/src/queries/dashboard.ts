@@ -90,6 +90,8 @@ export type OverviewSummary = {
     detail: string
     occurredAt: string
     href: string
+    /** The request status in words ("submitted"), or null for money moved. */
+    status: string | null
   }>
   setupWarnings: Array<{
     key: string
@@ -825,11 +827,20 @@ export async function getOverviewSummary(
   tenantId: string,
   prismaOverride?: PrismaClient,
   options: {
+    /** Reuse a deployable-funds snapshot the caller already started (one read, not two). */
+    deployableFunds?: Promise<DeployableFundsSnapshot>
     /**
      * The tenant's operation profile when the caller already has it (the
      * dashboard's request-cached copy), to avoid a second read.
      */
     operationProfile?: Promise<TenantOperationProfileReadModel>
+    /**
+     * "open-items" (mobile): the caller drops rows with a zero count, so the
+     * operation profile, which only keeps zero-count service rows visible in
+     * the staff nav, is not read (three queries, and no default-row writes).
+     * The default "staff-nav" is the dashboard behaviour.
+     */
+    queueRows?: "open-items" | "staff-nav"
   } = {}
 ): Promise<OverviewSummary> {
   const prisma = prismaOverride ?? createPrismaClient()
@@ -844,6 +855,20 @@ export async function getOverviewSummary(
 
   const asOf = new Date()
   const { month, year } = getCurrentMonth()
+  // Reads that need neither the KPI row nor the monthly record start now,
+  // beside them, instead of one round later (T05: four rounds → three).
+  const deployableFundsSnapshot =
+    options.deployableFunds ?? getDeployableFundsSnapshot({ tenantId }, prisma)
+  const activityRowsRead = readOverviewRecentActivity(prisma, tenantId)
+  const financingCycleHealthRead = getMonthlyFinancingCycleHealth(
+    { tenantId },
+    prisma,
+    { deployableFunds: deployableFundsSnapshot }
+  )
+  const operationProfileRead: Promise<TenantOperationProfileReadModel | null> =
+    options.queueRows === "open-items"
+      ? Promise.resolve(null)
+      : (options.operationProfile ?? getTenantOperationProfile(tenantId, prisma))
   // The KPIs (with the tenant row) in one statement, and the current month's
   // record, or else the latest one still open. Rows load once, for the
   // chosen record only.
@@ -870,6 +895,15 @@ export async function getOverviewSummary(
   const tenant = kpis.tenant
 
   if (!tenant) {
+    // The early reads are not needed; keep their failures handled.
+    for (const read of [
+      deployableFundsSnapshot,
+      activityRowsRead,
+      financingCycleHealthRead,
+      operationProfileRead,
+    ]) {
+      read.catch(() => undefined)
+    }
     return getEmptyOverviewSummary({
       currencyCode: "NGN",
       tenantId,
@@ -889,10 +923,6 @@ export async function getOverviewSummary(
     ? null
     : getCommitmentCollection(tenantId, { month, year }, prisma)
 
-  const deployableFundsSnapshot = getDeployableFundsSnapshot(
-    { tenantId },
-    prisma
-  )
   const [
     deployableFundsForOverview,
     monthlyRows,
@@ -911,11 +941,9 @@ export async function getOverviewSummary(
           where: { monthlyRecordId: currentMonthlyRecord.id, tenantId },
         })
       : Promise.resolve([]),
-    readOverviewRecentActivity(prisma, tenantId),
-    getMonthlyFinancingCycleHealth({ tenantId }, prisma, {
-      deployableFunds: deployableFundsSnapshot,
-    }),
-    options.operationProfile ?? getTenantOperationProfile(tenantId, prisma),
+    activityRowsRead,
+    financingCycleHealthRead,
+    operationProfileRead,
     commitmentsWithoutRecord,
   ])
   const {
@@ -1099,7 +1127,7 @@ export async function getOverviewSummary(
   ].filter((item) => {
     if (item.key === "procurement-requests") {
       return (
-        operationProfile.services.procurement.shouldShowInStaffNav ||
+        operationProfile?.services.procurement.shouldShowInStaffNav ||
         item.count > 0
       )
     }
@@ -1109,21 +1137,21 @@ export async function getOverviewSummary(
       item.key === "food-purchase-accounting"
     ) {
       return (
-        operationProfile.services.food_purchase.shouldShowInStaffNav ||
+        operationProfile?.services.food_purchase.shouldShowInStaffNav ||
         item.count > 0
       )
     }
 
     if (item.key === "payment-receipts") {
       return (
-        operationProfile.services.payment_receipts.shouldShowInStaffNav ||
+        operationProfile?.services.payment_receipts.shouldShowInStaffNav ||
         item.count > 0
       )
     }
 
     if (item.key === "support-cases") {
       return (
-        operationProfile.services.support_cases.shouldShowInStaffNav ||
+        operationProfile?.services.support_cases.shouldShowInStaffNav ||
         item.count > 0
       )
     }
@@ -1136,15 +1164,17 @@ export async function getOverviewSummary(
       const memberName = row.memberName ?? "A member"
 
       if (row.kind === "loan_request") {
+        const status = (row.status ?? "").replace(/_/g, " ")
         return {
           amount: null,
-          detail: `${memberName} · ${(row.status ?? "").replace(/_/g, " ")}`,
+          detail: `${memberName} · ${status}`,
           kind: row.kind,
           memberName,
           href: "/loans",
           id: `loan-request-${row.id}`,
           label: "Financing request updated",
           occurredAt: row.occurredAt.toISOString(),
+          status: status || null,
         }
       }
 
@@ -1160,6 +1190,7 @@ export async function getOverviewSummary(
             id: `contribution-${row.id}`,
             label: "Contribution posted",
             occurredAt: row.occurredAt.toISOString(),
+            status: null,
           }
         : {
             amount,
@@ -1170,6 +1201,7 @@ export async function getOverviewSummary(
             id: `repayment-${row.id}`,
             label: "Repayment posted",
             occurredAt: row.occurredAt.toISOString(),
+            status: null,
           }
     })
     .sort((first, second) => second.occurredAt.localeCompare(first.occurredAt))

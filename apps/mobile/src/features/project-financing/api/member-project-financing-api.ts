@@ -1,3 +1,4 @@
+import type { RequestFilter } from "@/features/member-service-requests/public/request-filter"
 import { isMobileDevFixtureSession } from "@/dev/mobile-dev-session"
 import {
   createDevProjectFinancingRequest,
@@ -55,8 +56,10 @@ export async function getMobileMemberProjectFinancingChargeQuote(
 }
 
 export async function getMobileMemberProjectFinancingRequests(input: {
-  cursor: string
+  cursor?: string
+  filter?: RequestFilter
   pageSize?: number
+  search?: string
 }) {
   if (isMobileDevFixtureSession()) {
     return {

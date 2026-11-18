@@ -2,9 +2,7 @@ import { describe, expect, test } from "bun:test"
 import type { MobileMemberSection } from "./member-core-types"
 import { buildMemberCommitmentsPresentation } from "./member-commitments-presentation"
 
-function section(
-  stats: MobileMemberSection["stats"]
-): MobileMemberSection {
+function section(stats: MobileMemberSection["stats"]): MobileMemberSection {
   return {
     emptyState: "No records.",
     generatedAt: "2026-09-01T00:00:00.000Z",
@@ -66,6 +64,33 @@ describe("member commitments presentation", () => {
         label: "Special savings",
         value: "₦145,000",
       },
+    })
+  })
+
+  test("does not treat a historical commitment amount as active", () => {
+    const input = section([
+      {
+        detail: "Started 1 Jan 2025",
+        format: "currency",
+        key: "active-commitment",
+        label: "Active commitment",
+        value: 25_000,
+      },
+    ])
+    input.rows.push({
+      detail: "Started 1 Jan 2025",
+      format: "currency",
+      key: "plan-historical",
+      label: "Monthly savings",
+      status: "Inactive",
+      value: 25_000,
+    })
+    expect(
+      buildMemberCommitmentsPresentation(input, "NGN").activePlan
+    ).toMatchObject({
+      label: "No active plan",
+      status: null,
+      value: null,
     })
   })
 

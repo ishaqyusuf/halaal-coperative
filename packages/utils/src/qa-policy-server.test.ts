@@ -139,6 +139,9 @@ test("production never enables QA, even when an old policy says it may", async (
     { APP_ENV: "production" },
     { APP_ENV: "preview", VERCEL_ENV: "production" },
     { NODE_ENV: "production" },
+    { HALAALVEST_ENV_MODE: "prod" },
+    { APP_ENV: "local", HALAALVEST_ENV_MODE: "prod" },
+    { HALAALVEST_ENV_MODE: "local", NODE_ENV: "production" },
   ]) {
     const env = {
       QA_POLICY_URL: process.env.QA_POLICY_URL,
@@ -176,4 +179,27 @@ test("Development and Preview keep reading their own flags", () => {
   expect(qaPolicyTarget({ APP_ENV: "preview", VERCEL_ENV: "preview" })).toBe(
     "preview",
   )
+})
+test("a standalone Bun API and next dev read the same profile", async () => {
+  // apps/api's own dev script: the launcher sets HALAALVEST_ENV_MODE and Bun
+  // sets no NODE_ENV. next dev from the same launcher also has
+  // NODE_ENV=development. Both must land on the same QA environment.
+  const standaloneApi = { HALAALVEST_ENV_MODE: "local" }
+  const nextDev = { HALAALVEST_ENV_MODE: "local", NODE_ENV: "development" }
+  expect(qaPolicyTarget(standaloneApi)).toBe("development")
+  expect(qaPolicyTarget(nextDev)).toBe("development")
+  expect(qaPolicyTarget({ HALAALVEST_ENV_MODE: "dev" })).toBe("development")
+  expect(qaPolicyTarget({ HALAALVEST_ENV_MODE: "preview" })).toBe("preview")
+  expect(qaPolicyTarget({ NODE_ENV: "development" })).toBe("development")
+  expect(qaPolicyTarget({})).toBeNull()
+  // A set APP_ENV still decides.
+  expect(
+    qaPolicyTarget({ APP_ENV: "preview", HALAALVEST_ENV_MODE: "local" }),
+  ).toBe("preview")
+  const managed = await getQaPolicyEnvironment({
+    ...standaloneApi,
+    QA_POLICY_URL: process.env.QA_POLICY_URL,
+    QA_POLICY_READ_KEY: process.env.QA_POLICY_READ_KEY,
+  })
+  expect(managed.QA_ACCELERATOR_ENABLED).toBe("true")
 })

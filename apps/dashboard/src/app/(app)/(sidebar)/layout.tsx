@@ -7,7 +7,6 @@ import {
 import { headers } from "next/headers"
 import { DashboardShellClient } from "@/components/dashboard-shell"
 import { normalizeDashboardRedirectPath } from "@/lib/auth-redirect"
-import { loadShowLegalReminder } from "@/lib/dashboard/legal-reminder"
 import { canAccessDashboardPath } from "@/lib/navigation/lib"
 import { getOperationProfileHiddenNavPaths } from "@/lib/navigation/operation-profile"
 import {
@@ -33,7 +32,6 @@ export default async function SidebarLayout({
     headers: headerStore,
   })
   const nextPath = normalizeDashboardRedirectPath(headerStore.get("x-pathname"))
-  const reviewingPlatformDocuments = nextPath === "/settings/platform-documents"
   const loginHref =
     nextPath === "/" ? "/login" : `/login?next=${encodeURIComponent(nextPath)}`
 
@@ -94,11 +92,7 @@ export default async function SidebarLayout({
       await tenantRedirect(setupRedirect)
     }
 
-    if (
-      !setupGate.canUseLiveWorkspace &&
-      !setupGate.isWorkspaceAdmin &&
-      !reviewingPlatformDocuments
-    ) {
+    if (!setupGate.canUseLiveWorkspace && !setupGate.isWorkspaceAdmin) {
       const tenantName = context.tenant.name
       const userName = context.auth.user?.fullName ?? "Anonymous Workspace User"
 
@@ -132,11 +126,6 @@ export default async function SidebarLayout({
 
   const tenantName = context.tenant?.name ?? "Platform Demo Workspace"
   const userName = context.auth.user?.fullName ?? "Anonymous Workspace User"
-  const showLegalReminder = await loadShowLegalReminder({
-    hasMembership: Boolean(context.auth.membership),
-    tenantId: context.tenant?.id,
-    userId: context.auth.user?.id,
-  })
 
   return (
     <TenantUrlProvider config={tenantUrlConfig} context={tenantUrlContext}>
@@ -145,7 +134,6 @@ export default async function SidebarLayout({
         isPlatformOwner={Boolean(context.auth.user?.isPlatformOwner)}
         role={role}
         shouldRedirectAdminToSetup={shouldRedirectAdminToSetup}
-        showLegalReminder={showLegalReminder}
         showSetupNav={showSetupNav}
         tenantName={tenantName}
         userName={userName}

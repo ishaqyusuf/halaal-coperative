@@ -325,7 +325,6 @@ function tenantPolicyAllowsCategory(
 
 export async function getMobileUserNotificationPreferences(
   input: {
-    memberLoginEnabled: boolean
     role: MembershipRole
     tenantId: string
     userId: string
@@ -346,9 +345,6 @@ export async function getMobileUserNotificationPreferences(
   const userPreference = new Map(
     userRows.map((row) => [row.notificationType, row.enabled])
   )
-  const subscriptionAllowsRole =
-    input.role !== "member" || input.memberLoginEnabled
-
   return MOBILE_NOTIFICATION_CATEGORIES.map((category) => {
     const mandatory = category.mandatory
     const tenantEnabled = tenantPolicyAllowsCategory(
@@ -356,8 +352,7 @@ export async function getMobileUserNotificationPreferences(
       input.role,
       category.key
     )
-    const available =
-      subscriptionAllowsRole && (mandatory || tenantEnabled)
+    const available = mandatory || tenantEnabled
     const userEnabled = userPreference.get(category.key)
     return {
       available,
@@ -436,7 +431,6 @@ export async function updateMobileUserNotificationPreference(
 export async function listEligibleMobilePushRegistrations(
   input: {
     category: MobileNotificationCategoryKey
-    memberLoginEnabled: boolean
     role: MembershipRole
     tenantId: string
     userId: string
@@ -446,7 +440,6 @@ export async function listEligibleMobilePushRegistrations(
   const prisma = requirePrisma("Mobile push recipient lookup", prismaOverride)
   const preferences = await getMobileUserNotificationPreferences(
     {
-      memberLoginEnabled: input.memberLoginEnabled,
       role: input.role,
       tenantId: input.tenantId,
       userId: input.userId,

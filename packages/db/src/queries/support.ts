@@ -1,5 +1,5 @@
 import { ExpectedQueryError } from "../query-error"
-import type { PrismaClient } from "../../generated/prisma/client"
+import type { Prisma, PrismaClient } from "../../generated/prisma/client"
 import { AppError } from "@halaalvest/errors"
 import { isSafeSupportAttachmentUrl } from "@halaalvest/utils"
 import { createPrismaClient } from "../prisma"
@@ -983,6 +983,35 @@ export async function listSupportCasePage(
   }
 }
 
+export async function listMemberSupportCasesPage(
+  input: { cursor?: string | null; memberId: string; tenantId: string },
+  prisma: PrismaClient
+) {
+  const cursor = input.cursor ? decodeSupportCaseCursor(input.cursor) : null
+  const memberScope = { memberId: input.memberId, tenantId: input.tenantId }
+  const pageSize = 20
+  const rows = await prisma.supportCase.findMany({
+    orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+    take: pageSize + 1,
+    where: cursor
+      ? {
+          AND: [
+            memberScope,
+            // The keyset helper builds dynamic field keys, so TS can't
+            // narrow it to the generated where input on its own.
+            getSupportCaseCursorWhere(cursor) as Prisma.SupportCaseWhereInput,
+          ],
+        }
+      : memberScope,
+  })
+  const data = rows.slice(0, pageSize)
+  return {
+    data,
+    nextCursor:
+      rows.length > pageSize ? encodeSupportCaseCursor(data[pageSize - 1]!) : null,
+  }
+}
+
 const supportCaseListSelect = {
   assignedToUser: { select: { fullName: true, id: true } },
   category: true,
@@ -1433,7 +1462,21 @@ export async function addSupportCaseMessage(
     },
     prisma
   )
-  const supportCase = await readSupportCase(input, prisma)
+  const caseScope = {
+    id: input.supportCaseId,
+    memberId: input.memberId,
+    tenantId: input.tenantId,
+  }
+  const supportCase = await prisma.supportCase.findFirst({
+    select: { id: true, status: true },
+    where: caseScope,
+  })
+  if (!supportCase) {
+    throw new AppError({
+      code: "NOT_FOUND",
+      publicMessage: "Support case was not found.",
+    })
+  }
 
   if (input.expectedStatus && supportCase.status !== input.expectedStatus) {
     throw new AppError({
@@ -1466,11 +1509,19 @@ export async function addSupportCaseMessage(
       },
     })
     // A reply is activity: lists sort by the latest change or message.
-    await tx.supportCase.update({
-      data: { updatedAt: created.createdAt ?? new Date() },
-      select: { id: true },
-      where: { id: supportCase.id },
+    const touched = await tx.supportCase.updateMany({
+      data: { updatedAt: created.createdAt },
+      where: {
+        ...caseScope,
+        status: { not: "closed", equals: input.expectedStatus },
+      },
     })
+    if (touched.count === 0) {
+      throw new AppError({
+        code: "CONFLICT",
+        publicMessage: "Support case changed. Refresh before replying.",
+      })
+    }
     await claimDashboardEvidenceUploadLink(
       {
         tenantId: input.tenantId,

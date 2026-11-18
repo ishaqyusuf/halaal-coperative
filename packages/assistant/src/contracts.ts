@@ -117,7 +117,10 @@ export const memberHistoryAnswerSchema = z.object({
   regularSavings: moneySchema,
   specialSavings: moneySchema,
   shareCapital: moneySchema,
+  /** Paid-out loans still owed. Approved loans not yet paid out are separate. */
   outstandingFinancing: moneySchema,
+  /** Approved loans not yet paid out; not owed yet (triage 1.5). */
+  approvedNotPaidOut: moneySchema.optional(),
   recentReceipts: receiptsAnswerSchema.shape.items,
   link: linkSchema,
 })

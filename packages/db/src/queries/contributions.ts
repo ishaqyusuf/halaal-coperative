@@ -17,6 +17,7 @@ import {
 } from "./ledger"
 import { stopRemainingScheduleForClearedLoan } from "./loans"
 import { getTenantMigrationWriteAccess } from "./migration"
+import { setGoLiveContributionPlanInTransaction } from "./setup-commitments"
 
 async function assertLiveFinancialWritesOpen(
   tenantId: string,
@@ -450,7 +451,29 @@ export async function setMemberContributionPlan(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
-  await assertLiveFinancialWritesOpen(input.tenantId, prisma)
+  const writeAccess = await getTenantMigrationWriteAccess(
+    input.tenantId,
+    prisma
+  )
+
+  // During setup the commitment starts in the go-live month (triage 1.8);
+  // the chosen date applies only once the cooperative is live.
+  if (!writeAccess.canUseLiveFinancialWrites) {
+    return prisma.$transaction((tx) =>
+      setGoLiveContributionPlanInTransaction(
+        input,
+        tx as unknown as PrismaClient,
+        ({ currentAmount, nextAmount }) =>
+          assertCommitmentReductionAllowed({
+            currentAmount,
+            memberId: input.memberId,
+            nextAmount,
+            tenantId: input.tenantId,
+            tx: tx as unknown as PrismaClient,
+          })
+      )
+    )
+  }
 
   return prisma.$transaction(async (tx) => {
     const member = await tx.member.findFirst({

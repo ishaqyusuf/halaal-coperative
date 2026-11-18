@@ -1,14 +1,13 @@
 import { verifyPassword } from "@halaalvest/auth"
 import {
-  findActiveMembershipAsync,
   findUserByCooperativeAccessCodeAsync,
   findMembershipsForUserAsync,
+  getTenantByIdAsync,
   listMobileWorkspacesForUserAsync,
   resolveTenantAsync,
   revokeMobileDeviceSession,
+  selectActiveMembership,
   type MembershipRecord,
-  type TenantRecord,
-  type UserRecord,
 } from "@halaalvest/db"
 import { TRPCError } from "@trpc/server"
 import { z } from "zod"
@@ -25,6 +24,7 @@ import {
   buildTenantMark,
   getLinkedMobileMember,
   issueMobileProfile,
+  readSignInAccessSnapshot,
   toMobileRole,
 } from "./mobile-auth-profile"
 import {
@@ -36,8 +36,17 @@ import { getMobileSessionRefreshBounds } from "./mobile-device-session.route"
 
 const mobileSignInInput = z.object({
   cooperativeAccessCode: z.string().trim().min(3).max(96),
+  // Set when the sign-in came from a cooperative's home-screen shortcut.
+  cooperativeId: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9_-]{1,64}$/)
+    .optional(),
   password: z.string().min(1),
 })
+
+export const MOBILE_SIGN_IN_OTHER_COOPERATIVE_MESSAGE =
+  "This account isn't part of the selected cooperative."
 
 const mobileSwitchRoleInput = z.object({
   membershipId: z.string().min(1),
@@ -62,25 +71,45 @@ export const mobileAuthRouter = createTRPCRouter({
           message: "The cooperative number or account details were invalid.",
         })
       }
-      const tenantResolution = await resolveTenantAsync({
-        fallbackTenantId: user.tenantId,
-      })
+      // Everything below depends only on the verified user, so the tenant
+      // read, the tenant rate limit, the memberships and the linked member
+      // run as one wave. Memberships are read once and reused by the profile.
+      const [tenant, , memberships, member] = await Promise.all([
+        getTenantByIdAsync(user.tenantId, { withMemberCount: false }),
+        enforceTenantAuthLimit({
+          operation: "sign_in",
+          tenantId: user.tenantId,
+        }),
+        findMembershipsForUserAsync(user.id),
+        getLinkedMobileMember({
+          runtimeStatus: ctx.runtime.status,
+          tenantId: user.tenantId,
+          userId: user.id,
+        }),
+      ])
 
-      if (!tenantResolution.tenant) {
+      if (!tenant) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "The cooperative number or account details were invalid.",
         })
       }
-      await enforceTenantAuthLimit({
-        operation: "sign_in",
-        tenantId: tenantResolution.tenant.id,
-      })
 
-      const membership = await findActiveMembershipAsync({
-        tenantId: tenantResolution.tenant.id,
-        userId: user.id,
-      })
+      // A cooperative shortcut's sign-in only admits that cooperative's
+      // accounts. Checked after the password, so it reveals nothing to a
+      // caller who doesn't hold the account.
+      if (
+        input.cooperativeId &&
+        input.cooperativeId !== tenant.id &&
+        !selectActiveMembership(memberships, input.cooperativeId)
+      ) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: MOBILE_SIGN_IN_OTHER_COOPERATIVE_MESSAGE,
+        })
+      }
+
+      const membership = selectActiveMembership(memberships, tenant.id)
 
       if (!membership && !user.isPlatformOwner) {
         throw new TRPCError({
@@ -95,27 +124,37 @@ export const mobileAuthRouter = createTRPCRouter({
           id: "platform-owner-mobile-membership",
           isDefault: true,
           role: "super_admin",
-          tenantId: tenantResolution.tenant.id,
+          tenantId: tenant.id,
           userId: user.id,
         } satisfies MembershipRecord)
       await assertMobileMemberWorkspaceEntitled({
         membership: resolvedMembership,
         runtimeStatus: ctx.runtime.status,
-        tenantId: tenantResolution.tenant.id,
+        tenantId: tenant.id,
       })
-      const memberships = await findMembershipsForUserAsync(user.id)
-      return {
-        profile: await issueMobileProfile({
+      const [profile, accessSnapshot] = await Promise.all([
+        issueMobileProfile({
           device: {
             ...ctx.request.mobile,
             deviceId: ctx.request.deviceSignal,
           },
+          member,
           membership: resolvedMembership,
+          memberships,
           runtimeStatus: ctx.runtime.status,
-          tenant: tenantResolution.tenant,
+          tenant,
           user,
         }),
-      }
+        membership
+          ? readSignInAccessSnapshot({
+              membershipId: membership.id,
+              runtimeStatus: ctx.runtime.status,
+              tenantId: tenant.id,
+              userId: user.id,
+            })
+          : undefined,
+      ])
+      return { accessSnapshot, profile }
     }),
 
   me: authenticatedProcedure.query(async ({ ctx }) => {
@@ -136,14 +175,29 @@ export const mobileAuthRouter = createTRPCRouter({
       tenantId: tenant.id,
     })
 
-    const memberships = await findMembershipsForUserAsync(session.user.id)
-    const member = await getLinkedMobileMember({
-      runtimeStatus: ctx.runtime.status,
-      tenantId: tenant.id,
-      userId: session.user.id,
-    })
+    // One read wave: memberships, the linked member and the app-access
+    // snapshot are independent. Returning the snapshot saves the app's cold
+    // start a second authenticated request (cooperativeMobileAccess.snapshot)
+    // before it can open the workspace (T03).
+    const [memberships, member, accessSnapshot] = await Promise.all([
+      findMembershipsForUserAsync(session.user.id),
+      getLinkedMobileMember({
+        runtimeStatus: ctx.runtime.status,
+        tenantId: tenant.id,
+        userId: session.user.id,
+      }),
+      ctx.request.mobileAuthenticated
+        ? readSignInAccessSnapshot({
+            membershipId: membership.id,
+            runtimeStatus: ctx.runtime.status,
+            tenantId: tenant.id,
+            userId: session.user.id,
+          })
+        : Promise.resolve(undefined),
+    ])
 
     return {
+      accessSnapshot,
       profile: buildMobileProfile({
         membership,
         memberships: memberships.length > 0 ? memberships : [membership],

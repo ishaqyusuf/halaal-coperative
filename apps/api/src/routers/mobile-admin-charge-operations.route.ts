@@ -5,6 +5,10 @@ import {
   chargeWorkflowKeys,
   getMobileAdminChargeApplication,
   getMobileAdminChargeFormOptions,
+  getMobileAdminChargeMembers,
+  getMobileAdminChargePage,
+  getMobileAdminChargeRulesForApply,
+  getMobileAdminChargeSummary,
   getMobileAdminChargeWorkspace,
   mobileAdminChargeLanes,
   reverseMobileAdminCharge,
@@ -35,6 +39,30 @@ const optionalDate = z
   .nullable()
   .optional()
 
+const pageInput = {
+  cursor: z.string().trim().min(1).nullable().optional(),
+  search: z.string().trim().max(120).optional(),
+}
+
+const workspaceInput = z.object({
+  ...pageInput,
+  filters: z
+    .object({
+      collectionMode: z.enum(chargeCollectionModeKeys).nullable().optional(),
+      fromDate: optionalDate,
+      memberId: z.string().trim().min(1).nullable().optional(),
+      purpose: chargePurpose.nullable().optional(),
+      status: z
+        .enum(["pending", "posted", "reversed", "waived"])
+        .nullable()
+        .optional(),
+      toDate: optionalDate,
+      workflow: z.enum(chargeWorkflowKeys).nullable().optional(),
+    })
+    .optional(),
+  lane: z.enum(mobileAdminChargeLanes),
+})
+
 export function getMobileAdminChargeCapabilities(
   role: CooperativeRole
 ): MobileAdminChargeCapabilities {
@@ -48,36 +76,50 @@ export function getMobileAdminChargeCapabilities(
 export const mobileAdminChargeProcedures = {
   charges: createTRPCRouter({
     workspace: permissionProcedure("view_charge_operations")
-      .input(
-        z.object({
-          cursor: z.string().trim().min(1).nullable().optional(),
-          filters: z
-            .object({
-              collectionMode: z
-                .enum(chargeCollectionModeKeys)
-                .nullable()
-                .optional(),
-              fromDate: optionalDate,
-              memberId: z.string().trim().min(1).nullable().optional(),
-              purpose: chargePurpose.nullable().optional(),
-              status: z
-                .enum(["pending", "posted", "reversed", "waived"])
-                .nullable()
-                .optional(),
-              toDate: optionalDate,
-              workflow: z.enum(chargeWorkflowKeys).nullable().optional(),
-            })
-            .optional(),
-          lane: z.enum(mobileAdminChargeLanes),
-          search: z.string().trim().max(120).optional(),
-        })
-      )
+      .input(workspaceInput)
       .query(({ ctx, input }) =>
         getMobileAdminChargeWorkspace({
           ...input,
           capabilities: getMobileAdminChargeCapabilities(
             ctx.auth.activeMembership.role
           ),
+          tenantId: ctx.tenant.current.id,
+        })
+      ),
+    summary: permissionProcedure("view_charge_operations").query(({ ctx }) =>
+      getMobileAdminChargeSummary({
+        capabilities: getMobileAdminChargeCapabilities(
+          ctx.auth.activeMembership.role
+        ),
+        tenantId: ctx.tenant.current.id,
+      })
+    ),
+    page: permissionProcedure("view_charge_operations")
+      .input(workspaceInput)
+      .query(({ ctx, input }) =>
+        getMobileAdminChargePage({ ...input, tenantId: ctx.tenant.current.id })
+      ),
+    members: permissionProcedure("manage_charge_operations")
+      .input(z.object(pageInput))
+      .query(({ ctx, input }) =>
+        getMobileAdminChargeMembers({
+          ...input,
+          tenantId: ctx.tenant.current.id,
+        })
+      ),
+    rulesForApply: permissionProcedure("manage_charge_operations")
+      .input(
+        z.object({
+          ...pageInput,
+          assessedAt: z
+            .string()
+            .datetime()
+            .transform((value) => new Date(value)),
+        })
+      )
+      .query(({ ctx, input }) =>
+        getMobileAdminChargeRulesForApply({
+          ...input,
           tenantId: ctx.tenant.current.id,
         })
       ),

@@ -153,6 +153,14 @@ export function MemberPortalOverview({
           }
           value={formatCurrency(summary?.totalOutstandingPrincipal ?? 0)}
         />
+        {summary?.approvedNotPaidOutCount ? (
+          <SummaryCard
+            detail="Approved for you. You owe it once it is paid out."
+            href="/loans"
+            label="Approved, not yet paid out"
+            value={formatCurrency(summary.approvedNotPaidOutAmount)}
+          />
+        ) : null}
         <SummaryCard
           detail="Your shares in the cooperative"
           href="/shares"

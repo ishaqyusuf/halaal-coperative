@@ -62,7 +62,7 @@ describe("production-contract QA harness persistence", () => {
 
     expect(preview.canProvision).toBe(true)
     expect(preview.collisions).toEqual([])
-    expect(preview.scenarios).toHaveLength(11)
+    expect(preview.scenarios).toHaveLength(10)
     expect(preview.scenarios.every(({ status }) => status === "new")).toBe(true)
   })
 
@@ -201,7 +201,7 @@ describe("production-contract QA harness persistence", () => {
     ).toThrow(ExpectedQueryError)
   })
 
-  test("maps capacity, KYC, blocked, and subscription states without secrets", () => {
+  test("maps KYC and stale states without plan rows or secrets", () => {
     const plan = createPlan()
     const seeds = plan.scenarios.map((scenario) => ({
       scenario,
@@ -213,26 +213,19 @@ describe("production-contract QA harness persistence", () => {
       }),
     }))
 
-    expect(
-      seeds.find(({ scenario }) => scenario.state === "at_capacity")?.seed
-        .subscription.activeMemberLimitOverride
-    ).toBe(1)
+    // Triage 2.8: the harness no longer seeds a tenant plan, add-ons or a
+    // member cap.
+    for (const { seed } of seeds) {
+      expect(seed).not.toHaveProperty("subscription")
+    }
     expect(
       seeds.find(({ scenario }) => scenario.state === "kyc_incomplete")?.seed
         .member.kycStatus
     ).toBe("not_started")
     expect(
-      seeds.find(({ scenario }) => scenario.state === "blocked")?.seed
-        .subscription.status
-    ).toBe("suspended")
-    expect(
       seeds.find(({ scenario }) => scenario.state === "stale")?.seed.member
         .joinedAt
     ).toEqual(new Date("2026-09-01T00:00:00.000Z"))
-    expect(
-      seeds.find(({ scenario }) => scenario.planCode === "free_beta")?.seed
-        .subscription.source
-    ).toBe("free_beta")
     expect(
       seeds.every(
         ({ seed }) =>
@@ -273,7 +266,7 @@ describe("production-contract QA harness persistence", () => {
     )
 
     expect(coverage.complete).toBe(false)
-    expect(coverage.expectedStateCount).toBe(11)
+    expect(coverage.expectedStateCount).toBe(10)
     expect(coverage.materializedStateCount).toBe(0)
     expect(coverage.scenarios.every(({ tenantId }) => tenantId === null)).toBe(
       true

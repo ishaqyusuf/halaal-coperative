@@ -13,7 +13,7 @@ internal object CooperativeShortcutRegistry {
   private const val OBSERVED = "observed_ids"
   private val ID_PATTERN = Regex("^cs1-[0-9a-f]{32}$")
 
-  const val DEFAULT_DISABLED_MESSAGE = "Sign in to HalaalVest to add this shortcut again."
+  const val DEFAULT_DISABLED_MESSAGE = "This shortcut is off. Open HalaalVest to add it again."
 
   fun isValidId(id: String) = ID_PATTERN.matches(id)
 

@@ -6,6 +6,7 @@ import {
 import {
   createMobileDeviceSession,
   findMembershipsForUserAsync,
+  getCooperativeMobileAccessSnapshot,
   getMemberByUserId,
   type MembershipRecord,
   type TenantRecord,
@@ -147,6 +148,10 @@ export async function issueMobileProfile(input: {
     platform: string
   }
   membership: MembershipRecord
+  /** Already read by the caller in this request; skips a second read. */
+  member?: Awaited<ReturnType<typeof getLinkedMobileMember>>
+  /** Already read by the caller in this request; skips a second read. */
+  memberships?: MembershipRecord[]
   expiresAt?: number
   qaAuthorizationId?: string
   replacesToken?: string | null
@@ -175,12 +180,14 @@ export async function issueMobileProfile(input: {
       tenantId: input.tenant.id,
       userId: input.user.id,
     }),
-    findMembershipsForUserAsync(input.user.id),
-    getLinkedMobileMember({
-      runtimeStatus: input.runtimeStatus,
-      tenantId: input.tenant.id,
-      userId: input.user.id,
-    }),
+    input.memberships ?? findMembershipsForUserAsync(input.user.id),
+    input.member !== undefined
+      ? input.member
+      : getLinkedMobileMember({
+          runtimeStatus: input.runtimeStatus,
+          tenantId: input.tenant.id,
+          userId: input.user.id,
+        }),
   ])
   if (input.runtimeStatus === "database-configured") {
     await createMobileDeviceSession({
@@ -209,4 +216,29 @@ export async function issueMobileProfile(input: {
     token,
     user: input.user,
   })
+}
+
+/**
+ * The mobile app-access snapshot returned with a profile (sign-in, recovery
+ * and the cold-start `auth.mobile.me` read), so the app does not need a
+ * second authenticated round trip before it can open the workspace. It is the
+ * same read `cooperativeMobileAccess.snapshot` serves. A failure here never
+ * fails the profile: the app falls back to reading the snapshot itself.
+ */
+export async function readSignInAccessSnapshot(input: {
+  membershipId: string
+  runtimeStatus: string
+  tenantId: string
+  userId: string
+}) {
+  if (input.runtimeStatus !== "database-configured") return undefined
+  try {
+    return await getCooperativeMobileAccessSnapshot({
+      membershipId: input.membershipId,
+      tenantId: input.tenantId,
+      userId: input.userId,
+    })
+  } catch {
+    return undefined
+  }
 }

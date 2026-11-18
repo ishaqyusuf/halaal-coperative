@@ -54,6 +54,7 @@ model Member {
   documents                             MemberDocument[]
   monthlyRecordMembers                  MonthlyRecordMember[]
   dividendAllocations                   DividendAllocation[]
+  profitPayouts                         ProfitPayout[]
   shareLedgerEntries                    MemberShareLedgerEntry[]
   historicalSharePurchases              HistoricalMemberSharePurchase[]
   shareApplications                     MemberShareApplication[]
@@ -69,6 +70,7 @@ model Member {
 
   @@unique([tenantId, memberNumber], map: "members_tenant_member_number_key")
   @@index([tenantId, status], map: "members_tenant_status_idx")
+  @@index([tenantId, fullName, id], map: "members_tenant_full_name_id_idx")
   @@index([tenantId, memberType], map: "members_tenant_member_type_idx")
   @@map("members")
 }

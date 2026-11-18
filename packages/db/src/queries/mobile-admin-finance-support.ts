@@ -1,3 +1,11 @@
+import {
+  readFinanceDeskPage,
+  readFinanceDeskSummary,
+  type FinanceDeskCursor,
+  type FinanceDeskReadInput,
+  type FinanceDeskSummary,
+} from "./mobile-admin-finance-desk"
+import { isLateScheduleItem } from "./repayments"
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError, isUniqueConstraintError } from "../query-error"
@@ -88,6 +96,7 @@ export type MobileAdminFinanceSupportItem = {
   requestedAt: string
   requiresFinancialAdjustment: boolean
   state: string
+  displayState?: string
   subtitle: string
   title: string
 }
@@ -129,11 +138,15 @@ function currencyDetail(label: string, value: number | null | undefined) {
   return { label, value: String(value ?? 0) }
 }
 
-function memberContext(member: {
+// The finance desk selects only these member fields (no email), so the
+// mappers take this shape instead of the full list-row member.
+type FinanceDeskMember = {
   fullName: string
   id: string
   memberNumber: string
-}) {
+}
+
+function memberContext(member: FinanceDeskMember) {
   return {
     id: member.id,
     name: member.fullName,
@@ -158,7 +171,16 @@ function itemActions(
 }
 
 function mapReceipt(
-  row: MemberPaymentReceiptRow,
+  row: Pick<
+    MemberPaymentReceiptRow,
+    | "channel"
+    | "id"
+    | "paymentReference"
+    | "proofDocumentUrl"
+    | "status"
+    | "submittedAt"
+    | "totalAmount"
+  > & { member: FinanceDeskMember; allocations: { length: number } },
   capabilities: MobileAdminFinanceSupportCapabilities
 ): MobileAdminFinanceSupportItem {
   const base = {
@@ -202,7 +224,17 @@ function mapReceipt(
 type LoanQueueRow = Awaited<ReturnType<typeof listLoanRequests>>[number]
 
 function mapLoan(
-  row: LoanQueueRow,
+  row: Pick<
+    LoanQueueRow,
+    "id" | "member" | "requestedAmount" | "requestedAt" | "status"
+  > & {
+    loanProduct: Pick<LoanQueueRow["loanProduct"], "name" | "termMonths">
+    approvals: { length: number }
+    guarantorApprovals: Pick<
+      LoanQueueRow["guarantorApprovals"][number],
+      "status"
+    >[]
+  },
   capabilities: MobileAdminFinanceSupportCapabilities,
   requiresDualApproval: boolean
 ): MobileAdminFinanceSupportItem {
@@ -248,7 +280,18 @@ function mapLoan(
 }
 
 function mapProcurement(
-  row: ProcurementRequestRow,
+  row: Pick<
+    ProcurementRequestRow,
+    | "allowsCommitmentReductionDuringPayback"
+    | "id"
+    | "itemName"
+    | "policyMaximumPaybackMonths"
+    | "requestedAt"
+    | "requestedCost"
+    | "requestedRepaymentMonths"
+    | "status"
+    | "vendorName"
+  > & { member: FinanceDeskMember },
   capabilities: MobileAdminFinanceSupportCapabilities
 ): MobileAdminFinanceSupportItem {
   const base = {
@@ -287,7 +330,22 @@ function mapProcurement(
 }
 
 function mapFoodPurchase(
-  row: FoodPurchaseApplicationRow,
+  row: Pick<
+    FoodPurchaseApplicationRow,
+    | "id"
+    | "itemDescription"
+    | "member"
+    | "policyMaximumPaybackMonths"
+    | "requestedAmount"
+    | "requestedAt"
+    | "requestedPaybackMonths"
+    | "status"
+  > & {
+    cycle: Pick<
+      FoodPurchaseApplicationRow["cycle"],
+      "releasedAmount" | "status"
+    >
+  },
   capabilities: MobileAdminFinanceSupportCapabilities
 ): MobileAdminFinanceSupportItem {
   const blockers =
@@ -328,7 +386,16 @@ function mapFoodPurchase(
 }
 
 function mapProject(
-  row: ProjectFinancingRequestRow,
+  row: Pick<
+    ProjectFinancingRequestRow,
+    | "businessName"
+    | "id"
+    | "proposedStructure"
+    | "requestedAmount"
+    | "requestedAt"
+    | "requestedPaybackMonths"
+    | "status"
+  > & { member: FinanceDeskMember },
   capabilities: MobileAdminFinanceSupportCapabilities
 ): MobileAdminFinanceSupportItem {
   const blockers =
@@ -373,7 +440,18 @@ function mapProject(
 }
 
 function mapShare(
-  row: MemberShareApplicationRow,
+  row: Pick<
+    MemberShareApplicationRow,
+    | "createdAt"
+    | "id"
+    | "memberId"
+    | "memberName"
+    | "memberNumber"
+    | "requestedUnits"
+    | "shareValueSnapshot"
+    | "status"
+    | "unitAmountSnapshot"
+  >,
   capabilities: MobileAdminFinanceSupportCapabilities
 ): MobileAdminFinanceSupportItem {
   const base = {
@@ -411,7 +489,21 @@ function mapShare(
 }
 
 function mapSupport(
-  row: SupportCaseRow,
+  row: Pick<
+    SupportCaseRow,
+    | "category"
+    | "financialAdjustmentApprovalStatus"
+    | "id"
+    | "priority"
+    | "requiresFinancialAdjustment"
+    | "status"
+    | "subject"
+    | "updatedAt"
+  > & {
+    member: FinanceDeskMember | null
+    messages: { length: number }
+    specialSavingsWithdrawal: { amount: number } | null
+  },
   capabilities: MobileAdminFinanceSupportCapabilities
 ): MobileAdminFinanceSupportItem {
   const base = {
@@ -455,7 +547,19 @@ type CollectionQueueRow = Awaited<
 >[number]
 
 function mapCollection(
-  row: CollectionQueueRow,
+  row: Pick<
+    CollectionQueueRow,
+    "amountPaid" | "dueAt" | "id" | "installmentNumber" | "status" | "totalDue"
+  > & {
+    loan: {
+      member: CollectionQueueRow["loan"]["member"]
+      loanProduct: { name: string }
+    }
+    collectionFollowUps: Pick<
+      CollectionQueueRow["collectionFollowUps"][number],
+      "status"
+    >[]
+  },
   capabilities: MobileAdminFinanceSupportCapabilities
 ): MobileAdminFinanceSupportItem {
   const outstanding = Number(row.totalDue) - Number(row.amountPaid)
@@ -499,14 +603,17 @@ function queueEnabled(
   return !selected || selected === key
 }
 
-export async function getMobileAdminFinanceSupportOverview(input: {
-  capabilities: MobileAdminFinanceSupportCapabilities
-  limit?: number
-  queueKey?: MobileAdminFinanceSupportQueueKey
-  search?: string
-  tenantId: string
-}): Promise<MobileAdminFinanceSupportOverview> {
-  const prisma = createPrismaClient()
+export async function getMobileAdminFinanceSupportOverview(
+  input: {
+    capabilities: MobileAdminFinanceSupportCapabilities
+    limit?: number
+    queueKey?: MobileAdminFinanceSupportQueueKey
+    search?: string
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<MobileAdminFinanceSupportOverview> {
+  const prisma = prismaOverride ?? createPrismaClient()
   const generatedAt = new Date().toISOString()
   if (!prisma) {
     return {
@@ -685,6 +792,276 @@ export async function getMobileAdminFinanceSupportOverview(input: {
         value: summary.primaryMetrics.deployableFunds,
       },
     ],
+  }
+}
+
+export type MobileAdminFinanceDeskPage = {
+  generatedAt: string
+  items: MobileAdminFinanceSupportItem[]
+  nextCursor: FinanceDeskCursor | null
+  summary: FinanceDeskSummary | null
+}
+
+export async function getMobileAdminFinanceDesk(
+  input: FinanceDeskReadInput & {
+    capabilities: MobileAdminFinanceSupportCapabilities
+  },
+  prismaOverride?: PrismaClient
+): Promise<MobileAdminFinanceDeskPage> {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("The finance queue is unavailable.")
+
+  const [page, summary] = await Promise.all([
+    readFinanceDeskPage(prisma, input),
+    input.summary ? readFinanceDeskSummary(prisma, input) : null,
+  ])
+  const visible = page.slice(0, input.limit)
+  const member = {
+    select: { id: true, fullName: true, memberNumber: true },
+  } as const
+  const { capabilities, tenantId } = input
+  const groups = new Map<MobileAdminFinanceSupportQueueKey, string[]>()
+  for (const { id, queueKey } of visible) {
+    const group = groups.get(queueKey)
+    if (group) group.push(id)
+    else groups.set(queueKey, [id])
+  }
+  const itemsByLane = await Promise.all(
+    [...groups].map(
+      async ([key, ids]): Promise<MobileAdminFinanceSupportItem[]> => {
+        const where = { tenantId, id: { in: ids } }
+        switch (key) {
+          case "receipts": {
+            const rows = await prisma.memberPaymentReceipt.findMany({
+              where,
+              select: {
+                channel: true,
+                id: true,
+                member,
+                paymentReference: true,
+                proofDocumentUrl: true,
+                status: true,
+                submittedAt: true,
+                totalAmount: true,
+                _count: { select: { allocations: true } },
+              },
+            })
+            return rows.map((row) =>
+              mapReceipt(
+                {
+                  ...row,
+                  totalAmount: Number(row.totalAmount),
+                  allocations: { length: row._count.allocations },
+                },
+                capabilities
+              )
+            )
+          }
+          case "financing": {
+            const [rows, policy] = await Promise.all([
+              prisma.loanRequest.findMany({
+                where,
+                select: {
+                  id: true,
+                  member,
+                  requestedAmount: true,
+                  requestedAt: true,
+                  status: true,
+                  loanProduct: { select: { name: true, termMonths: true } },
+                  guarantorApprovals: { select: { status: true } },
+                  _count: { select: { approvals: true } },
+                },
+              }),
+              prisma.tenantPolicy.findUnique({
+                where: { tenantId },
+                select: { requiresDualLoanApproval: true },
+              }),
+            ])
+            return rows.map((row) =>
+              mapLoan(
+                {
+                  ...row,
+                  requestedAmount: Number(row.requestedAmount),
+                  approvals: { length: row._count.approvals },
+                },
+                capabilities,
+                Boolean(policy?.requiresDualLoanApproval)
+              )
+            )
+          }
+          case "procurement": {
+            const rows = await prisma.procurementRequest.findMany({
+              where,
+              select: {
+                allowsCommitmentReductionDuringPayback: true,
+                id: true,
+                itemName: true,
+                member,
+                policyMaximumPaybackMonths: true,
+                requestedAt: true,
+                requestedCost: true,
+                requestedRepaymentMonths: true,
+                status: true,
+                vendorName: true,
+              },
+            })
+            return rows.map((row) =>
+              mapProcurement(
+                { ...row, requestedCost: Number(row.requestedCost) },
+                capabilities
+              )
+            )
+          }
+          case "foodPurchase": {
+            const rows = await prisma.foodPurchaseApplication.findMany({
+              where,
+              select: {
+                id: true,
+                itemDescription: true,
+                member,
+                policyMaximumPaybackMonths: true,
+                requestedAmount: true,
+                requestedAt: true,
+                requestedPaybackMonths: true,
+                status: true,
+                cycle: { select: { releasedAmount: true, status: true } },
+              },
+            })
+            return rows.map((row) =>
+              mapFoodPurchase(
+                {
+                  ...row,
+                  requestedAmount: Number(row.requestedAmount),
+                  cycle: {
+                    ...row.cycle,
+                    releasedAmount: Number(row.cycle.releasedAmount),
+                  },
+                },
+                capabilities
+              )
+            )
+          }
+          case "projectFinancing": {
+            const rows = await prisma.projectFinancingRequest.findMany({
+              where,
+              select: {
+                businessName: true,
+                id: true,
+                member,
+                proposedStructure: true,
+                requestedAmount: true,
+                requestedAt: true,
+                requestedPaybackMonths: true,
+                status: true,
+              },
+            })
+            return rows.map((row) =>
+              mapProject(
+                { ...row, requestedAmount: Number(row.requestedAmount) },
+                capabilities
+              )
+            )
+          }
+          case "shares": {
+            const rows = await prisma.memberShareApplication.findMany({
+              where,
+              select: {
+                createdAt: true,
+                id: true,
+                member,
+                memberId: true,
+                requestedUnits: true,
+                shareValueSnapshot: true,
+                status: true,
+                unitAmountSnapshot: true,
+              },
+            })
+            return rows.map((row) =>
+              mapShare(
+                {
+                  ...row,
+                  memberName: row.member.fullName,
+                  memberNumber: row.member.memberNumber,
+                  shareValueSnapshot: Number(row.shareValueSnapshot),
+                  unitAmountSnapshot: Number(row.unitAmountSnapshot),
+                },
+                capabilities
+              )
+            )
+          }
+          case "support": {
+            const rows = await prisma.supportCase.findMany({
+              where,
+              select: {
+                category: true,
+                financialAdjustmentApprovalStatus: true,
+                id: true,
+                member,
+                priority: true,
+                requiresFinancialAdjustment: true,
+                status: true,
+                subject: true,
+                updatedAt: true,
+                specialSavingsWithdrawal: { select: { amount: true } },
+                _count: { select: { messages: true } },
+              },
+            })
+            return rows.map((row) =>
+              mapSupport(
+                {
+                  ...row,
+                  messages: { length: row._count.messages },
+                  specialSavingsWithdrawal: row.specialSavingsWithdrawal
+                    ? { amount: Number(row.specialSavingsWithdrawal.amount) }
+                    : null,
+                },
+                capabilities
+              )
+            )
+          }
+          case "collections": {
+            const rows = await prisma.repaymentScheduleItem.findMany({
+              where,
+              select: {
+                amountPaid: true,
+                dueAt: true,
+                id: true,
+                installmentNumber: true,
+                status: true,
+                totalDue: true,
+                loan: {
+                  select: { member, loanProduct: { select: { name: true } } },
+                },
+                collectionFollowUps: {
+                  orderBy: { createdAt: "desc" },
+                  take: 1,
+                  select: { status: true },
+                },
+              },
+            })
+            return rows.map((row) => {
+              const item = mapCollection(row, capabilities)
+              // Commands validate against the persisted status; the badge uses the current due date.
+              return {
+                ...item,
+                displayState: isLateScheduleItem(row) ? "overdue" : "due",
+              }
+            })
+          }
+        }
+      }
+    )
+  )
+  const byKey = new Map(
+    itemsByLane.flat().map((item) => [`${item.queueKey}:${item.id}`, item])
+  )
+  return {
+    generatedAt: new Date().toISOString(),
+    items: visible.flatMap(
+      ({ id, queueKey }) => byKey.get(`${queueKey}:${id}`) ?? []
+    ),
+    nextCursor: page.length > input.limit ? (visible.at(-1) ?? null) : null,
+    summary,
   }
 }
 

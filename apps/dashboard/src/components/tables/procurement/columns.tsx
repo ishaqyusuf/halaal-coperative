@@ -13,12 +13,17 @@ import { formatDayMonthYear } from "@/utils/format"
 
 export type ProcurementRequest = ProcurementRequestRow
 
-/** The amount that counts now: approved when approved, else what was asked. */
+/**
+ * The amount that counts now: once approved, what the member pays back (the
+ * cost plus the cooperative's profit), else what was asked.
+ */
 export function getProcurementAmount(request: ProcurementRequest) {
   const approved = request.approvedCost !== null
 
   return {
-    amount: approved ? (request.approvedCost ?? 0) : request.requestedCost,
+    amount: approved
+      ? (request.approvedCost ?? 0) + request.approvedMarkup
+      : request.requestedCost,
     months: approved
       ? (request.approvedRepaymentMonths ?? request.requestedRepaymentMonths)
       : request.requestedRepaymentMonths,

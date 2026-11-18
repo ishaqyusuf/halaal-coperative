@@ -17,3 +17,29 @@ describe("tab bar safe-area geometry", () => {
     expect(resolveTabBarGeometry(-4)).toEqual(resolveTabBarGeometry(0))
   })
 })
+
+describe("floating dock geometry", () => {
+  it("floats 24pt above the bottom on a 34pt home-indicator phone", async () => {
+    const { resolveDockGeometry } = await import("./tab-bar-geometry")
+    const dock = resolveDockGeometry(34)
+    expect(dock.bottom).toBe(24)
+    expect(dock.height).toBe(64)
+    expect(dock.contentInset).toBeGreaterThan(dock.bottom + dock.height)
+    expect(dock.fabBottom).toBeGreaterThan(dock.bottom + dock.height)
+  })
+
+  it("keeps a 12pt floor on phones without an inset", async () => {
+    const { resolveDockGeometry } = await import("./tab-bar-geometry")
+    expect(resolveDockGeometry(0).bottom).toBe(12)
+    expect(resolveDockGeometry(Number.NaN).bottom).toBe(12)
+  })
+
+  it("floats above the whole Android gesture inset", async () => {
+    const { resolveDockGeometry } = await import("./tab-bar-geometry")
+    expect(resolveDockGeometry(24, "android").bottom).toBe(32)
+    expect(resolveDockGeometry(48, "android").bottom).toBe(56)
+    expect(resolveDockGeometry(0, "android").bottom).toBe(16)
+    // iOS is unchanged.
+    expect(resolveDockGeometry(34, "ios").bottom).toBe(24)
+  })
+})

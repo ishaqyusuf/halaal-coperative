@@ -21,6 +21,7 @@ export type MobileSupportMessage = {
 
 export type MobileSupportCase = {
   category: MobileSupportCategory
+  createdAt?: string
   detail: string
   financialAdjustmentApprovalStatus: string
   financialAdjustmentApprovalNotes: string | null

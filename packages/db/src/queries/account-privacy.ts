@@ -2,9 +2,13 @@ import { ExpectedQueryError } from "../query-error"
 import { createHash, createHmac, timingSafeEqual } from "node:crypto"
 import type { Prisma, PrismaClient } from "../../generated/prisma/client"
 import { AppError } from "@halaalvest/errors"
-import { accountDeletionNoticeCopy } from "@halaalvest/domain/account-privacy-notice"
+import {
+  accountDeletionNoticeCopy,
+  privacyRequestDueAt,
+} from "@halaalvest/domain/account-privacy-notice"
 import { publicPolicies } from "@halaalvest/domain/public-policies"
 import { createPrismaClient } from "../prisma"
+import { readAccountClosingPosition } from "./account-closing-position"
 
 export function accountDeletionNoticeVersion(input: {
   inApp: { scope: string; consequences: readonly string[] }
@@ -390,7 +394,7 @@ export async function getPrivacyProcessingInventory(
   })
   if (
     !request?.userId ||
-    request.status !== "processing" ||
+    !["processing", "completed"].includes(request.status) ||
     !request.accessRevokedAt
   )
     throw conflict("This request is not ready for processing inventory.")
@@ -422,6 +426,7 @@ export async function getPrivacyProcessingInventory(
     foodCyclesAccountingSubmitted,
     foodApplicationsSubmitted,
     foodApplicationsReviewed,
+    foodApplicationsGoodsReleased,
     procurementRequestsCreated,
     procurementRequestsReviewed,
     procurementRequestsPurchased,
@@ -456,6 +461,9 @@ export async function getPrivacyProcessingInventory(
     qaPurgeRunsRequested,
     qaCredentialsCreated,
     memberships,
+    membershipRemovals,
+    membershipRemovalsMade,
+    membershipRemovalsRestored,
     supportCases,
     supportCasesAssigned,
     supportCasesMember,
@@ -489,6 +497,8 @@ export async function getPrivacyProcessingInventory(
     mobileAccessTermsAccepted,
     platformBillingSettingsUpdated,
     platformBillFundingChosen,
+    profitPayoutsPaid,
+    profitPayoutsReversed,
   ] = await Promise.all([
     db.member.count({ where: { userId } }),
     db.memberDocument.count({ where: { member: { userId } } }),
@@ -525,6 +535,9 @@ export async function getPrivacyProcessingInventory(
       where: { submittedByUserId: userId },
     }),
     db.foodPurchaseApplication.count({ where: { reviewedByUserId: userId } }),
+    db.foodPurchaseApplication.count({
+      where: { goodsReleasedByUserId: userId },
+    }),
     db.procurementRequest.count({ where: { createdByUserId: userId } }),
     db.procurementRequest.count({ where: { reviewedByUserId: userId } }),
     db.procurementRequest.count({ where: { purchasedByUserId: userId } }),
@@ -569,6 +582,9 @@ export async function getPrivacyProcessingInventory(
     db.qaPurgeRun.count({ where: { requestedByUserId: userId } }),
     db.qaTesterCredential.count({ where: { createdByUserId: userId } }),
     db.membership.count({ where: { userId } }),
+    db.membershipRemoval.count({ where: { userId } }),
+    db.membershipRemoval.count({ where: { removedByUserId: userId } }),
+    db.membershipRemoval.count({ where: { restoredByUserId: userId } }),
     db.supportCase.count({ where: { openedByUserId: userId } }),
     db.supportCase.count({ where: { assignedToUserId: userId } }),
     db.supportCase.count({ where: { member: { userId } } }),
@@ -609,9 +625,15 @@ export async function getPrivacyProcessingInventory(
     db.assistantProposal.count({ where: { actorUserId: userId } }),
     db.assistantChannelChallenge.count({ where: { userId } }),
     db.assistantChannelLink.count({ where: { userId } }),
-    db.cooperativeMobileAccessTerm.count({ where: { acceptedByUserId: userId } }),
-    db.tenantPlatformBillingSetting.count({ where: { updatedByUserId: userId } }),
+    db.cooperativeMobileAccessTerm.count({
+      where: { acceptedByUserId: userId },
+    }),
+    db.tenantPlatformBillingSetting.count({
+      where: { updatedByUserId: userId },
+    }),
     db.platformBill.count({ where: { fundingChosenByUserId: userId } }),
+    db.profitPayout.count({ where: { paidByUserId: userId } }),
+    db.profitPayout.count({ where: { reversedByUserId: userId } }),
   ])
   return {
     requestId: request.id,
@@ -641,6 +663,7 @@ export async function getPrivacyProcessingInventory(
       foodCyclesAccountingSubmitted,
       foodApplicationsSubmitted,
       foodApplicationsReviewed,
+      foodApplicationsGoodsReleased,
       procurementRequestsCreated,
       procurementRequestsReviewed,
       procurementRequestsPurchased,
@@ -675,6 +698,9 @@ export async function getPrivacyProcessingInventory(
       qaPurgeRunsRequested,
       qaCredentialsCreated,
       memberships,
+      membershipRemovals,
+      membershipRemovalsMade,
+      membershipRemovalsRestored,
       supportCases,
       supportCasesAssigned,
       supportCasesMember,
@@ -708,11 +734,36 @@ export async function getPrivacyProcessingInventory(
       mobileAccessTermsAccepted,
       platformBillingSettingsUpdated,
       platformBillFundingChosen,
+      profitPayoutsPaid,
+      profitPayoutsReversed,
     },
-    externalProcessorsReviewed: false,
-    sharedRecordsReviewed: false,
-    erasureComplete: false,
+    ...privacyCompletionState(request.processingEvidence),
     notes: processingNotes(request.processingEvidence),
+  }
+}
+/** Where the completion steps stand, read from the request's evidence. */
+function privacyCompletionState(value: Prisma.JsonValue | null) {
+  const evidence =
+    value && typeof value === "object" && !Array.isArray(value) ? value : {}
+  const notes = processingNotes(value)
+  const notice = evidence.completionNotification
+  return {
+    externalProcessorsReviewed: notes.some(
+      (note) => note.category === "external_processors_backups"
+    ),
+    sharedRecordsReviewed:
+      evidence.sharedFinancialRecords === "kept_with_name_only",
+    erasureComplete: evidence.personalDetails === "erased",
+    retentionSummary:
+      typeof evidence.retentionSummary === "string"
+        ? evidence.retentionSummary
+        : null,
+    completionNotification:
+      notice === "email_sent" ||
+      notice === "operator_recorded" ||
+      notice === "failed"
+        ? notice
+        : ("pending" as const),
   }
 }
 export async function recordPrivacyProcessingNote(
@@ -873,7 +924,11 @@ export async function getPrivacyRevocationScope(
     },
     orderBy: [{ tenantId: "asc" }, { id: "asc" }],
   })
-  return { requestId: request.id, memberships }
+  // The cooperative settles money before the login closes (owner, 18 Nov
+  // 2026). The operator sees the position; `revokePrivacyRequestAccount`
+  // enforces it.
+  const moneyPosition = await readAccountClosingPosition(db, request.userId)
+  return { requestId: request.id, memberships, moneyPosition }
 }
 
 export async function revokePrivacyRequestAccount(
@@ -957,6 +1012,13 @@ export async function revokePrivacyRequestAccount(
       throw conflict(
         "Transfer platform ownership before deleting the last platform operator."
       )
+    // Like closing a bank account: the cooperative settles savings, shares,
+    // loans and guarantees first, or marks the member exited.
+    const moneyPosition = await readAccountClosingPosition(tx, target.id)
+    if (!moneyPosition.canCloseLogin)
+      throw conflict(
+        `Their cooperative must settle their money before the login can close. Still outstanding: ${moneyPosition.outstandingSummary}. Close the login once this is zero or the cooperative has marked them exited.`
+      )
     const now = new Date()
     await tx.mobilePushRegistration.deleteMany({ where: { userId: target.id } })
     await tx.mobileUserNotificationPreference.deleteMany({
@@ -1006,6 +1068,13 @@ export async function revokePrivacyRequestAccount(
           completionNotification: "pending",
           completionContactEmail: target.email,
           handoverAndRetentionEvidence: evidence,
+          cooperativeMoneyCheck: moneyPosition.members.length
+            ? moneyPosition.members.map((member) => ({
+                tenantId: member.tenantId,
+                memberId: member.memberId,
+                result: member.exited ? "member_exited" : "nothing_outstanding",
+              }))
+            : "no_member_record",
         },
       },
     })
@@ -1033,6 +1102,371 @@ export async function revokePrivacyRequestAccount(
       },
     })
     return { accessRevoked: true, erasureComplete: false }
+  })
+}
+
+function evidenceObject(value: Prisma.JsonValue | null): Prisma.JsonObject {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw conflict("Privacy processing evidence needs operator review.")
+  return value
+}
+const removedAtRequest = "Removed at the account holder’s request."
+/**
+ * Support cases that touched money stay whole: they are dispute and audit
+ * records the cooperative must keep. Every other case the person opened or
+ * wrote in loses its free text.
+ */
+const supportCaseWithoutMoney = {
+  requiresFinancialAdjustment: false,
+  moneyImpactRequested: false,
+  financialAdjustmentApprovalStatus: "not_required",
+} as const
+
+/**
+ * Redacts a former member's personal details inside the caller's
+ * transaction (close-my-account plan, decision 2). Contact, ID and KYC
+ * details, member documents, sign-up contact details and the free text of
+ * support cases without money are removed. The member's name and member
+ * number stay, and every money row is kept untouched: the cooperative must
+ * know who it paid, for the legal retention period. Phase D's login closing
+ * can call this inside revocation once the cooperative has settled.
+ */
+export async function redactFormerMemberPersonalData(
+  tx: Prisma.TransactionClient,
+  input: { userId: string; keepSupportCaseId?: string | null }
+) {
+  const { userId } = input
+  const member = await tx.member.findUnique({
+    where: { userId },
+    select: { id: true },
+  })
+  const memberDocuments = member
+    ? (await tx.memberDocument.deleteMany({ where: { memberId: member.id } }))
+        .count
+    : 0
+  if (member)
+    await tx.member.update({
+      where: { id: member.id },
+      data: {
+        email: null,
+        phoneNumber: null,
+        address: null,
+        occupation: null,
+        governmentIdNumber: null,
+        kycDocumentType: null,
+        kycDocumentUrl: null,
+        kycDocumentUploadedAt: null,
+        kycReviewNotes: null,
+      },
+    })
+  const onboardingRequests = (
+    await tx.memberOnboardingRequest.updateMany({
+      where: { userId },
+      data: {
+        email: `deleted-${userId}@users.invalid`,
+        phoneNumber: null,
+        rejectionReason: null,
+      },
+    })
+  ).count
+  const notKept = input.keepSupportCaseId
+    ? { id: { not: input.keepSupportCaseId } }
+    : {}
+  const supportCases = (
+    await tx.supportCase.updateMany({
+      where: {
+        ...notKept,
+        ...supportCaseWithoutMoney,
+        OR: [
+          { openedByUserId: userId },
+          ...(member ? [{ memberId: member.id }] : []),
+        ],
+      },
+      data: {
+        subject: "Support case (details removed)",
+        description: removedAtRequest,
+      },
+    })
+  ).count
+  const supportMessages = (
+    await tx.supportCaseMessage.updateMany({
+      where: {
+        authorUserId: userId,
+        authorType: { not: "system" },
+        supportCase: { is: { ...notKept, ...supportCaseWithoutMoney } },
+      },
+      data: { message: removedAtRequest, attachmentUrl: null },
+    })
+  ).count
+  return {
+    memberProfile: member ? 1 : 0,
+    memberDocuments,
+    onboardingRequests,
+    supportCases,
+    supportMessages,
+  }
+}
+
+/**
+ * Completion step 1 (ADR-20261116 privacy request completion): redact the
+ * person's remaining personal details after their login is closed. Money
+ * records keep their name and member number. Safe to run again: a retry
+ * after a failed confirmation email only refreshes the retention summary.
+ */
+export async function erasePrivacyRequestPersonalData(
+  input: { actorUserId: string; requestId: string; retentionSummary: string },
+  override?: PrismaClient
+) {
+  const retentionSummary = input.retentionSummary.trim()
+  if (retentionSummary.length < 20 || retentionSummary.length > 2000)
+    throw conflict(
+      "Write 20–2000 characters on what was kept and why before finishing."
+    )
+  const db = client(override)
+  return serializable(db, async (tx) => {
+    await requirePrivacyOperator(tx, input.actorUserId)
+    const request = await tx.accountPrivacyRequest.findUnique({
+      where: { id: input.requestId },
+      select: {
+        id: true,
+        tenantId: true,
+        userId: true,
+        supportCaseId: true,
+        status: true,
+        requestedAt: true,
+        accessRevokedAt: true,
+        processingEvidence: true,
+        tenant: { select: { name: true } },
+      },
+    })
+    if (
+      !request?.tenantId ||
+      !request.userId ||
+      request.status !== "processing" ||
+      !request.accessRevokedAt
+    )
+      throw conflict("End their access before finishing the request.")
+    const evidence = evidenceObject(request.processingEvidence)
+    if (
+      !processingNotes(request.processingEvidence).some(
+        (note) => note.category === "external_processors_backups"
+      )
+    )
+      throw conflict(
+        "Write down what outside services and backups did before finishing."
+      )
+    const userId = request.userId
+    const now = new Date()
+    const alreadyErased = evidence.personalDetails === "erased"
+    let erasedCounts = evidence.erasedCounts ?? null
+    if (!alreadyErased) {
+      erasedCounts = await redactFormerMemberPersonalData(tx, {
+        userId,
+        keepSupportCaseId: request.supportCaseId,
+      })
+      await tx.auditLog.create({
+        data: {
+          tenantId: request.tenantId,
+          actorType: "user",
+          actorUserId: input.actorUserId,
+          action: "privacy.personal_data_erased",
+          entityType: "account_privacy_request",
+          entityId: request.id,
+          metadata: erasedCounts,
+          occurredAt: now,
+        },
+      })
+    }
+    await tx.accountPrivacyRequest.update({
+      where: { id: request.id },
+      data: {
+        processingEvidence: {
+          ...evidence,
+          personalDetails: "erased",
+          personalDetailsErasedAt:
+            typeof evidence.personalDetailsErasedAt === "string"
+              ? evidence.personalDetailsErasedAt
+              : now.toISOString(),
+          erasedCounts,
+          sharedFinancialRecords: "kept_with_name_only",
+          processorErasure: "recorded",
+          retentionSummary,
+        },
+      },
+    })
+    return {
+      requestId: request.id,
+      requestedAt: request.requestedAt,
+      tenantName: request.tenant?.name ?? null,
+      contactEmail:
+        typeof evidence.completionContactEmail === "string"
+          ? evidence.completionContactEmail
+          : null,
+      retentionSummary,
+      alreadyErased,
+    }
+  })
+}
+
+/** Completion step 2 failed: the confirmation email did not go out. */
+export async function recordPrivacyCompletionNoticeFailed(
+  input: { actorUserId: string; requestId: string },
+  override?: PrismaClient
+) {
+  const db = client(override)
+  return serializable(db, async (tx) => {
+    await requirePrivacyOperator(tx, input.actorUserId)
+    const request = await tx.accountPrivacyRequest.findUnique({
+      where: { id: input.requestId },
+      select: {
+        id: true,
+        tenantId: true,
+        status: true,
+        processingEvidence: true,
+      },
+    })
+    if (!request?.tenantId || request.status !== "processing")
+      throw conflict("Refresh the privacy request and try again.")
+    await tx.accountPrivacyRequest.update({
+      where: { id: request.id },
+      data: {
+        processingEvidence: {
+          ...evidenceObject(request.processingEvidence),
+          completionNotification: "failed",
+        },
+      },
+    })
+    await tx.auditLog.create({
+      data: {
+        tenantId: request.tenantId,
+        actorType: "user",
+        actorUserId: input.actorUserId,
+        action: "privacy.completion_notice_failed",
+        entityType: "account_privacy_request",
+        entityId: request.id,
+        occurredAt: new Date(),
+      },
+    })
+    return { recorded: true }
+  })
+}
+
+export type PrivacyCompletionConfirmation =
+  | { method: "email" }
+  | { method: "operator"; note: string }
+
+/**
+ * Completion step 3: the person has been told, so the request is done. Marks
+ * it completed, drops the contact email kept only for this notice, closes
+ * the support case and writes the audit entry.
+ */
+export async function completePrivacyRequest(
+  input: {
+    actorUserId: string
+    requestId: string
+    confirmation: PrivacyCompletionConfirmation
+  },
+  override?: PrismaClient
+) {
+  const operatorNote =
+    input.confirmation.method === "operator"
+      ? input.confirmation.note.trim()
+      : null
+  if (
+    operatorNote !== null &&
+    (operatorNote.length < 20 || operatorNote.length > 2000)
+  )
+    throw conflict("Write 20–2000 characters on how you told them.")
+  const db = client(override)
+  return serializable(db, async (tx) => {
+    await requirePrivacyOperator(tx, input.actorUserId)
+    const request = await tx.accountPrivacyRequest.findUnique({
+      where: { id: input.requestId },
+      select: {
+        id: true,
+        tenantId: true,
+        supportCaseId: true,
+        status: true,
+        requestedAt: true,
+        processingEvidence: true,
+      },
+    })
+    if (!request?.tenantId || request.status !== "processing")
+      throw conflict("Refresh the privacy request and try again.")
+    const evidence = evidenceObject(request.processingEvidence)
+    if (evidence.personalDetails !== "erased")
+      throw conflict("Erase their personal details before finishing.")
+    const now = new Date()
+    const dueAt = privacyRequestDueAt(request.requestedAt)
+    const withinResponseWindow = now.getTime() <= dueAt.getTime()
+    const retained =
+      typeof evidence.retentionSummary === "string"
+        ? evidence.retentionSummary
+        : "No retention summary was recorded."
+    const completionSummary = [
+      "Personal details were deleted or anonymised.",
+      "The cooperative’s money records are kept under the person’s name and member number, without contact or ID details.",
+      `Kept: ${retained}`,
+      input.confirmation.method === "email"
+        ? "The person was told by email."
+        : "The person was told another way, recorded by the operator.",
+    ].join(" ")
+    const { completionContactEmail: _dropped, ...kept } = evidence
+    await tx.accountPrivacyRequest.update({
+      where: { id: request.id },
+      data: {
+        status: "completed",
+        completedAt: now,
+        completionSummary,
+        processingEvidence: {
+          ...kept,
+          completionNotification:
+            input.confirmation.method === "email"
+              ? "email_sent"
+              : "operator_recorded",
+          ...(operatorNote ? { completionNotificationNote: operatorNote } : {}),
+          completedWithinResponseWindow: withinResponseWindow,
+        },
+      },
+    })
+    if (request.supportCaseId) {
+      await tx.supportCaseMessage.create({
+        data: {
+          tenantId: request.tenantId,
+          supportCaseId: request.supportCaseId,
+          authorUserId: null,
+          authorType: "system",
+          message:
+            "The privacy request is complete: contact, ID and other personal details were erased, money records are kept under the member's name for the legal period, and the person was told.",
+        },
+      })
+      await tx.supportCase.update({
+        where: { id: request.supportCaseId },
+        data: {
+          status: "closed",
+          resolvedAt: now,
+          closedAt: now,
+          resolutionSummary: "Privacy request completed.",
+        },
+      })
+    }
+    await tx.auditLog.create({
+      data: {
+        tenantId: request.tenantId,
+        actorType: "user",
+        actorUserId: input.actorUserId,
+        action: "privacy.request_completed",
+        entityType: "account_privacy_request",
+        entityId: request.id,
+        metadata: {
+          confirmation: input.confirmation.method,
+          dueAt: dueAt.toISOString(),
+          withinResponseWindow,
+        },
+        occurredAt: now,
+      },
+    })
+    return { completed: true, completedAt: now, withinResponseWindow }
   })
 }
 

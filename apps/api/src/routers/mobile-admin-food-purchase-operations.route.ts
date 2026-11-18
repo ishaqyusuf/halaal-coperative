@@ -209,6 +209,8 @@ export const mobileAdminFoodPurchaseOperationsProcedures = {
           cursor: z.string().max(2_000).optional(),
           cycleId: z.string().uuid().optional(),
           lane: z.enum(mobileAdminFoodPurchaseLanes),
+          // T21: applications page only (with cycleId); older installs omit it.
+          limit: z.number().int().min(1).max(50).optional(),
           search: z.string().trim().max(120).optional(),
         })
       )

@@ -41,6 +41,14 @@ const operatorCalls = {
         reviewedMemberships: [],
       },
     ],
+    [
+      "complete",
+      {
+        requestId: id,
+        confirmed: true,
+        retentionSummary: "Contributions and repayments kept for audit.",
+      },
+    ],
   ],
   refunds: [
     ["queue", { direction: "forward" }],

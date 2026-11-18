@@ -2070,55 +2070,6 @@ export class ProductionQaAndroidDriver {
     return screenshots
   }
 
-  async captureMemberCapacityBaseline() {
-    await this.waitForNode({ contentDescription: "Admin overview tab" })
-    await this.tapNode({ contentDescription: "Admin members tab" })
-    await this.waitForNode({ text: "Members" }, 25_000)
-    await this.waitForNode({ contentDescription: "Create member" }, 25_000)
-
-    const screenshots = [
-      await this.screenshot("01-current-member-directory.png"),
-    ]
-
-    await this.tapNode({ contentDescription: "Create member" })
-    await this.waitForNode(
-      { contentDescription: "Close Create member" },
-      25_000
-    )
-    screenshots.push(await this.screenshot("02-current-create-member-form.png"))
-
-    return screenshots
-  }
-
-  async captureMemberCapacityRecovery() {
-    await this.waitForNode({ contentDescription: "Admin overview tab" })
-    await this.tapNode({ contentDescription: "Admin members tab" })
-    await this.waitForNode({ text: "Members" }, 25_000)
-    await this.waitForNode({ text: "Member capacity reached" }, 25_000)
-    await this.waitForNode({ contentDescription: "View plan" }, 25_000)
-
-    const directory = await this.dumpUi()
-    if (
-      findAndroidUiNode(directory, { contentDescription: "Create member" }) ||
-      findAndroidUiNode(directory, {
-        contentDescription: "Close Create member",
-      })
-    ) {
-      throw new Error(
-        "The at-capacity Android directory still exposed member creation."
-      )
-    }
-
-    const screenshots = [
-      await this.screenshot("01-member-capacity-recovery.png"),
-    ]
-    await this.tapNode({ contentDescription: "View plan" })
-    await this.waitForNode({ text: "Plan & billing" }, 25_000)
-    screenshots.push(await this.screenshot("02-plan-and-billing-recovery.png"))
-
-    return screenshots
-  }
-
   async captureOfflineProcurementBaseline() {
     const launched = (
       await this.adb([

@@ -8,6 +8,7 @@ import {
   validateLegalAcknowledgement,
 } from "./legal-publication"
 import {
+  policyPublications,
   publicPolicies,
   type PolicyPublication,
   type PublicPolicy,
@@ -341,5 +342,37 @@ describe("source publication", () => {
     expect(
       bundle.documents.every((document) => document.documentVersion === "2026-11-16")
     ).toBe(true)
+  })
+
+  it("the four owner-approved pages of 18 November 2026 are effective", () => {
+    const now = new Date("2026-11-18T08:00:00.000Z")
+    for (const page of [
+      "support",
+      "delete-account",
+      "cooperative-disclosures",
+    ] as const) {
+      const publication = policyPublications[page]
+      expect(publication.status).toBe("published")
+      expect(publication.version).toBe("2026-11-18")
+      expect(
+        isApprovedPublicPolicy(page, publication, publicPolicies[page], now)
+      ).toBe(true)
+    }
+  })
+
+  it("the billing policy is republished with the ₦50 seat fee", () => {
+    const publication = policyPublications["billing-policy"]
+    expect(publication.version).toBe("2026-11-18-seat-50")
+    expect(
+      isApprovedPublicPolicy(
+        "billing-policy",
+        publication,
+        publicPolicies["billing-policy"],
+        new Date("2026-11-18T13:00:00.000Z")
+      )
+    ).toBe(true)
+    expect(publicPolicies["billing-policy"].sections[0]?.body).toContain(
+      "₦50 per seat"
+    )
   })
 })

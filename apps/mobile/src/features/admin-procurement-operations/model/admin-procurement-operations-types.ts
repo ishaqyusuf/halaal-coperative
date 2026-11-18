@@ -45,13 +45,31 @@ export type ProcurementOperation = {
   vendorName: string | null
 }
 
+type ProcurementReadCache = {
+  ageMs: number
+  cachedAt: string
+  scope: string
+  status: "live" | "stale"
+}
+
 export type ProcurementWorkspace = {
+  cache?: ProcurementReadCache
   capabilities: ProcurementCapabilities
   currencyCode: string
   generatedAt: string
   items: ProcurementOperation[]
   lane: ProcurementLane
-  summary: {
+  nextCursor?: string | null
+  total?: number
+}
+
+export type ProcurementSummary = {
+  cache?: ProcurementReadCache
+  currencyCode: string
+  generatedAt: string
+} & ProcurementSummaryCounts
+
+type ProcurementSummaryCounts = {
     activeRequests: number
     approvedRequests: number
     dueScheduleItems: number
@@ -62,7 +80,6 @@ export type ProcurementWorkspace = {
     totalRequests: number
     totalApprovedCost: number
     totalRequestedCost: number
-  }
 }
 
 export type ProcurementCommandResult = {

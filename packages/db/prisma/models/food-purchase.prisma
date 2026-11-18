@@ -39,6 +39,11 @@ model FoodPurchaseApplication {
   requestNotes                           String?                       @map("request_notes")
   requestedAmount                        Decimal                       @map("requested_amount") @db.Decimal(18, 2)
   approvedAmount                         Decimal?                      @map("approved_amount") @db.Decimal(18, 2)
+  // Part of approvedAmount (the member's price) that is the cooperative's profit.
+  approvedMarkup                         Decimal                       @default(0) @map("approved_markup") @db.Decimal(18, 2)
+  // When the goods were given out and the receivable posted, and by whom.
+  goodsReleasedAt                        DateTime?                     @map("goods_released_at") @db.Timestamptz(6)
+  goodsReleasedByUserId                  String?                       @map("goods_released_by_user_id") @db.Uuid
   requestedPaybackMonths                 Int                           @default(1) @map("requested_payback_months")
   approvedPaybackMonths                  Int?                          @map("approved_payback_months")
   policyMaximumPaybackMonths             Int                           @default(1) @map("policy_maximum_payback_months")

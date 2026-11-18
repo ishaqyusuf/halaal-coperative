@@ -2,6 +2,7 @@ import { parseShortcutId } from "./shortcut-intent"
 import {
   findShortcutAssociation,
   findShortcutById,
+  hasShortcutDeferral,
   type ShortcutAssociation,
   type ShortcutRegistry,
 } from "./shortcut-state"
@@ -38,14 +39,15 @@ export type ShortcutLaunchDecision =
 
 /**
  * Decides what a shortcut tap may do before any context change. A shortcut is
- * a navigation preference: it never signs in, never adopts another account's
- * mapping and never switches tenant from cached metadata while offline.
+ * a navigation preference for a cooperative on this phone: it never signs in
+ * by itself and never switches tenant from cached metadata while offline.
+ * Whoever is signed in, the ordinary membership switch decides access.
  */
 export function decideShortcutLaunch(input: {
   authInitializing: boolean
   locked: boolean
   online: boolean
-  profile: { tenantId: string; userId: string } | null
+  profile: { tenantId: string } | null
   registry: ShortcutRegistry
   shortcutId: unknown
   variant: string
@@ -59,7 +61,6 @@ export function decideShortcutLaunch(input: {
   const association = findShortcutById(input.registry, shortcutId)
   if (
     !association ||
-    association.userId !== input.profile.userId ||
     association.variant !== input.variant ||
     association.status === "disabled"
   ) {
@@ -76,12 +77,12 @@ export type ShortcutSwitchDecision =
   | { kind: "choose-role"; memberships: WorkspaceMembership[] }
 
 /**
- * Picks the membership to enter from fresh server discovery. A saved
- * preference is used only while still authorized; several roles without one
- * need an explicit choice rather than inferring privilege from an icon.
+ * Picks the membership to enter from fresh server discovery. The shortcut
+ * belongs to the cooperative, not a role, so several roles need an explicit
+ * choice rather than inferring privilege from an icon.
  */
 export function resolveShortcutSwitch(
-  association: ShortcutAssociation,
+  association: Pick<ShortcutAssociation, "tenantId">,
   workspaces: readonly CooperativeWorkspace[]
 ): ShortcutSwitchDecision {
   const workspace = workspaces.find(
@@ -90,10 +91,6 @@ export function resolveShortcutSwitch(
   if (!workspace || workspace.memberships.length === 0) {
     return { kind: "unavailable" }
   }
-  const preferred = workspace.memberships.find(
-    (item) => item.id === association.membershipId
-  )
-  if (preferred) return { kind: "switch", membershipId: preferred.id }
   if (workspace.memberships.length === 1) {
     return { kind: "switch", membershipId: workspace.memberships[0]!.id }
   }
@@ -119,20 +116,27 @@ export function shouldOfferCooperativeShortcut(input: {
   if (!input.accessAllowed || input.locked || input.pathname !== "/") {
     return false
   }
+  // Once a cooperative has a shortcut on this phone, nobody is asked again;
+  // "Not now" only quiets the offer for the account that said it.
   return (
     findShortcutAssociation(input.registry, {
       tenantId: input.profile.tenantId,
+      variant: input.variant,
+    }) === null &&
+    !hasShortcutDeferral(input.registry, {
+      tenantId: input.profile.tenantId,
       userId: input.profile.userId,
       variant: input.variant,
-    }) === null
+    })
   )
 }
 
 export const PENDING_SHORTCUT_TTL_MS = 10 * 60 * 1000
 
 /**
- * Short-lived, in-memory destination that survives the ordinary sign-in flow.
- * Each launch is consumed once; logout, cancellation and expiry clear it.
+ * Short-lived, in-memory destination that survives the ordinary sign-in flow
+ * and brands the sign-in screen with its cooperative. Each launch is consumed
+ * once; "Use another cooperative" and expiry clear it.
  */
 export function createPendingShortcutStore(now: () => number = Date.now) {
   let pending: { at: number; shortcutId: string } | null = null
@@ -217,15 +221,15 @@ export function describeShortcutState(input: {
       return {
         actions: ["refresh", "disable"],
         description:
-          "Opens HalaalVest in this cooperative. The HalaalVest icon still works as usual.",
+          "Opens HalaalVest in this cooperative, and stays after you sign out. The HalaalVest icon still works as usual.",
         title: "Added to your home screen",
       }
     case "disabled":
       return {
         actions: ["add"],
         description:
-          "Shortcut disabled. You can remove its tile from your launcher.",
-        title: "Shortcut disabled",
+          "Shortcut turned off. Add it again, or remove its tile from your launcher.",
+        title: "Shortcut turned off",
       }
     default:
       return {
@@ -238,13 +242,13 @@ export function describeShortcutState(input: {
 }
 
 export const SHORTCUT_DISABLED_MESSAGE =
-  "Sign in to HalaalVest to add this shortcut again."
+  "This shortcut is off. Open HalaalVest to add it again."
 
 export const SHORTCUT_REMOVAL_INSTRUCTIONS =
   "To remove a tile, long-press it on your home screen and choose Remove. This does not uninstall HalaalVest."
 
 export const SHORTCUT_PRIVACY_NOTICE =
-  "The cooperative name and icon are visible to anyone who uses this phone's launcher, and the launcher may keep them after you sign out."
+  "The shortcut stays after you sign out. Anyone using this phone can see the cooperative's name and icon, and tapping it opens that cooperative's sign-in."
 
 export function formatMembershipRole(role: string) {
   return role

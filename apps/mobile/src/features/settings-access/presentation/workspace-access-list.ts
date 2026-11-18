@@ -1,38 +1,108 @@
 import type { AdminAccess } from "@/features/admin-reports-access/public/admin-access-types"
 
+type AccessUser = AdminAccess["users"][number]
+type AccessRole = AdminAccess["roles"][number]
+
 export type WorkspaceAccessItem =
-  | { id: "users-heading" | "roles-heading"; type: "heading"; title: string; count: string }
-  | { id: string; type: "user"; user: AdminAccess["users"][number] }
-  | { id: string; type: "role"; role: AdminAccess["roles"][number] }
-  | { id: "users-empty" | "roles-empty"; type: "empty"; title: string }
+  | { id: string; type: "heading"; title: string }
+  | {
+      id: string
+      type: "user"
+      user: AccessUser
+      first: boolean
+      last: boolean
+    }
+  | {
+      id: string
+      type: "role"
+      role: AccessRole
+      first: boolean
+      last: boolean
+    }
 
 export function formatAccessCount(count: number, singular: string) {
   return `${count} ${singular}${count === 1 ? "" : "s"}`
 }
 
-export function formatAccessMemberships(user: AdminAccess["users"][number]) {
+export function isStaffAccessUser(user: AccessUser) {
+  return user.memberships.some((membership) => membership.role !== "member")
+}
+
+export function formatAccessMemberships(user: AccessUser) {
   if (!user.memberships.length) {
     return user.defaultRoleLabel
       ? `${user.defaultRoleLabel} (default)`
       : "No role assigned"
   }
-  const roles = user.memberships.map(
-    membership => `${membership.label}${membership.isDefault ? " (default)" : ""}`
-  )
-  if (!user.memberships.some(membership => membership.isDefault)) {
-    roles.push(user.defaultRoleLabel ? `${user.defaultRoleLabel} (default)` : "No default role")
-  }
-  return roles.join(" · ")
+  return user.memberships
+    .map(
+      (membership) =>
+        `${membership.label}${membership.isDefault ? " (default)" : ""}`
+    )
+    .join(" · ")
 }
 
-export function buildWorkspaceAccessItems(access: AdminAccess | null): WorkspaceAccessItem[] {
-  if (!access) return []
-  return [
-    { id: "users-heading", type: "heading", title: "Users and roles", count: formatAccessCount(access.users.length, "user") },
-    ...access.users.map(user => ({ id: `user:${user.id}`, type: "user" as const, user })),
-    ...(access.users.length ? [] : [{ id: "users-empty", type: "empty", title: "No workspace users" } as const]),
-    { id: "roles-heading", type: "heading", title: "Role coverage", count: formatAccessCount(access.roles.length, "role") },
-    ...access.roles.map(role => ({ id: `role:${role.role}`, type: "role" as const, role })),
-    ...(access.roles.length ? [] : [{ id: "roles-empty", type: "empty", title: "No workspace roles" } as const]),
+export function buildWorkspaceAccessItems({
+  roles,
+  staffCount,
+  users,
+  workspaceCount,
+}: {
+  roles: readonly AccessRole[]
+  staffCount?: number
+  users: readonly AccessUser[]
+  workspaceCount?: number
+}): WorkspaceAccessItem[] {
+  const staff: AccessUser[] = []
+  const members: AccessUser[] = []
+  for (const user of users)
+    (isStaffAccessUser(user) ? staff : members).push(user)
+
+  const items: WorkspaceAccessItem[] = []
+  const groups = [
+    { key: "staff", title: "Staff", users: staff, count: staffCount },
+    {
+      key: "members",
+      title: "Members",
+      users: members,
+      count:
+        workspaceCount !== undefined && staffCount !== undefined
+          ? workspaceCount - staffCount
+          : undefined,
+    },
   ]
+  for (const group of groups) {
+    if (!group.users.length) continue
+    items.push({
+      id: `${group.key}-heading`,
+      type: "heading",
+      title: `${group.title} · ${group.count ?? group.users.length}`,
+    })
+    group.users.forEach((user, index) =>
+      items.push({
+        id: `user:${user.id}`,
+        type: "user",
+        user,
+        first: index === 0,
+        last: index === group.users.length - 1,
+      })
+    )
+  }
+
+  const visibleRoles = roles.filter(
+    (role) => role.role !== "super_admin" || role.usersCount > 0
+  )
+  if (visibleRoles.length) {
+    items.push({ id: "roles-heading", type: "heading", title: "Roles" })
+    visibleRoles.forEach((role, index) =>
+      items.push({
+        id: `role:${role.role}`,
+        type: "role",
+        role,
+        first: index === 0,
+        last: index === visibleRoles.length - 1,
+      })
+    )
+  }
+  return items
 }

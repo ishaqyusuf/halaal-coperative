@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { usePathname } from "next/navigation"
-import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import type { CooperativeRole } from "@halaalvest/auth/roles"
 import {
   canAccessDashboardPath,
@@ -26,7 +25,6 @@ export function DashboardShellClient({
   isPlatformOwner = false,
   role,
   shouldRedirectAdminToSetup = false,
-  showLegalReminder = false,
   showSetupNav = false,
   tenantName,
   userName,
@@ -38,7 +36,6 @@ export function DashboardShellClient({
   role: CooperativeRole | null
   /** Setup-gate flag from the layout; locks destinations it would redirect. */
   shouldRedirectAdminToSetup?: boolean
-  showLegalReminder?: boolean
   /** Lead the sidebar with Getting started until the cooperative is live. */
   showSetupNav?: boolean
   tenantName: string
@@ -89,21 +86,6 @@ export function DashboardShellClient({
           userName={userName}
         />
         <DashboardPageFrame>
-          {showLegalReminder && pathname !== "/settings/platform-documents" ? (
-            <div
-              className="rounded-lg border border-border bg-card px-4 py-3 text-sm"
-              role="status"
-            >
-              Current platform terms and privacy notice are ready for your
-              review. You can keep using your workspace.{" "}
-              <Link
-                className="font-semibold text-primary underline underline-offset-4"
-                href="/settings/platform-documents"
-              >
-                Review platform documents
-              </Link>
-            </div>
-          ) : null}
           <DashboardRouteTitleProvider value={{ isSectionRoot, pageTitle }}>
             {children}
           </DashboardRouteTitleProvider>

@@ -1,5 +1,6 @@
 import type {
   LoanStatus,
+  Prisma,
   PrismaClient,
   RepaymentScheduleStatus,
 } from "../../generated/prisma/client"
@@ -11,7 +12,6 @@ import {
   quoteApplicableCharges,
   type ChargeQuote,
 } from "./charges"
-import { getDashboardMetrics } from "./dashboard"
 import {
   assertLoanRequestIntakeCapacity,
   getDeployableFundsSnapshot,
@@ -376,7 +376,7 @@ function buildLoanRequestPageQuery(
 function toLoanRequestPage<
   TRow extends {
     id: string
-    member: { fullName: string }
+    member?: { fullName: string }
     requestedAt: Date
     status: string
   },
@@ -385,7 +385,7 @@ function toLoanRequestPage<
   const data = hasNextPage ? rows.slice(0, query.pageSize) : rows
   const last = data.at(-1)
   return {
-    data: toPlainLoanDto(data),
+    data,
     meta: {
       cursor:
         hasNextPage && last
@@ -395,7 +395,7 @@ function toLoanRequestPage<
               field: query.sortField,
               value:
                 query.sortField === "memberName"
-                  ? last.member.fullName
+                  ? last.member!.fullName
                   : query.sortField === "status"
                     ? last.status
                     : last.requestedAt.toISOString(),
@@ -459,7 +459,75 @@ export async function listLoanRequestsPage(
     take: query.pageSize + 1,
   })
 
+  return toPlainLoanDto(toLoanRequestPage(rows, query))
+}
+
+const memberLoanRequestSelect = {
+  availablePoolSnapshot: true,
+  charges: {
+    select: {
+      amount: true,
+      chargeDefinition: { select: { code: true, name: true } },
+      collectionMode: true,
+      id: true,
+      status: true,
+    },
+    orderBy: { assessedAt: "asc" },
+  },
+  eligibleAmountSnapshot: true,
+  estimatedMonthlyServicing: true,
+  extraMonthlySavingsAmount: true,
+  guarantorApprovals: {
+    select: {
+      guarantorMember: { select: { fullName: true, memberNumber: true } },
+      id: true,
+      respondedAt: true,
+      status: true,
+    },
+    orderBy: { requestedAt: "asc" },
+  },
+  id: true,
+  loanProduct: { select: { code: true, name: true } },
+  purpose: true,
+  requestedAmount: true,
+  requestedAt: true,
+  requestedTermMonths: true,
+  reviewNotes: true,
+  status: true,
+} satisfies Prisma.LoanRequestSelect
+
+export async function listMemberLoanRequestsPage(
+  input: {
+    tenantId: string
+    memberId: string
+    cursor?: string | null
+    pageSize: number
+  },
+  prisma: PrismaClient
+) {
+  const query = buildLoanRequestPageQuery(input.tenantId, {
+    memberId: input.memberId,
+    cursor: input.cursor,
+    pageSize: input.pageSize,
+  })
+  const rows = await prisma.loanRequest.findMany({
+    where: query.where,
+    orderBy: query.orderBy,
+    take: query.pageSize + 1,
+    select: memberLoanRequestSelect,
+  })
+
   return toLoanRequestPage(rows, query)
+}
+
+export function getMemberLoanRequestDetail(
+  input: { id: string; memberId: string; tenantId: string },
+  prisma: PrismaClient
+) {
+  return prisma.loanRequest.findFirst({
+    where: { id: input.id, memberId: input.memberId, tenantId: input.tenantId },
+    select: memberLoanRequestSelect,
+  })
 }
 
 /**
@@ -500,7 +568,7 @@ export async function listLoanRequestRowsPage(
     take: query.pageSize + 1,
   })
 
-  return toLoanRequestPage(rows, query)
+  return toPlainLoanDto(toLoanRequestPage(rows, query))
 }
 
 /** Detail query intentionally selects no staff/guarantor email fields and can be
@@ -1114,7 +1182,7 @@ function calculateEstimatedMonthlyServicing(
   return Number((requestedAmount / requestedTermMonths).toFixed(2))
 }
 
-async function getMemberFinancingEligibilitySavingsBase(input: {
+export async function getMemberFinancingEligibilitySavingsBase(input: {
   memberId: string
   prisma: PrismaClient
   specialSavingsCountsForEligibility: boolean
@@ -1150,8 +1218,18 @@ async function getMemberFinancingEligibilitySavingsBase(input: {
   }, 0)
 }
 
+export function calculateLoanEligibilityLimit(
+  savingsBase: number,
+  policyMultiple: number,
+  productMultiple: number
+) {
+  return savingsBase * Math.min(policyMultiple, productMultiple)
+}
+
 export type SubmitLoanRequestInput = {
   actorUserId: string
+  /** Client-generated idempotency key for mobile submissions. */
+  clientRequestId?: string
   /** Mobile member's reviewed charge schedule; dashboard submissions may omit it. */
   expectedChargeQuoteHash?: string
   extraMonthlySavingsAmount?: number
@@ -1209,7 +1287,14 @@ export function getLoanRequestChargeQuoteHash(
 }
 
 export async function quoteLoanRequest(
-  input: Omit<SubmitLoanRequestInput, "actorUserId" | "guarantorMemberIds">,
+  input: Omit<
+    SubmitLoanRequestInput,
+    "actorUserId" | "guarantorMemberIds" | "memberId"
+  > &
+    (
+      | { memberId: string; memberUserId?: never }
+      | { memberId?: never; memberUserId: string }
+    ),
   prismaOverride?: PrismaClient
 ): Promise<LoanRequestQuote> {
   const prisma = prismaOverride ?? createPrismaClient()
@@ -1226,10 +1311,16 @@ export async function quoteLoanRequest(
     prisma
   )
 
-  const [member, product, policy, metrics, cycleHealth, charges, writeAccess] =
+  const [member, product, policy, cycleHealth, charges, writeAccess] =
     await Promise.all([
       prisma.member.findFirst({
-        where: { id: input.memberId, tenantId: input.tenantId },
+        where: {
+          tenantId: input.tenantId,
+          ...(input.memberUserId !== undefined
+            ? { userId: input.memberUserId }
+            : { id: input.memberId }),
+        },
+        select: { id: true, totalSavingsSnapshot: true },
       }),
       prisma.loanProduct.findFirst({
         where: {
@@ -1241,9 +1332,6 @@ export async function quoteLoanRequest(
       }),
       prisma.tenantPolicy.findUnique({
         where: { tenantId: input.tenantId },
-      }),
-      getDashboardMetrics(input.tenantId, prisma, {
-        deployableFunds: deployableFundsSnapshot,
       }),
       getMonthlyFinancingCycleHealth({ tenantId: input.tenantId }, prisma, {
         deployableFunds: deployableFundsSnapshot,
@@ -1261,14 +1349,21 @@ export async function quoteLoanRequest(
       getTenantMigrationWriteAccess(input.tenantId, prisma),
     ])
 
-  if (!member) throw ExpectedQueryError.notFound("Member not found")
+  if (!member) {
+    if (input.memberUserId !== undefined) {
+      throw ExpectedQueryError.precondition(
+        "Member profile needs linking before quoting financing requests."
+      )
+    }
+    throw ExpectedQueryError.notFound("Member not found")
+  }
   if (!product) throw ExpectedQueryError.notFound("Loan product not found")
 
   const specialSavingsCountsForEligibility =
     policy?.specialSavingsCountsForEligibility ?? true
   const eligibilitySavingsBase = await getMemberFinancingEligibilitySavingsBase(
     {
-      memberId: input.memberId,
+      memberId: member.id,
       prisma,
       specialSavingsCountsForEligibility,
       tenantId: input.tenantId,
@@ -1277,8 +1372,11 @@ export async function quoteLoanRequest(
   )
   const policyMultiple = Number(policy?.loanEligibilityMultiple ?? 2)
   const productMultiple = Number(product.maxSavingsMultiple)
-  const eligibleAmount =
-    eligibilitySavingsBase * Math.min(policyMultiple, productMultiple)
+  const eligibleAmount = calculateLoanEligibilityLimit(
+    eligibilitySavingsBase,
+    policyMultiple,
+    productMultiple
+  )
   const estimatedMonthlyServicing = calculateEstimatedMonthlyServicing(
     requestedAmount,
     input.requestedTermMonths
@@ -1287,7 +1385,7 @@ export async function quoteLoanRequest(
     product.loanType === "quick"
       ? await prisma.loan.count({
           where: {
-            memberId: input.memberId,
+            memberId: member.id,
             status: { in: ["approved", "disbursed", "active"] },
             tenantId: input.tenantId,
           },
@@ -1359,7 +1457,7 @@ export async function quoteLoanRequest(
   }))
 
   return {
-    availablePool: Number(metrics.availablePool),
+    availablePool: cycleHealth.deployableFunds.availablePoolAmount,
     blockers,
     canSubmit: blockers.length === 0,
     capacityRemaining: capacity.remainingAmount,
@@ -1428,7 +1526,7 @@ export async function submitLoanRequest(
     )
   }
 
-  const [member, loanProduct, policy, metrics] = await Promise.all([
+  const [member, loanProduct, policy, funds] = await Promise.all([
     prisma.member.findFirst({
       where: { id: input.memberId, tenantId: input.tenantId },
     }),
@@ -1443,7 +1541,7 @@ export async function submitLoanRequest(
     prisma.tenantPolicy.findUnique({
       where: { tenantId: input.tenantId },
     }),
-    getDashboardMetrics(input.tenantId, prisma),
+    getDeployableFundsSnapshot({ tenantId: input.tenantId }, prisma),
   ])
 
   if (!member) throw ExpectedQueryError.notFound("Member not found")
@@ -1499,8 +1597,11 @@ export async function submitLoanRequest(
   )
   const policyMultiple = Number(policy?.loanEligibilityMultiple ?? 2)
   const productMultiple = Number(loanProduct.maxSavingsMultiple)
-  const eligibleAmount =
-    eligibilitySavingsBase * Math.min(policyMultiple, productMultiple)
+  const eligibleAmount = calculateLoanEligibilityLimit(
+    eligibilitySavingsBase,
+    policyMultiple,
+    productMultiple
+  )
 
   if (requestedAmount > eligibleAmount) {
     throw ExpectedQueryError.validation(
@@ -1568,6 +1669,7 @@ export async function submitLoanRequest(
       }
       const request = await tx.loanRequest.create({
         data: {
+          id: input.clientRequestId,
           tenantId: input.tenantId,
           memberId: input.memberId,
           loanProductId: input.loanProductId,
@@ -1577,7 +1679,7 @@ export async function submitLoanRequest(
           estimatedMonthlyServicing,
           extraMonthlySavingsAmount,
           eligibleAmountSnapshot: eligibleAmount,
-          availablePoolSnapshot: metrics.availablePool,
+          availablePoolSnapshot: funds.availablePoolAmount,
           requestedAt,
           purpose: input.purpose,
           status: "submitted",
@@ -1636,7 +1738,7 @@ export async function submitLoanRequest(
           entityType: "LoanRequest",
           entityId: request.id,
           metadata: {
-            availablePool: metrics.availablePool,
+            availablePool: funds.availablePoolAmount,
             capacity: capacityCheck,
             eligibleAmount,
             eligibilitySavingsBase,
@@ -1768,7 +1870,7 @@ export async function respondMemberLoanGuarantorApproval(
   input: {
     actorUserId: string
     guarantorApprovalId: string
-    guarantorMemberId: string
+    guarantorMemberId?: string
     notes?: string
     status: "approved" | "rejected"
     tenantId: string
@@ -1784,21 +1886,13 @@ export async function respondMemberLoanGuarantorApproval(
     async (tx) => {
       const existingApproval = await tx.loanGuarantorApproval.findFirst({
         where: {
-          guarantorMemberId: input.guarantorMemberId,
+          ...(input.guarantorMemberId
+            ? { guarantorMemberId: input.guarantorMemberId }
+            : { guarantorMember: { userId: input.actorUserId, tenantId: input.tenantId } }),
           id: input.guarantorApprovalId,
           tenantId: input.tenantId,
         },
-        include: {
-          guarantorMember: {
-            select: {
-              email: true,
-              fullName: true,
-              id: true,
-              memberNumber: true,
-            },
-          },
-          loanRequest: true,
-        },
+        select: { id: true, status: true, loanRequest: { select: { status: true } } },
       })
 
       if (!existingApproval) {
@@ -1836,6 +1930,7 @@ export async function respondMemberLoanGuarantorApproval(
           },
           loanRequest: {
             include: {
+              loanProduct: { select: { name: true } },
               member: {
                 select: {
                   fullName: true,
@@ -1845,6 +1940,7 @@ export async function respondMemberLoanGuarantorApproval(
               },
             },
           },
+          requestedByUser: { select: { fullName: true } },
           respondedByUser: {
             select: { id: true, fullName: true, email: true },
           },

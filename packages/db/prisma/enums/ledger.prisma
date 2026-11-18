@@ -15,6 +15,8 @@ enum LedgerTransactionType {
   loan_repayment
   dividend
   adjustment
+  member_purchase_release
+  member_purchase_repayment
 }
 
 enum EntryDirection {

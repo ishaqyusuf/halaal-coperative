@@ -67,4 +67,19 @@ describe("cooperative shortcuts native module contract", () => {
     expect(registry).toContain(`"${SHORTCUT_DISABLED_MESSAGE}"`)
     expect(registry).toContain(".commit()")
   })
+
+  test("stamps the cooperative in launcher extras, never in the intent", () => {
+    const build = nativeModule.slice(
+      nativeModule.indexOf("private fun buildShortcut(")
+    )
+    expect(build).toContain("setExtras(")
+    expect(build).toContain("putString(EXTRA_TENANT_ID, spec.tenantId)")
+    expect(build).toContain("TENANT_ID_PATTERN.matches(spec.tenantId)")
+    // The URI stays opaque: the id only.
+    expect(build).toContain("cooperative-shortcut/${spec.id}$")
+    const listPinned = nativeModule.slice(
+      nativeModule.indexOf('AsyncFunction("listPinned")')
+    )
+    expect(listPinned).toContain("getString(EXTRA_TENANT_ID)")
+  })
 })

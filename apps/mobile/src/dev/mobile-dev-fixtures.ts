@@ -60,9 +60,11 @@ import type {
 import type {
   MobileMemberActivityKind,
   MobileMemberActivityPage,
+  MobileMemberActivityRow,
   MobileMemberHome,
   MobileMemberStatement,
   MemberStatementExportPayload,
+  MobileStatementActivityCategory,
 } from "@/features/member-core/model/member-core-types"
 import type {
   MobileMemberShareApplication,
@@ -73,12 +75,6 @@ import type {
   MobileSupportCase,
   MobileSupportCreateInput,
 } from "@/features/support/model/member-support-types"
-import type {
-  MobilePlanChangeIntent,
-  MobileSubscriptionPlan,
-  MobileSubscriptionPlanCode,
-  MobileSubscriptionSnapshot,
-} from "@/lib/mobile-subscription-api"
 
 const generatedAt = "2026-08-11T12:00:00.000Z"
 const member = {
@@ -101,6 +97,15 @@ const memberSections: Record<MobileMemberSectionKey, MobileMemberSection> = {
     generatedAt,
     key: "commitments",
     rows: [
+      {
+        detail: "Started 15 Jan 2024",
+        format: "currency",
+        interval: "Monthly",
+        key: "plan-monthly",
+        label: "Monthly savings",
+        status: "Active",
+        value: 60000,
+      },
       {
         detail: "August 2026 monthly commitment",
         format: "currency",
@@ -379,33 +384,61 @@ let financingRequests: MobileMemberFinancingRequest[] = [
 
 let procurementRequests: MobileMemberProcurementRequest[] = [
   {
-    approvedCost: 315000,
-    approvedMonthlyRepayment: 35000,
-    approvedRepaymentMonths: 9,
-    estimatedMonthlyRepayment: 35000,
+    approvedCost: 240000,
+    approvedMonthlyRepayment: 30000,
+    approvedRepaymentMonths: 8,
+    estimatedMonthlyRepayment: 30000,
     id: "procurement-dev-1",
-    itemDescription: "Energy-efficient freezer for retail stock.",
-    itemName: "Chest freezer",
-    outstandingAmount: 245000,
-    purchasedAt: "2026-05-20T00:00:00.000Z",
-    purchaseReference: "PO-HVC-2026-104",
-    requestedAt: "2026-05-05T09:00:00.000Z",
-    requestedCost: 320000,
-    requestedRepaymentMonths: 9,
+    itemDescription: "Juki DDL-8700 for my tailoring shop in Tudun Wada.",
+    itemName: "Industrial sewing machine",
+    outstandingAmount: 150000,
+    purchasedAt: "2026-07-20T00:00:00.000Z",
+    purchaseReference: "Receipt KE-55102",
+    requestedAt: "2026-07-03T09:00:00.000Z",
+    requestedCost: 240000,
+    requestedRepaymentMonths: 8,
     reviewNotes: "Approved from an accredited vendor.",
-    scheduleItems: [
-      {
-        amount: 35000,
-        dueDate: "2026-08-28T00:00:00.000Z",
-        id: "schedule-dev-1",
-        installmentNumber: 3,
-        paidAmount: 0,
-        status: "due",
-      },
-    ],
+    scheduleItems: Array.from({ length: 8 }, (_, index) => ({
+      amount: 30000,
+      dueDate: new Date(Date.UTC(2026, 7 + index, 25)).toISOString(),
+      id: `procurement-installment-dev-${index}`,
+      installmentNumber: index + 1,
+      paidAmount: index < 3 ? 30000 : 0,
+      status: index < 3 ? "paid" : index === 3 ? "due" : "pending",
+    })),
     status: "purchased",
-    vendorName: "Aminah Appliances Ltd",
+    vendorName: "Kano Equipment Ltd",
   },
+  ...[
+    { name: "Chest freezer (300L)", vendor: "Haier Thermocool, Ikeja", amount: 185000, date: "2026-11-12", status: "pending_review" },
+    { name: "HP ProBook laptop", vendor: "Slot Systems", amount: 420000, date: "2026-09-28", status: "rejected" },
+    { name: "Solar inverter 3.5kVA", vendor: "Felicity Solar", amount: 310000, date: "2025-08-14", status: "completed" },
+    ...["Commercial blender", "Generator 3.5kVA", "Hair dryer chair", "Office chairs (4)", "Canon printer", "Water dispenser", "Washing machine", "Gas cooker"].map((name, index) => ({
+      name,
+      vendor: ["Sahad Stores", "Ikeja Electronics", "Jumia Business"][index % 3]!,
+      amount: [95000, 140000, 60000][index % 3]!,
+      date: new Date(Date.UTC(2025, 10 - index, 1 + index)).toISOString(),
+      status: index === 2 ? "cancelled" : "completed",
+    })),
+  ].map((item, index): MobileMemberProcurementRequest => ({
+    approvedCost: item.status === "completed" ? item.amount : null,
+    approvedMonthlyRepayment: null,
+    approvedRepaymentMonths: null,
+    estimatedMonthlyRepayment: item.amount / 6,
+    id: `procurement-history-dev-${index}`,
+    itemDescription: null,
+    itemName: item.name,
+    outstandingAmount: 0,
+    purchasedAt: null,
+    purchaseReference: null,
+    requestedAt: new Date(item.date).toISOString(),
+    requestedCost: item.amount,
+    requestedRepaymentMonths: 6,
+    reviewNotes: item.status === "rejected" ? "Please revise the requested repayment period." : null,
+    scheduleItems: [],
+    status: item.status,
+    vendorName: item.vendor,
+  })),
 ]
 const procurementSubmissionResults = new Map<
   string,
@@ -414,21 +447,21 @@ const procurementSubmissionResults = new Map<
 
 let projectRequests: MobileProjectFinancingRequest[] = [
   {
-    approvedAmount: 1000000,
-    approvedMonthlyPayback: 62500,
-    approvedPaybackMonths: 16,
-    approvedStructure: "profit_sharing",
-    businessDescription: "Cold storage serving neighbourhood food vendors.",
-    businessName: "Barakah Cold Chain",
+    approvedAmount: 1500000,
+    approvedMonthlyPayback: 125000,
+    approvedPaybackMonths: 12,
+    approvedStructure: "repayable_facility",
+    businessDescription: "Tailoring and uniform production, 4 staff.",
+    businessName: "Bello Tailoring Hub",
     disbursedAt: "2026-04-12T00:00:00.000Z",
     disbursementNotes: "Released against verified equipment invoice.",
     disbursementReference: "PF-HVC-2026-009",
     estimatedMonthlyPayback: 62500,
     id: "project-dev-1",
-    paidAmount: 187500,
+    paidAmount: 500000,
     paidAt: "2026-07-28T00:00:00.000Z",
-    projectPurpose: "Solar cold-room expansion",
-    proposedStructure: "profit_sharing",
+    projectPurpose: "Two more machines and a second shop front.",
+    proposedStructure: "repayable_facility",
     requestedAmount: 1200000,
     requestedAt: "2026-03-10T12:00:00.000Z",
     requestedPaybackMonths: 18,
@@ -445,10 +478,10 @@ const projectSubmissionResults = new Map<
 const foodCycles = [
   {
     id: "food-cycle-dev-1",
-    periodMonth: "2026-08-01T00:00:00.000Z",
+    periodMonth: "2026-12-01T00:00:00.000Z",
     releasedAmount: 12000000,
     releasedAt: "2026-08-01T08:00:00.000Z",
-    releaseNotes: "August household staples cycle.",
+    releaseNotes: "December household staples cycle.",
     status: "open",
   },
 ]
@@ -466,7 +499,7 @@ let foodApplications: MobileFoodPurchaseApplication[] = [
     id: "food-application-dev-1",
     itemDescription: "Rice, beans, oil, and household provisions.",
     paidAmount: 50000,
-    paidAt: "2026-08-05T00:00:00.000Z",
+    paidAt: null,
     requestedAmount: 150000,
     requestedAt: "2026-08-02T08:00:00.000Z",
     requestedPaybackMonths: 3,
@@ -481,45 +514,135 @@ let guarantorApprovals: MobileMemberGuarantorApproval[] = [
   {
     id: "guarantor-approval-dev-1",
     loanRequest: {
-      borrowerMemberNumber: "HV-1032",
-      borrowerName: "Fatima Musa",
-      estimatedMonthlyServicing: 37500,
-      id: "loan-request-dev-2",
-      loanProductName: "Education support facility",
-      purpose: "Professional certification fees",
-      requestedAmount: 300000,
-      requestedAt: "2026-08-09T11:00:00.000Z",
-      requestedTermMonths: 8,
-      status: "guarantor_review",
+      borrowerMemberNumber: "QHC-0118",
+      borrowerName: "Musa Ibrahim",
+      estimatedMonthlyServicing: 54000,
+      id: "guarantor-loan-dev-1",
+      loanProductName: "Home improvement financing",
+      purpose: "Roof repair and solar panels for the family home",
+      requestedAmount: 600000,
+      requestedAt: "2026-11-14T10:00:00.000Z",
+      requestedTermMonths: 12,
+      status: "under_review"
     },
-    requestedAt: "2026-08-09T11:05:00.000Z",
+    requestedAt: "2026-11-14T10:05:00.000Z",
     requestedByName: "Amina Bello",
     respondedAt: null,
     respondedByName: null,
     responseNotes: null,
     status: "pending",
+    answeredByMember: false
   },
   {
     id: "guarantor-approval-dev-2",
     loanRequest: {
-      borrowerMemberNumber: "HV-1007",
-      borrowerName: "Ibrahim Lawal",
-      estimatedMonthlyServicing: 50000,
-      id: "loan-request-dev-3",
-      loanProductName: "Asset acquisition facility",
-      purpose: "Business equipment",
-      requestedAmount: 600000,
-      requestedAt: "2026-06-12T10:00:00.000Z",
-      requestedTermMonths: 12,
-      status: "approved",
+      borrowerMemberNumber: "QHC-0071",
+      borrowerName: "Yusuf Adamu",
+      estimatedMonthlyServicing: 19350,
+      id: "guarantor-loan-dev-2",
+      loanProductName: "Education financing",
+      purpose: "School fees for his final year at the polytechnic",
+      requestedAmount: 180000,
+      requestedAt: "2026-09-28T10:00:00.000Z",
+      requestedTermMonths: 10,
+      status: "approved"
     },
-    requestedAt: "2026-06-12T10:05:00.000Z",
+    requestedAt: "2026-09-28T10:05:00.000Z",
     requestedByName: "Amina Bello",
-    respondedAt: "2026-06-13T08:00:00.000Z",
+    respondedAt: "2026-10-02T08:00:00.000Z",
     respondedByName: "Yusuf Abdullahi",
-    responseNotes: "Member and repayment plan confirmed.",
+    responseNotes: "Known him six years; a steady contributor.",
     status: "approved",
+    answeredByMember: true
   },
+  {
+    id: "guarantor-approval-dev-3",
+    loanRequest: {
+      borrowerMemberNumber: "QHC-0093",
+      borrowerName: "Fatima Lawal",
+      estimatedMonthlyServicing: 43750,
+      id: "guarantor-loan-dev-3",
+      loanProductName: "Business financing",
+      purpose: "Restock the provisions shop before December",
+      requestedAmount: 250000,
+      requestedAt: "2026-11-13T10:00:00.000Z",
+      requestedTermMonths: 6,
+      status: "under_review"
+    },
+    requestedAt: "2026-11-13T10:05:00.000Z",
+    requestedByName: "Amina Bello",
+    respondedAt: null,
+    respondedByName: null,
+    responseNotes: null,
+    status: "pending",
+    answeredByMember: false
+  },
+  {
+    id: "guarantor-approval-dev-4",
+    loanRequest: {
+      borrowerMemberNumber: "QHC-0150",
+      borrowerName: "Halima Sani",
+      estimatedMonthlyServicing: 41250,
+      id: "guarantor-loan-dev-4",
+      loanProductName: "Asset financing",
+      purpose: "Delivery tricycle for the bakery",
+      requestedAmount: 900000,
+      requestedAt: "2026-08-12T10:00:00.000Z",
+      requestedTermMonths: 24,
+      status: "rejected"
+    },
+    requestedAt: "2026-08-12T10:05:00.000Z",
+    requestedByName: "Amina Bello",
+    respondedAt: "2026-08-19T08:00:00.000Z",
+    respondedByName: "Yusuf Abdullahi",
+    responseNotes: "I’m already backing two requests this year.",
+    status: "rejected",
+    answeredByMember: true
+  },
+  {
+    id: "guarantor-approval-dev-5",
+    loanRequest: {
+      borrowerMemberNumber: "QHC-0034",
+      borrowerName: "Ibrahim Garba",
+      estimatedMonthlyServicing: 43200,
+      id: "guarantor-loan-dev-5",
+      loanProductName: "Business financing",
+      purpose: "Two industrial sewing machines for the tailoring shop",
+      requestedAmount: 320000,
+      requestedAt: "2026-05-30T10:00:00.000Z",
+      requestedTermMonths: 8,
+      status: "rejected"
+    },
+    requestedAt: "2026-05-30T10:05:00.000Z",
+    requestedByName: "Amina Bello",
+    respondedAt: "2026-06-03T08:00:00.000Z",
+    respondedByName: "Yusuf Abdullahi",
+    responseNotes: null,
+    status: "approved",
+    answeredByMember: true
+  },
+  {
+    id: "guarantor-approval-dev-6",
+    loanRequest: {
+      borrowerMemberNumber: "QHC-0201",
+      borrowerName: "Zainab Musa",
+      estimatedMonthlyServicing: 26250,
+      id: "guarantor-loan-dev-6",
+      loanProductName: "Home improvement financing",
+      purpose: "Kitchen repairs and a new water tank",
+      requestedAmount: 150000,
+      requestedAt: "2026-03-05T10:00:00.000Z",
+      requestedTermMonths: 6,
+      status: "approved"
+    },
+    requestedAt: "2026-03-05T10:05:00.000Z",
+    requestedByName: "Amina Bello",
+    respondedAt: "2026-03-12T08:00:00.000Z",
+    respondedByName: "Amina Bello",
+    responseNotes: null,
+    status: "approved",
+    answeredByMember: false
+  }
 ]
 
 let shareApplications: MobileMemberShareApplication[] = [
@@ -549,7 +672,33 @@ let shareApplications: MobileMemberShareApplication[] = [
   },
 ]
 
+const registryPreviewNames = [
+  "Jibrin Aminu", "Sakina Ibrahim", "Rabiu Abdulsalam", "Firdausi Yahaya",
+  "Murtala Bashir", "Ummulkhair Sani", "Sulaiman Kolawole", "Hannatu Gambo",
+  "Anas Olawale", "Bilkisu Sadiq", "Ahmad Jibril", "Maimuna Haruna",
+  "Ismail Ajayi", "Saadatu Bello", "Faruk Adamu", "Hadiza Tukur",
+  "Mahmud Sambo", "Zulaihat Ahmad", "Idris Bakare", "Rahma Lawan",
+]
+const registryPreviewMembers = registryPreviewNames.map((fullName, index): MobileAdminMemberRow => {
+  const number = 48 - index
+  return {
+    activeMonthlyCommitment: index < 3 ? null : 25_000,
+    deductionSourceName: index < 3 ? null : "Bank transfer",
+    email: `member${number}@example.test`,
+    fullName,
+    id: `registry-preview-${number}`,
+    joinedAt: "2024-08-06T00:00:00.000Z",
+    kycStatus: index < 3 ? "not_started" : index % 5 === 4 ? "pending" : "verified",
+    linkedUserEmail: index < 3 ? null : `member${number}@example.test`,
+    memberNumber: `QHC-${String(number).padStart(4, "0")}`,
+    memberType: number % 5 === 0 ? "business" : number % 3 === 0 ? "civil_servant" : "individual",
+    phoneNumber: `+23480321400${number}`,
+    status: index < 3 ? "pending" : index === 17 ? "suspended" : "active",
+  }
+})
+
 let adminMembers: MobileAdminMemberRow[] = [
+  ...registryPreviewMembers,
   {
     activeMonthlyCommitment: 75_000,
     deductionSourceName: "FCT Payroll",
@@ -608,285 +757,6 @@ let onboardingRequests = [
   },
 ]
 
-type MobileSubscriptionAddonDefinition =
-  MobileSubscriptionPlan["addonDefinitions"][number]
-
-const subscriptionAddonCatalog: Record<
-  string,
-  MobileSubscriptionAddonDefinition
-> = {
-  advanced_audit_exports: {
-    billingCategory: "separate_addon",
-    code: "advanced_audit_exports",
-    description: "Additional audit and report export depth.",
-    displayName: "Advanced audit exports",
-    pricing: "quoted_separately",
-  },
-  custom_domain: {
-    billingCategory: "separate_addon",
-    code: "custom_domain",
-    description: "Cooperative-owned domain configuration and support.",
-    displayName: "Custom domain",
-    pricing: "quoted_separately",
-  },
-  custom_integrations: {
-    billingCategory: "separate_addon",
-    code: "custom_integrations",
-    description: "Contracted CBA, ERP, payroll, or provider integrations.",
-    displayName: "Custom integrations",
-    pricing: "quoted_separately",
-  },
-  dedicated_support: {
-    billingCategory: "separate_addon",
-    code: "dedicated_support",
-    description: "Contracted support ownership and response targets.",
-    displayName: "Dedicated support",
-    pricing: "quoted_separately",
-  },
-  member_login: {
-    billingCategory: "separate_addon",
-    code: "member_login",
-    description: "Direct member access for eligible cooperative accounts.",
-    displayName: "Member login",
-    pricing: "quoted_separately",
-  },
-  whatsapp_notifications: {
-    billingCategory: "separate_addon",
-    code: "whatsapp_notifications",
-    description:
-      "WhatsApp notification setup; provider delivery remains pass-through.",
-    displayName: "WhatsApp notifications",
-    pricing: "quoted_separately",
-  },
-  white_label: {
-    billingCategory: "separate_addon",
-    code: "white_label",
-    description: "Brand configuration, store handling, and release support.",
-    displayName: "White-label mobile app",
-    pricing: "quoted_separately",
-  },
-}
-
-const subscriptionPassThroughCosts: MobileSubscriptionPlan["passThroughCostDefinitions"] =
-  [
-    {
-      billingCategory: "provider_pass_through",
-      code: "sms_delivery",
-      description: "Message delivery follows the active provider usage rate.",
-      displayName: "SMS delivery",
-      pricing: "provider_usage_rate",
-    },
-    {
-      billingCategory: "provider_pass_through",
-      code: "whatsapp_delivery",
-      description:
-        "Conversation or template delivery follows the active provider rate.",
-      displayName: "WhatsApp delivery",
-      pricing: "provider_usage_rate",
-    },
-    {
-      billingCategory: "provider_pass_through",
-      code: "kyc_verification",
-      description: "Identity checks follow the verification provider rate.",
-      displayName: "KYC verification",
-      pricing: "provider_usage_rate",
-    },
-    {
-      billingCategory: "provider_pass_through",
-      code: "payment_processing",
-      description: "Gateway or transfer charges follow the selected provider.",
-      displayName: "Payment processing",
-      pricing: "provider_usage_rate",
-    },
-  ]
-
-function devSubscriptionAddons(codes: string[]) {
-  return codes.map((code) => {
-    const addon = subscriptionAddonCatalog[code]
-    if (!addon)
-      throw new Error(`Unknown development subscription add-on: ${code}`)
-    return addon
-  })
-}
-
-function devMonthlySubscriptionPrice(
-  minimum: number | null,
-  maximum: number | null
-): MobileSubscriptionPlan["monthlyPrice"] {
-  return {
-    billingCategory: "subscription_fee",
-    billingInterval: "month",
-    currencyCode: "NGN",
-    maximum,
-    minimum,
-  }
-}
-
-function devSubscriptionSetupFee(
-  minimum: number | null,
-  maximum: number | null
-): MobileSubscriptionPlan["setupFee"] {
-  return {
-    billingCategory: "setup_fee",
-    billingInterval: "one_time",
-    currencyCode: "NGN",
-    maximum,
-    minimum,
-  }
-}
-
-const subscriptionPlans: MobileSubscriptionPlan[] = [
-  {
-    activeMemberLimit: 100,
-    addonDefinitions: [],
-    availableAddonCodes: [],
-    code: "free_beta",
-    description: "Time-bound pilot access for guided cooperative validation.",
-    displayName: "Free Beta",
-    entitlements: {
-      auditDepth: "basic",
-      coreFinance: true,
-      customDomain: false,
-      emailNotifications: "admin_setup",
-      memberLogin: false,
-      memberStatements: "admin_generated",
-      reportDepth: "basic",
-      roleDepth: "basic_admin",
-      whatsAppNotifications: "pilot",
-      whiteLabel: "unavailable",
-    },
-    isPublic: true,
-    monthlyPrice: devMonthlySubscriptionPrice(0, 0),
-    passThroughCostDefinitions: subscriptionPassThroughCosts,
-    setupFee: devSubscriptionSetupFee(150000, 500000),
-    sortOrder: 10,
-  },
-  {
-    activeMemberLimit: 250,
-    addonDefinitions: devSubscriptionAddons([
-      "member_login",
-      "custom_domain",
-      "whatsapp_notifications",
-    ]),
-    availableAddonCodes: [
-      "member_login",
-      "custom_domain",
-      "whatsapp_notifications",
-    ],
-    code: "starter",
-    description:
-      "Admin-first operations for small cooperatives leaving spreadsheets.",
-    displayName: "Starter",
-    entitlements: {
-      auditDepth: "basic",
-      coreFinance: true,
-      customDomain: false,
-      emailNotifications: "admin_only",
-      memberLogin: false,
-      memberStatements: "admin_generated",
-      reportDepth: "basic",
-      roleDepth: "basic_admin",
-      whatsAppNotifications: "addon",
-      whiteLabel: "unavailable",
-    },
-    isPublic: true,
-    monthlyPrice: devMonthlySubscriptionPrice(12500, 18750),
-    passThroughCostDefinitions: subscriptionPassThroughCosts,
-    setupFee: devSubscriptionSetupFee(150000, 500000),
-    sortOrder: 20,
-  },
-  {
-    activeMemberLimit: 1000,
-    addonDefinitions: devSubscriptionAddons([
-      "whatsapp_notifications",
-      "advanced_audit_exports",
-    ]),
-    availableAddonCodes: ["whatsapp_notifications", "advanced_audit_exports"],
-    code: "standard",
-    description: "Member and staff operations for established cooperatives.",
-    displayName: "Standard",
-    entitlements: {
-      auditDepth: "full",
-      coreFinance: true,
-      customDomain: true,
-      emailNotifications: "member_and_admin",
-      memberLogin: true,
-      memberStatements: "member_and_admin",
-      reportDepth: "full",
-      roleDepth: "finance_operations",
-      whatsAppNotifications: "addon",
-      whiteLabel: "unavailable",
-    },
-    isPublic: true,
-    monthlyPrice: devMonthlySubscriptionPrice(50000, 75000),
-    passThroughCostDefinitions: subscriptionPassThroughCosts,
-    setupFee: devSubscriptionSetupFee(150000, 500000),
-    sortOrder: 30,
-  },
-  {
-    activeMemberLimit: 3000,
-    addonDefinitions: devSubscriptionAddons([
-      "white_label",
-      "dedicated_support",
-    ]),
-    availableAddonCodes: ["white_label", "dedicated_support"],
-    code: "growth",
-    description:
-      "Advanced operations for large employer or multi-group programs.",
-    displayName: "Growth",
-    entitlements: {
-      auditDepth: "advanced",
-      coreFinance: true,
-      customDomain: true,
-      emailNotifications: "advanced",
-      memberLogin: true,
-      memberStatements: "member_and_admin",
-      reportDepth: "advanced",
-      roleDepth: "advanced",
-      whatsAppNotifications: "setup_included",
-      whiteLabel: "addon",
-    },
-    isPublic: true,
-    monthlyPrice: devMonthlySubscriptionPrice(150000, 225000),
-    passThroughCostDefinitions: subscriptionPassThroughCosts,
-    setupFee: devSubscriptionSetupFee(150000, 1000000),
-    sortOrder: 40,
-  },
-  {
-    activeMemberLimit: null,
-    addonDefinitions: devSubscriptionAddons([
-      "white_label",
-      "dedicated_support",
-      "custom_integrations",
-    ]),
-    availableAddonCodes: [
-      "white_label",
-      "dedicated_support",
-      "custom_integrations",
-    ],
-    code: "enterprise",
-    description: "Contracted capacity, integrations, reporting, and support.",
-    displayName: "Enterprise",
-    entitlements: {
-      auditDepth: "custom",
-      coreFinance: true,
-      customDomain: true,
-      emailNotifications: "custom",
-      memberLogin: true,
-      memberStatements: "member_and_admin",
-      reportDepth: "custom",
-      roleDepth: "custom",
-      whatsAppNotifications: "custom",
-      whiteLabel: "contract",
-    },
-    isPublic: true,
-    monthlyPrice: devMonthlySubscriptionPrice(null, null),
-    passThroughCostDefinitions: subscriptionPassThroughCosts,
-    setupFee: devSubscriptionSetupFee(1000000, null),
-    sortOrder: 50,
-  },
-]
-
 export function getDevMemberHome(): MobileMemberHome {
   return clone({
     actionItems: [
@@ -905,6 +775,7 @@ export function getDevMemberHome(): MobileMemberHome {
     ],
     generatedAt,
     member: { ...member, kycStatus: "verified", status: "active" },
+    notifications: { unread: 3 },
     readiness: {
       detail: "Account, KYC, commitments, and repayment records are current.",
       percentage: 92,
@@ -966,19 +837,78 @@ export function getDevMemberSection(key: MobileMemberSectionKey) {
   return clone(memberSections[key])
 }
 
+const devPostedContributions: MobileMemberActivityRow[] = Array.from(
+  { length: 12 },
+  (_, index) => {
+    const date = new Date(Date.UTC(2026, 7 - index, 11))
+    const postedAt = date.toISOString()
+    const reference = `PAY-${postedAt.slice(0, 7)}`
+    const transfer = index % 4 === 3
+    return {
+      channel: transfer ? "Transfer" : "Payroll",
+      detail: `${transfer ? "Bank transfer" : "Payroll deduction"} · Posted ${postedAt.slice(0, 10)} · Ref ${reference}`,
+      extraSavings: index % 3 === 1 ? 10_000 : 0,
+      format: "currency",
+      key: `contribution-dev-${index}`,
+      label: date.toLocaleDateString("en", { month: "long", timeZone: "UTC", year: "numeric" }),
+      postedAt,
+      reference,
+      status: "Posted",
+      value: 60_000,
+    }
+  }
+)
+
+const devStatementActivity: Record<MobileStatementActivityCategory, MobileMemberActivityRow[]> = {
+  charges: [],
+  financing: [{
+    detail: "Equipment financing · 11 Aug 2026",
+    entryCount: 2,
+    format: "currency",
+    key: "ledger-dev-repayment",
+    label: "Repayment posted",
+    postedAt: generatedAt,
+    reference: "FCT-2608",
+    status: "Loan repayment",
+    value: 40_000,
+  }],
+  savings: devPostedContributions.map((row) => ({
+    ...row,
+    entryCount: 2,
+    label: `${row.label} contribution`,
+    status: "Contribution",
+  })),
+  shares: [{
+    detail: "Annual allocation published 12 Apr 2026",
+    entryCount: 2,
+    format: "currency",
+    key: "ledger-dev-dividend",
+    label: "Published dividend",
+    postedAt: "2026-04-12T12:00:00.000Z",
+    reference: "DIV-2025",
+    status: "Dividend",
+    value: 12_400,
+  }],
+}
+
 export function getDevMemberActivityPage(input: {
+  category?: MobileStatementActivityCategory
   cursor: string | null
   kind: MobileMemberActivityKind
 }): MobileMemberActivityPage {
-  const rows =
-    input.kind === "shares"
-      ? memberSections.shares.rows
-      : memberSections.commitments.rows
+  const rows = input.kind === "shares"
+    ? memberSections.shares.rows
+    : input.kind === "commitments"
+      ? devPostedContributions
+      : input.category
+        ? devStatementActivity[input.category]
+        : Object.values(devStatementActivity).flat()
+            .sort((a, b) => (b.postedAt ?? "").localeCompare(a.postedAt ?? ""))
   return clone({
     generatedAt,
-    items: input.cursor ? rows.slice(2) : rows.slice(0, 2),
+    items: input.cursor ? rows.slice(11) : rows.slice(0, 11),
     kind: input.kind,
-    nextCursor: input.cursor ? null : "dev-page-2",
+    nextCursor: !input.cursor && rows.length > 11 ? "dev-page-2" : null,
     state: "available",
   })
 }
@@ -1022,6 +952,27 @@ export function getDevMemberStatement(): MobileMemberStatement {
           title,
         })
       ),
+      {
+        emptyState: "No charge applications are available.",
+        key: "charges",
+        rows: [],
+        subtitle: "Charges assessed to your account.",
+        title: "Charges",
+      },
+      {
+        emptyState: "No uploaded member documents are available.",
+        key: "documents",
+        rows: [{
+          detail: "Uploaded 16 Jan 2024",
+          format: null,
+          key: "document-national-id",
+          label: "National ID",
+          status: "Verified",
+          value: null,
+        }],
+        subtitle: "Documents recorded by the cooperative.",
+        title: "Documents",
+      },
       {
         emptyState: "No receipts.",
         key: "receipts",
@@ -1067,7 +1018,11 @@ export function getDevMemberStatement(): MobileMemberStatement {
         title: "Support",
       },
     ],
-    stats: getDevMemberHome().stats,
+    stats: [
+      ...getDevMemberHome().stats,
+      ...memberSections.commitments.stats.filter((metric) => metric.key === "active-commitment"),
+      { detail: "Published dividends", format: "currency", key: "dividends", label: "Dividends", value: 12_400 },
+    ],
   })
 }
 
@@ -1470,12 +1425,12 @@ export function getDevMemberProcurement(): MobileMemberProcurement {
     },
     chargeOptions: [
       {
-        amount: 1.5,
+        amount: 2.5,
         chargeValueType: "percentage",
         code: "PROCUREMENT_ADMIN",
         collectionMode: "included",
         id: "charge-procurement-dev",
-        name: "Procurement administration",
+        name: "Procurement admin fee",
       },
     ],
     generatedAt,
@@ -1484,7 +1439,7 @@ export function getDevMemberProcurement(): MobileMemberProcurement {
       activeFinancingBlocksProcurement: true,
       allowsCommitmentReductionDuringPayback: false,
       maximumActiveObligationsPerMember: 2,
-      maximumPaybackMonths: 12,
+      maximumPaybackMonths: 10,
     },
     requestNextCursor: null,
     requests: procurementRequests,
@@ -1494,7 +1449,7 @@ export function getDevMemberProcurement(): MobileMemberProcurement {
       activeRequests: 1,
       approvedRequests: 1,
       dueScheduleItems: 1,
-      outstandingAmount: 245000,
+      outstandingAmount: 150000,
       overdueScheduleItems: 0,
       pendingRequests: procurementRequests.filter(
         (item) => item.status === "pending_review"
@@ -1563,11 +1518,11 @@ export function getDevMemberProjectFinancing(): MobileMemberProjectFinancing {
     summary: {
       activeRequests: 1,
       approvedRequests: 1,
-      outstandingAmount: 812500,
+      outstandingAmount: 1000000,
       pendingRequests: projectRequests.filter(
         (item) => item.status === "pending_review"
       ).length,
-      totalApprovedAmount: 1000000,
+      totalApprovedAmount: 1500000,
       totalRequestedAmount: projectRequests.reduce(
         (sum, item) => sum + item.requestedAmount,
         0
@@ -1695,7 +1650,10 @@ export function createDevFoodPurchaseApplication(
 
 export function getDevMemberGuarantorApprovals(): MobileMemberGuarantorApprovals {
   return clone({
-    approvals: guarantorApprovals,
+    approvals: [...guarantorApprovals].sort((a, b) =>
+      Number(b.status === "pending") - Number(a.status === "pending") ||
+      b.requestedAt.localeCompare(a.requestedAt)
+    ),
     generatedAt,
     member,
     summary: {
@@ -1725,6 +1683,7 @@ export function respondDevGuarantorApproval(
     ...approval,
     respondedAt: new Date().toISOString(),
     respondedByName: member.name,
+    answeredByMember: true,
     responseNotes: input.notes ?? null,
     status: input.status,
   }
@@ -1965,13 +1924,14 @@ export function getDevAdminMembers(
   let rows = adminMembers.filter(
     (item) =>
       (!input?.status || item.status === input.status) &&
-      (!input?.kycStatus || item.kycStatus === input.kycStatus)
+      (!input?.kycStatus || item.kycStatus === input.kycStatus) &&
+      (!input?.needsReview || (item.status === "active" && item.kycStatus !== "verified"))
   )
   if (search)
     rows = rows.filter((item) =>
-      [item.fullName, item.memberNumber, item.email].some((value) =>
-        value?.toLowerCase().includes(search)
-      )
+      [item.fullName, item.memberNumber].some((value) =>
+        value.toLowerCase().includes(search)
+      ) || (/^[+()\s.\d-]+$/.test(search) && search.replace(/\D/g, "").length >= 3 && item.phoneNumber?.replace(/\D/g, "").includes(search.replace(/\D/g, "")))
     )
   return clone({
     generatedAt,
@@ -2023,8 +1983,8 @@ export function getDevAdminMembers(
 export function getDevAdminMemberDetail(
   memberId: string
 ): MobileAdminMemberDetail {
-  const row =
-    adminMembers.find((item) => item.id === memberId) ?? adminMembers[0]!
+  const row = adminMembers.find((item) => item.id === memberId)
+  if (!row) return { generatedAt, member: null, sections: [], stats: [] }
   const sections = getDevMemberStatement()
     .sections.filter((section) => section.key !== "charges")
     .map((section) =>
@@ -2049,6 +2009,9 @@ export function getDevAdminMemberDetail(
 }
 
 export function createDevAdminMember(input: MobileAdminMemberCreateInput) {
+  if (adminMembers.some(({ memberNumber }) => memberNumber.toLowerCase() === input.memberNumber.toLowerCase())) {
+    throw new Error(`Member number ${input.memberNumber} is already used. Choose another number.`)
+  }
   const row: MobileAdminMemberRow = {
     activeMonthlyCommitment: input.monthlyCommitment ?? null,
     deductionSourceName: null,
@@ -2795,102 +2758,6 @@ export function recordDevCollectionFollowUp(
   input: MobileAdminCollectionFollowUpInput
 ): MobileAdminActionResult {
   return { id: input.repaymentScheduleItemId, status: input.status }
-}
-
-export function getDevSubscriptionSnapshot(): MobileSubscriptionSnapshot {
-  const currentPlan = subscriptionPlans.find(
-    (plan) => plan.code === "standard"
-  )!
-  return clone({
-    addons: [
-      {
-        code: "whatsapp_notifications",
-        displayName: "WhatsApp notifications",
-        endsAt: null,
-        startsAt: "2026-01-01T00:00:00.000Z",
-        status: "active",
-      },
-      {
-        code: "advanced_audit_exports",
-        displayName: "Advanced audit exports",
-        endsAt: null,
-        startsAt: "2026-01-01T00:00:00.000Z",
-        status: "active",
-      },
-    ],
-    availablePlans: subscriptionPlans,
-    billingPeriod: {
-      cancelAtPeriodEnd: false,
-      currentPeriodEndsAt: "2026-08-31T23:59:59.000Z",
-      currentPeriodStartsAt: "2026-08-01T00:00:00.000Z",
-      graceEndsAt: null,
-      trialEndsAt: null,
-      trialStartsAt: null,
-    },
-    enforcement: {
-      accessEnabled: true,
-      canActivateMember: true,
-      memberLoginEnabled: true,
-      reason: null,
-    },
-    entitlements: currentPlan.entitlements,
-    invoices: [
-      {
-        amountPaid: 75000,
-        currencyCode: "NGN",
-        dueAt: "2026-08-01T00:00:00.000Z",
-        hostedInvoiceUrl: null,
-        id: "invoice-dev-1",
-        invoiceNumber: "HVC-2026-008",
-        paidAt: "2026-08-01T10:00:00.000Z",
-        status: "paid",
-        totalAmount: 75000,
-      },
-      {
-        amountPaid: 0,
-        currencyCode: "NGN",
-        dueAt: "2026-09-01T00:00:00.000Z",
-        hostedInvoiceUrl: null,
-        id: "invoice-dev-2",
-        invoiceNumber: "HVC-2026-009",
-        paidAt: null,
-        status: "open",
-        totalAmount: 75000,
-      },
-    ],
-    plan: currentPlan,
-    source: "development_fixture",
-    sourceState: {
-      billingInfrastructureAvailable: true,
-      fallbackApplied: false,
-    },
-    status: "active",
-    subscriptionId: "subscription-dev-1",
-    tenantId: "tenant_halaalvest",
-    updatedAt: generatedAt,
-    usage: {
-      activeMemberCount: 438,
-      activeMemberLimit: 1000,
-      isAtCapacity: false,
-      isOverCapacity: false,
-      remainingActiveMembers: 562,
-      usagePercent: 44,
-    },
-  })
-}
-
-export function requestDevPlanChange(
-  requestedPlanCode: MobileSubscriptionPlanCode
-): MobilePlanChangeIntent {
-  return {
-    checkoutAvailable: false,
-    checkoutUrl: null,
-    intentId: nextId("plan-intent"),
-    requestedPlanCode,
-    status: "support_follow_up",
-    supportMessage:
-      "Development plan request recorded. Billing support would continue this change in production.",
-  }
 }
 
 export function devActionResult(

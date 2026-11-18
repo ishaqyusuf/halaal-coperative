@@ -60,6 +60,29 @@ describe("mobile admin finance and support router", () => {
     )
   })
 
+  test("requires the staff queue permission for the paged desk", async () => {
+    const caller = await callerFor("membership-amanah-admin-member")
+    await expect(caller.mobile.admin.finance.desk({})).rejects.toThrow(
+      "You do not have permission"
+    )
+  })
+
+  test("rejects overlong desk pages and invalid cursors", async () => {
+    const caller = await callerFor("membership-amanah-admin")
+    await expect(
+      caller.mobile.admin.finance.desk({ limit: 31 })
+    ).rejects.toThrow("Review the information provided")
+    await expect(
+      caller.mobile.admin.finance.desk({
+        cursor: {
+          at: "yesterday",
+          id: crypto.randomUUID(),
+          queueKey: "financing",
+        },
+      })
+    ).rejects.toThrow("Review the information provided")
+  })
+
   test("fails closed when the signed tenant does not own the active membership", async () => {
     const caller = await callerFor(
       "membership-amanah-admin",

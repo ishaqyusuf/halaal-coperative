@@ -1,20 +1,26 @@
-import { ScreenBackButton } from "@/components/app/screen-back-button"
-import { ScreenHeader } from "@/components/app/screen-header"
-import { FloatingBottomSheet } from "@/components/floating-bottom-sheet"
-import { SafeArea } from "@/components/safe-area"
+import { AppSheet } from "@/components/app/app-sheet"
+import {
+  CenteredStatus,
+  GateStatusBadge,
+  type GateStatusTone,
+} from "@/components/app/gate-status"
+import { GroupedRow, GroupedSection } from "@/components/app/grouped-section"
+import { ScreenShell } from "@/components/app/screen-shell"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
-import { Pressable } from "@/components/ui/pressable"
-import { ProgressBar } from "@/components/ui/progress-bar"
 import { Text } from "@/components/ui/text"
-import type { UpdatePrimaryAction } from "@/features/updates/model/update-screen-state"
 import { useColors } from "@/hooks/use-color"
+import type { UpdatePrimaryAction } from "@/features/updates/model/update-screen-state"
 import { useState } from "react"
-import { ActivityIndicator, ScrollView, View } from "react-native"
+import { View } from "react-native"
 
 function formatDate(value?: Date | null) {
   if (!value) return "Not checked"
   return value.toLocaleString()
+}
+
+function formatTime(value: Date) {
+  return value.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
 }
 
 function shortId(value?: string | null) {
@@ -30,11 +36,14 @@ function InfoRow({
   value: string | number | null | undefined
 }) {
   return (
-    <View className="flex-row items-start justify-between gap-4 border-b border-border py-3 last:border-b-0">
-      <Text className="text-sm font-medium text-muted-foreground">{label}</Text>
+    <View className="min-h-[48px] flex-row items-center justify-between gap-[16px] border-b border-border py-[10px]">
+      <Text className="text-muted-foreground" variant="small">
+        {label}
+      </Text>
       <Text
-        className="min-w-0 flex-1 text-right text-sm font-semibold text-foreground"
+        className="min-w-0 flex-1 text-right font-semibold"
         numberOfLines={2}
+        variant="small"
       >
         {value ?? "Not set"}
       </Text>
@@ -42,6 +51,7 @@ function InfoRow({
   )
 }
 
+/** Build details: read-only, so AppSheet auto (floating, expands if long). */
 function BuildDetailsSheet({
   details,
   onClose,
@@ -52,15 +62,13 @@ function BuildDetailsSheet({
   visible: boolean
 }) {
   return (
-    <FloatingBottomSheet
+    <AppSheet
       accessibilityLabel="App update build details"
       onClose={onClose}
-      presentation="compact"
-      scrollable="auto"
       title="Build details"
       visible={visible}
     >
-      <View className="px-5 pb-6">
+      <View>
         <InfoRow label="App version" value={details.appVersion} />
         <InfoRow label="Update version" value={details.updateVersion} />
         <InfoRow label="Channel" value={details.channel} />
@@ -75,7 +83,7 @@ function BuildDetailsSheet({
         <InfoRow label="Created" value={formatDate(details.createdAt)} />
         <InfoRow label="Last check" value={formatDate(details.lastCheckAt)} />
       </View>
-    </FloatingBottomSheet>
+    </AppSheet>
   )
 }
 
@@ -105,6 +113,47 @@ type UpdatesScreenProps = {
   updatesEnabled: boolean
 }
 
+/** Download progress: 6pt track, primary fill, "NN% downloaded". */
+function DownloadProgress({ value }: { value: number }) {
+  const colors = useColors()
+  const clamped = Math.max(0, Math.min(100, Math.round(value)))
+  return (
+    <View
+      accessibilityLabel={`Download progress, ${clamped}%`}
+      accessibilityRole="progressbar"
+      accessibilityValue={{ max: 100, min: 0, now: clamped }}
+      accessible
+      className="mt-[8px] w-full gap-[6px]"
+    >
+      <View className="flex-row justify-between">
+        <Text className="text-muted-foreground" variant="caption">
+          Download progress
+        </Text>
+        <Text className="text-muted-foreground" variant="caption">
+          {clamped}% downloaded
+        </Text>
+      </View>
+      <View className="h-[6px] overflow-hidden rounded-full bg-surface-raised">
+        {/* Style-only: a measured width cannot share an element with className. */}
+        <View
+          style={{
+            backgroundColor: colors.primary,
+            borderRadius: 999,
+            height: 6,
+            width: `${clamped}%`,
+          }}
+        />
+      </View>
+    </View>
+  )
+}
+
+/**
+ * App updates (T03, owner pick 03 Docked action): ScreenShell title, a
+ * centred status (badge, title, message, version line, download progress),
+ * the update settings group, and the one primary action docked at the bottom.
+ * Build details open in a floating auto sheet.
+ */
 export function UpdatesScreen({
   buildDetails,
   downloadProgressPercent,
@@ -123,156 +172,95 @@ export function UpdatesScreen({
 }: UpdatesScreenProps) {
   const colors = useColors()
   const [showBuildDetails, setShowBuildDetails] = useState(false)
+  const tone: GateStatusTone = statusIsError
+    ? "danger"
+    : statusIsCurrent
+      ? "ok"
+      : updatesEnabled
+        ? "brand"
+        : "neutral"
+  const badgeIcon = statusIsError
+    ? "AlertCircle"
+    : statusIsCurrent
+      ? "Check"
+      : updatesEnabled
+        ? primaryIcon
+        : "CloudOff"
 
   return (
-    <SafeArea style={{ backgroundColor: colors.background }}>
-      <ScrollView
-        contentContainerClassName="gap-5 px-5 pb-10 pt-5"
-        showsVerticalScrollIndicator={false}
+    <>
+      <ScreenShell
+        back={onBack}
+        contentClassName="gap-[22px]"
+        footer={
+          primaryAction ? (
+            <Button
+              accessibilityLabel={primaryAction.label}
+              disabled={primaryAction.disabled}
+              loading={isBusy}
+              onPress={onPrimaryAction}
+            >
+              {isBusy ? null : (
+                <Icon
+                  className="size-base"
+                  color={colors.primaryForeground}
+                  name={primaryIcon}
+                />
+              )}
+              <Text>{primaryAction.label}</Text>
+            </Button>
+          ) : undefined
+        }
+        testID="updates-screen"
+        title="App updates"
       >
-        <ScreenHeader
-          leading={<ScreenBackButton onPress={onBack} />}
-          title="App updates"
-        />
-
-        <View className="flex-row items-start gap-4 border-y border-border py-5">
-          <View className="min-w-0 flex-1 gap-2">
-            <Text className="text-3xl font-extrabold tracking-tight text-foreground">
-              {status}
-            </Text>
-            <Text className="text-sm leading-5 text-muted-foreground">
-              {message}
-            </Text>
-            <View className="flex-row flex-wrap items-center gap-2 pt-1">
-              <Text className="text-xs font-extrabold text-foreground">
-                Version {buildDetails.appVersion}
-              </Text>
-              <Text className="text-xs text-muted-foreground">·</Text>
-              <Text className="text-xs font-semibold text-muted-foreground">
-                {lastCheckAt
-                  ? `Checked ${formatDate(lastCheckAt)}`
-                  : "Not checked this session"}
-              </Text>
-            </View>
-          </View>
-          <View
-            className={
-              statusIsError
-                ? "h-14 w-14 items-center justify-center rounded-xl bg-destructive/10"
-                : "h-14 w-14 items-center justify-center rounded-xl bg-accent"
-            }
-          >
-            <Icon
-              className={
-                statusIsError
-                  ? "size-lg text-destructive"
-                  : "size-lg text-accent-foreground"
-              }
-              name={
-                statusIsError
-                  ? "AlertCircle"
-                  : statusIsCurrent
-                    ? "Check"
-                    : primaryIcon
-              }
-            />
-          </View>
-        </View>
-
-        {isDownloading ? (
-          <ProgressBar
-            fillClassName="bg-primary"
-            info="downloaded"
-            label="Download progress"
-            value={downloadProgressPercent}
-          />
-        ) : null}
-
-        {primaryAction ? (
-          <Button
-            accessibilityLabel={primaryAction.label}
-            className="h-12 w-full"
-            disabled={primaryAction.disabled}
-            onPress={onPrimaryAction}
-          >
-            {isBusy ? (
-              <ActivityIndicator color={colors.primaryForeground} />
-            ) : (
-              <Icon
-                className="size-sm text-primary-foreground"
-                name={primaryIcon}
-              />
-            )}
-            <Text>{primaryAction.label}</Text>
-          </Button>
-        ) : null}
-
-        <View>
-          <Text className="pb-2 text-xl font-extrabold tracking-tight text-foreground">
-            Update settings
+        <CenteredStatus
+          badge={<GateStatusBadge icon={badgeIcon} size={76} tone={tone} />}
+          body={message}
+          title={status}
+        >
+          <Text className="text-foreground" variant="caption">
+            Version {buildDetails.appVersion} ·{" "}
+            {lastCheckAt ? `Checked ${formatTime(lastCheckAt)}` : "Not checked"}
           </Text>
-          <View className="flex-row items-center justify-between gap-4 border-b border-border py-4">
-            <View className="min-w-0 flex-1 gap-1">
-              <Text className="text-sm font-extrabold text-foreground">
-                Automatic checking
-              </Text>
-              <Text className="text-xs leading-4 text-muted-foreground">
-                Installed preview and release builds check after opening or
-                returning to the app.
-              </Text>
-            </View>
-            <Text className="text-xs font-extrabold text-muted-foreground">
-              {updatesEnabled ? "Available" : "Off"}
-            </Text>
-          </View>
-          <Pressable
-            accessibilityLabel="Open app update build details"
-            accessibilityRole="button"
-            className="min-h-14 flex-row items-center justify-between gap-4 border-b border-border py-4"
-            haptic
-            onPress={() => setShowBuildDetails(true)}
-            transition
-          >
-            <View className="min-w-0 flex-1 gap-1">
-              <Text className="text-sm font-extrabold text-foreground">
-                Build details
-              </Text>
-              <Text className="text-xs leading-4 text-muted-foreground">
-                Version, update channel, runtime, and release identifier.
-              </Text>
-            </View>
-            <Icon
-              className="size-sm text-muted-foreground"
-              name="ChevronRight"
-            />
-          </Pressable>
-        </View>
+          {isDownloading ? (
+            <DownloadProgress value={downloadProgressPercent} />
+          ) : null}
+        </CenteredStatus>
 
-        <View className="flex-row gap-3 border-y border-border py-4">
-          <View className="h-9 w-9 items-center justify-center rounded-full bg-accent">
-            <Icon
-              className="size-sm text-accent-foreground"
-              name="ShieldCheck"
+        <View className="gap-[16px]">
+          <GroupedSection caption="Update settings">
+            <GroupedRow
+              detail="Installed preview and release builds check after opening or returning to the app."
+              icon="RefreshCw"
+              title="Automatic checking"
+              value={updatesEnabled ? "Available" : "Off"}
             />
-          </View>
-          <View className="min-w-0 flex-1 gap-1">
-            <Text className="text-sm font-extrabold text-foreground">
-              Updates are safely matched
-            </Text>
-            <Text className="text-xs leading-4 text-muted-foreground">
-              HalaalVest only applies an update when its channel and runtime
-              match this installed build. Native changes still require a new app
-              build.
-            </Text>
-          </View>
+            <GroupedRow
+              accessibilityLabel="Open app update build details"
+              chevron
+              detail="Version, update channel, runtime and release identifier."
+              icon="Info"
+              onPress={() => setShowBuildDetails(true)}
+              title="Build details"
+              tone="sky"
+            />
+          </GroupedSection>
+          <GroupedSection>
+            <GroupedRow
+              detail="HalaalVest only applies an update when its channel and runtime match this installed build. Native changes still need a new app build."
+              icon="ShieldCheck"
+              title="Updates are safely matched"
+            />
+          </GroupedSection>
         </View>
-      </ScrollView>
+      </ScreenShell>
 
       <BuildDetailsSheet
         details={buildDetails}
         onClose={() => setShowBuildDetails(false)}
         visible={showBuildDetails}
       />
-    </SafeArea>
+    </>
   )
 }

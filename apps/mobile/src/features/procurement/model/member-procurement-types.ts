@@ -20,6 +20,7 @@ export type MobileProcurementScheduleItem = {
 
 export type MobileMemberProcurementRequest = {
   approvedCost: number | null
+  approvedMarkup?: number
   approvedMonthlyRepayment: number | null
   approvedRepaymentMonths: number | null
   estimatedMonthlyRepayment: number
@@ -39,6 +40,7 @@ export type MobileMemberProcurementRequest = {
 }
 
 export type MobileMemberProcurement = {
+  activeRequest?: MobileMemberProcurementRequest | null
   cache?: MobileReadCacheState
   canCreateRequest: boolean
   capability: {

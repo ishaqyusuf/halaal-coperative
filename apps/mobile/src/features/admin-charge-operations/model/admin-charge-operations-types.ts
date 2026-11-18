@@ -1,3 +1,5 @@
+import type { MobileReadCacheState } from "@/lib/read-cache"
+
 export type ChargeLane = "applications" | "levies" | "rules"
 export type ChargeStatus = "pending" | "posted" | "reversed" | "waived"
 export type ChargeCollectionMode = "deduct_from_savings" | "pay_separately"
@@ -20,7 +22,7 @@ export type ChargeFilters = {
 
 export type ChargeApplicationRow = {
   amount: number
-  assessedAt: string
+  assessedAt: string | Date
   collectionMode: ChargeCollectionMode
   definitionCode: string
   definitionName: string
@@ -56,24 +58,16 @@ export type ChargeRuleRow = {
   versions: {
     amount: number
     chargeValueType: "fixed_amount" | "percentage"
-    effectiveFrom: string
+    effectiveFrom: string | Date
     id: string
   }[]
 }
 
-export type ChargeWorkspace = {
-  cache?: {
-    ageMs: number
-    cachedAt: string
-    scope: string
-    status: "live" | "stale"
-  }
+export type ChargeSummary = {
+  cache?: MobileReadCacheState
   capabilities: ChargeCapabilities
   currencyCode: string
-  data: (ChargeApplicationRow | ChargeRuleRow)[]
-  generatedAt: string
-  lane: ChargeLane
-  nextCursor: string | null
+  generatedAt: string | Date
   stats: {
     corrections: number
     outstanding: number
@@ -82,13 +76,14 @@ export type ChargeWorkspace = {
 }
 
 export type ChargeApplicationDetail = ChargeApplicationRow & {
+  cache?: MobileReadCacheState
   amountBasis: number | null
   audit: {
     action: string
     actorUserId: string | null
     id: string
     metadata: Record<string, unknown> | null
-    occurredAt: string
+    occurredAt: string | Date
   }[]
   definition: {
     chargeFrequency: string
@@ -98,7 +93,7 @@ export type ChargeApplicationDetail = ChargeApplicationRow & {
     isMonthlyLevy: boolean
     name: string
     purpose: string
-    versionEffectiveFrom: string | null
+    versionEffectiveFrom: string | Date | null
     versionId: string | null
   }
   ledger: {
@@ -120,6 +115,17 @@ export type ChargeApplicationDetail = ChargeApplicationRow & {
     type: string
   } | null
   workspaceState: ChargeStatus
+}
+
+export type ChargeWorkspace = ChargeSummary &
+  ChargePage<ChargeApplicationRow | ChargeRuleRow> & {
+    lane: ChargeLane
+  }
+
+export type ChargePage<T> = {
+  cache?: MobileReadCacheState
+  data: T[]
+  nextCursor: string | null
 }
 
 export type ChargeFormOptions = {
@@ -153,3 +159,6 @@ export type ChargeCommandResult = {
   replayed: boolean
   state: string
 }
+
+export type ChargeMemberOption = ChargeFormOptions["members"][number]
+export type ChargeRuleOption = ChargeFormOptions["definitions"][number]

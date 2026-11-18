@@ -5,10 +5,12 @@ import { createMemberPaymentReceipt } from "./payment-receipts"
 import {
   getProcurementRequest,
   getProcurementSummary,
+  listProcurementRequestPage,
   listProcurementRequests,
   recordProcurementPurchase,
   reviewProcurementRequest,
   type ProcurementRequestRow,
+  type ProcurementRequestStatus,
 } from "./procurement"
 import { runMobileAdminCommand } from "./mobile-admin-finance-support"
 
@@ -124,16 +126,77 @@ function serializeRequest(request: ProcurementRequestRow) {
   }
 }
 
+/** Request statuses behind each mobile lane (server-side lane filtering, T21). */
+export const mobileAdminProcurementLaneStatuses: Record<
+  MobileAdminProcurementLane,
+  ProcurementRequestStatus[]
+> = {
+  activate: ["approved"],
+  completed: ["rejected", "cancelled", "completed"],
+  review: ["submitted", "under_review"],
+  servicing: ["active", "purchased"],
+}
+
+/** Summary card and lane counts: tenant-keyed, never re-run per lane or term. */
+export async function getMobileAdminProcurementSummary(
+  input: { tenantId: string },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = getPrisma(prismaOverride)
+  const [tenant, summary] = await Promise.all([
+    prisma.tenant.findUnique({
+      select: { currencyCode: true },
+      where: { id: input.tenantId },
+    }),
+    getProcurementSummary(input.tenantId, prisma as PrismaClient),
+  ])
+  return {
+    ...summary,
+    currencyCode: tenant?.currencyCode ?? "NGN",
+    generatedAt: new Date().toISOString(),
+  }
+}
+
 export async function getMobileAdminProcurementWorkspace(
   input: {
     capabilities: MobileAdminProcurementCapabilities
+    /** Paged lane read (T21). Older installs omit it and get the newest 80. */
+    cursor?: string | null
     lane: MobileAdminProcurementLane
+    limit?: number
     search?: string
     tenantId: string
   },
   prismaOverride?: PrismaClient
 ) {
   const prisma = getPrisma(prismaOverride)
+  if (input.limit !== undefined) {
+    const [tenant, page] = await Promise.all([
+      prisma.tenant.findUnique({
+        select: { currencyCode: true },
+        where: { id: input.tenantId },
+      }),
+      listProcurementRequestPage(
+        {
+          cursor: input.cursor ?? null,
+          pageSize: Math.min(50, Math.max(1, Math.floor(input.limit))),
+          search: input.search?.trim() || undefined,
+          statuses: mobileAdminProcurementLaneStatuses[input.lane],
+          tenantId: input.tenantId,
+        },
+        prisma as PrismaClient
+      ),
+    ])
+    return {
+      capabilities: input.capabilities,
+      currencyCode: tenant?.currencyCode ?? "NGN",
+      generatedAt: new Date().toISOString(),
+      items: page.data.map(serializeRequest),
+      lane: input.lane,
+      nextCursor: page.meta.cursor ?? null,
+      total: page.meta.total,
+    }
+  }
   const [tenant, requests, summary] = await Promise.all([
     prisma.tenant.findUnique({
       select: { currencyCode: true },

@@ -8,9 +8,10 @@ import {
   SHORTCUT_DISABLED_MESSAGE,
 } from "../model/shortcut-policy"
 import {
-  beginShortcutSignOutCleanup,
+  addShortcutDeferral,
   completeShortcutCleanup,
   findShortcutAssociation,
+  findShortcutById,
   planShortcutReconcile,
   setShortcutStatus,
   upsertShortcutAssociation,
@@ -27,7 +28,6 @@ import type {
 export type ShortcutContext = {
   cooperativeName: string
   mark: string
-  membershipId: string
   tenantId: string
   userId: string
 }
@@ -42,7 +42,12 @@ export type ShortcutRequestOutcome =
 
 type ShortcutServiceNative = Pick<
   NonNullable<typeof cooperativeShortcutNative>,
-  "consumeObservedPins" | "disable" | "listPinned" | "requestPin" | "update"
+  | "consumeObservedPins"
+  | "disable"
+  | "enable"
+  | "listPinned"
+  | "requestPin"
+  | "update"
 >
 
 export type CooperativeShortcutServiceDeps = {
@@ -56,7 +61,6 @@ export type CooperativeShortcutServiceDeps = {
   randomBytes: (count: number) => Uint8Array
   readRegistry: () => ShortcutRegistry
   reportError: (error: unknown) => void
-  signOutBudgetMs: number
   updateRegistry: (
     update: (registry: ShortcutRegistry) => ShortcutRegistry
   ) => Promise<ShortcutRegistry>
@@ -70,7 +74,7 @@ export function createCooperativeShortcutService(
 
   function spec(
     shortcutId: string,
-    context: Pick<ShortcutContext, "cooperativeName" | "mark">
+    context: Pick<ShortcutContext, "cooperativeName" | "mark" | "tenantId">
   ): NativeShortcutSpec {
     const labels = buildShortcutLabels(context.cooperativeName)
     return {
@@ -79,12 +83,13 @@ export function createCooperativeShortcutService(
       longLabel: labels.longLabel,
       mark: sanitizeShortcutMark(context.mark),
       shortLabel: labels.shortLabel,
+      tenantId: context.tenantId,
       uri: buildShortcutUri(deps.identity.scheme ?? "", shortcutId),
     }
   }
 
-  function key(context: Pick<ShortcutContext, "tenantId" | "userId">) {
-    return { ...context, variant: deps.identity.variant }
+  function key(context: Pick<ShortcutContext, "tenantId">) {
+    return { tenantId: context.tenantId, variant: deps.identity.variant }
   }
 
   async function disableNative(ids: string[]) {
@@ -98,9 +103,7 @@ export function createCooperativeShortcutService(
     }
   }
 
-  async function disableAssociation(
-    context: Pick<ShortcutContext, "tenantId" | "userId">
-  ) {
+  async function disableAssociation(context: Pick<ShortcutContext, "tenantId">) {
     // Persist the disabled state before the native call can be interrupted.
     const registry = await deps.updateRegistry((current) => {
       const shortcutId = findShortcutAssociation(
@@ -119,46 +122,46 @@ export function createCooperativeShortcutService(
     return registry
   }
 
-  async function runSignOutCleanup() {
-    let disableIds: string[] = []
-    await deps.updateRegistry((current) => {
-      const cleanup = beginShortcutSignOutCleanup(current)
-      disableIds = cleanup.disableIds
-      return cleanup.registry
-    })
-    // Without the native module no launcher shortcut can exist to disable.
-    if (await disableNative(disableIds)) {
-      await deps.updateRegistry((current) =>
-        completeShortcutCleanup(current, disableIds)
-      )
+  /**
+   * Turns a disabled tile the registry still counts as live back on, and
+   * refreshes its label, icon and cooperative extras.
+   */
+  async function reviveNative(registry: ShortcutRegistry, ids: string[]) {
+    if (!deps.native) return
+    for (const id of ids) {
+      const association = findShortcutById(registry, id)
+      if (!association) continue
+      try {
+        await deps.native.enable(id)
+        await deps.native.update(
+          spec(id, {
+            cooperativeName: association.label,
+            mark: association.mark,
+            tenantId: association.tenantId,
+          })
+        )
+      } catch (error) {
+        deps.reportError(error)
+      }
     }
   }
 
   return {
     pending,
 
+    /** "Not now" on the offer, remembered for this account only. */
     defer(context: ShortcutContext) {
       return deps.updateRegistry((current) =>
-        findShortcutAssociation(current, key(context))
-          ? current
-          : upsertShortcutAssociation(current, {
-              label: context.cooperativeName,
-              mark: sanitizeShortcutMark(context.mark),
-              membershipId: context.membershipId,
-              shortcutId: null,
-              status: "deferred",
-              tenantId: context.tenantId,
-              updatedAt: deps.now(),
-              userId: context.userId,
-              variant: deps.identity.variant,
-            })
+        addShortcutDeferral(current, {
+          tenantId: context.tenantId,
+          updatedAt: deps.now(),
+          userId: context.userId,
+          variant: deps.identity.variant,
+        })
       )
     },
 
     disable: disableAssociation,
-
-    /** A target membership was removed: disable only that association. */
-    disableForTenant: disableAssociation,
 
     read: deps.readRegistry,
 
@@ -169,6 +172,7 @@ export function createCooperativeShortcutService(
         deps.native.consumeObservedPins().catch(() => [] as string[]),
       ])
       let disableIds: string[] = []
+      let reviveIds: string[] = []
       const registry = await deps.updateRegistry((current) => {
         const plan = planShortcutReconcile({
           now: deps.now(),
@@ -179,8 +183,10 @@ export function createCooperativeShortcutService(
           variant: deps.identity.variant,
         })
         disableIds = plan.disableIds
+        reviveIds = plan.reviveIds
         return plan.registry
       })
+      await reviveNative(registry, reviveIds)
       if (disableIds.length > 0 && (await disableNative(disableIds))) {
         return deps.updateRegistry((current) =>
           completeShortcutCleanup(current, disableIds)
@@ -236,13 +242,11 @@ export function createCooperativeShortcutService(
           const prepared: ShortcutAssociation = {
             label: context.cooperativeName,
             mark: sanitizeShortcutMark(context.mark),
-            membershipId: context.membershipId,
             shortcutId:
               existing?.shortcutId ?? createShortcutId(deps.randomBytes),
             status: "request_prepared",
             tenantId: context.tenantId,
             updatedAt: deps.now(),
-            userId: context.userId,
             variant: deps.identity.variant,
           }
           return upsertShortcutAssociation(current, prepared)
@@ -265,7 +269,7 @@ export function createCooperativeShortcutService(
             ? "request_sent"
             : outcome === "already_pinned"
               ? "pin_observed"
-              : "deferred"
+              : "removed"
         const registry = await deps.updateRegistry((current) =>
           setShortcutStatus(current, shortcutId, status, deps.now())
         )
@@ -273,22 +277,6 @@ export function createCooperativeShortcutService(
       } finally {
         requestInFlight = false
       }
-    },
-
-    /**
-     * Best-effort launcher cleanup for every sign-out and session
-     * invalidation. It is bounded and never throws, so it can never keep an
-     * authenticated session or UI alive.
-     */
-    async signOutCleanup() {
-      pending.clear()
-      const work = runSignOutCleanup().catch(deps.reportError)
-      await Promise.race([
-        work,
-        new Promise<void>((resolve) =>
-          setTimeout(resolve, deps.signOutBudgetMs)
-        ),
-      ])
     },
   }
 }

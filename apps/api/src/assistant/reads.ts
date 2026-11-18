@@ -306,6 +306,9 @@ export async function readMemberHistory(
     specialSavings: money(summary.specialSavingsBalance),
     shareCapital: money(summary.shareCapitalBalance),
     outstandingFinancing: money(summary.totalOutstandingPrincipal),
+    ...(summary.approvedNotPaidOutCount > 0
+      ? { approvedNotPaidOut: money(summary.approvedNotPaidOutAmount) }
+      : {}),
     recentReceipts: receipts.map((row) => ({
       id: row.id,
       reference: row.paymentReference ?? `RCPT-${row.id.slice(0, 6).toUpperCase()}`,

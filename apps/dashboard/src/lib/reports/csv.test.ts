@@ -29,6 +29,18 @@ describe("streamed CSV exports", () => {
     expect(text).toBe(toCsv(headers, batches.flat()))
   })
 
+  test("writes preamble lines above the header row", async () => {
+    const stream = await toCsvStream(
+      ["Record Type", "Date"],
+      batchesOf([[["loan", "2026-11-02"]]]),
+      [["Loans are listed by the date they were paid out, see below."]]
+    )
+
+    expect(await new Response(stream).text()).toBe(
+      '"Loans are listed by the date they were paid out, see below."\nRecord Type,Date\nloan,2026-11-02'
+    )
+  })
+
   test("an export with no rows is just the header line", async () => {
     const stream = await toCsvStream(["A", "B"], batchesOf([]))
 

@@ -44,6 +44,7 @@ export type MobileOperationProfileSnapshot = {
     procurementMaximumActiveObligationsPerMember: number
   }
   reviewedAt: string | null
+  reviewedByName?: string | null
   reviewedByUserId: string | null
   services: MobileOperationProfileService[]
   subscription: {

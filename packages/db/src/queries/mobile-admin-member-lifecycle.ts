@@ -1,9 +1,12 @@
+import { Prisma, type PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
+import { approvedNotPaidOutMetrics } from "./approved-not-paid-out"
 import { getOverviewSummary } from "./dashboard"
 import {
   createMember,
   getMemberRegistrySummary,
   getMemberStatementDetail,
+  getMemberStatementSummary,
   listMembers,
   updateMemberKyc,
   updateMemberStatus,
@@ -18,7 +21,6 @@ import {
   listMemberPaymentReceipts,
 } from "./payment-receipts"
 import { getMemberSupportCaseSummary, listSupportCases } from "./support"
-import { getTenantSubscriptionSnapshot } from "./subscriptions"
 import {
   getMemberShareBalancesAtDate,
   listMemberShareApplications,
@@ -69,36 +71,19 @@ type MobileAdminMemberRow = {
   status: string
 }
 
-type MobileMemberExpansionSnapshot = {
-  enforcement: {
-    canActivateMember: boolean
-    reason: string | null
-  }
-  plan: {
-    code: string
-    displayName: string
-  }
-  usage: {
-    activeMemberCount: number
-    activeMemberLimit: number | null
-    isAtCapacity: boolean
-  }
-}
-
-export function toMobileMemberExpansion(
-  snapshot: MobileMemberExpansionSnapshot
-) {
+/**
+ * Triage 2.8 retired the old plan member cap, so adding members is always
+ * available. The field stays in the directory response because installed
+ * mobile builds only show "Add member" while `status` is "available".
+ */
+export function toMobileMemberExpansion(activeMemberCount: number) {
   return {
-    activeMemberCount: snapshot.usage.activeMemberCount,
-    activeMemberLimit: snapshot.usage.activeMemberLimit,
-    planCode: snapshot.plan.code,
-    planName: snapshot.plan.displayName,
-    reason: snapshot.enforcement.reason,
-    status: snapshot.usage.isAtCapacity
-      ? ("at_capacity" as const)
-      : snapshot.enforcement.canActivateMember
-        ? ("available" as const)
-        : ("restricted" as const),
+    activeMemberCount,
+    activeMemberLimit: null,
+    planCode: null,
+    planName: null,
+    reason: null,
+    status: "available" as const,
   }
 }
 
@@ -133,9 +118,20 @@ function humanize(value: string | null | undefined) {
     : null
 }
 
-function toMemberRow(
-  row: Awaited<ReturnType<typeof listMembers>>["items"][number]
-): MobileAdminMemberRow {
+function toMemberRow(row: {
+  contributionPlans: { amount: unknown }[]
+  deductionSource: { name: string } | null
+  email: string | null
+  fullName: string
+  id: string
+  joinedAt: Date
+  kycStatus: string
+  memberNumber: string
+  memberType: string
+  phoneNumber: string | null
+  status: string
+  user: { email: string } | null
+}): MobileAdminMemberRow {
   return {
     activeMonthlyCommitment: row.contributionPlans[0]
       ? Number(row.contributionPlans[0].amount)
@@ -154,9 +150,31 @@ function toMemberRow(
   }
 }
 
+/** "₦180,000" for the tenant's currency (whole amounts keep no kobo). */
+function formatOverviewMoney(amount: number, currencyCode: string) {
+  try {
+    return new Intl.NumberFormat("en-NG", {
+      currency: currencyCode,
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 0,
+      style: "currency",
+    }).format(amount)
+  } catch {
+    return amount.toLocaleString("en-NG")
+  }
+}
+
+/**
+ * Mobile admin overview (T05). Mobile shows only open queue rows, so the
+ * summary skips the operation profile ("open-items"); activity rows carry
+ * the member, amount, kind and status the app lays out itself.
+ */
 export async function getMobileAdminLifecycleOverview(tenantId: string) {
   const prisma = createPrismaClient()
-  const summary = await getOverviewSummary(tenantId, prisma ?? undefined)
+  const summary = await getOverviewSummary(tenantId, prisma ?? undefined, {
+    queueRows: "open-items",
+  })
+  const currencyCode = summary.workspace.currencyCode
   return {
     actionQueue: orderMobileAdminActionQueue(summary.actionQueue)
       .slice(0, 8)
@@ -174,7 +192,25 @@ export async function getMobileAdminLifecycleOverview(tenantId: string) {
     })),
     generatedAt: summary.workspace.generatedAt,
     recentActivity: summary.recentActivity.map(
-      ({ detail, id, label, occurredAt }) => ({ detail, id, label, occurredAt })
+      ({
+        amount,
+        detail,
+        id,
+        kind,
+        label,
+        memberName,
+        occurredAt,
+        status,
+      }) => ({
+        amount,
+        detail,
+        id,
+        kind,
+        label,
+        memberName,
+        occurredAt,
+        status,
+      })
     ),
     stats: [
       {
@@ -192,7 +228,7 @@ export async function getMobileAdminLifecycleOverview(tenantId: string) {
         value: summary.primaryMetrics.collectionCoverage,
       },
       {
-        detail: `${summary.primaryMetrics.portfolioAtRiskAmount.toLocaleString("en-NG")} overdue`,
+        detail: `${formatOverviewMoney(summary.primaryMetrics.portfolioAtRiskAmount, currencyCode)} overdue`,
         format: "percent" as const,
         key: "portfolio-risk",
         label: "Portfolio risk",
@@ -200,6 +236,195 @@ export async function getMobileAdminLifecycleOverview(tenantId: string) {
       },
     ],
     warnings: summary.setupWarnings.map(({ key, label }) => ({ key, label })),
+  }
+}
+
+export async function getMobileAdminMemberDirectorySummary(
+  tenantId: string,
+  prisma = createPrismaClient(),
+  approvalLimit = 20
+) {
+  const where = { tenantId }
+  const [groups, pendingDocuments, onboarding] = prisma
+    ? await Promise.all([
+        prisma.member.groupBy({
+          by: ["status", "kycStatus"],
+          _count: { _all: true },
+          where,
+        }),
+        prisma.memberDocument.count({
+          where: { ...where, reviewStatus: "pending" },
+        }),
+        listMemberOnboardingRequests(
+          tenantId,
+          { pageSize: approvalLimit, status: "pending_approval" },
+          prisma
+        ),
+      ])
+    : ([[], 0, { items: [], total: 0 }] as const)
+
+  const statusCounts = {
+    pending: 0,
+    active: 0,
+    inactive: 0,
+    suspended: 0,
+    exited: 0,
+  }
+  const kycCounts = { not_started: 0, pending: 0, verified: 0, rejected: 0 }
+  let reviewCount = pendingDocuments
+  let total = 0
+  for (const { status, kycStatus, _count } of groups) {
+    statusCounts[status] += _count._all
+    kycCounts[kycStatus] += _count._all
+    total += _count._all
+    if (status === "active" && kycStatus !== "verified")
+      reviewCount += _count._all
+  }
+
+  return {
+    generatedAt: new Date().toISOString(),
+    total,
+    statusCounts,
+    kycCounts,
+    memberExpansion: toMobileMemberExpansion(statusCounts.active),
+    onboardingRequests: onboarding.items.map((item) => ({
+      createdAt: item.createdAt.toISOString(),
+      email: item.email,
+      emailVerifiedAt: item.emailVerifiedAt?.toISOString() ?? null,
+      fullName: item.fullName,
+      id: item.id,
+      linkedUserEmail: item.user?.email ?? null,
+      memberNumber: item.memberNumber,
+      phoneNumber: item.phoneNumber ?? null,
+      status: item.status,
+    })),
+    reviewQueues: [
+      {
+        count: onboarding.total,
+        detail: "Pending signup approvals",
+        key: "membership-approvals" as const,
+        label: "Membership approvals",
+        severity: "warning" as const,
+      },
+      {
+        count: reviewCount,
+        detail: "Members or documents waiting for KYC review",
+        key: "kyc-documents" as const,
+        label: "KYC and document reviews",
+        severity: "warning" as const,
+      },
+    ].filter(({ count }) => count > 0),
+  }
+}
+
+type DirectoryPageInput = {
+  kycStatus?: MobileAdminMemberKycStatus
+  needsReview?: boolean
+  page?: number
+  pageSize?: number
+  search?: string
+  status?: MobileAdminMemberStatus
+  tenantId: string
+}
+
+export async function getMobileAdminMemberDirectoryPage(
+  {
+    tenantId,
+    page = 1,
+    pageSize = 20,
+    search,
+    status,
+    kycStatus,
+    needsReview,
+  }: DirectoryPageInput,
+  prisma = createPrismaClient()
+) {
+  const empty = {
+    generatedAt: new Date().toISOString(),
+    memberExpansion: toMobileMemberExpansion(0),
+    members: [],
+    onboardingRequests: [],
+    page,
+    pageSize,
+    reviewQueues: [],
+    summary: {
+      activeCount: 0,
+      kycPendingCount: 0,
+      linkedUsersCount: 0,
+      pageCount: 0,
+      totalCount: 0,
+    },
+    total: 0,
+  }
+  if (!prisma) return empty
+
+  const conditions = [Prisma.sql`m.tenant_id = ${tenantId}::uuid`]
+  if (status) conditions.push(Prisma.sql`m.status = ${status}::"MemberStatus"`)
+  if (kycStatus)
+    conditions.push(Prisma.sql`m.kyc_status = ${kycStatus}::"KycStatus"`)
+  if (needsReview) {
+    conditions.push(Prisma.sql`(
+      (m.status = 'active' AND m.kyc_status <> 'verified') OR EXISTS (
+        SELECT 1 FROM member_documents d
+        WHERE d.tenant_id = m.tenant_id AND d.member_id = m.id AND d.review_status = 'pending'
+      )
+    )`)
+  }
+  if (search) {
+    const digits = /^[+()\s.\d-]+$/.test(search)
+      ? search.replace(/\D/g, "")
+      : ""
+    const phone =
+      digits.length >= 3 ? digits.replace(/^(?:234|0)(?=\d{10}$)/, "") : ""
+    const textMatch = Prisma.sql`strpos(lower(m.full_name), lower(${search})) > 0
+      OR strpos(lower(m.member_number), lower(${search})) > 0`
+    conditions.push(
+      phone
+        ? Prisma.sql`(${textMatch} OR strpos(regexp_replace(m.phone_number, '[^0-9]', '', 'g'), ${phone}) > 0)`
+        : Prisma.sql`(${textMatch})`
+    )
+  }
+  const where = Prisma.join(conditions, " AND ")
+  type Row = Pick<
+    MobileAdminMemberRow,
+    | "id"
+    | "fullName"
+    | "memberNumber"
+    | "memberType"
+    | "status"
+    | "kycStatus"
+    | "email"
+    | "phoneNumber"
+  > & { joinedAt: Date }
+  const [items, [count]] = await Promise.all([
+    prisma.$queryRaw<Row[]>`
+      SELECT m.id, m.full_name AS "fullName", m.member_number AS "memberNumber",
+        m.member_type AS "memberType", m.status, m.kyc_status AS "kycStatus",
+        m.joined_at AS "joinedAt", m.email, m.phone_number AS "phoneNumber"
+      FROM members m WHERE ${where}
+      ORDER BY m.created_at DESC, m.id DESC
+      LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}
+    `,
+    prisma.$queryRaw<{ total: bigint }[]>`
+      SELECT count(*) AS total FROM members m WHERE ${where}
+    `,
+  ])
+
+  return {
+    ...empty,
+    members: items.map((row) => ({
+      ...row,
+      activeMonthlyCommitment: null,
+      deductionSourceName: null,
+      joinedAt: row.joinedAt.toISOString(),
+      linkedUserEmail: null,
+    })),
+    summary: {
+      ...empty.summary,
+      pageCount: items.length,
+      totalCount: Number(count?.total ?? 0),
+    },
+    total: Number(count?.total ?? 0),
   }
 }
 
@@ -217,14 +442,7 @@ export async function getMobileAdminMemberDirectory(input: {
   if (!prisma) {
     return {
       generatedAt: new Date().toISOString(),
-      memberExpansion: {
-        activeMemberCount: 0,
-        activeMemberLimit: null,
-        planCode: null,
-        planName: null,
-        reason: "billing_infrastructure_unavailable",
-        status: "restricted" as const,
-      },
+      memberExpansion: toMobileMemberExpansion(0),
       members: [],
       onboardingRequests: [],
       page,
@@ -241,73 +459,39 @@ export async function getMobileAdminMemberDirectory(input: {
     }
   }
 
-  const [result, registry, overview, onboarding, subscription] =
-    await Promise.all([
-      listMembers(
-        input.tenantId,
-        {
-          kycStatus: input.kycStatus,
-          page,
-          pageSize,
-          search: input.search,
-          status: input.status,
-        },
-        prisma
-      ),
-      getMemberRegistrySummary(
-        input.tenantId,
-        {
-          kycStatus: input.kycStatus,
-          search: input.search,
-          status: input.status,
-        },
-        prisma
-      ),
-      getOverviewSummary(input.tenantId, prisma),
-      listMemberOnboardingRequests(
-        input.tenantId,
-        { pageSize: 3, status: "pending_approval" },
-        prisma
-      ),
-      getTenantSubscriptionSnapshot({ tenantId: input.tenantId }, prisma),
-    ])
-  const members = result.items.map(toMemberRow)
-  const reviewQueues = overview.actionQueue.flatMap((item) => {
-    if (item.key !== "membership-approvals" && item.key !== "kyc-documents") {
-      return []
-    }
-    return [
+  const [result, registry, directory] = await Promise.all([
+    listMembers(
+      input.tenantId,
       {
-        count: item.count,
-        detail:
-          item.key === "membership-approvals"
-            ? "Pending signup approvals"
-            : "Members or documents waiting for KYC review",
-        key: item.key,
-        label: item.label,
-        severity: item.severity,
+        kycStatus: input.kycStatus,
+        page,
+        pageSize,
+        search: input.search,
+        status: input.status,
       },
-    ]
-  })
+      prisma
+    ),
+    getMemberRegistrySummary(
+      input.tenantId,
+      {
+        kycStatus: input.kycStatus,
+        search: input.search,
+        status: input.status,
+      },
+      prisma
+    ),
+    getMobileAdminMemberDirectorySummary(input.tenantId, prisma, 3),
+  ])
+  const members = result.items.map(toMemberRow)
 
   return {
     generatedAt: new Date().toISOString(),
-    memberExpansion: toMobileMemberExpansion(subscription),
+    memberExpansion: directory.memberExpansion,
     members,
-    onboardingRequests: onboarding.items.map((item) => ({
-      createdAt: item.createdAt.toISOString(),
-      email: item.email,
-      emailVerifiedAt: item.emailVerifiedAt?.toISOString() ?? null,
-      fullName: item.fullName,
-      id: item.id,
-      linkedUserEmail: item.user?.email ?? null,
-      memberNumber: item.memberNumber,
-      phoneNumber: item.phoneNumber ?? null,
-      status: item.status,
-    })),
+    onboardingRequests: directory.onboardingRequests,
+    reviewQueues: directory.reviewQueues,
     page: result.page,
     pageSize: result.pageSize,
-    reviewQueues,
     summary: {
       activeCount: registry.activeCount,
       kycPendingCount: registry.kycPendingCount,
@@ -316,6 +500,151 @@ export async function getMobileAdminMemberDirectory(input: {
       totalCount: registry.totalCount,
     },
     total: result.total,
+  }
+}
+
+export async function getMobileAdminMemberProfile(
+  { tenantId, memberId }: { tenantId: string; memberId: string },
+  prisma?: PrismaClient | null
+) {
+  const db = prisma ?? createPrismaClient()
+  const empty = {
+    generatedAt: new Date().toISOString(),
+    member: null,
+    sections: [],
+    stats: [],
+    recentChanges: [],
+  }
+  if (!db) return empty
+
+  const scope = { tenantId, memberId }
+  const member = await db.member.findFirst({
+    where: { id: memberId, tenantId },
+    include: {
+      contributionPlans: {
+        where: { isActive: true },
+        orderBy: { startsAt: "desc" },
+        select: { amount: true },
+        take: 1,
+      },
+      deductionSource: { select: { name: true } },
+      documents: {
+        where: { tenantId },
+        orderBy: { uploadedAt: "desc" },
+        select: { id: true, documentType: true, reviewStatus: true },
+        take: 20,
+      },
+      user: { select: { email: true, fullName: true } },
+    },
+  })
+  if (!member) return empty
+
+  const [summary, shares, receipts, changes] = await Promise.all([
+    getMemberStatementSummary(tenantId, memberId, db),
+    db.memberShareLedgerEntry.aggregate({
+      _sum: { amount: true },
+      where: { ...scope, effectiveDate: { lte: new Date() } },
+    }),
+    getMemberScopedPaymentReceiptSummary(scope, db),
+    db.auditLog.findMany({
+      where: {
+        tenantId,
+        entityType: "Member",
+        entityId: memberId,
+        action: {
+          in: ["member.created", "member.kyc_updated", "member.status_changed"],
+        },
+      },
+      select: {
+        id: true,
+        action: true,
+        occurredAt: true,
+        metadata: true,
+        actorUser: { select: { fullName: true } },
+      },
+      orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+      take: 5,
+    }),
+  ])
+  return {
+    ...empty,
+    member: {
+      ...toMemberRow(member),
+      exitedAt: member.exitedAt?.toISOString() ?? null,
+      linkedUserName: member.user?.fullName ?? null,
+    },
+    sections: [
+      {
+        key: "documents",
+        title: "Documents",
+        subtitle: "Uploaded KYC and member evidence.",
+        emptyState: "None uploaded",
+        rows: member.documents.map((document) => ({
+          detail: document.documentType,
+          format: null,
+          key: document.id,
+          label: humanize(document.documentType) ?? "Member document",
+          status: document.reviewStatus,
+          value: null,
+        })),
+      },
+    ],
+    stats: [
+      {
+        key: "savings",
+        label: "Savings",
+        detail: "Posted member savings",
+        value: summary?.totalSavingsSnapshot ?? 0,
+        format: "currency",
+      },
+      {
+        key: "financing",
+        label: "Financing",
+        detail: "Current financing principal",
+        value: summary?.totalOutstandingPrincipal ?? 0,
+        format: "currency",
+      },
+      {
+        key: "share-capital",
+        label: "Share capital",
+        detail: "Posted share balance",
+        value: Math.max(0, Number(shares._sum.amount ?? 0)),
+        format: "currency",
+      },
+      {
+        key: "receipt-pending-review",
+        label: "Receipts to review",
+        detail: "Submitted or under review",
+        value: receipts.pendingReviewReceipts,
+        format: "count",
+      },
+      ...approvedNotPaidOutMetrics(summary),
+    ] satisfies MobileMetric[],
+    recentChanges: changes.map(
+      ({ action, actorUser, id, metadata, occurredAt }) => {
+        const fields =
+          metadata && typeof metadata === "object" && !Array.isArray(metadata)
+            ? metadata
+            : {}
+        const kind =
+          action === "member.kyc_updated"
+            ? "kyc"
+            : action === "member.status_changed"
+              ? "status"
+              : "created"
+        const value = kind === "kyc" ? fields.kycStatus : fields.newStatus
+        const notes =
+          kind === "kyc" ? fields.kycReviewNotes : fields.reviewNotes
+        return {
+          actor: actorUser?.fullName ?? null,
+          id,
+          kind,
+          notes: typeof notes === "string" ? notes : null,
+          occurredAt: occurredAt.toISOString(),
+          value: typeof value === "string" ? value : null,
+        }
+      }
+    ),
   }
 }
 
@@ -478,6 +807,10 @@ export async function getMobileAdminMemberLifecycleDetail(input: {
           status: summary?.activeLoanCount ? "Active" : "Clear",
           value: summary?.totalOutstandingPrincipal ?? 0,
         },
+        ...approvedNotPaidOutMetrics(summary).map((metric) => ({
+          ...metric,
+          status: "Approved",
+        })),
       ],
       subtitle: "Current financing exposure.",
       title: "Financing",
@@ -628,6 +961,7 @@ export async function getMobileAdminMemberLifecycleDetail(input: {
         label: "Financing",
         value: summary?.totalOutstandingPrincipal ?? 0,
       },
+      ...approvedNotPaidOutMetrics(summary),
     ],
   }
 }

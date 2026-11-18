@@ -42,8 +42,20 @@ const textVariants = cva(
         ),
         lead: "text-xl text-muted-foreground",
         large: "text-lg font-semibold",
-        small: "text-sm leading-none font-medium",
         muted: "text-sm text-muted-foreground",
+        // 02 Brand native type scale (lib/design-tokens.ts typeScale).
+        // Headings run one step lighter (700, `heading` ink) than the 800
+        // preview spec: full-size on device, 800 near-black read too strong.
+        // Exact px: NativeWind here resolves rem as 14px (text-base = 14).
+        hero: "text-[36px] leading-[42px] font-extrabold tracking-tight",
+        screenTitle: "text-[26px] leading-[32px] font-bold tracking-tight text-heading",
+        title: "text-[20px] leading-[26px] font-bold tracking-tight text-heading",
+        section: "text-[16px] leading-[22px] font-bold text-heading",
+        body: "text-[16px] leading-[22px] font-medium",
+        small: "text-[14px] leading-[20px] font-medium",
+        label: "text-[13px] leading-[18px] font-bold",
+        caption: "text-[12px] leading-[16px] font-bold",
+        money: "text-[16px] leading-[22px] font-extrabold",
       },
     },
     defaultVariants: {
@@ -57,7 +69,12 @@ type TextVariantProps = VariantProps<typeof textVariants>
 
 type TextVariant = NonNullable<TextVariantProps["variant"]>
 
+/** Money and hero figures line their digits up in columns. */
+const TABULAR_VARIANTS = new Set<TextVariant>(["hero", "money"])
+const TABULAR_STYLE = { fontVariant: ["tabular-nums" as const] }
+
 const ROLE: Partial<Record<TextVariant, Role>> = {
+  screenTitle: "heading",
   h1: "heading",
   h2: "heading",
   h3: "heading",
@@ -79,12 +96,17 @@ function Text({
   className,
   asChild = false,
   variant = "default",
+  children,
   color,
+  style,
+  tabular = false,
   ...props
 }: React.ComponentProps<typeof RNText> &
   TextVariantProps &
   React.RefAttributes<RNText> & {
     asChild?: boolean
+    /** Column-aligned digits for amounts and counts. */
+    tabular?: boolean
   }) {
   const textClass = React.useContext(TextClassContext)
   const Component: any = asChild ? Slot.Text : RNText
@@ -93,8 +115,18 @@ function Text({
       className={cn(textVariants({ variant, color }), textClass, className)}
       role={variant ? ROLE[variant] : undefined}
       aria-level={variant ? ARIA_LEVEL[variant] : undefined}
+      {...(style ? { style } : null)}
       {...props}
-    />
+    >
+      {tabular || (variant && TABULAR_VARIANTS.has(variant)) ? (
+        // A nested Text inherits the className styles and adds tabular
+        // digits. react-native-css drops className styles from an element
+        // that also receives an inline style, so the outer stays class-only.
+        <RNText style={TABULAR_STYLE}>{children}</RNText>
+      ) : (
+        children
+      )}
+    </Component>
   )
 }
 

@@ -9,13 +9,19 @@ import {
 import { PublicPolicyPage } from "./public-policy-page"
 
 const originalTermsPublication = policyPublications.terms
+const originalBillingPublication = policyPublications["billing-policy"]
 
 afterEach(() => {
   policyPublications.terms = originalTermsPublication
+  policyPublications["billing-policy"] = originalBillingPublication
 })
 
 describe("public policy page approval marker", () => {
   test("does not expose a snapshot hash for a draft policy", () => {
+    policyPublications["billing-policy"] = {
+      status: "draft",
+      version: "2026-11-16-draft-10",
+    }
     const html = renderToStaticMarkup(
       createElement(PublicPolicyPage, { policy: "billing-policy" })
     )

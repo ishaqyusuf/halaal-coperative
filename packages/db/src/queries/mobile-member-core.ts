@@ -1,15 +1,12 @@
 import { createPrismaClient } from "../prisma"
+import { approvedNotPaidOutMetrics } from "./approved-not-paid-out"
 import {
   getMemberByUserId,
-  getMemberStatementDetail,
   getMemberStatementSummary,
   type MemberStatementSummary,
 } from "./members"
-import { getTenantOperationProfile } from "./operation-profile"
-import { listMemberPaymentReceipts } from "./payment-receipts"
-import { listProcurementRequests } from "./procurement"
-import { listFoodPurchaseApplications } from "./food-purchase"
-import { listSupportCases } from "./support"
+import { getMobileNotificationUnreadCount } from "./mobile-notifications"
+import { resolveTenantServiceCapabilities } from "./operation-profile"
 
 export const mobileMemberSectionKeys = [
   "commitments",
@@ -40,6 +37,8 @@ export type MobileMemberCoreHome = {
     name: string
     status: string
   } | null
+  /** Bell badge on home (T04). */
+  notifications: { unread: number }
   readiness: {
     detail: string
     percentage: number
@@ -56,6 +55,7 @@ export type MobileMemberCoreHome = {
 
 export type MobileMemberCommitmentRow = {
   detail: string
+  interval?: string
   format: "currency" | "percent" | "count" | null
   key: string
   label: string
@@ -200,6 +200,7 @@ export function buildMobileMemberCommitments(
         ? `Started ${formatDateLabel(input.activePlan.startsAt)}`
         : (humanizeStatus(input.activePlan.interval) ?? "Contribution plan"),
       format: "currency",
+      interval: humanizeStatus(input.activePlan.interval) ?? undefined,
       key: `plan-${input.activePlan.id}`,
       label: input.activePlan.name,
       status: input.activePlan.isActive ? "Active" : "Inactive",
@@ -431,6 +432,22 @@ function getServices(input: {
   return services
 }
 
+function countLabel(count: number, noun: string) {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`
+}
+
+/**
+ * The savings total is the member's savings snapshot, which can hold an
+ * opening balance before any contribution is posted; never pair a balance
+ * with "no entries".
+ */
+function describeSavingsTotal(contributionsCount: number, total: number) {
+  if (contributionsCount > 0) {
+    return `${countLabel(contributionsCount, "contribution")} posted`
+  }
+  return total > 0 ? "Savings balance on record" : "No contributions posted yet"
+}
+
 export function buildMobileMemberCoreHome(input: {
   foodPurchaseRecords: number
   generatedAt?: Date
@@ -441,8 +458,12 @@ export function buildMobileMemberCoreHome(input: {
   shareCapital: number
   summary: MemberStatementSummary | null
   supportRecords: number
+  unreadNotifications?: number
 }): MobileMemberCoreHome {
   const services = getServices(input)
+  const notifications = {
+    unread: Math.max(0, Math.trunc(input.unreadNotifications ?? 0)),
+  }
 
   if (!input.member) {
     return {
@@ -456,6 +477,7 @@ export function buildMobileMemberCoreHome(input: {
       ],
       generatedAt: (input.generatedAt ?? new Date()).toISOString(),
       member: null,
+      notifications,
       readiness: {
         detail: "Your cooperative profile is not linked to this account yet.",
         percentage: 0,
@@ -513,7 +535,7 @@ export function buildMobileMemberCoreHome(input: {
   }
   if ((summary?.totalOutstandingPrincipal ?? 0) > 0) {
     actionItems.push({
-      detail: `${summary?.activeLoanCount ?? 0} active financing record(s).`,
+      detail: `${countLabel(summary?.activeLoanCount ?? 0, "active financing record")}.`,
       key: "financing",
       label: "Financing exposure",
       severity: "neutral",
@@ -530,6 +552,7 @@ export function buildMobileMemberCoreHome(input: {
       name: input.member.fullName,
       status: input.member.status,
     },
+    notifications,
     readiness,
     services,
     stats: [
@@ -543,10 +566,10 @@ export function buildMobileMemberCoreHome(input: {
         value: summary?.activeCommitmentAmount ?? 0,
       },
       {
-        detail:
-          (summary?.contributionsCount ?? 0) > 0
-            ? `${summary?.contributionsCount ?? 0} posted contribution entries`
-            : "No posted contribution entries",
+        detail: describeSavingsTotal(
+          summary?.contributionsCount ?? 0,
+          summary?.totalSavingsSnapshot ?? 0
+        ),
         format: "currency",
         key: "savings",
         label: "Savings total",
@@ -565,13 +588,17 @@ export function buildMobileMemberCoreHome(input: {
       {
         detail:
           (summary?.activeLoanCount ?? 0) > 0
-            ? `${summary?.activeLoanCount ?? 0} active financing record(s)`
+            ? countLabel(
+                summary?.activeLoanCount ?? 0,
+                "active financing record"
+              )
             : "No active financing",
         format: "currency",
         key: "financing",
         label: "Financing exposure",
         value: summary?.totalOutstandingPrincipal ?? 0,
       },
+      ...approvedNotPaidOutMetrics(summary),
       {
         detail:
           input.shareCapital > 0
@@ -586,79 +613,133 @@ export function buildMobileMemberCoreHome(input: {
   }
 }
 
-export async function getMobileMemberCoreHome(input: {
-  tenantId: string
-  userId: string
-}): Promise<MobileMemberCoreHome> {
-  const prisma = createPrismaClient()
+type MobileMemberHomeSignals = {
+  foodPurchaseRecords: number
+  operationProfile: MobileMemberCoreOperationProfile | null
+  procurementRecords: number
+  receiptRecords: number
+  supportRecords: number
+}
 
-  if (!prisma) {
-    return buildMobileMemberCoreHome({
-      foodPurchaseRecords: 0,
+const emptyMobileMemberHomeSignals: MobileMemberHomeSignals = {
+  foodPurchaseRecords: 0,
+  operationProfile: null,
+  procurementRecords: 0,
+  receiptRecords: 0,
+  supportRecords: 0,
+}
+
+/**
+ * Everything home needs to decide the optional service tiles, in one
+ * statement: whether the member has receipts, procurement, foodstuff or
+ * support records (EXISTS on the tenant+member indexes) and the tenant's
+ * service access modes. It replaces four full list reads (with their
+ * relation loads) and the operation profile read, and never writes defaults.
+ */
+async function readMobileMemberHomeSignals(
+  prisma: NonNullable<ReturnType<typeof createPrismaClient>>,
+  tenantId: string,
+  memberId: string
+): Promise<MobileMemberHomeSignals> {
+  const rows = (await prisma.$queryRaw`
+    SELECT
+      EXISTS (
+        SELECT 1 FROM member_payment_receipts
+        WHERE tenant_id = ${tenantId}::uuid AND member_id = ${memberId}::uuid
+      ) AS "hasReceipts",
+      EXISTS (
+        SELECT 1 FROM procurement_requests
+        WHERE tenant_id = ${tenantId}::uuid AND member_id = ${memberId}::uuid
+      ) AS "hasProcurement",
+      EXISTS (
+        SELECT 1 FROM food_purchase_applications
+        WHERE tenant_id = ${tenantId}::uuid AND member_id = ${memberId}::uuid
+      ) AS "hasFoodPurchase",
+      EXISTS (
+        SELECT 1 FROM support_cases
+        WHERE tenant_id = ${tenantId}::uuid AND member_id = ${memberId}::uuid
+      ) AS "hasSupport",
+      COALESCE(
+        (
+          SELECT jsonb_object_agg(service_key::text, access_mode::text)
+          FROM tenant_service_settings
+          WHERE tenant_id = ${tenantId}::uuid
+        ),
+        '{}'::jsonb
+      ) AS "serviceModes"
+  `) as Array<{
+    hasFoodPurchase: boolean
+    hasProcurement: boolean
+    hasReceipts: boolean
+    hasSupport: boolean
+    serviceModes: Record<string, unknown> | null
+  }>
+  const row = rows[0]
+  if (!row) return emptyMobileMemberHomeSignals
+
+  return {
+    foodPurchaseRecords: row.hasFoodPurchase ? 1 : 0,
+    operationProfile: {
+      services: resolveTenantServiceCapabilities(row.serviceModes ?? {}),
+    },
+    procurementRecords: row.hasProcurement ? 1 : 0,
+    receiptRecords: row.hasReceipts ? 1 : 0,
+    supportRecords: row.hasSupport ? 1 : 0,
+  }
+}
+
+/**
+ * Mobile member home (T04): the member row, then the statement summary, the
+ * service signals and the bell's unread count in parallel. Four queries
+ * after the request's access gate, whatever the member's history size.
+ */
+export async function getMobileMemberCoreHome(
+  input: {
+    tenantId: string
+    /** For the notification badge; omitted means no unread count is read. */
+    userEmail?: string | null
+    userId: string
+  },
+  prismaOverride?: NonNullable<ReturnType<typeof createPrismaClient>>
+): Promise<MobileMemberCoreHome> {
+  const prisma = prismaOverride ?? createPrismaClient()
+  const empty = (generatedAt?: Date) =>
+    buildMobileMemberCoreHome({
+      ...emptyMobileMemberHomeSignals,
+      generatedAt,
       member: null,
-      operationProfile: null,
-      procurementRecords: 0,
-      receiptRecords: 0,
       shareCapital: 0,
       summary: null,
-      supportRecords: 0,
     })
-  }
+
+  if (!prisma) return empty()
 
   const member = await getMemberByUserId(input, prisma)
-  if (!member) {
-    return buildMobileMemberCoreHome({
-      foodPurchaseRecords: 0,
-      member: null,
-      operationProfile: null,
-      procurementRecords: 0,
-      receiptRecords: 0,
-      shareCapital: 0,
-      summary: null,
-      supportRecords: 0,
-    })
-  }
+  if (!member) return empty()
 
-  const [
-    summary,
-    operationProfile,
-    receipts,
-    procurementRequests,
-    foodPurchaseApplications,
-    supportCases,
-  ] = await Promise.all([
+  const [summary, signals, unreadNotifications] = await Promise.all([
     getMemberStatementSummary(input.tenantId, member.id, prisma),
-    getTenantOperationProfile(input.tenantId, prisma),
-    listMemberPaymentReceipts(
-      input.tenantId,
-      { limit: 1, memberId: member.id },
-      prisma
-    ),
-    listProcurementRequests(
-      { limit: 1, memberId: member.id, tenantId: input.tenantId },
-      prisma
-    ),
-    listFoodPurchaseApplications(
-      { limit: 1, memberId: member.id, tenantId: input.tenantId },
-      prisma
-    ),
-    listSupportCases(
-      { limit: 1, memberId: member.id, tenantId: input.tenantId },
-      prisma
-    ),
+    readMobileMemberHomeSignals(prisma, input.tenantId, member.id),
+    input.userEmail
+      ? getMobileNotificationUnreadCount(
+          {
+            role: "member",
+            tenantId: input.tenantId,
+            userEmail: input.userEmail,
+            userId: input.userId,
+          },
+          prisma
+        )
+      : Promise.resolve(0),
   ])
-  // Share ledger balance as of today, from the same summary the web uses.
-  const shareCapital = summary?.shareCapitalBalance ?? 0
 
   return buildMobileMemberCoreHome({
-    foodPurchaseRecords: foodPurchaseApplications.length,
+    ...signals,
     member,
-    operationProfile,
-    procurementRecords: procurementRequests.length,
-    receiptRecords: receipts.length,
-    shareCapital,
+    // Share ledger balance as of today, from the same summary the web uses.
+    shareCapital: summary?.shareCapitalBalance ?? 0,
     summary,
-    supportRecords: supportCases.length,
+    unreadNotifications,
   })
 }
 
@@ -666,6 +747,7 @@ export async function getMobileMemberCommitments(
   input: {
     tenantId: string
     userId: string
+    summaryOnly?: boolean
   },
   prismaOverride?: NonNullable<ReturnType<typeof createPrismaClient>>
 ): Promise<MobileMemberCommitments> {
@@ -676,21 +758,21 @@ export async function getMobileMemberCommitments(
   const member = await getMemberByUserId(input, prisma)
   if (!member) return emptyMobileMemberCommitments()
 
-  const detail = await getMemberStatementDetail(
-    input.tenantId,
-    member.id,
-    prisma
-  )
-  if (!detail) {
-    return emptyMobileMemberCommitments(
-      "No statement detail was found for this member profile."
-    )
-  }
-
-  const activePlan =
-    detail.member.contributionPlans.find((plan) => plan.isActive) ??
-    detail.member.contributionPlans[0] ??
-    null
+  const where = { memberId: member.id, tenantId: input.tenantId }
+  const [activePlan, summary, contributions] = await Promise.all([
+    prisma.contributionPlan.findFirst({
+      where,
+      orderBy: [{ isActive: "desc" }, { startsAt: "desc" }, { id: "desc" }],
+    }),
+    getMemberStatementSummary(input.tenantId, member.id, prisma),
+    input.summaryOnly
+      ? []
+      : prisma.contribution.findMany({
+          where,
+          orderBy: [{ postedAt: "desc" }, { id: "desc" }],
+          take: 4,
+        }),
+  ])
 
   return buildMobileMemberCommitments({
     activePlan: activePlan
@@ -703,7 +785,7 @@ export async function getMobileMemberCommitments(
           startsAt: activePlan.startsAt,
         }
       : null,
-    contributions: detail.contributions.map((contribution) => ({
+    contributions: contributions.map((contribution) => ({
       amount: Number(contribution.amount ?? 0),
       channel: contribution.channel,
       extraSavingsAmount: Number(contribution.extraSavingsAmount ?? 0),
@@ -713,12 +795,6 @@ export async function getMobileMemberCommitments(
       reference: contribution.reference,
       status: contribution.status,
     })),
-    summary: detail.summary
-      ? {
-          contributionsCount: detail.summary.contributionsCount,
-          specialSavingsBalance: detail.summary.specialSavingsBalance,
-          totalSavingsSnapshot: detail.summary.totalSavingsSnapshot,
-        }
-      : null,
+    summary,
   })
 }

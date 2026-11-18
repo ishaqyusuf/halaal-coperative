@@ -161,6 +161,26 @@ function buildDefaultServices(): Record<
   )
 }
 
+/**
+ * Service capabilities from stored access modes, defaults for missing rows.
+ * Read-only: unlike getTenantOperationProfile it never writes the defaults,
+ * so hot member reads (mobile home) can take the modes from a joined query.
+ */
+export function resolveTenantServiceCapabilities(
+  modes: Partial<Record<string, unknown>>
+): Record<TenantServiceKey, TenantServiceCapability> {
+  const services = buildDefaultServices()
+  for (const [serviceKey, accessMode] of Object.entries(modes)) {
+    if (
+      isTenantServiceKey(serviceKey) &&
+      isTenantServiceAccessMode(accessMode)
+    ) {
+      services[serviceKey] = buildServiceCapability(serviceKey, accessMode)
+    }
+  }
+  return services
+}
+
 function buildOperationProfileReadModel(input: {
   policy: Record<string, unknown> | null | undefined
   profile: {
@@ -406,6 +426,54 @@ export async function getTenantOperationProfile(
     settings,
     tenantId,
   })
+}
+
+/** Mobile overview reads the same defaults without persisting them on a GET. */
+export async function getMobileAdminOperationProfile(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const rows = await prisma.$queryRaw<Array<{
+    reviewedAt: Date | null
+    reviewedByUserId: string | null
+    reviewedByName: string | null
+    serviceKey: string | null
+    accessMode: string | null
+    foodPurchaseMaximumActiveObligationsPerMember: number | null
+    foodPurchaseRequiresOpenCycle: boolean | null
+    procurementMaximumActiveObligationsPerMember: number | null
+  }>>`
+    SELECT profile.reviewed_at AS "reviewedAt",
+           profile.reviewed_by_user_id AS "reviewedByUserId",
+           reviewer.full_name AS "reviewedByName",
+           setting.service_key::text AS "serviceKey",
+           setting.access_mode::text AS "accessMode",
+           policy.food_purchase_maximum_active_obligations_per_member AS "foodPurchaseMaximumActiveObligationsPerMember",
+           policy.food_purchase_requires_open_cycle AS "foodPurchaseRequiresOpenCycle",
+           policy.procurement_maximum_active_obligations_per_member AS "procurementMaximumActiveObligationsPerMember"
+    FROM tenants tenant
+    LEFT JOIN tenant_operation_profiles profile ON profile.tenant_id = tenant.id
+    LEFT JOIN users reviewer ON reviewer.id = profile.reviewed_by_user_id
+    LEFT JOIN tenant_service_settings setting ON setting.tenant_id = tenant.id
+    LEFT JOIN tenant_policies policy ON policy.tenant_id = tenant.id
+    WHERE tenant.id = ${tenantId}::uuid
+  `
+  const row = rows[0]
+  return {
+    ...buildOperationProfileReadModel({
+      policy: row,
+      profile: {
+        reviewedAt: row?.reviewedAt ?? null,
+        reviewedByUserId: row?.reviewedByUserId ?? null,
+      },
+      settings: rows,
+      tenantId,
+    }),
+    reviewedByName: row?.reviewedByName ?? null,
+  }
 }
 
 export async function updateTenantOperationProfileService(

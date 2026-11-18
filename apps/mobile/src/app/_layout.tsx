@@ -11,12 +11,12 @@ import {
   ModalAccessibilityProvider,
 } from "@/components/app/modal-accessibility-isolation"
 import { BootstrapScreen } from "@/components/app/bootstrap-screen"
+import { OverlayStatusBar } from "@/components/app/screen-status-bar"
 import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
 import { AuthProvider, useAuthContext } from "@/hooks/use-auth"
 import {
   applyThemeOverride,
-  useColors,
   useColorScheme,
 } from "@/hooks/use-color"
 import { nativewindThemeVars } from "@/lib/nativewind-theme-vars"
@@ -27,6 +27,7 @@ import {
 } from "@/lib/sentry"
 import { getMobileErrorReport } from "@/lib/sentry-policy"
 import { NAV_THEME } from "@/lib/theme"
+import { SPLASH_LOGO } from "@/lib/splash-logo"
 import { getThemeOverride } from "@/lib/theme-preference"
 import { MobileRuntimeBanner } from "@/runtime/mobile-runtime-banner"
 import { AppLockRuntime } from "@/runtime/app-lock-runtime"
@@ -46,8 +47,8 @@ import { ThemeProvider } from "@react-navigation/native"
 import { useFonts } from "expo-font"
 import { Stack } from "expo-router"
 import type { ErrorBoundaryProps } from "expo-router"
+import { Asset } from "expo-asset"
 import * as SplashScreen from "expo-splash-screen"
-import { StatusBar } from "expo-status-bar"
 import { useEffect, useMemo, useState } from "react"
 import { VariableContextProvider } from "nativewind"
 import FlashMessage from "react-native-flash-message"
@@ -95,9 +96,24 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 }
 
 SplashScreen.preventAutoHideAsync()
+// The native splash fades into the JS splash, which shows the same tile.
+SplashScreen.setOptions({ duration: 220, fade: true })
 
 export default function RootLayout() {
   const [themeReady, setThemeReady] = useState(false)
+  // Preload the splash tile so the JS splash never shows an empty first frame.
+  const [logoReady, setLogoReady] = useState(false)
+  useEffect(() => {
+    let mounted = true
+    void Asset.loadAsync(SPLASH_LOGO)
+      .catch(() => undefined)
+      .finally(() => {
+        if (mounted) setLogoReady(true)
+      })
+    return () => {
+      mounted = false
+    }
+  }, [])
   const [loaded, error] = useFonts({
     SpaceMono: require("../../assets/fonts/SpaceMono-Regular.ttf"),
     ...FontAwesome.font,
@@ -121,16 +137,15 @@ export default function RootLayout() {
   }, [])
 
   useEffect(() => {
-    if (loaded && themeReady) void SplashScreen.hideAsync()
-  }, [loaded, themeReady])
+    if (loaded && themeReady && logoReady) void SplashScreen.hideAsync()
+  }, [loaded, logoReady, themeReady])
 
-  if (!loaded || !themeReady) return null
+  if (!loaded || !themeReady || !logoReady) return null
 
   return <RootLayoutNav />
 }
 
 function RootLayoutNav() {
-  const colors = useColors()
   const { colorScheme } = useColorScheme()
   const navigationTheme =
     colorScheme === "dark" ? NAV_THEME.dark : NAV_THEME.light
@@ -141,7 +156,11 @@ function RootLayoutNav() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <KeyboardProvider>
+      {/* Android is edge-to-edge (gradle edgeToEdgeEnabled); say so explicitly.
+          Auto-detection fails in this dev client, so the provider padded the
+          root by the status bar: a black strip above every screen plus a
+          doubled top inset on safe-area screens (T02, Android device). */}
+      <KeyboardProvider navigationBarTranslucent statusBarTranslucent>
         <VariableContextProvider value={themeVariables}>
           <View className="flex-1 bg-background">
             <ThemeProvider value={navigationTheme}>
@@ -162,14 +181,7 @@ function RootLayoutNav() {
                                       <MobileRuntimeBanner />
                                       <AppAutoUpdateModal />
                                       <AppBuildUpdate />
-                                      <StatusBar
-                                        backgroundColor={colors.background}
-                                        style={
-                                          colorScheme === "dark"
-                                            ? "light"
-                                            : "dark"
-                                        }
-                                      />
+                                      <OverlayStatusBar />
                                       <RoleProtectedStack />
                                     </CooperativeShortcutRuntime>
                                   </MobileRuntimeGate>
@@ -220,7 +232,7 @@ function RoleProtectedStack() {
         headerShown: false,
       }}
     >
-      <Stack.Screen name="index" />
+      <Stack.Screen name="index" options={{ animation: "fade" }} />
       {/* Neutral launcher-shortcut resolver; it defers to every gate below. */}
       <Stack.Screen name="cooperative-shortcut/[shortcutId]" />
       {/* Neutral saved-answer and draft link landings (website paths); each
@@ -228,22 +240,22 @@ function RoleProtectedStack() {
       <Stack.Screen name="assistant/m/[messageId]" />
       <Stack.Screen name="assistant/review/[proposalId]" />
       <Stack.Protected guard={role === null}>
-        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(auth)" options={{ animation: "fade" }} />
       </Stack.Protected>
       <Stack.Protected guard={role === "member" && access.accessAllowed}>
-        <Stack.Screen name="(member)" />
+        <Stack.Screen name="(member)" options={{ animation: "fade" }} />
       </Stack.Protected>
       <Stack.Protected guard={role === "admin" && access.accessAllowed}>
-        <Stack.Screen name="(admin)" />
+        <Stack.Screen name="(admin)" options={{ animation: "fade" }} />
       </Stack.Protected>
       <Stack.Protected guard={role !== null}>
-        <Stack.Screen name="mobile-access" />
+        <Stack.Screen name="mobile-access" options={{ animation: "fade" }} />
         <Stack.Screen name="account-privacy" />
-        <Stack.Screen name="legal-agreements" />
         <Stack.Screen name="cooperative-shortcuts" />
       </Stack.Protected>
       <Stack.Protected guard={role !== null && access.accessAllowed}>
         <Stack.Screen name="updates" />
+        <Stack.Screen name="about" />
         <Stack.Screen name="notifications" />
         <Stack.Screen name="sessions" />
         <Stack.Screen name="app-lock" />

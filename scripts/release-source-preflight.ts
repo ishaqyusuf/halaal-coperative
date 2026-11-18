@@ -9,15 +9,15 @@ export const requiredLaunchSourcePaths = [
   "apps/mobile/release-version.js",
   "apps/mobile/release-version.ts",
   "apps/api/src/routers/cooperative-mobile-access.route.ts",
-  "apps/api/src/routers/cooperative-mobile-billing.route.ts",
+  "apps/api/src/routers/platform-billing.route.ts",
   "apps/mobile/src/runtime/mobile-app-access-provider.ts",
   "apps/mobile/src/features/mobile-app-access/routes/mobile-app-access-route-controller.tsx",
   "packages/db/prisma/models/cooperative-mobile-access.prisma",
-  "packages/db/prisma/models/cooperative-mobile-billing.prisma",
+  "packages/db/prisma/models/platform-billing.prisma",
   "packages/db/prisma/migrations/20261112184631_cooperative_mobile_access_billing/migration.sql",
   "packages/db/src/queries/cooperative-mobile-access.ts",
-  "packages/db/src/queries/cooperative-mobile-billing.ts",
-  "packages/jobs/src/tasks/cooperative-mobile-billing.task.ts",
+  "packages/db/src/queries/platform-billing.ts",
+  "packages/jobs/src/tasks/platform-billing.task.ts",
   "packages/domain/src/modules/public-policies.ts",
   "packages/db/src/legal-publication.ts",
   "apps/marketing/src/components/external-deletion-request-form.tsx",
@@ -46,7 +46,7 @@ export async function assertLaunchSourcePresent(repoDir: string) {
   }
   if (missing.length) {
     throw new Error(
-      `Release source is incomplete; missing: ${missing.join(", ")}. Complete the cooperative mobile access and billing source before a store build, then inspect the upload archive.`
+      `Release source is incomplete; missing: ${missing.join(", ")}. Complete the cooperative mobile access and platform billing source before a store build, then inspect the upload archive.`
     )
   }
   const sheetJsTarball = await readFile(path.join(repoDir, sheetJsTarballPath))

@@ -41,6 +41,15 @@ export function describeOtherObligations(summary: Summary) {
   return `Procurement ${formatCurrency(procurement)} · Food ${formatCurrency(food)}`
 }
 
+/** Approved loans not yet paid out: shown on their own line, never as owed. */
+export function describeApprovedNotPaidOut(summary: Summary) {
+  const count = summary?.approvedNotPaidOutCount ?? 0
+
+  return count === 1
+    ? "1 loan approved. Not owed until it is paid out."
+    : `${count} loans approved. Not owed until they are paid out.`
+}
+
 export function describeShareCapital(summary: Summary) {
   return (summary?.shareCapitalBalance ?? 0) > 0
     ? "Share ledger balance as of today"
@@ -62,6 +71,11 @@ export function buildMemberBalanceTextLines(summary: Summary) {
     ``,
     `What you owe`,
     `Loans: ${formatCurrency(summary?.totalOutstandingPrincipal ?? 0)}`,
+    ...((summary?.approvedNotPaidOutCount ?? 0) > 0
+      ? [
+          `Approved, not yet paid out: ${formatCurrency(summary?.approvedNotPaidOutAmount ?? 0)} (not counted in what you owe)`,
+        ]
+      : []),
     `Procurement and food: ${formatCurrency(otherObligations)} (${describeOtherObligations(summary)})`,
     `Total owed: ${formatCurrency(summary?.totalObligationsOutstanding ?? 0)}`,
   ]

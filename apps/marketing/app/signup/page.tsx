@@ -4,7 +4,6 @@ import {
   AlertTitle,
 } from "@halaalvest/ui/components/alert"
 import { getPublishedLegalBundle } from "@halaalvest/db"
-import { redirect } from "next/navigation"
 import { EarlyAccessForm } from "@/components/marketing/early-access-form"
 import { QaPreviewFlashConsumer } from "@/components/qa-preview-flash-consumer"
 import { SignupForm } from "@/components/signup/signup-form"
@@ -73,8 +72,19 @@ export default async function SignupPage({
   // Static: what the sign-up route checks before it accepts a request.
   const legalBundle = getPublishedLegalBundle()
 
+  // Early access: with no approval link, /signup is where a cooperative
+  // requests a workspace (the homepage links here in both modes).
   if (requiresApproval && approvalResult.status === "missing") {
-    redirect("/#early-access")
+    return (
+      <SignupShell
+        eyebrow="Early access"
+        stage="sign-up"
+        title="Request a cooperative workspace"
+        description="We're onboarding selected cooperatives. Tell us about yours, and we'll email your admin a private sign-up link once it's approved."
+      >
+        <EarlyAccessForm quickFill={quickFill} />
+      </SignupShell>
+    )
   }
 
   if (requiresApproval && approvalResult.status === "invalid") {

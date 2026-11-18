@@ -15,6 +15,14 @@ export const QA_ENVIRONMENTS = ["development", "preview"] as const
 export type QaEnvironment = (typeof QA_ENVIRONMENTS)[number]
 
 /**
+ * The env mode the local-infra launcher (`with-env --profile halaalvest`)
+ * sets on every process it starts: local, dev, preview or prod.
+ */
+function launcherEnvMode(env: Record<string, string | undefined>) {
+  return env.HALAALVEST_ENV_MODE?.trim().toLowerCase() || undefined
+}
+
+/**
  * True on any production deploy. Any production signal wins, so a stray
  * APP_ENV cannot reopen QA on a production server.
  */
@@ -22,11 +30,31 @@ export function isQaForbiddenRuntime(
   env: Record<string, string | undefined> = process.env,
 ) {
   const appEnv = env.APP_ENV?.trim().toLowerCase()
+  const mode = launcherEnvMode(env)
   return (
     appEnv === "production" ||
     env.VERCEL_ENV?.trim().toLowerCase() === "production" ||
+    mode === "prod" ||
+    mode === "production" ||
     (!appEnv && env.NODE_ENV?.trim().toLowerCase() === "production")
   )
+}
+
+/**
+ * The runtime profile QA reads: APP_ENV when set, else the launcher's env
+ * mode, else NODE_ENV. `next dev` always sets NODE_ENV=development but Bun
+ * sets nothing, so without the launcher mode a standalone API started with
+ * `apps/api`'s own dev script had no profile while the dashboard, running the
+ * same router, had one; the two disagreed about QA.
+ */
+export function qaRuntimeProfile(
+  env: Record<string, string | undefined> = process.env,
+) {
+  const appEnv = env.APP_ENV?.trim().toLowerCase()
+  if (appEnv) return appEnv
+  const mode = launcherEnvMode(env)
+  if (mode) return mode === "dev" ? "development" : mode
+  return env.NODE_ENV?.trim().toLowerCase() ?? ""
 }
 export type QaPolicy = {
   projectId: "halaalvest"

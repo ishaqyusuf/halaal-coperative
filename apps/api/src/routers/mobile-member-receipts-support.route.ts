@@ -2,6 +2,8 @@ import {
   createMobileMemberReceiptForSession,
   createMobileMemberSupportCaseForSession,
   getMobileMemberReceiptSnapshot,
+  getMobileMemberReceiptFormOptions,
+  getTenantOperationProfile,
   getMobileMemberReceiptDetail,
   getMobileMemberSupportDetail,
   getMobileMemberSupportSnapshot,
@@ -34,7 +36,7 @@ const periodIntent = z.enum([
   "back_period",
   "unspecified",
 ])
-const receiptCreateInput = z.object({
+export const receiptCreateInput = z.object({
   allocations: z
     .array(
       z.object({
@@ -64,7 +66,12 @@ const receiptCreateInput = z.object({
     .transform((value) => new Date(value)),
   paymentReference: z.string().trim().max(120).optional(),
   proofDocumentName: z.string().trim().max(160).optional(),
-  proofDocumentUrl: z.string().trim().url().max(1000).optional(),
+  proofDocumentUrl: z
+    .string()
+    .trim()
+    .max(1000)
+    .refine(isSafeSupportAttachmentUrl)
+    .optional(),
   totalAmount: z.number().positive(),
 })
 
@@ -113,8 +120,11 @@ const supportReplyInput = z.object({
   message: z.string().trim().min(2).max(2000),
   supportCaseId: z.string().trim().min(1),
 })
-const listInput = z
-  .object({ cursor: z.string().trim().min(1).optional() })
+const supportListInput = z
+  .object({
+    cursor: z.string().trim().min(1).optional(),
+    includeOverview: z.boolean().optional(),
+  })
   .optional()
 
 function assertMemberWorkspace(role: string) {
@@ -138,10 +148,38 @@ export const mobileMemberReceiptsSupportProcedures = {
           userId: ctx.auth.session.user.id,
         })
       }),
-    list: tenantProcedure.input(listInput).query(({ ctx, input }) => {
+    list: tenantProcedure
+      .input(
+        z
+          .object({
+            compact: z.literal(true).optional(),
+            cursor: z.string().trim().min(1).max(1024).optional(),
+            search: z.string().trim().min(1).max(120).optional(),
+          })
+          .optional()
+      )
+      .query(({ ctx, input }) => {
+        assertMemberWorkspace(ctx.auth.activeMembership.role)
+        return getMobileMemberReceiptSnapshot({
+          ...input,
+          tenantId: ctx.tenant.current.id,
+          userId: ctx.auth.session.user.id,
+        })
+      }),
+    uploadAccess: memberOperationalProcedure.query(async ({ ctx }) => {
+      // The REST upload handlers run this same guard with the signed device session.
+      if (!ctx.request.mobileAuthenticated)
+        throw new TRPCError({ code: "FORBIDDEN" })
+      const tenantId = ctx.tenant.current.id
+      const profile = await getTenantOperationProfile(tenantId)
+      if (!profile.services.payment_receipts.canMemberCreate) {
+        throw new TRPCError({ code: "FORBIDDEN" })
+      }
+      return { tenantId, userId: ctx.auth.session.user.id }
+    }),
+    formOptions: tenantProcedure.query(({ ctx }) => {
       assertMemberWorkspace(ctx.auth.activeMembership.role)
-      return getMobileMemberReceiptSnapshot({
-        cursor: input?.cursor,
+      return getMobileMemberReceiptFormOptions({
         tenantId: ctx.tenant.current.id,
         userId: ctx.auth.session.user.id,
       })
@@ -178,10 +216,11 @@ export const mobileMemberReceiptsSupportProcedures = {
           userId: ctx.auth.session.user.id,
         })
       }),
-    list: tenantProcedure.input(listInput).query(({ ctx, input }) => {
+    list: tenantProcedure.input(supportListInput).query(({ ctx, input }) => {
       assertMemberWorkspace(ctx.auth.activeMembership.role)
       return getMobileMemberSupportSnapshot({
         cursor: input?.cursor,
+        includeOverview: input?.includeOverview,
         tenantId: ctx.tenant.current.id,
         userId: ctx.auth.session.user.id,
       })

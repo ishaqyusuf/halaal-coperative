@@ -21,33 +21,28 @@ export type MobileQaFormCoverage = QaFormCoverage & {
 
 const feature = (path: string) => `src/features/${path}`
 
-const memberFinancing = feature("financing/screens/member-financing-screen.tsx")
-const memberProcurement = feature(
-  "procurement/screens/member-procurement-screen.tsx"
-)
-const memberProjectFinancing = feature(
-  "project-financing/screens/member-project-financing-screen.tsx"
-)
-const memberFoodPurchase = [
-  feature("food-purchase/components/member-food-purchase-application-form.tsx"),
-  feature("food-purchase/hooks/use-member-food-purchase-controller.ts"),
+const memberFinancing = feature("financing/components/financing-request-form.tsx")
+const serviceRequestSources = [
+  feature("member-service-requests/service-request-editor.tsx"),
+  feature("member-service-requests/service-request-adapters.ts"),
 ]
-const memberReceipts = feature("receipts/screens/member-receipts-screen.tsx")
-const memberSupport = feature("support/screens/member-support-screen.tsx")
-const memberShares = feature("shares-profit/screens/member-shares-screen.tsx")
-const memberGuarantor = [
-  feature("guarantors/screens/member-guarantor-approvals-screen.tsx"),
-  feature("guarantors/components/member-guarantor-response-form.tsx"),
-]
+const memberReceiptForm = feature("receipts/components/receipt-submit-flow.tsx")
+const memberReceiptSupport = feature("receipts/components/receipt-support-flow.tsx")
+const memberSupportCreate = feature("support/components/member-support-create.tsx")
+const memberSupportThread = feature("support/components/member-support-thread.tsx")
+const memberShares = feature("shares-profit/screens/share-request-flow.tsx")
+const memberGuarantor = feature(
+  "guarantors/components/member-guarantor-response-form.tsx"
+)
 const recovery = [
   feature("auth/screens/recovery-screen.tsx"),
   feature("auth/components/recovery-step-content.tsx"),
 ]
-const adminMembers = feature(
-  "admin-member-lifecycle/screens/admin-members-screen.tsx"
+const adminMemberCreate = feature(
+  "admin-member-lifecycle/components/create-member-sheet.tsx"
 )
-const adminMemberDetail = feature(
-  "admin-member-lifecycle/screens/admin-member-detail-screen.tsx"
+const adminMemberChange = feature(
+  "admin-member-lifecycle/components/member-change-sheet.tsx"
 )
 const adminFinanceSupport = [
   feature("admin-finance-support/components/admin-finance-action-form.tsx"),
@@ -56,20 +51,16 @@ const adminFinanceSupport = [
     "admin-finance-support/hooks/use-admin-finance-support-controller.ts"
   ),
 ]
-const adminContributions = feature(
-  "admin-contribution-operations/screens/admin-contribution-operations-screen.tsx"
-)
+const adminContributionForm = (file: string) =>
+  feature(`admin-contribution-operations/components/${file}`)
 const adminContributionPayment = [
-  adminContributions,
-  feature(
-    "admin-contribution-operations/components/post-contribution-payment-sheet.tsx"
-  ),
+  adminContributionForm("post-contribution-payment-sheet.tsx"),
 ]
 const adminCharges = feature(
   "admin-charge-operations/screens/admin-charge-operations-screen.tsx"
 )
 const adminFinancing = feature(
-  "admin-financing-operations/screens/admin-financing-operations-screen.tsx"
+  "admin-financing-operations/components/financing-action-sheets.tsx"
 )
 const adminFoodPurchase = feature(
   "admin-food-purchase-operations/screens/admin-food-purchase-operations-screen.tsx"
@@ -84,7 +75,7 @@ const adminRepayments = feature(
   "admin-repayment-operations/screens/admin-repayment-operations-screen.tsx"
 )
 const adminShareProfit = feature(
-  "admin-share-profit-governance/screens/admin-share-profit-governance-screen.tsx"
+  "admin-share-profit-governance/components/share-profit-flows.tsx"
 )
 
 export const mobileQaFormCoverage = [
@@ -99,43 +90,43 @@ export const mobileQaFormCoverage = [
     formId: "mobile.member.procurement-request",
     kind: "recipe",
     recipe: "procurement",
-    sources: [memberProcurement],
+    sources: serviceRequestSources,
   },
   {
     formId: "mobile.member.project-financing-request",
     kind: "recipe",
     recipe: "projectFinancing",
-    sources: [memberProjectFinancing],
+    sources: serviceRequestSources,
   },
   {
     formId: "mobile.member.food-purchase-application",
     kind: "recipe",
     recipe: "foodPurchase",
-    sources: memberFoodPurchase,
+    sources: serviceRequestSources,
   },
   {
     formId: "mobile.member.receipt-draft",
     kind: "recipe",
     recipe: "receipt",
-    sources: [memberReceipts],
+    sources: [memberReceiptForm],
   },
   {
     formId: "mobile.member.receipt-support",
     kind: "recipe",
     recipe: "receiptSupport",
-    sources: [memberReceipts],
+    sources: [memberReceiptSupport],
   },
   {
     formId: "mobile.member.support-case",
     kind: "recipe",
     recipe: "support",
-    sources: [memberSupport],
+    sources: [memberSupportCreate],
   },
   {
     formId: "mobile.member.support-reply",
     kind: "recipe",
     recipe: "support",
-    sources: [memberSupport],
+    sources: [memberSupportThread],
   },
   {
     formId: "mobile.member.share-request",
@@ -147,7 +138,7 @@ export const mobileQaFormCoverage = [
     formId: "mobile.member.guarantor-response",
     kind: "recipe",
     recipe: "guarantor",
-    sources: memberGuarantor,
+    sources: [memberGuarantor],
   },
 
   // Authentication and device security
@@ -194,25 +185,25 @@ export const mobileQaFormCoverage = [
     formId: "mobile.admin.member-create",
     kind: "recipe",
     recipe: "adminMember",
-    sources: [adminMembers],
+    sources: [adminMemberCreate],
   },
   {
     formId: "mobile.admin.member-onboarding-review",
     kind: "recipe",
     recipe: "adminMemberReview",
-    sources: [adminMembers],
+    sources: [adminMemberChange, feature("admin-member-lifecycle/screens/admin-members-screen.tsx")],
   },
   {
     formId: "mobile.admin.member-status-kyc",
     kind: "recipe",
     recipe: "adminMemberReview",
-    sources: [adminMemberDetail],
+    sources: [adminMemberChange, feature("admin-member-lifecycle/screens/admin-member-detail-screen.tsx")],
   },
   {
     formId: "mobile.admin.access-invite",
     kind: "recipe",
     recipe: "adminInvite",
-    sources: [feature("settings-access/screens/more-screen.tsx")],
+    sources: [feature("settings-access/components/invite-user-sheet.tsx")],
   },
   {
     formId: "mobile.admin.operation-profile-change",
@@ -244,19 +235,19 @@ export const mobileQaFormCoverage = [
     formId: "mobile.admin.contribution-plan",
     kind: "recipe",
     recipe: "adminContributions",
-    sources: [adminContributions],
+    sources: [adminContributionForm("contribution-plan-sheet.tsx")],
   },
   {
     formId: "mobile.admin.contribution-batch",
     kind: "recipe",
     recipe: "adminContributions",
-    sources: [adminContributions],
+    sources: [adminContributionForm("contribution-batch-sheet.tsx")],
   },
   {
     formId: "mobile.admin.contribution-batch-row",
     kind: "recipe",
     recipe: "adminContributions",
-    sources: [adminContributions],
+    sources: [adminContributionForm("contribution-row-sheet.tsx")],
   },
   {
     formId: "mobile.admin.charge-application",
@@ -395,12 +386,6 @@ export const mobileQaFormCoverage = [
     sources: [feature("account-privacy/screens/account-privacy-screen.tsx")],
   },
   {
-    formId: "mobile.legal.acceptance",
-    kind: "excluded",
-    reason: "Legal consent stays manual.",
-    sources: [feature("legal/screens/legal-agreements-screen.tsx")],
-  },
-  {
     formId: "mobile.device-sessions.revoke",
     kind: "excluded",
     reason: "Session revocation is destructive and stays manual.",
@@ -449,8 +434,20 @@ export const mobileQaNonFormFieldSources = [
     source: "src/components/app/calendar-date-field.tsx",
   },
   {
-    reason: "Shared auth field; the parent form owns coverage.",
-    source: feature("auth/components/auth-field.tsx"),
+    reason: "Shared money primitive (T01); the parent form owns coverage.",
+    source: "src/components/ui/money-field.tsx",
+  },
+  {
+    reason: "Shared phone primitive (T01); the parent form owns coverage.",
+    source: "src/components/ui/phone-field.tsx",
+  },
+  {
+    reason: "Shared floating search pill (T01); a search query is not a form draft.",
+    source: "src/components/search/floating-search-field.tsx",
+  },
+  {
+    reason: "Dev/QA-only design-system gallery (T01); demo fields with no submission.",
+    source: "src/features/design-system/screens/design-system-gallery-screen.tsx",
   },
   {
     reason: "Shared OTP field; OTP evidence stays manual.",
@@ -465,7 +462,7 @@ export const mobileQaNonFormFieldSources = [
     source: feature("auth/components/qa-profile-chooser.tsx"),
   },
   {
-    reason: "Contribution member search is not a submitted form.",
+    reason: "Contribution lane search is not a submitted form.",
     source: feature(
       "admin-contribution-operations/components/admin-contribution-workspace.tsx"
     ),
@@ -477,7 +474,8 @@ export const mobileQaNonFormFieldSources = [
     ),
   },
   {
-    reason: "Report search and date-range filters are not a submitted form.",
-    source: feature("admin-reports-access/screens/admin-reports-screen.tsx"),
+    reason:
+      "Report date ranges and activity filters (T23) are read filters, not a submitted form.",
+    source: feature("admin-reports-access/components/report-sheets.tsx"),
   },
 ] as const satisfies readonly { reason: string; source: string }[]

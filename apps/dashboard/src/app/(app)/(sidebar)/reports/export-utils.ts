@@ -29,9 +29,11 @@ export function readExportBatches<T>(
 export async function createCsvStreamResponse(
   filename: string,
   headers: string[],
-  batches: AsyncIterable<CsvCell[][]>
+  batches: AsyncIterable<CsvCell[][]>,
+  /** Lines before the header row (see `toCsvStream`). */
+  preamble?: CsvCell[][]
 ) {
-  return new Response(await toCsvStream(headers, batches), {
+  return new Response(await toCsvStream(headers, batches, preamble), {
     headers: {
       "Content-Disposition": `attachment; filename="${filename}"`,
       "Content-Type": "text/csv; charset=utf-8",

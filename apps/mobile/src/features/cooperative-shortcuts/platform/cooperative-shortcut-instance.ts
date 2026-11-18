@@ -20,6 +20,5 @@ export const cooperativeShortcutService = createCooperativeShortcutService({
   readRegistry: readShortcutRegistry,
   reportError: (error) =>
     captureMobileError(error, "mobile.cooperative_shortcuts"),
-  signOutBudgetMs: 2500,
   updateRegistry: updateShortcutRegistry,
 })

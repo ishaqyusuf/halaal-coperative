@@ -41,10 +41,9 @@ const APPROVED_WORKFLOW_MESSAGES = new Set([
   "Paystack returned a payment for a different checkout.",
   "Member verification is required before financial or operational actions can continue.",
   "Resolve all live provider blockers before purging QA data.",
-  "Subscription administration access is required for this action.",
-  "This cooperative has reached its active-member plan capacity.",
-  "Member login is not enabled for this cooperative plan.",
   "This account is not active for the selected cooperative.",
+  // Only after a correct password, on a cooperative shortcut's sign-in.
+  "This account isn't part of the selected cooperative.",
   "This QA workspace is being purged and no longer accepts writes.",
   "The QA purge preview expired or changed. Preview again.",
   "There are no marked QA workspaces to purge.",

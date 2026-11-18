@@ -7,10 +7,10 @@ import type {
 export const operationProfileModeOptions = [
   {
     description:
-      "The service is hidden for new work while existing records remain readable.",
-    label: "Not offered",
-    summary: "Unavailable for new work",
-    value: "disabled",
+      "Members can start requests while staff retain operational access.",
+    label: "Member self-service",
+    summary: "Members and staff can create",
+    value: "member_self_service",
   },
   {
     description:
@@ -21,17 +21,17 @@ export const operationProfileModeOptions = [
   },
   {
     description:
-      "Members can start requests while staff retain operational access.",
-    label: "Member self-service",
-    summary: "Members and staff can create",
-    value: "member_self_service",
-  },
-  {
-    description:
       "Existing records remain visible, but no new service work can start.",
     label: "View only",
     summary: "History remains visible",
     value: "read_only",
+  },
+  {
+    description:
+      "The service is hidden for new work while existing records remain readable.",
+    label: "Not offered",
+    summary: "Unavailable for new work",
+    value: "disabled",
   },
 ] as const satisfies readonly {
   description: string
@@ -72,7 +72,7 @@ export const operationProfileServices = [
     section: "collection_controls",
   },
   {
-    icon: "Layers3",
+    icon: "Layers",
     key: "collection_source_batch_posting",
     label: "Source-batch posting",
     section: "collection_controls",
@@ -119,15 +119,11 @@ export function isRestrictiveOperationProfileChange(input: {
 }
 
 export function isOperationProfileReadOnly(input: {
-  cacheStatus?: string
+  isLimited: boolean
   isOnline: boolean
-  subscriptionAccessEnabled: boolean
+  isStale: boolean
 }) {
-  return (
-    !input.isOnline ||
-    input.cacheStatus === "stale" ||
-    !input.subscriptionAccessEnabled
-  )
+  return !input.isOnline || input.isStale || input.isLimited
 }
 
 export function getOperationProfileCounts(

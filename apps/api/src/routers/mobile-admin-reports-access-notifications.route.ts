@@ -1,10 +1,14 @@
 import {
+  activityAreas,
+  countMobileAdminAccessUsers,
   createAuditLogEntry,
   createMobileAdminReportExport,
   getMobileAdminAccessOverview,
+  getMobileAdminAccessStats,
+  listMobileAdminAccessPage,
   getMobileAdminReportsOverview,
-  getTenantSubscriptionSnapshot,
   disableMobilePushEndpoint,
+  getActivityReportEvent,
   listActivityReportEvents,
   getMobileNotificationCenter,
   inviteMobileAdminAccessUserForSession,
@@ -100,6 +104,8 @@ function requireMobileDeviceSessionId(
 
 const reportActivityInput = z.object({
   action: z.string().trim().max(120).optional(),
+  /** T23 "Record" chips: an area of the cooperative (web uses the same filter). */
+  area: z.enum(activityAreas).optional(),
   cursor: z.string().trim().min(1).optional(),
   entityType: z.string().trim().max(120).optional(),
   fromDate: z.string().datetime().optional(),
@@ -176,6 +182,28 @@ export const mobileAdminReportsAccessNotificationProcedures = {
           setupUrl,
         }
       }),
+    summary: permissionProcedure("manage_roles").query(({ ctx }) =>
+      countMobileAdminAccessUsers(ctx.tenant.current.id)
+    ),
+    stats: permissionProcedure("manage_roles").query(({ ctx }) =>
+      getMobileAdminAccessStats(ctx.tenant.current.id)
+    ),
+    directory: permissionProcedure("manage_roles")
+      .input(
+        z.object({
+          cursor: z
+            .object({
+              group: z.enum(["staff", "members"]),
+              id: z.string().uuid(),
+            })
+            .nullish(),
+          limit: z.number().int().min(1).max(50).default(25),
+          search: z.string().trim().max(120).optional(),
+        })
+      )
+      .query(({ ctx, input }) =>
+        listMobileAdminAccessPage({ ...input, tenantId: ctx.tenant.current.id })
+      ),
     overview: permissionProcedure("manage_roles").query(({ ctx }) =>
       getMobileAdminAccessOverview(ctx.tenant.current.id)
     ),
@@ -186,6 +214,7 @@ export const mobileAdminReportsAccessNotificationProcedures = {
       .query(async ({ ctx, input }) => {
         const events = await listActivityReportEvents(ctx.tenant.current.id, {
           action: input.action,
+          area: input.area,
           cursor: input.cursor,
           entityType: input.entityType,
           fromDate: input.fromDate ? new Date(input.fromDate) : undefined,
@@ -205,20 +234,32 @@ export const mobileAdminReportsAccessNotificationProcedures = {
           nextCursor: hasNextPage ? items.at(-1)?.id ?? null : null,
         }
       }),
+    /** T23 activity detail: one event with up to 8 safe change lines. */
+    activityEvent: permissionProcedure("view_reports")
+      .input(z.object({ id: z.string().trim().min(1).max(120) }))
+      .query(async ({ ctx, input }) => {
+        const event = await getActivityReportEvent(
+          ctx.tenant.current.id,
+          input.id
+        )
+        if (!event) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "This activity is no longer available.",
+          })
+        }
+        return { ...event, occurredAt: event.occurredAt.toISOString() }
+      }),
     generate: permissionProcedure("view_reports")
       .input(generateReportInput)
       .mutation(async ({ ctx, input }) => {
-        const subscription = await getTenantSubscriptionSnapshot({
-          tenantId: ctx.tenant.current.id,
-        })
-        const report = getMobileReportCatalog(subscription.entitlements).find(
+        const report = getMobileReportCatalog().find(
           (item) => item.key === input.key,
         )
-        if (!report?.available) {
+        if (!report) {
           throw new TRPCError({
-            code: "FORBIDDEN",
-            message:
-              "This report requires a higher report or audit depth on the active subscription.",
+            code: "NOT_FOUND",
+            message: "This report is not available.",
           })
         }
 
@@ -258,15 +299,9 @@ export const mobileAdminReportsAccessNotificationProcedures = {
           key: input.key,
         }
       }),
-    overview: permissionProcedure("view_reports").query(async ({ ctx }) => {
-      const subscription = await getTenantSubscriptionSnapshot({
-        tenantId: ctx.tenant.current.id,
-      })
-      return getMobileAdminReportsOverview(
-        ctx.tenant.current.id,
-        subscription.entitlements,
-      )
-    }),
+    overview: permissionProcedure("view_reports").query(({ ctx }) =>
+      getMobileAdminReportsOverview(ctx.tenant.current.id),
+    ),
   }),
 }
 
@@ -293,20 +328,16 @@ export const mobileNotificationProcedures = {
   ),
   overview: tenantProcedure
     .input(notificationOverviewInput)
-    .query(async ({ ctx, input }) => {
-      const subscription = await getTenantSubscriptionSnapshot({
-        tenantId: ctx.tenant.current.id,
-      })
-      return getMobileNotificationCenter({
+    .query(({ ctx, input }) =>
+      getMobileNotificationCenter({
         cursor: input?.cursor ?? null,
-        memberLoginEnabled: subscription.enforcement.memberLoginEnabled,
         mobileDeviceSessionId: ctx.auth.session.mobileDeviceSessionId,
         role: ctx.auth.activeMembership.role,
         tenantId: ctx.tenant.current.id,
         userEmail: ctx.auth.session.user.email,
         userId: ctx.auth.session.user.id,
-      })
-    }),
+      }),
+    ),
   registerPush: tenantProcedure
     .input(registerPushInput)
     .mutation(({ ctx, input }) =>

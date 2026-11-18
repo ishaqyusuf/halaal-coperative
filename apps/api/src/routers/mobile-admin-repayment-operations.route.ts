@@ -1,6 +1,7 @@
 import { roleCan, type CooperativeRole } from "@halaalvest/auth"
 import {
   getMobileAdminRepaymentFacility,
+  getMobileAdminRepaymentSummary,
   getMobileAdminRepaymentWorkspace,
   mobileAdminRepaymentLanes,
   postMobileAdminRepayment,
@@ -33,11 +34,18 @@ export const mobileAdminRepaymentOperationsProcedures = {
           tenantId: ctx.tenant.current.id,
         })
       ),
+    summary: permissionProcedure("view_admin_work_queue").query(({ ctx }) =>
+      getMobileAdminRepaymentSummary({ tenantId: ctx.tenant.current.id })
+    ),
     workspace: permissionProcedure("view_admin_work_queue")
       .input(
         z.object({
           lane: z.enum(mobileAdminRepaymentLanes),
           cursor: z.string().min(1).max(1024).nullable().optional(),
+          // T19: the redesigned screen reads the summary once (summary) and
+          // pages lanes at 20; older installs omit both and keep 80 + summary.
+          includeSummary: z.boolean().optional(),
+          limit: z.number().int().min(1).max(80).optional(),
           search: z.string().trim().max(120).optional(),
         })
       )

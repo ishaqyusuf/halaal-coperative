@@ -4,18 +4,16 @@ import { type Href, useRouter } from "expo-router"
 import { useCallback, useEffect, useState } from "react"
 import { Platform } from "react-native"
 
-import { getCooperativeWorkspaces } from "../api/cooperative-workspaces-api"
+import { useCooperativeWorkspaces } from "../hooks/use-cooperative-workspaces"
 import {
-  type CooperativeWorkspace,
   describeShortcutState,
+  formatMembershipRole,
   type ShortcutPresentation,
 } from "../model/shortcut-policy"
-import { getShortcutAppIdentity } from "../platform/cooperative-shortcut-platform"
+import { shortcutPill } from "../model/shortcut-presentation"
 import { useCooperativeShortcuts } from "../platform/cooperative-shortcut-runtime-provider"
 import type { ShortcutRequestOutcome } from "../platform/cooperative-shortcut-service"
 import { CooperativeShortcutsScreen } from "../screens/cooperative-shortcuts-screen"
-
-const identity = getShortcutAppIdentity()
 
 const REQUEST_MESSAGES: Record<ShortcutRequestOutcome, string> = {
   already_pinned: "This cooperative is already on your home screen.",
@@ -32,17 +30,13 @@ export function CooperativeShortcutsRouteController() {
   const router = useRouter()
   const shortcuts = useCooperativeShortcuts()
   const profile = auth.profile
-  const [workspaces, setWorkspaces] = useState<CooperativeWorkspace[] | null>(
-    null
-  )
-  const [loading, setLoading] = useState(false)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [reloadKey, setReloadKey] = useState(0)
   const [switchingMembershipId, setSwitchingMembershipId] = useState<
     string | null
   >(null)
   const [switchError, setSwitchError] = useState<string | null>(null)
-  const [busyAction, setBusyAction] = useState<string | null>(null)
+  const [busyAction, setBusyAction] = useState<
+    ShortcutPresentation["actions"][number] | null
+  >(null)
   const [message, setMessage] = useState<string | null>(null)
   const offline = runtime.state.connectivity === "offline"
   const associationStatus = shortcuts.association?.status
@@ -54,32 +48,10 @@ export function CooperativeShortcutsRouteController() {
     setMessage(null)
   }, [associationStatus])
 
-  useEffect(() => {
-    let active = true
-    setWorkspaces(null)
-    setLoadError(null)
-    if (!profile) return
-    if (offline) {
-      setLoadError("Connect to the internet to see all your cooperatives.")
-      return
-    }
-    setLoading(true)
-    void getCooperativeWorkspaces(profile)
-      .then((next) => {
-        if (active) setWorkspaces(next)
-      })
-      .catch(() => {
-        if (active) setLoadError("Your cooperatives could not be loaded.")
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
-    return () => {
-      active = false
-    }
-    // Reload for a new signed context, connectivity change or explicit retry.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [offline, profile?.token, reloadKey])
+  // T27: cached on react-query (refresh on focus/reconnect, pull to refresh)
+  // instead of an effect that refetched on every mount.
+  const workspacesQuery = useCooperativeWorkspaces(profile, !offline)
+  const workspaces = workspacesQuery.data ?? null
 
   const handleSwitch = useCallback(
     async (membershipId: string) => {
@@ -131,33 +103,51 @@ export function CooperativeShortcutsRouteController() {
 
   const isAndroid = Platform.OS === "android"
 
+  const activeRole = profile?.availableRoles?.find(
+    (role) => role.id === profile.activeMembershipId
+  )
+  const shortcut = isAndroid
+    ? {
+        ...describeShortcutState({
+          association: shortcuts.association,
+          support: shortcuts.support,
+        }),
+        checking: shortcuts.support === "checking",
+        pill: shortcutPill({
+          association: shortcuts.association,
+          support: shortcuts.support,
+        }),
+      }
+    : null
+
   return (
     <CooperativeShortcutsScreen
       activeMembershipId={profile?.activeMembershipId ?? null}
       busyAction={busyAction}
       current={
         profile
-          ? { mark: profile.tenant.branding.mark, name: profile.tenant.name }
+          ? {
+              mark: profile.tenant.branding.mark,
+              name: profile.tenant.name,
+              role: activeRole ? formatMembershipRole(activeRole.role) : "",
+            }
           : null
       }
-      environment={identity.environment}
-      loadError={loadError}
-      loading={loading}
+      loadError={
+        workspacesQuery.isError ? "Your cooperatives could not be loaded." : null
+      }
+      loading={workspacesQuery.isFetching}
       message={message}
+      offline={offline}
       onAction={(action) => void handleAction(action)}
       onBack={() =>
         router.canGoBack() ? router.back() : router.replace("/" as Href)
       }
-      onRetryLoad={() => setReloadKey((value) => value + 1)}
+      onRefresh={() => void workspacesQuery.refetch()}
+      onRetryLoad={() => void workspacesQuery.refetch()}
       onSwitch={(membershipId) => void handleSwitch(membershipId)}
-      shortcut={
-        isAndroid
-          ? describeShortcutState({
-              association: shortcuts.association,
-              support: shortcuts.support,
-            })
-          : null
-      }
+      refreshing={workspacesQuery.isRefetching && Boolean(workspaces)}
+      shortcut={shortcut}
       switchError={switchError}
       switchingMembershipId={switchingMembershipId}
       workspaces={workspaces}

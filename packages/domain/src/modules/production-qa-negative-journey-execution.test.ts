@@ -174,7 +174,7 @@ describe("production-contract negative journey execution", () => {
 
     const receipt = await executeProductionQaNegativeJourneys({
       adapter,
-      journeyKeys: ["member-capacity-limit"],
+      journeyKeys: ["member-admin-finance-denial"],
       now: () => NOW,
       plan: createPlan(),
     })

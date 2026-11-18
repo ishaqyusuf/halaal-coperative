@@ -1,5 +1,9 @@
 import type { Metadata } from "next"
-import { createDbRuntime, listTenantStaffPeople } from "@halaalvest/db"
+import {
+  createDbRuntime,
+  listRemovedTenantPeople,
+  listTenantStaffPeople,
+} from "@halaalvest/db"
 import {
   RoleSettingsUnavailableView,
   RoleSettingsView,
@@ -36,7 +40,10 @@ export default async function RolesPage({
   }
 
   // Staff only: member logins can run into the thousands.
-  const people = await listTenantStaffPeople(context.tenant.id)
+  const [people, removed] = await Promise.all([
+    listTenantStaffPeople(context.tenant.id),
+    listRemovedTenantPeople(context.tenant.id),
+  ])
 
   return (
     <RoleSettingsView
@@ -46,6 +53,7 @@ export default async function RolesPage({
       devMode={canShowQuickFill(context)}
       givableRoles={getGivableRoles(actorRole)}
       people={people}
+      removed={removed}
     />
   )
 }

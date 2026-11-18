@@ -1,11 +1,17 @@
 import { TextClassContext } from "@/components/ui/text"
+import { useColors } from "@/hooks/use-color"
 import { cn } from "@/lib/utils"
 import { cva, type VariantProps } from "class-variance-authority"
-import { Platform, Pressable } from "react-native"
+import { ActivityIndicator, Platform, Pressable, View } from "react-native"
+import { useReducedMotion } from "react-native-reanimated"
 
+/**
+ * 02 Brand native button: 52 tall, radius 16, 16/700 label, press scale .97
+ * over 120ms. `size="sm"`/`"icon"` keep the 44pt minimum touch target.
+ */
 const buttonVariants = cva(
   cn(
-    "group min-h-11 min-w-11 shrink-0 flex-row items-center justify-center gap-2 rounded-lg",
+    "group min-h-[44px] min-w-[44px] shrink-0 flex-row items-center justify-center gap-[8px] rounded-2xl",
     Platform.select({
       web: "whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
     })
@@ -18,20 +24,18 @@ const buttonVariants = cva(
           Platform.select({ web: "hover:bg-primary/90" })
         ),
         destructive: cn(
-          "bg-destructive active:bg-destructive/90 dark:bg-destructive/60",
+          "bg-destructive active:bg-destructive/90",
           Platform.select({
             web: "hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40",
           })
         ),
         outline: cn(
-          "border border-border bg-card active:bg-accent dark:border-input dark:bg-input/30 dark:active:bg-input/50",
-          Platform.select({
-            web: "hover:bg-accent dark:hover:bg-input/50",
-          })
+          "border border-border bg-card active:bg-muted",
+          Platform.select({ web: "hover:bg-muted" })
         ),
         secondary: cn(
-          "bg-secondary active:bg-secondary/80",
-          Platform.select({ web: "hover:bg-secondary/80" })
+          "bg-accent active:bg-accent/80",
+          Platform.select({ web: "hover:bg-accent/80" })
         ),
         ghost: cn(
           "active:bg-accent dark:active:bg-accent/50",
@@ -41,18 +45,18 @@ const buttonVariants = cva(
       },
       size: {
         default: cn(
-          "min-h-11 px-4 py-2",
-          Platform.select({ web: "has-[>svg]:px-3" })
-        ),
-        sm: cn(
-          "min-h-11 gap-1.5 rounded-lg px-3",
-          Platform.select({ web: "has-[>svg]:px-2.5" })
-        ),
-        lg: cn(
-          "min-h-12 rounded-lg px-6",
+          "h-[52px] px-[20px]",
           Platform.select({ web: "has-[>svg]:px-4" })
         ),
-        icon: "h-11 w-11",
+        sm: cn(
+          "min-h-[44px] gap-[6px] rounded-xl px-[16px]",
+          Platform.select({ web: "has-[>svg]:px-3" })
+        ),
+        lg: cn(
+          "h-[52px] px-[24px]",
+          Platform.select({ web: "has-[>svg]:px-5" })
+        ),
+        icon: "h-[44px] w-[44px] rounded-full",
       },
     },
     defaultVariants: {
@@ -64,7 +68,7 @@ const buttonVariants = cva(
 
 const buttonTextVariants = cva(
   cn(
-    "text-sm font-medium text-foreground",
+    "text-[16px] font-bold text-foreground",
     Platform.select({ web: "pointer-events-none transition-colors" })
   ),
   {
@@ -72,14 +76,12 @@ const buttonTextVariants = cva(
       variant: {
         default: "text-primary-foreground",
         destructive: "text-destructive-foreground",
-        outline: cn(
-          "group-active:text-accent-foreground",
-          Platform.select({ web: "group-hover:text-accent-foreground" })
-        ),
-        secondary: "text-secondary-foreground",
-        ghost: "group-active:text-accent-foreground",
+        outline: "text-foreground",
+        secondary: "text-accent-foreground",
+        // Neutral: legacy screens use ghost buttons as tabs and toolbars.
+        ghost: "text-foreground",
         link: cn(
-          "text-brand group-active:underline",
+          "text-primary group-active:underline",
           Platform.select({
             web: "underline-offset-4 group-hover:underline hover:underline",
           })
@@ -87,7 +89,7 @@ const buttonTextVariants = cva(
       },
       size: {
         default: "",
-        sm: "",
+        sm: "text-[14px]",
         lg: "",
         icon: "",
       },
@@ -101,34 +103,74 @@ const buttonTextVariants = cva(
 
 type ButtonProps = React.ComponentProps<typeof Pressable> &
   React.RefAttributes<typeof Pressable> &
-  VariantProps<typeof buttonVariants>
+  VariantProps<typeof buttonVariants> & {
+    /** Keeps the label, adds a spinner and blocks repeat presses. */
+    loading?: boolean
+  }
 
 function Button({
   accessibilityState,
+  children,
   className,
   disabled,
+  loading = false,
   role,
   variant,
   size,
   ...props
 }: ButtonProps) {
+  const colors = useColors()
+  const reduceMotion = useReducedMotion()
+  const isDisabled = Boolean(disabled) || loading
   const resolvedAccessibilityState =
-    disabled == null
+    disabled == null && !loading
       ? accessibilityState
-      : { ...accessibilityState, disabled: Boolean(disabled) }
+      : { ...accessibilityState, busy: loading, disabled: isDisabled }
+  const spinnerColor =
+    variant === "outline" || variant === "ghost" || variant === "link"
+      ? colors.foreground
+      : variant === "secondary"
+        ? colors.accentForeground
+        : variant === "destructive"
+          ? colors.destructiveForeground
+          : colors.primaryForeground
+
   return (
     <TextClassContext.Provider value={buttonTextVariants({ variant, size })}>
       <Pressable
         className={cn(
-          disabled && "opacity-50",
+          disabled && !loading && "opacity-40",
+          loading && "opacity-90",
           buttonVariants({ variant, size }),
+          !reduceMotion &&
+            "will-change-animation transition-transform active:scale-[0.97]",
           className
         )}
         accessibilityState={resolvedAccessibilityState}
-        disabled={disabled}
         role={role ?? "button"}
         {...props}
-      />
+        // Never toggle the Pressable's `disabled` prop or its press classes:
+        // with react-native-css 3 a disabled → enabled change (Continue after
+        // the 6th digit, Sign in after loading) left the :active style stuck,
+        // so the button stayed scaled and tinted as if pressed (T02, device).
+        // Disabled and loading block touches and presses instead.
+        disabled={undefined}
+        onPress={(event) => {
+          if (!isDisabled) props.onPress?.(event)
+        }}
+        pointerEvents={isDisabled ? "none" : props.pointerEvents}
+      >
+        {(state) => (
+          <>
+            {loading ? (
+              <View accessible={false} className="items-center justify-center">
+                <ActivityIndicator color={spinnerColor} size="small" />
+              </View>
+            ) : null}
+            {typeof children === "function" ? children(state) : children}
+          </>
+        )}
+      </Pressable>
     </TextClassContext.Provider>
   )
 }

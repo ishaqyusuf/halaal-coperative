@@ -5,24 +5,38 @@ import type {
   ProcurementCommandResult,
   ProcurementLane,
   ProcurementOperation,
+  ProcurementSummary,
   ProcurementWorkspace,
 } from "../model/admin-procurement-operations-types"
 import {
   getDevProcurementDetail,
+  getDevProcurementSummary,
   getDevProcurementWorkspace,
   runDevProcurementCommand,
 } from "./admin-procurement-operations-dev-fixtures"
 
+/** Lane page size (T21): small pages fetched as the list scrolls. */
+export const PROCUREMENT_PAGE_SIZE = 20
+
+/** Summary card and lane counts: one tenant-keyed read. */
+export function getProcurementOperationsSummary() {
+  if (isMobileDevFixtureSession()) return getDevProcurementSummary()
+  return readCachedMobileQuery("admin.procurement-operations.summary", () =>
+    createMobileTrpcClient().mobile.admin.procurementOperations.summary.query()
+  ) as Promise<ProcurementSummary>
+}
+
 export function getProcurementOperationsWorkspace(input: {
+  cursor?: string | null
   lane: ProcurementLane
   search?: string
 }) {
   if (isMobileDevFixtureSession()) return getDevProcurementWorkspace(input)
   return readCachedMobileQuery(
-    `admin.procurement-operations.${JSON.stringify(input)}`,
+    `admin.procurement-operations.v2.${JSON.stringify(input)}`,
     () =>
       createMobileTrpcClient().mobile.admin.procurementOperations.workspace.query(
-        input
+        { ...input, limit: PROCUREMENT_PAGE_SIZE }
       ),
     { persist: isPersistableReadInput(input) }
   ) as Promise<ProcurementWorkspace>

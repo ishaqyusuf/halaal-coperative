@@ -1,3 +1,4 @@
+import { isRestrictiveOperationProfileChange } from "./operation-profile-policy"
 import type {
   MobileOperationProfileSnapshot,
   OperationProfileAccessMode,
@@ -32,11 +33,12 @@ export type OperationProfileConflictRefreshResolution =
     }
   | {
       expectedAccessMode: OperationProfileAccessMode
-      status: "ready_to_review"
+      status: "ready_to_review" | "reason_required"
     }
   | { status: "service_missing" }
 
 export function resolveOperationProfileConflictRefresh(input: {
+  changeReason: string
   nextAccessMode: OperationProfileAccessMode
   serviceKey: OperationProfileServiceKey
   snapshot: MobileOperationProfileSnapshot
@@ -47,11 +49,18 @@ export function resolveOperationProfileConflictRefresh(input: {
 
   if (!refreshedService) return { status: "service_missing" }
 
+  const previous = refreshedService.accessMode
+  const next = input.nextAccessMode
+  if (previous === next) {
+    return { expectedAccessMode: previous, status: "already_current" }
+  }
+
   return {
-    expectedAccessMode: refreshedService.accessMode,
+    expectedAccessMode: previous,
     status:
-      refreshedService.accessMode === input.nextAccessMode
-        ? "already_current"
+      !input.changeReason.trim() &&
+      isRestrictiveOperationProfileChange({ previous, next })
+        ? "reason_required"
         : "ready_to_review",
   }
 }

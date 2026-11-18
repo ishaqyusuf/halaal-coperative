@@ -12,6 +12,7 @@ import { ChevronRight, PlusIcon } from "lucide-react"
 import { ShareRequestSheet } from "@/components/sheets/share-request-sheet"
 import { SummaryCard } from "@/components/summary-card"
 import { useShareApplicationParams } from "@/hooks/use-share-application-params"
+import { profitPayoutWords } from "@/lib/business/business-words"
 import { memberStateToneClassNames } from "@/lib/members/member-status-words"
 import {
   formatShareCount,
@@ -191,9 +192,23 @@ export function MemberSharesView({
                       Shared on {formatDayMonthYear(season.sharedOn)}
                     </span>
                   ) : null}
+                  {season.payout ? (
+                    <span className="block text-base text-muted-foreground">
+                      Paid on {formatDayMonthYear(season.payout.paidAt)}{" "}
+                      {profitPayoutWords(season.payout.destination)}
+                    </span>
+                  ) : null}
                 </span>
-                <span className="shrink-0 text-lg font-semibold tabular-nums">
-                  {formatCurrency(season.amount)}
+                <span className="flex shrink-0 flex-col items-end gap-1.5">
+                  <span className="text-lg font-semibold tabular-nums">
+                    {formatCurrency(season.amount)}
+                  </span>
+                  <Badge
+                    className={`text-sm ${memberStateToneClassNames[season.payout ? "good" : "muted"]}`}
+                    variant="outline"
+                  >
+                    {season.payout ? "Paid" : "Not paid yet"}
+                  </Badge>
                 </span>
               </li>
             ))}

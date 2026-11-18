@@ -1,56 +1,28 @@
+import { Elevated, TintedAvatar } from "@/components/ui/list-card"
 import { Text } from "@/components/ui/text"
 import { View } from "react-native"
-import { formatCurrency } from "../lib/admin-contribution-presentation"
-import type { ContributionMemberWorkspace } from "../model/admin-contribution-operations-types"
 
+/** The member a form acts on: avatar, name and one line of context. */
 export function ContributionMemberSummary({
-  member,
-  currencyCode,
-  showBalance = false,
+  detail,
+  name,
 }: {
-  member: ContributionMemberWorkspace
-  currencyCode: string
-  showBalance?: boolean
+  detail: string
+  name: string
 }) {
-  const initials = member.name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("")
   return (
-    <View>
-      <View className="flex-row items-center gap-3 border-b border-border py-4">
-        <View className="size-11 shrink-0 items-center justify-center rounded-xl bg-accent">
-          <Text className="font-extrabold text-accent-foreground">
-            {initials}
+    <Elevated className="rounded-[18px] bg-card" radius={18}>
+      <View className="flex-row items-center gap-[12px] px-[14px] py-[12px]">
+        <TintedAvatar name={name} />
+        <View className="min-w-0 flex-1">
+          <Text className="font-bold" numberOfLines={1} variant="body">
+            {name}
           </Text>
-        </View>
-        <View className="min-w-0 flex-1 gap-1">
-          <Text className="text-base font-bold text-foreground">
-            {member.name}
-          </Text>
-          <Text className="text-xs leading-5 text-muted-foreground">
-            {member.number}
-            {member.deductionSourceName
-              ? ` · ${member.deductionSourceName}`
-              : ""}
+          <Text className="text-muted-foreground" numberOfLines={1} variant="small">
+            {detail}
           </Text>
         </View>
       </View>
-      {showBalance ? (
-        <View className="bg-brand-surface gap-2 px-4 py-5">
-          <Text className="text-brand-surface-foreground text-sm">
-            Monthly commitment
-          </Text>
-          <Text className="text-brand-surface-foreground text-3xl font-extrabold">
-            {formatCurrency(member.commitmentTarget, currencyCode)}
-          </Text>
-          <Text className="text-brand-surface-foreground text-sm">
-            {formatCurrency(member.totalSavings, currencyCode)} saved
-          </Text>
-        </View>
-      ) : null}
-    </View>
+    </Elevated>
   )
 }

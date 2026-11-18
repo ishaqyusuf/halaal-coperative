@@ -5,8 +5,10 @@ const qaStates = new Set<MobileAdminLifecycleQaState>([
   "empty",
   "error",
   "loading",
+  "new",
   "not-found",
   "offline",
+  "refresh-error",
   "stale",
 ])
 

@@ -122,7 +122,9 @@ export async function readAssistantConversation(
   scope: AssistantOwnerScope & { conversationId: string },
   prismaOverride?: PrismaClient
 ) {
-  return db(prismaOverride).assistantConversation.findFirst({
+  // The newest 200 messages, returned oldest first (T25: a long chat used to
+  // return its oldest 200 and drop the latest turns).
+  const conversation = await db(prismaOverride).assistantConversation.findFirst({
     where: { ...ownerWhere(scope), id: scope.conversationId, archivedAt: null },
     select: {
       id: true,
@@ -130,12 +132,15 @@ export async function readAssistantConversation(
       channel: true,
       lastMessageAt: true,
       messages: {
-        orderBy: { createdAt: "asc" },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: 200,
         select: { id: true, role: true, parts: true, createdAt: true },
       },
     },
   })
+  return conversation
+    ? { ...conversation, messages: [...conversation.messages].reverse() }
+    : null
 }
 
 export async function archiveAssistantConversation(

@@ -279,6 +279,10 @@ export async function upsertTenantBroughtForwardSnapshotAction(
   )
 }
 
+export async function setTenantOpeningCashAction(formData: FormData) {
+  return callDashboardFormAction("setTenantOpeningCashAction", formData)
+}
+
 export async function updateTenantOperationProfileAction(formData: FormData) {
   const result = await callDashboardFormAction(
     "updateTenantOperationProfileAction",
@@ -407,6 +411,14 @@ export async function workOutProfitSeasonSharesAction(formData: FormData) {
 
 export async function shareProfitSeasonAction(formData: FormData) {
   return callDashboardFormAction("shareProfitSeasonAction", formData)
+}
+
+export async function payOutProfitAction(formData: FormData) {
+  return callDashboardFormAction("payOutProfitAction", formData)
+}
+
+export async function reverseProfitPayoutAction(formData: FormData) {
+  return callDashboardFormAction("reverseProfitPayoutAction", formData)
 }
 
 export async function saveBusinessProfitMigrationWorksheetAction(
@@ -640,10 +652,6 @@ export async function createTenantDomainAction(formData: FormData) {
   return callDashboardFormAction("createTenantDomainAction", formData)
 }
 
-export async function setTenantDomainPrimaryAction(formData: FormData) {
-  return callDashboardFormAction("setTenantDomainPrimaryAction", formData)
-}
-
 export async function removeTenantCustomDomainAction(formData: FormData) {
   return callDashboardFormAction("removeTenantCustomDomainAction", formData)
 }
@@ -672,6 +680,19 @@ export async function provisionTenantUserRoleAction(formData: FormData) {
 
 export async function removeTenantStaffRoleAction(formData: FormData) {
   return callDashboardFormAction("removeTenantStaffRoleAction", formData)
+}
+
+export async function removeTenantPersonFromCooperativeAction(
+  formData: FormData
+) {
+  return callDashboardFormAction(
+    "removeTenantPersonFromCooperativeAction",
+    formData
+  )
+}
+
+export async function restoreTenantPersonAction(formData: FormData) {
+  return callDashboardFormAction("restoreTenantPersonAction", formData)
 }
 
 export async function recordCollectionFollowUpAction(formData: FormData) {

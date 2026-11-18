@@ -63,7 +63,9 @@ const seasonWords: Record<SeasonStatus, Word> = {
 
 /** One plain word for a profit-sharing season. */
 export function getSeasonWord(status: string): Word {
-  return seasonWords[status as SeasonStatus] ?? { label: "Unknown", tone: "muted" }
+  return (
+    seasonWords[status as SeasonStatus] ?? { label: "Unknown", tone: "muted" }
+  )
 }
 
 /** "1 Jan 2026 to 31 Dec 2026". */
@@ -88,4 +90,23 @@ export function todayInputDate() {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
     .toISOString()
     .slice(0, 10)
+}
+
+export type ProfitPayoutDestination = "savings" | "cash" | "bank_transfer"
+
+/** How shared profit can be paid out, in the order staff pick from. */
+export const profitPayoutDestinationOptions: Array<{
+  label: string
+  value: ProfitPayoutDestination
+}> = [
+  { label: "To savings", value: "savings" },
+  { label: "Cash", value: "cash" },
+  { label: "Bank transfer", value: "bank_transfer" },
+]
+
+/** Where paid profit went: "to savings", "in cash", "by bank transfer". */
+export function profitPayoutWords(destination: string) {
+  if (destination === "cash") return "in cash"
+  if (destination === "bank_transfer") return "by bank transfer"
+  return "to savings"
 }

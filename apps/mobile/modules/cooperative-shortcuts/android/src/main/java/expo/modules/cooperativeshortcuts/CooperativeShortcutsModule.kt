@@ -13,6 +13,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
+import android.os.PersistableBundle
 import android.os.UserManager
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -27,7 +28,12 @@ class CooperativeShortcutSpec : Record {
   @Field val mark: String = ""
   @Field val uri: String = ""
   @Field val environment: String = "production"
+  @Field val tenantId: String = ""
 }
+
+private val TENANT_ID_PATTERN = Regex("^[A-Za-z0-9_-]{1,64}$")
+private const val EXTRA_TENANT_ID = "halaalvest.tenantId"
+private const val EXTRA_MARK = "halaalvest.mark"
 
 class CooperativeShortcutsModule : Module() {
   private fun context(): Context = requireNotNull(appContext.reactContext).applicationContext
@@ -121,9 +127,19 @@ class CooperativeShortcutsModule : Module() {
 
     AsyncFunction("listPinned") {
       val pinned: List<ShortcutInfo> = manager()?.pinnedShortcuts ?: emptyList()
+      // Label and cooperative extras let the app recover a tile after its
+      // local storage is lost, and adopt tiles added before extras existed.
       pinned
         .filter { CooperativeShortcutRegistry.isValidId(it.id) }
-        .map { mapOf<String, Any>("id" to it.id, "enabled" to it.isEnabled) }
+        .map { info ->
+          val item = mutableMapOf<String, Any>("id" to info.id, "enabled" to info.isEnabled)
+          info.shortLabel?.toString()?.take(25)?.let { item["label"] = it }
+          info.extras?.getString(EXTRA_TENANT_ID)
+            ?.takeIf { TENANT_ID_PATTERN.matches(it) }
+            ?.let { item["tenantId"] = it }
+          info.extras?.getString(EXTRA_MARK)?.take(3)?.let { item["mark"] = it }
+          item
+        }
     }
 
     AsyncFunction("consumeObservedPins") {
@@ -141,6 +157,7 @@ class CooperativeShortcutsModule : Module() {
     val shortLabel = spec.shortLabel.trim().take(25)
     val longLabel = spec.longLabel.trim().take(60).ifEmpty { shortLabel }
     require(shortLabel.isNotEmpty()) { "A shortcut label is required." }
+    require(TENANT_ID_PATTERN.matches(spec.tenantId)) { "Invalid cooperative." }
     // Package-explicit VIEW intent: only this installed variant can resolve it.
     val intent = Intent(Intent.ACTION_VIEW, uri).setPackage(ctx.packageName)
     val resolved = ctx.packageManager.resolveActivity(intent, 0)
@@ -152,6 +169,14 @@ class CooperativeShortcutsModule : Module() {
       .setLongLabel(longLabel)
       .setIcon(Icon.createWithAdaptiveBitmap(renderMark(ctx, spec.mark, spec.environment)))
       .setIntent(intent)
+      // Not a credential: only names the cooperative the tile opens, so a
+      // reinstall or cleared storage can still brand its sign-in.
+      .setExtras(
+        PersistableBundle().apply {
+          putString(EXTRA_TENANT_ID, spec.tenantId)
+          putString(EXTRA_MARK, spec.mark.filter { it.isLetterOrDigit() }.take(3))
+        }
+      )
       .build()
   }
 

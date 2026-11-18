@@ -24,6 +24,8 @@ checkScreenHeaders()
 checkSeparatedDataEntrySurfaces()
 checkPopupPrimitives()
 checkAccessibilityIsolation()
+checkStatusBarOwnership()
+checkFoundationPrimitives()
 
 for (const filePath of scanFiles) scanFile(filePath)
 
@@ -58,7 +60,7 @@ function validateExceptions() {
 }
 
 function checkSemanticTheme() {
-  const theme = readFileSync(join(SOURCE_DIR, "lib/theme.ts"), "utf8")
+  const theme = readFileSync(join(SOURCE_DIR, "lib/design-tokens.ts"), "utf8")
   const css = readFileSync(join(SOURCE_DIR, "styles/global.css"), "utf8")
   const tokens = [
     "background",
@@ -78,7 +80,7 @@ function checkSemanticTheme() {
 
   for (const token of tokens) {
     if (!theme.includes(`${token}:`))
-      failures.push(`theme.ts is missing ${token}`)
+      failures.push(`design-tokens.ts is missing ${token}`)
     if (!css.includes(`--${token}:`))
       failures.push(`global.css is missing --${token}`)
   }
@@ -224,7 +226,6 @@ function checkPopupPrimitives() {
     "APP_BOTTOM_SHEET_BACKDROP_ELEVATION",
     'pressBehavior={dismissible ? "close" : "none"}',
   ])
-  checkSourceMarkers("src/components/ui/modal.tsx", ["AppBottomSheetBackdrop"])
   // M3: consequential confirms never close on a backdrop tap or swipe, and
   // Android Back acts as Cancel.
   for (const confirm of [
@@ -250,7 +251,8 @@ function checkPopupPrimitives() {
     "<KeyboardStickyView",
     "footerHeight + 144",
     "setFooterHeight(event.nativeEvent.layout.height)",
-    '<View className="gap-5 px-5 pb-8 pt-5">',
+    'cn("gap-5 px-5 pb-8 pt-5", contentClassName)',
+    "key={form.contentKey}",
     'position: "absolute"',
   ])
   checkSourceMarkers("src/components/app/dev-quick-fill.tsx", [
@@ -274,7 +276,8 @@ function checkPopupPrimitives() {
   ]) {
     checkSourceMarkers(tabsLayout, [
       "useFullScreenFormVisibility",
-      'display: hideTabBar ? "none" : "flex"',
+      "<DockTabBar {...props} hidden={hideTabBar} />",
+      "<DockScene>{children}</DockScene>",
     ])
   }
   checkSourceMarkers("src/components/app/confirmation-sheet.tsx", [
@@ -331,105 +334,72 @@ function checkAccessibilityIsolation() {
 }
 
 function checkSeparatedDataEntrySurfaces() {
-  checkSourceMarkers("src/features/procurement/screens/member-procurement-screen.tsx", [
-    "overlayActive={isReviewingSubmit}",
-    '"bg-muted opacity-100 active:bg-muted"',
+  checkSourceMarkers("src/features/member-service-requests/service-request-editor.tsx", [
+    "<AppSheet",
+    'variant="form"',
+    "footer=",
   ])
-  const screens = [
-    "src/features/financing/screens/member-financing-screen.tsx",
-    "src/features/food-purchase/screens/member-food-purchase-screen.tsx",
-    "src/features/guarantors/screens/member-guarantor-approvals-screen.tsx",
-    "src/features/procurement/screens/member-procurement-screen.tsx",
-    "src/features/project-financing/screens/member-project-financing-screen.tsx",
-    "src/features/receipts/screens/member-receipts-screen.tsx",
+  checkSourceMarkers(
+    "src/features/financing/components/financing-request-form.tsx",
+    ["<AppSheet", 'variant="form"']
+  )
+  checkSourceMarkers(
+    "src/features/shares-profit/screens/share-request-flow.tsx",
+    ["<AppSheet", 'variant="form"']
+  )
+  checkSourceMarkers(
     "src/features/shares-profit/screens/member-shares-screen.tsx",
-    "src/features/support/screens/member-support-screen.tsx",
-    "src/features/admin-member-lifecycle/screens/admin-members-screen.tsx",
-    "src/features/admin-member-lifecycle/screens/admin-member-detail-screen.tsx",
-  ]
-
-  for (const screen of screens) {
-    const source = readFileSync(join(MOBILE_DIR, screen), "utf8")
-    if (source.includes("<AppKeyboardAwareScrollView")) {
-      failures.push(
-        `${screen} must keep its browsable content on a normal ScrollView and keyboard handling inside form sheets`
-      )
-    }
-    if (
-      !source.includes("<FullScreenFormSheet") &&
-      !source.includes("<CompactFormSheet")
-    ) {
-      failures.push(
-        `${screen} must move data entry into an approved form sheet`
-      )
-    }
-
-    const contentSurface = readFirstJsxBlock(source, "ScrollView")
-    if (!contentSurface) {
-      failures.push(`${screen} is missing its read-focused ScrollView`)
-      continue
-    }
-    let readOnlySurface = ["FullScreenFormSheet", "CompactFormSheet"].reduce(
-      (current, tag) => removeJsxBlocks(current, tag),
-      contentSurface
+    ["<AppList", "<ShareRequestAction"]
+  )
+  checkSourceMarkers(
+    "src/features/receipts/screens/member-receipts-screen.tsx",
+    ["<AppList", "<ReceiptSubmitFlow", "<ReceiptSupportFlow"]
+  )
+  for (const flow of ["receipt-submit-flow", "receipt-support-flow"]) {
+    checkSourceMarkers(
+      `src/features/receipts/components/${flow}.tsx`,
+      ["<AppSheet", 'variant="form"']
     )
-    if (
-      screen ===
-      "src/features/admin-member-lifecycle/screens/admin-members-screen.tsx"
-    ) {
-      readOnlySurface = readOnlySurface.replace(
-        /<Input\b[\s\S]*?accessibilityLabel="Search members"[\s\S]*?\/>/g,
-        ""
-      )
-    }
-    if (/<(?:Input|Textarea)\b/.test(readOnlySurface)) {
-      failures.push(
-        `${screen} renders data-entry controls inline with browsable content`
-      )
-    }
   }
-}
-
-function readFirstJsxBlock(source, tag) {
-  const openingStart = source.indexOf(`<${tag}`)
-  if (openingStart === -1) return null
-  const openingEnd = readOpeningTagEnd(source, openingStart + tag.length + 1)
-  if (openingEnd === -1) return null
-  const closing = `</${tag}>`
-  const closingStart = source.indexOf(closing, openingEnd)
-  if (closingStart === -1) return null
-  return source.slice(openingEnd + 1, closingStart)
-}
-
-function removeJsxBlocks(source, tag) {
-  let result = source
-  let openingStart = result.indexOf(`<${tag}`)
-
-  while (openingStart !== -1) {
-    const openingEnd = readOpeningTagEnd(result, openingStart + tag.length + 1)
-    if (openingEnd === -1) break
-    const closing = `</${tag}>`
-    const closingStart = result.indexOf(closing, openingEnd)
-    if (closingStart === -1) break
-    result = `${result.slice(0, openingStart)}${result.slice(
-      closingStart + closing.length
-    )}`
-    openingStart = result.indexOf(`<${tag}`)
+  checkSourceMarkers(
+    "src/features/admin-member-lifecycle/screens/admin-members-screen.tsx",
+    ["<AppList", "<CreateMemberSheet", "<MemberChangeSheet"]
+  )
+  checkSourceMarkers(
+    "src/features/admin-member-lifecycle/screens/admin-member-detail-screen.tsx",
+    ["<ScreenShell", "<MemberChangeSheet"]
+  )
+  for (const path of [
+    "src/features/admin-member-lifecycle/components/create-member-sheet.tsx",
+    "src/features/admin-member-lifecycle/components/member-change-sheet.tsx",
+    "src/features/support/components/member-support-create.tsx",
+  ]) {
+    checkSourceMarkers(path, ["<AppSheet", 'variant="form"'])
   }
-
-  return result
+  checkSourceMarkers(
+    "src/features/guarantors/screens/member-guarantor-approvals-screen.tsx",
+    ["<AppList", "<GuarantorDecisionSheets"]
+  )
+  checkSourceMarkers(
+    "src/features/guarantors/components/member-guarantor-response-form.tsx",
+    ["<AppSheet", 'variant="form"', "<Textarea"]
+  )
+  const path = "src/features/member-service-requests/service-request-overview.tsx"
+  checkSourceMarkers(path, ["<AppList", "onEndReached="])
+  const source = readFileSync(join(MOBILE_DIR, path), "utf8")
+  if (/<(?:AppKeyboardAwareScrollView|Input|Textarea)\b/.test(source)) {
+    failures.push(`${path} renders data-entry controls inline with browsable content`)
+  }
 }
 
 function checkScreenHeaders() {
   const screens = [
     "src/features/admin-reports-access/screens/admin-reports-screen.tsx",
     "src/features/financing/screens/member-financing-screen.tsx",
-    "src/features/food-purchase/screens/member-food-purchase-screen.tsx",
+    "src/features/member-service-requests/service-request-overview.tsx",
     "src/features/guarantors/screens/member-guarantor-approvals-screen.tsx",
     "src/features/settings-access/screens/more-screen.tsx",
     "src/features/notifications/screens/notifications-screen.tsx",
-    "src/features/procurement/screens/member-procurement-screen.tsx",
-    "src/features/project-financing/screens/member-project-financing-screen.tsx",
     "src/features/receipts/screens/member-receipts-screen.tsx",
     "src/features/mobile-app-access/routes/mobile-app-access-route-controller.tsx",
     "src/features/support/screens/member-support-screen.tsx",
@@ -445,14 +415,18 @@ function checkScreenHeaders() {
 
   checkSourceMarkers(
     "src/features/admin-finance-support/components/admin-finance-work-queue.tsx",
-    ["<ScreenHeader"]
+    ["<ScreenShell", "<SegmentedControl", "<SegmentedPager", "<TabSearchBubble"]
   )
 
   for (const screen of screens) {
     const source = readFileSync(join(MOBILE_DIR, screen), "utf8")
     if (
       !source.includes("<ScreenHeader") &&
-      !source.includes("<ProfileHeader")
+      !source.includes("<ProfileHeader") &&
+      // T01/T03 shells own the header: large title, hero or gate hero.
+      !source.includes("<ScreenShell") &&
+      !source.includes("<AppList") &&
+      !source.includes("<DockedHeroScreen")
     ) {
       failures.push(`${screen} must compose ScreenHeader or ProfileHeader`)
     }
@@ -611,6 +585,50 @@ function readOpeningTagEnd(source, start) {
 
 function allows(exception, category) {
   return exception?.allow.includes(category) ?? false
+}
+
+// T01 (ADR-20261116 §3): no screen renders a raw status bar. Only the
+// policy-backed ScreenStatusBar/OverlayStatusBar module may import it.
+function checkStatusBarOwnership() {
+  const owner = "src/components/app/screen-status-bar.tsx"
+  for (const filePath of scanFiles) {
+    const file = toMobilePath(filePath)
+    if (file === owner) continue
+    const source = readFileSync(filePath, "utf8")
+    if (
+      /from\s+["']expo-status-bar["']/.test(source) ||
+      /import\s*\{[^}]*\bStatusBar\b[^}]*\}\s*from\s*["']react-native["']/.test(
+        source
+      )
+    ) {
+      failures.push(
+        `${file} renders a raw status bar; use ScreenStatusBar, OverlayStatusBar or ScreenShell`
+      )
+    }
+  }
+  checkSourceMarkers(owner, [
+    "resolveScreenStatusBar",
+    "export function ScreenStatusBar",
+    "export function OverlayStatusBar",
+  ])
+}
+
+// T01 foundation contract: one sheet API, the ported EWA search, the
+// floating dock and the native list stay wired the way screen threads expect.
+function checkFoundationPrimitives() {
+  checkSourceMarkers("src/components/app/app-sheet.tsx", [
+    "resolveAppSheetPresentation",
+    "<FloatingBottomSheet",
+    "<FullScreenFormSheet",
+  ])
+  checkSourceMarkers("src/components/search/bottom-search-footer.tsx", [
+    "KeyboardStickyView",
+    "shouldShowListSearch(totalCount)",
+    "animateDock(",
+  ])
+  checkSourceMarkers("src/lib/list-search.ts", [
+    "LIST_SEARCH_THRESHOLD = 10",
+  ])
 }
 
 function checkSourceMarkers(file, markers) {

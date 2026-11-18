@@ -1,84 +1,48 @@
-import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
 import { Input } from "@/components/ui/input"
-import { Text } from "@/components/ui/text"
-import { useLargeTextLayout } from "@/hooks/use-large-text-layout"
-import { cn } from "@/lib/utils"
+import { Pressable } from "@/components/ui/pressable"
 import { forwardRef, useState } from "react"
 import { View, type TextInput, type TextInputProps } from "react-native"
 
+/**
+ * A password Input with a visible Show/Hide control. Place it inside a
+ * FormField (label, focus and error come from the field). The control sits
+ * over the input's right edge because Input's trailing slot is not pressable.
+ */
 export const PasswordField = forwardRef<
   TextInput,
   Omit<TextInputProps, "secureTextEntry"> & {
-    fieldSize?: "default" | "large"
-    hideLabel?: boolean
-    inputClassName?: string
+    /** Spoken name for the Show/Hide control, e.g. "password". */
     label: string
-    leadingIconName?: string
   }
->(function PasswordField(
-  {
-    fieldSize = "default",
-    hideLabel = false,
-    inputClassName,
-    label,
-    leadingIconName,
-    placeholder = "Enter password",
-    ...props
-  },
-  ref
-) {
+>(function PasswordField({ label, placeholder, ...props }, ref) {
   const [visible, setVisible] = useState(false)
-  const largeTextLayout = useLargeTextLayout()
-  const fieldHeight = largeTextLayout
-    ? "h-16"
-    : fieldSize === "large"
-      ? "h-14"
-      : "h-12"
 
   return (
-    <View className="gap-2">
-      {hideLabel ? null : (
-        <Text
-          className="text-sm leading-5 font-semibold text-foreground"
-          maxFontSizeMultiplier={1.5}
-        >
-          {label}
-        </Text>
-      )}
-      <View className={cn("relative", fieldHeight)}>
-        <Input
-          ref={ref}
-          {...props}
-          accessibilityLabel={label}
-          className={cn(
-            "absolute inset-0 pr-14 text-base",
-            fieldHeight,
-            inputClassName
-          )}
-          maxFontSizeMultiplier={1.35}
-          leading={
-            leadingIconName ? (
-              <Icon className="size-base text-brand" name={leadingIconName} />
-            ) : undefined
-          }
-          placeholder={placeholder}
-          secureTextEntry={!visible}
-          style={{ paddingRight: 56 }}
-        />
-        <Button
+    <View className="relative w-full">
+      <Input
+        ref={ref}
+        {...props}
+        autoCapitalize="none"
+        autoCorrect={false}
+        placeholder={placeholder}
+        secureTextEntry={!visible}
+        style={{ paddingRight: 56 }}
+      />
+      <View className="absolute top-0 right-0 bottom-0 w-[52px] items-center justify-center">
+        <Pressable
           accessibilityLabel={visible ? `Hide ${label}` : `Show ${label}`}
-          className={cn("absolute top-0 right-0 w-12", fieldHeight)}
+          accessibilityRole="button"
+          className="size-[44px] items-center justify-center rounded-full"
           disabled={props.editable === false}
+          hitSlop={4}
           onPress={() => setVisible((current) => !current)}
-          size="icon"
-          variant="ghost"
         >
           <Icon
-            className="size-base text-muted-foreground"
+            className="size-md text-muted-foreground"
             name={visible ? "EyeOff" : "Eye"}
           />
-        </Button>
+        </Pressable>
       </View>
     </View>
   )

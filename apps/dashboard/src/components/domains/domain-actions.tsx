@@ -9,7 +9,6 @@ import { useDomainParams } from "@/hooks/use-domain-params"
 import {
   removeTenantCustomDomainAction,
   runTenantDomainVerificationCheckAction,
-  setTenantDomainPrimaryAction,
 } from "@/lib/dashboard-actions"
 
 function domainForm(domainId: string) {
@@ -58,67 +57,6 @@ export function CheckDomainButton({
   )
 }
 
-/** Makes a ready address the main one, after an AlertDialog. */
-export function MakeMainDomainButton({
-  currentMain,
-  domainId,
-  hostname,
-}: {
-  currentMain: string | null
-  domainId: string
-  hostname: string
-}) {
-  const router = useRouter()
-  const { showError, showSuccess } = useNotifications()
-  const [open, setOpen] = useState(false)
-  const [pending, startTransition] = useTransition()
-
-  function makeMain() {
-    startTransition(async () => {
-      try {
-        await setTenantDomainPrimaryAction(domainForm(domainId))
-        showSuccess(
-          "Main address changed",
-          `${hostname} is now your main address.`
-        )
-        setOpen(false)
-        router.refresh()
-      } catch (error) {
-        showError(
-          "Could not change",
-          error instanceof Error ? error.message : "Something went wrong."
-        )
-      }
-    })
-  }
-
-  return (
-    <>
-      <Button
-        size="touch"
-        aria-label={`Make ${hostname} the main address`}
-        className="text-base"
-        onClick={() => setOpen(true)}
-        type="button"
-        variant="outline"
-      >
-        Make main address
-      </Button>
-      <ConfirmActionDialog
-        actionLabel="Make main address"
-        description={`${hostname} will be shown as your cooperative's web address.${
-          currentMain ? ` ${currentMain} keeps working.` : ""
-        } Open https://${hostname} first to check it loads your site.`}
-        onCancel={() => setOpen(false)}
-        onConfirm={makeMain}
-        open={open}
-        pending={pending}
-        title={`Make ${hostname} your main address?`}
-      />
-    </>
-  )
-}
-
 /** Removes one of the cooperative's own extra addresses, after an AlertDialog. */
 export function RemoveDomainButton({
   domainId,
@@ -162,7 +100,7 @@ export function RemoveDomainButton({
       </Button>
       <ConfirmActionDialog
         actionLabel="Remove address"
-        description={`Members can no longer open your cooperative at ${hostname}. Your main address keeps working. You can add it again later.`}
+        description={`Members can no longer open your cooperative at ${hostname}. Your Halaalvest address keeps working. You can add it again later.`}
         destructive
         onCancel={() => setOpen(false)}
         onConfirm={remove}

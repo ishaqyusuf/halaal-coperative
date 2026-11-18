@@ -1,12 +1,16 @@
-import { ScreenBackButton } from "@/components/app/screen-back-button"
-import { ScreenHeader } from "@/components/app/screen-header"
-import { LoadingSpinner } from "@/components/loading-spinner"
-import { SafeArea } from "@/components/safe-area"
-import { Button } from "@/components/ui/button"
+import { AppSheet } from "@/components/app/app-sheet"
+import { ConfirmSheet } from "@/components/app/confirm-sheet"
+import { GroupedRow, GroupedSection } from "@/components/app/grouped-section"
+import { ScreenShell } from "@/components/app/screen-shell"
+import { Icon } from "@/components/ui/icon"
+import { ListSkeleton } from "@/components/ui/skeleton"
+import { StatusBanner } from "@/components/ui/status-banner"
+import { StatusPill } from "@/components/ui/status-pill"
 import { Text } from "@/components/ui/text"
-import { ScrollView, View } from "react-native"
+import { useColors } from "@/hooks/use-color"
+import { useState } from "react"
+import { ActivityIndicator, View } from "react-native"
 
-import { CooperativeShortcutTile } from "../components/cooperative-shortcut-tile"
 import {
   formatMembershipRole,
   SHORTCUT_PRIVACY_NOTICE,
@@ -14,187 +18,257 @@ import {
   type CooperativeWorkspace,
   type ShortcutPresentation,
 } from "../model/shortcut-policy"
-import type { ShortcutEnvironment } from "../platform/cooperative-shortcut-platform"
+import {
+  roleDescription,
+  rolesLine,
+  SHORTCUT_ACTION_ROWS,
+  splitWorkspaces,
+  workspaceMark,
+} from "../model/shortcut-presentation"
+import type { StatusTone } from "@/components/ui/status-pill"
+
+export type ShortcutAction = ShortcutPresentation["actions"][number]
 
 export type CooperativeShortcutsScreenProps = {
   activeMembershipId: string | null
-  busyAction: string | null
-  current: { mark: string; name: string } | null
-  environment: ShortcutEnvironment
+  busyAction: ShortcutAction | null
+  /** From the signed profile, shown before the list loads. */
+  current: { mark: string; name: string; role: string } | null
   loadError: string | null
   loading: boolean
   message: string | null
-  onAction: (action: ShortcutPresentation["actions"][number]) => void
+  offline: boolean
+  onAction: (action: ShortcutAction) => void
   onBack: () => void
+  onRefresh: () => void
   onRetryLoad: () => void
   onSwitch: (membershipId: string) => void
-  shortcut: ShortcutPresentation | null
+  refreshing: boolean
+  shortcut: (ShortcutPresentation & { checking: boolean; pill: { label: string; tone: StatusTone } }) | null
   switchError: string | null
   switchingMembershipId: string | null
   workspaces: CooperativeWorkspace[] | null
 }
 
-const ACTION_LABELS: Record<ShortcutPresentation["actions"][number], string> = {
-  add: "Add to home screen",
-  disable: "Disable shortcut",
-  refresh: "Refresh icon",
-  retry: "Try again",
-}
+/**
+ * Cooperatives & shortcuts on 03 Grouped settings (T27): Current (with the
+ * other roles here), Other cooperatives, and on Android the Home screen
+ * shortcut with its actions as rows. A cooperative with several roles opens
+ * an "Open as" picker; disabling the shortcut asks first.
+ */
+export function CooperativeShortcutsScreen(props: CooperativeShortcutsScreenProps) {
+  const colors = useColors()
+  const [rolesFor, setRolesFor] = useState<CooperativeWorkspace | null>(null)
+  const [confirmDisable, setConfirmDisable] = useState(false)
+  const split = props.workspaces ? splitWorkspaces(props.workspaces, props.activeMembershipId) : null
+  const switching = props.switchingMembershipId !== null
+  const currentName = split?.current?.tenant.name ?? props.current?.name ?? "This cooperative"
+  const currentMark = split?.current ? workspaceMark(split.current) : (props.current?.mark ?? "")
+  const currentRole = split?.currentRole
+    ? formatMembershipRole(split.currentRole.role)
+    : (props.current?.role ?? "")
+  const spinner = <ActivityIndicator color={colors.mutedForeground} size="small" />
 
-export function CooperativeShortcutsScreen(
-  props: CooperativeShortcutsScreenProps
-) {
+  function openWorkspace(workspace: CooperativeWorkspace) {
+    if (workspace.memberships.length > 1) setRolesFor(workspace)
+    else if (workspace.memberships[0]) props.onSwitch(workspace.memberships[0].id)
+  }
+
   return (
-    <SafeArea className="bg-background">
-      <View className="flex-1 gap-5 px-5 pt-5 pb-2">
-        <ScreenHeader
-          description="Cooperatives your account can open, and this phone's home-screen shortcut."
-          leading={<ScreenBackButton onPress={props.onBack} />}
-          title="Cooperatives"
-        />
-        <ScrollView contentContainerClassName="gap-6 pb-10">
-          {props.shortcut && props.current ? (
-            <View className="gap-3 rounded-xl border border-border bg-card p-4">
-              <View className="flex-row items-center gap-4">
-                <CooperativeShortcutTile
-                  cooperativeName={props.current.name}
-                  environment={props.environment}
-                  mark={props.current.mark}
-                />
-                <View className="min-w-0 flex-1 gap-1">
-                  <Text
-                    accessibilityRole="header"
-                    className="text-base font-bold text-foreground"
-                  >
-                    {props.shortcut.title}
-                  </Text>
-                  <Text className="text-sm leading-5 text-muted-foreground">
-                    {props.shortcut.description}
-                  </Text>
-                </View>
-              </View>
-              {props.message ? (
-                <Text
-                  accessibilityLiveRegion="polite"
-                  className="text-sm font-semibold text-foreground"
-                >
-                  {props.message}
-                </Text>
-              ) : null}
-              {props.shortcut.actions.length > 0 ? (
-                <View className="gap-2">
-                  {props.shortcut.actions.map((action) => (
-                    <Button
-                      disabled={props.busyAction !== null}
-                      key={action}
-                      onPress={() => props.onAction(action)}
-                      variant={action === "disable" ? "outline" : "default"}
-                    >
-                      <Text>
-                        {props.busyAction === action
-                          ? "Working…"
-                          : ACTION_LABELS[action]}
-                      </Text>
-                    </Button>
-                  ))}
-                </View>
-              ) : null}
-              <Text className="text-xs leading-5 text-muted-foreground">
-                {SHORTCUT_REMOVAL_INSTRUCTIONS}
-              </Text>
-              <Text className="text-xs leading-5 text-muted-foreground">
-                {SHORTCUT_PRIVACY_NOTICE}
-              </Text>
+    <ScreenShell
+      back={props.onBack}
+      onRefresh={props.workspaces ? props.onRefresh : undefined}
+      refreshing={props.refreshing}
+      testID="cooperative-shortcuts-screen"
+      title="Cooperatives & shortcuts"
+    >
+      <GroupedSection caption="Current">
+        <GroupedRow
+          accessibilityLabel={`${currentName}, ${currentRole}, open now`}
+          detail={`${currentRole ? `${currentRole} · ` : ""}Open now`}
+          key="current"
+          mark={currentMark}
+          markTone="solid"
+          title={currentName}
+          trailing={
+            <View className="size-[26px] items-center justify-center rounded-full bg-primary">
+              <Icon className="size-[15px] text-primary-foreground" name="Check" />
             </View>
-          ) : null}
+          }
+        />
+        {(split?.otherRoles ?? []).map((membership) => {
+          const busy = props.switchingMembershipId === membership.id
+          return (
+            <GroupedRow
+              accessibilityLabel={`Open ${currentName} as ${formatMembershipRole(membership.role)}`}
+              chevron={!busy}
+              detail={busy ? "Opening…" : "Same cooperative, different role"}
+              disabled={(switching && !busy) || props.offline}
+              icon="ArrowLeftRight"
+              key={membership.id}
+              onPress={busy ? undefined : () => props.onSwitch(membership.id)}
+              testID={`cooperative-role-${membership.id}`}
+              title={`Open as ${formatMembershipRole(membership.role)}`}
+              tone="sky"
+              trailing={busy ? spinner : undefined}
+            />
+          )
+        })}
+      </GroupedSection>
 
-          <View className="gap-3">
-            <Text
-              accessibilityRole="header"
-              className="text-lg font-bold tracking-tight text-foreground"
-            >
-              Your cooperatives
+      {props.switchError ? <StatusBanner kind="error" title={props.switchError} /> : null}
+      {props.offline ? (
+        <StatusBanner
+          kind="offline"
+          onRetry={props.onRetryLoad}
+          title="Connect to the internet to see all your cooperatives."
+        />
+      ) : props.loadError ? (
+        <StatusBanner kind="error" onRetry={props.onRetryLoad} title={props.loadError} />
+      ) : null}
+
+      {props.loading && !props.workspaces ? (
+        <View className="gap-[7px]">
+          <Text className="px-[16px] uppercase tracking-[0.8px] text-muted-foreground" variant="caption">
+            Other cooperatives
+          </Text>
+          <ListSkeleton rows={2} />
+        </View>
+      ) : split ? (
+        <GroupedSection caption={`Other cooperatives${split.others.length ? ` · ${split.others.length}` : ""}`}>
+          {split.others.length ? (
+            split.others.map((workspace) => {
+              const busyRole = workspace.memberships.find(
+                (membership) => membership.id === props.switchingMembershipId
+              )
+              return (
+                <GroupedRow
+                  accessibilityLabel={
+                    workspace.memberships.length > 1
+                      ? `${workspace.tenant.name}, choose a role`
+                      : `Open ${workspace.tenant.name} as ${rolesLine(workspace)}`
+                  }
+                  chevron={!busyRole}
+                  detail={busyRole ? "Opening…" : rolesLine(workspace)}
+                  disabled={(switching && !busyRole) || props.offline}
+                  key={workspace.tenant.id}
+                  mark={workspaceMark(workspace)}
+                  onPress={busyRole ? undefined : () => openWorkspace(workspace)}
+                  testID={`cooperative-${workspace.tenant.id}`}
+                  title={workspace.tenant.name}
+                  trailing={busyRole ? spinner : undefined}
+                />
+              )
+            })
+          ) : (
+            <GroupedRow
+              icon="Users"
+              key="only"
+              title="This is the only cooperative on your account."
+              tone="neutral"
+            />
+          )}
+        </GroupedSection>
+      ) : null}
+
+      {props.shortcut ? (
+        <View className="gap-[8px]">
+          <GroupedSection
+            caption="Home screen"
+            footnote={`${SHORTCUT_REMOVAL_INSTRUCTIONS}\n${SHORTCUT_PRIVACY_NOTICE}`}
+          >
+            <GroupedRow
+              detail={props.shortcut.description}
+              key="state"
+              mark={currentMark}
+              markTone="solid"
+              title={props.shortcut.title}
+              trailing={
+                props.shortcut.checking ? spinner : (
+                  <StatusPill label={props.shortcut.pill.label} tone={props.shortcut.pill.tone} />
+                )
+              }
+            />
+            {props.shortcut.actions.map((action) => {
+              const meta = SHORTCUT_ACTION_ROWS[action]
+              const busy = props.busyAction === action
+              return (
+                <GroupedRow
+                  chevron={!busy && action !== "disable"}
+                  destructive={action === "disable"}
+                  disabled={props.busyAction !== null && !busy}
+                  icon={meta.icon}
+                  key={action}
+                  onPress={
+                    busy
+                      ? undefined
+                      : action === "disable"
+                        ? () => setConfirmDisable(true)
+                        : () => props.onAction(action)
+                  }
+                  testID={`shortcut-action-${action}`}
+                  title={busy ? meta.busy : meta.label}
+                  tone={meta.tone}
+                  trailing={busy ? spinner : undefined}
+                />
+              )
+            })}
+          </GroupedSection>
+          {props.message ? (
+            <Text accessibilityLiveRegion="polite" className="px-[16px] font-semibold" variant="small">
+              {props.message}
             </Text>
-            {props.loading ? <LoadingSpinner /> : null}
-            {props.loadError ? (
-              <View className="gap-2">
-                <Text className="text-sm text-muted-foreground">
-                  {props.loadError}
-                </Text>
-                <Button onPress={props.onRetryLoad} variant="outline">
-                  <Text>Try again</Text>
-                </Button>
-              </View>
-            ) : null}
-            {props.switchError ? (
-              <Text
-                accessibilityLiveRegion="polite"
-                className="text-sm font-semibold text-destructive"
-              >
-                {props.switchError}
-              </Text>
-            ) : null}
-            {(props.workspaces ?? []).map((workspace) => (
-              <View
-                className="gap-3 border-b border-border pb-4"
-                key={workspace.tenant.id}
-              >
-                <View className="flex-row items-center gap-3">
-                  <CooperativeShortcutTile
-                    cooperativeName={workspace.tenant.name}
-                    environment="production"
-                    mark={workspace.tenant.mark}
-                    size="small"
-                  />
-                  <View className="min-w-0 flex-1">
-                    <Text
-                      className="text-base font-bold text-foreground"
-                      numberOfLines={2}
-                    >
-                      {workspace.tenant.name}
-                    </Text>
-                    <Text className="text-xs text-muted-foreground">
-                      {workspace.isCurrent
-                        ? "Open now"
-                        : `${workspace.memberships.length} role${workspace.memberships.length === 1 ? "" : "s"}`}
-                    </Text>
-                  </View>
-                </View>
-                <View className="flex-row flex-wrap gap-2">
-                  {workspace.memberships.map((membership) => {
-                    const label = formatMembershipRole(membership.role)
-                    const active = membership.id === props.activeMembershipId
-                    return (
-                      <Button
-                        accessibilityLabel={
-                          active
-                            ? `${label} in ${workspace.tenant.name}, current`
-                            : `Open ${workspace.tenant.name} as ${label}`
-                        }
-                        disabled={
-                          active || props.switchingMembershipId !== null
-                        }
-                        key={membership.id}
-                        onPress={() => props.onSwitch(membership.id)}
-                        size="sm"
-                        variant={active ? "secondary" : "outline"}
-                      >
-                        <Text>
-                          {props.switchingMembershipId === membership.id
-                            ? "Opening…"
-                            : active
-                              ? `${label} · Current`
-                              : label}
-                        </Text>
-                      </Button>
-                    )
-                  })}
-                </View>
-              </View>
-            ))}
+          ) : null}
+        </View>
+      ) : null}
+
+      <AppSheet
+        accessibilityLabel="Open as"
+        onClose={() => setRolesFor(null)}
+        title="Open as"
+        variant="picker"
+        visible={rolesFor !== null}
+      >
+        {rolesFor ? (
+          <View className="gap-[10px] pb-[16px]">
+            <Text className="text-center text-muted-foreground" variant="small">
+              {rolesFor.tenant.name}
+            </Text>
+            <GroupedSection>
+              {rolesFor.memberships.map((membership) => (
+                <GroupedRow
+                  chevron
+                  detail={roleDescription(membership)}
+                  icon={membership.workspaceRole === "member" ? "UserRound" : "ShieldCheck"}
+                  key={membership.id}
+                  onPress={() => {
+                    setRolesFor(null)
+                    props.onSwitch(membership.id)
+                  }}
+                  testID={`open-as-${membership.id}`}
+                  title={formatMembershipRole(membership.role)}
+                  tone={membership.workspaceRole === "member" ? "mint" : "sky"}
+                />
+              ))}
+            </GroupedSection>
           </View>
-        </ScrollView>
-      </View>
-    </SafeArea>
+        ) : null}
+      </AppSheet>
+
+      <ConfirmSheet
+        cancelLabel="Keep shortcut"
+        confirmLabel="Disable shortcut"
+        description={`The ${currentName} tile stops opening HalaalVest. You can then remove it from your launcher.`}
+        icon="Ban"
+        onCancel={() => setConfirmDisable(false)}
+        onConfirm={() => {
+          setConfirmDisable(false)
+          props.onAction("disable")
+        }}
+        title="Disable this shortcut?"
+        tone="destructive"
+        visible={confirmDisable}
+      />
+    </ScreenShell>
   )
 }

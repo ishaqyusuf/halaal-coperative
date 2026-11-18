@@ -2,7 +2,6 @@ import type { TenantDomainRecord } from "@halaalvest/db"
 import { AddDomainDialog } from "@/components/domains/add-domain-dialog"
 import {
   CheckDomainButton,
-  MakeMainDomainButton,
   OpenAddDomainButton,
   RemoveDomainButton,
 } from "@/components/domains/domain-actions"
@@ -52,21 +51,20 @@ export function DomainsView({
   devMode: boolean
   domains: TenantDomainRecord[]
 }) {
-  const main =
-    domains.find((domain) => domain.isPrimary) ??
-    domains.find((domain) => isPlatformDomain(domain)) ??
-    null
-  const others = domains.filter((domain) => domain.id !== main?.id)
+  const halaalvest = domains.filter((domain) => isPlatformDomain(domain))
+  const own = domains.filter((domain) => !isPlatformDomain(domain))
 
   return (
     <SettingsPage
       action={<OpenAddDomainButton />}
       intro="The web address members use to reach your cooperative."
     >
-      <SettingsSection title="Main address">
-        {main ? (
-          <ul className="border-y border-border">
-            <DomainRow domain={main} />
+      <SettingsSection title="Halaalvest address">
+        {halaalvest.length > 0 ? (
+          <ul className="divide-y divide-border border-y border-border">
+            {halaalvest.map((domain) => (
+              <DomainRow domain={domain} key={domain.id} />
+            ))}
           </ul>
         ) : (
           <SettingsEmpty
@@ -76,42 +74,27 @@ export function DomainsView({
         )}
       </SettingsSection>
 
-      {others.length > 0 ? (
-        <SettingsSection title="Other addresses">
+      {own.length > 0 ? (
+        <SettingsSection title="Your own addresses">
           <ul className="divide-y divide-border border-y border-border">
-            {others.map((domain) => {
-              const status = getDomainStatus(domain)
-
-              return (
-                <DomainRow
-                  actions={
-                    <>
-                      {isPlatformDomain(domain) ? null : (
-                        <CheckDomainButton
-                          domainId={domain.id}
-                          hostname={domain.hostname}
-                        />
-                      )}
-                      {status.ready ? (
-                        <MakeMainDomainButton
-                          currentMain={main?.hostname ?? null}
-                          domainId={domain.id}
-                          hostname={domain.hostname}
-                        />
-                      ) : null}
-                      {domain.kind !== "custom" || domain.isPrimary ? null : (
-                        <RemoveDomainButton
-                          domainId={domain.id}
-                          hostname={domain.hostname}
-                        />
-                      )}
-                    </>
-                  }
-                  domain={domain}
-                  key={domain.id}
-                />
-              )
-            })}
+            {own.map((domain) => (
+              <DomainRow
+                actions={
+                  <>
+                    <CheckDomainButton
+                      domainId={domain.id}
+                      hostname={domain.hostname}
+                    />
+                    <RemoveDomainButton
+                      domainId={domain.id}
+                      hostname={domain.hostname}
+                    />
+                  </>
+                }
+                domain={domain}
+                key={domain.id}
+              />
+            ))}
           </ul>
         </SettingsSection>
       ) : null}

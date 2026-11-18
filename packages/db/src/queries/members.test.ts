@@ -268,9 +268,6 @@ function createMemberPortalAccessPrismaStub() {
         return input
       },
     },
-    subscriptionInvoice: {
-      findMany: async () => [],
-    },
     tenant: { findUnique: async () => ({ cooperativeCodePrefix: "HAL" }) },
     user: {
       update: async (input: unknown) => input,
@@ -301,15 +298,18 @@ function createMemberPortalAccessPrismaStub() {
 }
 
 function createMemberPrismaStub({
+  activeMemberCount = 4,
   appliedBackfillBatches = 0,
   chargeScheduleVersions = 1,
   collectionSourcesAccessMode = "office_only",
   deductionSourceActive = true,
   initialMigrationStatus = "historical_setup_in_progress",
+  memberStatus = "pending",
   shareBusinessProfitEntries = 1,
   shareStructureVersions = 1,
   startDate = new Date("2025-01-01T00:00:00.000Z"),
 }: {
+  activeMemberCount?: number
   appliedBackfillBatches?: number
   chargeScheduleVersions?: number
   collectionSourcesAccessMode?:
@@ -319,6 +319,7 @@ function createMemberPrismaStub({
     | "read_only"
   deductionSourceActive?: boolean
   initialMigrationStatus?: string
+  memberStatus?: string
   shareBusinessProfitEntries?: number
   shareStructureVersions?: number
   startDate?: Date | null
@@ -377,7 +378,7 @@ function createMemberPrismaStub({
       count: async () => 0,
     },
     member: {
-      count: async () => 4,
+      count: async () => activeMemberCount,
       create: async (input: {
         data: {
           address?: string | null
@@ -404,6 +405,7 @@ function createMemberPrismaStub({
         }
       },
       findMany: async () => [],
+      findUnique: async () => ({ status: memberStatus }),
       update: async (input: unknown) => {
         memberUpdates.push(input)
 
@@ -447,9 +449,6 @@ function createMemberPrismaStub({
     },
     shareBusinessProfitEntry: {
       count: async () => shareBusinessProfitEntries,
-    },
-    subscriptionInvoice: {
-      findMany: async () => [],
     },
     tenant: {
       findUnique: async () => ({
@@ -495,24 +494,6 @@ function createMemberPrismaStub({
     },
     tenantShareStructureVersion: {
       count: async () => shareStructureVersions,
-    },
-    tenantSubscription: {
-      findUnique: async () => ({
-        activeMemberLimitOverride: null,
-        addons: [],
-        cancelAtPeriodEnd: false,
-        currentPeriodEndsAt: null,
-        currentPeriodStartsAt: null,
-        graceEndsAt: null,
-        id: "subscription-1",
-        plan: { code: "standard" },
-        source: "manual",
-        sourceState: {},
-        status: "active",
-        trialEndsAt: null,
-        trialStartsAt: null,
-        updatedAt: new Date("2026-08-01T00:00:00.000Z"),
-      }),
     },
   }
 
@@ -702,6 +683,40 @@ describe("member profile migration guards", () => {
     await createMember(memberInput, prisma as never)
 
     expect(prisma.memberCreates).toHaveLength(1)
+  })
+
+  test("creates members without any active-member cap (no plan limit)", async () => {
+    // Triage 2.8: the old plan's active-member cap is retired. The stub has no
+    // tenant subscription at all and far more active members than any old
+    // plan allowed, and creation still goes through.
+    const prisma = createMemberPrismaStub({
+      activeMemberCount: 1_000_000,
+      initialMigrationStatus: "live_operations",
+    })
+
+    await createMember(memberInput, prisma as never)
+
+    expect(prisma.memberCreates).toHaveLength(1)
+  })
+
+  test("activates a member without checking an active-member cap", async () => {
+    const prisma = createMemberPrismaStub({
+      activeMemberCount: 1_000_000,
+      initialMigrationStatus: "live_operations",
+      memberStatus: "pending",
+    })
+
+    await updateMemberStatus(
+      "tenant-1",
+      "member-1",
+      "active",
+      "user-1",
+      prisma as never
+    )
+
+    expect(prisma.memberUpdates).toEqual([
+      expect.objectContaining({ data: { status: "active" } }),
+    ])
   })
 
   test("registers starting and historical commitments as contribution plan history", async () => {
@@ -1847,5 +1862,147 @@ describe("member picker options", () => {
     })
     expect(counted).toEqual([{ where }])
     expect(result.total).toBe(1)
+  })
+})
+
+describe("approved loans not yet paid out (triage 1.5)", () => {
+  function prismaWithLoanGroups(groups: unknown[]) {
+    const base = createMemberStatementPrismaStub()
+    let loanGroupArgs: any = null
+
+    return {
+      get loanGroupArgs() {
+        return loanGroupArgs
+      },
+      prisma: {
+        ...base,
+        loan: {
+          ...base.loan,
+          groupBy: async (args: unknown) => {
+            loanGroupArgs = args
+            return groups
+          },
+        },
+      },
+    }
+  }
+
+  test("keeps approved loans out of what the member owes and shows them on their own line", async () => {
+    const stub = prismaWithLoanGroups([
+      {
+        _count: { _all: 1 },
+        _sum: {
+          estimatedMonthlyServicing: 5000,
+          extraMonthlySavingsAmount: 1000,
+          outstandingPrincipal: 15000,
+          principalAmount: 30000,
+        },
+        memberId: "member-1",
+        status: "active",
+      },
+      {
+        _count: { _all: 1 },
+        _sum: {
+          estimatedMonthlyServicing: 2000,
+          extraMonthlySavingsAmount: 0,
+          outstandingPrincipal: 40000,
+          principalAmount: 40000,
+        },
+        memberId: "member-1",
+        status: "approved",
+      },
+    ])
+
+    const [summary] = await listMemberStatementSummaries(
+      "tenant-1",
+      stub.prisma as never
+    )
+
+    expect(stub.loanGroupArgs.by).toEqual(["memberId", "status"])
+    expect(stub.loanGroupArgs.where.status.in).toEqual(
+      expect.arrayContaining(["approved", "disbursed", "active", "defaulted"])
+    )
+    expect(summary).toMatchObject({
+      activeLoanCount: 1,
+      approvedNotPaidOutAmount: 40000,
+      approvedNotPaidOutCount: 1,
+      totalEstimatedMonthlyServicing: 5000,
+      totalLoanPrincipal: 30000,
+      totalObligationsOutstanding: 15000,
+      totalOutstandingPrincipal: 15000,
+    })
+  })
+
+  test("a member with only an approved loan owes nothing yet", async () => {
+    const stub = prismaWithLoanGroups([
+      {
+        _count: { _all: 2 },
+        _sum: {
+          estimatedMonthlyServicing: 3000,
+          extraMonthlySavingsAmount: 0,
+          outstandingPrincipal: 60000,
+          principalAmount: 60000,
+        },
+        memberId: "member-1",
+        status: "approved",
+      },
+    ])
+
+    const [summary] = await listMemberStatementSummaries(
+      "tenant-1",
+      stub.prisma as never
+    )
+
+    expect(summary).toMatchObject({
+      activeLoanCount: 0,
+      approvedNotPaidOutAmount: 60000,
+      approvedNotPaidOutCount: 2,
+      totalObligationsOutstanding: 0,
+      totalOutstandingPrincipal: 0,
+    })
+  })
+
+  test("the one-statement SQL read splits approved loans the same way", async () => {
+    const queries: string[] = []
+    const summary = await getMemberStatementSummary("tenant-1", "member-1", {
+      $queryRaw: async (strings: TemplateStringsArray) => {
+        queries.push(strings.join("?"))
+        return [
+          {
+            approvedNotPaidOutAmount: "40000",
+            approvedNotPaidOutCount: 1,
+            contributionCount: 0,
+            dividendCount: 0,
+            email: null,
+            exitedAt: null,
+            foodPurchaseCount: 0,
+            fullName: "Aisha Bello",
+            id: "member-1",
+            joinedAt: new Date("2026-01-01T00:00:00.000Z"),
+            lastContributionAt: null,
+            lastDividendAllocatedAt: null,
+            lastRepaymentAt: null,
+            loanCount: 1,
+            loanOutstandingPrincipal: "15000",
+            loanPrincipalAmount: "30000",
+            memberNumber: "M-001",
+            memberType: "regular",
+            planAmount: null,
+            planStartsAt: null,
+            status: "active",
+            totalSavingsSnapshot: "0",
+            userEmail: null,
+          },
+        ]
+      },
+    } as never)
+
+    expect(queries[0]).toContain("status::text = 'approved'")
+    expect(summary).toMatchObject({
+      approvedNotPaidOutAmount: 40000,
+      approvedNotPaidOutCount: 1,
+      totalObligationsOutstanding: 15000,
+      totalOutstandingPrincipal: 15000,
+    })
   })
 })

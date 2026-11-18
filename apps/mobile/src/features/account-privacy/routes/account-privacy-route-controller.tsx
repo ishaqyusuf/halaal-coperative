@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import { randomUUID } from "expo-crypto"
 import { useRouter } from "expo-router"
+import { useQueryClient } from "@tanstack/react-query"
 import { useAuthContext } from "@/hooks/use-auth"
+import { appQueryKey, useAppQuery, useInvalidateAppQueries } from "@/hooks/use-app-query"
 import { getToken } from "@/lib/session-store"
 import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
 import { canUseMobileFeatureData } from "@/dev/mobile-dev-session"
@@ -10,150 +12,157 @@ import {
   getPrivacyNotice,
   listPrivacyRequests,
   submitPrivacyRequest,
-  type PrivacyNotice,
   type PrivacyRequest,
 } from "../api/account-privacy-api"
+import { livePrivacyRequest } from "../model/privacy-presentation"
 import {
   AccountPrivacyScreen,
-  type PrivacyConfirmation,
+  type PrivacySheet,
 } from "../screens/account-privacy-screen"
+
+/** The notice is static per deploy: read it once per app session. */
+const NOTICE_STALE_MS = 6 * 60 * 60 * 1000
 
 export function AccountPrivacyRouteController() {
   const { profile } = useAuthContext()
   return <PrivacyController key={`${profile?.user.id}:${profile?.tenant.id}`} />
 }
+
 function PrivacyController() {
   const { profile } = useAuthContext()
   const runtime = useMobileRuntime()
   const router = useRouter()
+  const queryClient = useQueryClient()
+  const invalidate = useInvalidateAppQueries()
   const offline = runtime.state.connectivity === "offline"
-  const allowed = Boolean(
-    profile && canUseMobileFeatureData(profile, profile.role)
-  )
-  const [notice, setNotice] = useState<PrivacyNotice | null>(null)
-  const [requests, setRequests] = useState<PrivacyRequest[]>([])
-  const [error, setError] = useState<string | null>(null)
+  const allowed = Boolean(profile && canUseMobileFeatureData(profile, profile.role))
+  const enabled = allowed && !offline
+  const requestsKey = appQueryKey("account-privacy", "requests", {
+    tenantId: profile?.tenant.id,
+    userId: profile?.user.id,
+  })
+
+  // T26: cached reads with focus/reconnect refresh instead of a hand-rolled
+  // loader; writes update and invalidate the requests key only.
+  const noticeQuery = useAppQuery({
+    enabled,
+    queryFn: getPrivacyNotice,
+    queryKey: appQueryKey("account-privacy", "notice"),
+    staleTime: NOTICE_STALE_MS,
+  })
+  const requestsQuery = useAppQuery<PrivacyRequest[]>({
+    enabled,
+    placeholderData: undefined,
+    queryFn: listPrivacyRequests,
+    queryKey: requestsKey,
+  })
+
+  const [sheet, setSheet] = useState<PrivacySheet>(null)
+  const [receipt, setReceipt] = useState<PrivacyRequest | null>(null)
   const [message, setMessage] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [writeError, setWriteError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [confirmation, setConfirmation] = useState<PrivacyConfirmation>(null)
-  const idempotencyKey = useRef(randomUUID())
-  const mounted = useRef(true)
-  const requestNumber = useRef(0)
   const busyRef = useRef(false)
+  const idempotencyKey = useRef(randomUUID())
   const token = getToken()
-  useEffect(() => {
-    mounted.current = true
-    return () => {
-      mounted.current = false
-      requestNumber.current++
-    }
-  }, [])
-  const load = useCallback(async () => {
-    const number = ++requestNumber.current
-    if (!allowed || offline) return
-    setLoading(true)
-    setError(null)
-    const current = () =>
-      mounted.current &&
-      token === getToken() &&
-      number === requestNumber.current
-    try {
-      const [nextNotice, nextRequests] = await Promise.all([
-        getPrivacyNotice(),
-        listPrivacyRequests(),
-      ])
-      if (current()) {
-        setNotice(nextNotice)
-        setRequests(nextRequests)
-      }
-    } catch {
-      if (current())
-        setError("Privacy requests could not be loaded. Refresh to retry.")
-    } finally {
-      if (current()) setLoading(false)
-    }
-  }, [allowed, offline, token])
-  useEffect(() => {
-    void load()
-    return () => {
-      requestNumber.current++
-    }
-  }, [load])
-  async function confirm() {
-    if (
-      !allowed ||
-      offline ||
-      !confirmation ||
-      busyRef.current ||
-      token !== getToken()
-    )
-      return
-    if (confirmation.kind === "request" && !notice) return
+  const current = () => token === getToken()
+
+  const notice = noticeQuery.data ?? null
+  const requests = requestsQuery.data ?? []
+  const loading =
+    enabled && (noticeQuery.isFetching || requestsQuery.isFetching) && !(notice && requestsQuery.data)
+  const readError = !allowed
+    ? "Sign in with a live or QA account to manage privacy requests."
+    : noticeQuery.isError || requestsQuery.isError
+      ? "Privacy requests could not be loaded. Try again."
+      : null
+
+  async function run(action: "request" | "cancel") {
+    if (!enabled || busyRef.current || !current()) return
+    const live = livePrivacyRequest(requests)
+    if (action === "request" && !notice) return
+    if (action === "cancel" && !live) return
     busyRef.current = true
     setBusy(true)
-    setError(null)
+    setWriteError(null)
     setMessage(null)
-    const current = () => mounted.current && token === getToken()
-    const action = confirmation
     try {
-      const receipt = await runtime.runOnlineOperation("command", async () => {
+      const result = await runtime.runOnlineOperation("command", async () => {
         if (!current()) throw new Error("Account changed")
-        if (action.kind === "cancel") {
-          await cancelPrivacyRequest(action.requestId)
+        if (action === "cancel") {
+          await cancelPrivacyRequest(live!.id)
           return null
         }
         return submitPrivacyRequest({
+          confirmed: true,
           idempotencyKey: idempotencyKey.current,
           noticeVersion: notice!.version,
-          confirmed: true,
         })
       })
       if (!current()) return
-      if (receipt) {
-        setRequests((previous) => [
-          receipt,
-          ...previous.filter((request) => request.id !== receipt.id),
-        ])
-        setMessage(
-          `Your deletion request was received. Reference: ${receipt.id}. Keep it to follow up.`
-        )
-      } else {
-        setMessage("Your deletion request was cancelled.")
-      }
       idempotencyKey.current = randomUUID()
-      setConfirmation(null)
-      await load()
+      if (result) {
+        queryClient.setQueryData<PrivacyRequest[]>(requestsKey, (previous = []) => [
+          result,
+          ...previous.filter((item) => item.id !== result.id),
+        ])
+        setReceipt(result)
+        setSheet("success")
+      } else {
+        setMessage("Your request to close your account was cancelled.")
+        setSheet(null)
+      }
+      void invalidate(requestsKey)
     } catch {
       if (current())
-        setError(
-          "The request could not be confirmed. Refresh its status before retrying."
+        setWriteError(
+          action === "request"
+            ? "The request couldn’t be submitted. Check your connection and try again."
+            : "The request couldn’t be cancelled. Refresh its status before retrying."
         )
     } finally {
-      if (current()) {
-        busyRef.current = false
-        setBusy(false)
-      }
+      busyRef.current = false
+      setBusy(false)
     }
   }
+
   return (
     <AccountPrivacyScreen
-      notice={notice}
-      requests={requests}
-      loading={loading}
+      accountLabel={profile?.user.name ?? "Your account"}
       busy={busy}
-      offline={offline}
-      error={
-        !allowed
-          ? "Sign in with a live or QA account to manage privacy requests."
-          : error
-      }
+      loading={loading}
       message={message}
-      confirmation={confirmation}
+      notice={notice}
+      offline={offline}
+      readError={readError}
+      receipt={receipt}
+      refreshing={requestsQuery.isRefetching}
+      requestsLoaded={requestsQuery.data !== undefined}
+      requests={requests}
+      sheet={sheet}
+      writeError={writeError}
       onBack={() => (router.canGoBack() ? router.back() : router.replace("/"))}
-      onRefresh={() => void load()}
-      onReview={setConfirmation}
-      onConfirm={() => void confirm()}
+      onCloseSheet={() => {
+        if (busyRef.current) return
+        setSheet(null)
+        setWriteError(null)
+      }}
+      onConfirmCancel={() => void run("cancel")}
+      onDone={() => {
+        setSheet(null)
+        setReceipt(null)
+      }}
+      onOpen={(next) => {
+        setMessage(null)
+        setWriteError(null)
+        setSheet(next)
+      }}
+      onRefresh={() => {
+        setMessage(null)
+        void requestsQuery.refetch()
+        if (noticeQuery.isError) void noticeQuery.refetch()
+      }}
+      onSubmit={() => void run("request")}
     />
   )
 }

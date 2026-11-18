@@ -23,6 +23,11 @@ import {
   getTenantInitialMigrationState,
   getTenantMigrationWriteAccess,
 } from "./migration"
+import {
+  getMemberProfitPayouts,
+  type MemberProfitPayout,
+  recordProfitOwedForSeason,
+} from "./profit-payouts"
 import { readOptionalTenantBusinessPolicy } from "./tenant-business-policy"
 import { getTenantById } from "./tenants"
 
@@ -982,7 +987,7 @@ export async function getCurrentBusinessProfitSeason(
   })
 }
 
-async function ensureWritableBusinessProfitSeason(
+export async function ensureWritableBusinessProfitSeason(
   input: {
     profitDate: Date
     referenceDate?: Date
@@ -2193,6 +2198,15 @@ export async function getMemberUnitSharePosition(
     prisma
   )
   await assertMemberInTenant(input, prisma)
+  return getMemberUnitSharePositionForLinkedMember(input, policy, prisma)
+}
+
+/** For reads that already resolved the member in this tenant and loaded its policy. */
+export async function getMemberUnitSharePositionForLinkedMember(
+  input: { memberId: string; tenantId: string },
+  policy: TenantSharePolicySettings,
+  prisma: PrismaClient
+): Promise<MemberUnitSharePosition> {
   const totals = await getMemberShareApplicationUnitTotals(input, prisma)
 
   return toMemberUnitSharePosition(policy, totals)
@@ -2228,6 +2242,8 @@ export type MemberShareSummary = {
       amount: number
       id: string
       name: string
+      /** Set once the member's share is paid out (date and where it went). */
+      payout: MemberProfitPayout | null
       sharedOn: string | null
     }>
     total: number
@@ -2277,6 +2293,15 @@ export async function getMemberShareSummary(
       ? getMemberShareApplicationUnitTotals(memberScope, prisma)
       : Promise.resolve(null),
   ])
+  const payouts = await getMemberProfitPayouts(
+    {
+      ...memberScope,
+      seasonIds: seasons.map(
+        (row: { dividendPeriod: { id: string } }) => row.dividendPeriod.id
+      ),
+    },
+    prisma
+  )
 
   return {
     profitPaid: {
@@ -2289,6 +2314,7 @@ export async function getMemberShareSummary(
           amount: roundCurrency(Number(row.allocationAmount ?? 0)),
           id: row.dividendPeriod.id,
           name: row.dividendPeriod.name,
+          payout: payouts.get(row.dividendPeriod.id) ?? null,
           sharedOn:
             row.dividendPeriod.publishedAt?.toISOString().slice(0, 10) ?? null,
         })
@@ -3752,6 +3778,11 @@ export async function updateShareBusiness(
   if (!existing) {
     throw ExpectedQueryError.notFound("Share business not found")
   }
+  if (existing.systemKey) {
+    throw ExpectedQueryError.precondition(
+      "Halaalvest keeps this business automatically from procurement and foodstuff repayments, so it can't be changed by hand."
+    )
+  }
 
   const nextEndDate = input.endDate ?? null
   const nextLinkedDividendPeriodId = input.linkedDividendPeriodId ?? null
@@ -4157,6 +4188,7 @@ export async function createShareBusinessProfitEntry(
       select: {
         endDate: true,
         startDate: true,
+        systemKey: true,
       },
       where: {
         id: input.shareBusinessId,
@@ -4166,6 +4198,11 @@ export async function createShareBusinessProfitEntry(
 
     if (!business) {
       throw ExpectedQueryError.notFound("Share business not found")
+    }
+    if (business.systemKey) {
+      throw ExpectedQueryError.precondition(
+        "Halaalvest keeps this business automatically from procurement and foodstuff repayments, so it can't be changed by hand."
+      )
     }
 
     assertProfitDateWithinBusiness({
@@ -4282,6 +4319,7 @@ export async function updateShareBusinessProfitEntry(
           select: {
             endDate: true,
             startDate: true,
+            systemKey: true,
           },
         },
       },
@@ -4289,6 +4327,11 @@ export async function updateShareBusinessProfitEntry(
 
     if (!existing) {
       throw ExpectedQueryError.notFound("Business profit entry not found")
+    }
+    if (existing.shareBusiness?.systemKey) {
+      throw ExpectedQueryError.precondition(
+        "Halaalvest keeps this profit automatically from procurement and foodstuff repayments, so it can't be changed by hand."
+      )
     }
 
     const sourceType = isHistoricalBusinessProfitSource(existing.sourceType)
@@ -4770,6 +4813,21 @@ export async function publishShareProfitAllocations(
       },
       tx
     )
+
+    // Fully shared live season: record each member's share as owed (1.1).
+    if (
+      periodAllocationSummary.allLinkedEntriesPublished &&
+      profitEntry.sourceType === "manual"
+    ) {
+      await recordProfitOwedForSeason(
+        {
+          actorUserId: input.actorUserId ?? null,
+          seasonId: profitEntry.linkedDividendPeriodId,
+          tenantId: input.tenantId,
+        },
+        tx
+      )
+    }
 
     return tx.shareProfitAllocation.findMany({
       where: {

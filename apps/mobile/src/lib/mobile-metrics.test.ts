@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import {
   formatMobileActivityDetail,
+  formatMobileMetricValue,
   formatMobileRecordDetail,
   formatMobileStatementDetail,
 } from "./mobile-metrics"
@@ -92,5 +93,33 @@ describe("formatMobileStatementDetail", () => {
         "Financing request - Assessed Aug 30, 2026 - Deduct From Savings"
       )
     ).toBe("Financing request · Aug 30, 2026")
+  })
+})
+
+describe("formatMobileMetricValue", () => {
+  test("shows a dash instead of NaN when a figure is missing", () => {
+    for (const value of [undefined, null, Number.NaN]) {
+      expect(
+        formatMobileMetricValue(
+          {
+            detail: "",
+            format: "currency",
+            key: "commitment",
+            label: "",
+            value: value as unknown as number,
+          },
+          "NGN"
+        )
+      ).toBe("—")
+    }
+  })
+
+  test("still formats real amounts", () => {
+    expect(
+      formatMobileMetricValue(
+        { detail: "", format: "currency", key: "c", label: "", value: 25_000 },
+        "NGN"
+      )
+    ).not.toContain("NaN")
   })
 })

@@ -1,7 +1,6 @@
 import type { ReactNode } from "react"
 import { HalaalvestLogo } from "@halaalvest/ui/components/brand-logo"
 import { cn } from "@halaalvest/ui/lib/utils"
-import { resolveDashboardPublicLegalOrigin } from "@/lib/public-legal-origin"
 
 // One plain column for every public sign-in and joining page: logo bar,
 // the cooperative's name, one heading, at most one short line, then the form.
@@ -55,42 +54,8 @@ export function PublicAuthShell({
           {footer ? (
             <div className="mt-8 text-lg text-foreground">{footer}</div>
           ) : null}
-
-          <PublicLegalLinks />
         </div>
       </div>
     </main>
-  )
-}
-
-function PublicLegalLinks() {
-  const origin = resolveDashboardPublicLegalOrigin(
-    process.env.DASHBOARD_PUBLIC_LEGAL_ORIGIN
-  )
-
-  if (!origin) {
-    return null
-  }
-
-  return (
-    <nav
-      aria-label="Legal and support"
-      className="mt-12 flex flex-wrap gap-x-6 border-t border-border pt-4 text-base text-muted-foreground"
-    >
-      {[
-        ["Terms", "/terms"],
-        ["Privacy", "/privacy"],
-        ["Delete account", "/delete-account"],
-        ["Support", "/support"],
-      ].map(([label, path]) => (
-        <a
-          className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-foreground"
-          href={`${origin}${path}`}
-          key={path}
-        >
-          {label}
-        </a>
-      ))}
-    </nav>
   )
 }

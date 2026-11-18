@@ -5,6 +5,15 @@ type SectionRow = MobileMemberSection["rows"][number]
 
 export type MemberFinancingPresentation = {
   activeRows: SectionRow[]
+  /**
+   * Approved loans not yet paid out. Not part of what the member owes, so it
+   * sits on its own line (triage 1.5). Older servers do not send it.
+   */
+  approvedNotPaidOut: {
+    detail: string | null
+    label: string
+    value: string
+  } | null
   monthlyServicing: {
     detail: string | null
     value: string
@@ -63,9 +72,23 @@ export function buildMemberFinancingPresentation(
     "monthly-servicing",
     "Monthly servicing"
   )
+  const approvedNotPaidOut = section.stats.find(
+    (metric) => metric.key === "approved-not-paid-out"
+  )
 
   return {
     activeRows: section.rows,
+    approvedNotPaidOut:
+      numericValue(approvedNotPaidOut) > 0
+        ? {
+            detail: approvedNotPaidOut?.detail ?? null,
+            label: approvedNotPaidOut?.label ?? "Approved, not yet paid out",
+            value: formatCurrency(
+              numericValue(approvedNotPaidOut),
+              currencyCode
+            ),
+          }
+        : null,
     monthlyServicing:
       numericValue(monthlyServicing) > 0
         ? {

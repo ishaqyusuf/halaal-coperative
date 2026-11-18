@@ -59,6 +59,41 @@ export default {
           DEFAULT: "var(--card)",
           foreground: "var(--card-foreground)",
         },
+        // T00 02 Brand native additions (source: src/lib/design-tokens.ts).
+        "foreground-soft": "var(--foreground-soft)",
+        heading: "var(--heading)",
+        "surface-raised": "var(--surface-raised)",
+        "surface-float": "var(--surface-float)",
+        "hero-start": "var(--hero-start)",
+        "hero-mid": "var(--hero-mid)",
+        "hero-end": "var(--hero-end)",
+        "hero-foreground": "var(--hero-foreground)",
+        "hero-accent": "var(--hero-accent)",
+        "hero-mark-foreground": "var(--hero-mark-foreground)",
+        "tint-warm": {
+          DEFAULT: "var(--tint-warm)",
+          foreground: "var(--tint-warm-foreground)",
+        },
+        "tint-vivid": {
+          DEFAULT: "var(--tint-vivid)",
+          foreground: "var(--tint-vivid-foreground)",
+        },
+        "tint-success": {
+          DEFAULT: "var(--tint-success)",
+          foreground: "var(--tint-success-foreground)",
+        },
+        "tint-danger": {
+          DEFAULT: "var(--tint-danger)",
+          foreground: "var(--tint-danger-foreground)",
+        },
+        "tint-sky": {
+          DEFAULT: "var(--tint-sky)",
+          foreground: "var(--tint-sky-foreground)",
+        },
+        "tint-lilac": {
+          DEFAULT: "var(--tint-lilac)",
+          foreground: "var(--tint-lilac-foreground)",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -1,108 +1,99 @@
-import { CachedReadBanner } from "@/components/app/cached-read-banner"
+import { AppList } from "@/components/app/app-list"
 import { EmptyState } from "@/components/app/empty-state"
-import { ScreenBackButton } from "@/components/app/screen-back-button"
-import { ScreenHeader } from "@/components/app/screen-header"
-import { VirtualizedCardList } from "@/components/app/virtualized-card-list"
-import { LoadingSpinner } from "@/components/loading-spinner"
-import { Button } from "@/components/ui/button"
+import { ScreenHeaderButton } from "@/components/app/screen-shell"
+import { ScreenStatusBar } from "@/components/app/screen-status-bar"
 import { Icon } from "@/components/ui/icon"
-import { Input } from "@/components/ui/input"
+import { Elevated, RecordRow } from "@/components/ui/list-card"
+import { SectionHeader } from "@/components/ui/section-header"
+import { SegmentedControl } from "@/components/ui/segmented-control"
+import {
+  SegmentedPager,
+  usePagerPosition,
+} from "@/components/ui/segmented-pager"
+import { StatusBanner } from "@/components/ui/status-banner"
+import { StatusPill } from "@/components/ui/status-pill"
 import { Text } from "@/components/ui/text"
-import { useLargeTextLayout } from "@/hooks/use-large-text-layout"
-import { useRef, useState } from "react"
-import { Pressable, TextInput, View } from "react-native"
-
+import { useAppInfiniteQuery } from "@/hooks/use-app-query"
+import { cn } from "@/lib/utils"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { View } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { getContributionWorkspace } from "../api/admin-contribution-operations-api"
 import {
   formatCompactCurrency,
   formatCurrency,
-  formatDate,
-  labelize,
+  formatShortDate,
 } from "../lib/admin-contribution-presentation"
 import type {
   CollectionBatchSummary,
   ContributionLane,
+  ContributionLaneRow,
   ContributionLedgerRow,
   ContributionMemberRow,
+  ContributionSummary,
   ContributionWorkspace,
 } from "../model/admin-contribution-operations-types"
+import {
+  allocationLabel,
+  channelLabel,
+  contributionStatus,
+  periodOf,
+} from "../model/contribution-forms"
+import {
+  contributionKeys,
+  usePullRefresh,
+} from "../model/contribution-queries"
 
-const emptyRows: ContributionWorkspace["data"] = []
-
-const lanes: { label: string; value: ContributionLane }[] = [
+export const contributionLanes = [
   { label: "Ledger", value: "ledger" },
   { label: "Commitments", value: "commitments" },
   { label: "Collections", value: "collections" },
-]
+] as const satisfies readonly { label: string; value: ContributionLane }[]
 
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("")
+const PLACEHOLDER: Record<ContributionLane, string> = {
+  collections: "Search source or period",
+  commitments: "Search members",
+  ledger: "Search member or reference",
 }
 
-function Avatar({ name }: { name: string }) {
+function Pill({ status }: { status: string }) {
+  const { label, tone } = contributionStatus(status)
   return (
-    <View className="size-11 shrink-0 items-center justify-center rounded-xl bg-accent">
-      <Text className="text-xs font-extrabold text-accent-foreground">
-        {initials(name)}
-      </Text>
+    <View className="flex-row pt-[4px]">
+      <StatusPill label={label} tone={tone} />
     </View>
   )
-}
-
-function StatusDot({ status }: { status: string }) {
-  const className =
-    status === "posted"
-      ? "bg-success"
-      : status === "blocked" || status === "exception"
-        ? "bg-destructive"
-        : "bg-warn"
-  return <View className={`size-2 rounded-full ${className}`} />
 }
 
 function LedgerRow({
   currencyCode,
   item,
   onPress,
+  position,
 }: {
   currencyCode: string
   item: ContributionLedgerRow
   onPress: () => void
+  position: Parameters<typeof RecordRow>[0]["position"]
 }) {
+  const amount = formatCurrency(item.amount, currencyCode)
+  const date = formatShortDate(item.postedAt)
   return (
-    <Pressable
-      accessibilityLabel={`${item.memberName}, ${formatCurrency(item.amount, currencyCode)}, ${labelize(item.status)}`}
-      accessibilityRole="button"
-      className="min-h-20 flex-row items-center gap-3 border-b border-border py-3 active:bg-accent/40"
+    <RecordRow
+      accessibilityLabel={`${item.memberName}, ${amount}, ${contributionStatus(item.status).label}, ${date}`}
+      amount={amount}
+      avatarName={item.memberName}
+      meta={`${item.memberNumber} · ${item.reference ?? channelLabel(item.channel)}`}
       onPress={onPress}
-      testID={`contribution-ledger-row-${item.id}`}
-    >
-      <Avatar name={item.memberName} />
-      <View className="min-w-0 flex-1 gap-1">
-        <Text className="text-base font-bold text-foreground">
-          {item.memberName}
+      position={position}
+      supporting={<Pill status={item.status} />}
+      title={item.memberName}
+      trailing={
+        <Text className="text-muted-foreground" variant="caption">
+          {date}
         </Text>
-        <Text className="text-xs leading-5 text-muted-foreground">
-          {item.memberNumber} · {item.reference ?? labelize(item.channel)}
-        </Text>
-        <View className="flex-row items-center gap-2">
-          <StatusDot status={item.status} />
-          <Text className="min-w-0 flex-1 text-xs font-medium text-muted-foreground">
-            {labelize(item.status)} ·{" "}
-            {item.periodLabel ?? formatDate(item.postedAt)}
-          </Text>
-        </View>
-      </View>
-      <View className="shrink-0 items-end gap-1">
-        <Text className="text-sm font-extrabold text-foreground">
-          {formatCurrency(item.amount, currencyCode)}
-        </Text>
-        <Icon className="size-sm text-muted-foreground" name="ChevronRight" />
-      </View>
-    </Pressable>
+      }
+    />
   )
 }
 
@@ -110,45 +101,40 @@ function MemberRow({
   currencyCode,
   item,
   onPress,
+  position,
 }: {
   currencyCode: string
   item: ContributionMemberRow
   onPress: () => void
+  position: Parameters<typeof RecordRow>[0]["position"]
 }) {
+  const monthly = item.activeCommitmentAmount
   return (
-    <Pressable
-      accessibilityLabel={`${item.name}, ${item.number}, monthly target ${formatCurrency(item.activeCommitmentAmount, currencyCode)}`}
-      accessibilityRole="button"
-      className="min-h-20 flex-row items-center gap-3 border-b border-border py-3 active:bg-accent/40"
+    <RecordRow
+      amount={monthly ? formatCompactCurrency(monthly, currencyCode) : undefined}
+      meta={`${item.number} · ${allocationLabel(item.paymentAllocationPreference)}`}
       onPress={onPress}
-      testID={`contribution-member-row-${item.id}`}
-    >
-      <Avatar name={item.name} />
-      <View className="min-w-0 flex-1 gap-1">
-        <Text className="text-base font-bold text-foreground">{item.name}</Text>
-        <Text className="text-xs leading-5 text-muted-foreground">
-          {item.number} · {labelize(item.paymentAllocationPreference)}
-        </Text>
-        <View className="flex-row items-center gap-2">
-          <StatusDot
-            status={item.status === "active" ? "posted" : item.status}
-          />
-          <Text className="min-w-0 flex-1 text-xs text-muted-foreground">
+      position={position}
+      supporting={
+        <View className="flex-row flex-wrap items-center gap-[6px]">
+          <Text className="text-muted-foreground" variant="small">
             {formatCompactCurrency(item.totalSavings, currencyCode)} saved
           </Text>
+          {item.status !== "active" ? (
+            <StatusPill
+              label={contributionStatus(item.status).label}
+              tone={contributionStatus(item.status).tone}
+            />
+          ) : null}
         </View>
-      </View>
-      <View className="shrink-0 items-end gap-1">
-        <Text className="text-sm font-extrabold text-foreground">
-          {formatCompactCurrency(item.activeCommitmentAmount, currencyCode)}
+      }
+      title={item.name}
+      trailing={
+        <Text className="text-muted-foreground" variant="caption">
+          {monthly ? "monthly" : "No plan"}
         </Text>
-        <Text className="text-[10px] text-muted-foreground">monthly</Text>
-      </View>
-      <Icon
-        className="size-sm shrink-0 text-muted-foreground"
-        name="ChevronRight"
-      />
-    </Pressable>
+      }
+    />
   )
 }
 
@@ -156,339 +142,459 @@ function BatchRow({
   currencyCode,
   item,
   onPress,
+  position,
 }: {
   currencyCode: string
   item: CollectionBatchSummary
   onPress: () => void
+  position: Parameters<typeof RecordRow>[0]["position"]
 }) {
+  const exceptions = item.totals.exceptionRows + item.totals.blockedRows
+  const bank = /bank|card|transfer/i.test(item.deductionSource.type)
   return (
-    <Pressable
-      accessibilityLabel={`${item.deductionSource.name}, ${item.periodLabel}, ${labelize(item.status)}`}
-      accessibilityRole="button"
-      className="min-h-20 flex-row items-center gap-3 border-b border-border py-3 active:bg-accent/40"
-      onPress={onPress}
-      testID={`contribution-batch-row-${item.id}`}
-    >
-      <Avatar name={item.deductionSource.name} />
-      <View className="min-w-0 flex-1 gap-1">
-        <Text className="text-base font-bold text-foreground">
-          {item.deductionSource.name}
-        </Text>
-        <Text className="text-xs leading-5 text-muted-foreground">
-          {item.periodLabel} · {item.totals.rowCount} rows
-        </Text>
-        <View className="flex-row items-center gap-2">
-          <StatusDot status={item.status} />
-          <Text className="text-xs font-medium text-muted-foreground">
-            {labelize(item.status)}
-          </Text>
+    <RecordRow
+      amount={formatCompactCurrency(item.totals.paidAmount, currencyCode)}
+      leading={
+        <View
+          className={cn(
+            "size-[44px] items-center justify-center rounded-[14px]",
+            bank ? "bg-tint-sky" : "bg-accent"
+          )}
+        >
+          <Icon
+            className={cn(
+              "size-[20px]",
+              bank ? "text-tint-sky-foreground" : "text-accent-foreground"
+            )}
+            name={bank ? "Landmark" : "BriefcaseBusiness"}
+          />
         </View>
-      </View>
-      <Text className="text-sm font-extrabold text-foreground">
-        {formatCompactCurrency(item.totals.paidAmount, currencyCode)}
-      </Text>
-      <Icon
-        className="size-sm shrink-0 text-muted-foreground"
-        name="ChevronRight"
-      />
-    </Pressable>
+      }
+      meta={`${item.periodLabel} · ${item.totals.rowCount} rows${exceptions ? ` · ${exceptions} exception${exceptions > 1 ? "s" : ""}` : ""}`}
+      onPress={onPress}
+      position={position}
+      supporting={<Pill status={item.status} />}
+      title={item.deductionSource.name}
+      trailing={
+        <Text className="text-muted-foreground" variant="caption">
+          of {formatCompactCurrency(item.totals.expectedAmount, currencyCode)}
+        </Text>
+      }
+    />
   )
 }
 
-export function AdminContributionWorkspace({
-  canManageBatches,
-  canManageMember,
-  error,
-  isLoading,
-  isLoadingMore,
-  isOnline,
+function ContributionLaneList({
+  active,
+  currencyCode,
+  enabled,
+  focusSearch = false,
   lane,
-  loadMoreError,
-  onBack,
-  onBatchPress,
-  onLaneChange,
-  onLedgerPress,
-  onLoadMore,
-  onMemberPress,
-  onRefresh,
-  onSearchChange,
-  onSearchSubmit,
-  onStartBatch,
-  search,
-  searchDraft,
-  workspace,
+  offline,
+  onCollectionsLoaded,
+  onOpenBatch,
+  onOpenLedger,
+  onOpenMember,
+  onRefreshSummary,
+  onStageBatch,
+  postedThisMonth,
 }: {
-  canManageBatches: boolean
-  canManageMember: boolean
-  error: string | null
-  isLoading: boolean
-  isLoadingMore: boolean
-  isOnline: boolean
+  active: boolean
+  currencyCode: string
+  enabled: boolean
+  /** Record payment: open the member search with the keyboard up. */
+  focusSearch?: boolean
   lane: ContributionLane
-  loadMoreError: string | null
-  onBack: () => void
-  onBatchPress: (item: CollectionBatchSummary) => void
-  onLaneChange: (lane: ContributionLane) => void
-  onLedgerPress: (item: ContributionLedgerRow) => void
-  onLoadMore: () => void
-  onMemberPress: (item: ContributionMemberRow) => void
-  onRefresh: () => void
-  onSearchChange: (value: string) => void
-  onSearchSubmit: () => void
-  onStartBatch: () => void
-  search: string
-  searchDraft: string
-  workspace: ContributionWorkspace | null
+  offline: boolean
+  onCollectionsLoaded: (batches: CollectionBatchSummary[]) => void
+  onOpenBatch: (batch: CollectionBatchSummary) => void
+  onOpenLedger: (row: ContributionLedgerRow) => void
+  onOpenMember: (memberId: string) => void
+  onRefreshSummary: () => Promise<unknown>
+  onStageBatch?: () => void
+  postedThisMonth?: number
 }) {
-  const largeTextLayout = useLargeTextLayout()
-  const searchRef = useRef<TextInput>(null)
-  const currencyCode = workspace?.currencyCode ?? "NGN"
-  const data = workspace?.data ?? emptyRows
-  const [listHeight, setListHeight] = useState(320)
+  const [draft, setDraft] = useState("")
+  const [search, setSearch] = useState("")
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(draft.trim().slice(0, 120)), draft ? 300 : 0)
+    return () => clearTimeout(timer)
+  }, [draft])
 
-  const focusMemberSearch = () => searchRef.current?.focus()
+  const query = useAppInfiniteQuery({
+    enabled,
+    getNextPageParam: (page: ContributionWorkspace) =>
+      page.nextCursor ?? undefined,
+    initialPageParam: null as string | null,
+    networkMode: "always",
+    queryFn: ({ pageParam }) =>
+      getContributionWorkspace({
+        cursor: pageParam,
+        lane,
+        search: search || undefined,
+      }),
+    queryKey: [...contributionKeys().lane(lane), search],
+    selectItems: (page) => page.data,
+  })
+  const seen = new Set<string>()
+  const rows = query.items.filter((row: ContributionLaneRow) => {
+    if (seen.has(row.id)) return false
+    seen.add(row.id)
+    return true
+  })
+  const firstPage = query.data?.pages[0]
+  useEffect(() => {
+    if (lane === "collections" && firstPage && !search)
+      onCollectionsLoaded(firstPage.data as CollectionBatchSummary[])
+  }, [firstPage, lane, onCollectionsLoaded, search])
+
+  const pull = usePullRefresh(() =>
+    Promise.all([query.refetch(), onRefreshSummary()])
+  )
+  const pageError = query.isFetchNextPageError
+  const loadFailed = query.isError && !pageError
+  const now = new Date()
+  const title = search
+    ? "Results"
+    : lane === "ledger"
+      ? periodOf(now.toISOString())
+      : lane === "commitments"
+        ? "Members"
+        : "Batches"
+  const value = search
+    ? undefined
+    : lane === "ledger" && postedThisMonth !== undefined
+      ? `${formatCompactCurrency(postedThisMonth, currencyCode)} posted`
+      : lane === "commitments"
+        ? "A–Z"
+        : undefined
+
+  let footer: ReactNode = null
+  if (pageError)
+    footer = (
+      <StatusBanner
+        className="mx-[18px]"
+        kind="error"
+        onRetry={() => void query.fetchNextPage()}
+        retryLabel="Try again"
+        title="Couldn’t load more records."
+      />
+    )
+  else if (!query.hasNextPage && rows.length > 8)
+    footer = (
+      <Text className="text-center text-muted-foreground" variant="caption">
+        That’s everything
+      </Text>
+    )
+
+  return (
+    <AppList
+      active={active}
+      back={false}
+      data={rows}
+      embedded
+      empty={
+        search ? (
+          <EmptyState
+            action={{ label: "Clear search", onPress: () => setDraft("") }}
+            description={`Nothing in ${lane === "commitments" ? "members" : lane} matches “${search}”.`}
+            icon="Search"
+            title="No matches"
+          />
+        ) : lane === "collections" ? (
+          <EmptyState
+            action={
+              onStageBatch ? { label: "Stage batch", onPress: onStageBatch } : undefined
+            }
+            description="Stage a batch from a collection source to check payroll rows before posting."
+            icon="ClipboardList"
+            title="No collection batches"
+          />
+        ) : (
+          <EmptyState
+            description={
+              lane === "ledger"
+                ? "Posted contributions appear here, newest first."
+                : "Members with savings commitments appear here."
+            }
+            icon={lane === "ledger" ? "ReceiptText" : "Users"}
+            title={lane === "ledger" ? "No contributions yet" : "No members yet"}
+          />
+        )
+      }
+      error={loadFailed ? "Check your connection and try again." : null}
+      errorTitle="Couldn’t load contributions"
+      estimatedItemSize={86}
+      extraData={currencyCode}
+      header={
+        rows.length ? <SectionHeader title={title} value={value} /> : null
+      }
+      isFetchingNextPage={query.isFetchingNextPage}
+      isLoading={enabled && query.isPending}
+      keyExtractor={(item) => item.id}
+      listFooter={footer}
+      onEndReached={active && !offline ? query.onEndReached : undefined}
+      onRefresh={active && !offline ? pull.onRefresh : undefined}
+      onRetry={() => void query.refetch()}
+      refreshing={active && pull.refreshing}
+      renderItem={({ item, position }) =>
+        lane === "ledger" ? (
+          <LedgerRow
+            currencyCode={currencyCode}
+            item={item as ContributionLedgerRow}
+            onPress={() => onOpenLedger(item as ContributionLedgerRow)}
+            position={position}
+          />
+        ) : lane === "commitments" ? (
+          <MemberRow
+            currencyCode={currencyCode}
+            item={item as ContributionMemberRow}
+            onPress={() => onOpenMember(item.id)}
+            position={position}
+          />
+        ) : (
+          <BatchRow
+            currencyCode={currencyCode}
+            item={item as CollectionBatchSummary}
+            onPress={() => onOpenBatch(item as CollectionBatchSummary)}
+            position={position}
+          />
+        )
+      }
+      search={
+        active
+          ? {
+              accessibilityLabel: `Search ${lane}`,
+              autoFocus: focusSearch,
+              onChangeText: setDraft,
+              placeholder: PLACEHOLDER[lane],
+              totalCount:
+                search || focusSearch
+                  ? 11
+                  : rows.length + (query.hasNextPage ? 1 : 0),
+              value: draft,
+            }
+          : undefined
+      }
+      testID={`admin-contributions-${lane}`}
+    />
+  )
+}
+
+function StatTile({
+  label,
+  value,
+  warn = false,
+}: {
+  label: string
+  value: string
+  warn?: boolean
+}) {
+  return (
+    <View className="min-w-0 flex-1">
+      <Elevated
+        className={cn(
+          "rounded-[18px] px-[12px] py-[11px]",
+          warn ? "bg-tint-warm" : "bg-card"
+        )}
+        radius={18}
+      >
+        <Text
+          className={warn ? "text-tint-warm-foreground" : "text-muted-foreground"}
+          variant="caption"
+        >
+          {label}
+        </Text>
+        <Text
+          adjustsFontSizeToFit
+          className={cn("mt-[4px]", warn && "text-tint-warm-foreground")}
+          numberOfLines={1}
+          variant="money"
+        >
+          {value}
+        </Text>
+      </Elevated>
+    </View>
+  )
+}
+
+/**
+ * T18 screen 1 (01 Large title): back + lane action, the large title, three
+ * stat tiles and the animated lanes over a full-height pager. Each lane is
+ * its own paged list with the floating search.
+ */
+export function AdminContributionWorkspace({
+  enabled,
+  findMemberToken = 0,
+  lane,
+  offline,
+  onBack,
+  onCollectionsLoaded,
+  onFindMember,
+  onLaneChange,
+  onOpenBatch,
+  onOpenLedger,
+  onOpenMember,
+  onRefreshSummary,
+  onStageBatch,
+  stale,
+  summary,
+  summaryFailed,
+}: {
+  enabled: boolean
+  /** Bumped by Record payment; remounts the commitments search focused. */
+  findMemberToken?: number
+  lane: ContributionLane
+  offline: boolean
+  onBack: () => void
+  onCollectionsLoaded: (batches: CollectionBatchSummary[]) => void
+  onFindMember?: () => void
+  onLaneChange: (lane: ContributionLane) => void
+  onOpenBatch: (batch: CollectionBatchSummary) => void
+  onOpenLedger: (row: ContributionLedgerRow) => void
+  onOpenMember: (memberId: string) => void
+  onRefreshSummary: () => Promise<unknown>
+  onStageBatch?: () => void
+  stale: boolean
+  summary?: ContributionSummary
+  summaryFailed: boolean
+}) {
+  const { top } = useSafeAreaInsets()
+  const index = contributionLanes.findIndex(({ value }) => value === lane)
+  const position = usePagerPosition(index)
+  const currencyCode = summary?.currencyCode ?? "NGN"
+  const stats = summary?.stats
+  const viewOnly =
+    summary &&
+    !summary.capabilities.manageMemberContributions &&
+    !summary.capabilities.manageBatches
+  const laneAction =
+    lane === "collections" && onStageBatch
+      ? { label: "Stage batch", onPress: onStageBatch }
+      : lane === "commitments" && onFindMember
+        ? { label: "Record payment", onPress: onFindMember }
+        : null
+
+  const pages = useMemo(
+    () =>
+      contributionLanes.map(
+        ({ value }) =>
+          function Lane() {
+            return (
+              <ContributionLaneList
+                active={lane === value}
+                currencyCode={currencyCode}
+                enabled={enabled}
+                focusSearch={value === "commitments" && findMemberToken > 0}
+                key={value === "commitments" ? findMemberToken : 0}
+                lane={value}
+                offline={offline}
+                onCollectionsLoaded={onCollectionsLoaded}
+                onOpenBatch={onOpenBatch}
+                onOpenLedger={onOpenLedger}
+                onOpenMember={onOpenMember}
+                onRefreshSummary={onRefreshSummary}
+                onStageBatch={onStageBatch}
+                postedThisMonth={stats?.postedThisMonth}
+              />
+            )
+          }
+      ),
+    [
+      currencyCode,
+      enabled,
+      findMemberToken,
+      lane,
+      offline,
+      onCollectionsLoaded,
+      onOpenBatch,
+      onOpenLedger,
+      onOpenMember,
+      onRefreshSummary,
+      onStageBatch,
+      stats?.postedThisMonth,
+    ]
+  )
 
   return (
     <View
-      className="flex-1 px-5 pt-4 pb-2"
+      className="flex-1 bg-background"
       testID="admin-contribution-operations-screen"
     >
-      <ScreenHeader
-        action={
-          <Button
-            accessibilityLabel={
-              lane === "collections" && canManageBatches
-                ? "Stage Collection Source batch"
-                : lane === "commitments" && canManageMember
-                  ? "Record payment. Search for a member"
-                  : "Refresh contributions"
-            }
-            onPress={
-              lane === "collections" && canManageBatches
-                ? onStartBatch
-                : lane === "commitments" && canManageMember
-                  ? focusMemberSearch
-                  : onRefresh
-            }
-            size="icon"
-            variant="ghost"
-          >
-            <Icon
-              className="size-base text-foreground"
-              name={
-                (lane === "commitments" && canManageMember) ||
-                (lane === "collections" && canManageBatches)
-                  ? "Plus"
-                  : "RefreshCw"
-              }
+      <ScreenStatusBar />
+      <View>
+        <View style={{ height: top }} />
+        <View className="h-[52px] flex-row items-center justify-between px-[12px]">
+          <ScreenHeaderButton
+            accessibilityLabel="Back"
+            icon="ChevronLeft"
+            onPress={onBack}
+          />
+          {laneAction ? (
+            <ScreenHeaderButton
+              accessibilityLabel={laneAction.label}
+              icon="Plus"
+              onPress={laneAction.onPress}
+              testID="admin-contributions-lane-action"
             />
-          </Button>
-        }
-        leading={<ScreenBackButton onPress={onBack} />}
-        size="compact"
-        title="Contributions"
-      />
-
-      <View className="mt-3">
-        <CachedReadBanner
-          cache={workspace?.cache}
-          label="contribution operations"
-        />
-      </View>
-      {!isOnline ? (
-        <View className="bg-warn/10 mt-3 px-3 py-2">
-          <Text className="text-warn text-sm leading-5">
-            Saved records remain available. Posting requires a connection.
+          ) : null}
+        </View>
+        <View className="px-[18px] pt-[4px]">
+          <Text accessibilityRole="header" variant="screenTitle">
+            Contributions
           </Text>
         </View>
-      ) : null}
-
-      {lane === "commitments" && workspace ? (
-        <View className="mt-4 gap-3 border-y border-border py-3">
-          <View className={largeTextLayout ? "gap-3" : "flex-row gap-3"}>
-            <View className="min-w-0 flex-1 gap-1">
-              <Text className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
-                Members
-              </Text>
-              <Text className="text-xl font-extrabold text-foreground">
-                {workspace.stats.members}
-              </Text>
-            </View>
-            <View className="min-w-0 flex-1 gap-1">
-              <Text className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
-                Posted this month
-              </Text>
-              <Text className="text-xl font-extrabold text-foreground">
-                {formatCurrency(workspace.stats.postedThisMonth, currencyCode)}
-              </Text>
-            </View>
-          </View>
-          {canManageMember ? (
-            <Button
-              accessibilityHint="Moves focus to member search"
-              onPress={focusMemberSearch}
-            >
-              <Icon className="size-sm text-primary-foreground" name="Plus" />
-              <Text>Record payment</Text>
-            </Button>
-          ) : null}
-        </View>
-      ) : null}
-
-      <View
-        className={`${lane === "commitments" ? "mt-3" : "mt-4"} ${largeTextLayout ? "gap-1" : "flex-row"} rounded-xl bg-secondary p-1`}
-      >
-        {lanes.map((item) => (
-          <Button
-            className={`${largeTextLayout ? "w-full" : "h-10 flex-1"} px-2`}
-            key={item.value}
-            onPress={() => onLaneChange(item.value)}
-            testID={`contribution-lane-${item.value}`}
-            variant={lane === item.value ? "outline" : "ghost"}
-          >
-            <Text className="text-xs font-bold">{item.label}</Text>
-          </Button>
-        ))}
-      </View>
-
-      {lane !== "commitments" && workspace ? (
-        <View
-          className={`${largeTextLayout ? "gap-3" : "flex-row"} mt-3 border-y border-border py-3`}
-        >
-          {[
-            {
-              label: "This month",
-              value: formatCompactCurrency(
-                workspace.stats.postedThisMonth,
-                currencyCode
-              ),
-            },
-            { label: "Members", value: String(workspace.stats.members) },
-            { label: "Exceptions", value: String(workspace.stats.exceptions) },
-          ].map((stat, index) => (
-            <View
-              className={`${largeTextLayout ? (index ? "border-t border-border pt-3" : "") : `min-w-0 flex-1 px-3 ${index ? "border-l border-border" : "pl-0"}`} gap-1`}
-              key={stat.label}
-            >
-              <Text className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
-                {stat.label}
-              </Text>
-              <Text className="text-lg font-extrabold text-foreground">
-                {stat.value}
-              </Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
-
-      <Input
-        ref={searchRef}
-        accessibilityLabel={`Search ${lane}`}
-        className="mt-3"
-        leading={
-          <Icon className="size-base text-muted-foreground" name="Search" />
-        }
-        onChangeText={onSearchChange}
-        onSubmitEditing={onSearchSubmit}
-        placeholder={
-          lane === "collections"
-            ? "Search source or period"
-            : lane === "commitments"
-              ? "Search members"
-              : "Search member or reference"
-        }
-        returnKeyType="search"
-        testID="contribution-search-input"
-        value={searchDraft}
-      />
-
-      <View
-        className="mt-3 min-h-0 flex-1"
-        onLayout={(event) => setListHeight(event.nativeEvent.layout.height)}
-      >
-        {isLoading ? (
-          <View className="mt-12">
-            <LoadingSpinner />
-          </View>
-        ) : error ? (
-          <View className="gap-3 py-8">
-            <Text className="text-sm leading-5 text-destructive">{error}</Text>
-            <Button
-              className="self-start"
-              onPress={onRefresh}
-              variant="outline"
-            >
-              <Text>Retry</Text>
-            </Button>
-          </View>
-        ) : (
-          <VirtualizedCardList
-            data={data}
-            empty={
-              <EmptyState
-                title={
-                  search
-                    ? "No matches"
-                    : lane === "commitments"
-                      ? "No members"
-                      : lane === "collections"
-                        ? "No collection batches"
-                        : "No contributions"
-                }
-              />
-            }
-            estimatedItemSize={84}
-            keyExtractor={(item) => item.id}
-            maxHeight={listHeight}
-            renderItem={({ item }) =>
-              lane === "ledger" ? (
-                <LedgerRow
-                  currencyCode={currencyCode}
-                  item={item as ContributionLedgerRow}
-                  onPress={() => onLedgerPress(item as ContributionLedgerRow)}
-                />
-              ) : lane === "commitments" ? (
-                <MemberRow
-                  currencyCode={currencyCode}
-                  item={item as ContributionMemberRow}
-                  onPress={() => onMemberPress(item as ContributionMemberRow)}
-                />
-              ) : (
-                <BatchRow
-                  currencyCode={currencyCode}
-                  item={item as CollectionBatchSummary}
-                  onPress={() => onBatchPress(item as CollectionBatchSummary)}
-                />
-              )
+        <View className="flex-row gap-[10px] px-[18px] pt-[14px] pb-[4px]">
+          <StatTile
+            label="This month"
+            value={
+              stats ? formatCompactCurrency(stats.postedThisMonth, currencyCode) : "—"
             }
           />
-        )}
-      </View>
-      {workspace?.nextCursor && !isLoading && !error ? (
-        <View className="mt-2 gap-1">
-          {loadMoreError ? (
-            <Text
-              accessibilityRole="alert"
-              className="text-sm text-destructive"
-            >
-              {loadMoreError}
-            </Text>
-          ) : null}
-          <Button
-            disabled={isLoadingMore || !isOnline}
-            onPress={onLoadMore}
-            variant="ghost"
-          >
-            <Text>
-              {isLoadingMore
-                ? "Loading…"
-                : loadMoreError
-                  ? "Try again"
-                  : "Load more"}
-            </Text>
-          </Button>
+          <StatTile label="Members" value={stats ? String(stats.members) : "—"} />
+          <StatTile
+            label="Exceptions"
+            value={stats ? String(stats.exceptions) : "—"}
+            warn={Boolean(stats?.exceptions)}
+          />
         </View>
-      ) : null}
+        <View className="gap-[8px] px-[18px] pt-[14px] pb-[6px]">
+          <SegmentedControl
+            accessibilityLabel="Contribution lanes"
+            onChange={onLaneChange}
+            options={contributionLanes}
+            position={position}
+            value={lane}
+          />
+          {offline ? (
+            <StatusBanner
+              description="Showing saved records. Posting needs a connection."
+              kind="offline"
+              title="Offline"
+            />
+          ) : stale || summaryFailed ? (
+            <StatusBanner
+              description="Pull down to refresh before making changes."
+              kind="stale"
+              onRetry={() => void onRefreshSummary()}
+              title="Showing saved records"
+            />
+          ) : viewOnly ? (
+            <StatusBanner
+              description="Recording payments and posting batches need finance access."
+              kind="info"
+              title="View only"
+            />
+          ) : null}
+        </View>
+      </View>
+      <SegmentedPager
+        fill
+        index={index}
+        onIndexChange={(next) => onLaneChange(contributionLanes[next]!.value)}
+        pages={pages}
+        position={position}
+      />
     </View>
   )
 }

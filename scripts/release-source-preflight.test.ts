@@ -43,11 +43,11 @@ describe("release source preflight", () => {
       await writeFile(cooperativeAccessRoute, "source")
       const billingQuery = path.join(
         repoDir,
-        "packages/db/src/queries/cooperative-mobile-billing.ts"
+        "packages/db/src/queries/platform-billing.ts"
       )
       await rm(billingQuery)
       await expect(assertLaunchSourcePresent(repoDir)).rejects.toThrow(
-        "cooperative-mobile-billing.ts"
+        "platform-billing.ts"
       )
       await writeFile(billingQuery, "source")
       const cooperativeBillingMigration = path.join(

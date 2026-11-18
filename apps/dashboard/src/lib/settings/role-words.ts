@@ -61,8 +61,9 @@ export function getRemoveRoleEffect({
   otherRoles: MembershipRole[]
   role: MembershipRole
 }) {
+  // A last role is never removed on its own (triage 5.4).
   if (otherRoles.length === 0) {
-    return `${name} won't be able to sign in to this cooperative any more.`
+    return `This is ${name}'s only role. Use Remove from cooperative instead.`
   }
 
   const kept = otherRoles.map((other) => getRoleWord(other).toLowerCase())

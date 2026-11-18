@@ -13,7 +13,6 @@ export type ProductionQaOperationProfileObservation = {
   reviewedAt: string | null
   reviewedByUserId: string | null
   services: readonly { serviceKey: string; accessMode: string }[]
-  subscription: { accessEnabled: boolean }
 }
 
 type UpdateInput =
@@ -71,10 +70,7 @@ export function createProductionQaStaleOperationProfileAdapter(input: {
       const service = before.services.find(
         (item) => item.serviceKey === "procurement"
       )
-      if (
-        service?.accessMode !== "read_only" ||
-        !before.subscription.accessEnabled
-      ) {
+      if (service?.accessMode !== "read_only") {
         return { status: "failed", code: "ASSERTION_FAILED" }
       }
       const previous = governedState(before)

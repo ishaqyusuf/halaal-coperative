@@ -41,6 +41,21 @@ describe("roles page (thread 15)", () => {
     expect(remove).toContain('formData.set("role", role)')
   })
 
+  test("a last role is never removed alone; Remove from cooperative and Restore instead (5.4)", () => {
+    const page = read("../app/(app)/(sidebar)/settings/roles/page.tsx")
+    const view = read("../components/role-settings-view.tsx")
+    const person = read("../components/workspace-settings/remove-person-button.tsx")
+
+    expect(page).toContain("listRemovedTenantPeople")
+    expect(view).toContain("if (person.roles.length <= 1) return null")
+    expect(view).toContain("<RemovePersonButton")
+    expect(view).toContain("Removed from the cooperative")
+    expect(view).toContain("<RestorePersonButton")
+    expect(person).toContain("ConfirmActionDialog")
+    expect(person).toContain("removeTenantPersonFromCooperativeAction")
+    expect(person).toContain("restoreTenantPersonAction")
+  })
+
   test("keeps adding a person URL-owned and refreshes after success", () => {
     const params = read("../hooks/use-role-settings-params.ts")
     const sheet = read("../components/sheets/role-settings-sheet.tsx")

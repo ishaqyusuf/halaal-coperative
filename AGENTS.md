@@ -35,3 +35,12 @@ Final responses must include the Brain files updated, or `No Brain documentation
 - Scope and protect previews. Verify dependency-aware build skipping when changing the monorepo graph, review new large dependencies and image variants, and preserve known rollback deployments when tuning retention.
 - Record the affected project, routes, deployment environment and verification in the PR or release notes for runtime changes. Use comparable windows and traffic mixes for invocations, Active CPU per 1,000 requests, latency and errors where available. Use normalized route identifiers and omit secrets and customer payloads.
 - Before routing traffic to a new destination or retiring an endpoint, inventory web and mobile clients (including older installs), provider callbacks, jobs and monitors. Verify equivalent behavior in isolated Preview and record a rollback path under the existing release and authorization rules.
+
+## Multi-session orchestration (token budget)
+
+When one main thread starts several sessions or subagents for related work (for example the numbered mobile-redesign threads):
+
+- **The orchestrator reads once and hands over a kit.** It distils the shared context (rules, owner decisions, design tokens, component APIs, tool commands and templates, device and git rules) into one short kit file under `.brain/plans/` and points every brief at it. An example is `.brain/plans/mobile-redesign-thread-kit.md`. Each brief adds only that task's specifics: routes, files, data calls and scope.
+- **Sub-sessions don't re-read general material.** They read the kit plus their own task's code. They don't re-read the Brain, skill references or other threads' artifacts unless the kit points to them. When something seems missing, they ask the orchestrator instead of researching.
+- **No nested delegation for the same work.** A session that already runs the model and effort a skill requires (for example the Workshop author rule) does the work itself instead of starting another agent that re-reads everything.
+- **Keep the kit current.** When the owner makes a decision that affects every thread, the orchestrator updates the kit once and tells the running sessions. Sessions don't each rediscover it.

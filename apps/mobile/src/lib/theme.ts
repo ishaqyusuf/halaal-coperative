@@ -1,85 +1,13 @@
 import { DarkTheme, DefaultTheme, type Theme } from "@react-navigation/native"
+import { palette } from "@/lib/design-tokens"
 
-export const THEME = {
-  light: {
-    background: "rgb(248, 250, 249)",
-    foreground: "rgb(17, 24, 20)",
-    card: "rgb(255, 255, 255)",
-    cardForeground: "rgb(17, 24, 20)",
-    popover: "rgb(255, 255, 255)",
-    popoverForeground: "rgb(17, 24, 20)",
-    primary: "rgb(17, 24, 20)",
-    primaryForeground: "rgb(248, 250, 249)",
-    brand: "rgb(13, 148, 136)",
-    brandContrast: "rgb(37, 58, 114)",
-    brandForeground: "rgb(240, 253, 250)",
-    brandSurface: "rgb(5, 92, 80)",
-    brandSurfaceForeground: "rgb(240, 253, 250)",
-    brandVivid: "rgb(235, 114, 92)",
-    brandWarm: "rgb(243, 188, 62)",
-    success: "rgb(21, 128, 61)",
-    successForeground: "rgb(240, 253, 244)",
-    warn: "rgb(217, 119, 6)",
-    warnForeground: "rgb(255, 247, 237)",
-    secondary: "rgb(242, 245, 244)",
-    secondaryForeground: "rgb(34, 48, 42)",
-    muted: "rgb(232, 237, 234)",
-    mutedForeground: "rgb(92, 106, 100)",
-    accent: "rgb(219, 245, 239)",
-    accentForeground: "rgb(13, 94, 82)",
-    destructive: "rgb(185, 28, 28)",
-    destructiveForeground: "rgb(254, 242, 242)",
-    border: "rgb(218, 226, 222)",
-    input: "rgb(225, 233, 229)",
-    ring: "rgb(13, 148, 136)",
-    overlay: "rgba(0, 0, 0, 0.48)",
-    radius: "0.75rem",
-    chart1: "rgb(13, 148, 136)",
-    chart2: "rgb(21, 128, 61)",
-    chart3: "rgb(217, 119, 6)",
-    chart4: "rgb(31, 41, 55)",
-    chart5: "rgb(225, 29, 72)",
-  },
-  dark: {
-    background: "rgb(14, 15, 15)",
-    foreground: "rgb(250, 250, 250)",
-    card: "rgb(26, 27, 27)",
-    cardForeground: "rgb(250, 250, 250)",
-    popover: "rgb(30, 31, 31)",
-    popoverForeground: "rgb(250, 250, 250)",
-    primary: "rgb(45, 212, 191)",
-    primaryForeground: "rgb(4, 47, 46)",
-    brand: "rgb(45, 212, 191)",
-    brandContrast: "rgb(129, 140, 248)",
-    brandForeground: "rgb(4, 47, 46)",
-    brandSurface: "rgb(8, 78, 69)",
-    brandSurfaceForeground: "rgb(240, 253, 250)",
-    brandVivid: "rgb(248, 113, 113)",
-    brandWarm: "rgb(251, 191, 36)",
-    success: "rgb(34, 197, 94)",
-    successForeground: "rgb(236, 253, 245)",
-    warn: "rgb(245, 158, 11)",
-    warnForeground: "rgb(255, 251, 235)",
-    secondary: "rgb(38, 40, 39)",
-    secondaryForeground: "rgb(245, 245, 245)",
-    muted: "rgb(33, 35, 34)",
-    mutedForeground: "rgb(163, 163, 163)",
-    accent: "rgb(24, 61, 55)",
-    accentForeground: "rgb(153, 246, 228)",
-    destructive: "rgb(220, 38, 38)",
-    destructiveForeground: "rgb(254, 242, 242)",
-    border: "rgb(47, 49, 48)",
-    input: "rgb(52, 55, 53)",
-    ring: "rgb(45, 212, 191)",
-    overlay: "rgba(0, 0, 0, 0.68)",
-    radius: "0.75rem",
-    chart1: "rgb(45, 212, 191)",
-    chart2: "rgb(34, 197, 94)",
-    chart3: "rgb(251, 191, 36)",
-    chart4: "rgb(115, 115, 115)",
-    chart5: "rgb(244, 63, 94)",
-  },
-}
+/**
+ * Runtime colors for native APIs (navigation, status bar, icons, Reanimated).
+ * Derived from the single token source in lib/design-tokens.ts.
+ */
+export const THEME = palette
+
+export type ThemeColors = (typeof THEME)["light"] | (typeof THEME)["dark"]
 
 export const NAV_THEME: Record<"light" | "dark", Theme> = {
   light: {

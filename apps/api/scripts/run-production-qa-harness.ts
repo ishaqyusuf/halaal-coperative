@@ -13,9 +13,6 @@ const result = await provisionProductionQaHarness({
 console.log(
   JSON.stringify(
     {
-      activeAddons: result.plan.scenarios
-        .filter(({ activeAddonCodes }) => activeAddonCodes.length > 0)
-        .map(({ activeAddonCodes, key }) => ({ activeAddonCodes, key })),
       complete: result.complete && result.stateCoverage.complete,
       fixtures: result.fixtureResults.map(({ scenarioKey, state, status }) => ({
         scenarioKey,
@@ -32,15 +29,7 @@ console.log(
         expected: result.stateCoverage.expectedStateCount,
         materialized: result.stateCoverage.materializedStateCount,
         scenarios: result.stateCoverage.scenarios.map(
-          ({
-            activeAddonCodes,
-            activeAddonPlanMatches,
-            evidenceCode,
-            materialized,
-            scenarioKey,
-          }) => ({
-            activeAddonCodes,
-            activeAddonPlanMatches,
+          ({ evidenceCode, materialized, scenarioKey }) => ({
             evidenceCode,
             materialized,
             scenarioKey,

@@ -6,10 +6,17 @@ import { Badge } from "@halaalvest/ui/components/badge"
 import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
 import { Textarea } from "@halaalvest/ui/components/textarea"
+import { cn } from "@halaalvest/ui/lib/utils"
 import { formatCurrency } from "@halaalvest/utils"
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query"
 import { Search } from "lucide-react"
 import { useDeferredValue, useMemo, useState, useTransition } from "react"
+import {
+  PayMemberDialog,
+  PaySeasonDialog,
+  type SeasonShareRow,
+  UndoPayoutDialog,
+} from "@/components/business/profit-payout-dialogs"
 import { useBusinessRefresh } from "@/components/business/use-business-refresh"
 import { RequestConfirmDialog } from "@/components/requests/request-confirm-dialog"
 import {
@@ -24,6 +31,7 @@ import {
   formatDateRange,
   getProfitEntryWord,
   getSeasonWord,
+  profitPayoutWords,
 } from "@/lib/business/business-words"
 import {
   closeProfitSeasonAction,
@@ -37,7 +45,7 @@ import { formatDayMonthYear } from "@/utils/format"
 
 export type ProfitSeason = RouterOutputs["business"]["season"]
 
-type SeasonStep = "close" | "share" | "workOut"
+type SeasonStep = "close" | "payOut" | "share" | "workOut"
 
 function membersWord(count: number) {
   return count === 1 ? "1 member" : `${count} members`
@@ -68,11 +76,22 @@ function getNextStep(season: ProfitSeason): {
   }
 
   if (season.status === "published") {
+    const shared = season.publishedAt
+      ? `Shared with members on ${formatDayMonthYear(season.publishedAt)}.`
+      : "Shared with members."
+    const payout = season.payout
+
+    if (!payout) return { line: shared, step: null }
+    if (payout.owedCount === 0) {
+      return {
+        line: `${shared} Everyone has been paid (${formatCurrency(payout.paidTotal)}).`,
+        step: null,
+      }
+    }
+
     return {
-      line: season.publishedAt
-        ? `Shared with members on ${formatDayMonthYear(season.publishedAt)}.`
-        : "Shared with members.",
-      step: null,
+      line: `${shared} ${membersWord(payout.owedCount)} still owed ${formatCurrency(payout.owedTotal)}${payout.paidCount ? `; ${membersWord(payout.paidCount)} paid` : ""}.`,
+      step: "payOut",
     }
   }
 
@@ -190,6 +209,15 @@ export function ProfitSeasonDetails({
               Work out shares
             </Button>
           ) : null}
+          {next.step === "payOut" ? (
+            <Button
+              disabled={isPending}
+              onClick={() => open("payOut")}
+              type="button"
+            >
+              Pay everyone still owed
+            </Button>
+          ) : null}
           {next.step === "share" ? (
             <>
               <Button
@@ -252,11 +280,19 @@ export function ProfitSeasonDetails({
 
       {season.memberCount > 0 ? (
         <RequestSection title="Who gets what">
-          <SeasonShareList season={season} />
+          <SeasonShareList canManage={canManage} season={season} />
           <MembersWithNothing season={season} />
         </RequestSection>
       ) : null}
 
+      {confirm === "payOut" ? (
+        <PaySeasonDialog
+          key={commandId}
+          onOpenChange={(value) => setConfirm(value ? "payOut" : null)}
+          open
+          season={season}
+        />
+      ) : null}
       <RequestConfirmDialog
         confirmLabel="Close season"
         description="No more profit can be added to it. Then you can work out each member's share."
@@ -337,17 +373,41 @@ function MembersWithNothing({ season }: { season: ProfitSeason }) {
   )
 }
 
-/** Members and their share, largest first, 50 at a time. */
-function SeasonShareList({ season }: { season: ProfitSeason }) {
+type PayoutFilter = "owed" | "paid" | null
+
+const payoutFilters: Array<{ label: string; value: PayoutFilter }> = [
+  { label: "All", value: null },
+  { label: "Still owed", value: "owed" },
+  { label: "Paid", value: "paid" },
+]
+
+/**
+ * Members and their share, largest first, 50 at a time. Once a season is
+ * shared, each row says Paid or Still owed, and staff can pay or undo.
+ */
+function SeasonShareList({
+  canManage,
+  season,
+}: {
+  canManage: boolean
+  season: ProfitSeason
+}) {
   const trpc = useTRPC()
   const [search, setSearch] = useState("")
+  const [payoutFilter, setPayoutFilter] = useState<PayoutFilter>(null)
+  const [action, setAction] = useState<{
+    kind: "pay" | "undo"
+    row: SeasonShareRow
+  } | null>(null)
   const deferredSearch = useDeferredValue(search.trim())
+  const showPayout = Boolean(season.payout)
   const input = useMemo(
     () => ({
       seasonId: season.id,
       ...(deferredSearch ? { q: deferredSearch } : {}),
+      ...(payoutFilter ? { payout: payoutFilter } : {}),
     }),
-    [deferredSearch, season.id]
+    [deferredSearch, payoutFilter, season.id]
   )
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useSuspenseInfiniteQuery(
@@ -366,6 +426,31 @@ function SeasonShareList({ season }: { season: ProfitSeason }) {
         <p className="text-base text-muted-foreground">
           {"Not shared yet. Members can't see this."}
         </p>
+      ) : null}
+      {showPayout ? (
+        <div aria-label="Show" className="flex flex-wrap gap-2" role="group">
+          {payoutFilters.map((option) => {
+            const selected = option.value === payoutFilter
+
+            return (
+              <Button
+                aria-pressed={selected}
+                className={cn(
+                  "rounded-full px-4 text-base",
+                  selected &&
+                    "border-foreground bg-foreground text-background hover:bg-foreground/90 hover:text-background"
+                )}
+                key={option.label}
+                onClick={() => setPayoutFilter(option.value)}
+                size="touch"
+                type="button"
+                variant="outline"
+              >
+                {option.label}
+              </Button>
+            )
+          })}
+        </div>
       ) : null}
       {season.memberCount > 10 ? (
         <label className="relative block w-full sm:max-w-sm">
@@ -386,26 +471,78 @@ function SeasonShareList({ season }: { season: ProfitSeason }) {
       {rows.length ? (
         <ul className="divide-y divide-border border-y border-border">
           {rows.map((row) => (
-            <li className="flex items-center gap-3 py-3" key={row.memberId}>
+            <li
+              className="flex flex-wrap items-center gap-3 py-3"
+              key={row.memberId}
+            >
               <span className="min-w-0 flex-1">
-                <span className="block text-base font-medium text-foreground">
-                  {row.memberName}
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="text-base font-medium text-foreground">
+                    {row.memberName}
+                  </span>
+                  {showPayout ? (
+                    <Badge
+                      className={
+                        memberStateToneClassNames[
+                          row.payout ? "good" : "warning"
+                        ]
+                      }
+                      variant="outline"
+                    >
+                      {row.payout ? "Paid" : "Still owed"}
+                    </Badge>
+                  ) : null}
                 </span>
                 {row.memberNumber ? (
                   <span className="block text-sm text-muted-foreground">
                     {row.memberNumber}
                   </span>
                 ) : null}
+                {row.payout ? (
+                  <span className="block text-sm text-muted-foreground">
+                    Paid on {formatDayMonthYear(row.payout.paidAt)}{" "}
+                    {profitPayoutWords(row.payout.destination)}
+                    {row.payout.reference ? ` · ${row.payout.reference}` : ""}
+                  </span>
+                ) : null}
               </span>
               <span className="shrink-0 text-right text-lg font-semibold tabular-nums">
                 {formatCurrency(row.amount)}
               </span>
+              {showPayout && canManage ? (
+                <Button
+                  className="h-11 shrink-0 text-base"
+                  onClick={() =>
+                    setAction({ kind: row.payout ? "undo" : "pay", row })
+                  }
+                  type="button"
+                  variant="outline"
+                >
+                  {row.payout ? "Undo" : "Pay"}
+                </Button>
+              ) : null}
             </li>
           ))}
         </ul>
       ) : (
-        <p className="text-base text-muted-foreground">No member matches.</p>
+        <p className="text-base text-muted-foreground">
+          {payoutFilter === "owed"
+            ? "Nobody is still owed."
+            : payoutFilter === "paid"
+              ? "Nobody has been paid yet."
+              : "No member matches."}
+        </p>
       )}
+      {action?.kind === "pay" ? (
+        <PayMemberDialog
+          onClose={() => setAction(null)}
+          row={action.row}
+          season={season}
+        />
+      ) : null}
+      {action?.kind === "undo" ? (
+        <UndoPayoutDialog onClose={() => setAction(null)} row={action.row} />
+      ) : null}
       {hasNextPage ? (
         <Button
           size="touch"

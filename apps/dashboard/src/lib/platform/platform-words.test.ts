@@ -25,6 +25,14 @@ describe("platform words", () => {
       "Check it is really them."
     )
     expect(getPrivacyNextStep({ status: "processing" })).toContain("Write down")
+    // A finished request also has an end-of-access date; it still reads Done.
+    expect(
+      getPrivacyRequestWord({
+        status: "completed",
+        accessRevokedAt: "2026-11-10T00:00:00.000Z",
+      }).label
+    ).toBe("Done")
+    expect(getPrivacyNextStep({ status: "completed" })).toBeNull()
   })
 
   test("refund reviews are urgent when late, due soon or missing a deadline", () => {

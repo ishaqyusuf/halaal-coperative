@@ -8,7 +8,6 @@ import {
   PRODUCTION_QA_HARNESS_ROLES,
   PRODUCTION_QA_HARNESS_STATES,
 } from "./production-qa-harness"
-import { SUBSCRIPTION_PLAN_CODES } from "./subscriptions"
 
 const NOW = new Date("2026-09-04T12:00:00.000Z")
 
@@ -28,9 +27,6 @@ describe("production-contract QA harness plan", () => {
     expect(plan).toEqual(createPlan())
     expect(plan.qaDomain).toBe("ishaq.qa.test")
     expect(plan.scenarios).toHaveLength(PRODUCTION_QA_HARNESS_STATES.length)
-    expect(new Set(plan.scenarios.map(({ planCode }) => planCode))).toEqual(
-      new Set(SUBSCRIPTION_PLAN_CODES)
-    )
     expect(new Set(plan.scenarios.map(({ state }) => state))).toEqual(
       new Set(PRODUCTION_QA_HARNESS_STATES)
     )
@@ -62,23 +58,20 @@ describe("production-contract QA harness plan", () => {
       memberNumber: "QSH-0002",
       secondaryRoles: ["member"],
     })
-    expect(
-      plan.scenarios.find(({ key }) => key === "starter-healthy")
-        ?.activeAddonCodes
-    ).toEqual(["member_login"])
-    expect(
-      plan.scenarios
-        .filter(({ key }) => key !== "starter-healthy")
-        .every(({ activeAddonCodes }) => activeAddonCodes.length === 0)
-    ).toBe(true)
+    // Triage 2.8: scenarios carry no tenant plan, add-on or member cap.
+    for (const scenario of plan.scenarios) {
+      expect(scenario).not.toHaveProperty("planCode")
+      expect(scenario).not.toHaveProperty("activeAddonCodes")
+    }
+    expect(plan.scenarios.map(({ key }) => key)).not.toContain(
+      "starter-capacity"
+    )
   })
 
-  test("reserves explicit capacity, KYC, blocked, and profit scenarios", () => {
+  test("reserves explicit KYC, blocked, and profit scenarios", () => {
     const plan = createPlan()
 
-    expect(
-      plan.scenarios.find(({ state }) => state === "at_capacity")
-    ).toMatchObject({ planCode: "starter" })
+    expect(PRODUCTION_QA_HARNESS_STATES).not.toContain("at_capacity" as never)
     expect(
       plan.scenarios.find(({ state }) => state === "kyc_incomplete")
     ).toMatchObject({ operationProfile: "member_self_service" })
@@ -87,30 +80,11 @@ describe("production-contract QA harness plan", () => {
     ).toMatchObject({ operationProfile: "restricted" })
     expect(
       plan.scenarios.find(({ state }) => state === "published_profit")
-    ).toMatchObject({ planCode: "enterprise" })
-  })
-
-  test("rejects duplicate or plan-ineligible active add-ons before persistence", () => {
-    const duplicatePlan = createPlan()
-    duplicatePlan.scenarios[1]!.activeAddonCodes = [
-      "member_login",
-      "member_login",
-    ]
-    expect(() => assertProductionQaHarnessPlan(duplicatePlan)).toThrow(
-      "duplicate active add-ons"
-    )
-
-    const unavailablePlan = createPlan()
-    unavailablePlan.scenarios[0]!.activeAddonCodes = ["member_login"]
-    expect(() => assertProductionQaHarnessPlan(unavailablePlan)).toThrow(
-      "outside plan free_beta"
-    )
+    ).toMatchObject({ key: "enterprise-profit" })
   })
 
   test("requires persisted evidence instead of trusting scenario labels", () => {
     const baseFacts = {
-      activeMemberCount: 1,
-      activeMemberLimit: null,
       hasKycIncompleteMember: false,
       hasOverdueSchedule: false,
       hasPendingReview: false,
@@ -118,12 +92,10 @@ describe("production-contract QA harness plan", () => {
       hasStaleRecord: false,
       hasVerifiedActiveMember: true,
       productRecordCount: 1,
-      subscriptionStatus: "active",
       tenantStatus: "active",
     }
     const factsByState = {
-      at_capacity: { ...baseFacts, activeMemberLimit: 1 },
-      blocked: { ...baseFacts, subscriptionStatus: "suspended" },
+      blocked: { ...baseFacts, hasRestrictedServices: true },
       empty: { ...baseFacts, productRecordCount: 0 },
       healthy: baseFacts,
       kyc_incomplete: {
@@ -156,7 +128,6 @@ describe("production-contract QA harness plan", () => {
             ...baseFacts,
             hasVerifiedActiveMember: false,
             productRecordCount: 2,
-            subscriptionStatus: null,
             tenantStatus: null,
           },
           state,
@@ -167,8 +138,6 @@ describe("production-contract QA harness plan", () => {
 
   test("needs a ready member, request charges and a pending separate charge", () => {
     const facts = {
-      activeMemberCount: 1,
-      activeMemberLimit: null,
       hasKycIncompleteMember: false,
       hasOperationallyReadyMember: true,
       hasOverdueSchedule: false,
@@ -179,7 +148,6 @@ describe("production-contract QA harness plan", () => {
       hasStaleRecord: false,
       hasVerifiedActiveMember: true,
       productRecordCount: 1,
-      subscriptionStatus: "active",
       tenantStatus: "active",
     }
     const evaluate = (overrides: Partial<typeof facts>) =>
@@ -273,7 +241,7 @@ describe("production-contract QA harness plan", () => {
     })
 
     expect(report).toContain("# Production-contract QA harness evidence")
-    expect(report).toContain("10 planned")
+    expect(report).toContain("9 planned")
     expect(report).toContain("1 failed")
     expect(report).toContain("published_profit")
     expect(report).toContain("Remaining acceptance gaps")

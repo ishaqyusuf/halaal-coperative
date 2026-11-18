@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises"
+import { join } from "node:path"
 import { ImageResponse } from "next/og"
 import { SocialPreviewImage } from "@/components/marketing/social-preview-image"
 import { marketingSocialImage } from "@/lib/social-metadata"
@@ -9,6 +11,19 @@ export const size = {
   width: marketingSocialImage.width,
 }
 
-export default function Image() {
-  return new ImageResponse(<SocialPreviewImage />, size)
+const fontDir = join(process.cwd(), "src/assets/fonts")
+
+export default async function Image() {
+  const [medium, bold] = await Promise.all([
+    readFile(join(fontDir, "inter-medium.ttf")),
+    readFile(join(fontDir, "inter-bold.ttf")),
+  ])
+
+  return new ImageResponse(<SocialPreviewImage />, {
+    ...size,
+    fonts: [
+      { data: medium, name: "Inter", style: "normal", weight: 500 },
+      { data: bold, name: "Inter", style: "normal", weight: 700 },
+    ],
+  })
 }

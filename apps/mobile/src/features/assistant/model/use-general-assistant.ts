@@ -1,5 +1,6 @@
 import type {
   AssistantActionResult,
+  AssistantConversationSummary,
   AssistantMessage,
   AssistantProposal,
   AssistantProposalFields,
@@ -7,6 +8,7 @@ import type {
   AssistantTurnInput,
   AssistantTurnOutput,
 } from "@halaalvest/assistant/contracts"
+import { useAppInfiniteQuery } from "@/hooks/use-app-query"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useRef, useState } from "react"
 import {
@@ -16,6 +18,11 @@ import {
   newAssistantKey,
 } from "../api/assistant-api"
 import { AssistantStreamError } from "./assistant-stream"
+
+type ConversationPage = {
+  items: AssistantConversationSummary[]
+  nextCursor: string | null
+}
 
 type Choice = { proposalId: string | null; value: string }
 
@@ -83,16 +90,32 @@ export function useGeneralAssistant({
     staleTime: 5 * 60_000,
   })
   const enabled = bootstrap.isSuccess
-  const conversations = useQuery({
-    queryKey: [...assistantKeys.conversations(), scope],
-    queryFn: () => api.listConversations(),
+  // All chats pages on scroll (T25: native read page 1 only, so chats past 20
+  // were unreachable) and keeps its 30s staleness instead of refetching on
+  // every mount; sends still invalidate it.
+  const conversationPages = useAppInfiniteQuery({
     enabled,
+    getNextPageParam: (page: ConversationPage) => page.nextCursor ?? undefined,
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) => api.listConversations(pageParam),
+    queryKey: [...assistantKeys.conversations(), scope],
     retry: false,
+    selectItems: (page: ConversationPage) => page.items,
   })
+  const conversations = {
+    data: conversationPages.data ? { items: conversationPages.items } : undefined,
+    fetchingNext: conversationPages.isFetchingNextPage,
+    hasNext: Boolean(conversationPages.hasNextPage),
+    isError: conversationPages.isError,
+    isPending: conversationPages.isPending,
+    nextPage: conversationPages.onEndReached,
+    refetch: () => conversationPages.refetch({ cancelRefetch: false }),
+  }
+  // An opened or linked chat reads alongside bootstrap, not after it.
   const state = useQuery({
     queryKey: [...assistantKeys.conversation(conversationId ?? "none"), scope],
     queryFn: () => api.getConversation(conversationId!),
-    enabled: enabled && !!conversationId,
+    enabled: !!conversationId,
     retry: false,
     // A chat this page just wrote (first message, reply) is not re-read at once.
     staleTime: 30_000,

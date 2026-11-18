@@ -22,7 +22,6 @@ import { ensureMemberInGeneratedMonthlyRecord } from "./monthly-records"
 import { getTenantOperationProfile } from "./operation-profile"
 import { assertQaIdentityLane } from "./qa-maintenance"
 import { claimDashboardEvidenceUploadLink } from "./dashboard-evidence-uploads"
-import { assertTenantCanActivateMember } from "./subscriptions"
 
 export type ListMembersFilters = {
   kycStatus?: KycStatus
@@ -861,10 +860,6 @@ export async function createMemberWithState(
   tx: MemberWriteClient,
   input: CreateMemberInput
 ) {
-  await assertTenantCanActivateMember(
-    input.tenantId,
-    tx as unknown as PrismaClient
-  )
   await assertMemberProfileMutationOpen(input.tenantId, tx)
   await assertQaIdentityLane({
     email: input.email,
@@ -1251,12 +1246,6 @@ export async function updateMemberStatus(
       throw ExpectedQueryError.notFound("Member not found.")
     }
     assertMemberStatusTransition(currentMember.status, newStatus)
-    if (newStatus === "active" && currentMember.status !== "active") {
-      await assertTenantCanActivateMember(
-        tenantId,
-        tx as unknown as PrismaClient
-      )
-    }
 
     const member = await tx.member.update({
       where: { id: memberId, tenantId },
@@ -1493,11 +1482,24 @@ export type MemberStatementSummary = {
   totalExtraSavingsContributions: number
   contributionsCount: number
   lastContributionAt: Date | null
+  /** Principal of loans already paid out (disbursed, active or defaulted). */
   totalLoanPrincipal: number
+  /**
+   * Still owed on loans already paid out. Approved loans that are not yet
+   * paid out are left out: see `approvedNotPaidOutAmount` (triage 1.5).
+   */
   totalOutstandingPrincipal: number
+  /** Paid-out loans still running (disbursed, active or defaulted). */
   activeLoanCount: number
   totalEstimatedMonthlyServicing: number
   totalLoanExtraSavingsAmount: number
+  /**
+   * Approved loans the cooperative has not paid out yet. Shown on their own
+   * line ("Approved, not yet paid out"), never inside what the member owes.
+   * Deployable funds still hold this money back (approved holds).
+   */
+  approvedNotPaidOutAmount: number
+  approvedNotPaidOutCount: number
   totalRepaymentsPosted: number
   lastRepaymentAt: Date | null
   totalDividendAllocations: number
@@ -1532,6 +1534,86 @@ const statementPayableScheduleStatuses = [
   "pending",
 ] as const
 const statementActiveProcurementStatuses = ["active", "purchased"] as const
+/** Loan statuses a statement reads: paid out, plus approved-not-paid-out. */
+const statementLoanStatuses = [
+  "approved",
+  "disbursed",
+  "active",
+  "defaulted",
+] as const
+
+type StatementLoanGroup = {
+  memberId: string
+  status?: string
+  _count?: { _all: number }
+  _sum: Record<string, unknown>
+}
+
+type StatementLoanTotals = Pick<
+  StatementMemberTotals,
+  | "approvedNotPaidOutAmount"
+  | "approvedNotPaidOutCount"
+  | "loanCount"
+  | "loanEstimatedMonthlyServicing"
+  | "loanExtraMonthlySavingsAmount"
+  | "loanOutstandingPrincipal"
+  | "loanPrincipalAmount"
+>
+
+/**
+ * Folds per-member, per-status loan groups into paid-out totals and a
+ * separate approved-not-paid-out line (triage 1.5).
+ */
+export function foldStatementLoanGroups(
+  groups: StatementLoanGroup[]
+): Map<string, StatementLoanTotals> {
+  const totals = new Map<string, StatementLoanTotals>()
+  const add = (left: unknown, right: unknown) =>
+    Number(left ?? 0) + Number(right ?? 0)
+
+  for (const group of groups) {
+    const current = totals.get(group.memberId) ?? {
+      approvedNotPaidOutAmount: 0,
+      approvedNotPaidOutCount: 0,
+      loanCount: 0,
+      loanEstimatedMonthlyServicing: 0,
+      loanExtraMonthlySavingsAmount: 0,
+      loanOutstandingPrincipal: 0,
+      loanPrincipalAmount: 0,
+    }
+    const count = group._count?._all ?? 0
+
+    if (group.status === "approved") {
+      current.approvedNotPaidOutAmount = add(
+        current.approvedNotPaidOutAmount,
+        group._sum.principalAmount
+      )
+      current.approvedNotPaidOutCount += count
+    } else {
+      current.loanCount += count
+      current.loanPrincipalAmount = add(
+        current.loanPrincipalAmount,
+        group._sum.principalAmount
+      )
+      current.loanOutstandingPrincipal = add(
+        current.loanOutstandingPrincipal,
+        group._sum.outstandingPrincipal
+      )
+      current.loanEstimatedMonthlyServicing = add(
+        current.loanEstimatedMonthlyServicing,
+        group._sum.estimatedMonthlyServicing
+      )
+      current.loanExtraMonthlySavingsAmount = add(
+        current.loanExtraMonthlySavingsAmount,
+        group._sum.extraMonthlySavingsAmount
+      )
+    }
+
+    totals.set(group.memberId, current)
+  }
+
+  return totals
+}
 
 function roundStatementMoney(value: number) {
   return Math.round(value * 100) / 100
@@ -1622,12 +1704,12 @@ export async function listMemberStatementSummaries(
       _max: { paidAt: true },
     }),
     prisma.loan.groupBy({
-      by: ["memberId"],
+      by: ["memberId", "status"],
       where: {
         ...(memberId ? { memberId } : {}),
         tenantId,
         status: {
-          in: ["approved", "disbursed", "active", "defaulted"],
+          in: [...statementLoanStatuses],
         },
       },
       _count: { _all: true },
@@ -1717,7 +1799,9 @@ export async function listMemberStatementSummaries(
   const repaymentMap = new Map(
     repaymentTotals.map((item) => [item.memberId, item])
   )
-  const loanMap = new Map(loanTotals.map((item) => [item.memberId, item]))
+  const loanMap = foldStatementLoanGroups(
+    loanTotals as unknown as StatementLoanGroup[]
+  )
   const dividendMap = new Map(
     dividendTotals.map((item) => [item.memberId, item])
   )
@@ -1764,13 +1848,15 @@ export async function listMemberStatementSummaries(
         lastContributionAt: contributionTotal?._max.postedAt ?? null,
         lastDividendAllocatedAt: dividendTotal?._max.createdAt ?? null,
         lastRepaymentAt: repaymentTotal?._max.paidAt ?? null,
-        loanCount: loanTotal?._count._all ?? 0,
+        approvedNotPaidOutAmount: loanTotal?.approvedNotPaidOutAmount ?? 0,
+        approvedNotPaidOutCount: loanTotal?.approvedNotPaidOutCount ?? 0,
+        loanCount: loanTotal?.loanCount ?? 0,
         loanEstimatedMonthlyServicing:
-          loanTotal?._sum.estimatedMonthlyServicing,
+          loanTotal?.loanEstimatedMonthlyServicing ?? 0,
         loanExtraMonthlySavingsAmount:
-          loanTotal?._sum.extraMonthlySavingsAmount,
-        loanOutstandingPrincipal: loanTotal?._sum.outstandingPrincipal,
-        loanPrincipalAmount: loanTotal?._sum.principalAmount,
+          loanTotal?.loanExtraMonthlySavingsAmount ?? 0,
+        loanOutstandingPrincipal: loanTotal?.loanOutstandingPrincipal ?? 0,
+        loanPrincipalAmount: loanTotal?.loanPrincipalAmount ?? 0,
         openingSpecialSavingsBalance: sumOf(
           openingSpecialMap,
           member.id,
@@ -1818,6 +1904,9 @@ type StatementMemberRow = {
 /** One member's raw totals; missing sums count as zero. */
 type StatementMemberTotals = {
   activeProcurementCount: number
+  /** Principal of approved loans not yet paid out. */
+  approvedNotPaidOutAmount: unknown
+  approvedNotPaidOutCount: number
   contributionAmount: unknown
   contributionCommittedAmount: unknown
   contributionCount: number
@@ -1830,6 +1919,7 @@ type StatementMemberTotals = {
   lastContributionAt: Date | null
   lastDividendAllocatedAt: Date | null
   lastRepaymentAt: Date | null
+  /** Loan totals below cover paid-out loans only. */
   loanCount: number
   loanEstimatedMonthlyServicing: unknown
   loanExtraMonthlySavingsAmount: unknown
@@ -1906,6 +1996,10 @@ function buildMemberStatementSummary(
       totals.loanEstimatedMonthlyServicing
     ),
     totalLoanExtraSavingsAmount: amount(totals.loanExtraMonthlySavingsAmount),
+    approvedNotPaidOutAmount: roundStatementMoney(
+      amount(totals.approvedNotPaidOutAmount)
+    ),
+    approvedNotPaidOutCount: totals.approvedNotPaidOutCount ?? 0,
     totalRepaymentsPosted: amount(totals.repaymentAmount),
     lastRepaymentAt: totals.lastRepaymentAt,
     totalDividendAllocations: amount(totals.dividendAmount),
@@ -1940,7 +2034,9 @@ async function readMemberStatementSummaryRow(
 ): Promise<StatementSummarySqlRow | null> {
   const payableStatuses = [...statementPayableScheduleStatuses]
   const activeProcurementStatuses = [...statementActiveProcurementStatuses]
-  const loanStatuses = ["approved", "disbursed", "active", "defaulted"]
+  const paidOutLoanStatuses = statementLoanStatuses.filter(
+    (status) => status !== "approved"
+  )
   const asOf = new Date()
   const rows = (await prisma.$queryRaw`
     SELECT
@@ -1969,6 +2065,8 @@ async function readMemberStatementSummaryRow(
       l.outstanding AS "loanOutstandingPrincipal",
       l.servicing AS "loanEstimatedMonthlyServicing",
       l.extra AS "loanExtraMonthlySavingsAmount",
+      l.approved_count AS "approvedNotPaidOutCount",
+      l.approved_principal AS "approvedNotPaidOutAmount",
       d.count AS "dividendCount",
       d.amount AS "dividendAmount",
       d.last_at AS "lastDividendAllocatedAt",
@@ -2012,13 +2110,17 @@ async function readMemberStatementSummaryRow(
       WHERE tenant_id = m.tenant_id AND member_id = m.id AND status = 'posted'
     ) r
     CROSS JOIN LATERAL (
-      SELECT count(*)::int AS count, SUM(principal_amount) AS principal,
-        SUM(outstanding_principal) AS outstanding,
-        SUM(estimated_monthly_servicing) AS servicing,
-        SUM(extra_monthly_savings_amount) AS extra
+      SELECT
+        (count(*) FILTER (WHERE status::text = ANY(${paidOutLoanStatuses}::text[])))::int AS count,
+        SUM(principal_amount) FILTER (WHERE status::text = ANY(${paidOutLoanStatuses}::text[])) AS principal,
+        SUM(outstanding_principal) FILTER (WHERE status::text = ANY(${paidOutLoanStatuses}::text[])) AS outstanding,
+        SUM(estimated_monthly_servicing) FILTER (WHERE status::text = ANY(${paidOutLoanStatuses}::text[])) AS servicing,
+        SUM(extra_monthly_savings_amount) FILTER (WHERE status::text = ANY(${paidOutLoanStatuses}::text[])) AS extra,
+        (count(*) FILTER (WHERE status::text = 'approved'))::int AS approved_count,
+        SUM(principal_amount) FILTER (WHERE status::text = 'approved') AS approved_principal
       FROM loans
       WHERE tenant_id = m.tenant_id AND member_id = m.id
-        AND status::text = ANY(${loanStatuses}::text[])
+        AND status::text = ANY(${[...statementLoanStatuses]}::text[])
     ) l
     CROSS JOIN LATERAL (
       SELECT count(*)::int AS count, SUM(a.allocation_amount) AS amount,

@@ -1,14 +1,18 @@
-import { SafeArea } from "@/components/safe-area"
+import { DockedFooter } from "@/components/app/docked-footer"
+import { gateIdentityFor } from "@/components/app/gate-hero"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
 import { Pressable } from "@/components/ui/pressable"
 import { Text } from "@/components/ui/text"
-import { AppLockPinPad } from "@/features/app-lock/components/app-lock-pin-pad"
+import {
+  AppLockPinDots,
+  AppLockPinPad,
+} from "@/features/app-lock/components/app-lock-pin-pad"
 import { useAppLockContext } from "@/features/app-lock/hooks/use-app-lock"
 import { APP_LOCK_CODE_LENGTH } from "@/features/app-lock/model/app-lock-types"
 import { useAuthContext } from "@/hooks/use-auth"
-import { useColorScheme, useColors } from "@/hooks/use-color"
-import { StatusBar } from "expo-status-bar"
+import { OverlayStatusBar } from "@/components/app/screen-status-bar"
+import { SPLASH_LOGO, SPLASH_LOGO_SIZE } from "@/lib/splash-logo"
 import {
   type ReactNode,
   useCallback,
@@ -17,7 +21,8 @@ import {
   useRef,
   useState,
 } from "react"
-import { StyleSheet, View } from "react-native"
+import { Image, StyleSheet, View } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 function formatLockout(value?: string | null) {
   if (!value) return "Try again in a few seconds."
@@ -25,15 +30,6 @@ function formatLockout(value?: string | null) {
   if (!Number.isFinite(remaining) || remaining <= 0) return "Try again now."
   const seconds = Math.max(1, Math.ceil(remaining / 1_000))
   return `Too many attempts. Try again in ${seconds} second${seconds === 1 ? "" : "s"}.`
-}
-
-function initials(value: string) {
-  return value
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join("")
 }
 
 function useAppLockCover() {
@@ -70,9 +66,15 @@ export function AppLockContentIsolation({ children }: { children: ReactNode }) {
 }
 
 export function AppLockGate() {
+  const appLock = useAppLockContext()
   const { shouldBlock, shouldConceal } = useAppLockCover()
 
   if (!shouldBlock && !shouldConceal) return null
+  // Reading the lock state takes a moment on launch. Until it is known, keep
+  // the splash surface up (same canvas, same centred logo) instead of a PIN
+  // pad that most people never see; the app stays covered either way.
+  const hydrating =
+    shouldBlock && !appLock.isHydrated && !appLock.hydrationError
 
   return (
     <View
@@ -81,7 +83,9 @@ export function AppLockGate() {
       importantForAccessibility="yes"
       style={[StyleSheet.absoluteFill, { elevation: 5000, zIndex: 5000 }]}
     >
-      {shouldConceal && !shouldBlock ? (
+      {hydrating ? (
+        <SplashCover />
+      ) : shouldConceal && !shouldBlock ? (
         <PrivacyCurtain />
       ) : (
         <AppLockUnlockScreen />
@@ -90,29 +94,52 @@ export function AppLockGate() {
   )
 }
 
-function PrivacyCurtain() {
-  const colors = useColors()
+/** Launch cover while the lock state loads: the splash canvas and logo. */
+function SplashCover() {
   return (
-    <SafeArea
-      className="items-center justify-center bg-background px-8"
-      style={{ backgroundColor: colors.background }}
-    >
-      <View className="size-16 items-center justify-center rounded-full bg-accent">
+    <View className="flex-1 bg-background" testID="app-lock-hydrating">
+      <OverlayStatusBar />
+      {/* Style-only: absolute centring that matches the splash logo. */}
+      <View
+        style={{
+          ...StyleSheet.absoluteFillObject,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Image
+          accessibilityIgnoresInvertColors
+          accessible={false}
+          fadeDuration={0}
+          source={SPLASH_LOGO}
+          style={{ height: SPLASH_LOGO_SIZE, width: SPLASH_LOGO_SIZE }}
+        />
+      </View>
+    </View>
+  )
+}
+
+/** App-switcher curtain (02 Brand hero): full gradient, shield, one line. */
+function PrivacyCurtain() {
+  return (
+    <View className="flex-1 items-center justify-center gap-[16px] bg-background px-[28px]">
+      <OverlayStatusBar />
+      <View className="size-[72px] items-center justify-center rounded-[24px] bg-accent">
         <Icon className="size-xl text-accent-foreground" name="ShieldCheck" />
       </View>
-      <Text className="mt-5 text-center text-2xl font-extrabold tracking-tight text-foreground">
+      <Text className="text-center" variant="screenTitle">
         HalaalVest is private
       </Text>
-    </SafeArea>
+    </View>
   )
 }
 
 function AppLockUnlockScreen() {
   const auth = useAuthContext()
   const appLock = useAppLockContext()
-  const colors = useColors()
-  const { colorScheme } = useColorScheme()
+  const insets = useSafeAreaInsets()
   const [code, setCode] = useState("")
+  const [errorKey, setErrorKey] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [lockedUntil, setLockedUntil] = useState<string | null>(null)
@@ -150,6 +177,7 @@ function AppLockUnlockScreen() {
       setLockedUntil(null)
       return
     }
+    setErrorKey((value) => value + 1)
     if (result.reason === "locked") {
       setLockedUntil(result.lockedUntil ?? null)
       setMessage(formatLockout(result.lockedUntil))
@@ -224,95 +252,110 @@ function AppLockUnlockScreen() {
     message,
   ])
 
+  const identity = gateIdentityFor(auth.profile)
+  const mark =
+    identity.kind === "cooperative" ? identity.mark : "HV"
+  const hasError = Boolean(message) || isTemporarilyLocked
+
   return (
-    <SafeArea
-      className="bg-background"
-      style={{ backgroundColor: colors.background }}
-    >
-      <StatusBar
-        backgroundColor={colors.background}
-        style={colorScheme === "dark" ? "light" : "dark"}
-      />
-      <View className="flex-1 justify-between px-7 pt-8 pb-5">
-        <View className="items-center gap-3">
-          <View className="bg-brand size-16 items-center justify-center rounded-full">
-            <Text className="text-brand-foreground text-lg font-extrabold">
-              {initials(auth.profile?.tenant.name ?? "HalaalVest")}
-            </Text>
-          </View>
+    <View className="flex-1 bg-background" testID="app-lock-unlock">
+      <OverlayStatusBar />
+      {/* Style-only: the top padding follows the runtime safe-area inset. */}
+      <View style={{ alignItems: "center", gap: 8, paddingHorizontal: 28, paddingTop: insets.top + 28 }}>
+        <View className="mb-[6px] size-[64px] items-center justify-center rounded-full bg-brand">
           <Text
-            accessibilityRole="header"
-            className="mt-2 text-center text-[28px] leading-8 font-extrabold tracking-tight text-foreground"
+            className="text-[20px] font-extrabold text-brand-foreground"
+            maxFontSizeMultiplier={1}
           >
-            {appLock.hydrationError
-              ? "App lock needs attention"
-              : "Unlock HalaalVest"}
-          </Text>
-          <Text className="max-w-[290px] text-center text-xs leading-5 text-muted-foreground">
-            {auth.profile?.tenant.name}
-            {auth.profile?.user.name ? ` · ${auth.profile.user.name}` : ""}
+            {mark}
           </Text>
         </View>
+        <Text accessibilityRole="header" className="text-center" variant="screenTitle">
+          {appLock.hydrationError
+            ? "App lock needs attention"
+            : "Unlock HalaalVest"}
+        </Text>
+        <Text
+          className="text-center text-muted-foreground"
+          numberOfLines={2}
+          variant="small"
+        >
+          {[auth.profile?.tenant.name, auth.profile?.user.name]
+            .filter(Boolean)
+            .join(" · ")}
+        </Text>
+      </View>
 
-        {appLock.hydrationError ? (
-          <View className="gap-5 border-y border-border py-6">
-            <View className="items-center gap-3">
-              <Icon className="size-xl text-destructive" name="ShieldAlert" />
-              <Text className="text-center text-sm leading-5 text-muted-foreground">
-                {helperMessage}
-              </Text>
-            </View>
-            <Button onPress={() => void signOutSecurely()} size="lg">
+      {appLock.hydrationError ? (
+        <>
+          <View className="flex-1 items-center justify-center gap-[14px] px-[28px]">
+            <View className="size-[60px] items-center justify-center rounded-full bg-tint-danger">
               <Icon
-                className="size-base text-primary-foreground"
-                name="LogOut"
+                className="size-xl text-tint-danger-foreground"
+                name="ShieldAlert"
               />
+            </View>
+            <Text
+              accessibilityLiveRegion="polite"
+              className="max-w-[320px] text-center text-foreground-soft"
+              variant="small"
+            >
+              {helperMessage}
+            </Text>
+          </View>
+          <DockedFooter>
+            <Button onPress={() => void signOutSecurely()}>
+              <Icon className="size-base text-primary-foreground" name="LogOut" />
               <Text>Sign out securely</Text>
             </Button>
-          </View>
-        ) : (
-          <View className="items-center gap-5">
-            <AppLockPinPad
-              biometricLabel={appLock.biometricsStatus.label}
-              disabled={
-                !appLock.isHydrated || isSubmitting || isTemporarilyLocked
-              }
-              onBiometricPress={() => void runBiometricUnlock()}
-              onChange={(value) => {
-                setCode(value)
-                setMessage(null)
-              }}
-              showBiometric={canUseBiometrics}
+          </DockedFooter>
+        </>
+      ) : (
+        <>
+          <View className="flex-1 items-center justify-center gap-[14px] py-[12px]">
+            <AppLockPinDots
+              error={hasError}
+              errorKey={errorKey}
               value={code}
             />
             <Text
               accessibilityLiveRegion="polite"
               className={
-                message
-                  ? "min-h-10 max-w-[300px] text-center text-xs leading-5 font-semibold text-destructive"
-                  : "min-h-10 max-w-[300px] text-center text-xs leading-5 text-muted-foreground"
+                hasError
+                  ? "min-h-[40px] max-w-[320px] text-center font-semibold text-destructive"
+                  : "min-h-[40px] max-w-[320px] text-center text-muted-foreground"
               }
+              variant="small"
             >
               {helperMessage}
             </Text>
           </View>
-        )}
-
-        {appLock.hydrationError ? (
-          <View className="min-h-11" />
-        ) : (
-          <Pressable
-            accessibilityLabel="Forgot PIN? Sign out securely"
-            accessibilityRole="button"
-            className="min-h-11 items-center justify-center px-4"
-            onPress={() => void signOutSecurely()}
-          >
-            <Text className="text-center text-xs font-semibold text-muted-foreground">
-              Forgot PIN? Sign out securely
-            </Text>
-          </Pressable>
-        )}
-      </View>
-    </SafeArea>
+          <AppLockPinPad
+            biometricLabel={appLock.biometricsStatus.label}
+            disabled={!appLock.isHydrated || isSubmitting || isTemporarilyLocked}
+            onBiometricPress={() => void runBiometricUnlock()}
+            onChange={(value) => {
+              setCode(value)
+              setMessage(null)
+            }}
+            showBiometric={canUseBiometrics}
+            value={code}
+          />
+          {/* Style-only: bottom padding follows the runtime safe-area inset. */}
+          <View style={{ paddingBottom: Math.max(insets.bottom, 12) + 8, paddingTop: 10 }}>
+            <Pressable
+              accessibilityLabel="Forgot PIN? Sign out securely"
+              accessibilityRole="button"
+              className="min-h-[44px] items-center justify-center px-[16px]"
+              onPress={() => void signOutSecurely()}
+            >
+              <Text className="text-center text-foreground-soft" variant="label">
+                Forgot PIN? Sign out securely
+              </Text>
+            </Pressable>
+          </View>
+        </>
+      )}
+    </View>
   )
 }

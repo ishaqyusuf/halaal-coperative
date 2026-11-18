@@ -1,4 +1,4 @@
-import type { PrismaClient } from "../../generated/prisma/client"
+import { Prisma, type PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
 import {
@@ -141,7 +141,21 @@ function workflowTarget(application: any) {
 }
 
 function applicationRow(application: any) {
-  const target = workflowTarget(application)
+  const workflow =
+    application.chargeApplicability?.workflow ??
+    (application.procurementRequestId
+      ? "procurement_request"
+      : application.projectFinancingRequestId
+        ? "project_financing_request"
+        : application.foodPurchaseApplicationId
+          ? "food_purchase_application"
+          : application.loanRequestId
+            ? "loan_request"
+            : application.loanId
+              ? "loan"
+              : application.contributionId
+                ? "commitment_collection"
+                : "manual")
   return {
     amount: Number(application.amount),
     assessedAt: application.assessedAt,
@@ -157,8 +171,7 @@ function applicationRow(application: any) {
     purpose: application.chargeDefinition.purpose,
     status: application.status,
     trigger: application.chargeApplicability?.trigger ?? "manual",
-    workflow:
-      application.chargeApplicability?.workflow ?? target?.type ?? "manual",
+    workflow,
   }
 }
 
@@ -201,15 +214,62 @@ async function workspaceStats(tenantId: string, prisma: PrismaClient) {
   }
 }
 
+export async function getMobileAdminChargeSummary(
+  input: { capabilities: MobileAdminChargeCapabilities; tenantId: string },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = getPrisma(prismaOverride)
+  const generatedAt = new Date()
+  const { from } = monthBounds(
+    generatedAt.getUTCFullYear(),
+    generatedAt.getUTCMonth() + 1
+  )
+  const [summary] = await prisma.$queryRaw<
+    {
+      corrections: bigint
+      outstanding: Prisma.Decimal | null
+      posted: Prisma.Decimal | null
+      currencyCode: string
+    }[]
+  >`
+    SELECT t.currency_code AS "currencyCode",
+      sum(a.amount) FILTER (WHERE a.status = 'pending') AS outstanding,
+      sum(a.amount) FILTER (WHERE a.status = 'posted' AND a.assessed_at >= ${from}) AS posted,
+      count(*) FILTER (WHERE a.status IN ('waived', 'reversed') AND a.updated_at >= ${from}) AS corrections
+    FROM tenants t
+    LEFT JOIN charge_applications a ON a.tenant_id = t.id
+      AND (a.status = 'pending' OR a.assessed_at >= ${from} OR a.updated_at >= ${from})
+      AND EXISTS (
+        SELECT 1 FROM charge_definitions d
+        WHERE d.id = a.charge_definition_id AND d.code NOT IN (${Prisma.join(systemBillingChargeCodes)})
+      )
+    WHERE t.id = ${input.tenantId}::uuid
+    GROUP BY t.currency_code
+  `
+  return {
+    capabilities: input.capabilities,
+    currencyCode: summary?.currencyCode ?? "NGN",
+    generatedAt,
+    stats: {
+      corrections: Number(summary?.corrections ?? 0),
+      outstanding: Number(summary?.outstanding ?? 0),
+      postedThisMonth: Number(summary?.posted ?? 0),
+    },
+  }
+}
+
+type ChargePageInput = {
+  cursor?: string | null
+  filters?: MobileAdminChargeFilters
+  lane: MobileAdminChargeLane
+  search?: string
+  tenantId: string
+}
+
+const chargePageSize = 30
+
 export async function getMobileAdminChargeWorkspace(
-  input: {
-    capabilities: MobileAdminChargeCapabilities
-    cursor?: string | null
-    filters?: MobileAdminChargeFilters
-    lane: MobileAdminChargeLane
-    search?: string
-    tenantId: string
-  },
+  input: ChargePageInput & { capabilities: MobileAdminChargeCapabilities },
   prismaOverride?: PrismaClient
 ) {
   const prisma = getPrisma(prismaOverride)
@@ -218,23 +278,49 @@ export async function getMobileAdminChargeWorkspace(
     where: { id: input.tenantId },
   })
   const stats = await workspaceStats(input.tenantId, prisma)
-  const shared = {
+  return {
+    ...(await readChargePage(input, prisma, false)),
     capabilities: input.capabilities,
     currencyCode: tenant?.currencyCode ?? "NGN",
     generatedAt: new Date(),
-    lane: input.lane,
     stats,
   }
+}
 
+export function getMobileAdminChargePage(
+  input: ChargePageInput,
+  prismaOverride?: PrismaClient
+) {
+  return readChargePage(input, getPrisma(prismaOverride), true)
+}
+
+async function readChargePage(
+  input: ChargePageInput,
+  prisma: PrismaClient,
+  compact: boolean
+) {
+  const cursor = input.cursor ? { id: input.cursor } : undefined
+  const skip = cursor ? 1 : 0
+  const now = new Date()
   if (input.lane === "rules") {
     const definitions = await prisma.chargeDefinition.findMany({
       include: {
         applicability: {
           orderBy: [{ workflow: "asc" }, { trigger: "asc" }],
         },
-        versions: { orderBy: { effectiveFrom: "desc" } },
+        versions: {
+          orderBy: [
+            { effectiveFrom: "desc" },
+            { createdAt: "desc" },
+            { id: "desc" },
+          ],
+          ...(compact
+            ? { take: 1, where: { effectiveFrom: { lte: now } } }
+            : {}),
+        },
       },
-      orderBy: [{ isActive: "desc" }, { name: "asc" }],
+      orderBy: [{ isActive: "desc" }, { name: "asc" }, { id: "asc" }],
+      ...(compact ? { cursor, skip, take: chargePageSize + 1 } : {}),
       where: {
         tenantId: input.tenantId,
         code: { notIn: systemBillingChargeCodes },
@@ -249,11 +335,22 @@ export async function getMobileAdminChargeWorkspace(
         ...(input.filters?.purpose
           ? { purpose: input.filters.purpose as never }
           : {}),
+        ...(compact && input.filters?.workflow
+          ? {
+              applicability: {
+                some: {
+                  workflow: input.filters.workflow as never,
+                  isActive: true,
+                },
+              },
+            }
+          : {}),
       },
     })
+    const page = compact ? definitions.slice(0, chargePageSize) : definitions
     return {
-      ...shared,
-      data: definitions.map((definition) => ({
+      lane: input.lane,
+      data: page.map((definition) => ({
         applicability: definition.applicability.map((item) => ({
           collectionMode: item.collectionMode,
           id: item.id,
@@ -277,34 +374,46 @@ export async function getMobileAdminChargeWorkspace(
           id: version.id,
         })),
       })),
-      nextCursor: null,
+      nextCursor:
+        compact && definitions.length > chargePageSize
+          ? (page.at(-1)?.id ?? null)
+          : null,
     }
   }
 
   const filters = input.filters ?? {}
   const rows = await prisma.chargeApplication.findMany({
-    cursor: input.cursor ? { id: input.cursor } : undefined,
-    include: applicationInclude,
+    cursor,
+    include: compact
+      ? {
+          chargeApplicability: { select: { trigger: true, workflow: true } },
+          chargeDefinition: {
+            select: {
+              code: true,
+              isMonthlyLevy: true,
+              name: true,
+              purpose: true,
+            },
+          },
+          member: applicationInclude.member,
+        }
+      : applicationInclude,
     orderBy: [{ assessedAt: "desc" }, { id: "desc" }],
-    skip: input.cursor ? 1 : 0,
-    take: 31,
+    skip,
+    take: chargePageSize + 1,
     where: {
       tenantId: input.tenantId,
-      ...(input.lane === "levies"
-        ? { chargeDefinition: { isMonthlyLevy: true } }
-        : {}),
+      chargeDefinition: {
+        ...(compact ? { code: { notIn: systemBillingChargeCodes } } : {}),
+        ...(compact || input.lane === "levies"
+          ? { isMonthlyLevy: input.lane === "levies" }
+          : {}),
+        ...(filters.purpose ? { purpose: filters.purpose as never } : {}),
+      },
       ...(filters.memberId ? { memberId: filters.memberId } : {}),
       ...(filters.status ? { status: filters.status as never } : {}),
       ...(filters.collectionMode
         ? { collectionMode: filters.collectionMode }
-        : {}),
-      ...(filters.purpose
-        ? {
-            chargeDefinition: {
-              ...(input.lane === "levies" ? { isMonthlyLevy: true } : {}),
-              purpose: filters.purpose as never,
-            },
-          }
         : {}),
       ...(filters.workflow
         ? { chargeApplicability: { workflow: filters.workflow as never } }
@@ -344,11 +453,11 @@ export async function getMobileAdminChargeWorkspace(
         : {}),
     },
   })
-  const page = rows.slice(0, 30)
+  const page = rows.slice(0, chargePageSize)
   return {
-    ...shared,
+    lane: input.lane,
     data: page.map(applicationRow),
-    nextCursor: rows.length > 30 ? (page.at(-1)?.id ?? null) : null,
+    nextCursor: rows.length > chargePageSize ? (page.at(-1)?.id ?? null) : null,
   }
 }
 
@@ -437,15 +546,23 @@ export async function getMobileAdminChargeApplication(
   }
 }
 
-export async function getMobileAdminChargeFormOptions(
-  input: { search?: string; tenantId: string },
-  prismaOverride?: PrismaClient
+type ChargePickerInput = {
+  cursor?: string | null
+  search?: string
+  tenantId: string
+}
+
+async function findChargeMembers(
+  input: ChargePickerInput,
+  prisma: PrismaClient,
+  take: number
 ) {
-  const prisma = getPrisma(prismaOverride)
-  const members = await prisma.member.findMany({
+  return prisma.member.findMany({
+    cursor: input.cursor ? { id: input.cursor } : undefined,
     orderBy: [{ fullName: "asc" }, { id: "asc" }],
     select: { fullName: true, id: true, memberNumber: true, status: true },
-    take: 40,
+    skip: input.cursor ? 1 : 0,
+    take,
     where: {
       status: { not: "exited" },
       tenantId: input.tenantId,
@@ -453,17 +570,35 @@ export async function getMobileAdminChargeFormOptions(
         ? {
             OR: [
               { fullName: { contains: input.search, mode: "insensitive" } },
-              {
-                memberNumber: {
-                  contains: input.search,
-                  mode: "insensitive",
-                },
-              },
+              { memberNumber: { contains: input.search, mode: "insensitive" } },
             ],
           }
         : {}),
     },
   })
+}
+
+export async function getMobileAdminChargeMembers(
+  input: ChargePickerInput,
+  prismaOverride?: PrismaClient
+) {
+  const rows = await findChargeMembers(
+    input,
+    getPrisma(prismaOverride),
+    chargePageSize + 1
+  )
+  const data = rows.slice(0, chargePageSize)
+  return {
+    data,
+    nextCursor: rows.length > chargePageSize ? (data.at(-1)?.id ?? null) : null,
+  }
+}
+
+async function findChargeDefinitions(
+  input: ChargePickerInput & { assessedAt?: Date },
+  prisma: PrismaClient
+) {
+  const manual = { isActive: true, trigger: "manual" } as const
   const definitions = await prisma.chargeDefinition.findMany({
     include: {
       applicability: {
@@ -473,41 +608,87 @@ export async function getMobileAdminChargeFormOptions(
         },
       },
       versions: {
-        orderBy: [{ effectiveFrom: "desc" }, { createdAt: "desc" }],
+        orderBy: [
+          { effectiveFrom: "desc" },
+          { createdAt: "desc" },
+          { id: "desc" },
+        ],
         take: 1,
-        where: { effectiveFrom: { lte: new Date() } },
+        where: { effectiveFrom: { lte: input.assessedAt ?? new Date() } },
       },
     },
-    orderBy: { name: "asc" },
-    where: { isActive: true, tenantId: input.tenantId },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    ...(input.assessedAt
+      ? {
+          cursor: input.cursor ? { id: input.cursor } : undefined,
+          skip: input.cursor ? 1 : 0,
+          take: chargePageSize + 1,
+        }
+      : {}),
+    where: {
+      isActive: true,
+      tenantId: input.tenantId,
+      OR: [{ isMonthlyLevy: true }, { applicability: { some: manual } }],
+      ...(input.assessedAt
+        ? {
+            code: { notIn: systemBillingChargeCodes },
+            versions: { some: { effectiveFrom: { lte: input.assessedAt } } },
+            ...(input.search
+              ? {
+                  AND: {
+                    OR: [
+                      { code: { contains: input.search, mode: "insensitive" } },
+                      { name: { contains: input.search, mode: "insensitive" } },
+                    ],
+                  },
+                }
+              : {}),
+          }
+        : {}),
+    },
   })
+  return definitions.map((definition) => ({
+    chargeFrequency: definition.chargeFrequency,
+    chargeValueType:
+      definition.versions[0]?.chargeValueType ?? definition.chargeValueType,
+    code: definition.code,
+    collectionMode:
+      definition.applicability.find((item) => item.trigger === "manual")
+        ?.collectionMode ??
+      definition.applicability.find(
+        (item) => item.trigger === "monthly_collection"
+      )?.collectionMode ??
+      ("deduct_from_savings" as const),
+    id: definition.id,
+    isMonthlyLevy: definition.isMonthlyLevy,
+    name: definition.name,
+    purpose: definition.purpose,
+    rate: Number(definition.versions[0]?.amount ?? definition.amount),
+  }))
+}
+
+export async function getMobileAdminChargeRulesForApply(
+  input: ChargePickerInput & { assessedAt: Date },
+  prismaOverride?: PrismaClient
+) {
+  const rows = await findChargeDefinitions(input, getPrisma(prismaOverride))
+  const data = rows.slice(0, chargePageSize)
   return {
-    definitions: definitions
-      .filter(
-        (definition) =>
-          definition.isMonthlyLevy ||
-          definition.applicability.some((item) => item.trigger === "manual")
-      )
-      .map((definition) => ({
-        chargeFrequency: definition.chargeFrequency,
-        chargeValueType:
-          definition.versions[0]?.chargeValueType ?? definition.chargeValueType,
-        code: definition.code,
-        collectionMode:
-          definition.applicability.find((item) => item.trigger === "manual")
-            ?.collectionMode ??
-          definition.applicability.find(
-            (item) => item.trigger === "monthly_collection"
-          )?.collectionMode ??
-          "deduct_from_savings",
-        id: definition.id,
-        isMonthlyLevy: definition.isMonthlyLevy,
-        name: definition.name,
-        purpose: definition.purpose,
-        rate: Number(definition.versions[0]?.amount ?? definition.amount),
-      })),
-    members,
+    data,
+    nextCursor: rows.length > chargePageSize ? (data.at(-1)?.id ?? null) : null,
   }
+}
+
+export async function getMobileAdminChargeFormOptions(
+  input: { search?: string; tenantId: string },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = getPrisma(prismaOverride)
+  const [members, definitions] = await Promise.all([
+    findChargeMembers(input, prisma, 40),
+    findChargeDefinitions({ tenantId: input.tenantId }, prisma),
+  ])
+  return { definitions, members }
 }
 
 type CommandBase = {
@@ -542,7 +723,11 @@ export function applyMobileAdminCharge(
     execute: async (prisma) => {
       const member = await prisma.member.findFirst({
         select: { id: true },
-        where: { id: input.memberId, tenantId: input.tenantId },
+        where: {
+          id: input.memberId,
+          status: { not: "exited" },
+          tenantId: input.tenantId,
+        },
       })
       const definition = await prisma.chargeDefinition.findFirst({
         include: {

@@ -31,13 +31,13 @@ const decisionPrompts: Record<Page, string> = {
   privacy:
     "Confirm controller/processor roles, legal bases, monitored contact, enabled processors and locations, transfers, retention by category, backup expiry and request/complaint process for each launch country.",
   support:
-    "Confirm the published contact is monitored, name the escalation owner and response targets, and verify account-recovery and cooperative handoff steps.",
+    "Confirm hello@halaalvest.com is read on working days with a two-working-day reply target, no round-the-clock support, and the cooperative-first route for money questions.",
   "delete-account":
-    "Approve identity and scope checks, administration handover, eligible-record erasure, restricted retention, processor and backup outcomes, processing timeline and completion contact. Current access revocation is not complete erasure.",
+    "Approve the close-my-account model: identity check, cooperative settles money first (guarantees may block), login closed, contact/ID/KYC details erased, money records kept under the member's name and number for the legal period, 30-day target and email confirmation. Keep draft until the Close my account rename (Phase B) lands; its form copy is part of this hash.",
   "billing-policy":
-    "Confirm the ₦35 seat fee and member-charge option, the 500-message assistant allowance and ₦15 overage under the cooperative cap, ₦1,000 per 12-month mobile term, and Paystack or bank-transfer payment; approve late payment, refunds, disputed bills, tax and price-change notice.",
+    "Confirm the prices, billing from the joining month with no free trial, bill due on issue, no late fees or interest, suspension only after notice, refunds only for overcharges or double payments, disputes by email, and 30 days' notice of price changes.",
   "cooperative-disclosures":
-    "Confirm operator and cooperative roles, funds flow, complete financing costs and guarantor duties, Halaal review claims, launch countries and any required financial-service authorisations.",
+    "Confirm that HalaalVest is not a bank, lender, deposit-taker or adviser and holds no member money; the financing, guarantor, Shariah-claim and no-NDIC-cover wording; and the state registering authority as the escalation route.",
 }
 
 function sourceContentHash(policy: PublicPolicy) {

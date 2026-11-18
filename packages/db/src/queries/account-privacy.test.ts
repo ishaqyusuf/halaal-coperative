@@ -28,6 +28,9 @@ function database(
       tenantId: string
       role: "tenant_admin" | "member"
     }[]
+    /** Member records linked to the login, for the money check. */
+    memberRecords?: { status: string; summary: Record<string, unknown> }[]
+    guarantees?: number
   } = {}
 ) {
   const writes: string[] = []
@@ -41,7 +44,39 @@ function database(
     status: options.status ?? "verified",
     verifiedAt: new Date(),
   }
+  const memberRecords = (options.memberRecords ?? []).map((record, i) => ({
+    id: `member-${i}`,
+    tenantId: "tenant-a",
+    memberNumber: `M-00${i + 1}`,
+    status: record.status,
+    exitedAt: record.status === "exited" ? new Date() : null,
+    tenant: { name: "Cooperative A" },
+    summary: record.summary,
+  }))
   const tx = {
+    // The statement summary's one-statement read.
+    $queryRaw: async (_strings: TemplateStringsArray, ...values: unknown[]) => {
+      const record = memberRecords.find((item) => values.includes(item.id))
+      return record
+        ? [
+            {
+              id: record.id,
+              memberNumber: record.memberNumber,
+              status: record.status,
+              exitedAt: record.exitedAt,
+              totalSavingsSnapshot: 0,
+              ...record.summary,
+            },
+          ]
+        : []
+    },
+    member: {
+      findMany: async () =>
+        memberRecords.map(({ summary: _summary, ...member }) => member),
+    },
+    loanGuarantorApproval: {
+      count: async () => options.guarantees ?? 0,
+    },
     user: {
       findFirst: async (args: { where: { isPlatformOwner?: boolean } }) =>
         args.where.isPlatformOwner
@@ -381,6 +416,7 @@ describe("account privacy safeguards", () => {
         count,
       },
       member: { count },
+      membershipRemoval: { count },
       memberDocument: { count },
       contribution: { count: financialCount("contribution") },
       loan: { count: financialCount("loan") },
@@ -472,6 +508,7 @@ describe("account privacy safeguards", () => {
       assistantChannelLink: { count },
       tenantPlatformBillingSetting: { count },
       platformBill: { count },
+      profitPayout: { count },
     } as unknown as PrismaClient
     const inventory = await getPrivacyProcessingInventory(
       { actorUserId: "operator", requestId: request.id },
@@ -539,6 +576,7 @@ describe("account privacy safeguards", () => {
         ["foodPurchaseCycle", "accountingSubmittedByUserId"],
         ["foodPurchaseApplication", "submittedByUserId"],
         ["foodPurchaseApplication", "reviewedByUserId"],
+        ["foodPurchaseApplication", "goodsReleasedByUserId"],
         ["procurementRequest", "createdByUserId"],
         ["procurementRequest", "reviewedByUserId"],
         ["procurementRequest", "purchasedByUserId"],
@@ -623,6 +661,8 @@ describe("account privacy safeguards", () => {
     })
     expect(calls).toContainEqual({ where: { verifiedByUserId: "user-a" } })
     expect(calls).toContainEqual({ where: { revokedByUserId: "user-a" } })
+    expect(calls).toContainEqual({ where: { removedByUserId: "user-a" } })
+    expect(calls).toContainEqual({ where: { restoredByUserId: "user-a" } })
     expect(calls).toContainEqual({
       where: { financialAdjustmentApprovedByUserId: "user-a" },
     })
@@ -636,7 +676,7 @@ describe("account privacy safeguards", () => {
         prisma
       )
     ).rejects.toThrow("not ready")
-    expect(calls).toHaveLength(92)
+    expect(calls).toHaveLength(98)
     operator = false
     await expect(
       getPrivacyProcessingInventory(
@@ -809,13 +849,22 @@ describe("account privacy safeguards", () => {
         }),
       },
       membership: { findMany: async () => rows },
+      member: { findMany: async () => [] },
     } as unknown as PrismaClient
     expect(
       await getPrivacyRevocationScope(
         { actorUserId: "operator", requestId: "request-a" },
         prisma
       )
-    ).toEqual({ requestId: "request-a", memberships: rows })
+    ).toEqual({
+      requestId: "request-a",
+      memberships: rows,
+      moneyPosition: {
+        members: [],
+        canCloseLogin: true,
+        outstandingSummary: null,
+      },
+    })
   })
   it("rejects a membership added after review before changing a global login", async () => {
     const db = database({
@@ -862,6 +911,119 @@ describe("account privacy safeguards", () => {
           handoverAndRetentionEvidence:
             "All cooperative memberships and retention duties reviewed.",
           reviewedMemberships: [membershipB, membershipA],
+        },
+        db.prisma
+      )
+    ).toEqual({ accessRevoked: true, erasureComplete: false })
+  })
+  it("refuses to close the login while the cooperative still holds or is owed money", async () => {
+    const db = database({
+      replacement: 1,
+      memberships: [{ id: "membership-b", tenantId: "tenant-b", role: "member" }],
+      memberRecords: [
+        {
+          status: "active",
+          summary: { totalSavingsSnapshot: 5000, shareLedgerAmount: 2000 },
+        },
+      ],
+      guarantees: 1,
+    })
+    const attempt = revokePrivacyRequestAccount(
+      {
+        actorUserId: "actor",
+        requestId: "request-a",
+        handoverAndRetentionEvidence:
+          "Ordinary member; money records stay with the cooperative.",
+        reviewedMemberships: [membershipB],
+      },
+      db.prisma
+    )
+    await expect(attempt).rejects.toThrow("must settle their money")
+    await expect(attempt).rejects.toThrow(/savings ₦5,000\.00/)
+    await expect(attempt).rejects.toThrow(/shares ₦2,000\.00/)
+    await expect(attempt).rejects.toThrow(
+      "1 active guarantee on someone else's loan"
+    )
+    expect(db.writes).toEqual([])
+  })
+  it("refuses while a loan is still owed or approved but not paid out", async () => {
+    const db = database({
+      replacement: 1,
+      memberships: [{ id: "membership-b", tenantId: "tenant-b", role: "member" }],
+      memberRecords: [
+        {
+          status: "active",
+          summary: {
+            loanOutstandingPrincipal: 0,
+            approvedNotPaidOutAmount: 30000,
+          },
+        },
+      ],
+    })
+    await expect(
+      revokePrivacyRequestAccount(
+        {
+          actorUserId: "actor",
+          requestId: "request-a",
+          handoverAndRetentionEvidence:
+            "Ordinary member; money records stay with the cooperative.",
+          reviewedMemberships: [membershipB],
+        },
+        db.prisma
+      )
+    ).rejects.toThrow("loans approved, not yet paid out ₦30,000.00")
+    expect(db.writes).toEqual([])
+  })
+  it("closes the login once the cooperative has marked the member exited, and records the check", async () => {
+    const db = database({
+      replacement: 1,
+      memberships: [{ id: "membership-b", tenantId: "tenant-b", role: "member" }],
+      memberRecords: [
+        { status: "exited", summary: { totalSavingsSnapshot: 5000 } },
+      ],
+    })
+    expect(
+      await revokePrivacyRequestAccount(
+        {
+          actorUserId: "actor",
+          requestId: "request-a",
+          handoverAndRetentionEvidence:
+            "Cooperative marked the member exited after paying out savings.",
+          reviewedMemberships: [membershipB],
+        },
+        db.prisma
+      )
+    ).toEqual({ accessRevoked: true, erasureComplete: false })
+    expect(db.updates).toContainEqual(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          processingEvidence: expect.objectContaining({
+            cooperativeMoneyCheck: [
+              {
+                tenantId: "tenant-a",
+                memberId: "member-0",
+                result: "member_exited",
+              },
+            ],
+          }),
+        }),
+      })
+    )
+  })
+  it("closes the login when every balance is zero", async () => {
+    const db = database({
+      replacement: 1,
+      memberships: [{ id: "membership-b", tenantId: "tenant-b", role: "member" }],
+      memberRecords: [{ status: "active", summary: {} }],
+    })
+    expect(
+      await revokePrivacyRequestAccount(
+        {
+          actorUserId: "actor",
+          requestId: "request-a",
+          handoverAndRetentionEvidence:
+            "Ordinary member; every balance with the cooperative is zero.",
+          reviewedMemberships: [membershipB],
         },
         db.prisma
       )

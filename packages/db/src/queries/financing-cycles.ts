@@ -8,6 +8,10 @@ import type {
 } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
+import {
+  getTenantOpeningCashAmount,
+  OPENING_CASH_LEDGER_REFERENCE,
+} from "./opening-cash-amount"
 import { getMobileBillingCommitmentAmount } from "./platform-billing"
 import {
   excludeBroughtForwardLoanProductWhere,
@@ -137,12 +141,17 @@ export type LoanRequestCapacityCheck = {
 export type MemberFundsHeldBreakdown = {
   /** max(0, applied opening financing − applied opening savings − share capital). */
   cooperativeOpeningEquityAmount: number
-  /** Savings + share capital + cooperative opening equity. */
+  /** Savings + share capital + cooperative opening equity + opening cash. */
   memberFundsHeldAmount: number
   /** Contributions + applied opening savings − special-savings refunds paid. */
   memberSavingsHeldAmount: number
   /** Applied opening share capital + share capital paid outside contributions. */
   memberShareCapitalHeldAmount: number
+  /**
+   * Cash the cooperative held at go-live beyond members' balances (triage
+   * 1.9): the net `opening-cash` postings on Cash / Bank (2000).
+   */
+  openingCashAmount: number
   openingSavingsAmount: number
   openingShareCapitalAmount: number
   /** Receipt share allocations, pay-separately share charges, historical purchases. */
@@ -804,6 +813,7 @@ type DeployableFundsSums = {
   approvedHold: unknown
   contribution: unknown
   historicalShare: unknown
+  openingCash: unknown
   openingCommitmentSavings: unknown
   openingFinancing: unknown
   openingShareCapital: unknown
@@ -853,6 +863,14 @@ async function readDeployableFundsSums(
         (SELECT COALESCE(SUM(share_capital_amount), 0)
           FROM historical_member_share_purchases
           WHERE tenant_id = ${tenantId}::uuid) AS "historicalShare",
+        (SELECT COALESCE(SUM(CASE WHEN e.direction = 'debit'
+            THEN e.amount ELSE -e.amount END), 0)
+          FROM ledger_entries e
+          JOIN ledger_transactions t ON t.id = e.ledger_transaction_id
+          JOIN ledger_accounts a ON a.id = e.ledger_account_id
+          WHERE e.tenant_id = ${tenantId}::uuid
+            AND t.reference = ${OPENING_CASH_LEDGER_REFERENCE}
+            AND a.code = '2000') AS "openingCash",
         (SELECT COALESCE(SUM(outstanding_principal), 0) FROM loans
           WHERE tenant_id = ${tenantId}::uuid
             AND status::text = ANY(${activeStatuses}::text[])) AS "outstandingFinancing",
@@ -891,6 +909,7 @@ async function readDeployableFundsSums(
     outstandingLoanSum,
     approvedHoldSum,
     policy,
+    openingCash,
   ] = await Promise.all([
     prisma.contribution.aggregate({
       _sum: { amount: true },
@@ -944,12 +963,14 @@ async function readDeployableFundsSums(
     typeof prisma.tenantPolicy?.findUnique === "function"
       ? prisma.tenantPolicy.findUnique({ where: { tenantId } })
       : null,
+    getTenantOpeningCashAmount(tenantId, prisma),
   ])
 
   return {
     approvedHold: approvedHoldSum._sum.principalAmount,
     contribution: contributionSum._sum.amount,
     historicalShare: historicalShareSum._sum.shareCapitalAmount,
+    openingCash,
     openingCommitmentSavings: openingSum._sum.commitmentSavingsBalance,
     openingFinancing: openingSum._sum.activeFinancingOutstanding,
     openingShareCapital: openingSum._sum.shareCapitalBalance,
@@ -1000,14 +1021,17 @@ function summarizeMemberFundsHeld(
       openingFinancingAmount - openingSavingsAmount - openingShareCapitalAmount
     )
   )
+  const openingCashAmount = roundMoney(Math.max(0, sumOrZero(sums.openingCash)))
 
   return {
     cooperativeOpeningEquityAmount,
     memberFundsHeldAmount: roundMoney(
       memberSavingsHeldAmount +
         memberShareCapitalHeldAmount +
-        cooperativeOpeningEquityAmount
+        cooperativeOpeningEquityAmount +
+        openingCashAmount
     ),
+    openingCashAmount,
     memberSavingsHeldAmount,
     memberShareCapitalHeldAmount,
     openingSavingsAmount,
@@ -1030,7 +1054,9 @@ function summarizeMemberFundsHeld(
  * - cooperative opening equity: the part of applied opening financing that
  *   opening member funds cannot cover. Opening financing is subtracted as
  *   outstanding financing, so without it a migrated cooperative whose loan
- *   book exceeds member balances would never show its own funds.
+ *   book exceeds member balances would never show its own funds;
+ * - cooperative opening cash (triage 1.9): cash held at go-live beyond
+ *   members' balances, recorded once in the ledger (`opening-cash`).
  * Special-savings refunds paid out are subtracted.
  */
 export async function getMemberFundsHeldBreakdown(

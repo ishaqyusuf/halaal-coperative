@@ -1,3 +1,4 @@
+import { isMobileUploadRequest, getMobileReceiptUploadActor, mobileReceiptUploadPurpose, isMobileReceiptProofType } from "@/lib/uploads/mobile-receipt-upload"
 import { randomUUID } from "node:crypto"
 import { createDashboardEvidenceUpload } from "@halaalvest/db"
 import { NextResponse, type NextRequest } from "next/server"
@@ -10,8 +11,15 @@ import { MAX_DASHBOARD_UPLOAD_BYTES, isDashboardUploadStorageUnavailable, isPriv
 export const runtime = "nodejs"
 
 export async function POST(request: NextRequest) {
-  const context = await getDashboardServerContext()
-  if (!hasActiveUploadMembership(context) || !context.tenant || !context.auth.user) return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+  const mobile = isMobileUploadRequest(request)
+  const context = mobile ? null : await getDashboardServerContext()
+  const actor = mobile
+    ? await getMobileReceiptUploadActor(request)
+    : context && hasActiveUploadMembership(context) && context.tenant && context.auth.user
+      ? { tenantId: context.tenant.id, userId: context.auth.user.id }
+      : null
+  if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+
   if (!isDashboardUploadStorageUnavailable()) return NextResponse.json({ mode: "local" })
   if (!isPrivateDashboardUploadEnabled()) return NextResponse.json({ error: "Private uploads are not configured for this environment." }, { status: 503 })
 
@@ -23,10 +31,13 @@ export async function POST(request: NextRequest) {
       typeof input.size !== "number" || !Number.isSafeInteger(input.size) || input.size <= 0 || input.size > MAX_DASHBOARD_UPLOAD_BYTES) {
     return NextResponse.json({ error: "Upload type, purpose, or size is invalid." }, { status: 400 })
   }
+  if (mobile && (input.purpose !== mobileReceiptUploadPurpose || !isMobileReceiptProofType(input.contentType))) {
+    return NextResponse.json({ error: "Select a JPG, PNG or PDF." }, { status: 400 })
+  }
   const id = randomUUID()
   try {
     await createDashboardEvidenceUpload({
-      id, tenantId: context.tenant.id, uploaderUserId: context.auth.user.id,
+      id, tenantId: actor.tenantId, uploaderUserId: actor.userId,
       purpose: input.purpose, originalName: sanitizeUploadName(input.fileName),
       contentType: input.contentType, declaredSize: input.size,
     })
@@ -34,9 +45,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Private upload records are unavailable." }, { status: 503 })
   }
   return NextResponse.json({
-    mode: "private_blob", id, pathname: privateUploadPath(context.tenant.id, id),
+    mode: "private_blob", id, pathname: privateUploadPath(actor.tenantId, id),
     // The provider token is valid for five minutes; finalization also needs
     // time for a slow 10 MiB transfer after that token has been issued.
-    intent: createPrivateUploadIntent({ id, tenantId: context.tenant.id, userId: context.auth.user.id, purpose: input.purpose, expiresAt: Date.now() + 30 * 60 * 1000 }),
+    intent: createPrivateUploadIntent({ id, tenantId: actor.tenantId, userId: actor.userId, purpose: input.purpose, expiresAt: Date.now() + 30 * 60 * 1000 }),
   })
 }

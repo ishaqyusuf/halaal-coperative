@@ -6,7 +6,6 @@ import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
 import {
   closeContributionPlan,
-  listContributions,
   recordMemberPayment,
   setMemberContributionPlan,
   updateMemberPaymentAllocationPreference,
@@ -14,7 +13,6 @@ import {
 } from "./contributions"
 import {
   getCollectionSourceContributionBatch,
-  listCollectionSourceContributionBatches,
   postCollectionSourceContributionBatchRows,
   stageCollectionSourceContributionBatch,
   updateCollectionSourceContributionBatchRows,
@@ -95,10 +93,285 @@ async function contributionStats(tenantId: string, prisma: PrismaClient) {
   }
 }
 
+async function activeDeductionSources(tenantId: string, prisma: PrismaClient) {
+  return (prisma as any).deductionSource.findMany({
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, type: true },
+    where: { isActive: true, tenantId },
+  }) as Promise<{ id: string; name: string; type: string }[]>
+}
+
+/**
+ * The lane-independent header: stats, currency, capabilities and the
+ * collection sources the stage-batch form needs. Mobile reads it once per
+ * screen visit (and after writes) instead of with every lane page.
+ */
+export async function getMobileAdminContributionSummary(
+  input: {
+    capabilities: MobileAdminContributionCapabilities
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = getPrisma(prismaOverride)
+  const [currencyCode, stats, sources] = await Promise.all([
+    tenantCurrency(input.tenantId, prisma),
+    contributionStats(input.tenantId, prisma),
+    activeDeductionSources(input.tenantId, prisma),
+  ])
+  return {
+    capabilities: input.capabilities,
+    currencyCode,
+    generatedAt: new Date(),
+    sources,
+    stats,
+  }
+}
+
+export const mobileAdminContributionPageSize = 30
+const collectionBatchPageSize = 20
+
+function pageOf<T extends { id: string }>(rows: T[], take: number) {
+  const hasNext = rows.length > take
+  const items = hasNext ? rows.slice(0, take) : rows
+  return { items, nextCursor: hasNext ? (items.at(-1)?.id ?? null) : null }
+}
+
+// Explicit optional shape: an inferred `{...} | {}` spreads as
+// `cursor?: undefined`, which Prisma's findMany args reject.
+function cursorArgs(cursor: string | null | undefined): {
+  cursor?: { id: string }
+  skip?: number
+} {
+  return cursor ? { cursor: { id: cursor }, skip: 1 } : {}
+}
+
+async function ledgerPage(
+  input: { cursor?: string | null; search?: string; tenantId: string },
+  prisma: PrismaClient
+) {
+  const take = mobileAdminContributionPageSize
+  const search = input.search
+  const rows = await prisma.contribution.findMany({
+    ...cursorArgs(input.cursor),
+    orderBy: [{ postedAt: "desc" }, { id: "desc" }],
+    select: {
+      amount: true,
+      channel: true,
+      committedAmount: true,
+      extraSavingsAmount: true,
+      id: true,
+      member: { select: { fullName: true, id: true, memberNumber: true } },
+      periodLabel: true,
+      postedAt: true,
+      reference: true,
+      status: true,
+    },
+    take: take + 1,
+    where: {
+      tenantId: input.tenantId,
+      ...(search
+        ? {
+            OR: [
+              { reference: { contains: search, mode: "insensitive" } },
+              {
+                member: {
+                  OR: [
+                    { fullName: { contains: search, mode: "insensitive" } },
+                    {
+                      memberNumber: { contains: search, mode: "insensitive" },
+                    },
+                  ],
+                },
+              },
+            ],
+          }
+        : {}),
+    },
+  })
+  const page = pageOf(rows, take)
+  return {
+    data: page.items.map((item) => ({
+      amount: Number(item.amount),
+      channel: item.channel,
+      committedAmount: Number(item.committedAmount ?? 0),
+      extraSavingsAmount: Number(item.extraSavingsAmount ?? 0),
+      id: item.id,
+      memberId: item.member.id,
+      memberName: item.member.fullName,
+      memberNumber: item.member.memberNumber,
+      periodLabel: item.periodLabel,
+      postedAt: item.postedAt,
+      reference: item.reference,
+      status: item.status,
+    })),
+    nextCursor: page.nextCursor,
+  }
+}
+
+async function commitmentsPage(
+  input: { cursor?: string | null; search?: string; tenantId: string },
+  prisma: PrismaClient
+) {
+  const take = mobileAdminContributionPageSize
+  const members = await prisma.member.findMany({
+    ...cursorArgs(input.cursor),
+    orderBy: [{ fullName: "asc" }, { id: "asc" }],
+    select: {
+      contributionPlans: {
+        orderBy: { startsAt: "desc" },
+        select: { amount: true, id: true },
+        take: 1,
+        where: { isActive: true },
+      },
+      deductionSource: { select: { name: true } },
+      fullName: true,
+      id: true,
+      memberNumber: true,
+      paymentAllocationPreference: true,
+      status: true,
+      totalSavingsSnapshot: true,
+    },
+    take: take + 1,
+    where: {
+      status: { not: "exited" },
+      tenantId: input.tenantId,
+      ...(input.search
+        ? {
+            OR: [
+              { fullName: { contains: input.search, mode: "insensitive" } },
+              { memberNumber: { contains: input.search, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    },
+  })
+  const page = pageOf(members, take)
+  return {
+    data: page.items.map((member) => ({
+      activeCommitmentAmount: Number(member.contributionPlans[0]?.amount ?? 0),
+      activePlanId: member.contributionPlans[0]?.id ?? null,
+      deductionSourceName: member.deductionSource?.name ?? null,
+      id: member.id,
+      name: member.fullName,
+      number: member.memberNumber,
+      paymentAllocationPreference: member.paymentAllocationPreference,
+      status: member.status,
+      totalSavings: Number(member.totalSavingsSnapshot),
+    })),
+    nextCursor: page.nextCursor,
+  }
+}
+
+/**
+ * Batch summaries without loading their rows: one page of batches plus one
+ * grouped aggregate of row counts and amounts for that page.
+ */
+async function collectionsPage(
+  input: { cursor?: string | null; search?: string; tenantId: string },
+  prisma: PrismaClient
+) {
+  const take = collectionBatchPageSize
+  const search = input.search
+  const batches = await (
+    prisma as any
+  ).collectionSourceContributionBatch.findMany({
+    ...cursorArgs(input.cursor),
+    orderBy: [
+      { periodYear: "desc" },
+      { periodMonth: "desc" },
+      { createdAt: "desc" },
+      { id: "desc" },
+    ],
+    select: {
+      createdAt: true,
+      deductionSource: {
+        select: { externalReference: true, id: true, name: true, type: true },
+      },
+      id: true,
+      notes: true,
+      periodLabel: true,
+      periodMonth: true,
+      periodYear: true,
+      postedAt: true,
+      reference: true,
+      status: true,
+    },
+    take: take + 1,
+    where: {
+      tenantId: input.tenantId,
+      ...(search
+        ? {
+            OR: [
+              { periodLabel: { contains: search, mode: "insensitive" } },
+              { reference: { contains: search, mode: "insensitive" } },
+              {
+                deductionSource: {
+                  name: { contains: search, mode: "insensitive" },
+                },
+              },
+            ],
+          }
+        : {}),
+    },
+  })
+  const page = pageOf(batches as { id: string }[], take)
+  const ids = page.items.map((batch) => batch.id)
+  const groups: {
+    _count: { _all: number }
+    _sum: { expectedAmount: unknown; paidAmount: unknown }
+    batchId: string
+    status: string
+  }[] = ids.length
+    ? await (prisma as any).collectionSourceContributionBatchRow.groupBy({
+        _count: { _all: true },
+        _sum: { expectedAmount: true, paidAmount: true },
+        by: ["batchId", "status"],
+        where: { batchId: { in: ids }, tenantId: input.tenantId },
+      })
+    : []
+  return {
+    data: page.items.map((batch: any) => {
+      const own = groups.filter((group) => group.batchId === batch.id)
+      const rows = (status: string) =>
+        own.find((group) => group.status === status)?._count._all ?? 0
+      const sum = (key: "expectedAmount" | "paidAmount", status?: string) =>
+        own
+          .filter((group) => !status || group.status === status)
+          .reduce((total, group) => total + Number(group._sum[key] ?? 0), 0)
+      return {
+        ...batch,
+        deductionSource: {
+          ...batch.deductionSource,
+          externalReference: batch.deductionSource.externalReference ?? null,
+        },
+        notes: batch.notes ?? null,
+        postedAt: batch.postedAt ?? null,
+        reference: batch.reference ?? null,
+        totals: {
+          blockedRows: rows("blocked"),
+          collectedRows: rows("collected"),
+          exceptionRows: rows("exception"),
+          expectedAmount: sum("expectedAmount"),
+          paidAmount: sum("paidAmount"),
+          postedAmount: sum("paidAmount", "posted"),
+          postedRows: rows("posted"),
+          rowCount: own.reduce((total, group) => total + group._count._all, 0),
+          skippedRows: rows("skipped"),
+          stagedRows: rows("staged"),
+        },
+      }
+    }),
+    nextCursor: page.nextCursor,
+  }
+}
+
 export async function getMobileAdminContributionWorkspace(
   input: {
     capabilities: MobileAdminContributionCapabilities
     cursor?: string | null
+    /** Older app builds read stats and sources from every lane page. */
+    includeSummary?: boolean
     lane: MobileAdminContributionLane
     search?: string
     tenantId: string
@@ -106,123 +379,31 @@ export async function getMobileAdminContributionWorkspace(
   prismaOverride?: PrismaClient
 ) {
   const prisma = getPrisma(prismaOverride)
-  const [currencyCode, stats] = await Promise.all([
-    tenantCurrency(input.tenantId, prisma),
-    contributionStats(input.tenantId, prisma),
-  ])
-  const shared = {
-    capabilities: input.capabilities,
-    currencyCode,
-    generatedAt: new Date(),
-    lane: input.lane,
-    stats,
-  }
-
-  if (input.lane === "ledger") {
-    const page = await listContributions(
-      input.tenantId,
-      {
-        cursor: input.cursor,
-        pageSize: 30,
-        search: input.search,
-        sort: ["postedAt", "desc"],
-      },
-      prisma
-    )
-    return {
-      ...shared,
-      data: page.items.map((item) => ({
-        amount: Number(item.amount),
-        channel: item.channel,
-        committedAmount: Number(item.committedAmount ?? 0),
-        extraSavingsAmount: Number(item.extraSavingsAmount ?? 0),
-        id: item.id,
-        memberId: item.member.id,
-        memberName: item.member.fullName,
-        memberNumber: item.member.memberNumber,
-        periodLabel: item.periodLabel,
-        postedAt: item.postedAt,
-        reference: item.reference,
-        status: item.status,
-      })),
-      nextCursor: page.nextCursor,
-    }
-  }
-
-  if (input.lane === "commitments") {
-    const members = await prisma.member.findMany({
-      include: {
-        contributionPlans: {
-          orderBy: { startsAt: "desc" },
-          take: 1,
-          where: { isActive: true },
-        },
-        deductionSource: { select: { name: true } },
-      },
-      orderBy: [{ fullName: "asc" }, { id: "asc" }],
-      take: 40,
-      where: {
-        status: { not: "exited" },
-        tenantId: input.tenantId,
-        ...(input.search
-          ? {
-              OR: [
-                { fullName: { contains: input.search, mode: "insensitive" } },
-                {
-                  memberNumber: {
-                    contains: input.search,
-                    mode: "insensitive",
-                  },
-                },
-              ],
-            }
-          : {}),
-      },
-    })
-    return {
-      ...shared,
-      data: members.map((member) => ({
-        activeCommitmentAmount: Number(
-          member.contributionPlans[0]?.amount ?? 0
-        ),
-        activePlanId: member.contributionPlans[0]?.id ?? null,
-        deductionSourceName: member.deductionSource?.name ?? null,
-        id: member.id,
-        name: member.fullName,
-        number: member.memberNumber,
-        paymentAllocationPreference: member.paymentAllocationPreference,
-        status: member.status,
-        totalSavings: Number(member.totalSavingsSnapshot),
-      })),
-      nextCursor: null,
-    }
-  }
-
-  const [batches, sources] = await Promise.all([
-    listCollectionSourceContributionBatches(input.tenantId, prisma),
-    (prisma as any).deductionSource.findMany({
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, type: true },
-      where: {
-        isActive: true,
-        tenantId: input.tenantId,
-        ...(input.search
-          ? { name: { contains: input.search, mode: "insensitive" } }
-          : {}),
-      },
-    }),
+  const includeSummary = input.includeSummary ?? true
+  const lanePage =
+    input.lane === "ledger"
+      ? ledgerPage(input, prisma)
+      : input.lane === "commitments"
+        ? commitmentsPage(input, prisma)
+        : collectionsPage(input, prisma)
+  const [page, summary] = await Promise.all([
+    lanePage,
+    includeSummary
+      ? getMobileAdminContributionSummary(input, prisma)
+      : Promise.resolve(null),
   ])
   return {
-    ...shared,
-    data: batches.filter((batch) =>
-      input.search
-        ? `${batch.deductionSource.name} ${batch.periodLabel} ${batch.reference ?? ""}`
-            .toLowerCase()
-            .includes(input.search.toLowerCase())
-        : true
-    ),
-    nextCursor: null,
-    sources,
+    capabilities: input.capabilities,
+    generatedAt: new Date(),
+    lane: input.lane,
+    ...page,
+    ...(summary
+      ? {
+          currencyCode: summary.currencyCode,
+          stats: summary.stats,
+          ...(input.lane === "collections" ? { sources: summary.sources } : {}),
+        }
+      : {}),
   }
 }
 
@@ -234,7 +415,18 @@ export async function getMobileAdminContributionMemberWorkspace(
   const member = await prisma.member.findFirst({
     include: {
       contributionPlans: { orderBy: { startsAt: "desc" } },
-      contributions: { orderBy: { postedAt: "desc" }, take: 12 },
+      contributions: {
+        orderBy: [{ postedAt: "desc" }, { id: "desc" }],
+        select: {
+          amount: true,
+          channel: true,
+          id: true,
+          postedAt: true,
+          reference: true,
+          status: true,
+        },
+        take: 12,
+      },
       deductionSource: { select: { name: true } },
       loans: {
         orderBy: { createdAt: "desc" },
@@ -261,8 +453,10 @@ export async function getMobileAdminContributionMemberWorkspace(
     commitmentTarget: Number(activePlan?.amount ?? 0),
     contributionHistory: member.contributions.map((item) => ({
       amount: Number(item.amount),
+      channel: item.channel,
       id: item.id,
       postedAt: item.postedAt,
+      reference: item.reference,
       status: item.status,
     })),
     deductionSourceName: member.deductionSource?.name ?? null,

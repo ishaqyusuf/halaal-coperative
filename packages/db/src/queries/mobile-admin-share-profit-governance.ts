@@ -41,7 +41,9 @@ function amount(value: unknown) {
 }
 
 function serializeApplication(
-  application: Awaited<ReturnType<typeof listMemberShareApplicationPage>>["data"][number],
+  application: Awaited<
+    ReturnType<typeof listMemberShareApplicationPage>
+  >["data"][number],
   input: {
     capabilities: MobileAdminShareProfitCapabilities
     shareModel: "monthly_history" | "unit_based"
@@ -60,26 +62,71 @@ function serializeApplication(
   }
 }
 
-function allocationSummary(allocations: Array<any>) {
-  const draft = allocations.filter((item) => item.status === "draft")
-  const published = allocations.filter((item) => item.status === "published")
-  return {
-    allocatedAmount: allocations.reduce(
-      (total, item) => total + amount(item.allocatedProfitAmount),
-      0
-    ),
-    count: allocations.length,
-    draftCount: draft.length,
-    publishedCount: published.length,
+type AllocationStats = {
+  allocatedAmount: number
+  count: number
+  draftCount: number
+  publishedCount: number
+}
+
+const noAllocations: AllocationStats = {
+  allocatedAmount: 0,
+  count: 0,
+  draftCount: 0,
+  publishedCount: 0,
+}
+
+/**
+ * Allocation totals per profit entry from one grouped aggregate, instead of
+ * loading every allocation row (and so never judging reconciliation from a
+ * truncated list).
+ */
+async function allocationStats(
+  tenantId: string,
+  scope: { entryIds: string[] } | { dividendPeriodId: string },
+  prisma: any
+): Promise<Map<string, AllocationStats>> {
+  const stats = new Map<string, AllocationStats>()
+  if ("entryIds" in scope && !scope.entryIds.length) return stats
+  const groups: Array<{
+    _count: { _all: number }
+    _sum: { allocatedProfitAmount: unknown }
+    profitEntryId: string
+    status: string
+  }> = await prisma.shareProfitAllocation.groupBy({
+    _count: { _all: true },
+    _sum: { allocatedProfitAmount: true },
+    by: ["profitEntryId", "status"],
+    where: {
+      tenantId,
+      ...("entryIds" in scope
+        ? { profitEntryId: { in: scope.entryIds } }
+        : {
+            profitEntry: {
+              linkedDividendPeriodId: scope.dividendPeriodId,
+              status: { not: "archived" },
+            },
+          }),
+    },
+  })
+  for (const group of groups) {
+    const current = stats.get(group.profitEntryId) ?? { ...noAllocations }
+    current.count += group._count._all
+    current.allocatedAmount += amount(group._sum.allocatedProfitAmount)
+    if (group.status === "draft") current.draftCount += group._count._all
+    if (group.status === "published")
+      current.publishedCount += group._count._all
+    stats.set(group.profitEntryId, current)
   }
+  return stats
 }
 
 function serializeProfitEntry(
   entry: any,
   periodStatus: string,
-  capabilities: MobileAdminShareProfitCapabilities
+  capabilities: MobileAdminShareProfitCapabilities,
+  allocations: AllocationStats = noAllocations
 ) {
-  const allocations = allocationSummary(entry.allocations ?? [])
   const allocatableProfit = amount(entry.allocatableProfitAmount)
   const allocationsReconcile =
     allocations.count > 0 &&
@@ -137,10 +184,16 @@ function serializeProfitEntry(
 
 function serializeProfitPeriod(
   period: any,
-  capabilities: MobileAdminShareProfitCapabilities
+  capabilities: MobileAdminShareProfitCapabilities,
+  stats: Map<string, AllocationStats>
 ) {
   const entries = (period.shareBusinessProfitEntries ?? []).map((entry: any) =>
-    serializeProfitEntry(entry, period.status, capabilities)
+    serializeProfitEntry(
+      entry,
+      period.status,
+      capabilities,
+      stats.get(entry.id)
+    )
   )
   const entryExpenses = entries.reduce(
     (total: number, entry: any) => total + entry.expenseAmount,
@@ -165,10 +218,34 @@ function serializeProfitPeriod(
     periodEnd: period.periodEnd.toISOString(),
     periodStart: period.periodStart.toISOString(),
     publishedAt: period.publishedAt?.toISOString() ?? null,
-    readyToPublishCount: entries.filter(
-      (entry: any) => entry.allowedActions.includes("publish")
+    readyToPublishCount: entries.filter((entry: any) =>
+      entry.allowedActions.includes("publish")
     ).length,
     status: period.status,
+  }
+}
+
+async function shareSummary(tenantId: string, prisma: any) {
+  const [pendingCount, pendingUnits, postedCapital, ledgerCount] =
+    await Promise.all([
+      prisma.memberShareApplication.count({
+        where: { status: "pending", tenantId },
+      }),
+      prisma.memberShareApplication.aggregate({
+        _sum: { requestedUnits: true },
+        where: { status: "pending", tenantId },
+      }),
+      prisma.memberShareLedgerEntry.aggregate({
+        _sum: { amount: true },
+        where: { tenantId },
+      }),
+      prisma.memberShareLedgerEntry.count({ where: { tenantId } }),
+    ])
+  return {
+    ledgerCount,
+    pendingCount,
+    pendingUnits: amount(pendingUnits._sum.requestedUnits),
+    postedCapital: amount(postedCapital._sum.amount),
   }
 }
 
@@ -176,69 +253,59 @@ async function getShareWorkspace(
   input: {
     capabilities: MobileAdminShareProfitCapabilities
     cursor?: string
+    includeSummary: boolean
     search?: string
     tenantId: string
   },
   prisma: any
 ) {
-  const policy = await getTenantSharePolicy(input.tenantId, prisma)
   const search = input.search?.trim() || undefined
-  const [page, pendingCount, pendingUnits, postedCapital, ledgerCount, ledger] =
-    await Promise.all([
-      listMemberShareApplicationPage(
-        {
-          cursor: input.cursor,
-          pageSize: 30,
-          search,
-          status: "pending",
-          tenantId: input.tenantId,
-        },
-        prisma
-      ),
-      prisma.memberShareApplication.count({
-        where: { status: "pending", tenantId: input.tenantId },
-      }),
-      prisma.memberShareApplication.aggregate({
-        _sum: { requestedUnits: true },
-        where: { status: "pending", tenantId: input.tenantId },
-      }),
-      prisma.memberShareLedgerEntry.aggregate({
-        _sum: { amount: true },
-        where: { tenantId: input.tenantId },
-      }),
-      prisma.memberShareLedgerEntry.count({
-        where: { tenantId: input.tenantId },
-      }),
-      prisma.memberShareLedgerEntry.findMany({
-        include: {
-          member: {
-            select: { fullName: true, id: true, memberNumber: true },
+  const [policy, page, summary, ledger] = await Promise.all([
+    getTenantSharePolicy(input.tenantId, prisma),
+    listMemberShareApplicationPage(
+      {
+        cursor: input.cursor,
+        pageSize: 30,
+        search,
+        status: "pending",
+        tenantId: input.tenantId,
+      },
+      prisma
+    ),
+    input.includeSummary ? shareSummary(input.tenantId, prisma) : null,
+    // Recent postings sit under the first page only.
+    input.cursor
+      ? []
+      : prisma.memberShareLedgerEntry.findMany({
+          include: {
+            member: {
+              select: { fullName: true, id: true, memberNumber: true },
+            },
           },
-        },
-        orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
-        take: 12,
-        where: {
-          tenantId: input.tenantId,
-          ...(search
-            ? {
-                OR: [
-                  { notes: { contains: search, mode: "insensitive" } },
-                  {
-                    member: {
-                      fullName: { contains: search, mode: "insensitive" },
+          orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
+          take: 12,
+          where: {
+            tenantId: input.tenantId,
+            ...(search
+              ? {
+                  OR: [
+                    { notes: { contains: search, mode: "insensitive" } },
+                    {
+                      member: {
+                        fullName: { contains: search, mode: "insensitive" },
+                      },
                     },
-                  },
-                  {
-                    member: {
-                      memberNumber: { contains: search, mode: "insensitive" },
+                    {
+                      member: {
+                        memberNumber: { contains: search, mode: "insensitive" },
+                      },
                     },
-                  },
-                ],
-              }
-            : {}),
-        },
-      }),
-    ])
+                  ],
+                }
+              : {}),
+          },
+        }),
+  ])
 
   return {
     applications: page.data.map((application) =>
@@ -258,13 +325,29 @@ async function getShareWorkspace(
     })),
     nextCursor: page.meta.cursor ?? null,
     policy,
-    summary: {
-      ledgerCount,
-      pendingCount,
-      pendingUnits: amount(pendingUnits._sum.requestedUnits),
-      postedCapital: amount(postedCapital._sum.amount),
-    },
+    ...(summary ? { summary } : {}),
     total: page.meta.total,
+  }
+}
+
+async function profitSummary(tenantId: string, prisma: any) {
+  const [pendingApprovalCount, readyToPublishCount, unpublished] =
+    await Promise.all([
+      prisma.shareBusinessProfitEntry.count({
+        where: { status: "reviewed", tenantId },
+      }),
+      prisma.shareBusinessProfitEntry.count({
+        where: { status: "approved", tenantId },
+      }),
+      prisma.dividendPeriod.aggregate({
+        _sum: { distributableAmount: true },
+        where: { status: { in: ["approved", "draft"] }, tenantId },
+      }),
+    ])
+  return {
+    pendingApprovalCount,
+    readyToPublishCount,
+    unpublishedAmount: amount(unpublished._sum.distributableAmount),
   }
 }
 
@@ -272,6 +355,7 @@ async function getProfitWorkspace(
   input: {
     capabilities: MobileAdminShareProfitCapabilities
     cursor?: string
+    includeSummary: boolean
     search?: string
     tenantId: string
   },
@@ -297,59 +381,75 @@ async function getProfitWorkspace(
         }
       : {}),
   }
-  const [rows, total, pendingApprovalCount, readyToPublishCount, unpublished] =
-    await Promise.all([
-      prisma.dividendPeriod.findMany({
-        cursor: input.cursor ? { id: input.cursor } : undefined,
-        include: {
-          shareBusinessProfitEntries: {
-            include: {
-              allocations: {
-                select: {
-                  allocatedProfitAmount: true,
-                  status: true,
-                },
-              },
-              shareBusiness: { select: { name: true } },
-            },
-            orderBy: [{ profitDate: "desc" }, { createdAt: "desc" }],
-            where: { status: { not: "archived" } },
-          },
+  const [rows, total, summary] = await Promise.all([
+    prisma.dividendPeriod.findMany({
+      cursor: input.cursor ? { id: input.cursor } : undefined,
+      include: {
+        shareBusinessProfitEntries: {
+          include: { shareBusiness: { select: { name: true } } },
+          orderBy: [{ profitDate: "desc" }, { createdAt: "desc" }],
+          where: { status: { not: "archived" } },
         },
-        orderBy: [{ periodEnd: "desc" }, { createdAt: "desc" }],
-        skip: input.cursor ? 1 : 0,
-        take: 31,
-        where,
-      }),
-      prisma.dividendPeriod.count({ where }),
-      prisma.shareBusinessProfitEntry.count({
-        where: { status: "reviewed", tenantId: input.tenantId },
-      }),
-      prisma.shareBusinessProfitEntry.count({
-        where: { status: "approved", tenantId: input.tenantId },
-      }),
-      prisma.dividendPeriod.aggregate({
-        _sum: { distributableAmount: true },
-        where: {
-          status: { in: ["approved", "draft"] },
-          tenantId: input.tenantId,
-        },
-      }),
-    ])
-  const hasNextPage = rows.length > 30
-  const periods = rows.slice(0, 30)
+      },
+      orderBy: [{ periodEnd: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+      skip: input.cursor ? 1 : 0,
+      take: 21,
+      where,
+    }),
+    // Only the first page carries the total.
+    input.cursor ? null : prisma.dividendPeriod.count({ where }),
+    input.includeSummary ? profitSummary(input.tenantId, prisma) : null,
+  ])
+  const hasNextPage = rows.length > 20
+  const periods = rows.slice(0, 20)
+  const stats = await allocationStats(
+    input.tenantId,
+    {
+      entryIds: periods.flatMap((period: any) =>
+        period.shareBusinessProfitEntries.map((entry: any) => entry.id)
+      ),
+    },
+    prisma
+  )
 
   return {
     nextCursor: hasNextPage ? (periods.at(-1)?.id ?? null) : null,
     periods: periods.map((period: any) =>
-      serializeProfitPeriod(period, input.capabilities)
+      serializeProfitPeriod(period, input.capabilities, stats)
     ),
-    summary: {
-      pendingApprovalCount,
-      readyToPublishCount,
-      unpublishedAmount: amount(unpublished._sum.distributableAmount),
-    },
-    total,
+    ...(summary ? { summary } : {}),
+    total: total ?? null,
+  }
+}
+
+/**
+ * Header stats for both books, read once per visit: share counts and
+ * posted capital, profit approval/publish counts and unpublished profit.
+ */
+export async function getMobileAdminShareProfitSummary(
+  input: {
+    capabilities: MobileAdminShareProfitCapabilities
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = getPrisma(prismaOverride)
+  const [tenant, policy, shares, profit] = await Promise.all([
+    prisma.tenant.findUnique({
+      select: { currencyCode: true },
+      where: { id: input.tenantId },
+    }),
+    getTenantSharePolicy(input.tenantId, prisma),
+    shareSummary(input.tenantId, prisma),
+    profitSummary(input.tenantId, prisma),
+  ])
+  return {
+    capabilities: input.capabilities,
+    currencyCode: tenant?.currencyCode ?? "NGN",
+    generatedAt: new Date().toISOString(),
+    policy,
+    profit,
+    shares,
   }
 }
 
@@ -358,25 +458,31 @@ export async function getMobileAdminShareProfitWorkspace(
     book: MobileAdminShareProfitBook
     capabilities: MobileAdminShareProfitCapabilities
     cursor?: string
+    /** Older app builds read currency and book stats with every page. */
+    includeSummary?: boolean
     search?: string
     tenantId: string
   },
   prismaOverride?: PrismaClient
 ) {
   const prisma = getPrisma(prismaOverride)
-  const tenant = await prisma.tenant.findUnique({
-    select: { currencyCode: true },
-    where: { id: input.tenantId },
-  })
-  const data =
+  const includeSummary = input.includeSummary ?? true
+  const [tenant, data] = await Promise.all([
+    includeSummary
+      ? prisma.tenant.findUnique({
+          select: { currencyCode: true },
+          where: { id: input.tenantId },
+        })
+      : null,
     input.book === "shares"
-      ? await getShareWorkspace(input, prisma)
-      : await getProfitWorkspace(input, prisma)
+      ? getShareWorkspace({ ...input, includeSummary }, prisma)
+      : getProfitWorkspace({ ...input, includeSummary }, prisma),
+  ])
 
   return {
     book: input.book,
     capabilities: input.capabilities,
-    currencyCode: tenant?.currencyCode ?? "NGN",
+    ...(includeSummary ? { currencyCode: tenant?.currencyCode ?? "NGN" } : {}),
     generatedAt: new Date().toISOString(),
     profit: input.book === "profit" ? data : null,
     shares: input.book === "shares" ? data : null,
@@ -392,17 +498,19 @@ export async function getMobileAdminShareApplicationDetail(
   prismaOverride?: PrismaClient
 ) {
   const prisma = getPrisma(prismaOverride)
-  const application = await findMemberShareApplication(
-    {
-      memberShareApplicationId: input.memberShareApplicationId,
-      tenantId: input.tenantId,
-    },
-    prisma
-  )
+  const [application, policy] = await Promise.all([
+    findMemberShareApplication(
+      {
+        memberShareApplicationId: input.memberShareApplicationId,
+        tenantId: input.tenantId,
+      },
+      prisma
+    ),
+    getTenantSharePolicy(input.tenantId, prisma),
+  ])
   if (!application) {
     throw ExpectedQueryError.notFound("Share application not found.")
   }
-  const policy = await getTenantSharePolicy(input.tenantId, prisma)
   const [position, postedLedger] = await Promise.all([
     policy.configurationMode === "unit_based"
       ? getMemberUnitSharePosition(
@@ -446,41 +554,48 @@ export async function getMobileAdminProfitPeriodDetail(
   prismaOverride?: PrismaClient
 ) {
   const prisma = getPrisma(prismaOverride)
-  const period = await prisma.dividendPeriod.findFirst({
-    include: {
-      allocations: {
-        include: {
-          member: {
-            select: { fullName: true, id: true, memberNumber: true },
-          },
-        },
-        orderBy: { allocationAmount: "desc" },
-        take: 30,
-      },
-      shareBusinessProfitEntries: {
-        include: {
-          allocations: {
-            include: {
-              member: {
-                select: { fullName: true, id: true, memberNumber: true },
-              },
+  const [period, stats] = await Promise.all([
+    prisma.dividendPeriod.findFirst({
+      include: {
+        allocations: {
+          include: {
+            member: {
+              select: { fullName: true, id: true, memberNumber: true },
             },
-            orderBy: { allocatedProfitAmount: "desc" },
-            take: 30,
           },
-          expenseLines: { orderBy: { createdAt: "asc" } },
-          shareBusiness: { select: { name: true } },
+          orderBy: { allocationAmount: "desc" },
+          take: 30,
         },
-        orderBy: [{ profitDate: "desc" }, { createdAt: "desc" }],
-        where: { status: { not: "archived" } },
+        shareBusinessProfitEntries: {
+          include: {
+            allocations: {
+              include: {
+                member: {
+                  select: { fullName: true, id: true, memberNumber: true },
+                },
+              },
+              orderBy: { allocatedProfitAmount: "desc" },
+              take: 30,
+            },
+            expenseLines: { orderBy: { createdAt: "asc" } },
+            shareBusiness: { select: { name: true } },
+          },
+          orderBy: [{ profitDate: "desc" }, { createdAt: "desc" }],
+          where: { status: { not: "archived" } },
+        },
       },
-    },
-    where: { id: input.dividendPeriodId, tenantId: input.tenantId },
-  })
+      where: { id: input.dividendPeriodId, tenantId: input.tenantId },
+    }),
+    allocationStats(
+      input.tenantId,
+      { dividendPeriodId: input.dividendPeriodId },
+      prisma
+    ),
+  ])
   if (!period) throw ExpectedQueryError.notFound("Profit period not found.")
 
   return {
-    period: serializeProfitPeriod(period, input.capabilities),
+    period: serializeProfitPeriod(period, input.capabilities, stats),
     periodAllocations: period.allocations.map((item: any) => ({
       allocationAmount: amount(item.allocationAmount),
       id: item.id,
@@ -488,7 +603,12 @@ export async function getMobileAdminProfitPeriodDetail(
       savingsBasisAmount: amount(item.savingsBasisAmount),
     })),
     profitEntries: period.shareBusinessProfitEntries.map((entry: any) => ({
-      ...serializeProfitEntry(entry, period.status, input.capabilities),
+      ...serializeProfitEntry(
+        entry,
+        period.status,
+        input.capabilities,
+        stats.get(entry.id)
+      ),
       allocations: entry.allocations.map((item: any) => ({
         allocatedProfitAmount: amount(item.allocatedProfitAmount),
         id: item.id,

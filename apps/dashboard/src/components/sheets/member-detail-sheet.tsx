@@ -24,12 +24,14 @@ type ActiveCommitmentPlan = {
 export function MemberDetailSheet({
   activePlan,
   canChangeWorkplace,
+  commitmentStartsAtGoLive,
   devMode,
   documents,
   member,
 }: {
   activePlan: ActiveCommitmentPlan
   canChangeWorkplace: boolean
+  commitmentStartsAtGoLive: boolean
   devMode: boolean
   documents: MemberDetailDocument[]
   member: MemberDetailMember
@@ -67,6 +69,7 @@ export function MemberDetailSheet({
           }
         >
           <MemberDetailSheetHeader
+            commitmentStartsAtGoLive={commitmentStartsAtGoLive}
             presentation={
               presentation.presentation === "sheet" ? "sheet" : "dialog"
             }
@@ -74,6 +77,7 @@ export function MemberDetailSheet({
           <MemberDetailContent
             activePlan={activePlan}
             canChangeWorkplace={canChangeWorkplace}
+            commitmentStartsAtGoLive={commitmentStartsAtGoLive}
             devMode={devMode}
             documents={documents}
             member={member}

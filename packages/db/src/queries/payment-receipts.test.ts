@@ -59,6 +59,41 @@ function receiptRow(overrides: Record<string, unknown> = {}) {
   }
 }
 
+/**
+ * Ledger delegates a procurement or foodstuff receipt needs (ADR member
+ * purchase receivable): no earlier posting, the purchase accounts, and the
+ * postings it writes collected in `postings`.
+ */
+function memberPurchaseLedgerDelegates(postings: any[]) {
+  return {
+    ledgerAccount: {
+      createMany: async () => ({ count: 0 }),
+      findMany: async () =>
+        ["1200", "2200", "3300", "2000", "4000"].map((code) => ({
+          code,
+          id: `account-${code}`,
+        })),
+      // No 3300 lookup in these doubles: the season hand-off is skipped.
+      findUnique: async () => null,
+    },
+    ledgerTransaction: {
+      create: async (input: any) => {
+        postings.push(input.data)
+        return { ...input.data, entries: [], id: `posting-${postings.length}` }
+      },
+      findUnique: async () => null,
+    },
+  }
+}
+
+function postedLines(posting: any) {
+  return posting.entries.create.map((entry: any) => [
+    entry.ledgerAccountId.replace("account-", ""),
+    entry.direction,
+    entry.amount,
+  ])
+}
+
 function liveMigrationDelegates() {
   return {
     appliedBackfillMonth: {
@@ -370,9 +405,16 @@ describe("member payment receipt queries", () => {
       },
       {
         memberPaymentReceipt: {
-          count: async (input: Record<string, unknown>) => {
+          groupBy: async (input: Record<string, unknown>) => {
             countWheres.push(input.where)
-            return countWheres.length
+            expect(input.by).toEqual(["status"])
+            return [
+              { status: "submitted", _count: { _all: 1 } },
+              { status: "under_review", _count: { _all: 2 } },
+              { status: "correction_requested", _count: { _all: 3 } },
+              { status: "approved", _count: { _all: 4 } },
+              { status: "rejected", _count: { _all: 5 } },
+            ]
           },
         },
       } as never
@@ -386,7 +428,7 @@ describe("member payment receipt queries", () => {
       submittedReceipts: 1,
       underReviewReceipts: 2,
     })
-    expect(countWheres).toHaveLength(5)
+    expect(countWheres).toHaveLength(1)
     for (const where of countWheres) {
       expect(where).toMatchObject({
         memberId: "member-1",
@@ -827,6 +869,7 @@ describe("member payment receipt queries", () => {
   })
 
   test("approves procurement receipt allocations against repayment schedules", async () => {
+    const postings: any[] = []
     const scheduleUpdates: Record<string, unknown>[] = []
     const requestUpdates: Record<string, unknown>[] = []
     const auditCreates: Record<string, unknown>[] = []
@@ -899,11 +942,25 @@ describe("member payment receipt queries", () => {
         groupBy: async () => [],
       },
       procurementRequest: {
+        // Bought before the receivable existed: release posted first.
+        findFirst: async () => ({
+          approvedMarkup: 0,
+          id: "procurement-request-1",
+          itemName: "Freezer",
+          memberId: "member-1",
+          openingBalanceSource: null,
+          purchaseReference: null,
+          purchasedAt: new Date("2026-06-01T00:00:00.000Z"),
+          purchasedByUserId: "finance-1",
+          repaymentScheduleItems: [{ amount: 10000 }],
+          requestedAt: new Date("2026-05-20T00:00:00.000Z"),
+        }),
         updateMany: async (input: Record<string, unknown>) => {
           requestUpdates.push(input)
           return input
         },
       },
+      ...memberPurchaseLedgerDelegates(postings),
     }
 
     const receipt = await reviewMemberPaymentReceipt(
@@ -956,6 +1013,14 @@ describe("member payment receipt queries", () => {
     expect(scheduleUpdates).toEqual([
       { id: "procurement-schedule-1", paid_amount: 10000, status: "paid" },
     ])
+    expect(postings.map((posting) => posting.idempotencyKey)).toEqual([
+      "member-purchase-release:procurement:procurement-request-1",
+      "member-purchase-repayment:allocation-procurement-1",
+    ])
+    expect(postedLines(postings[1])).toEqual([
+      ["2000", "debit", 6000],
+      ["1200", "credit", 6000],
+    ])
     expect(requestUpdates).toEqual([
       {
         data: { status: "completed" },
@@ -975,6 +1040,7 @@ describe("member payment receipt queries", () => {
   })
 
   test("approves food purchase receipt allocations against approved applications", async () => {
+    const postings: any[] = []
     const foodPurchaseApplicationUpdates: Record<string, unknown>[] = []
     const auditCreates: Record<string, unknown>[] = []
     const foodPurchaseAllocation = {
@@ -1010,6 +1076,18 @@ describe("member payment receipt queries", () => {
         findFirst: async () => null,
       },
       foodPurchaseApplication: {
+        // Released when the month closed, with ₦5,000 of the price as profit.
+        findFirst: async () => ({
+          approvedAmount: 50000,
+          approvedMarkup: 5000,
+          cycle: { periodMonth: new Date("2026-07-01T00:00:00.000Z") },
+          goodsReleasedAt: new Date("2026-07-05T00:00:00.000Z"),
+          goodsReleasedByUserId: "finance-1",
+          id: "food-application-1",
+          itemDescription: "Rice",
+          memberId: "member-1",
+          openingBalanceSource: null,
+        }),
         findMany: async () => [
           {
             approvedAmount: 50000,
@@ -1021,7 +1099,11 @@ describe("member payment receipt queries", () => {
           foodPurchaseApplicationUpdates.push(input)
           return input
         },
+        updateMany: async () => ({ count: 0 }),
       },
+      // Earned profit is carried into the season profit books.
+      shareBusiness: { findFirst: async () => null },
+      ...memberPurchaseLedgerDelegates(postings),
       member: {
         findMany: async () => [],
       },
@@ -1097,6 +1179,32 @@ describe("member payment receipt queries", () => {
         },
         where: { id: "food-application-1" },
       },
+    ])
+    // ₦30,000 of ₦50,000 owed, paid after ₦20,000: earns 5,000 × 50/50 −
+    // 5,000 × 20/50 = ₦3,000 of the profit.
+    // This double has no earlier release, so it is posted first, once,
+    // with the ₦20,000 paid before the receivable existed.
+    expect(postings.map((posting) => posting.idempotencyKey)).toEqual([
+      "member-purchase-release:food_purchase:food-application-1",
+      "member-purchase-repayment:prior:food_purchase:food-application-1",
+      "member-purchase-repayment:allocation-food-1",
+    ])
+    expect(postedLines(postings[0])).toEqual([
+      ["1200", "debit", 50000],
+      ["2000", "credit", 45000],
+      ["2200", "credit", 5000],
+    ])
+    expect(postedLines(postings[1])).toEqual([
+      ["2000", "debit", 20000],
+      ["1200", "credit", 20000],
+      ["2200", "debit", 2000],
+      ["3300", "credit", 2000],
+    ])
+    expect(postedLines(postings[2])).toEqual([
+      ["2000", "debit", 30000],
+      ["1200", "credit", 30000],
+      ["2200", "debit", 3000],
+      ["3300", "credit", 3000],
     ])
     expect(
       auditCreates.some(

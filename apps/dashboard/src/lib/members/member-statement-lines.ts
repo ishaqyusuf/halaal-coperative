@@ -3,13 +3,16 @@
  *
  * Each line says what happened to the member's own balances, read from the
  * member-facing accounts of the standard chart (`packages/db` ledger.ts):
- * 1000 Member Savings, 3200 Member Share Capital and 1100 Loan Receivable.
+ * 1000 Member Savings, 3200 Member Share Capital, 1100 Loan Receivable and
+ * 1200 Member Purchase Receivable (procurement and foodstuff bought for them).
  * A fee paid in cash touches none of them, so it shows as "Paid".
  */
 
 export type StatementMoveKind =
   | "loan_given"
   | "loan_repaid"
+  | "goods_given"
+  | "goods_repaid"
   | "paid"
   | "savings_in"
   | "savings_out"
@@ -44,10 +47,13 @@ export type StatementLedgerTransaction = {
 
 const SAVINGS = "1000"
 const LOAN = "1100"
+const GOODS = "1200"
 const CASH = "2000"
 const SHARES = "3200"
 
 export const statementMoveLabels: Record<StatementMoveKind, string> = {
+  goods_given: "Goods bought for you",
+  goods_repaid: "Goods paid back",
   loan_given: "Loan given",
   loan_repaid: "Loan repaid",
   paid: "Paid",
@@ -59,7 +65,12 @@ export const statementMoveLabels: Record<StatementMoveKind, string> = {
 
 /** Moves that add to what the member has (shown as money in). */
 export function isMoneyIn(kind: StatementMoveKind) {
-  return kind === "savings_in" || kind === "shares_in" || kind === "loan_repaid"
+  return (
+    kind === "savings_in" ||
+    kind === "shares_in" ||
+    kind === "loan_repaid" ||
+    kind === "goods_repaid"
+  )
 }
 
 const typeLabels: Record<string, string> = {
@@ -70,6 +81,8 @@ const typeLabels: Record<string, string> = {
   levy: "Levy",
   loan_disbursement: "Loan paid out",
   loan_repayment: "Loan repayment",
+  member_purchase_release: "Goods bought for you",
+  member_purchase_repayment: "Goods repayment",
 }
 
 export function describeStatementTransaction(
@@ -114,6 +127,8 @@ export function getStatementMoves(
     { amount: sumEntries(entries, SHARES, "debit"), kind: "shares_out" },
     { amount: sumEntries(entries, LOAN, "debit"), kind: "loan_given" },
     { amount: sumEntries(entries, LOAN, "credit"), kind: "loan_repaid" },
+    { amount: sumEntries(entries, GOODS, "debit"), kind: "goods_given" },
+    { amount: sumEntries(entries, GOODS, "credit"), kind: "goods_repaid" },
   ]
   const moves = candidates.filter((move) => move.amount > 0)
 

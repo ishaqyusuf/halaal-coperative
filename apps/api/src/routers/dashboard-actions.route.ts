@@ -50,6 +50,10 @@ import {
   generateShareProfitAllocations,
   shareProfitSeason,
   workOutProfitSeasonShares,
+  payOutProfit,
+  profitPayoutDestinations,
+  reverseProfitPayout,
+  type ProfitPayoutDestination,
   disburseLoan,
   openMonthlyFinancingCycle,
   getImportBatchKind,
@@ -75,6 +79,8 @@ import {
   recordCollectionFollowUp,
   provisionTenantUserRole,
   removeTenantStaffRole,
+  removeTenantPersonFromCooperative,
+  restoreTenantPerson,
   rotateMemberSignupLinkToken,
   recordFoodPurchaseAccounting,
   transitionFoodPurchaseCycle,
@@ -102,7 +108,6 @@ import {
   reviewProcurementRequest,
   runTenantDomainVerificationCheck,
   setTenantInitialMigrationEmergencyUnlock,
-  setTenantDomainPrimary,
   removeTenantCustomDomain,
   updateTenantDomainVerificationStatus,
   updateTenantShareStructureVersion,
@@ -127,6 +132,7 @@ import {
   updateChargeDefinitionVersion,
   updateTenantMigrationSetup,
   upsertTenantBroughtForwardSnapshot,
+  setTenantOpeningCash,
   updateShareBusiness,
   updateSupportCaseStatus,
   updateMemberKyc,
@@ -2777,6 +2783,21 @@ export async function upsertTenantBroughtForwardSnapshotAction(
   revalidatePath("/getting-started")
 }
 
+/** Cooperative opening cash (triage 1.9); refused once the cooperative is live. */
+export async function setTenantOpeningCashAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  const raw = (formData.get("amount") as string | null)?.trim() ?? ""
+
+  await setTenantOpeningCash({
+    actorUserId: actor.user.id,
+    amount: raw === "" ? 0 : Number(raw),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/finance/migration")
+  revalidatePath("/getting-started")
+}
+
 export async function updateTenantOperationProfileAction(formData: FormData) {
   const actor = await requireDashboardActor(workspaceAdminRoles)
   const currentProfile = await getTenantOperationProfile(actor.tenant.id)
@@ -3454,6 +3475,72 @@ export async function shareProfitSeasonAction(formData: FormData) {
     commandId: getRequiredString(formData, "commandId"),
     note: getOptionalTrimmedString(formData, "note"),
     seasonId: getRequiredString(formData, "seasonId"),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidateBusinessPages()
+}
+
+function getProfitPayoutDestination(formData: FormData, key: string) {
+  const value = getRequiredString(formData, key)
+
+  if (!profitPayoutDestinations.includes(value as ProfitPayoutDestination)) {
+    throw new DashboardActionExpectedError(
+      "Choose savings, cash or bank transfer."
+    )
+  }
+
+  return value as ProfitPayoutDestination
+}
+
+/**
+ * Pay out a shared season's profit: one member (`memberId`) or everyone still
+ * owed, with optional per-member destinations (`overrides`, JSON). Same roles
+ * as sharing the season; each member is paid once.
+ */
+export async function payOutProfitAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+  const rawOverrides = getOptionalTrimmedString(formData, "overrides")
+  let overrideInput: unknown = {}
+  try {
+    overrideInput = rawOverrides ? JSON.parse(rawOverrides) : {}
+  } catch {
+    overrideInput = null
+  }
+  const parsedOverrides = z
+    .record(z.string().uuid(), z.enum(["savings", "cash", "bank_transfer"]))
+    .safeParse(overrideInput)
+
+  if (!parsedOverrides.success) {
+    throw new DashboardActionExpectedError(
+      "Choose savings, cash or bank transfer for each member."
+    )
+  }
+
+  await payOutProfit({
+    actorUserId: actor.user.id,
+    commandId: getRequiredString(formData, "commandId"),
+    destination: getProfitPayoutDestination(formData, "destination"),
+    memberId: getOptionalTrimmedString(formData, "memberId"),
+    note: getOptionalTrimmedString(formData, "note"),
+    overrides: parsedOverrides.data,
+    reference: getOptionalTrimmedString(formData, "reference"),
+    seasonId: getRequiredString(formData, "seasonId"),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidateBusinessPages()
+}
+
+/** Undo one profit payout: the amount is owed to the member again. */
+export async function reverseProfitPayoutAction(formData: FormData) {
+  const actor = await requireDashboardActor(financeManagementRoles)
+
+  await reverseProfitPayout({
+    actorUserId: actor.user.id,
+    commandId: getRequiredString(formData, "commandId"),
+    payoutId: getRequiredString(formData, "payoutId"),
+    reason: getRequiredString(formData, "reason"),
     tenantId: actor.tenant.id,
   })
 
@@ -5788,19 +5875,7 @@ export async function createTenantDomainAction(formData: FormData) {
   revalidatePath("/")
 }
 
-export async function setTenantDomainPrimaryAction(formData: FormData) {
-  const actor = await requireDashboardActor(workspaceAdminRoles)
-
-  await setTenantDomainPrimary({
-    actorUserId: actor.user.id,
-    domainId: getRequiredString(formData, "domainId"),
-    tenantId: actor.tenant.id,
-  })
-
-  revalidatePath("/domains")
-}
-
-// Admins remove one of their own extra addresses; never the main one.
+// Admins remove one of their own extra addresses; never the Halaalvest one.
 export async function removeTenantCustomDomainAction(formData: FormData) {
   const actor = await requireDashboardActor(workspaceAdminRoles)
 
@@ -5930,6 +6005,35 @@ export async function removeTenantStaffRoleAction(formData: FormData) {
     // The role named in the confirm must be one this admin may take away.
     expectedRole: requireAssignableRole(actor, role),
     membershipId: getRequiredString(formData, "membershipId"),
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/roles")
+}
+
+// "Remove from cooperative": all of a staff person's roles, restorable.
+export async function removeTenantPersonFromCooperativeAction(
+  formData: FormData
+) {
+  const actor = await requireDashboardActor(workspaceAdminRoles)
+
+  await removeTenantPersonFromCooperative({
+    actorUserId: actor.user.id,
+    canRemovePlatformAdmin: actor.membership.role === "super_admin",
+    tenantId: actor.tenant.id,
+    userId: getRequiredString(formData, "userId"),
+  })
+
+  revalidatePath("/settings/roles")
+}
+
+export async function restoreTenantPersonAction(formData: FormData) {
+  const actor = await requireDashboardActor(workspaceAdminRoles)
+
+  await restoreTenantPerson({
+    actorUserId: actor.user.id,
+    canRestorePlatformAdmin: actor.membership.role === "super_admin",
+    removalId: getRequiredString(formData, "removalId"),
     tenantId: actor.tenant.id,
   })
 
@@ -6333,6 +6437,7 @@ export async function reviewFoodPurchaseApplicationAction(formData: FormData) {
     actorUserId: actor.user.id,
     applicationId: getRequiredString(formData, "applicationId"),
     approvedAmount: getOptionalNumber(formData, "approvedAmount"),
+    approvedMarkup: getOptionalNumber(formData, "approvedMarkup"),
     approvedPaybackMonths: getOptionalNumber(formData, "approvedPaybackMonths"),
     notes: getOptionalTrimmedString(formData, "notes"),
     status: status as "approved" | "rejected" | "under_review",
@@ -6485,6 +6590,7 @@ export async function reviewProcurementRequestAction(formData: FormData) {
   const request = await reviewProcurementRequest({
     actorUserId: actor.user.id,
     approvedCost: getOptionalNumber(formData, "approvedCost"),
+    approvedMarkup: getOptionalNumber(formData, "approvedMarkup"),
     approvedRepaymentMonths: getOptionalNumber(
       formData,
       "approvedRepaymentMonths"
@@ -7191,6 +7297,7 @@ const dashboardActionHandlers = {
   updateTenantSharePolicyAction,
   updateTenantMigrationSetupAction,
   upsertTenantBroughtForwardSnapshotAction,
+  setTenantOpeningCashAction,
   updateTenantOperationProfileAction,
   createMemberShareApplicationAction,
   createOwnMemberShareApplicationAction,
@@ -7210,6 +7317,8 @@ const dashboardActionHandlers = {
   closeProfitSeasonAction,
   workOutProfitSeasonSharesAction,
   shareProfitSeasonAction,
+  payOutProfitAction,
+  reverseProfitPayoutAction,
   saveBusinessProfitMigrationWorksheetAction,
   saveBusinessProfitSeasonReviewAction,
   updateChargeDefinitionAction,
@@ -7251,12 +7360,13 @@ const dashboardActionHandlers = {
   toggleMemberSignupLinkAction,
   rotateMemberSignupLinkAction,
   createTenantDomainAction,
-  setTenantDomainPrimaryAction,
   removeTenantCustomDomainAction,
   updateTenantDomainVerificationStatusAction,
   runTenantDomainVerificationCheckAction,
   provisionTenantUserRoleAction,
   removeTenantStaffRoleAction,
+  removeTenantPersonFromCooperativeAction,
+  restoreTenantPersonAction,
   recordCollectionFollowUpAction,
   createSupportCaseAction,
   addSupportCaseMessageAction,
@@ -7413,6 +7523,9 @@ export const dashboardActionsRouter = createTRPCRouter({
   upsertTenantBroughtForwardSnapshotAction: formAction(
     dashboardActionHandlers.upsertTenantBroughtForwardSnapshotAction
   ),
+  setTenantOpeningCashAction: formAction(
+    dashboardActionHandlers.setTenantOpeningCashAction
+  ),
   updateTenantOperationProfileAction: formAction(
     dashboardActionHandlers.updateTenantOperationProfileAction
   ),
@@ -7469,6 +7582,10 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   shareProfitSeasonAction: formAction(
     dashboardActionHandlers.shareProfitSeasonAction
+  ),
+  payOutProfitAction: formAction(dashboardActionHandlers.payOutProfitAction),
+  reverseProfitPayoutAction: formAction(
+    dashboardActionHandlers.reverseProfitPayoutAction
   ),
   saveBusinessProfitMigrationWorksheetAction: formAction(
     dashboardActionHandlers.saveBusinessProfitMigrationWorksheetAction
@@ -7587,9 +7704,6 @@ export const dashboardActionsRouter = createTRPCRouter({
   createTenantDomainAction: formAction(
     dashboardActionHandlers.createTenantDomainAction
   ),
-  setTenantDomainPrimaryAction: formAction(
-    dashboardActionHandlers.setTenantDomainPrimaryAction
-  ),
   removeTenantCustomDomainAction: formAction(
     dashboardActionHandlers.removeTenantCustomDomainAction
   ),
@@ -7604,6 +7718,12 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   removeTenantStaffRoleAction: formAction(
     dashboardActionHandlers.removeTenantStaffRoleAction
+  ),
+  removeTenantPersonFromCooperativeAction: formAction(
+    dashboardActionHandlers.removeTenantPersonFromCooperativeAction
+  ),
+  restoreTenantPersonAction: formAction(
+    dashboardActionHandlers.restoreTenantPersonAction
   ),
   recordCollectionFollowUpAction: formAction(
     dashboardActionHandlers.recordCollectionFollowUpAction

@@ -4,6 +4,7 @@ import {
   isMobileDevFixtureSession,
   isMobileQaClientBuild,
 } from "@/dev/mobile-dev-session"
+import { shouldShowDevQuickFill } from "@/dev/dev-quick-fill-visibility"
 import { loadMobileQaAuthorization } from "@/lib/mobile-qa-authorization-store"
 import { getSessionProfile } from "@/lib/session-store"
 import { Portal } from "@gorhom/portal"
@@ -61,13 +62,18 @@ export function DevQuickFill({
     }
   }, [])
 
+  // Every placement, the footer included, needs QA authorization (5.11).
   if (
     !isMobileQaClientBuild ||
-    (placement !== "footer" &&
-      !isMobileDevFixtureSession() &&
-      !getSessionProfile()?.qaAuthorized &&
-      !hasDeviceQaAuthorization) ||
-    (placement !== "footer" && !isFocused) ||
+    !shouldShowDevQuickFill({
+      hasDeviceQaAuthorization,
+      isDevFixtureSession: isMobileDevFixtureSession(),
+      isFocused,
+      isKeyboardVisible,
+      isQaClientBuild: isMobileQaClientBuild,
+      placement,
+      sessionQaAuthorized: Boolean(getSessionProfile()?.qaAuthorized),
+    }) ||
     isKeyboardVisible
   )
     return null

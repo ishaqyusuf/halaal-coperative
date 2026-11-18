@@ -10,12 +10,16 @@ import {
   canManageMobileDeviceSessions,
   type MobileDeviceSessionCollection,
 } from "@/features/device-sessions/model/device-session-types"
-import { DeviceSessionsScreen } from "@/features/device-sessions/screens/device-sessions-screen"
+import {
+  DeviceSessionsScreen,
+  type DeviceAccessBlock,
+} from "@/features/device-sessions/screens/device-sessions-screen"
 import { useAuthContext } from "@/hooks/use-auth"
 import { canUseMobileFeatureData } from "@/dev/mobile-dev-session"
 import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
 import { useRouter } from "expo-router"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { appQueryKey, useAppQuery, useInvalidateAppQueries } from "@/hooks/use-app-query"
+import { useCallback, useState } from "react"
 
 function getDeviceSessionError(error: unknown, fallback: string) {
   if (!(error instanceof Error)) return fallback
@@ -45,13 +49,10 @@ export function DeviceSessionsRouteController({
   const { invalidateLocalSession, profile } = useAuthContext()
   const router = useRouter()
   const runtime = useMobileRuntime()
-  const [collection, setCollection] =
-    useState<MobileDeviceSessionCollection | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [writeError, setWriteError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const loadRequestIdRef = useRef(0)
+  const invalidate = useInvalidateAppQueries()
   const managed = Boolean(
     targetUserId && profile && targetUserId !== profile.user.id
   )
@@ -62,87 +63,73 @@ export function DeviceSessionsRouteController({
     ? canUseMobileFeatureData(profile, profile.role)
     : false
   const isOffline = runtime.state.connectivity === "offline"
+  // Reasons the read must not run; shown as a block card, not a fetch error.
+  const blocked: DeviceAccessBlock | null = invalidTarget
+    ? {
+        body: "This device-access link is invalid. Open Device access from the member’s profile instead.",
+        icon: "Link2Off",
+        title: "This link doesn’t work",
+      }
+    : !profile || !canLoad
+      ? {
+          body: "Sign in with your QA or production account to review device access.",
+          icon: "Lock",
+          title: "Sign in to see device access",
+        }
+      : managed && !allowedToManage
+        ? {
+            body: "Cooperative Admin access is required to manage another user’s devices.",
+            icon: "Lock",
+            title: "Admin access needed",
+          }
+        : null
+  const sessionsKey = appQueryKey(
+    "device-sessions",
+    managed ? { managedUserId: targetUserId } : { ownUserId: profile?.user.id }
+  )
 
-  const loadSessions = useCallback(async () => {
-    const requestId = ++loadRequestIdRef.current
-    if (invalidTarget) {
-      setError("This device-access link is invalid.")
-      setIsLoading(false)
-      return
-    }
-    if (!profile || !canLoad) {
-      setError(
-        "Sign in with your QA or production account to review device access."
+  // T01 reference read: react-query with focus/reconnect/screen-focus
+  // refresh, previous data kept between refreshes, no auth/validation
+  // retries. Writes invalidate this exact key instead of reloading by hand.
+  const sessionsQuery = useAppQuery<MobileDeviceSessionCollection>({
+    enabled: blocked === null && !isOffline,
+    queryFn: () =>
+      managed
+        ? getManagedMobileDeviceSessions(targetUserId!)
+        : getOwnMobileDeviceSessions({
+            ownerId: profile!.user.id,
+            ownerName: profile!.user.name,
+          }),
+    queryKey: sessionsKey,
+  })
+  const collection = sessionsQuery.data ?? null
+  const readError = sessionsQuery.error
+    ? getDeviceSessionError(
+        sessionsQuery.error,
+        "Device access could not be loaded. Try again."
       )
-      setIsLoading(false)
-      return
-    }
-    if (managed && !allowedToManage) {
-      setError(
-        "Cooperative Admin access is required to manage another user's devices."
-      )
-      setIsLoading(false)
-      return
-    }
-    if (isOffline) {
-      setError("Reconnect to review current device access.")
-      setIsLoading(false)
-      return
-    }
-
-    setIsLoading(true)
-    setError(null)
-    try {
-      const nextCollection = managed
-        ? await getManagedMobileDeviceSessions(targetUserId!)
-        : await getOwnMobileDeviceSessions({
-            ownerId: profile.user.id,
-            ownerName: profile.user.name,
-          })
-      if (requestId === loadRequestIdRef.current) {
-        setCollection(nextCollection)
-      }
-    } catch (loadError) {
-      if (requestId === loadRequestIdRef.current) {
-        setError(
-          getDeviceSessionError(
-            loadError,
-            "Device access could not be loaded. Try again."
-          )
-        )
-      }
-    } finally {
-      if (requestId === loadRequestIdRef.current) {
-        setIsLoading(false)
-      }
-    }
-  }, [
-    allowedToManage,
-    canLoad,
-    invalidTarget,
-    isOffline,
-    managed,
-    profile,
-    targetUserId,
-  ])
-
-  useEffect(() => {
-    void loadSessions()
-    return () => {
-      loadRequestIdRef.current += 1
-    }
-  }, [loadSessions])
+    : isOffline && !collection
+      ? "The current device list loads when you’re back online."
+      : null
+  const refetchSessions = sessionsQuery.refetch
+  const loadSessions = useCallback(
+    () => invalidate(sessionsKey),
+    // sessionsKey is derived from the two ids below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [invalidate, managed, targetUserId, profile?.user.id]
+  )
 
   const handleRefresh = useCallback(() => {
     setNotice(null)
-    void loadSessions()
-  }, [loadSessions])
+    setWriteError(null)
+    void refetchSessions()
+  }, [refetchSessions])
 
   const handleRevoke = useCallback(
     async (sessionId: string) => {
-      if (!profile || isSubmitting) return
+      if (!profile || isSubmitting) return false
       setIsSubmitting(true)
-      setError(null)
+      setWriteError(null)
       setNotice(null)
       try {
         if (managed) {
@@ -158,18 +145,20 @@ export function DeviceSessionsRouteController({
           )
           if (result.revokedCurrent) {
             await invalidateLocalSession()
-            return
+            return true
           }
         }
         setNotice("Device access removed.")
         await loadSessions()
+        return true
       } catch (revokeError) {
-        setError(
+        setWriteError(
           getDeviceSessionError(
             revokeError,
-            "Device access could not be removed. Try again."
+            "Device access couldn’t be removed. Check your connection and try again."
           )
         )
+        return false
       } finally {
         setIsSubmitting(false)
       }
@@ -186,9 +175,9 @@ export function DeviceSessionsRouteController({
   )
 
   const handleRevokeAll = useCallback(async () => {
-    if (!profile || isSubmitting) return
+    if (!profile || isSubmitting) return false
     setIsSubmitting(true)
-    setError(null)
+    setWriteError(null)
     setNotice(null)
     try {
       if (managed) {
@@ -203,13 +192,15 @@ export function DeviceSessionsRouteController({
         )
         await invalidateLocalSession()
       }
+      return true
     } catch (revokeError) {
-      setError(
+      setWriteError(
         getDeviceSessionError(
           revokeError,
-          "Device access could not be removed. Try again."
+          "Device access couldn’t be removed. Check your connection and try again."
         )
       )
+      return false
     } finally {
       setIsSubmitting(false)
     }
@@ -225,17 +216,21 @@ export function DeviceSessionsRouteController({
 
   return (
     <DeviceSessionsScreen
+      blocked={blocked}
       collection={collection}
-      error={error}
-      isLoading={isLoading}
+      isLoading={sessionsQuery.isFetching && !collection}
       isOffline={isOffline}
       isSubmitting={isSubmitting}
       managed={managed}
       notice={notice}
-      onBack={() => router.back()}
+      onBack={() => (router.canGoBack() ? router.back() : router.replace("/"))}
+      onDismissWriteError={() => setWriteError(null)}
       onRefresh={handleRefresh}
       onRevoke={handleRevoke}
       onRevokeAll={handleRevokeAll}
+      readError={readError}
+      refreshing={sessionsQuery.isRefetching && Boolean(collection)}
+      writeError={writeError}
     />
   )
 }

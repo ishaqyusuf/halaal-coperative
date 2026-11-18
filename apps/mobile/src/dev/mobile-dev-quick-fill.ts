@@ -148,11 +148,11 @@ export const mobileDevQuickFill = {
       "Reviewed with the cooperative operations team and approved for the current service policy.",
   },
   procurement: {
-    itemDescription: "Energy-efficient refrigerator for the family shop.",
-    itemName: "Commercial refrigerator",
-    requestedCost: "380000",
-    requestedRepaymentMonths: "10",
-    vendorName: "Aminah Appliances Ltd",
+    itemDescription: "To store frozen fish for resale at my stall in Oja Oba.",
+    itemName: "Chest freezer (300L)",
+    requestedCost: "185000",
+    requestedRepaymentMonths: "6",
+    vendorName: "Haier Thermocool, Ikeja",
   },
   projectFinancing: {
     businessDescription:

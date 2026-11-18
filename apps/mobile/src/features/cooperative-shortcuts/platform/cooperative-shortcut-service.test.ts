@@ -17,10 +17,10 @@ import {
 const context = {
   cooperativeName: "Amanah Savings",
   mark: "AS",
-  membershipId: "m-amanah",
   tenantId: "t-amanah",
   userId: "user-a",
 }
+const shortcutId = `cs1-${"ab".repeat(16)}`
 
 function harness(
   overrides: {
@@ -28,7 +28,6 @@ function harness(
     native?: boolean
     pinned?: PinnedShortcut[]
     requestPin?: (spec: NativeShortcutSpec) => Promise<NativePinResult>
-    signOutBudgetMs?: number
     updateFails?: boolean
   } = {}
 ) {
@@ -51,6 +50,10 @@ function harness(
               events.push(`native-disable:${ids.join(",")}`)
               return overrides.disable ? overrides.disable(ids) : ids.length
             },
+            enable: async (id) => {
+              events.push(`native-enable:${id}`)
+              return true
+            },
             listPinned: async () => overrides.pinned ?? [],
             requestPin: async (spec) => {
               specs.push(spec)
@@ -59,13 +62,16 @@ function harness(
                 ? overrides.requestPin(spec)
                 : "requested"
             },
-            update: async () => true,
+            update: async (spec) => {
+              specs.push(spec)
+              events.push(`native-update:${spec.id}`)
+              return true
+            },
           },
     now: () => 10,
     randomBytes: (count) => new Uint8Array(count).fill(171),
     readRegistry: () => stored,
     reportError: (error) => void errors.push(error),
-    signOutBudgetMs: overrides.signOutBudgetMs ?? 1000,
     updateRegistry: async (update) => {
       if (overrides.updateFails) throw new Error("secure storage unavailable")
       stored = update(stored)
@@ -95,33 +101,35 @@ describe("cooperative shortcut service", () => {
     expect(stored().associations[0]?.status).toBe("request_sent")
     expect(specs[0]).toEqual({
       environment: "preview",
-      id: `cs1-${"ab".repeat(16)}`,
+      id: shortcutId,
       longLabel: "Amanah Savings",
       mark: "AS",
       shortLabel: "Amanah…",
-      uri: `halaalvest-preview://cooperative-shortcut/cs1-${"ab".repeat(16)}`,
+      tenantId: "t-amanah",
+      uri: `halaalvest-preview://cooperative-shortcut/${shortcutId}`,
     })
   })
 
-  test("launcher metadata never carries session or personal data", async () => {
+  test("launcher metadata carries the cooperative but no account or session data", async () => {
     const { service, specs } = harness()
     await service.request(context)
     const metadata = JSON.stringify(specs)
-    for (const secret of ["user-a", "m-amanah", "t-amanah", "token"]) {
+    for (const secret of ["user-a", "token"]) {
       expect(metadata).not.toContain(secret)
     }
+    expect(specs[0]?.uri).not.toContain("t-amanah")
   })
 
-  test("reuses one id per account and cooperative across retries", async () => {
+  test("reuses one id per cooperative across retries and accounts", async () => {
     const { service, specs, stored } = harness({
       requestPin: async () => "rejected",
     })
     await service.request(context)
-    await service.request({ ...context, membershipId: "m-amanah-admin" })
+    await service.request({ ...context, userId: "user-b" })
 
     expect(specs[0]?.id).toBe(specs[1]?.id)
     expect(stored().associations).toHaveLength(1)
-    expect(stored().associations[0]?.status).toBe("deferred")
+    expect(stored().associations[0]?.status).toBe("removed")
   })
 
   test("prevents concurrent pin requests", async () => {
@@ -143,7 +151,7 @@ describe("cooperative shortcut service", () => {
       },
     })
     expect((await service.request(context)).outcome).toBe("failed")
-    expect(stored().associations[0]?.status).toBe("deferred")
+    expect(stored().associations[0]?.status).toBe("removed")
     expect(errors).toHaveLength(1)
   })
 
@@ -153,54 +161,49 @@ describe("cooperative shortcut service", () => {
     expect(stored().associations).toEqual([])
   })
 
-  test("sign-out erases mappings first, then disables, then clears tombstones", async () => {
-    const { events, service, stored } = harness()
-    await service.request(context)
-    service.pending.set(`cs1-${"ab".repeat(16)}`)
-    events.length = 0
-
-    await service.signOutCleanup()
-
-    expect(events).toEqual([
-      "persist:0/1",
-      `native-disable:cs1-${"ab".repeat(16)}`,
-      "persist:0/0",
+  test("\"Not now\" is remembered for that account only", async () => {
+    const { service, stored } = harness()
+    await service.defer(context)
+    await service.defer(context)
+    expect(stored().deferrals).toEqual([
+      { tenantId: "t-amanah", updatedAt: 10, userId: "user-a", variant: "preview" },
     ])
-    expect(stored()).toEqual(emptyShortcutRegistry())
-    expect(service.pending.peek()).toBeNull()
-  })
-
-  test("sign-out cleanup never throws and keeps the tombstone after a native failure", async () => {
-    const { errors, service, stored } = harness({
-      disable: async () => {
-        throw new Error("shortcut service unavailable")
-      },
-    })
-    await service.request(context)
-    await expect(service.signOutCleanup()).resolves.toBeUndefined()
     expect(stored().associations).toEqual([])
-    expect(stored().tombstones).toHaveLength(1)
-    expect(errors).toHaveLength(1)
   })
 
-  test("sign-out cleanup is bounded when the launcher hangs", async () => {
-    const { service } = harness({
-      disable: () => new Promise(() => undefined),
-      signOutBudgetMs: 20,
+  test("reconcile leaves a signed-out cooperative shortcut on", async () => {
+    const { events, service } = harness({
+      pinned: [{ enabled: true, id: shortcutId }],
     })
     await service.request(context)
-    const started = Date.now()
-    await service.signOutCleanup()
-    expect(Date.now() - started).toBeLessThan(500)
+    events.length = 0
+    await service.reconcile(null)
+    expect(events.filter((event) => event.startsWith("native"))).toEqual([])
   })
 
-  test("sign-out cleanup survives a storage failure", async () => {
-    const { errors, service } = harness({ updateFails: true })
-    await expect(service.signOutCleanup()).resolves.toBeUndefined()
-    expect(errors).toHaveLength(1)
+  test("reconcile revives an adopted legacy tile and stamps its cooperative", async () => {
+    const legacy = `cs1-${"ef".repeat(16)}`
+    const { events, service, specs, stored } = harness({
+      pinned: [{ enabled: false, id: legacy, label: "Amanah…" }],
+    })
+    await service.reconcile({
+      cooperativeName: "Amanah Savings",
+      mark: "AS",
+      tenantId: "t-amanah",
+    })
+    expect(events.filter((event) => event.startsWith("native"))).toEqual([
+      `native-enable:${legacy}`,
+      `native-update:${legacy}`,
+    ])
+    expect(specs[0]?.tenantId).toBe("t-amanah")
+    expect(stored().associations[0]).toMatchObject({
+      shortcutId: legacy,
+      status: "pin_observed",
+      tenantId: "t-amanah",
+    })
   })
 
-  test("reconcile disables a late approval delivered after sign-out", async () => {
+  test("reconcile disables an enabled pin nothing accounts for", async () => {
     const { events, service } = harness({
       pinned: [{ enabled: true, id: `cs1-${"cd".repeat(16)}` }],
     })
@@ -208,14 +211,14 @@ describe("cooperative shortcut service", () => {
     expect(events).toContain(`native-disable:cs1-${"cd".repeat(16)}`)
   })
 
-  test("disabling one cooperative leaves the account's other shortcuts alone", async () => {
+  test("disabling one cooperative leaves the other shortcuts alone", async () => {
     const { events, service, stored } = harness()
     await service.request(context)
-    await service.disableForTenant({ tenantId: "t-amanah", userId: "user-a" })
+    await service.disable({ tenantId: "t-amanah" })
     expect(stored().associations[0]?.status).toBe("disabled")
-    expect(events.at(-1)).toBe(`native-disable:cs1-${"ab".repeat(16)}`)
+    expect(events.at(-1)).toBe(`native-disable:${shortcutId}`)
     events.length = 0
-    await service.disableForTenant({ tenantId: "t-other", userId: "user-a" })
+    await service.disable({ tenantId: "t-other" })
     expect(events.filter((event) => event.startsWith("native"))).toEqual([])
   })
 })

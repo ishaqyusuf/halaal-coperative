@@ -37,6 +37,38 @@ describe("Android artifact origin inventory", () => {
     })
   })
 
+  test("finds origins packed into a Hermes string table without separators", () => {
+    // Hermes joins neighbouring strings and can overlap them ("angle-right"
+    // + "https://" sharing "ht"), so URL tokens run into the next string.
+    const bytes = Buffer.from(
+      "angle-rightps://api.halaalvest.comuser-id" +
+        "https://app.halaalvest.comapp-settings" +
+        "https://halaalvest.com.halaalvest.mobile.preview",
+      "latin1"
+    )
+    expect(inspectBundleOrigins(bytes, expected)).toMatchObject({
+      ready: false,
+      missing: [expected.api],
+      reserved: [],
+    })
+    expect(
+      inspectBundleOrigins(
+        Buffer.concat([bytes, Buffer.from("https://api.halaalvest.comx")]),
+        expected
+      )
+    ).toMatchObject({ ready: true, missing: [], reserved: [] })
+  })
+
+  test("rejects reserved hosts joined to the next Hermes string", () => {
+    const bytes = Buffer.from(
+      `${expected.api}${expected.dashboard}${expected.legal}https://api.validation.invalidapp-settings`
+    )
+    expect(inspectBundleOrigins(bytes, expected)).toMatchObject({
+      ready: false,
+      reserved: ["https://api.validation.invalid"],
+    })
+  })
+
   test("rejects placeholder expected origins", () => {
     expect(() =>
       inspectBundleOrigins(Buffer.from("https://api.validation.invalid"), {

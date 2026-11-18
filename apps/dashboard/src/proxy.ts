@@ -204,12 +204,13 @@ export async function proxy(request: NextRequest) {
   return NextResponse.next({ request: { headers: requestHeaders } })
 }
 
-// Provider webhooks and the machine-only channel worker never need tenant
+// Provider webhooks, Oversight's server-to-server reads and the
+// machine-only channel worker never need tenant
 // routing or a session, so the proxy does no work for them. `.well-known/`
 // (app-link association files) must reach Apple and Google with no login
 // redirect, tenant alias redirect or rewrite.
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|brand/|favicon.ico|sitemap.xml|robots.txt|\\.well-known/|api/webhooks/assistant/|api/internal/assistant/channels/).*)",
+    "/((?!_next/static|_next/image|brand/|favicon.ico|sitemap.xml|robots.txt|\\.well-known/|api/webhooks/assistant/|api/oversight/|api/internal/assistant/channels/).*)",
   ],
 }

@@ -66,6 +66,11 @@ export function formatMobileMetricValue(
   metric: MobileOverviewMetric,
   currencyCode: string
 ) {
+  // A server on an older contract can omit a figure; show a dash, not "NaN".
+  if (typeof metric.value !== "number" || !Number.isFinite(metric.value)) {
+    return "—"
+  }
+
   if (metric.format === "currency") {
     return new Intl.NumberFormat("en-NG", {
       currency: currencyCode,

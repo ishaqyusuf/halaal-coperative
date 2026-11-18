@@ -404,7 +404,7 @@ export function AdminMemberDetailScreen({
               <DetailRow
                 label="Monthly commitment"
                 value={
-                  member.activeMonthlyCommitment === null
+                  typeof member.activeMonthlyCommitment !== "number"
                     ? "Not set"
                     : formatMobileMetricValue(
                         {

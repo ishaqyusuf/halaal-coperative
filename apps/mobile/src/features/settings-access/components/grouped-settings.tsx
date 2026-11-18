@@ -6,16 +6,18 @@ import { cn } from "@/lib/utils"
 import { Children, type ReactNode } from "react"
 import { StyleSheet, View } from "react-native"
 
+// Soft tinted tiles (pale tint + coloured glyph), matching SettingsRow and the
+// T00 "tinted icon tiles" pattern. Solid fills read too strong on device.
 const tileColors = {
-  mint: "bg-settings-tile-mint",
-  amber: "bg-settings-tile-amber",
-  sky: "bg-settings-tile-sky",
-  rose: "bg-settings-tile-rose",
-  lilac: "bg-settings-tile-lilac",
-  neutral: "bg-settings-tile-neutral",
-  success: "bg-settings-tile-success",
-  danger: "bg-settings-tile-danger",
-}
+  mint: ["bg-accent", "text-accent-foreground"],
+  amber: ["bg-tint-warm", "text-tint-warm-foreground"],
+  sky: ["bg-tint-sky", "text-tint-sky-foreground"],
+  rose: ["bg-tint-vivid", "text-tint-vivid-foreground"],
+  lilac: ["bg-tint-lilac", "text-tint-lilac-foreground"],
+  neutral: ["bg-surface-raised", "text-foreground-soft"],
+  success: ["bg-tint-success", "text-tint-success-foreground"],
+  danger: ["bg-tint-danger", "text-tint-danger-foreground"],
+} as const
 
 export type SettingsTile = keyof typeof tileColors
 
@@ -59,7 +61,7 @@ export function SettingsDivider({ flush = false }: { flush?: boolean }) {
   return (
     <View
       className={cn(
-        "bg-muted-foreground/45",
+        "bg-muted-foreground/30",
         flush ? "ml-[16px]" : "ml-[58px]"
       )}
     >
@@ -99,15 +101,16 @@ export function SettingsTileIcon({
   icon: string
   tone: SettingsTile
 }) {
+  const [tileClass, iconClass] = tileColors[tone]
   return (
     <View
       className={cn(
         "size-[30px] items-center justify-center rounded-[8px]",
-        tileColors[tone]
+        tileClass
       )}
     >
       <Icon
-        className="text-hero-foreground size-[18px]"
+        className={cn("size-[18px]", iconClass)}
         strokeWidth={2.1}
         name={icon}
       />

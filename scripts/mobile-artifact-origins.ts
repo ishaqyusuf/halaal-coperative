@@ -7,6 +7,7 @@ const androidBundleEntry = "base/assets/index.android.bundle"
 const androidConfigEntry = "base/assets/app.config"
 const expoProjectId = "3fb3e5e2-bd84-4308-8739-e9f4436d0da9"
 const urlPattern = /https?:\/\/(?:\[[0-9a-f:]+\]|[a-z0-9.-]+)(?::\d+)?/gi
+const reservedHostPattern = /https?:\/\/[a-z0-9.-]*?\.invalid/gi
 
 function releaseOrigin(value: string) {
   const url = new URL(value)
@@ -42,16 +43,28 @@ export function inspectBundleOrigins(
     }
   }
   const observed = [...origins].sort()
+  // Hermes packs its string table without separators and may overlap
+  // neighbouring strings, so a URL token can run into the next string
+  // ("https://halaalvest.com" + ".halaalvest.mobile…"). No byte boundary
+  // tells the strings apart there, so the expected origins are matched as
+  // case-insensitive substrings. This proves the origin's bytes are present,
+  // not that they stand alone.
+  const lowerText = text.toLowerCase()
   const missing = Object.values(expected)
     .map(releaseOrigin)
-    .filter((value) => !origins.has(value))
-  const reserved = observed.filter((origin) => {
-    const hostname = new URL(origin).hostname
-    // Bundled SDK documentation may contain example/test/localhost URLs.
-    // The validation build's deliberately unreachable .invalid hosts are
-    // release blockers even if expected origins also appear in the bundle.
-    return /(?:^|\.)invalid$/.test(hostname)
-  })
+    .filter((value) => !origins.has(value) && !lowerText.includes(value))
+  // Bundled SDK documentation may contain example/test/localhost URLs.
+  // The validation build's deliberately unreachable .invalid hosts are
+  // release blockers even if expected origins also appear in the bundle.
+  // Match lazily so a host joined to the next Hermes string still counts;
+  // this fails closed if an unrelated host merely contains ".invalid".
+  const reserved = [
+    ...new Set(
+      [...text.matchAll(reservedHostPattern)].map((match) =>
+        match[0].toLowerCase()
+      )
+    ),
+  ].sort()
   return {
     observed,
     missing,

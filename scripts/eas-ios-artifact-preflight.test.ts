@@ -5,12 +5,14 @@ import path from "node:path"
 import { describe, expect, test } from "bun:test"
 import { MOBILE_STORE_APP_VERSION } from "../apps/mobile/release-version"
 import {
+  easBuildRuntimeVersion,
   inspectEasIosArtifact,
   inspectIosBundleMetadata,
   iosArtifactUrl,
 } from "./eas-ios-artifact-preflight"
 
 const projectId = "3fb3e5e2-bd84-4308-8739-e9f4436d0da9"
+const fingerprintRuntime = "dad191abacf7e2d86b06a80c5fa0631dba0a8670"
 const privacyTypes = [
   "Name",
   "EmailAddress",
@@ -31,9 +33,10 @@ const validMetadata = {
     CFBundlePackageType: "APPL",
   },
   expo: {
-    EXUpdatesRuntimeVersion: MOBILE_STORE_APP_VERSION,
+    EXUpdatesRuntimeVersion: fingerprintRuntime,
     EXUpdatesURL: `https://u.expo.dev/${projectId}`,
   },
+  expectedRuntimeVersion: fingerprintRuntime as string | undefined,
   privacy: {
     NSPrivacyTracking: false,
     NSPrivacyCollectedDataTypes: privacyTypes.map((type) => ({
@@ -113,6 +116,15 @@ describe("exact iOS IPA preflight", () => {
     expect(
       inspectMetadata({
         ...validMetadata,
+        expo: {
+          ...validMetadata.expo,
+          EXUpdatesRuntimeVersion: MOBILE_STORE_APP_VERSION,
+        },
+      }).mismatches
+    ).toEqual(["update-runtime"])
+    expect(
+      inspectMetadata({
+        ...validMetadata,
         privacy: {
           ...validMetadata.privacy,
           NSPrivacyCollectedDataTypes:
@@ -125,12 +137,48 @@ describe("exact iOS IPA preflight", () => {
     ).toContain("privacy-data-purpose")
   })
 
+  test("requires the IPA runtime to equal the EAS build fingerprint runtime", () => {
+    expect(
+      inspectMetadata({
+        ...validMetadata,
+        expo: {
+          ...validMetadata.expo,
+          EXUpdatesRuntimeVersion: "0000000000000000000000000000000000000000",
+        },
+      }).mismatches
+    ).toEqual(["update-runtime"])
+  })
+
+  test("fails closed when either runtime value is missing", () => {
+    expect(
+      inspectMetadata({ ...validMetadata, expectedRuntimeVersion: undefined })
+        .mismatches
+    ).toEqual(["update-runtime"])
+    expect(
+      inspectMetadata({ ...validMetadata, expectedRuntimeVersion: " " })
+        .mismatches
+    ).toEqual(["update-runtime"])
+    expect(
+      inspectMetadata({
+        ...validMetadata,
+        expo: { EXUpdatesURL: validMetadata.expo.EXUpdatesURL },
+        expectedRuntimeVersion: undefined,
+      }).mismatches
+    ).toEqual(["update-runtime"])
+    expect(easBuildRuntimeVersion({})).toBeUndefined()
+    expect(easBuildRuntimeVersion({ runtimeVersion: "" })).toBeUndefined()
+    expect(easBuildRuntimeVersion({ runtimeVersion: fingerprintRuntime })).toBe(
+      fingerprintRuntime
+    )
+  })
+
   test("downloads the selected IPA, checks it, and records its digest", async () => {
     const directory = await mkdtemp(path.join(tmpdir(), "halaalvest-ipa-test-"))
     const artifact = path.join(directory, "candidate.ipa")
     const bytes = Buffer.from("synthetic-ipa")
     const build = {
       artifacts: { buildUrl: "https://expo.dev/artifacts/candidate.ipa" },
+      runtimeVersion: fingerprintRuntime,
     }
     try {
       const digest = await inspectEasIosArtifact(
@@ -140,8 +188,9 @@ describe("exact iOS IPA preflight", () => {
           expect(url).toBe(build.artifacts.buildUrl)
           return new Response(bytes)
         }) as typeof fetch,
-        async (path) => {
+        async (path, runtimeVersion) => {
           expect(await readFile(path)).toEqual(bytes)
+          expect(runtimeVersion).toBe(fingerprintRuntime)
         }
       )
       expect(digest).toBe(createHash("sha256").update(bytes).digest("hex"))

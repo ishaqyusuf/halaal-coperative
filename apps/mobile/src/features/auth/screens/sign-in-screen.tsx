@@ -1,4 +1,3 @@
-import { LegalLinks } from "@/components/app/legal-links"
 import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
 import { SignInHero } from "@/features/auth/components/auth-hero"
@@ -10,14 +9,12 @@ import { useShortcutSignInCooperative } from "@/features/cooperative-shortcuts/p
 import { useRouter } from "expo-router"
 import { useState } from "react"
 import { View } from "react-native"
-import { useKeyboardState } from "react-native-keyboard-controller"
 
 export function SignInScreen() {
   const router = useRouter()
   // A signed-out tap on a cooperative's home-screen shortcut brands sign-in.
   const shortcut = useShortcutSignInCooperative()
   const signIn = useSignInController(shortcut.cooperative)
-  const keyboardVisible = useKeyboardState((state) => state.isVisible)
   const confirmed = signIn.phase === "confirmed"
   const [dockHeight, setDockHeight] = useState(0)
 
@@ -40,7 +37,6 @@ export function SignInScreen() {
                     : "Sign in"}
               </Text>
             </Button>
-            {keyboardVisible ? null : <LegalLinks variant="inline" />}
           </>
         }
         hero={

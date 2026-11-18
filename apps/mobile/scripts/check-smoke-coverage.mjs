@@ -94,7 +94,6 @@ assertIncludes("src/features/auth/screens/sign-in-screen.tsx", [
   "<QaAccessPanel bottomInset={dockHeight} />",
   "<SignInForm",
   "loading={signIn.submitting}",
-  '<LegalLinks variant="inline" />',
 ])
 
 assertIncludes("src/features/auth/components/sign-in-form.tsx", [
@@ -519,6 +518,6 @@ assertIncludes(
   [
     "projectAccessGate(",
     "access.refresh()",
-    "LegalLinks",
+    '"/account-privacy"',
   ]
 )

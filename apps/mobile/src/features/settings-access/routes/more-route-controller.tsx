@@ -1,6 +1,5 @@
 import { canUseMobileFeatureData } from "@/dev/mobile-dev-session"
 import { canManageMobileAdminAccess } from "@/features/admin-reports-access/public/admin-access-policy"
-import { useLegalReminder } from "@/features/legal/public/legal-read-api"
 import { useAppQuery } from "@/hooks/use-app-query"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
@@ -35,7 +34,6 @@ export function MoreRouteController() {
     canUseMobileFeatureData(profile, "admin") &&
     canManageMobileAdminAccess(profile?.cooperativeRole)
 
-  const showLegalReminder = useLegalReminder({ accountKey, enabled: !offline })
   const member = useAppQuery({
     enabled: canUseMobileFeatureData(profile, "member"),
     networkMode: "always",
@@ -104,7 +102,6 @@ export function MoreRouteController() {
       profile={profile}
       qa={qa}
       refreshing={member.isRefetching || access.isRefetching}
-      showLegalReminder={showLegalReminder}
       signOutError={signOutError}
       switchingMembershipId={switchingMembershipId}
       workspaceError={workspaceError}

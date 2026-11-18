@@ -6,7 +6,6 @@ import {
   type GateStatusTone,
 } from "@/components/app/gate-status"
 import { GroupedRow, GroupedSection } from "@/components/app/grouped-section"
-import { LegalLinks } from "@/components/app/legal-links"
 import { ScreenShell } from "@/components/app/screen-shell"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
@@ -133,9 +132,15 @@ export function MobileAppAccessRouteController() {
               onPress={() => router.push("/cooperative-shortcuts")}
               title="Cooperatives & shortcuts"
             />
+            <GroupedRow
+              chevron
+              icon="LogOut"
+              onPress={() => router.push("/account-privacy")}
+              title="Close my account"
+              tone="neutral"
+            />
           </GroupedSection>
           <QaAccessPanel inline />
-          <LegalLinks variant="card" />
         </View>
       </ScreenShell>
       <ConfirmSheet

@@ -251,11 +251,11 @@ function RoleProtectedStack() {
       <Stack.Protected guard={role !== null}>
         <Stack.Screen name="mobile-access" options={{ animation: "fade" }} />
         <Stack.Screen name="account-privacy" />
-        <Stack.Screen name="legal-agreements" />
         <Stack.Screen name="cooperative-shortcuts" />
       </Stack.Protected>
       <Stack.Protected guard={role !== null && access.accessAllowed}>
         <Stack.Screen name="updates" />
+        <Stack.Screen name="about" />
         <Stack.Screen name="notifications" />
         <Stack.Screen name="sessions" />
         <Stack.Screen name="app-lock" />

@@ -48,9 +48,13 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   Coins: require("lucide-react-native/dist/esm/icons/coins").default,
   Compass: require("lucide-react-native/dist/esm/icons/compass").default,
   CloudOff: require("lucide-react-native/dist/esm/icons/cloud-off").default,
+  Facebook: require("lucide-react-native/dist/esm/icons/facebook").default,
   FileX: require("lucide-react-native/dist/esm/icons/file-x").default,
+  Gift: require("lucide-react-native/dist/esm/icons/gift").default,
   Globe: require("lucide-react-native/dist/esm/icons/globe").default,
   IdCard: require("lucide-react-native/dist/esm/icons/id-card").default,
+  Instagram: require("lucide-react-native/dist/esm/icons/instagram").default,
+  Linkedin: require("lucide-react-native/dist/esm/icons/linkedin").default,
   ScanFace: require("lucide-react-native/dist/esm/icons/scan-face").default,
   Check: require("lucide-react-native/dist/esm/icons/check").default,
   CheckCheck: require("lucide-react-native/dist/esm/icons/check-check").default,
@@ -86,6 +90,7 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   Copy: require("lucide-react-native/dist/esm/icons/copy").default,
   FileCheck2: require("lucide-react-native/dist/esm/icons/file-check-2").default,
   Tablet: require("lucide-react-native/dist/esm/icons/tablet").default,
+  Twitter: require("lucide-react-native/dist/esm/icons/twitter").default,
   Undo2: require("lucide-react-native/dist/esm/icons/undo-2").default,
   Fingerprint: require("lucide-react-native/dist/esm/icons/fingerprint")
     .default,
@@ -204,6 +209,7 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   Phone: require("lucide-react-native/dist/esm/icons/phone").default,
   SearchX: require("lucide-react-native/dist/esm/icons/search-x").default,
   Sparkles: require("lucide-react-native/dist/esm/icons/sparkles").default,
+  Youtube: require("lucide-react-native/dist/esm/icons/youtube").default,
   Zap: require("lucide-react-native/dist/esm/icons/zap").default,
 }
 

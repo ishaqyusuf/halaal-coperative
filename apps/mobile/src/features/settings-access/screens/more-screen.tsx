@@ -2,7 +2,6 @@ import { AppSheet } from "@/components/app/app-sheet"
 import { ConfirmSheet } from "@/components/app/confirm-sheet"
 import { SIGN_OUT_CONFIRM_DESCRIPTION } from "@/components/app/confirmation-sheet"
 import { DevQuickFill } from "@/components/app/dev-quick-fill"
-import { LegalLinks } from "@/components/app/legal-links"
 import { ReviewRow, ReviewSummary } from "@/components/app/result-screen"
 import { ScreenShell } from "@/components/app/screen-shell"
 import { Pressable } from "@/components/ui/pressable"
@@ -16,6 +15,7 @@ import { useColorScheme } from "@/hooks/use-color"
 import { formatMobileStatus } from "@/lib/format-mobile-status"
 import type { MobileProfile } from "@/lib/session-store"
 import { setThemeOverride } from "@/lib/theme-preference"
+import Constants from "expo-constants"
 import { type Href, useRouter } from "expo-router"
 import { useState } from "react"
 import { View } from "react-native"
@@ -27,6 +27,9 @@ import { WorkspaceRoleSection } from "../components/workspace-role-section"
 import type { MobileMemberMore } from "../model/member-more-types"
 import type { SettingsAccessQaState } from "../model/settings-access-qa"
 import { formatWorkspaceRoleLabel } from "../presentation/workspace-role-presentation"
+
+const appVersion =
+  Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "Unknown"
 
 const themeOptions = [
   { icon: "Monitor", label: "System", value: "system" },
@@ -50,7 +53,6 @@ export function MoreScreen({
   profile,
   qa,
   refreshing,
-  showLegalReminder,
   signOutError,
   switchingMembershipId,
   workspaceError,
@@ -70,7 +72,6 @@ export function MoreScreen({
   profile: MobileProfile
   qa: SettingsAccessQaState | null
   refreshing: boolean
-  showLegalReminder: boolean
   signOutError: string | null
   switchingMembershipId: string | null
   workspaceError: string | null
@@ -107,17 +108,6 @@ export function MoreScreen({
             title={offline ? "You’re offline" : "Showing saved data"}
           />
         ) : null}
-        {showLegalReminder ? (
-          <SettingsGroup>
-            <GroupedRow
-              detail="Current platform terms and privacy notice are ready for your review. You can keep using your account."
-              icon="FileText"
-              onPress={go("/legal-agreements")}
-              title="Review platform documents"
-              tone="sky"
-            />
-          </SettingsGroup>
-        ) : null}
         <SettingsGroup flush title="Account">
           <MoreIdentity
             memberNumber={memberNumber}
@@ -128,6 +118,12 @@ export function MoreScreen({
             icon="Home"
             onPress={go("/cooperative-shortcuts")}
             title="Cooperatives & shortcuts"
+          />
+          <GroupedRow
+            icon="LogOut"
+            onPress={go("/account-privacy")}
+            title="Close my account"
+            tone="neutral"
           />
         </SettingsGroup>
         <WorkspaceRoleSection
@@ -215,6 +211,14 @@ export function MoreScreen({
             onPress={go("/updates")}
             title="App updates"
           />
+          <GroupedRow
+            accessibilityLabel={`About HalaalVest, version ${appVersion}`}
+            icon="Info"
+            onPress={go("/about")}
+            title="About HalaalVest"
+            tone="neutral"
+            value={appVersion}
+          />
         </SettingsGroup>
         <SettingsGroup title="Appearance">
           <View className="p-[8px]">
@@ -229,7 +233,6 @@ export function MoreScreen({
             />
           </View>
         </SettingsGroup>
-        <LegalLinks variant="card" />
         <SettingsGroup>
           <Pressable
             accessibilityRole="button"

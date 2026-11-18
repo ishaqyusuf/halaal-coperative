@@ -169,7 +169,7 @@ export function AccountPrivacyScreen(props: {
             />
           )}
           {!live ? (
-            <StatusSection side="Current notice" title="Before you ask to close your account">
+            <StatusSection title="Before you ask to close your account">
               {items.map((item) => (
                 <StatusRow
                   alignTop

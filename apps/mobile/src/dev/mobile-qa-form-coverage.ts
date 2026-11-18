@@ -386,12 +386,6 @@ export const mobileQaFormCoverage = [
     sources: [feature("account-privacy/screens/account-privacy-screen.tsx")],
   },
   {
-    formId: "mobile.legal.acceptance",
-    kind: "excluded",
-    reason: "Legal consent stays manual.",
-    sources: [feature("legal/screens/legal-agreements-screen.tsx")],
-  },
-  {
     formId: "mobile.device-sessions.revoke",
     kind: "excluded",
     reason: "Session revocation is destructive and stays manual.",

@@ -516,10 +516,10 @@
       "tenantBoundary": "Authenticated account-owned privacy requests across memberships; submission uses active tenant context, with no paid-plan or financial-readiness requirement. Confirmation, idempotency and current session checks guard mutations."
     },
     {
-      "file": "src/app/legal-agreements.tsx",
-      "path": "/legal-agreements",
-      "feature": "legal",
-      "controller": "@/features/legal/routes/legal-agreements-route-controller",
+      "file": "src/app/about.tsx",
+      "path": "/about",
+      "feature": "about",
+      "controller": "@/features/about/routes/about-route-controller",
       "roles": [
         "member",
         "tenant_admin",
@@ -527,7 +527,7 @@
         "operations_officer",
         "super_admin"
       ],
-      "tenantBoundary": "Current published terms/privacy snapshots and own acceptance evidence only; writes bind to signed account and active tenant after server revision check."
+      "tenantBoundary": "Static platform information (company, contact, app version, public document links); no API reads and no tenant or account data."
     },
     {
       "file": "src/app/mobile-access.tsx",

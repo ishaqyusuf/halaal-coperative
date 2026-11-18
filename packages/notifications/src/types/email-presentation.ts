@@ -101,14 +101,6 @@ export const notificationEmailPresentationByType = {
     eyebrow: "Member status",
     familyLabel: "Member records",
   },
-  "marketing.early_access_approved": {
-    eyebrow: "Early access",
-    familyLabel: "Halaalvest access",
-  },
-  "marketing.early_access_requested": {
-    eyebrow: "Early access request",
-    familyLabel: "Halaalvest access",
-  },
   "member_share_application.status_changed": {
     amountLabel: "Share amount",
     eyebrow: "Share application",

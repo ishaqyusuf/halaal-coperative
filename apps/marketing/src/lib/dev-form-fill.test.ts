@@ -13,22 +13,6 @@ function emailMatchesName(email: string, fullName: string) {
 }
 
 describe("marketing QA quick fill", () => {
-  test("early access uses a name-based contact email on the QA domain", async () => {
-    const values = await getDevFormDefaults("earlyAccess", {
-      emailDomain: "ishaq.qa.test",
-    })
-
-    expect(values.primaryContactEmail).toMatch(nameEmail)
-    expect(
-      emailMatchesName(
-        values.primaryContactEmail,
-        values.primaryContactFullName
-      )
-    ).toBe(true)
-    expect(values.phone).toMatch(/^\+234\d{10}$/)
-    expect(values.setupNeeds.length).toBeGreaterThanOrEqual(2)
-  })
-
   test("signup gives a valid slug, code prefix and name-based admin email", async () => {
     const values = await getDevFormDefaults("signup", {
       emailDomain: "ishaq.qa.test",

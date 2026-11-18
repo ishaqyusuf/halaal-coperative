@@ -4,7 +4,6 @@ describe("marketing Quick fill coverage", () => {
   test("registers the shared Quick fill on every marketing data-entry form", async () => {
     const formFiles = [
       "../components/external-deletion-request-form.tsx",
-      "../components/marketing/early-access-form.tsx",
       "../components/signup/onboarding-form.tsx",
       "../components/signup/signup-form.tsx",
     ]

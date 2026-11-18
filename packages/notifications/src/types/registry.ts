@@ -34,8 +34,6 @@ import {
   memberStatusChanged,
 } from "./member"
 import {
-  marketingEarlyAccessApproved,
-  marketingEarlyAccessRequest,
   signupEmailVerification,
   workspaceInvitation,
   workspaceReady,
@@ -92,8 +90,6 @@ export const halaalVestNotificationTypes = {
   "member.onboarding_verification_requested":
     memberOnboardingVerificationRequested,
   "member.status_changed": memberStatusChanged,
-  "marketing.early_access_approved": marketingEarlyAccessApproved,
-  "marketing.early_access_requested": marketingEarlyAccessRequest,
   "member_share_application.status_changed":
     memberShareApplicationStatusChanged,
   "member_payment_receipt.status_changed": memberPaymentReceiptStatusChanged,

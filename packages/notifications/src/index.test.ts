@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import {
-  createMarketingEarlyAccessRequestEmail,
   createResendEmailTransport,
   createRetryingEmailTransport,
   createSignupVerificationEmail,
@@ -365,24 +364,6 @@ describe("notification sender lifecycle", () => {
       displayName: "Demo Cooperative",
       localPart: "demo-cooperative",
     })
-  })
-
-  test("keeps pre-workspace early-access mail on the platform sender", () => {
-    const draft = createMarketingEarlyAccessRequestEmail({
-      approvalUrl: "https://halaalvest.com/approve",
-      contactEmail: "owner@example.com",
-      contactName: "Aisha Bello",
-      currentSizeLabel: "1-50 members",
-      launchTimelineLabel: "This month",
-      recordSystemLabel: "Spreadsheets",
-      recipientEmail: "admin@halaalvest.com",
-      recipientName: "Halaalvest admin",
-      requestedAt: "2026-07-27T00:00:00.000Z",
-      setupNeedLabels: ["Member records"],
-      tenantName: "Proposed Cooperative",
-    })
-
-    expect(draft.sender).toBeUndefined()
   })
 })
 

@@ -11,11 +11,6 @@ import {
   pickQaValue,
   qaLocations,
 } from "@halaalvest/utils"
-import {
-  earlyAccessLaunchTimelineOptions,
-  earlyAccessRecordSystemOptions,
-  earlyAccessSetupNeedOptions,
-} from "@/lib/early-access"
 
 /*
  * Marketing Quick Fill recipes. Values come from the shared generator in
@@ -29,30 +24,6 @@ function randomStartDate() {
   const month = String(1 + Math.floor(Math.random() * 12)).padStart(2, "0")
   const day = String(1 + Math.floor(Math.random() * 28)).padStart(2, "0")
   return `${year}-${month}-${day}`
-}
-
-function pickSome<TValue>(values: readonly TValue[], min: number, max: number) {
-  const count = min + Math.floor(Math.random() * (max - min + 1))
-  return [...values].sort(() => Math.random() - 0.5).slice(0, count)
-}
-
-function createEarlyAccessDefaults(emailDomain: string) {
-  const cooperative = createQaCooperative({ emailDomain })
-  const contact = createQaPerson({ emailDomain })
-
-  return {
-    cooperativeName: cooperative.name,
-    currentSize: String(pickQaValue(cooperativeSizeRanges).value),
-    launchTimeline: pickQaValue(earlyAccessLaunchTimelineOptions).value,
-    message: `${cooperative.name} wants guided setup for its existing member records.`,
-    phone: contact.phoneNumber,
-    primaryContactEmail: contact.email,
-    primaryContactFullName: contact.fullName,
-    recordSystem: pickQaValue(earlyAccessRecordSystemOptions).value,
-    setupNeeds: pickSome(earlyAccessSetupNeedOptions, 2, 4).map(
-      (option) => option.value
-    ),
-  }
 }
 
 function createSignupDefaults(emailDomain: string) {
@@ -119,13 +90,11 @@ function createDeletionRequestDefaults(emailDomain: string) {
 
 export type DevFormKind =
   | "deletionRequest"
-  | "earlyAccess"
   | "onboarding"
   | "signup"
 
 type DevFormValues = {
   deletionRequest: ReturnType<typeof createDeletionRequestDefaults>
-  earlyAccess: ReturnType<typeof createEarlyAccessDefaults>
   onboarding: ReturnType<typeof createOnboardingDefaults>
   signup: ReturnType<typeof createSignupDefaults>
 }
@@ -137,7 +106,6 @@ export async function getDevFormDefaults<TKind extends DevFormKind>(
   const emailDomain = options?.emailDomain || "example.test"
   const builders: { [Kind in DevFormKind]: () => DevFormValues[Kind] } = {
     deletionRequest: () => createDeletionRequestDefaults(emailDomain),
-    earlyAccess: () => createEarlyAccessDefaults(emailDomain),
     onboarding: () =>
       createOnboardingDefaults(emailDomain, options?.cooperativeName),
     signup: () => createSignupDefaults(emailDomain),

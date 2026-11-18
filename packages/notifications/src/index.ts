@@ -510,34 +510,6 @@ export function createWorkspaceReadyEmail(input: {
   return createEmailDraftFromType("workspace_ready", input)
 }
 
-export function createMarketingEarlyAccessRequestEmail(input: {
-  approvalUrl: string
-  contactEmail: string
-  contactName: string
-  currentSizeLabel: string
-  launchTimelineLabel: string
-  message?: string | null
-  phone?: string | null
-  recordSystemLabel: string
-  recipientEmail: string
-  recipientName: string
-  requestedAt: string
-  setupNeedLabels: string[]
-  tenantName: string
-}): NotificationEmailDraft {
-  return createEmailDraftFromType("marketing.early_access_requested", input)
-}
-
-export function createMarketingEarlyAccessApprovedEmail(input: {
-  expiresAt: string
-  recipientEmail: string
-  recipientName: string
-  signupUrl: string
-  tenantName: string
-}): NotificationEmailDraft {
-  return createEmailDraftFromType("marketing.early_access_approved", input)
-}
-
 export * from "./actions"
 export * from "./channels"
 export * from "./core-types"

@@ -44,11 +44,13 @@ const textVariants = cva(
         large: "text-lg font-semibold",
         muted: "text-sm text-muted-foreground",
         // 02 Brand native type scale (lib/design-tokens.ts typeScale).
+        // Headings run one step lighter (700, `heading` ink) than the 800
+        // preview spec: full-size on device, 800 near-black read too strong.
         // Exact px: NativeWind here resolves rem as 14px (text-base = 14).
         hero: "text-[36px] leading-[42px] font-extrabold tracking-tight",
-        screenTitle: "text-[26px] leading-[32px] font-extrabold tracking-tight",
-        title: "text-[20px] leading-[26px] font-extrabold tracking-tight",
-        section: "text-[16px] leading-[22px] font-extrabold",
+        screenTitle: "text-[26px] leading-[32px] font-bold tracking-tight text-heading",
+        title: "text-[20px] leading-[26px] font-bold tracking-tight text-heading",
+        section: "text-[16px] leading-[22px] font-bold text-heading",
         body: "text-[16px] leading-[22px] font-medium",
         small: "text-[14px] leading-[20px] font-medium",
         label: "text-[13px] leading-[18px] font-bold",

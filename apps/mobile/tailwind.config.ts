@@ -61,6 +61,7 @@ export default {
         },
         // T00 02 Brand native additions (source: src/lib/design-tokens.ts).
         "foreground-soft": "var(--foreground-soft)",
+        heading: "var(--heading)",
         "surface-raised": "var(--surface-raised)",
         "surface-float": "var(--surface-float)",
         "hero-start": "var(--hero-start)",

@@ -149,6 +149,26 @@ describe("exact iOS IPA preflight", () => {
     ).toEqual(["update-runtime"])
   })
 
+  test("resolves the expo-updates fingerprint file sentinel", () => {
+    const sentinel = {
+      ...validMetadata,
+      expo: { ...validMetadata.expo, EXUpdatesRuntimeVersion: "file:fingerprint" },
+    }
+    expect(
+      inspectMetadata({ ...sentinel, fingerprintFile: `${fingerprintRuntime}\n` })
+    ).toEqual({ matches: true, mismatches: [] })
+    expect(
+      inspectMetadata({
+        ...sentinel,
+        fingerprintFile: "0000000000000000000000000000000000000000",
+      }).mismatches
+    ).toEqual(["update-runtime"])
+    expect(inspectMetadata(sentinel).mismatches).toEqual(["update-runtime"])
+    expect(
+      inspectMetadata({ ...sentinel, fingerprintFile: " " }).mismatches
+    ).toEqual(["update-runtime"])
+  })
+
   test("fails closed when either runtime value is missing", () => {
     expect(
       inspectMetadata({ ...validMetadata, expectedRuntimeVersion: undefined })

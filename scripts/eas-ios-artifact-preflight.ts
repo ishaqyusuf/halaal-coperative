@@ -70,6 +70,22 @@ function readPlist(path: string, entry: string) {
   }
 }
 
+// With the fingerprint policy, expo-updates writes this sentinel to Expo.plist
+// and reads the real runtime from EXUpdates.bundle/fingerprint at launch.
+const fingerprintFileSentinel = "file:fingerprint"
+
+function readEntryText(path: string, entry: string) {
+  try {
+    return execFileSync("unzip", ["-p", path, entry], {
+      encoding: "utf8",
+      maxBuffer: 64_000,
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+  } catch {
+    return undefined
+  }
+}
+
 // The app uses the fingerprint runtime policy, so the expected runtime is the
 // exact value EAS recorded for the selected build, never the app version.
 export function easBuildRuntimeVersion(buildValue: unknown) {
@@ -85,6 +101,7 @@ export function inspectIosBundleMetadata(
     expo: unknown
     privacy: unknown
     expectedRuntimeVersion: string | undefined
+    fingerprintFile?: string | undefined
   },
   expectedBundleIdentifier = approvedIosReleaseIdentity().bundleIdentifier
 ) {
@@ -92,6 +109,10 @@ export function inspectIosBundleMetadata(
   const expo = record(input.expo)
   const privacy = record(input.privacy)
   const expectedRuntimeVersion = input.expectedRuntimeVersion?.trim()
+  const embeddedRuntimeVersion =
+    expo?.EXUpdatesRuntimeVersion === fingerprintFileSentinel
+      ? input.fingerprintFile?.trim()
+      : expo?.EXUpdatesRuntimeVersion
   const collected = Array.isArray(privacy?.NSPrivacyCollectedDataTypes)
     ? privacy.NSPrivacyCollectedDataTypes
     : []
@@ -128,7 +149,7 @@ export function inspectIosBundleMetadata(
       ? []
       : ["update-url"]),
     ...(expectedRuntimeVersion &&
-    expo?.EXUpdatesRuntimeVersion === expectedRuntimeVersion
+    embeddedRuntimeVersion === expectedRuntimeVersion
       ? []
       : ["update-runtime"]),
     ...(privacy?.NSPrivacyTracking === false ? [] : ["privacy-tracking"]),
@@ -162,6 +183,9 @@ export async function inspectIosIpa(
     expo: readPlist(path, `${appRoot}Expo.plist`),
     privacy: readPlist(path, `${appRoot}PrivacyInfo.xcprivacy`),
     expectedRuntimeVersion,
+    fingerprintFile: entries.includes(`${appRoot}EXUpdates.bundle/fingerprint`)
+      ? readEntryText(path, `${appRoot}EXUpdates.bundle/fingerprint`)
+      : undefined,
   })
   if (!metadata.matches)
     throw new Error(

@@ -51,14 +51,21 @@ export function getVercelProvisioningErrorCause(
   return vercelProvisioningErrorCauses.get(result)
 }
 
-function getVercelProvisioningConfig() {
-  const token = process.env.VERCEL_API_TOKEN?.trim() || null
-  const projectIdOrName = process.env.VERCEL_PROJECT_ID?.trim() || null
-  const teamId = process.env.VERCEL_TEAM_ID?.trim() || null
-  const teamSlug = process.env.VERCEL_TEAM_SLUG?.trim() || null
+export function getVercelProvisioningConfig(
+  env: Record<string, string | undefined> = process.env
+) {
   // Preview attaches each cooperative's host to the `preview` branch, so it
   // serves the Preview deployment instead of Production.
-  const gitBranch = process.env.VERCEL_DOMAIN_GIT_BRANCH?.trim() || null
+  const gitBranch = env.VERCEL_DOMAIN_GIT_BRANCH?.trim() || null
+  // The marketing project keeps its Vercel credentials under the legacy
+  // HALAAL_VEST_ names. Only the explicitly configured branch setup (Preview)
+  // falls back to them, so Production's behaviour doesn't change.
+  const legacy = (name: string) =>
+    gitBranch ? env[`HALAAL_VEST_${name}`]?.trim() || null : null
+  const token = env.VERCEL_API_TOKEN?.trim() || legacy("VERCEL_API_TOKEN")
+  const projectIdOrName = env.VERCEL_PROJECT_ID?.trim() || null
+  const teamId = env.VERCEL_TEAM_ID?.trim() || legacy("VERCEL_TEAM_ID")
+  const teamSlug = env.VERCEL_TEAM_SLUG?.trim() || null
 
   return {
     gitBranch,

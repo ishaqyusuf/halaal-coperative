@@ -116,6 +116,9 @@ describe("qaAcceleratorRouter", () => {
       "member",
       "finance_officer",
     ])
+    expect(
+      profiles.profiles.every((profile) => profile.cooperativeSlug.length > 0)
+    ).toBe(true)
     expect(JSON.stringify(profiles)).not.toContain("password")
 
     const entered = await client.qaAccelerator.enterProfile({

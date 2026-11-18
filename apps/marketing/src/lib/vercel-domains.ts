@@ -56,8 +56,12 @@ function getVercelProvisioningConfig() {
   const projectIdOrName = process.env.VERCEL_PROJECT_ID?.trim() || null
   const teamId = process.env.VERCEL_TEAM_ID?.trim() || null
   const teamSlug = process.env.VERCEL_TEAM_SLUG?.trim() || null
+  // Preview attaches each cooperative's host to the `preview` branch, so it
+  // serves the Preview deployment instead of Production.
+  const gitBranch = process.env.VERCEL_DOMAIN_GIT_BRANCH?.trim() || null
 
   return {
+    gitBranch,
     isConfigured: Boolean(token && projectIdOrName),
     projectIdOrName,
     teamId,
@@ -184,7 +188,9 @@ export async function provisionTenantDomainOnVercel(
     const created = await requestVercel<
       VercelProjectDomain | { error?: { code?: string; message?: string } }
     >(addDomainPath, {
-      body: { name: hostname },
+      body: config.gitBranch
+        ? { gitBranch: config.gitBranch, name: hostname }
+        : { name: hostname },
       method: "POST",
     })
 

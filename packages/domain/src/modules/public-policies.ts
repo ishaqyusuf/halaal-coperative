@@ -218,7 +218,7 @@ export const publicPolicies = {
     sections: [
       {
         title: "Seat fee",
-        body: "Each member whose membership is active on the day the bill is issued counts as one seat, at ₦35 per seat for that month. The cooperative chooses who pays. Either the cooperative pays the seat fee itself, or it charges ₦35 to each counted member, taken from that member’s savings. Member charges begin once the cooperative has finished setting up its opening records; until then the cooperative pays its seats itself. HalaalVest bills the cooperative for every seat either way.",
+        body: "Each member whose membership is active on the day the bill is issued counts as one seat, at ₦50 per seat for that month. The cooperative chooses who pays. Either the cooperative pays the seat fee itself, or it charges ₦50 to each counted member, taken from that member’s savings. Member charges begin once the cooperative has finished setting up its opening records; until then the cooperative pays its seats itself. HalaalVest bills the cooperative for every seat either way.",
       },
       {
         title: "Website assistant",
@@ -352,14 +352,17 @@ export const policyPublications: Record<
     approvedSnapshotHash:
       "27c2649b79f0d0c2fdd3e9d9ccc886dcc26baa722c1c24ee5486e55ee1781af1",
   },
+  // Owner changed the seat fee to ₦50 in chat on 18 November 2026. Only the
+  // two seat amounts changed from the 07:54 approval. No cooperative was live,
+  // so the 30-day notice of price changes had no one to notify.
   "billing-policy": {
     status: "published",
-    version: "2026-11-18",
-    approvedAt: "2026-11-18T07:54:00.000Z",
-    effectiveAt: "2026-11-18T07:54:00.000Z",
-    approvalReference: "Owner approval in chat, 2026-11-18",
+    version: "2026-11-18-seat-50",
+    approvedAt: "2026-11-18T12:56:00.000Z",
+    effectiveAt: "2026-11-18T12:56:00.000Z",
+    approvalReference: "Owner instruction in chat, 2026-11-18: seat fee ₦50",
     approvedSnapshotHash:
-      "1616db96ac0c5cd520415d34e63d3c8f47aa4e81ac4b8d23dc1b1b42a06eef4a",
+      "c5e6de138d46179495e24ad0b5c591f9ba34ccecf18f36d47731df87f5f75054",
   },
   "cooperative-disclosures": {
     status: "published",

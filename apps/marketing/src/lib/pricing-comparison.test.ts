@@ -20,13 +20,13 @@ describe("public pricing", () => {
     expect(
       publicPriceList.map(({ item, note, price }) => [item, price, note])
     ).toEqual([
-      ["Seat fee", "₦35", "per active member, each month"],
+      ["Seat fee", "₦50", "per active member, each month"],
       ["Website assistant", "500 free", "then ₦15 a message, up to your cap"],
       ["Mobile app access", "₦1,000", "per member, for 12 months"],
       ["Share of savings, financing, repayments or profits", "None", undefined],
     ])
     expect(publicPricingSummary).toBe(
-      "₦35 per active member a month, with 500 website assistant messages included. Mobile access is optional, at ₦1,000 per member for 12 months."
+      "₦50 per active member a month, with 500 website assistant messages included. Mobile access is optional, at ₦1,000 per member for 12 months."
     )
     expect(monthlyBillTerms[0]).toContain("one bill a month")
     expect(pricingFeePrinciples[0]).toContain("No percentage of member savings")
@@ -39,7 +39,7 @@ describe("public pricing", () => {
       assistantFreeMessages: 500,
       assistantMessagePrice: 15,
       currencyCode: "NGN",
-      seatFee: 35,
+      seatFee: 50,
     })
     expect(cooperativeMobileAccessTerms).toMatchObject({
       amount: 1000,

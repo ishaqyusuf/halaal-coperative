@@ -6,7 +6,7 @@
 export const platformBillingPrices = {
   currencyCode: "NGN",
   /** Per active member per month. */
-  seatFee: 35,
+  seatFee: 50,
   /** Website assistant messages a cooperative's staff share each month. */
   assistantFreeMessages: 500,
   /** Per message above the free allowance, with automatic billing on. */

@@ -12,13 +12,13 @@ import {
 } from "./platform-billing"
 
 describe("platform billing rules", () => {
-  test("seat fee is ₦35 per active member and absent with no seats", () => {
+  test("seat fee is ₦50 per active member and absent with no seats", () => {
     expect(seatFeeLine(0)).toBeNull()
     expect(seatFeeLine(12)).toMatchObject({
       kind: "seat_fee",
       quantity: 12,
-      unitAmount: 35,
-      amount: 420,
+      unitAmount: 50,
+      amount: 600,
     })
   })
 
@@ -52,7 +52,7 @@ describe("platform billing rules", () => {
       mobileTerms: [{ amount: 1000 }],
     })
     expect(estimate.lines.map((line) => line.kind)).toEqual(["seat_fee", "ai_overage", "mobile_access"])
-    expect(estimate.total).toBe(350 + 45 + 1000)
+    expect(estimate.total).toBe(500 + 45 + 1000)
   })
 
   test("periods follow the Lagos calendar", () => {

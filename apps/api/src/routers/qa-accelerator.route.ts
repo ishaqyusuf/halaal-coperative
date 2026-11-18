@@ -226,6 +226,8 @@ export const qaAcceleratorRouter = createTRPCRouter({
         expiresAt: authorization.expiresAt.toISOString(),
         profiles: profiles.map((profile) => ({
           cooperativeName: profile.tenant.name,
+          // Lets web QA open the cooperative's own subdomain.
+          cooperativeSlug: profile.tenant.slug,
           eligible:
             profile.membership.role !== "member" || Boolean(profile.member),
           identityLabel: profile.user.fullName,

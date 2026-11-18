@@ -65,6 +65,22 @@ function useCompactHero() {
   return largeText || height < COMPACT_WINDOW_HEIGHT
 }
 
+/** Longest cooperative name the hero headline shows before shortening. */
+const HEADLINE_NAME_MAX = 22
+
+/**
+ * The hero headline's cooperative name: without a trailing "Cooperative",
+ * and cut at a word boundary so long names stay within the hero (the full
+ * name is in the row above it).
+ */
+export function headlineName(name: string) {
+  const trimmed = name.replace(/\s+co-?operative$/i, "").trim() || name
+  if (trimmed.length <= HEADLINE_NAME_MAX) return trimmed
+  const slice = trimmed.slice(0, HEADLINE_NAME_MAX)
+  const boundary = slice.lastIndexOf(" ")
+  return `${(boundary > 0 ? slice.slice(0, boundary) : slice).trimEnd()}…`
+}
+
 /**
  * Sign-in hero: HalaalVest identity, then the cooperative confirmed by the
  * server (its mark with a check) for the short hand-off before the app opens.
@@ -81,8 +97,7 @@ export function SignInHero({
   const confirmed = Boolean(profile)
   const branded = confirmed || cooperative !== null
   const tenantName = profile?.tenant.name ?? cooperative?.name ?? "HalaalVest"
-  const shortName =
-    tenantName.replace(/\s+co-?operative$/i, "").trim() || tenantName
+  const shortName = headlineName(tenantName)
   const mark =
     profile?.tenant.branding.mark?.trim() || cooperative?.mark?.trim() || "H"
 
@@ -154,7 +169,7 @@ export function SignInHero({
             : "Welcome back."}
         {branded ? (
           <Text className="text-hero-accent" variant="hero">
-            {`${shortName}.`}
+            {shortName.endsWith("…") ? shortName : `${shortName}.`}
           </Text>
         ) : null}
       </Text>

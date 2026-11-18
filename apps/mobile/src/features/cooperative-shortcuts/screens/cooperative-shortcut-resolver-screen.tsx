@@ -47,7 +47,7 @@ const COPY: Record<Kind, { body: string; icon: string; title: string; tone: Gate
     tone: "warm",
   },
   unavailable: {
-    body: "Your account isn’t part of {cooperative}. Sign in with an account from {cooperative}, or keep using your own cooperative.",
+    body: "Your account isn’t part of {cooperative}. Sign in with an account from there, or keep using your own cooperative.",
     icon: "Ban",
     title: "Not your cooperative",
     tone: "neutral",

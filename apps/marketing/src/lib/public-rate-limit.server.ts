@@ -10,15 +10,14 @@ const minute = 60_000
  * across serverless instances. Each limited request adds one short
  * transaction (expired-bucket cleanup plus one upsert per rule).
  *
- * - signup / early access send a paid email to the address typed in, so cap
- *   both that address and the network.
+ * - signup sends a paid email to the address typed in, so cap both that
+ *   address and the network.
  * - workspace sign-in and signup availability confirm whether a cooperative
  *   exists; cap each network so the directory can't be walked.
  *   Availability runs while someone types (350 ms debounce), so its cap is
  *   wider than a person can reach.
  */
 export const MARKETING_PUBLIC_RATE_LIMITS = {
-  early_access_request: { email: 3, network: 10, windowMs: 15 * minute },
   signup_availability: { network: 60, windowMs: 5 * minute },
   signup_verification: { email: 3, network: 10, windowMs: 15 * minute },
   workspace_sign_in: { network: 30, windowMs: 5 * minute },

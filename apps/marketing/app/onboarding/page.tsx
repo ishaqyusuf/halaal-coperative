@@ -40,7 +40,7 @@ export default async function OnboardingPage({
         description="Setup sends the primary admin a time-limited link before a workspace can be created."
       >
         <Link className={buttonVariants({ size: "lg" })} href="/signup">
-          Request early access
+          Sign up
         </Link>
       </SignupShell>
     )

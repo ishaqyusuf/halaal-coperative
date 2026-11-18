@@ -185,7 +185,6 @@ export function createQaMemberFixture(context: QaFixtureContext) {
 }
 
 export const qaFormInventory = [
-  { formId: "marketing.early-access", kind: "recipe" },
   { formId: "marketing.signup", kind: "recipe" },
   { formId: "marketing.onboarding", kind: "recipe" },
   { formId: "cooperative.profile", kind: "recipe" },

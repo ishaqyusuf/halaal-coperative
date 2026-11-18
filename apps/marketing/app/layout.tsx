@@ -41,15 +41,15 @@ const iconName =
 const iconUrl = `/brand/${iconName}.svg`
 const iconDarkUrl = `/brand/${iconName}-dark.svg`
 const title = !marketing.showHomePage
-  ? "halaalvest | Early Access"
+  ? "halaalvest | Sign up"
   : marketing.isLaunchReady
     ? "halaalvest"
     : "halaalvest | Pre-Launch"
 const description = !marketing.showHomePage
-  ? "Early access for HalaalVest cooperative records and interest-free financing with separately shown charges."
+  ? "Sign up your cooperative for HalaalVest records and interest-free financing with separately shown charges."
   : marketing.isLaunchReady
     ? "HalaalVest helps cooperatives manage contributions, interest-free financing with separately shown charges, and member records."
-    : "Pre-launch landing page for halaalvest. Join early access before the cooperative platform goes live."
+    : "Pre-launch landing page for halaalvest. Sign up before the cooperative platform goes live."
 
 export const metadata: Metadata = {
   ...createMarketingSocialMetadata({ description, title }),

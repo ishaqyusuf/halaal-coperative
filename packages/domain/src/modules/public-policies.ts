@@ -330,5 +330,45 @@ export const policyPublications: Record<
     approvedSnapshotHash:
       "57bfc2f9f5b38537f58a9dea67fbbd23f1fa3a89c29d280bee1e9732c6109bbe",
   },
+  // Owner approved every remaining draft ("all the draft policies are
+  // approved") in chat on 18 November 2026: the revision 2026-11-16-draft-10
+  // wording from 32542c3d, unchanged. Each hash binds that exact text, and the
+  // delete-account hash also binds the live deletion form and email copy.
+  support: {
+    status: "published",
+    version: "2026-11-18",
+    approvedAt: "2026-11-18T07:54:00.000Z",
+    effectiveAt: "2026-11-18T07:54:00.000Z",
+    approvalReference: "Owner approval in chat, 2026-11-18",
+    approvedSnapshotHash:
+      "df5e6a1c1b8b6e790f9617f0db670fc350c2f338522a4b537eebfc0c9cf9142a",
+  },
+  "delete-account": {
+    status: "published",
+    version: "2026-11-18",
+    approvedAt: "2026-11-18T07:54:00.000Z",
+    effectiveAt: "2026-11-18T07:54:00.000Z",
+    approvalReference: "Owner approval in chat, 2026-11-18",
+    approvedSnapshotHash:
+      "27c2649b79f0d0c2fdd3e9d9ccc886dcc26baa722c1c24ee5486e55ee1781af1",
+  },
+  "billing-policy": {
+    status: "published",
+    version: "2026-11-18",
+    approvedAt: "2026-11-18T07:54:00.000Z",
+    effectiveAt: "2026-11-18T07:54:00.000Z",
+    approvalReference: "Owner approval in chat, 2026-11-18",
+    approvedSnapshotHash:
+      "1616db96ac0c5cd520415d34e63d3c8f47aa4e81ac4b8d23dc1b1b42a06eef4a",
+  },
+  "cooperative-disclosures": {
+    status: "published",
+    version: "2026-11-18",
+    approvedAt: "2026-11-18T07:54:00.000Z",
+    effectiveAt: "2026-11-18T07:54:00.000Z",
+    approvalReference: "Owner approval in chat, 2026-11-18",
+    approvedSnapshotHash:
+      "90a82498e4134158dbc0399a3bc5b942ab1d73a94bcf652c3ed21a07bcbf30e0",
+  },
 }
 export const requiredPlatformPolicyTypes = ["terms", "privacy"] as const

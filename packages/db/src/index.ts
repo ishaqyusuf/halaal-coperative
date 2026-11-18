@@ -93,6 +93,7 @@ export * from "./queries/cooperative-mobile-access"
 export * from "./queries/platform-billing"
 
 export * from "./queries/account-privacy"
+export * from "./queries/account-closing-position"
 export * from "./queries/dashboard-evidence-uploads"
 
 export * from "./legal-publication"

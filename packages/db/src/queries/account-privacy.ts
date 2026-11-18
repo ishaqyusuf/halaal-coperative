@@ -8,6 +8,7 @@ import {
 } from "@halaalvest/domain/account-privacy-notice"
 import { publicPolicies } from "@halaalvest/domain/public-policies"
 import { createPrismaClient } from "../prisma"
+import { readAccountClosingPosition } from "./account-closing-position"
 
 export function accountDeletionNoticeVersion(input: {
   inApp: { scope: string; consequences: readonly string[] }
@@ -923,7 +924,11 @@ export async function getPrivacyRevocationScope(
     },
     orderBy: [{ tenantId: "asc" }, { id: "asc" }],
   })
-  return { requestId: request.id, memberships }
+  // The cooperative settles money before the login closes (owner, 18 Nov
+  // 2026). The operator sees the position; `revokePrivacyRequestAccount`
+  // enforces it.
+  const moneyPosition = await readAccountClosingPosition(db, request.userId)
+  return { requestId: request.id, memberships, moneyPosition }
 }
 
 export async function revokePrivacyRequestAccount(
@@ -1007,6 +1012,13 @@ export async function revokePrivacyRequestAccount(
       throw conflict(
         "Transfer platform ownership before deleting the last platform operator."
       )
+    // Like closing a bank account: the cooperative settles savings, shares,
+    // loans and guarantees first, or marks the member exited.
+    const moneyPosition = await readAccountClosingPosition(tx, target.id)
+    if (!moneyPosition.canCloseLogin)
+      throw conflict(
+        `Their cooperative must settle their money before the login can close. Still outstanding: ${moneyPosition.outstandingSummary}. Close the login once this is zero or the cooperative has marked them exited.`
+      )
     const now = new Date()
     await tx.mobilePushRegistration.deleteMany({ where: { userId: target.id } })
     await tx.mobileUserNotificationPreference.deleteMany({
@@ -1056,6 +1068,13 @@ export async function revokePrivacyRequestAccount(
           completionNotification: "pending",
           completionContactEmail: target.email,
           handoverAndRetentionEvidence: evidence,
+          cooperativeMoneyCheck: moneyPosition.members.length
+            ? moneyPosition.members.map((member) => ({
+                tenantId: member.tenantId,
+                memberId: member.memberId,
+                result: member.exited ? "member_exited" : "nothing_outstanding",
+              }))
+            : "no_member_record",
         },
       },
     })

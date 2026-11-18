@@ -34,6 +34,7 @@ import {
 import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 import { useTRPC } from "@/trpc/client"
 import { formatDateAndTime } from "@/utils/format"
+import { ClosingMoneyPosition } from "./closing-money-position"
 import { PlatformBadge } from "./platform-badge"
 
 const minNote = 20
@@ -294,6 +295,8 @@ function EndAccess({ name, requestId }: { name: string; requestId: string }) {
     trpc.accountPrivacy.revocationScope.queryOptions({ requestId })
   )
   const memberships = scope.data?.memberships ?? []
+  const moneyPosition = scope.data?.moneyPosition
+  const settled = moneyPosition?.canCloseLogin ?? false
   const revoke = useMutation(
     trpc.accountPrivacy.revokeAccess.mutationOptions({
       onSuccess: async () => {
@@ -349,6 +352,13 @@ function EndAccess({ name, requestId }: { name: string; requestId: string }) {
         </div>
       )}
 
+      {moneyPosition ? (
+        <div className="grid gap-2">
+          <h4 className="text-base font-medium">Their money</h4>
+          <ClosingMoneyPosition position={moneyPosition} />
+        </div>
+      ) : null}
+
       <NoteField
         hint="If they run a cooperative, name who takes over. Don't write passwords or ID numbers."
         id="privacy-handover-note"
@@ -364,7 +374,10 @@ function EndAccess({ name, requestId }: { name: string; requestId: string }) {
       <Button
         className="h-12 justify-self-start px-6 text-base"
         disabled={
-          !scope.data || scope.isFetching || note.trim().length < minNote
+          !scope.data ||
+          scope.isFetching ||
+          !settled ||
+          note.trim().length < minNote
         }
         onClick={() => setConfirming(true)}
         variant="destructive"

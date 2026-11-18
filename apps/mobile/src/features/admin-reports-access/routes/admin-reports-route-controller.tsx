@@ -32,6 +32,7 @@ import {
   type GeneratedReportFile,
 } from "../model/generated-report-file"
 import { reportKeys } from "../model/report-queries"
+import { reportsLaneFromParams, reportsParamsKey } from "../model/report-route-params"
 import { AdminReportsScreen, type ReportsLaneKey } from "../screens/admin-reports-screen"
 
 const initialActivityFilters: AdminReportActivityFilters = {
@@ -64,18 +65,29 @@ export function AdminReportsRouteController() {
   const { profile } = useAuthContext()
   const runtime = useMobileRuntime()
   const invalidate = useInvalidateAppQueries()
-  const { lane: laneParam, notificationEntityId, qaState } = useLocalSearchParams<{
+  const params = useLocalSearchParams<{
     lane?: string | string[]
     notificationEntityId?: string | string[]
     qaState?: string | string[]
+    tab?: string | string[]
   }>()
+  const { notificationEntityId, qaState } = params
   const qa = getQaState(qaState)
   const cancelledIdsRef = useRef(new Set<string>())
   const generatedFilesRef = useRef<GeneratedReportFile[]>([])
   const generationEpochRef = useRef(0)
   const [generatedFiles, setGeneratedFiles] = useState<GeneratedReportFile[]>([])
   const [activityFilters, setActivityFilters] = useState(initialActivityFilters)
-  const [lane, setLane] = useState<ReportsLaneKey>(laneParam === "activity" ? "activity" : "reports")
+  const [lane, setLane] = useState<ReportsLaneKey>(() => reportsLaneFromParams(params) ?? "reports")
+  // A deep link that changes params on the mounted tab re-syncs the lane
+  // and remounts the pager (see reportsParamsKey).
+  const paramsKey = reportsParamsKey(params)
+  const [syncedParamsKey, setSyncedParamsKey] = useState(paramsKey)
+  if (syncedParamsKey !== paramsKey) {
+    setSyncedParamsKey(paramsKey)
+    const paramLane = reportsLaneFromParams(params)
+    if (paramLane) setLane(paramLane)
+  }
   const [openReport, setOpenReport] = useState<AdminReportCard | null>(null)
   const [openEvent, setOpenEvent] = useState<{ id: string; seed: AdminActivityEvent | null } | null>(null)
   const [handledEntityId, setHandledEntityId] = useState<string | null>(null)
@@ -265,6 +277,7 @@ export function AdminReportsRouteController() {
       generatedFiles={generatedFiles}
       isLoading={qa === "loading" || (canUseServerReports && overview.isPending && !overview.isError)}
       lane={lane}
+      layoutKey={paramsKey}
       offline={offline}
       onApplyActivityFilters={setActivityFilters}
       onCancelGeneratedFile={cancelGeneration}

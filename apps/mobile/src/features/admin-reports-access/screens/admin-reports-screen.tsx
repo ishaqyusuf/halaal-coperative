@@ -49,6 +49,7 @@ export function AdminReportsScreen({
   generatedFiles,
   isLoading,
   lane,
+  layoutKey,
   offline,
   onApplyActivityFilters,
   onCancelGeneratedFile,
@@ -81,6 +82,8 @@ export function AdminReportsScreen({
   generatedFiles: GeneratedReportFile[]
   isLoading: boolean
   lane: ReportsLaneKey
+  /** Changes with the route params; remounts the pager so the visible lane re-measures. */
+  layoutKey: string
   offline: boolean
   onApplyActivityFilters: (filters: AdminReportActivityFilters) => void
   onCancelGeneratedFile: (file: GeneratedReportFile) => void
@@ -251,6 +254,7 @@ export function AdminReportsScreen({
       </View>
       <SegmentedPager
         fill
+        key={layoutKey}
         index={index}
         onIndexChange={(next) => onLaneChange(LANES[next]!.value)}
         pages={pages}

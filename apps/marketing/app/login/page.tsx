@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 export default async function LoginPage() {
   const marketing = getMarketingConfig()
   const signupHref = marketing.earlyAccessModeEnabled
-    ? "/#early-access"
+    ? "/signup"
     : await getSignupHref()
 
   return (

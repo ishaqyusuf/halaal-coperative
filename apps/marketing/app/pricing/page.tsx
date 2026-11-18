@@ -8,7 +8,7 @@ export default async function PricingPage() {
   const marketing = getMarketingConfig()
   const earlyAccess = marketing.earlyAccessModeEnabled
   const signupHref = earlyAccess
-    ? "/#early-access"
+    ? "/signup"
     : process.env.NODE_ENV === "production"
       ? "/signup"
       : await getSignupHref()
@@ -21,7 +21,7 @@ export default async function PricingPage() {
       <MarketingFooter
         signupLink={
           earlyAccess
-            ? ["/#early-access", "Early access"]
+            ? ["/signup", "Early access"]
             : [signupHref, "Sign up"]
         }
       />

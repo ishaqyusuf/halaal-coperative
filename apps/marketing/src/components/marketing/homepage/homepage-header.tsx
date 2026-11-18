@@ -1,29 +1,15 @@
 "use client"
 
-import { HalaalvestLogoMark } from "@halaalvest/ui/components/brand-logo"
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
+import type { HomepageNavLink } from "./homepage-data"
+import { HomepageMark } from "./homepage-mark"
 
-export type OnePlaceNavLink = readonly [href: string, label: string]
-
-export function OnePlaceBrand() {
-  return (
-    <Link aria-label="Halaalvest home" className="brand" href="/">
-      <HalaalvestLogoMark aria-hidden="true" />
-      <span>
-        Halaal<i>vest</i>
-      </span>
-    </Link>
-  )
-}
-
-export function OnePlaceHeader({
-  ctaLabel,
+export function HomepageHeader({
   navLinks,
   signupHref,
 }: {
-  ctaLabel: string
-  navLinks: readonly OnePlaceNavLink[]
+  navLinks: readonly HomepageNavLink[]
   signupHref: string
 }) {
   const [scrolled, setScrolled] = useState(false)
@@ -31,37 +17,20 @@ export function OnePlaceHeader({
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
-
     onScroll()
     window.addEventListener("scroll", onScroll, { passive: true })
-
     return () => window.removeEventListener("scroll", onScroll)
   }, [])
 
   useEffect(() => {
-    const menu = menuRef.current
-
-    if (!menu) return
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && menu.open) {
-        menu.open = false
-        menu.querySelector("summary")?.focus()
-      }
+    const onKey = (event: KeyboardEvent) => {
+      const menu = menuRef.current
+      if (event.key !== "Escape" || !menu?.open) return
+      menu.open = false
+      menu.querySelector("summary")?.focus()
     }
-    const onClick = (event: MouseEvent) => {
-      if (menu.open && !menu.contains(event.target as Node)) {
-        menu.open = false
-      }
-    }
-
-    document.addEventListener("keydown", onKeyDown)
-    document.addEventListener("click", onClick)
-
-    return () => {
-      document.removeEventListener("keydown", onKeyDown)
-      document.removeEventListener("click", onClick)
-    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
   }, [])
 
   const closeMenu = () => {
@@ -69,9 +38,14 @@ export function OnePlaceHeader({
   }
 
   return (
-    <header className={scrolled ? "site-header scrolled" : "site-header"}>
+    <header className={`site-header${scrolled ? " scrolled" : ""}`}>
       <div className="wrap">
-        <OnePlaceBrand />
+        <Link aria-label="Halaalvest home" className="brand" href="/">
+          <HomepageMark />
+          <span>
+            Halaal<i>vest</i>
+          </span>
+        </Link>
         <nav aria-label="Main" className="nav">
           {navLinks.map(([href, label]) => (
             <a href={href} key={href}>
@@ -79,12 +53,12 @@ export function OnePlaceHeader({
             </a>
           ))}
         </nav>
-        <div className="header-actions">
-          <a className="signin-link" href="/login">
+        <div className="head-actions">
+          <Link className="signin" href="/login">
             Sign in
-          </a>
-          <a className="btn btn-go btn-sm" href={signupHref}>
-            {ctaLabel}
+          </Link>
+          <a className="btn btn-green" href={signupHref}>
+            Sign up
           </a>
           <details className="menu" ref={menuRef}>
             <summary aria-label="Open menu">
@@ -96,7 +70,7 @@ export function OnePlaceHeader({
                 strokeWidth="2"
                 viewBox="0 0 24 24"
               >
-                <path d="M4 7h16M4 12h16M4 17h16" />
+                <path d="M4 8h16M4 16h16" />
               </svg>
             </summary>
             <div className="menu-panel">
@@ -105,8 +79,11 @@ export function OnePlaceHeader({
                   {label}
                 </a>
               ))}
-              <a className="btn btn-go" href={signupHref} onClick={closeMenu}>
-                {ctaLabel}
+              <Link href="/login" onClick={closeMenu}>
+                Sign in
+              </Link>
+              <a className="btn btn-green" href={signupHref} onClick={closeMenu}>
+                Sign up
               </a>
             </div>
           </details>

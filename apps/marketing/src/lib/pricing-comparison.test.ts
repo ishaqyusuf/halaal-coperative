@@ -11,7 +11,9 @@ import {
 const pricingSurfaces = [
   "../components/marketing/pricing-data.ts",
   "../components/marketing/pricing-comparison.tsx",
-  "../components/marketing/experiences/one-place-v4.tsx",
+  "../components/marketing/homepage/homepage.tsx",
+  "../components/marketing/homepage/homepage-data.ts",
+  "../components/marketing/homepage/homepage-bill.tsx",
   "../components/signup/signup-form.tsx",
 ]
 

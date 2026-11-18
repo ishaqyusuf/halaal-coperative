@@ -13,19 +13,6 @@ describe("initial migration setup gate", () => {
     )
   })
 
-  test("allows platform document review during initial migration", () => {
-    expect(isInitialMigrationSetupPath("/settings/platform-documents")).toBe(
-      true
-    )
-    expect(
-      resolveInitialMigrationLayoutRedirect({
-        pathname: "/settings/platform-documents",
-        shouldRedirectAdminToSetup: true,
-        shouldRedirectAdminToSuccess: false,
-      })
-    ).toBeNull()
-  })
-
   test("allows member backfill workflow during initial setup", () => {
     expect(isInitialMigrationSetupPath("/members")).toBe(true)
     expect(isInitialMigrationSetupPath("/members/member-123")).toBe(true)

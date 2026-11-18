@@ -28,6 +28,14 @@ export async function resolveLegalReminderStatus(input: {
   return { needsReview: needsLegalReviewReminder(input.bundle, records) }
 }
 
+/**
+ * 18 Nov 2026 (ADR-20261118-platform-documents-on-marketing-site): current app
+ * and dashboard builds no longer call this router; platform documents are
+ * accepted at cooperative signup on the marketing site. It stays only for
+ * mobile installs built before that change (More still asks
+ * `reminderStatus`; the old acknowledgement screen reads `current` and
+ * `accepted` and writes `accept`). Remove it once those builds are retired.
+ */
 export const legalRouter = createTRPCRouter({
   current: publicProcedure.query(() => getPublishedLegalBundle()),
   reminderStatus: tenantProcedure.query(({ ctx }) =>

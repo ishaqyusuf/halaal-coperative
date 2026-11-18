@@ -255,13 +255,6 @@ export const dashboardNavRegistry: NavModule[] = [
   createNavModule("Settings", SettingsIcon, "Profile and roles", [
     createNavSection("configuration", "Configuration", [
       createNavLink(
-        "Platform Documents",
-        TrustReadinessIcon,
-        "/settings/platform-documents",
-        [],
-        [role.in(...allStaffRoles, "member")]
-      ).title("Platform documents").data,
-      createNavLink(
         "Cooperative Profile",
         CooperativeProfileIcon,
         "/settings/profile",

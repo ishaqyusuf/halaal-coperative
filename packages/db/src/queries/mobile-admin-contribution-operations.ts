@@ -137,7 +137,12 @@ function pageOf<T extends { id: string }>(rows: T[], take: number) {
   return { items, nextCursor: hasNext ? (items.at(-1)?.id ?? null) : null }
 }
 
-function cursorArgs(cursor: string | null | undefined) {
+// Explicit optional shape: an inferred `{...} | {}` spreads as
+// `cursor?: undefined`, which Prisma's findMany args reject.
+function cursorArgs(cursor: string | null | undefined): {
+  cursor?: { id: string }
+  skip?: number
+} {
   return cursor ? { cursor: { id: cursor }, skip: 1 } : {}
 }
 

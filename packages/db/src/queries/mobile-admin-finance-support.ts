@@ -138,11 +138,15 @@ function currencyDetail(label: string, value: number | null | undefined) {
   return { label, value: String(value ?? 0) }
 }
 
-function memberContext(member: {
+// The finance desk selects only these member fields (no email), so the
+// mappers take this shape instead of the full list-row member.
+type FinanceDeskMember = {
   fullName: string
   id: string
   memberNumber: string
-}) {
+}
+
+function memberContext(member: FinanceDeskMember) {
   return {
     id: member.id,
     name: member.fullName,
@@ -171,13 +175,12 @@ function mapReceipt(
     MemberPaymentReceiptRow,
     | "channel"
     | "id"
-    | "member"
     | "paymentReference"
     | "proofDocumentUrl"
     | "status"
     | "submittedAt"
     | "totalAmount"
-  > & { allocations: { length: number } },
+  > & { member: FinanceDeskMember; allocations: { length: number } },
   capabilities: MobileAdminFinanceSupportCapabilities
 ): MobileAdminFinanceSupportItem {
   const base = {
@@ -282,14 +285,13 @@ function mapProcurement(
     | "allowsCommitmentReductionDuringPayback"
     | "id"
     | "itemName"
-    | "member"
     | "policyMaximumPaybackMonths"
     | "requestedAt"
     | "requestedCost"
     | "requestedRepaymentMonths"
     | "status"
     | "vendorName"
-  >,
+  > & { member: FinanceDeskMember },
   capabilities: MobileAdminFinanceSupportCapabilities
 ): MobileAdminFinanceSupportItem {
   const base = {
@@ -388,13 +390,12 @@ function mapProject(
     ProjectFinancingRequestRow,
     | "businessName"
     | "id"
-    | "member"
     | "proposedStructure"
     | "requestedAmount"
     | "requestedAt"
     | "requestedPaybackMonths"
     | "status"
-  >,
+  > & { member: FinanceDeskMember },
   capabilities: MobileAdminFinanceSupportCapabilities
 ): MobileAdminFinanceSupportItem {
   const blockers =
@@ -493,13 +494,13 @@ function mapSupport(
     | "category"
     | "financialAdjustmentApprovalStatus"
     | "id"
-    | "member"
     | "priority"
     | "requiresFinancialAdjustment"
     | "status"
     | "subject"
     | "updatedAt"
   > & {
+    member: FinanceDeskMember | null
     messages: { length: number }
     specialSavingsWithdrawal: { amount: number } | null
   },

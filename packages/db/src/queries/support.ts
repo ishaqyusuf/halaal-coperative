@@ -1,5 +1,5 @@
 import { ExpectedQueryError } from "../query-error"
-import type { PrismaClient } from "../../generated/prisma/client"
+import type { Prisma, PrismaClient } from "../../generated/prisma/client"
 import { AppError } from "@halaalvest/errors"
 import { isSafeSupportAttachmentUrl } from "@halaalvest/utils"
 import { createPrismaClient } from "../prisma"
@@ -994,14 +994,21 @@ export async function listMemberSupportCasesPage(
     orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
     take: pageSize + 1,
     where: cursor
-      ? { AND: [memberScope, getSupportCaseCursorWhere(cursor)] }
+      ? {
+          AND: [
+            memberScope,
+            // The keyset helper builds dynamic field keys, so TS can't
+            // narrow it to the generated where input on its own.
+            getSupportCaseCursorWhere(cursor) as Prisma.SupportCaseWhereInput,
+          ],
+        }
       : memberScope,
   })
   const data = rows.slice(0, pageSize)
   return {
     data,
     nextCursor:
-      rows.length > pageSize ? encodeSupportCaseCursor(data[pageSize - 1]) : null,
+      rows.length > pageSize ? encodeSupportCaseCursor(data[pageSize - 1]!) : null,
   }
 }
 

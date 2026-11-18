@@ -18,8 +18,11 @@ import { runWithProductionQaMobileSession } from "./production-qa-mobile-session
 const JOURNEY = "cross-tenant-project-financing-detail"
 const LANES = ["needs_action", "active", "closed"] as const
 
+// The workspace route also has a lean paged read (T21, `limit` set) that
+// omits `attention` and `summary`. This proof always asks for the full read,
+// so both are optional here and a page without them fails the proof.
 type ProjectFinancingWorkspace = {
-  attention: Array<{ id: string }>
+  attention?: Array<{ id: string }>
   nextCursor: string | null
   projects: Array<{
     businessName: string
@@ -27,7 +30,7 @@ type ProjectFinancingWorkspace = {
     status: string
     updatedAt: string
   }>
-  summary: {
+  summary?: {
     blockedCount: number
     closedCount: number
     outstandingPrincipal: number
@@ -53,7 +56,7 @@ async function readWorkspaceFingerprint(input: {
   const projects: ProjectFinancingWorkspace["projects"] = []
   const lanes: Array<{
     lane: (typeof LANES)[number]
-    summary: ProjectFinancingWorkspace["summary"]
+    summary: NonNullable<ProjectFinancingWorkspace["summary"]>
     total: number
   }> = []
   let hasLocalFixture = false
@@ -64,6 +67,7 @@ async function readWorkspaceFingerprint(input: {
 
     for (let pageNumber = 0; pageNumber < 20; pageNumber += 1) {
       const page = await input.caller.workspace({ cursor, lane })
+      if (!page.attention || !page.summary) return null
       if (pageNumber === 0) {
         lanes.push({ lane, summary: page.summary, total: page.total })
       }

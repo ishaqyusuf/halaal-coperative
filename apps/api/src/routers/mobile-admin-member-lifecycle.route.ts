@@ -84,14 +84,16 @@ export const mobileAdminMemberLifecycleProcedures = {
       ),
     detail: manageMembersProcedure
       .input(memberDetailInput)
-      .query(({ ctx, input }) => {
-        const read = input.compact
-          ? getMobileAdminMemberProfile
-          : getMobileAdminMemberLifecycleDetail
-        return read({
+      .query(async ({ ctx, input }) => {
+        const args = {
           memberId: input.memberId,
           tenantId: ctx.tenant.current.id,
-        })
+        }
+        // Await each reader so the resolver returns one Promise of the
+        // union; a union of two Promises can't infer one output type.
+        return input.compact
+          ? await getMobileAdminMemberProfile(args)
+          : await getMobileAdminMemberLifecycleDetail(args)
       }),
     list: manageMembersProcedure
       .input(membersListInput)

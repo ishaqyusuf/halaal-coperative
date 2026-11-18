@@ -492,7 +492,6 @@ export async function getMobileAdminMemberDirectory(input: {
     reviewQueues: directory.reviewQueues,
     page: result.page,
     pageSize: result.pageSize,
-    reviewQueues,
     summary: {
       activeCount: registry.activeCount,
       kycPendingCount: registry.kycPendingCount,

@@ -26,6 +26,14 @@ const openScheduleStatuses = [
   "pending",
 ] as const
 
+type MobileFinancingMetric = {
+  detail: string
+  format: "currency" | "percent" | "count"
+  key: string
+  label: string
+  value: number
+}
+
 type MobileFinancingRow = {
   detail: string
   format: "currency" | "percent" | "count" | null

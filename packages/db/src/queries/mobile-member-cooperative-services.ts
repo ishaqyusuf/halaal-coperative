@@ -673,7 +673,7 @@ export async function getMobileMemberProcurementService(
       profile.policy.procurementMaximumActiveObligationsPerMember,
   })
 
-  const inPage = requestPage?.data.find((row) =>
+  const inPage = requestPage?.data.find((row: ProcurementRequestRow) =>
     procurementLanes.active.includes(row.status)
   )
   const active =
@@ -815,7 +815,7 @@ export async function getMobileMemberFoodPurchaseService(
   })
 
   const inPage = applicationPage?.data.find(
-    (row) =>
+    (row: FoodPurchaseApplicationRow) =>
       row.status === "approved" &&
       row.approvedAmount !== null &&
       row.approvedAmount > row.paidAmount &&
@@ -916,7 +916,9 @@ export async function getMobileMemberProjectFinancingService(
         ),
       ])
     : [null, null, []]
-  const inPage = requestPage?.data.find((row) => row.status === "active")
+  const inPage = requestPage?.data.find(
+    (row: ProjectFinancingRequestRow) => row.status === "active"
+  )
   const active =
     inPage ??
     (member && summary?.activeRequests

@@ -272,7 +272,7 @@ export async function getMobileMemberMore(input: {
       id: member.id,
       kycStatus: member.kycStatus,
       memberNumber: member.memberNumber,
-      name: member.name,
+      name: member.fullName,
       status: member.status,
     },
     sections: sections.filter((section) => {

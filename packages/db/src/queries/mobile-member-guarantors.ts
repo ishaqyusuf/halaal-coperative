@@ -65,13 +65,34 @@ function emptySnapshot(
   }
 }
 
+type GuarantorAmount = number | Prisma.Decimal | null
+
+// Structural input: both the list read (amounts already numbers) and the
+// respond transaction (raw Prisma Decimals) map through here.
+type GuarantorRequestSource = Pick<
+  GuarantorApprovalRow,
+  | "id"
+  | "requestedAt"
+  | "respondedAt"
+  | "respondedByUserId"
+  | "responseNotes"
+  | "status"
+> & {
+  loanRequest: Pick<
+    GuarantorApprovalRow["loanRequest"],
+    "id" | "purpose" | "requestedAt" | "requestedTermMonths" | "status"
+  > & {
+    estimatedMonthlyServicing: GuarantorAmount
+    loanProduct: { name: string }
+    member: { fullName: string; memberNumber: string }
+    requestedAmount: GuarantorAmount
+  }
+  requestedByUser: { fullName: string } | null
+  respondedByUser: { fullName: string } | null
+}
+
 function toMobileMemberGuarantorRequest(
-  row: Omit<GuarantorApprovalRow, "loanRequest" | "requestedByUser"> & {
-    loanRequest: Omit<GuarantorApprovalRow["loanRequest"], "loanProduct"> & {
-      loanProduct: { name: string }
-    }
-    requestedByUser: { fullName: string } | null
-  },
+  row: GuarantorRequestSource,
   userId: string
 ): MobileMemberGuarantorRequest {
   return {

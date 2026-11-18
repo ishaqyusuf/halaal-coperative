@@ -15,13 +15,44 @@ import {
 describe("API Sentry policy", () => {
   const requestId = "018f47f3-6f5a-4a42-8d8c-50d13c091111"
 
-  it("does not enable capture for a Vercel preview", () => {
+  it("enables capture for a Vercel preview with a DSN, not for staging", () => {
     expect(
       isSentryEnabled({
         deploymentEnvironment: "preview",
         dsn: "https://dsn",
         nodeEnvironment: "production",
       })
+    ).toBe(true)
+    expect(
+      isSentryEnabled({
+        deploymentEnvironment: "staging",
+        dsn: "https://dsn",
+        nodeEnvironment: "production",
+      })
+    ).toBe(false)
+  })
+
+  it("reports a call to a procedure the server doesn't have", () => {
+    expect(
+      shouldCaptureTrpcError(
+        new TRPCError({
+          code: "NOT_FOUND",
+          message: 'No procedure found on path "mobile.admin.finance.desk"',
+        })
+      )
+    ).toBe(true)
+    expect(
+      shouldCaptureTrpcError(
+        new TRPCError({
+          code: "NOT_FOUND",
+          message: 'No "query"-procedure on path "mobile.member.home"',
+        })
+      )
+    ).toBe(true)
+    expect(
+      shouldCaptureTrpcError(
+        new TRPCError({ code: "NOT_FOUND", message: "Member not found." })
+      )
     ).toBe(false)
   })
 

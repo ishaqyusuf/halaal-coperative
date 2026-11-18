@@ -6,9 +6,19 @@ import { appRouter } from "./routers/_app"
 import { captureTrpcError } from "./observability/sentry"
 import { getSafeObservabilityRequestId } from "./observability/sentry-policy"
 
+export type TrpcErrorReporter = (
+  input: Parameters<typeof captureTrpcError>[0]
+) => unknown
+
+/**
+ * `reportError` lets a host that mounts this router (the dashboard on Vercel)
+ * send failures to its own Sentry SDK; the standalone Bun API keeps the
+ * default `@sentry/bun` capture.
+ */
 export async function handleTrpcRequest(
   request: Request,
-  endpoint = "/api/trpc"
+  endpoint = "/api/trpc",
+  reportError: TrpcErrorReporter = captureTrpcError
 ) {
   const requestId =
     getSafeObservabilityRequestId(
@@ -24,7 +34,7 @@ export async function handleTrpcRequest(
     router: appRouter,
     createContext: createTRPCContext,
     onError({ error, path, type }) {
-      captureTrpcError({
+      reportError({
         error,
         path,
         requestId,

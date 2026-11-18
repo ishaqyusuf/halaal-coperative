@@ -1,17 +1,24 @@
 import { describe, expect, it } from "bun:test"
 import {
   getDashboardErrorReport,
+  getDashboardTrpcErrorReport,
   isDashboardSentryEnabled,
   isServerCapturedBoundaryError,
   sanitizeDashboardSentryEvent,
 } from "./sentry-policy"
 
 describe("dashboard Sentry policy", () => {
-  it("requires an explicit production environment and DSN", () => {
+  it("requires an explicit production or preview environment and DSN", () => {
     expect(
       isDashboardSentryEnabled({
         deploymentEnvironment: "preview",
         dsn: "https://dsn",
+        nodeEnvironment: "production",
+      })
+    ).toBe(true)
+    expect(
+      isDashboardSentryEnabled({
+        deploymentEnvironment: "preview",
         nodeEnvironment: "production",
       })
     ).toBe(false)
@@ -78,5 +85,32 @@ describe("dashboard Sentry policy", () => {
     )
     expect(isServerCapturedBoundaryError(digested)).toBe(true)
     expect(isServerCapturedBoundaryError(new Error())).toBe(false)
+  })
+
+  it("reports hosted tRPC failures with the procedure as the operation", () => {
+    const missing = getDashboardTrpcErrorReport({
+      error: Object.assign(
+        new Error('No procedure found on path "mobile.admin.finance.desk"'),
+        { code: "NOT_FOUND", name: "TRPCError" }
+      ),
+      path: "mobile.admin.finance.desk",
+      requestId: "018f47f3-6f5a-4a42-8d8c-50d13c091111",
+      type: "query",
+    })
+    expect(missing.classified.reportable).toBe(true)
+    expect(missing.captureContext.tags).toMatchObject({
+      operation: "mobile.admin.finance.desk",
+      procedure_type: "query",
+      source: "dashboard.trpc",
+    })
+    const denied = getDashboardTrpcErrorReport({
+      error: Object.assign(new Error("UNAUTHORIZED"), {
+        code: "UNAUTHORIZED",
+        name: "TRPCError",
+      }),
+      path: "mobile.member.home",
+      type: "query",
+    })
+    expect(denied.classified.reportable).toBe(false)
   })
 })

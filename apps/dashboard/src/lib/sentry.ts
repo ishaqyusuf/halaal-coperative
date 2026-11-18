@@ -3,6 +3,7 @@ import type * as SentrySdk from "@sentry/nextjs"
 import {
   type DashboardErrorSource,
   getDashboardErrorReport,
+  getDashboardTrpcErrorReport,
   isDashboardSentryEnabled,
   sanitizeDashboardSentryEvent,
 } from "./sentry-policy"
@@ -95,6 +96,17 @@ export async function captureDashboardError(
   }
 
   const report = getDashboardErrorReport(error, source, tags)
+  if (!report.classified.reportable) return undefined
+  const Sentry = await loadSentry()
+  return Sentry?.captureException(report.reportableError, report.captureContext)
+}
+
+/** Reports a failure from the hosted tRPC router through the dashboard SDK. */
+export async function captureDashboardTrpcError(
+  input: Parameters<typeof getDashboardTrpcErrorReport>[0]
+) {
+  if (!isDashboardSentryEnabled(runtimeEnvironment())) return undefined
+  const report = getDashboardTrpcErrorReport(input)
   if (!report.classified.reportable) return undefined
   const Sentry = await loadSentry()
   return Sentry?.captureException(report.reportableError, report.captureContext)

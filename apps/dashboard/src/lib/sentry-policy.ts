@@ -11,6 +11,7 @@ export type DashboardErrorSource =
   | "dashboard.mutation_cache"
   | "dashboard.query_cache"
   | "dashboard.request"
+  | "dashboard.trpc"
 
 export function isDashboardSentryEnabled(input: {
   deploymentEnvironment?: string
@@ -21,7 +22,9 @@ export function isDashboardSentryEnabled(input: {
 }
 
 export function sanitizeDashboardSentryEvent(event: unknown) {
-  return sanitizeSentryEvent(event, { allowedTagKeys: ["method"] })
+  return sanitizeSentryEvent(event, {
+    allowedTagKeys: ["method", "procedure_type"],
+  })
 }
 
 export function getDashboardErrorReport(
@@ -45,4 +48,24 @@ export function isServerCapturedBoundaryError(
   error: Error & { digest?: string }
 ) {
   return Boolean(error.digest)
+}
+
+/**
+ * A failure from the tRPC router the dashboard hosts at `/api/trpc` (the API
+ * that web and mobile call). The procedure path is the operation; the request
+ * ID matches the reference the client shows.
+ */
+export function getDashboardTrpcErrorReport(input: {
+  error: unknown
+  path?: string
+  requestId?: string
+  type: string
+}) {
+  return buildErrorReport(input.error, {
+    operation: input.path,
+    requestId: input.requestId,
+    runtime: "dashboard",
+    source: "dashboard.trpc",
+    tags: { procedure_type: input.type },
+  })
 }

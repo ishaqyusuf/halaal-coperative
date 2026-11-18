@@ -31,6 +31,11 @@ const HTTP_STATUS_MAP: Partial<Record<number, ErrorCode>> = {
 const TECHNICAL_MESSAGE_PATTERN =
   /(?:\bprisma\b|\bp\d{4}\b|transaction (?:api|already closed|expired|timed out)|unique constraint|foreign key constraint|\bsql\b|database|connection pool|stack trace|cannot read propert|is not a function|\bat\s+[\w$.]+\s*\(|econn(?:reset|refused)|enotfound)/i
 
+// tRPC answers a call to a procedure the server doesn't have with NOT_FOUND.
+// That's a client/server version mismatch, not a missing record, so report it.
+const MISSING_PROCEDURE_PATTERN =
+  /^No (?:procedure found|"[a-z]+"-procedure) on path\b/i
+
 type ErrorRecord = Record<string, unknown> & {
   cause?: unknown
   code?: unknown
@@ -114,7 +119,10 @@ export function classifyError(
     const mapped = TRPC_CODE_MAP[code ?? ""] ?? "UNEXPECTED"
     const message = messageOf(error)?.trim()
     const reportable =
-      message && message !== code && TECHNICAL_MESSAGE_PATTERN.test(message)
+      message &&
+      message !== code &&
+      (TECHNICAL_MESSAGE_PATTERN.test(message) ||
+        MISSING_PROCEDURE_PATTERN.test(message))
         ? true
         : undefined
     return classified(mapped, error, options, reportable)

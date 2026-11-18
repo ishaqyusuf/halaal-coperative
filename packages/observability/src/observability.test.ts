@@ -3,7 +3,7 @@ import { AppError } from "@halaalvest/errors"
 import { buildErrorReport, getReportableError, isObservabilityEnabled } from "."
 
 describe("observability policy", () => {
-  it("enables reporting only for an explicit production deployment with a DSN", () => {
+  it("enables reporting only for an explicit production or preview deployment with a DSN", () => {
     expect(
       isObservabilityEnabled({
         deploymentEnvironment: "production",
@@ -15,6 +15,21 @@ describe("observability policy", () => {
       isObservabilityEnabled({
         deploymentEnvironment: "preview",
         dsn: "https://dsn",
+        nodeEnvironment: "production",
+      })
+    ).toBe(true)
+    for (const deploymentEnvironment of ["development", "staging", "qa", "test"]) {
+      expect(
+        isObservabilityEnabled({
+          deploymentEnvironment,
+          dsn: "https://dsn",
+          nodeEnvironment: "production",
+        })
+      ).toBe(false)
+    }
+    expect(
+      isObservabilityEnabled({
+        deploymentEnvironment: "preview",
         nodeEnvironment: "production",
       })
     ).toBe(false)

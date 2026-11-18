@@ -19,6 +19,14 @@ describe("mobile Sentry policy", () => {
     expect(
       isMobileSentryEnabled({ ...production, explicitlyEnabled: "true" })
     ).toBe(true)
+    // store-qa: a production-variant build reporting from the Preview API.
+    expect(
+      isMobileSentryEnabled({
+        ...production,
+        deploymentEnvironment: "preview",
+        explicitlyEnabled: "true",
+      })
+    ).toBe(true)
     for (const appVariant of ["development", "preview", undefined]) {
       expect(isMobileSentryEnabled({
         ...production, appVariant, explicitlyEnabled: "true",

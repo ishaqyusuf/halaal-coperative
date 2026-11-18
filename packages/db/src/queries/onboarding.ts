@@ -60,6 +60,8 @@ export type TenantBootstrapInput = {
   slug: string
   ownerFullName: string
   ownerEmail: string
+  /** E.164, from the sign-up form; saved on the owner's user and member. */
+  ownerPhoneNumber?: string | null
   ownerPasswordHash?: string
   memberNumberPrefix?: string | null
   ownerMemberNumber?: string
@@ -427,6 +429,7 @@ export async function createTenantWorkspaceBootstrap(
           tenantId: createdTenant.id,
           email: input.ownerEmail.trim().toLowerCase(),
           fullName: input.ownerFullName.trim(),
+          phoneNumber: input.ownerPhoneNumber?.trim() || null,
           passwordHash: input.ownerPasswordHash,
           cooperativeAccessCode:
             cooperativeCodePrefix && input.ownerMemberNumber?.trim()
@@ -465,6 +468,7 @@ export async function createTenantWorkspaceBootstrap(
             userId: owner.id,
             memberNumber: input.ownerMemberNumber.trim(),
             fullName: input.ownerFullName.trim(),
+            phoneNumber: input.ownerPhoneNumber?.trim() || null,
             memberType: "individual",
             joinedAt: input.startDate
               ? new Date(`${input.startDate}T00:00:00.000Z`)

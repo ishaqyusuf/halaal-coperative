@@ -12,7 +12,7 @@ export default async function Page() {
   }
 
   const { landingProps, showDevTenantFab, tenants } =
-    await loadMarketingPageData(marketing)
+    await loadMarketingPageData()
 
   return (
     <>

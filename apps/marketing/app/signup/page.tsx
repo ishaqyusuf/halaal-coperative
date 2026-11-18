@@ -1,41 +1,37 @@
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@halaalvest/ui/components/alert"
+import type { Metadata } from "next"
+import Link from "next/link"
 import { getPublishedLegalBundle } from "@halaalvest/db"
-import { EarlyAccessForm } from "@/components/marketing/early-access-form"
+import { homepageFontVariables } from "@/components/marketing/homepage/homepage-fonts"
+import { HomepageMark } from "@/components/marketing/homepage/homepage-mark"
 import { QaPreviewFlashConsumer } from "@/components/qa-preview-flash-consumer"
 import { SignupForm } from "@/components/signup/signup-form"
-import { SignupShell } from "@/components/signup/signup-shell"
 import { verifySignedSignupApprovalToken } from "@/lib/early-access"
-import { getMarketingConfig } from "@/lib/marketing-config"
 import { getMarketingQaQuickFillContext } from "@/lib/qa-form-access.server"
 import { getWorkspaceUrlSuffix } from "@/lib/workspace-url-suffix"
+import "./signup.css"
+
+export const metadata: Metadata = {
+  title: "Sign up · Halaalvest",
+  description:
+    "Create your cooperative's workspace. Your team and members sign in there.",
+}
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-function getTokenParam(value: string | string[] | undefined) {
-  return typeof value === "string" ? value : ""
-}
+// Workshop marketing/signup-form-directions 03 ("Form + live preview").
+// Early access is retired: /signup always opens the sign-up form. An approval
+// link sent before that only pre-fills the form.
+const themeClassName = `su ${homepageFontVariables}`
 
-function getApprovalErrorMessage(error: unknown) {
-  return error instanceof Error
-    ? error.message
-    : "The early access approval link is no longer valid."
+function readApproval(value: string | string[] | undefined) {
+  if (typeof value !== "string" || !value) return undefined
+  try {
+    return verifySignedSignupApprovalToken(value)
+  } catch {
+    return undefined
+  }
 }
-
-type ApprovalResult =
-  | {
-      status: "valid"
-      token: string
-      value: ReturnType<typeof verifySignedSignupApprovalToken>
-    }
-  | {
-      errorMessage: string | null
-      status: "missing" | "invalid"
-    }
 
 export default async function SignupPage({
   searchParams,
@@ -43,80 +39,30 @@ export default async function SignupPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const params = await searchParams
-  const marketing = getMarketingConfig()
-  const approvalToken = getTokenParam(params.approvalToken)
-  const requiresApproval = marketing.earlyAccessModeEnabled
-  const approvalResult = ((): ApprovalResult => {
-    if (!approvalToken) {
-      return {
-        errorMessage: null,
-        status: "missing",
-      }
-    }
-
-    try {
-      return {
-        status: "valid",
-        token: approvalToken,
-        value: verifySignedSignupApprovalToken(approvalToken),
-      }
-    } catch (error) {
-      return {
-        errorMessage: getApprovalErrorMessage(error),
-        status: "invalid",
-      }
-    }
-  })()
+  const approval = readApproval(params.approvalToken)
   const quickFill = await getMarketingQaQuickFillContext()
   const workspaceUrlSuffix = getWorkspaceUrlSuffix()
   // Static: what the sign-up route checks before it accepts a request.
   const legalBundle = getPublishedLegalBundle()
 
-  // Early access: with no approval link, /signup is where a cooperative
-  // requests a workspace (the homepage links here in both modes).
-  if (requiresApproval && approvalResult.status === "missing") {
-    return (
-      <SignupShell
-        eyebrow="Early access"
-        stage="sign-up"
-        title="Request a cooperative workspace"
-        description="We're onboarding selected cooperatives. Tell us about yours, and we'll email your admin a private sign-up link once it's approved."
-      >
-        <EarlyAccessForm quickFill={quickFill} />
-      </SignupShell>
-    )
-  }
-
-  if (requiresApproval && approvalResult.status === "invalid") {
-    return (
-      <SignupShell
-        eyebrow="Early access"
-        stage="sign-up"
-        title="This approval link cannot be used."
-        description="Cooperative setup opens only from a valid approved early access link while early access mode is enabled."
-      >
-        <Alert variant="destructive">
-          <AlertTitle>Approval link invalid</AlertTitle>
-          <AlertDescription>{approvalResult.errorMessage}</AlertDescription>
-        </Alert>
-        <EarlyAccessForm quickFill={quickFill} />
-      </SignupShell>
-    )
-  }
-
-  const approval =
-    approvalResult.status === "valid" ? approvalResult.value : undefined
-
   return (
-    <SignupShell stage="sign-up">
+    <div className={`hp ${themeClassName}`}>
+      <header className="site-header scrolled">
+        <div className="wrap">
+          <Link aria-label="Halaalvest home" className="brand" href="/">
+            <HomepageMark />
+            <span>
+              Halaal<i>vest</i>
+            </span>
+          </Link>
+          <p className="su-head-aside">
+            <span className="long">Already have a workspace? </span>
+            <Link href="/login">Sign in</Link>
+          </p>
+        </div>
+      </header>
       {approval ? <QaPreviewFlashConsumer /> : null}
       <SignupForm
-        legalUnavailable={
-          legalBundle.acceptanceRequired && !legalBundle.available
-        }
-        approvalToken={
-          approvalResult.status === "valid" ? approvalResult.token : null
-        }
         defaultValues={
           approval
             ? {
@@ -126,9 +72,13 @@ export default async function SignupPage({
               }
             : undefined
         }
+        legalUnavailable={
+          legalBundle.acceptanceRequired && !legalBundle.available
+        }
         quickFill={quickFill}
+        themeClassName={themeClassName}
         workspaceUrlSuffix={workspaceUrlSuffix}
       />
-    </SignupShell>
+    </div>
   )
 }

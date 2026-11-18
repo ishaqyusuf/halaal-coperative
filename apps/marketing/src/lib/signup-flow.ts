@@ -1,5 +1,6 @@
 import { z } from "zod"
 import {
+  cooperativeCountryCodes,
   defaultCooperativeCountry,
   isCooperativeCountry,
   parseCooperativeSizeRangeValue,
@@ -9,6 +10,7 @@ import {
   isReservedTenantSubdomainLabel,
   normalizeCooperativeCodePrefix,
 } from "@halaalvest/utils"
+import { normalizeInternationalPhone } from "./international-phone"
 
 export function normalizeWorkspaceSlug(value: string) {
   return value
@@ -86,36 +88,85 @@ const cooperativeSizeRangeField = z
 const requiredProfileTextField = (message: string) =>
   z.string().trim().min(1, message)
 
-export const signupIntentSchema = z.object({
-  cooperativeCodePrefix: cooperativeCodePrefixSchema,
-  cooperativeName: z.string().trim().min(2, "Enter the cooperative name."),
-  primaryContactEmail: z.email("Enter a valid email address."),
-  primaryContactFullName: z
-    .string()
-    .trim()
-    .min(2, "Enter the primary contact name."),
-  primaryContactMemberNumber: memberNumberSchema,
-  workspaceSlug: workspaceSlugSchema,
-})
+const cooperativeCountrySchema = z
+  .string()
+  .trim()
+  .min(1, "Select your cooperative's country.")
+  .refine(isCooperativeCountry, "Select your cooperative's country.")
 
-export const signupRequestSchema = signupIntentSchema.extend({
-  approvalToken: z.string().optional(),
-})
+/** E.164 owner phone; "" when it was left out. */
+const e164PhoneSchema = z.string().regex(/^\+[1-9]\d{6,14}$/)
+
+const legalAcknowledgementSchema = z
+  .object({
+    confirmed: z.literal(true),
+    documents: z
+      .array(
+        z
+          .object({
+            documentType: z.enum(["terms", "privacy"]),
+            documentVersion: z.string().min(1).max(80),
+            contentHash: z.string().regex(/^[a-f0-9]{64}$/),
+          })
+          .strict()
+      )
+      .length(2),
+  })
+  .strict()
+
+export const signupIntentSchema = z
+  .object({
+    acceptedTerms: z.boolean().refine((value) => value, {
+      message: "Accept the platform terms to continue.",
+    }),
+    cooperativeCodePrefix: cooperativeCodePrefixSchema,
+    cooperativeName: z.string().trim().min(2, "Enter the cooperative name."),
+    country: cooperativeCountrySchema,
+    primaryContactEmail: z.email("Enter a valid email address."),
+    primaryContactFullName: z
+      .string()
+      .trim()
+      .min(2, "Enter the primary contact name."),
+    primaryContactMemberNumber: memberNumberSchema,
+    // Optional. The phone keeps its own country, which can differ from the
+    // cooperative's; the value is E.164 once valid.
+    primaryContactPhone: z.string().trim().default(""),
+    primaryContactPhoneCountry: z.string().trim().default(""),
+    workspaceSlug: workspaceSlugSchema,
+  })
+  .superRefine((values, context) => {
+    if (!values.primaryContactPhone) return
+    if (
+      !normalizeInternationalPhone(
+        values.primaryContactPhone,
+        values.primaryContactPhoneCountry
+      )
+    )
+      context.addIssue({
+        code: "custom",
+        message: "Enter a valid phone number for the selected country.",
+        path: ["primaryContactPhone"],
+      })
+  })
 
 export const signupVerificationPayloadSchema = z.object({
   cooperativeCodePrefix: cooperativeCodePrefixSchema,
   cooperativeName: z.string().trim().min(2),
+  // Optional: links issued before country and phone were asked still work.
+  country: cooperativeCountrySchema.optional(),
   expiresAt: z.string().datetime(),
   issuedAt: z.string().datetime(),
+  legalAcknowledgement: legalAcknowledgementSchema.optional(),
   primaryContactEmail: z.email(),
   primaryContactFullName: z.string().trim().min(2),
   primaryContactMemberNumber: memberNumberSchema,
+  primaryContactPhone: e164PhoneSchema.optional(),
   workspaceSlug: workspaceSlugSchema,
 })
 
 export const onboardingFormSchema = z
   .object({
-    legalAcknowledgement: z.object({confirmed:z.literal(true),documents:z.array(z.object({documentType:z.enum(["terms","privacy"]),documentVersion:z.string().min(1).max(80),contentHash:z.string().regex(/^[a-f0-9]{64}$/)}).strict()).length(2)}).strict().optional(),
+    legalAcknowledgement: legalAcknowledgementSchema.optional(),
     city: requiredProfileTextField("Enter the cooperative city."),
     confirmPassword: z.string().min(8, "Confirm your password."),
     country: requiredProfileTextField("Select the cooperative country.").refine(
@@ -148,8 +199,11 @@ export const onboardingFormSchema = z
     path: ["confirmPassword"],
   })
 
-export type SignupIntentInput = z.infer<typeof signupIntentSchema>
-export type SignupRequestInput = z.infer<typeof signupRequestSchema>
+export type SignupIntentInput = z.input<typeof signupIntentSchema>
+export type SignupIntentValues = z.output<typeof signupIntentSchema>
+export type SignupLegalAcknowledgement = z.infer<
+  typeof legalAcknowledgementSchema
+>
 export type SignupVerificationPayload = z.infer<
   typeof signupVerificationPayloadSchema
 >
@@ -197,8 +251,14 @@ export function getMemberNumberSuffix(
     : normalizedMemberNumber
 }
 
+/** ISO code for a supported cooperative country ("Nigeria" → "NG"). */
+export function cooperativeCountryCode(country: string | null | undefined) {
+  return isCooperativeCountry(country) ? cooperativeCountryCodes[country] : null
+}
+
 export function createSignupVerificationPayload(
-  input: SignupIntentInput
+  input: SignupIntentValues,
+  legalAcknowledgement?: SignupLegalAcknowledgement
 ): SignupVerificationPayload {
   const issuedAt = new Date()
   const expiresAt = new Date(issuedAt.getTime() + 1000 * 60 * 60 * 24)
@@ -209,17 +269,27 @@ export function createSignupVerificationPayload(
     cooperativeCodePrefix
   )
 
+  const primaryContactPhone = input.primaryContactPhone
+    ? (normalizeInternationalPhone(
+        input.primaryContactPhone,
+        input.primaryContactPhoneCountry
+      ) ?? undefined)
+    : undefined
+
   return {
     cooperativeCodePrefix,
+    country: input.country as SignupVerificationPayload["country"],
     expiresAt: expiresAt.toISOString(),
     issuedAt: issuedAt.toISOString(),
     cooperativeName: input.cooperativeName.trim(),
+    legalAcknowledgement,
     primaryContactEmail: input.primaryContactEmail.trim().toLowerCase(),
     primaryContactFullName: input.primaryContactFullName.trim(),
     primaryContactMemberNumber: getMemberNumberSuffix(
       memberNumberPrefix,
       input.primaryContactMemberNumber
     ),
+    primaryContactPhone,
     workspaceSlug: normalizeWorkspaceSlug(input.workspaceSlug),
   }
 }
@@ -233,7 +303,7 @@ export function getOnboardingDefaultsFromVerification(
     cooperativeName: payload.cooperativeName,
     currentSize: "",
     confirmPassword: "",
-    country: defaultCooperativeCountry,
+    country: payload.country ?? defaultCooperativeCountry,
     officeAddress: "",
     password: "",
     primaryContactEmail: payload.primaryContactEmail,

@@ -60,11 +60,17 @@ function createSignupDefaults(emailDomain: string) {
   const contact = createQaPerson({ emailDomain })
 
   return {
+    // Consent is never ticked for the tester.
+    acceptedTerms: false,
     cooperativeCodePrefix: cooperative.codePrefix,
     cooperativeName: cooperative.name,
+    // QA cooperatives use Nigerian names, cities and phone numbers (+234…).
+    country: "Nigeria",
     primaryContactEmail: contact.email,
     primaryContactFullName: contact.fullName,
     primaryContactMemberNumber: createQaDigits(6),
+    primaryContactPhone: contact.phoneNumber,
+    primaryContactPhoneCountry: "NG",
     workspaceSlug: cooperative.slug,
   }
 }

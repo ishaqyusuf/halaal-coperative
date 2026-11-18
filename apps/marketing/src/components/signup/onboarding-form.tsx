@@ -140,7 +140,12 @@ export function OnboardingForm({
   const [legalState, setLegalState] = useState<{
     ready: boolean
     acknowledgement?: LegalAcknowledgement
-  }>({ ready: false })
+  }>(() =>
+    // Accepted on the sign-up form: the signed link carries the versions.
+    verification.legalAcknowledgement
+      ? { ready: true, acknowledgement: verification.legalAcknowledgement }
+      : { ready: false }
+  )
   const accessCode =
     previewCooperativeAccessCode(
       verification.cooperativeCodePrefix,
@@ -721,7 +726,21 @@ export function OnboardingForm({
               />
             </FieldGroup>
 
-            <PlatformLegalAcceptance onChange={setLegalState} />
+            {verification.legalAcknowledgement ? (
+              <p className="text-sm text-muted-foreground">
+                You accepted the{" "}
+                <a className="underline" href="/terms" target="_blank" rel="noreferrer">
+                  platform terms
+                </a>{" "}
+                and{" "}
+                <a className="underline" href="/privacy" target="_blank" rel="noreferrer">
+                  privacy notice
+                </a>{" "}
+                when you signed up.
+              </p>
+            ) : (
+              <PlatformLegalAcceptance onChange={setLegalState} />
+            )}
           </div>
         </form>
       </JourneyStep>

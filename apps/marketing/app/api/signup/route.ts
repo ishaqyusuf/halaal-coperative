@@ -16,10 +16,8 @@ import {
 import { createSignedSignupToken } from "@/lib/signup-token"
 import {
   createSignupVerificationPayload,
-  signupRequestSchema,
+  signupIntentSchema,
 } from "@/lib/signup-flow"
-import { verifySignedSignupApprovalToken } from "@/lib/early-access"
-import { getMarketingConfig } from "@/lib/marketing-config"
 import { getMarketingEmailOrigin } from "@/lib/marketing-email-origin"
 import { getMarketingErrorResponse } from "@/lib/error-response"
 import { getMarketingServerErrorResponse } from "@/lib/error-response.server"
@@ -29,59 +27,12 @@ import {
   type MarketingRateLimiter,
 } from "@/lib/public-rate-limit.server"
 
-function normalizeComparableText(value: string) {
-  return value.trim().replace(/\s+/g, " ").toLowerCase()
-}
-
-function verifyEarlyAccessApproval(input: {
-  approvalToken?: string
-  cooperativeName: string
-  primaryContactEmail: string
-}) {
-  if (!getMarketingConfig().earlyAccessModeEnabled) {
-    return
-  }
-
-  if (!input.approvalToken) {
-    throw new AppError({
-      code: "VALIDATION_FAILED",
-      publicMessage: "Early access approval is required before setup.",
-    })
-  }
-
-  let approval
-  try {
-    approval = verifySignedSignupApprovalToken(input.approvalToken)
-  } catch (cause) {
-    if (cause instanceof AppError && cause.reportable) throw cause
-    throw new AppError({
-      cause,
-      code: "VALIDATION_FAILED",
-      publicMessage: "This early access approval link could not be used.",
-    })
-  }
-  const emailMatches =
-    approval.primaryContactEmail.toLowerCase() ===
-    input.primaryContactEmail.trim().toLowerCase()
-  const cooperativeMatches =
-    normalizeComparableText(approval.cooperativeName) ===
-    normalizeComparableText(input.cooperativeName)
-
-  if (!emailMatches || !cooperativeMatches) {
-    throw new AppError({
-      code: "VALIDATION_FAILED",
-      publicMessage:
-        "This setup request does not match the approved early access request.",
-    })
-  }
-}
-
 export async function handleSignupRequest(
   request: Request,
   limit: MarketingRateLimiter = enforceMarketingRateLimit
 ) {
   try {
-    const input = signupRequestSchema.parse(await parseMarketingJson(request))
+    const input = signupIntentSchema.parse(await parseMarketingJson(request))
     const legalBundle = getPublishedLegalBundle()
     if (legalBundle.acceptanceRequired && !legalBundle.available)
       throw new AppError({
@@ -90,7 +41,6 @@ export async function handleSignupRequest(
           "Approved platform terms and privacy notice are not yet available for signup.",
       })
     const emailOrigin = getMarketingEmailOrigin(request.url)
-    verifyEarlyAccessApproval(input)
     // Counted only once the request is valid and would look up and email.
     await limit({
       email: input.primaryContactEmail,
@@ -136,7 +86,24 @@ export async function handleSignupRequest(
       return NextResponse.json(response.body, { status: response.status })
     }
 
-    const payload = createSignupVerificationPayload(input)
+    // The sign-up checkbox accepts the published terms and privacy notice.
+    // Their versions travel in the signed link, so onboarding records the
+    // acceptance without asking again. Drafts are not contractual.
+    const payload = createSignupVerificationPayload(
+      input,
+      legalBundle.available
+        ? {
+            confirmed: true,
+            documents: legalBundle.documents.map(
+              ({ contentHash, documentType, documentVersion }) => ({
+                contentHash,
+                documentType,
+                documentVersion,
+              })
+            ),
+          }
+        : undefined
+    )
     const token = createSignedSignupToken(payload)
     const onboardingUrl = new URL("/onboarding", emailOrigin)
     onboardingUrl.searchParams.set("token", token)

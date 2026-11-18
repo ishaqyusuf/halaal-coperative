@@ -83,7 +83,10 @@ export async function POST(request: Request) {
 
     const verification = verificationResult.value
     const result = await createTenantWorkspaceBootstrap({
-      legalAcknowledgement: input.legalAcknowledgement,
+      // Accepted on the sign-up form (carried in the signed link), or here for
+      // links issued before sign-up asked.
+      legalAcknowledgement:
+        input.legalAcknowledgement ?? verification.legalAcknowledgement,
       cooperativeCodePrefix: verification.cooperativeCodePrefix,
       city: input.city,
       country: input.country,
@@ -93,6 +96,7 @@ export async function POST(request: Request) {
       memberNumberPrefix: `${verification.cooperativeCodePrefix}-`,
       ownerEmail: verification.primaryContactEmail,
       ownerFullName: verification.primaryContactFullName,
+      ownerPhoneNumber: verification.primaryContactPhone,
       ownerMemberNumber: composeMemberNumber(
         `${verification.cooperativeCodePrefix}-`,
         verification.primaryContactMemberNumber

@@ -24,28 +24,31 @@ describe("public setup journey presentation", () => {
     expect(journeySource).toContain("All steps")
     expect(shellSource).toContain("<SignupJourneyMobileBar />")
     expect(shellSource).toContain("<SignupJourneyProgress />")
-    expect(signupSource).toContain(
-      'useSignupJourneyStage(result ? "verify-email" : "sign-up"'
-    )
+    // Sign-up (Workshop signup-form-directions 03) has no rail: it names its
+    // place in the same journey map in a counter line.
+    expect(signupSource).toContain('formatJourneyStepCounter("sign-up")')
+    expect(signupSource).toContain('formatJourneyStepCounter("verify-email")')
     expect(onboardingSource).toContain(
       'useSignupJourneyStage(result ? "setup-mode" : subStep'
     )
     expect(onboardingSource).toContain("workspaceCreated: Boolean(result)")
   })
 
-  test("keeps sign-up copy, the verify actions and the member-code card", async () => {
+  test("keeps sign-up copy, the verify actions, the preview and the terms", async () => {
     const signupSource = await Bun.file(
       new URL("../components/signup/signup-form.tsx", import.meta.url)
     ).text()
 
-    expect(signupSource).toContain('title="We sent you a link"')
+    expect(signupSource).toContain("We sent you a link")
     expect(signupSource).toContain("Send it again")
     expect(signupSource).toContain("Wrong email? Change it")
     // Resend reuses the existing /api/signup contract with the same values.
     expect(signupSource).toContain("void requestVerification(submittedValues)")
     expect(signupSource).toContain("You will sign in with")
-    expect(signupSource).toContain("From your approved request")
-    expect(signupSource).toContain("readOnly={approvalLocked}")
+    expect(signupSource).toContain("<SignupWorkspacePreview")
+    expect(signupSource).toContain('name="acceptedTerms"')
+    expect(signupSource).toContain("<CountryCombobox")
+    expect(signupSource).toContain("<SignupPhoneInput")
     expect(signupSource).toContain('"Send verification email"')
   })
 

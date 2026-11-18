@@ -10,8 +10,10 @@ test("launch signup stops before onboarding when platform documents are drafts",
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          acceptedTerms: true,
           cooperativeCodePrefix: "AMN",
           cooperativeName: "Amanah Staff Cooperative",
+          country: "Nigeria",
           primaryContactEmail: "admin@example.test",
           primaryContactFullName: "Amina Bello",
           primaryContactMemberNumber: "0001",
@@ -54,8 +56,10 @@ test("production signup rejects an untrusted email-link origin before availabili
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          acceptedTerms: true,
           cooperativeCodePrefix: "AMN",
           cooperativeName: "Amanah Staff Cooperative",
+          country: "Nigeria",
           primaryContactEmail: "admin@example.test",
           primaryContactFullName: "Amina Bello",
           primaryContactMemberNumber: "0001",
@@ -72,4 +76,48 @@ test("production signup rejects an untrusted email-link origin before availabili
       else env[name] = value
     }
   }
+})
+
+const validBody = {
+  acceptedTerms: true,
+  cooperativeCodePrefix: "AMN",
+  cooperativeName: "Amanah Staff Cooperative",
+  country: "Nigeria",
+  primaryContactEmail: "admin@example.test",
+  primaryContactFullName: "Amina Bello",
+  primaryContactMemberNumber: "0001",
+  workspaceSlug: "amanah-staff",
+}
+
+async function postSignup(body: Record<string, unknown>) {
+  const response = await POST(
+    new Request("https://halaalvest.com/api/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
+  )
+  return { body: await response.json(), status: response.status }
+}
+
+test("signup needs the terms accepted and a supported country", async () => {
+  for (const body of [
+    { ...validBody, acceptedTerms: false },
+    { ...validBody, country: "" },
+    { ...validBody, country: "Atlantis" },
+  ]) {
+    const result = await postSignup(body)
+    expect(result.status).toBe(400)
+    expect(result.body.error.code).toBe("VALIDATION_FAILED")
+  }
+})
+
+test("signup rejects a phone that is not valid for its country", async () => {
+  const result = await postSignup({
+    ...validBody,
+    primaryContactPhone: "+447400123456",
+    primaryContactPhoneCountry: "NG",
+  })
+  expect(result.status).toBe(400)
+  expect(result.body.error.code).toBe("VALIDATION_FAILED")
 })

@@ -1,4 +1,3 @@
-import { Public_Sans, Schibsted_Grotesk } from "next/font/google"
 import Link from "next/link"
 import type { ReactNode } from "react"
 import { pricingFeePrinciples } from "../pricing-data"
@@ -17,30 +16,15 @@ import {
   setupSteps,
   trustControls,
 } from "./homepage-data"
+import { homepageFontVariables } from "./homepage-fonts"
 import { HomepageGuarantor } from "./homepage-guarantor"
 import { HomepageHeader } from "./homepage-header"
 import { HomepageHero } from "./homepage-hero"
 import { HomepageMark } from "./homepage-mark"
 import { HomepageTabs } from "./homepage-tabs"
 
-const homepageDisplay = Schibsted_Grotesk({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  display: "swap",
-  variable: "--font-hp-display",
-  fallback: ["Helvetica Neue", "Arial"],
-})
-
-const homepageText = Public_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-  variable: "--font-hp-text",
-  fallback: ["system-ui", "Arial"],
-})
-
 export type HomepageProps = {
-  /** /signup, or the local dev sign-up URL. In early-access mode /signup shows the request form. */
+  /** /signup, or the local dev sign-up URL. */
   signupHref: string
 }
 
@@ -228,7 +212,7 @@ const officerJobs = [
 
 export function Homepage({ signupHref }: HomepageProps) {
   return (
-    <div className={`hp ${homepageDisplay.variable} ${homepageText.variable}`}>
+    <div className={`hp ${homepageFontVariables}`}>
       <a className="skip" href="#main">
         Skip to content
       </a>

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { getDevFormDefaults } from "./dev-form-fill"
+import { signupIntentSchema } from "./signup-flow"
 
 const nameEmail = /^[a-z]+(\.[a-z]+)*@ishaq\.qa\.test$/
 
@@ -42,6 +43,21 @@ describe("marketing QA quick fill", () => {
         values.primaryContactEmail,
         values.primaryContactFullName
       )
+    ).toBe(true)
+  })
+
+  test("signup fills Nigeria and a valid +234 phone but never ticks the terms", async () => {
+    const values = await getDevFormDefaults("signup", {
+      emailDomain: "ishaq.qa.test",
+    })
+
+    expect(values.country).toBe("Nigeria")
+    expect(values.primaryContactPhoneCountry).toBe("NG")
+    expect(values.primaryContactPhone).toMatch(/^\+234\d{10}$/)
+    expect(values.acceptedTerms).toBe(false)
+    // Valid once the tester ticks the terms box.
+    expect(
+      signupIntentSchema.safeParse({ ...values, acceptedTerms: true }).success
     ).toBe(true)
   })
 

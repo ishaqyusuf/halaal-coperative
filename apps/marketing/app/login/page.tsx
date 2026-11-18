@@ -3,7 +3,6 @@ import { ArrowLeftIcon } from "lucide-react"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { WorkspaceSignInForm } from "@/components/workspace-sign-in-form"
-import { getMarketingConfig } from "@/lib/marketing-config"
 import { getSignupHref } from "@/lib/runtime-url"
 import { getWorkspaceUrlSuffix } from "@/lib/workspace-url-suffix"
 
@@ -18,10 +17,7 @@ export const metadata: Metadata = {
 // Each cooperative signs in on its own host (<slug>.halaalvest.com). This page
 // only finds that host; the password is never entered here.
 export default async function LoginPage() {
-  const marketing = getMarketingConfig()
-  const signupHref = marketing.earlyAccessModeEnabled
-    ? "/signup"
-    : await getSignupHref()
+  const signupHref = await getSignupHref()
 
   return (
     <main className="marketing-flow flex min-h-svh flex-col bg-[#F7FAF7] text-[#0B1F36]">
@@ -66,7 +62,7 @@ export default async function LoginPage() {
               className="font-semibold text-[#1F7A3D] underline-offset-4 hover:underline"
               href={signupHref}
             >
-              {marketing.earlyAccessModeEnabled ? "Request access" : "Sign up"}
+              Sign up
             </Link>
           </p>
         </div>

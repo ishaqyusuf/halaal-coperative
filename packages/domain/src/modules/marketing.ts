@@ -1,7 +1,6 @@
 export type MarketingStage = "launch" | "prelaunch"
 
 export type MarketingConfig = {
-  earlyAccessModeEnabled: boolean
   isLaunchReady: boolean
   showHomePage: boolean
   stage: MarketingStage
@@ -41,13 +40,7 @@ function normalizeBoolean(
 export function getMarketingConfig(): MarketingConfig {
   const stage = normalizeStage(process.env.MARKETING_STAGE)
   const showHomePage = normalizeBoolean(process.env.SHOW_HOME_PAGE, true)
-  const earlyAccessModeEnabled = normalizeBoolean(
-    process.env.MARKETING_EARLY_ACCESS_ENABLED,
-    process.env.NODE_ENV === "production"
-  )
-
   return {
-    earlyAccessModeEnabled,
     isLaunchReady: stage === "launch",
     showHomePage,
     stage,

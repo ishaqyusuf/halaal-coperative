@@ -143,9 +143,9 @@ export type ColorScheme = keyof typeof palette
 /** Type scale: size / line height / weight, matching the T00 kit. */
 export const typeScale = {
   hero: { fontSize: 36, lineHeight: 42, fontWeight: "800", tabular: true },
-  screenTitle: { fontSize: 26, lineHeight: 32, fontWeight: "800" },
-  title: { fontSize: 20, lineHeight: 26, fontWeight: "800" },
-  section: { fontSize: 16, lineHeight: 22, fontWeight: "800" },
+  screenTitle: { fontSize: 26, lineHeight: 32, fontWeight: "700" },
+  title: { fontSize: 20, lineHeight: 26, fontWeight: "700" },
+  section: { fontSize: 16, lineHeight: 22, fontWeight: "700" },
   body: { fontSize: 16, lineHeight: 22, fontWeight: "500" },
   small: { fontSize: 14, lineHeight: 20, fontWeight: "500" },
   label: { fontSize: 13, lineHeight: 18, fontWeight: "700" },

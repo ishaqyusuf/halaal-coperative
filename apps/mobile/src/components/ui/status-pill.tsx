@@ -13,16 +13,20 @@ export type StatusTone =
   | "lilac"
 
 const TONE_CLASSES: Record<StatusTone, { surface: string; text: string }> = {
-  success: { surface: "bg-tint-success", text: "text-tint-success-foreground" },
-  warning: { surface: "bg-tint-warm", text: "text-tint-warm-foreground" },
-  danger: { surface: "bg-tint-danger", text: "text-tint-danger-foreground" },
-  info: { surface: "bg-tint-sky", text: "text-tint-sky-foreground" },
-  brand: { surface: "bg-accent", text: "text-accent-foreground" },
+  success: { surface: "bg-tint-success", text: "text-tint-success-foreground/85" },
+  warning: { surface: "bg-tint-warm", text: "text-tint-warm-foreground/85" },
+  danger: { surface: "bg-tint-danger", text: "text-tint-danger-foreground/85" },
+  info: { surface: "bg-tint-sky", text: "text-tint-sky-foreground/85" },
+  brand: { surface: "bg-accent", text: "text-accent-foreground/85" },
   neutral: { surface: "bg-surface-raised", text: "text-foreground-soft" },
-  lilac: { surface: "bg-tint-lilac", text: "text-tint-lilac-foreground" },
+  lilac: { surface: "bg-tint-lilac", text: "text-tint-lilac-foreground/85" },
 }
 
-/** 22pt chip, 12/16·700, tinted by meaning (Active, Pending, Exception…). */
+/**
+ * 22pt chip, 12/16·600, tinted by meaning (Active, Pending, Exception…).
+ * Ink runs at 85% over the tint and one weight lighter than the T00 preview:
+ * full-size on device, 700 saturated ink read too strong (owner, 18 Nov 2026).
+ */
 export function StatusPill({
   className,
   icon,
@@ -50,7 +54,7 @@ export function StatusPill({
     >
       {icon ? <Icon className={cn("size-xs", classes.text)} name={icon} /> : null}
       <Text
-        className={classes.text}
+        className={cn("font-semibold", classes.text)}
         numberOfLines={1}
         variant={size === "large" ? "label" : "caption"}
       >

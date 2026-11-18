@@ -72,9 +72,9 @@ const MEMBERS = [
 
 const TYPE_ROWS = [
   ["hero", "Hero · 36/42 · 800 · tabular", "₦1,245,000"],
-  ["screenTitle", "Screen title · 26/32 · 800", "Members"],
-  ["title", "Title · 20/26 · 800", "Aisha Bello"],
-  ["section", "Section · 16/22 · 800", "Needs attention"],
+  ["screenTitle", "Screen title · 26/32 · 700", "Members"],
+  ["title", "Title · 20/26 · 700", "Aisha Bello"],
+  ["section", "Section · 16/22 · 700", "Needs attention"],
   ["body", "Body · 16/22 · 500", "November contribution posted"],
   ["small", "Small · 14/20 · 500", "QHC-0001 · Ordinary member"],
   ["label", "Label · 13/18 · 700", "Monthly commitment"],

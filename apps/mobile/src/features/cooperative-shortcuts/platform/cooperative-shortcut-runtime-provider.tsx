@@ -27,6 +27,7 @@ import {
 import {
   emptyShortcutRegistry,
   findShortcutAssociation,
+  findShortcutById,
   type ShortcutAssociation,
   type ShortcutRegistry,
 } from "../model/shortcut-state"
@@ -44,11 +45,19 @@ import type {
 const OFFER_DELAY_MS = 1500
 const identity = getShortcutAppIdentity()
 
+/** The cooperative a signed-out shortcut tap is waiting to open. */
+export type PendingShortcutCooperative = {
+  mark: string
+  name: string
+  tenantId: string
+}
+
 type CooperativeShortcutRuntimeValue = {
   association: ShortcutAssociation | null
+  clearPendingLaunch: () => void
   disableCurrent: () => Promise<void>
-  disableTenant: (tenantId: string) => Promise<void>
   pending: boolean
+  pendingCooperative: PendingShortcutCooperative | null
   rememberPendingLaunch: (shortcutId: string) => void
   refreshCurrent: () => Promise<boolean>
   registry: ShortcutRegistry | null
@@ -64,16 +73,16 @@ function shortcutContext(profile: MobileProfile): ShortcutContext {
   return {
     cooperativeName: profile.tenant.name,
     mark: profile.tenant.branding.mark,
-    membershipId: profile.activeMembershipId,
     tenantId: profile.tenant.id,
     userId: profile.user.id,
   }
 }
 
 /**
- * Single owner of launcher shortcut state: reconciles native pins against the
- * signed owner, resumes a pending launch after ordinary sign-in/unlock, and
- * shows the optional one-time offer after normal entry gates.
+ * Single owner of launcher shortcut state: reconciles native pins (sign-in
+ * and sign-out leave them alone), brands the sign-in for a signed-out tap,
+ * resumes that launch after ordinary sign-in/unlock, and shows the optional
+ * one-time offer after normal entry gates.
  */
 export function CooperativeShortcutRuntimeProvider({
   children,
@@ -87,7 +96,7 @@ export function CooperativeShortcutRuntimeProvider({
   const pathname = usePathname()
   const [support, setSupport] = useState<ShortcutSupport>("checking")
   const [registry, setRegistry] = useState<ShortcutRegistry | null>(null)
-  const [pending, setPending] = useState(false)
+  const [pendingId, setPendingId] = useState<string | null>(null)
   const [offerOpenFor, setOfferOpenFor] = useState<string | null>(null)
   const [offerDismissed, setOfferDismissed] = useState<string | null>(null)
   const reconcileRef = useRef<Promise<void>>(Promise.resolve())
@@ -96,13 +105,16 @@ export function CooperativeShortcutRuntimeProvider({
     ? `${profile.user.id}:${profile.tenant.id}:${profile.activeMembershipId}`
     : null
 
+  const reconcileKey = profile ? profile.tenant.id : null
+
   const reconcile = useCallback(() => {
     if (auth.initializing) return reconcileRef.current
+    // The signed-in cooperative may adopt its own legacy tile.
     const owner = profile
       ? {
-          activeMembershipId: profile.activeMembershipId,
+          cooperativeName: profile.tenant.name,
+          mark: profile.tenant.branding.mark,
           tenantId: profile.tenant.id,
-          userId: profile.user.id,
         }
       : null
     const run = reconcileRef.current.then(async () => {
@@ -115,9 +127,9 @@ export function CooperativeShortcutRuntimeProvider({
     })
     reconcileRef.current = run
     return run
-    // ownerKey captures every profile field the owner uses.
+    // reconcileKey captures every profile field the owner uses.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.initializing, ownerKey])
+  }, [auth.initializing, reconcileKey])
 
   useEffect(() => {
     void readShortcutSupport().then(setSupport)
@@ -147,7 +159,7 @@ export function CooperativeShortcutRuntimeProvider({
     if (!lock.isHydrated || lock.isLocked) return
     if (pathname.startsWith(`/${SHORTCUT_PATH_SEGMENT}/`)) return
     const shortcutId = cooperativeShortcutService.pending.take()
-    setPending(false)
+    setPendingId(null)
     if (shortcutId) router.replace(shortcutRoutePath(shortcutId) as Href)
   }, [
     access.checking,
@@ -164,12 +176,28 @@ export function CooperativeShortcutRuntimeProvider({
       profile && registry
         ? findShortcutAssociation(registry, {
             tenantId: profile.tenant.id,
-            userId: profile.user.id,
             variant: identity.variant,
           })
         : null,
     [profile, registry]
   )
+
+  const pendingCooperative = useMemo<PendingShortcutCooperative | null>(() => {
+    const shortcut =
+      pendingId && registry ? findShortcutById(registry, pendingId) : null
+    if (
+      !shortcut ||
+      shortcut.variant !== identity.variant ||
+      shortcut.status === "disabled"
+    ) {
+      return null
+    }
+    return {
+      mark: shortcut.mark,
+      name: shortcut.label,
+      tenantId: shortcut.tenantId,
+    }
+  }, [pendingId, registry])
 
   const offerEligible =
     registry !== null &&
@@ -226,25 +254,21 @@ export function CooperativeShortcutRuntimeProvider({
   const value = useMemo<CooperativeShortcutRuntimeValue>(
     () => ({
       association,
+      clearPendingLaunch: () => {
+        cooperativeShortcutService.pending.clear()
+        setPendingId(null)
+      },
       disableCurrent: async () => {
         if (!profile) return
         setRegistry(
           await cooperativeShortcutService.disable(shortcutContext(profile))
         )
       },
-      disableTenant: async (tenantId) => {
-        if (!profile) return
-        setRegistry(
-          await cooperativeShortcutService.disableForTenant({
-            tenantId,
-            userId: profile.user.id,
-          })
-        )
-      },
-      pending,
+      pending: pendingId !== null,
+      pendingCooperative,
       rememberPendingLaunch: (shortcutId) => {
         cooperativeShortcutService.pending.set(shortcutId)
-        setPending(cooperativeShortcutService.pending.peek() !== null)
+        setPendingId(cooperativeShortcutService.pending.peek())
       },
       refreshCurrent: async () =>
         profile
@@ -255,7 +279,15 @@ export function CooperativeShortcutRuntimeProvider({
       support,
       variant: identity.variant,
     }),
-    [association, pending, profile, registry, requestCurrent, support]
+    [
+      association,
+      pendingCooperative,
+      pendingId,
+      profile,
+      registry,
+      requestCurrent,
+      support,
+    ]
   )
 
   return (

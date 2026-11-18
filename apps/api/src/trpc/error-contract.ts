@@ -42,6 +42,8 @@ const APPROVED_WORKFLOW_MESSAGES = new Set([
   "Member verification is required before financial or operational actions can continue.",
   "Resolve all live provider blockers before purging QA data.",
   "This account is not active for the selected cooperative.",
+  // Only after a correct password, on a cooperative shortcut's sign-in.
+  "This account isn't part of the selected cooperative.",
   "This QA workspace is being purged and no longer accepts writes.",
   "The QA purge preview expired or changed. Preview again.",
   "There are no marked QA workspaces to purge.",

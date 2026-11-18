@@ -12,8 +12,9 @@ export async function clearInvalidatedMobileSessionState(input: {
   clearReads: MobileSessionStateClearer
   clearSession: MobileSessionStateClearer
   clearDeviceId: MobileSessionStateClearer
-  disableLauncherShortcuts?: MobileSessionStateClearer
 }) {
+  // Launcher cooperative shortcuts belong to the phone, not the session, so
+  // invalidation leaves them alone (ADR-20261118).
   await Promise.all([
     input.clearSession(),
     input.clearDrafts(),
@@ -21,11 +22,6 @@ export async function clearInvalidatedMobileSessionState(input: {
     input.clearReads(),
     localSecurityClearer?.(),
     input.clearDeviceId(),
-    // Launcher cleanup is best effort: it must never fail or hold back
-    // local credential and scoped-state invalidation.
-    Promise.resolve()
-      .then(() => input.disableLauncherShortcuts?.())
-      .catch(() => undefined),
   ])
 }
 

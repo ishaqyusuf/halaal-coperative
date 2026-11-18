@@ -6,6 +6,7 @@ import { DockedHeroScreen } from "@/components/app/docked-hero-screen"
 import { QaAccessPanel } from "@/features/auth/components/qa-access-panel"
 import { SignInForm } from "@/features/auth/components/sign-in-form"
 import { useSignInController } from "@/features/auth/hooks/use-sign-in-controller"
+import { useShortcutSignInCooperative } from "@/features/cooperative-shortcuts/public/shortcut-sign-in"
 import { useRouter } from "expo-router"
 import { useState } from "react"
 import { View } from "react-native"
@@ -13,7 +14,9 @@ import { useKeyboardState } from "react-native-keyboard-controller"
 
 export function SignInScreen() {
   const router = useRouter()
-  const signIn = useSignInController()
+  // A signed-out tap on a cooperative's home-screen shortcut brands sign-in.
+  const shortcut = useShortcutSignInCooperative()
+  const signIn = useSignInController(shortcut.cooperative)
   const keyboardVisible = useKeyboardState((state) => state.isVisible)
   const confirmed = signIn.phase === "confirmed"
   const [dockHeight, setDockHeight] = useState(0)
@@ -40,7 +43,12 @@ export function SignInScreen() {
             {keyboardVisible ? null : <LegalLinks variant="inline" />}
           </>
         }
-        hero={<SignInHero profile={signIn.confirmedProfile} />}
+        hero={
+          <SignInHero
+            cooperative={shortcut.cooperative}
+            profile={signIn.confirmedProfile}
+          />
+        }
         onFooterHeightChange={setDockHeight}
         testID="sign-in-screen"
       >
@@ -62,6 +70,14 @@ export function SignInScreen() {
           onPasswordChange={signIn.setPassword}
           onRetry={() => void signIn.submit()}
           onSubmit={() => void signIn.submit()}
+          onUseAnotherCooperative={
+            shortcut.cooperative
+              ? () => {
+                  shortcut.clear()
+                  signIn.clearError()
+                }
+              : undefined
+          }
           password={signIn.password}
         />
       </DockedHeroScreen>

@@ -18,7 +18,6 @@ import {
   switchMobileRole,
   type MobileSignInCredentials,
 } from "@/lib/mobile-auth-api"
-import { disableCooperativeShortcutsForSignOut } from "@/features/cooperative-shortcuts/public/shortcut-session-cleanup"
 import { refreshMobileDeviceSession } from "@/features/device-sessions/api/device-session-api"
 import { shouldRefreshMobileDeviceSession } from "@/features/device-sessions/model/device-session-types"
 import { clearMobileFormDrafts } from "@/hooks/use-mobile-form-draft"
@@ -110,7 +109,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           clearReads: clearMobileReadCache,
           clearSession,
           clearDeviceId: clearMobileDeviceId,
-          disableLauncherShortcuts: disableCooperativeShortcutsForSignOut,
         })
       } finally {
         setProfile(null)

@@ -10,6 +10,7 @@ import {
   type CooperativeWorkspace,
 } from "./shortcut-policy"
 import {
+  addShortcutDeferral,
   emptyShortcutRegistry,
   upsertShortcutAssociation,
   type ShortcutAssociation,
@@ -20,12 +21,10 @@ const idA = `cs1-${"a".repeat(32)}`
 const association: ShortcutAssociation = {
   label: "Barakah",
   mark: "BA",
-  membershipId: "m-barakah-member",
   shortcutId: idA,
   status: "pin_observed",
   tenantId: "t-barakah",
   updatedAt: 1,
-  userId: "user-a",
   variant: "production",
 }
 const registry = upsertShortcutAssociation(emptyShortcutRegistry(), association)
@@ -33,7 +32,7 @@ const base = {
   authInitializing: false,
   locked: false,
   online: true,
-  profile: { tenantId: "t-amanah", userId: "user-a" },
+  profile: { tenantId: "t-amanah" },
   registry,
   shortcutId: idA,
   variant: "production",
@@ -66,13 +65,7 @@ describe("decideShortcutLaunch", () => {
     expect(decideShortcutLaunch({ ...base, locked: true }).kind).toBe("wait")
   })
 
-  test("owner, variant and disabled mismatches resolve to neutral recovery", () => {
-    expect(
-      decideShortcutLaunch({
-        ...base,
-        profile: { tenantId: "t-barakah", userId: "user-b" },
-      }).kind
-    ).toBe("unknown")
+  test("variant, disabled and unknown ids resolve to neutral recovery", () => {
     expect(decideShortcutLaunch({ ...base, variant: "preview" }).kind).toBe(
       "unknown"
     )
@@ -90,12 +83,11 @@ describe("decideShortcutLaunch", () => {
     ).toBe("unknown")
   })
 
-  test("enters directly in the same cooperative; another needs online switching", () => {
+  test("any account of the cooperative enters; another needs online switching", () => {
+    // The shortcut belongs to the phone, so the admin's tile serves the
+    // member too.
     expect(
-      decideShortcutLaunch({
-        ...base,
-        profile: { tenantId: "t-barakah", userId: "user-a" },
-      }).kind
+      decideShortcutLaunch({ ...base, profile: { tenantId: "t-barakah" } }).kind
     ).toBe("enter")
     expect(decideShortcutLaunch({ ...base, online: false }).kind).toBe(
       "offline"
@@ -121,26 +113,17 @@ describe("resolveShortcutSwitch", () => {
     workspaceRole: "admin" as const,
   }
 
-  test("uses the saved role only while it is still authorized", () => {
-    expect(
-      resolveShortcutSwitch(association, [workspace([admin, member])])
-    ).toEqual({ kind: "switch", membershipId: "m-barakah-member" })
-  })
-
   test("asks for a role instead of promoting to a default admin membership", () => {
     expect(
-      resolveShortcutSwitch({ ...association, membershipId: "m-revoked" }, [
-        workspace([admin, { ...member, id: "m-other" }]),
-      ]).kind
+      resolveShortcutSwitch(association, [workspace([admin, member])]).kind
     ).toBe("choose-role")
-    expect(
-      resolveShortcutSwitch({ ...association, membershipId: "m-revoked" }, [
-        workspace([admin]),
-      ])
-    ).toEqual({ kind: "switch", membershipId: "m-barakah-admin" })
+    expect(resolveShortcutSwitch(association, [workspace([member])])).toEqual({
+      kind: "switch",
+      membershipId: "m-barakah-member",
+    })
   })
 
-  test("a removed membership or inactive cooperative is unavailable", () => {
+  test("an account outside the cooperative is unavailable", () => {
     expect(resolveShortcutSwitch(association, []).kind).toBe("unavailable")
     expect(resolveShortcutSwitch(association, [workspace([])]).kind).toBe(
       "unavailable"
@@ -160,19 +143,50 @@ describe("shouldOfferCooperativeShortcut", () => {
     variant: "production",
   }
 
-  test("offers once per account and cooperative on the ordinary home", () => {
+  test("is not offered again once the cooperative has a shortcut, whoever signs in", () => {
     expect(shouldOfferCooperativeShortcut(offer)).toBe(true)
+    const added = upsertShortcutAssociation(emptyShortcutRegistry(), {
+      ...association,
+      tenantId: "t-amanah",
+    })
+    // The admin added it; the member of the same cooperative is not asked.
+    expect(shouldOfferCooperativeShortcut({ ...offer, registry: added })).toBe(
+      false
+    )
     expect(
       shouldOfferCooperativeShortcut({
         ...offer,
-        registry: upsertShortcutAssociation(emptyShortcutRegistry(), {
-          ...association,
-          shortcutId: null,
-          status: "deferred",
-          tenantId: "t-amanah",
-        }),
+        profile: { tenantId: "t-amanah", userId: "user-b" },
+        registry: added,
       })
     ).toBe(false)
+    // Another cooperative on the same phone still gets its own offer.
+    expect(
+      shouldOfferCooperativeShortcut({
+        ...offer,
+        profile: { tenantId: "t-other", userId: "user-b" },
+        registry: added,
+      })
+    ).toBe(true)
+  })
+
+  test("\"Not now\" quiets the offer only for the account that said it", () => {
+    const deferred = addShortcutDeferral(emptyShortcutRegistry(), {
+      tenantId: "t-amanah",
+      updatedAt: 1,
+      userId: "user-a",
+      variant: "production",
+    })
+    expect(
+      shouldOfferCooperativeShortcut({ ...offer, registry: deferred })
+    ).toBe(false)
+    expect(
+      shouldOfferCooperativeShortcut({
+        ...offer,
+        profile: { tenantId: "t-amanah", userId: "user-b" },
+        registry: deferred,
+      })
+    ).toBe(true)
   })
 
   test("never offers before entry gates or on unsupported launchers", () => {
@@ -215,7 +229,7 @@ describe("describeShortcutState", () => {
       association: { ...association, status: "disabled" },
       support: "supported",
     })
-    expect(disabled.description).toContain("You can remove its tile")
+    expect(disabled.description).toContain("remove its tile")
     expect(disabled.description.toLowerCase()).not.toContain("deleted")
     expect(
       describeShortcutState({ association: null, support: "unsupported_os" })

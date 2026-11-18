@@ -36,8 +36,17 @@ import { getMobileSessionRefreshBounds } from "./mobile-device-session.route"
 
 const mobileSignInInput = z.object({
   cooperativeAccessCode: z.string().trim().min(3).max(96),
+  // Set when the sign-in came from a cooperative's home-screen shortcut.
+  cooperativeId: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9_-]{1,64}$/)
+    .optional(),
   password: z.string().min(1),
 })
+
+export const MOBILE_SIGN_IN_OTHER_COOPERATIVE_MESSAGE =
+  "This account isn't part of the selected cooperative."
 
 const mobileSwitchRoleInput = z.object({
   membershipId: z.string().min(1),
@@ -83,6 +92,20 @@ export const mobileAuthRouter = createTRPCRouter({
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "The cooperative number or account details were invalid.",
+        })
+      }
+
+      // A cooperative shortcut's sign-in only admits that cooperative's
+      // accounts. Checked after the password, so it reveals nothing to a
+      // caller who doesn't hold the account.
+      if (
+        input.cooperativeId &&
+        input.cooperativeId !== tenant.id &&
+        !selectActiveMembership(memberships, input.cooperativeId)
+      ) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: MOBILE_SIGN_IN_OTHER_COOPERATIVE_MESSAGE,
         })
       }
 

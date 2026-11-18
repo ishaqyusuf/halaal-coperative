@@ -19,13 +19,14 @@ export type ShortcutResolverState =
   | { kind: "invalid" }
   | { kind: "unknown" }
   | { kind: "offline" }
-  | { kind: "unavailable" }
+  | { cooperativeName: string; kind: "unavailable" }
   | { kind: "failed" }
   | { kind: "choose-role"; memberships: WorkspaceMembership[] }
 
 type Kind = Exclude<ShortcutResolverState["kind"], "resolving" | "switching" | "choose-role">
 
-// Neutral copy: never names another account or cooperative.
+// Neutral copy: never names another account. Only "unavailable" names the
+// cooperative, which the tile on the home screen already shows.
 const COPY: Record<Kind, { body: string; icon: string; title: string; tone: GateStatusTone }> = {
   failed: {
     body: "Try again, or open HalaalVest and sign in again if asked.",
@@ -46,13 +47,13 @@ const COPY: Record<Kind, { body: string; icon: string; title: string; tone: Gate
     tone: "warm",
   },
   unavailable: {
-    body: "This cooperative is no longer available to your account, so its shortcut was disabled. You can remove its tile from your launcher.",
+    body: "Your account isn’t part of {cooperative}. Sign in with an account from {cooperative}, or keep using your own cooperative.",
     icon: "Ban",
-    title: "Cooperative unavailable",
+    title: "Not your cooperative",
     tone: "neutral",
   },
   unknown: {
-    body: "This shortcut isn’t linked to your account on this phone. Choose a cooperative to continue.",
+    body: "This shortcut is no longer set up on this phone. Choose a cooperative to continue.",
     icon: "ShieldAlert",
     title: "Shortcut not recognised",
     tone: "warm",
@@ -68,12 +69,14 @@ export function CooperativeShortcutResolverScreen({
   onChooseRole,
   onContinue,
   onRetry,
+  onUseAnotherAccount,
   state,
 }: {
   onChooseCooperative: () => void
   onChooseRole: (membershipId: string) => void
   onContinue: () => void
   onRetry: () => void
+  onUseAnotherAccount: () => void
   state: ShortcutResolverState
 }) {
   if (state.kind === "resolving" || state.kind === "switching") {
@@ -122,8 +125,13 @@ export function CooperativeShortcutResolverScreen({
   }
 
   const copy = COPY[state.kind]
+  const body =
+    state.kind === "unavailable"
+      ? copy.body.replaceAll("{cooperative}", state.cooperativeName)
+      : copy.body
   const retry = state.kind === "offline" || state.kind === "failed"
-  const choose = state.kind === "unknown" || state.kind === "unavailable"
+  const choose = state.kind === "unknown"
+  const anotherAccount = state.kind === "unavailable"
   return (
     <ScreenShell
       back={false}
@@ -141,10 +149,16 @@ export function CooperativeShortcutResolverScreen({
               <Text>Choose cooperative</Text>
             </Button>
           ) : null}
+          {anotherAccount ? (
+            <Button onPress={onUseAnotherAccount} testID="shortcut-use-another-account">
+              <Icon className="size-base text-primary-foreground" name="LogIn" />
+              <Text>Use another account</Text>
+            </Button>
+          ) : null}
           <Button
             onPress={onContinue}
-            size={retry || choose ? "sm" : undefined}
-            variant={retry || choose ? "ghost" : "default"}
+            size={retry || choose || anotherAccount ? "sm" : undefined}
+            variant={retry || choose || anotherAccount ? "ghost" : "default"}
           >
             <Text>Open HalaalVest</Text>
           </Button>
@@ -152,7 +166,7 @@ export function CooperativeShortcutResolverScreen({
       }
       testID="shortcut-opener"
     >
-      <CenteredStatus badge={<GateStatusBadge icon={copy.icon} tone={copy.tone} />} body={copy.body} title={copy.title} />
+      <CenteredStatus badge={<GateStatusBadge icon={copy.icon} tone={copy.tone} />} body={body} title={copy.title} />
     </ScreenShell>
   )
 }

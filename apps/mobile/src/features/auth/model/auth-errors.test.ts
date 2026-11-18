@@ -63,6 +63,24 @@ describe("sign-in errors", () => {
     )
   })
 
+  test("a cooperative shortcut's sign-in names its cooperative for other accounts", () => {
+    const refused = trpcError(
+      "FORBIDDEN",
+      "This account isn't part of the selected cooperative."
+    )
+    expect(
+      getSignInErrorPresentation(refused, { cooperativeName: "Amanah" })
+    ).toMatchObject({
+      kind: "other-cooperative",
+      message:
+        "This account isn't part of Amanah. Use an account from Amanah, or choose another cooperative.",
+      retryable: false,
+    })
+    expect(getSignInErrorPresentation(refused).message).toBe(
+      AUTH_MESSAGES.otherCooperative
+    )
+  })
+
   test("network failures and offline state show a retryable offline message", () => {
     expect(getSignInErrorPresentation(networkError())).toMatchObject({
       kind: "offline",

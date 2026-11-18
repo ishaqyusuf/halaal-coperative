@@ -200,6 +200,37 @@ runIntegration("mobile sign-in", () => {
     })
   })
 
+  test("a cooperative shortcut's sign-in admits that cooperative's accounts", async () => {
+    const response = await (
+      await caller()
+    ).auth.mobile.signIn({
+      cooperativeAccessCode: `${prefix}-0001`,
+      cooperativeId: tenantId,
+      password,
+    })
+    expect(response.profile.user.id).toBe(memberUserId)
+  })
+
+  test("a cooperative shortcut's sign-in refuses another cooperative's account", async () => {
+    // The membership-less account keeps -0001 under its rate limit.
+    const other = (await caller()).auth.mobile.signIn({
+      cooperativeAccessCode: `${prefix}-0002`,
+      cooperativeId: "00000000-0000-4000-8000-000000000000",
+      password,
+    })
+    await expect(other).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "This account isn't part of the selected cooperative.",
+    })
+    // Without the password it stays the generic failure.
+    const wrongPassword = (await caller()).auth.mobile.signIn({
+      cooperativeAccessCode: `${prefix}-0002`,
+      cooperativeId: "00000000-0000-4000-8000-000000000000",
+      password: "not-the-password-1",
+    })
+    await expect(wrongPassword).rejects.toMatchObject({ code: "UNAUTHORIZED" })
+  })
+
   test("the account rate limit still applies", async () => {
     const code = `${prefix}-0003`
     const attempts: unknown[] = []

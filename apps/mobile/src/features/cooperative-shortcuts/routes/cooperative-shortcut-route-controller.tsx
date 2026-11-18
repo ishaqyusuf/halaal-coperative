@@ -10,6 +10,7 @@ import {
   decideShortcutLaunch,
   resolveShortcutSwitch,
 } from "../model/shortcut-policy"
+import { emptyShortcutRegistry } from "../model/shortcut-state"
 import { useCooperativeShortcuts } from "../platform/cooperative-shortcut-runtime-provider"
 import {
   CooperativeShortcutResolverScreen,
@@ -17,10 +18,11 @@ import {
 } from "../screens/cooperative-shortcut-resolver-screen"
 
 /**
- * Neutral, unprotected landing for launcher shortcuts. It never decides a
- * destination itself: it waits for auth and app lock, validates the opaque
- * association against the signed owner, performs the ordinary signed
- * membership switch online, and then hands off to the normal entry gates.
+ * Unprotected landing for launcher shortcuts. It never decides a destination
+ * itself: it waits for auth and app lock, sends a signed-out tap to that
+ * cooperative's sign-in, resolves the opaque id through this phone's
+ * registry, performs the ordinary signed membership switch online, and then
+ * hands off to the normal entry gates.
  */
 export function CooperativeShortcutRouteController({
   shortcutId,
@@ -70,14 +72,8 @@ export function CooperativeShortcutRouteController({
       lock.isLocked ||
       (profile !== null && !shortcuts.registry),
     online,
-    profile: profile
-      ? { tenantId: profile.tenant.id, userId: profile.user.id }
-      : null,
-    registry: shortcuts.registry ?? {
-      associations: [],
-      tombstones: [],
-      version: 1,
-    },
+    profile: profile ? { tenantId: profile.tenant.id } : null,
+    registry: shortcuts.registry ?? emptyShortcutRegistry(),
     shortcutId,
     variant: shortcuts.variant,
   })
@@ -113,8 +109,12 @@ export function CooperativeShortcutRouteController({
             if (tokenRef.current !== token) return
             const next = resolveShortcutSwitch(decision.association, workspaces)
             if (next.kind === "unavailable") {
-              await shortcuts.disableTenant(decision.association.tenantId)
-              setState({ kind: "unavailable" })
+              // The shortcut still serves this cooperative's other accounts
+              // on this phone, so it stays on.
+              setState({
+                cooperativeName: decision.association.label,
+                kind: "unavailable",
+              })
             } else if (next.kind === "choose-role") {
               setState({ kind: "choose-role", memberships: next.memberships })
             } else {
@@ -147,6 +147,12 @@ export function CooperativeShortcutRouteController({
       onChooseRole={(membershipId) => void switchTo(membershipId)}
       onContinue={enterHome}
       onRetry={() => setAttempt((value) => value + 1)}
+      onUseAnotherAccount={() => {
+        // Signing out re-runs this opener, which sends the tap to the
+        // cooperative's own sign-in.
+        if (shortcutId) shortcuts.rememberPendingLaunch(shortcutId)
+        void auth.signOut()
+      }}
       state={state}
     />
   )

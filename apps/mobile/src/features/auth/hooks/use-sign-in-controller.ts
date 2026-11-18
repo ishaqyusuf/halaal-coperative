@@ -23,7 +23,13 @@ export const SIGN_IN_REVEAL_MS = 600
 
 export type SignInPhase = "idle" | "submitting" | "confirmed"
 
-export function useSignInController() {
+/**
+ * `cooperative` is set when a signed-out home-screen shortcut opened sign-in:
+ * the server then admits only that cooperative's accounts.
+ */
+export function useSignInController(
+  cooperative: { name: string; tenantId: string } | null = null
+) {
   const { signInWithPassword } = useAuthContext()
   const { state: runtime } = useMobileRuntime()
   const reduceMotion = useReducedMotion()
@@ -44,6 +50,9 @@ export function useSignInController() {
     )
     setError(null)
   }, [])
+
+  /** Leaving a shortcut's sign-in drops its cooperative-specific error. */
+  const clearError = useCallback(() => setError(null), [])
 
   const setPassword = useCallback((value: string) => {
     setPasswordValue(value)
@@ -67,6 +76,7 @@ export function useSignInController() {
       await signInWithPassword(
         {
           cooperativeAccessCode: cooperativeNumber.trim().toUpperCase(),
+          ...(cooperative ? { cooperativeId: cooperative.tenantId } : {}),
           password,
         },
         async (profile) => {
@@ -82,7 +92,10 @@ export function useSignInController() {
       )
       // The auth stack unmounts once the profile is active.
     } catch (caught) {
-      const presentation = getSignInErrorPresentation(caught, { offline })
+      const presentation = getSignInErrorPresentation(caught, {
+        cooperativeName: cooperative?.name,
+        offline,
+      })
       // Wrong credentials and limits are expected; report the rest.
       if (presentation.kind === "unknown")
         captureMobileError(caught, "mobile.auth.sign_in")
@@ -92,9 +105,17 @@ export function useSignInController() {
     } finally {
       inFlight.current = false
     }
-  }, [cooperativeNumber, offline, password, reduceMotion, signInWithPassword])
+  }, [
+    cooperative,
+    cooperativeNumber,
+    offline,
+    password,
+    reduceMotion,
+    signInWithPassword,
+  ])
 
   return {
+    clearError,
     confirmedProfile,
     cooperativeNumber,
     error,

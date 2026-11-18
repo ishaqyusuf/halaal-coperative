@@ -11,6 +11,7 @@ export type AuthErrorKind =
   | "invalid"
   | "rate-limited"
   | "inactive"
+  | "other-cooperative"
   | "offline"
   | "timeout"
   | "code"
@@ -25,6 +26,7 @@ export type AuthErrorPresentation = {
 
 export const AUTH_MESSAGES = {
   inactive: "This account is not active for the selected cooperative.",
+  otherCooperative: "This account isn't part of the selected cooperative.",
   invalid: "The cooperative number or account details were invalid.",
   invalidCode: "This code is invalid or no longer available.",
   offline: "You're offline. Check your connection and try again.",
@@ -72,7 +74,10 @@ function isRateLimited(error: unknown) {
 
 export function getSignInErrorPresentation(
   error: unknown,
-  { offline = false }: { offline?: boolean } = {}
+  {
+    cooperativeName,
+    offline = false,
+  }: { cooperativeName?: string; offline?: boolean } = {}
 ): AuthErrorPresentation {
   const connection = connectionProblem(error, offline)
   if (connection) return connection
@@ -85,6 +90,15 @@ export function getSignInErrorPresentation(
   const code = readErrorCode(error)
   if (code === "UNAUTHORIZED" || code === "BAD_REQUEST")
     return { kind: "invalid", message: AUTH_MESSAGES.invalid, retryable: false }
+  // A cooperative shortcut's sign-in refused an account from elsewhere.
+  if (code === "FORBIDDEN" && /isn't part of/i.test(readMessage(error)))
+    return {
+      kind: "other-cooperative",
+      message: cooperativeName
+        ? `This account isn't part of ${cooperativeName}. Use an account from ${cooperativeName}, or choose another cooperative.`
+        : AUTH_MESSAGES.otherCooperative,
+      retryable: false,
+    }
   if (code === "FORBIDDEN" || code === "PRECONDITION_FAILED")
     return {
       kind: "inactive",

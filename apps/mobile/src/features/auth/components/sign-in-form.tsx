@@ -22,6 +22,7 @@ export function SignInForm({
   onPasswordChange,
   onRetry,
   onSubmit,
+  onUseAnotherCooperative,
   password,
 }: {
   confirmed: boolean
@@ -34,6 +35,8 @@ export function SignInForm({
   onPasswordChange: (value: string) => void
   onRetry: () => void
   onSubmit: () => void
+  /** Set when a cooperative shortcut opened sign-in: back to the plain one. */
+  onUseAnotherCooperative?: () => void
   password: string
 }) {
   return (
@@ -95,6 +98,22 @@ export function SignInForm({
           Forgot password?
         </Text>
       </Pressable>
+      {onUseAnotherCooperative ? (
+        <Pressable
+          accessibilityRole="button"
+          className="min-h-[44px] flex-row items-center gap-[4px] self-start"
+          disabled={disabled}
+          onPress={onUseAnotherCooperative}
+          testID="sign-in-use-another-cooperative"
+        >
+          <Text className="text-muted-foreground" variant="label">
+            Not your cooperative?
+          </Text>
+          <Text className="text-primary" variant="label">
+            Use another cooperative
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   )
 }

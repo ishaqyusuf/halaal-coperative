@@ -68,14 +68,23 @@ function useCompactHero() {
 /**
  * Sign-in hero: HalaalVest identity, then the cooperative confirmed by the
  * server (its mark with a check) for the short hand-off before the app opens.
+ * A cooperative's home-screen shortcut shows that cooperative from the start.
  */
-export function SignInHero({ profile }: { profile: MobileProfile | null }) {
+export function SignInHero({
+  cooperative = null,
+  profile,
+}: {
+  cooperative?: { mark: string; name: string } | null
+  profile: MobileProfile | null
+}) {
   const compact = useCompactHero()
   const confirmed = Boolean(profile)
-  const tenantName = profile?.tenant.name ?? "HalaalVest"
+  const branded = confirmed || cooperative !== null
+  const tenantName = profile?.tenant.name ?? cooperative?.name ?? "HalaalVest"
   const shortName =
     tenantName.replace(/\s+co-?operative$/i, "").trim() || tenantName
-  const mark = profile?.tenant.branding.mark?.trim() || "H"
+  const mark =
+    profile?.tenant.branding.mark?.trim() || cooperative?.mark?.trim() || "H"
 
   return (
     <HeroSurface kind="sign-in">
@@ -92,10 +101,10 @@ export function SignInHero({ profile }: { profile: MobileProfile | null }) {
         <View
           className={cn(
             "size-[44px] items-center justify-center rounded-[14px]",
-            confirmed ? "bg-brand-warm" : "bg-hero-foreground"
+            branded ? "bg-brand-warm" : "bg-hero-foreground"
           )}
         >
-          {confirmed ? (
+          {branded ? (
             <Text className="text-hero-mark-foreground" maxFontSizeMultiplier={1} variant="section">
               {mark}
             </Text>
@@ -121,9 +130,9 @@ export function SignInHero({ profile }: { profile: MobileProfile | null }) {
           >
             {tenantName}
           </Text>
-          {confirmed ? (
+          {branded ? (
             <Text className="text-hero-foreground/70" variant="caption">
-              Cooperative confirmed
+              {confirmed ? "Cooperative confirmed" : "Cooperative sign-in"}
             </Text>
           ) : null}
         </View>
@@ -133,13 +142,17 @@ export function SignInHero({ profile }: { profile: MobileProfile | null }) {
         className={cn(
           "text-hero-foreground",
           compact && "text-[30px] leading-[34px]",
-          confirmed ? "max-w-[320px]" : "max-w-[250px]"
+          branded ? "max-w-[320px]" : "max-w-[250px]"
         )}
         maxFontSizeMultiplier={1.4}
         variant="hero"
       >
-        {confirmed ? "Welcome back to " : "Welcome back."}
-        {confirmed ? (
+        {confirmed
+          ? "Welcome back to "
+          : branded
+            ? "Sign in to "
+            : "Welcome back."}
+        {branded ? (
           <Text className="text-hero-accent" variant="hero">
             {`${shortName}.`}
           </Text>

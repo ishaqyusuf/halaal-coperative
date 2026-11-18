@@ -6,6 +6,8 @@ import { type MobileProfile } from "@/lib/session-store"
 export type MobileSignInCredentials = {
   // API field name remains stable; the product-facing label is Cooperative number.
   cooperativeAccessCode: string
+  /** The cooperative of the home-screen shortcut that opened sign-in. */
+  cooperativeId?: string
   password: string
 }
 

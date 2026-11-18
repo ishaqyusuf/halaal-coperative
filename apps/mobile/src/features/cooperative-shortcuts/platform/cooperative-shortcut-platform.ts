@@ -13,6 +13,8 @@ export type NativeShortcutSpec = {
   longLabel: string
   mark: string
   shortLabel: string
+  /** Stored in the launcher's extras so storage loss can be recovered. */
+  tenantId: string
   uri: string
 }
 

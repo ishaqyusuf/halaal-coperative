@@ -2,6 +2,7 @@ import type {
   EntryDirection,
   LedgerAccountType,
   LedgerTransactionType,
+  Prisma,
   PrismaClient,
 } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
@@ -50,6 +51,20 @@ const STANDARD_CHART_OF_ACCOUNTS: LedgerAccountSeed[] = [
   },
 ]
 
+export function insertTenantLedgerAccounts(
+  tenantId: string,
+  prisma: Pick<Prisma.TransactionClient, "ledgerAccount">,
+  options?: { skipDuplicates: boolean }
+) {
+  return prisma.ledgerAccount.createMany({
+    data: STANDARD_CHART_OF_ACCOUNTS.map((account) => ({
+      tenantId,
+      ...account,
+    })),
+    skipDuplicates: options?.skipDuplicates,
+  })
+}
+
 export async function ensureTenantLedgerAccounts(
   tenantId: string,
   prismaOverride?: PrismaClient
@@ -61,13 +76,7 @@ export async function ensureTenantLedgerAccounts(
     (account) => account.code
   )
 
-  await prisma.ledgerAccount.createMany({
-    data: STANDARD_CHART_OF_ACCOUNTS.map((account) => ({
-      tenantId,
-      ...account,
-    })),
-    skipDuplicates: true,
-  })
+  await insertTenantLedgerAccounts(tenantId, prisma, { skipDuplicates: true })
 
   const createdAccounts = await prisma.ledgerAccount.findMany({
     select: {

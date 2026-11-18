@@ -327,39 +327,35 @@ export async function getMemberSignupLinkAccess(
     return null
   }
 
-  const [link, currentSignupCount] = await Promise.all([
-    prisma.memberSignupLink.findFirst({
-      where: {
-        id: input.linkId,
-        tenantId: input.tenantId,
+  const link = await prisma.memberSignupLink.findUnique({
+    where: {
+      id: input.linkId,
+      tenantId: input.tenantId,
+      tokenVersion: input.tokenVersion,
+    },
+    select: {
+      expiresAt: true,
+      id: true,
+      isEnabled: true,
+      maxSignups: true,
+      name: true,
+      notes: true,
+      tenantId: true,
+      tokenVersion: true,
+      _count: {
+        select: {
+          requests: {
+            where: { tenantId: input.tenantId, signupLinkId: input.linkId },
+          },
+        },
       },
-      select: {
-        expiresAt: true,
-        id: true,
-        isEnabled: true,
-        maxSignups: true,
-        name: true,
-        notes: true,
-        tenantId: true,
-        tokenVersion: true,
-      },
-    }),
-    prisma.memberOnboardingRequest.count({
-      where: {
-        signupLinkId: input.linkId,
-        tenantId: input.tenantId,
-      },
-    }),
-  ])
+    },
+  })
 
-  if (!link || link.tokenVersion !== input.tokenVersion) {
-    return null
-  }
+  if (!link) return null
 
-  return {
-    ...link,
-    currentSignupCount,
-  }
+  const { _count, ...fields } = link
+  return { ...fields, currentSignupCount: _count.requests }
 }
 
 export async function createMemberSignupLink(

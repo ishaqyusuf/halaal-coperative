@@ -514,70 +514,40 @@ export async function checkTenantSignupAvailability(input: {
     }
   }
 
-  const [
-    existingTenantByCodePrefix,
-    existingTenantByName,
-    existingTenantBySlug,
-    existingDomain,
-  ] = await Promise.all([
-    normalizedCodePrefix
-      ? prisma.tenant.findUnique({
-          where: { cooperativeCodePrefix: normalizedCodePrefix },
-          select: { id: true },
-        })
-      : null,
-    normalizedName
-      ? prisma.tenant.findFirst({
-          where: {
-            name: {
-              equals: normalizedName,
-              mode: "insensitive",
-            },
-          },
-          select: {
-            id: true,
-          },
-        })
-      : null,
-    normalizedSlug
-      ? prisma.tenant.findUnique({
-          where: {
-            slug: normalizedSlug,
-          },
-          select: {
-            id: true,
-          },
-        })
-      : null,
-    hostname
-      ? prisma.tenantDomain.findUnique({
-          where: {
-            hostname,
-          },
-          select: {
-            id: true,
-          },
-        })
-      : null,
-  ])
+  const canUsePrefix = /^[A-Z]{3,5}$/.test(normalizedCodePrefix)
+  const canUseSlug = Boolean(normalizedSlug) && !isReservedSlug
+  const [conflicts] =
+    normalizedName || canUsePrefix || canUseSlug
+      ? await prisma.$queryRaw<
+          { nameTaken: boolean; prefixTaken: boolean; workspaceTaken: boolean }[]
+        >`
+          SELECT
+            EXISTS (
+              SELECT 1 FROM tenants
+              WHERE name ILIKE ${normalizedName || null}
+            ) AS "nameTaken",
+            EXISTS (
+              SELECT 1 FROM tenants
+              WHERE cooperative_code_prefix = ${canUsePrefix ? normalizedCodePrefix : null}
+            ) AS "prefixTaken",
+            (
+              EXISTS (SELECT 1 FROM tenants WHERE slug = ${canUseSlug ? normalizedSlug : null})
+              OR EXISTS (SELECT 1 FROM tenant_domains WHERE hostname = ${canUseSlug ? hostname : null})
+            ) AS "workspaceTaken"
+        `
+      : []
 
   return {
     cooperativeCodePrefix: {
-      available:
-        /^[A-Z]{3,5}$/.test(normalizedCodePrefix) &&
-        !existingTenantByCodePrefix,
+      available: canUsePrefix && !conflicts?.prefixTaken,
       normalized: normalizedCodePrefix,
     },
     cooperativeName: {
-      available: Boolean(normalizedName) && !existingTenantByName,
+      available: Boolean(normalizedName) && !conflicts?.nameTaken,
       normalized: normalizedName,
     },
     workspaceSlug: {
-      available:
-        Boolean(normalizedSlug) &&
-        !isReservedSlug &&
-        !existingTenantBySlug &&
-        !existingDomain,
+      available: canUseSlug && !conflicts?.workspaceTaken,
       hostname,
       normalized: normalizedSlug,
     },

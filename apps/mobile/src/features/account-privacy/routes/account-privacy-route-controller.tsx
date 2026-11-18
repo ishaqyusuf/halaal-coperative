@@ -109,7 +109,7 @@ function PrivacyController() {
         setReceipt(result)
         setSheet("success")
       } else {
-        setMessage("Your deletion request was cancelled.")
+        setMessage("Your request to close your account was cancelled.")
         setSheet(null)
       }
       void invalidate(requestsKey)

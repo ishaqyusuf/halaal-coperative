@@ -58,8 +58,9 @@ describe("privacy presentation", () => {
     const items = noticeItems(accountDeletionNoticeCopy)
     expect(items.map((item) => item.heading)).toEqual([
       "We verify it’s you first",
+      "Your cooperative settles your money first",
       "Money records are kept",
-      "You can cancel before processing",
+      "You can cancel until your login closes",
     ])
     expect(noticeItems({ consequences: ["Something new."] })[0]?.heading).toBe("Please review")
     expect(noticeVersionLabel(`notice-sha256-${"a1".repeat(32)}`)).toBe("a1a1a1a1")

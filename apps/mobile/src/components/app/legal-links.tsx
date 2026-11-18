@@ -43,7 +43,7 @@ const legalOrigin = (() => {
 const INLINE_LEGAL_LINKS: readonly (readonly [MobileLegalLinkSlug, string])[] = [
   ["terms", "Terms"],
   ["privacy", "Privacy"],
-  ["delete-account", "Delete account"],
+  ["delete-account", "Close my account"],
   ["support", "Support"],
 ]
 

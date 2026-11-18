@@ -36,9 +36,10 @@ import {
 export type PrivacySheet = "review" | "success" | "cancel" | null
 
 /**
- * Delete account on 03 Status card (T26): one status card says where the
+ * Close my account on 03 Status card (T26): one status card says where the
  * request stands (progress steps, response date, copyable reference), the
- * notice explains what deletion means, and the review opens full screen.
+ * notice explains what closing means (the cooperative settles money first,
+ * like closing a bank account), and the review opens full screen.
  */
 export function AccountPrivacyScreen(props: {
   accountLabel: string
@@ -81,7 +82,7 @@ export function AccountPrivacyScreen(props: {
               variant="secondary"
             >
               <Icon className="size-base text-accent-foreground" name="Undo2" />
-              <Text>Cancel deletion request</Text>
+              <Text>Cancel my request</Text>
             </Button>
           )
         : undefined
@@ -92,8 +93,8 @@ export function AccountPrivacyScreen(props: {
             testID="privacy-review"
             variant="destructive"
           >
-            <Icon className="size-base text-destructive-foreground" name="Trash2" />
-            <Text>Review deletion request</Text>
+            <Icon className="size-base text-destructive-foreground" name="LogOut" />
+            <Text>Ask to close my account</Text>
           </Button>
         )
 
@@ -104,11 +105,11 @@ export function AccountPrivacyScreen(props: {
       onRefresh={ready ? props.onRefresh : undefined}
       refreshing={props.refreshing}
       testID="account-privacy-screen"
-      title="Delete account"
+      title="Close my account"
     >
       {props.message ? <StatusBanner kind="info" title={props.message} /> : null}
       {props.offline ? (
-        <StatusBanner kind="offline" title="Reconnect to submit or update a deletion request." />
+        <StatusBanner kind="offline" title="Reconnect to send or update your request." />
       ) : null}
       {ready && props.readError ? (
         <StatusBanner
@@ -160,15 +161,15 @@ export function AccountPrivacyScreen(props: {
           ) : (
             <StatusCard
               body={props.notice!.scope}
-              icon="Trash2"
+              icon="LogOut"
               pill="No request"
               testID="privacy-status"
-              title="Delete your account"
+              title="Close your account"
               tone="danger"
             />
           )}
           {!live ? (
-            <StatusSection side="Current notice" title="Before you request deletion">
+            <StatusSection side="Current notice" title="Before you ask to close your account">
               {items.map((item) => (
                 <StatusRow
                   alignTop
@@ -199,7 +200,7 @@ export function AccountPrivacyScreen(props: {
             </StatusSection>
           ) : !live ? (
             <Text className="px-[4px] text-muted-foreground" variant="small">
-              No account deletion requests yet.
+              No requests to close your account yet.
             </Text>
           ) : null}
         </>
@@ -223,7 +224,7 @@ export function AccountPrivacyScreen(props: {
                   ? "Submitting…"
                   : props.writeError
                     ? "Try again"
-                    : "Submit deletion request"}
+                    : "Send my request"}
               </Text>
             </Button>
             <Button disabled={props.busy} onPress={props.onCloseSheet} variant="ghost">
@@ -239,13 +240,13 @@ export function AccountPrivacyScreen(props: {
         <View className="gap-[16px]">
           <View className="items-center gap-[6px] px-[8px] pb-[2px]">
             <View className="mb-[6px]">
-              <StatusTile icon="Trash2" tone="danger" />
+              <StatusTile icon="LogOut" tone="danger" />
             </View>
             <Text accessibilityRole="header" className="text-center" variant="title">
-              Submit deletion request?
+              Ask to close your account?
             </Text>
             <Text className="text-center text-muted-foreground" variant="small">
-              This submits a request for verification and processing. Account deletion begins after review.
+              Your cooperative settles your savings, shares and loans first. We close your login only after that, and we email you when it’s done.
             </Text>
           </View>
           {props.writeError ? <StatusBanner kind="error" title={props.writeError} /> : null}
@@ -296,7 +297,7 @@ export function AccountPrivacyScreen(props: {
           </Button>
         }
         onClose={props.onDone}
-        title="Delete account"
+        title="Close my account"
         visible={props.sheet === "success"}
       >
         {props.receipt ? (
@@ -321,13 +322,13 @@ export function AccountPrivacyScreen(props: {
         cancelLabel="Go back"
         confirmDisabled={props.offline}
         confirmLabel={props.writeError ? "Try again" : "Cancel request"}
-        description="Keep your account and withdraw this request before processing begins."
+        description="Keep your account and withdraw this request. You can do this until your login is closed."
         error={props.writeError}
         icon="Undo2"
         isConfirming={props.busy}
         onCancel={props.onCloseSheet}
         onConfirm={props.onConfirmCancel}
-        title="Cancel deletion request?"
+        title="Cancel your request?"
         visible={props.sheet === "cancel"}
       />
     </ScreenShell>

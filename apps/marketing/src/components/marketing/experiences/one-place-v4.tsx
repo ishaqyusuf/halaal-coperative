@@ -245,7 +245,7 @@ const footerColumns: {
     links: [
       ["/support", "Help centre"],
       ["/contact", "Contact support"],
-      ["/delete-account", "Delete account"],
+      ["/delete-account", "Close my account"],
     ],
     title: "Support",
   },

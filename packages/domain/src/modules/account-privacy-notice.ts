@@ -1,10 +1,14 @@
 export const accountDeletionNoticeCopy = {
+  // "Close my account" (owner, 18 Nov 2026): closing works like closing a
+  // bank account, so the cooperative settles the member's money before the
+  // login closes. Kept in line with the published close-account policy.
   scope:
-    "Request deletion of your HalaalVest account and associated personal data across your cooperatives.",
+    "Ask to close your HalaalVest account. Closing works like closing a bank account: your cooperative settles your money first, then we close your login.",
   consequences: [
-    "We verify your identity and review any cooperative administration handover before revoking access.",
-    "Records that must be retained for legal or cooperative financial obligations are reviewed separately; requesting deletion does not settle those obligations.",
-    "You can cancel this request in the app before processing begins. Access revocation alone does not mean erasure is complete.",
+    "We verify your identity first, and we may ask you for more information. If you run a cooperative, another administrator must take over.",
+    "Your cooperative settles your savings, special savings, shares and loans before we close your login: it pays out what it owes you, and you repay what you owe. A guarantee on someone else’s loan must end first too.",
+    "Records of your money are retained in your cooperative’s books, with your name and member number, for the period the law requires. Your contact and ID details are erased.",
+    "You can cancel this request in the app until your cooperative starts settling your money or we close your login.",
   ],
 } as const
 

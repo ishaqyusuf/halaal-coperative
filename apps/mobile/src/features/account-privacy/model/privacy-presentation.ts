@@ -9,7 +9,7 @@ export type PrivacyStatusCopy = {
   cancel?: boolean
   icon: string
   pill: string
-  /** Steps finished (Received, Verified, Processing, Completed). */
+  /** Steps finished (Received, Verified, Closing, Closed). */
   step?: number
   title?: string
   tone: StatusCardTone
@@ -28,25 +28,25 @@ export const PRIVACY_STATUS: Record<Status, PrivacyStatusCopy> = {
   cancelled: { icon: "Undo2", pill: "Cancelled", tone: "neutral" },
   completed: { icon: "Check", pill: "Completed", tone: "success" },
   processing: {
-    body: "Account access has ended. Data processing is still in progress.",
+    body: "Your login is closed. We’re erasing your personal details; your money records stay with your cooperative.",
     icon: "RefreshCw",
-    pill: "Processing",
+    pill: "Closing",
     step: 2,
-    title: "Your account is being deleted",
+    title: "Your account is being closed",
     tone: "brand",
   },
   rejected: { icon: "CircleX", pill: "Not processed", tone: "danger" },
   submitted: {
-    body: "We verify your identity before anything changes. You can still cancel.",
+    body: "We verify your identity before anything changes. Your cooperative settles your money before we close your login. You can still cancel.",
     cancel: true,
     icon: "Clock",
     pill: "Received",
     step: 1,
-    title: "Your deletion request was received",
+    title: "Your request to close your account was received",
     tone: "warning",
   },
   verified: {
-    body: "Your request is queued for processing. You can still cancel until processing begins.",
+    body: "Your cooperative settles your savings, shares and loans before we close your login. You can still cancel until then.",
     cancel: true,
     icon: "ShieldCheck",
     pill: "Verified",
@@ -56,7 +56,7 @@ export const PRIVACY_STATUS: Record<Status, PrivacyStatusCopy> = {
   },
 }
 
-export const PRIVACY_STEPS = ["Received", "Verified", "Processing", "Completed"] as const
+export const PRIVACY_STEPS = ["Received", "Verified", "Closing", "Closed"] as const
 
 const dayFormat = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -98,8 +98,9 @@ export function pastRequestNote(request: PrivacyRequest) {
  */
 const HEADINGS: { match: RegExp; heading: string; icon: string; tone: StatusCardTone }[] = [
   { heading: "We verify it’s you first", icon: "ShieldCheck", match: /verify your identity/i, tone: "brand" },
-  { heading: "Money records are kept", icon: "Archive", match: /retained|financial obligations/i, tone: "warning" },
-  { heading: "You can cancel before processing", icon: "Undo2", match: /cancel this request/i, tone: "info" },
+  { heading: "Your cooperative settles your money first", icon: "Wallet", match: /settles your/i, tone: "warning" },
+  { heading: "Money records are kept", icon: "Archive", match: /retained|financial obligations/i, tone: "neutral" },
+  { heading: "You can cancel until your login closes", icon: "Undo2", match: /cancel this request/i, tone: "info" },
 ]
 
 export function noticeItems(notice: Pick<PrivacyNotice, "consequences">) {

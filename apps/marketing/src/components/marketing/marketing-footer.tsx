@@ -28,7 +28,7 @@ export function MarketingFooter({
             ["/terms", "Terms"],
             ["/privacy", "Privacy"],
             ["/support", "Support"],
-            ["/delete-account", "Delete account"],
+            ["/delete-account", "Close my account"],
             ["/cooperative-disclosures", "Cooperative disclosures"],
           ].map(([href, label]) => (
             <Link

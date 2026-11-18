@@ -80,7 +80,7 @@ function PublicLegalLinks() {
       {[
         ["Terms", "/terms"],
         ["Privacy", "/privacy"],
-        ["Delete account", "/delete-account"],
+        ["Close my account", "/delete-account"],
         ["Support", "/support"],
       ].map(([label, path]) => (
         <a

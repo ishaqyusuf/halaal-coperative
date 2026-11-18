@@ -21,7 +21,7 @@ export function PrivacySteps({
 }) {
   return (
     <View
-      accessibilityLabel={`${done} of 4 steps done, ${PRIVACY_STEPS[done] ?? "Completed"} next`}
+      accessibilityLabel={`${done} of 4 steps done, ${PRIVACY_STEPS[done] ?? "Closed"} next`}
       accessible
       className="flex-row"
       testID="privacy-steps"

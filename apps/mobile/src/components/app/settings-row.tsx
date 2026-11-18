@@ -44,7 +44,7 @@ export function SettingsRow({
 }: {
   accessibilityLabel?: string
   chevron?: boolean
-  /** Danger title and tile (Remove app lock, Delete account). */
+  /** Danger title and tile (Remove app lock, Close my account). */
   destructive?: boolean
   detail?: string
   /** Dimmed and not pressable (e.g. a page unavailable in this build). */

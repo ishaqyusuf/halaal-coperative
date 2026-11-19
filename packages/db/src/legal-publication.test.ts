@@ -340,8 +340,28 @@ describe("source publication", () => {
       "privacy",
     ])
     expect(
-      bundle.documents.every((document) => document.documentVersion === "2026-11-16")
+      bundle.documents.map((document) => document.documentVersion)
+    ).toEqual(["2026-11-16", "2026-11-19-close-account"])
+  })
+
+  it("privacy is republished with the close-account sentence", () => {
+    const publication = policyPublications.privacy
+    expect(publication.version).toBe("2026-11-19-close-account")
+    expect(
+      isApprovedPublicPolicy(
+        "privacy",
+        publication,
+        publicPolicies.privacy,
+        new Date("2026-11-19T20:00:00.000Z")
+      )
     ).toBe(true)
+    const retention = publicPolicies.privacy.sections.find(
+      (section) => section.title === "Retention and deletion"
+    )
+    expect(retention?.body).toContain(
+      "your cooperative first settles your money under its rules"
+    )
+    expect(retention?.body).not.toContain("delete your account")
   })
 
   it("the four owner-approved pages of 18 November 2026 are effective", () => {

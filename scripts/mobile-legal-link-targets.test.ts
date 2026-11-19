@@ -1,30 +1,33 @@
 import { expect, test } from "bun:test"
-import {
-  mobileLegalLinks,
-  publicLegalLinkPath,
-} from "../apps/mobile/src/components/app/legal-link-targets"
+import { aboutLegalLinks } from "../apps/mobile/src/features/about/model/about-content"
 import { requiredPublicPages } from "./public-pages-preflight"
 
+// Since 18 Nov 2026 the About HalaalVest screen is the app's one path to the
+// platform documents on the public site (the old in-app legal links were
+// removed). Apple requires the privacy policy to be reachable inside the app,
+// so About must keep Terms and Privacy.
+//
 // The native app has no purchase flow (ADR-20261112): cooperatives pay
 // HalaalVest, and members never buy anything in the app. Apple and Google do
 // not allow an app to point users to an outside page with prices or payment
 // in that case, so the software billing policy stays public on the website
-// but is deliberately left out of the app's legal links.
+// but is deliberately left out of the app.
 const webOnlyPublicPages = ["billing-policy"] as const
 
-test("native external links cover every public page except the billing policy", () => {
-  const paths = mobileLegalLinks
-    .filter(([slug]) => slug !== "legal-agreements")
-    .map(([slug]) => publicLegalLinkPath(slug))
-  const expected = requiredPublicPages
-    .filter((page) => !(webOnlyPublicPages as readonly string[]).includes(page))
-    .map((page) => `/${page}`)
-  expect(new Set(paths)).toEqual(new Set(expected))
-  expect(paths).toHaveLength(expected.length)
-  expect(publicLegalLinkPath("legal-agreements")).toBe("/terms")
+const aboutPaths = aboutLegalLinks.map((link) => link.path)
+
+test("About links only to published public pages", () => {
+  const publicPaths = requiredPublicPages.map((page) => `/${page}`)
+  for (const path of aboutPaths) expect(publicPaths).toContain(path)
+})
+
+test("About keeps the terms and privacy policy reachable in the app", () => {
+  expect(aboutPaths).toContain("/terms")
+  expect(aboutPaths).toContain("/privacy")
 })
 
 test("the native app never links to the billing policy", () => {
-  const slugs: readonly string[] = mobileLegalLinks.map(([slug]) => slug)
-  for (const page of webOnlyPublicPages) expect(slugs).not.toContain(page)
+  for (const page of webOnlyPublicPages) {
+    expect(aboutPaths).not.toContain(`/${page}`)
+  }
 })

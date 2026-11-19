@@ -136,7 +136,7 @@ export const publicPolicies = {
       },
       {
         title: "Retention and deletion",
-        body: "We keep account information while your account is active. Financial, audit and dispute records belong to the cooperative’s books and are kept for as long as the cooperative or the law requires, with access restricted to people who need them. Other personal information is deleted or anonymised once it is no longer needed. When you ask us to delete your account, we remove your access, then delete or anonymise the information we are not required to keep, and tell you what we kept and why. Backups expire on a rolling schedule, so deleted information can remain in a backup for a short time before it is overwritten.",
+        body: "We keep account information while your account is active. Financial, audit and dispute records belong to the cooperative’s books and are kept for as long as the cooperative or the law requires, with access restricted to people who need them. Other personal information is deleted or anonymised once it is no longer needed. When you ask us to close your account, your cooperative first settles your money under its rules. We then close your login, erase your contact, identity and KYC details and other information we are not required to keep, and email you to say what we kept and why. We aim to finish within 30 days of your request. Records of your money stay in your cooperative’s books under your name and member number for the period the law requires. Backups expire on a rolling schedule, so deleted information can remain in a backup for a short time before it is overwritten.",
       },
       {
         title: "Your rights and requests",
@@ -321,14 +321,19 @@ export const policyPublications: Record<
     approvedSnapshotHash:
       "fd10deedaf03e9f8e69cf68f163522a33bdbeddbc4d1bc326468555ee0c8e448",
   },
+  // Owner approved the close-account sentence in "Retention and deletion" in
+  // chat on 19 November 2026: closing waits for the cooperative to settle the
+  // member's money (ADR-20261118-close-login-settlement-block). Only that
+  // sentence changed from the 16 November approval.
   privacy: {
     status: "published",
-    version: "2026-11-16",
-    approvedAt: "2026-11-16T08:11:00.000Z",
-    effectiveAt: "2026-11-16T08:11:00.000Z",
-    approvalReference: "Owner approval in chat, 2026-11-16",
+    version: "2026-11-19-close-account",
+    approvedAt: "2026-11-19T19:30:00.000Z",
+    effectiveAt: "2026-11-19T19:30:00.000Z",
+    approvalReference:
+      "Owner approval in chat, 2026-11-19: close-account sentence",
     approvedSnapshotHash:
-      "57bfc2f9f5b38537f58a9dea67fbbd23f1fa3a89c29d280bee1e9732c6109bbe",
+      "509e66ab410cd757d1b64af9ef8badf422c20cfd6f0608c8ce1f8ad2c5d3b845",
   },
   // Owner approved every remaining draft ("all the draft policies are
   // approved") in chat on 18 November 2026: the revision 2026-11-16-draft-10

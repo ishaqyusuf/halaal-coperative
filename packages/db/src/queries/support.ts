@@ -1118,10 +1118,11 @@ function normalizeSupportCaseListRow(
 
 /**
  * The dashboard support list: only the columns a row shows plus the latest
- * message preview. The total is counted on the first page only.
+ * message preview. Callers that display totals can count on the first page.
  */
 export async function listSupportCaseRowsPage(
   input: {
+    includeTotal?: boolean
     tenantId: string
   } & ListSupportCasePageFilters,
   prismaOverride?: PrismaClient
@@ -1153,7 +1154,9 @@ export async function listSupportCaseRowsPage(
       take: pageSize + 1,
       where,
     }),
-    cursor ? undefined : prisma.supportCase.count({ where: baseWhere }),
+    cursor || input.includeTotal === false
+      ? undefined
+      : prisma.supportCase.count({ where: baseWhere }),
   ])
   const data = supportCases.slice(0, pageSize)
   const latestMessages = await readLatestSupportMessages(

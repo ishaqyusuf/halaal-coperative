@@ -38,6 +38,7 @@ export const listSupportCasesSchema = z
     assignedToUserId: z.string().uuid().optional(),
     category: supportCaseCategorySchema.optional(),
     cursor: z.string().nullable().optional(),
+    includeTotal: z.boolean().optional(),
     memberId: z.string().uuid().optional(),
     pageSize: z.coerce.number().int().min(1).max(100).optional(),
     priority: supportCasePrioritySchema.optional(),

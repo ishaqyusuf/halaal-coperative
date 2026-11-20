@@ -26,6 +26,7 @@ export const supportRouter = createTRPCRouter({
         assignedToUserId: scopedMemberId ? undefined : input?.assignedToUserId,
         category: scopedMemberId ? undefined : input?.category,
         cursor: input?.cursor ?? undefined,
+        includeTotal: input?.includeTotal,
         memberId: scopedMemberId ?? input?.memberId,
         pageSize: input?.pageSize ?? 50,
         priority: input?.priority,

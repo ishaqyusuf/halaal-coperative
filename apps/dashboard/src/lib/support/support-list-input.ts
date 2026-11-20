@@ -103,6 +103,7 @@ export function getSupportListInput(
     category: includeStaffFilters
       ? optionalChoice(filters.category, categories)
       : undefined,
+    includeTotal: false,
     priority: optionalChoice(filters.priority, priorities),
     q: search || undefined,
     sort: getSupportSort(sort),

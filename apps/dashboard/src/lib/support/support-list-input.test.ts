@@ -16,6 +16,7 @@ describe("support list input", () => {
     ).toEqual({
       assignedToUserId: "11111111-1111-4111-8111-111111111111",
       category: "payment_issue",
+      includeTotal: false,
       priority: "urgent",
       q: "receipt",
       sort: ["assignedToUser", "asc"],
@@ -39,6 +40,7 @@ describe("support list input", () => {
     ).toEqual({
       assignedToUserId: undefined,
       category: undefined,
+      includeTotal: false,
       priority: "urgent",
       q: "member issue",
       sort: null,

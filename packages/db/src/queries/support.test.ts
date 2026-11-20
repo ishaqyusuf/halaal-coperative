@@ -851,6 +851,16 @@ describe("support case queries", () => {
       subject: "Missing payment",
     })
     expect(result.data[0]).not.toHaveProperty("messages")
+
+    const withoutTotal = await listSupportCaseRowsPage(
+      { includeTotal: false, statusGroup: "active", tenantId: "tenant-1" },
+      db as never
+    )
+
+    expect(countCalls).toHaveLength(1)
+    expect(result.meta.total).toBe(1)
+    expect(withoutTotal.meta.total).toBeUndefined()
+    expect(withoutTotal.data).toEqual(result.data)
   })
 
   test("adds member replies only to the member's own support case", async () => {

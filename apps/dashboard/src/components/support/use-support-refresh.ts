@@ -1,17 +1,15 @@
 "use client"
 
 import { useQueryClient } from "@tanstack/react-query"
-import { useRouter } from "next/navigation"
 import { useTRPC } from "@/trpc/client"
 
 /**
- * After a support change: refresh only the support list, the open case and
- * the server summary. Pass `onClose` to close the sheet first, so the URL
- * settles before the page refreshes.
+ * Support actions revalidate the page and its staff summary in their Next.js
+ * response. Invalidate the client queries too so loaded pages and case
+ * conversations reflect the write.
  */
 export function useSupportRefresh() {
   const queryClient = useQueryClient()
-  const router = useRouter()
   const trpc = useTRPC()
 
   return async ({
@@ -31,6 +29,5 @@ export function useSupportRefresh() {
           })
         : undefined,
     ])
-    router.refresh()
   }
 }

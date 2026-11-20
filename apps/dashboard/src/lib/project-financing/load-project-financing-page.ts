@@ -1,10 +1,10 @@
 import {
   createDbRuntime,
-  getMemberByUserId,
-  getMemberOperationalReadiness,
   getProjectFinancingSummary,
+  isMemberOperationallyReady,
   tenantHasMembers,
 } from "@halaalvest/db"
+import { findRequestMemberByUserId } from "@/lib/request-lookups"
 import { getDashboardServerContext } from "@/lib/server-context"
 import {
   allStaffRoles,
@@ -36,7 +36,7 @@ export async function loadProjectFinancingPageData() {
       return { state: "member-sign-in-required" as const }
     }
 
-    const member = await getMemberByUserId({
+    const member = await findRequestMemberByUserId({
       tenantId: context.tenant.id,
       userId: context.auth.user.id,
     })
@@ -46,18 +46,18 @@ export async function loadProjectFinancingPageData() {
     }
 
     // A member who is not verified sees a plain notice, not a form that fails.
-    const [summary, readiness] = await Promise.all([
+    const [summary, isReady] = await Promise.all([
       getProjectFinancingSummary(context.tenant.id, undefined, member.id),
-      getMemberOperationalReadiness({
-        memberId: member.id,
+      isMemberOperationallyReady({
+        member,
         tenantId: context.tenant.id,
       }),
     ])
 
     return {
       state: "member-ready" as const,
-      canCreate: Boolean(readiness?.isReady),
-      needsVerification: !readiness?.isReady,
+      canCreate: Boolean(isReady),
+      needsVerification: !isReady,
       summary,
     }
   }

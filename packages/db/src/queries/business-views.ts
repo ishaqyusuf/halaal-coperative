@@ -1,7 +1,10 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
-import { getTenantMigrationWriteAccess } from "./migration"
+import {
+  getTenantFinanceSetupLock,
+  getTenantMigrationWriteAccess,
+} from "./migration"
 import { runMobileAdminCommand } from "./mobile-admin-finance-support"
 import {
   recognizeSeasonBusinessProfit,
@@ -9,8 +12,10 @@ import {
 } from "./profit-payouts"
 import {
   generateShareProfitAllocations,
+  getCurrentBusinessProfitSeason,
   rebuildDividendPeriodAllocationsFromPublishedProfit,
 } from "./tenant-finance"
+import { readOptionalTenantBusinessPolicy } from "./tenant-business-policy"
 
 /**
  * Dashboard reads and season commands for `/business`: only the fields each
@@ -50,6 +55,62 @@ function money(value: unknown) {
   return Math.round(Number(value ?? 0) * 100) / 100
 }
 
+/** Business setup controls without building the tenant's migration checklist. */
+export async function getBusinessSetup(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = getPrisma(prismaOverride)
+  const [lock, currentProfitSeason] = await Promise.all([
+    getTenantFinanceSetupLock(tenantId, prisma),
+    getCurrentBusinessProfitSeason(tenantId, prisma),
+  ])
+
+  if (lock.canUseLiveFinancialWrites || lock.isLocked) {
+    return {
+      canReviewNoProfit: false,
+      currentProfitSeason,
+      isLocked: !lock.canUseLiveFinancialWrites,
+    }
+  }
+
+  // A brought-forward setup already satisfies the business profit pools step.
+  const [[evidence], policy] = await Promise.all([
+    prisma.$queryRaw<Array<{ has_evidence: boolean }>>`
+      SELECT (
+        EXISTS (
+          SELECT 1 FROM tenant_policies
+          WHERE tenant_id = ${tenantId}::uuid AND migration_setup_mode = 'brought_forward'
+        )
+        OR EXISTS (SELECT 1 FROM share_businesses WHERE tenant_id = ${tenantId}::uuid)
+        OR EXISTS (
+          SELECT 1 FROM share_business_profit_entries WHERE tenant_id = ${tenantId}::uuid
+        )
+        OR EXISTS (
+          SELECT 1 FROM audit_logs
+          WHERE tenant_id = ${tenantId}::uuid
+            AND entity_type = 'Tenant'
+            AND action = 'migration.business_profit_pools.reviewed'
+        )
+      ) AS has_evidence
+    `,
+    readOptionalTenantBusinessPolicy(prisma, (delegate) =>
+      delegate.findUnique({
+        select: { historicalProfitMigrationMode: true },
+        where: { tenantId },
+      })
+    ),
+  ])
+
+  return {
+    canReviewNoProfit:
+      !evidence?.has_evidence &&
+      policy?.historicalProfitMigrationMode !== "no_historical_business_profit",
+    currentProfitSeason,
+    isLocked: false,
+  }
+}
+
 /** A profit entry counts as shared once any of its member shares is published. */
 const publishedAllocationExists = (entryAlias: string) =>
   `EXISTS (SELECT 1 FROM share_profit_allocations a WHERE a.profit_entry_id = ${entryAlias}.id AND a.status::text = 'published')`
@@ -67,7 +128,7 @@ export async function listBusinessRows(
   const q = filters.q?.trim()
 
   const rows = await prisma.shareBusiness.findMany({
-    orderBy: [{ startDate: "desc" }, { createdAt: "desc" }],
+    orderBy: [{ startDate: "desc" }, { createdAt: "desc" }, { id: "desc" }],
     select: {
       capitalAmount: true,
       endDate: true,

@@ -1,11 +1,11 @@
 import {
   createDbRuntime,
-  getMemberByUserId,
-  getMemberOperationalReadiness,
   getProcurementSummary,
+  isMemberOperationallyReady,
   tenantHasMembers,
 } from "@halaalvest/db"
 import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
+import { findRequestMemberByUserId } from "@/lib/request-lookups"
 import { getDashboardServerContext } from "@/lib/server-context"
 import {
   allStaffRoles,
@@ -45,7 +45,7 @@ export async function loadProcurementPageData() {
       return { state: "member-sign-in-required" as const }
     }
 
-    const member = await getMemberByUserId({
+    const member = await findRequestMemberByUserId({
       tenantId: context.tenant.id,
       userId: context.auth.user.id,
     })
@@ -56,11 +56,11 @@ export async function loadProcurementPageData() {
 
     // Readiness is read only when the member could ask, so a member who is
     // not verified sees a plain notice instead of a form that will fail.
-    const [summary, readiness] = await Promise.all([
+    const [summary, isReady] = await Promise.all([
       getProcurementSummary(context.tenant.id, undefined, member.id),
       procurementCapability.canMemberCreate
-        ? getMemberOperationalReadiness({
-            memberId: member.id,
+        ? isMemberOperationallyReady({
+            member,
             tenantId: context.tenant.id,
           })
         : null,
@@ -75,9 +75,9 @@ export async function loadProcurementPageData() {
 
     return {
       state: "member-ready" as const,
-      canCreate: Boolean(readiness?.isReady),
+      canCreate: Boolean(isReady),
       needsVerification:
-        procurementCapability.canMemberCreate && !readiness?.isReady,
+        procurementCapability.canMemberCreate && !isReady,
       summary,
     }
   }

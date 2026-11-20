@@ -1,10 +1,8 @@
 import {
   getBusinessDetail,
   getBusinessPageSummary,
-  getCurrentBusinessProfitSeason,
+  getBusinessSetup,
   getProfitSeasonDetail,
-  getTenantInitialMigrationState,
-  getTenantMigrationWriteAccess,
   listBusinessRows,
   listProfitSeasons,
   listProfitSeasonShares,
@@ -20,49 +18,6 @@ import { createTRPCRouter, permissionProcedure } from "../lib.trpc"
 
 /** Staff only: members never read other members' business or profit records. */
 const businessProcedure = permissionProcedure("view_share_profit_governance")
-
-/**
- * What the page needs to decide which buttons to show. Live cooperatives
- * read one tenant row; only cooperatives still setting up read the full
- * migration state (for the "no businesses to bring in" step).
- */
-async function getBusinessSetup(tenantId: string) {
-  const [access, currentProfitSeason] = await Promise.all([
-    getTenantMigrationWriteAccess(tenantId),
-    getCurrentBusinessProfitSeason(tenantId),
-  ])
-
-  if (access.canUseLiveFinancialWrites) {
-    return { canReviewNoProfit: false, currentProfitSeason, isLocked: false }
-  }
-
-  const [migrationState, firstBusiness] = await Promise.all([
-    getTenantInitialMigrationState(tenantId),
-    listBusinessRows(tenantId, { pageSize: 1 }),
-  ])
-  const hasAppliedMemberBackfill =
-    migrationState.counts.appliedBackfillBatches > 0 ||
-    migrationState.counts.appliedBackfillMembers > 0 ||
-    migrationState.counts.appliedBackfillMonths > 0
-  const businessProfitPoolsReviewed =
-    migrationState.snapshot.steps.find(
-      (step) => step.key === "business_profit_pools"
-    )?.complete ?? false
-  const isHistoricalSetupLocked =
-    !migrationState.snapshot.canUseMigrationTools || hasAppliedMemberBackfill
-
-  return {
-    canReviewNoProfit:
-      !businessProfitPoolsReviewed &&
-      firstBusiness.data.length === 0 &&
-      !isHistoricalSetupLocked,
-    currentProfitSeason,
-    isLocked: !(
-      migrationState.snapshot.status === "finalized" ||
-      (migrationState.snapshot.canUseMigrationTools && !hasAppliedMemberBackfill)
-    ),
-  }
-}
 
 export const businessRouter = createTRPCRouter({
   get: businessProcedure.input(businessIdSchema).query(async ({ ctx, input }) => {

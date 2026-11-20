@@ -1,11 +1,11 @@
 import {
   createDbRuntime,
   getFoodPurchaseApplicationSummary,
-  getMemberByUserId,
-  getMemberOperationalReadiness,
   listFoodPurchaseCycles,
+  isMemberOperationallyReady,
 } from "@halaalvest/db"
 import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
+import { findRequestMemberByUserId } from "@/lib/request-lookups"
 import { getDashboardServerContext } from "@/lib/server-context"
 import {
   allStaffRoles,
@@ -45,7 +45,7 @@ export async function loadFoodPurchasePageData() {
       return { state: "member-sign-in-required" as const }
     }
 
-    const member = await getMemberByUserId({
+    const member = await findRequestMemberByUserId({
       tenantId: context.tenant.id,
       userId: context.auth.user.id,
     })
@@ -55,15 +55,15 @@ export async function loadFoodPurchasePageData() {
     }
 
     // A member who is not verified sees a plain notice, not a form that fails.
-    const [cycles, applicationSummary, readiness] = await Promise.all([
+    const [cycles, applicationSummary, isReady] = await Promise.all([
       listFoodPurchaseCycles({ tenantId: context.tenant.id }),
       getFoodPurchaseApplicationSummary({
         memberId: member.id,
         tenantId: context.tenant.id,
       }),
       foodPurchaseCapability.canMemberCreate
-        ? getMemberOperationalReadiness({
-            memberId: member.id,
+        ? isMemberOperationallyReady({
+            member,
             tenantId: context.tenant.id,
           })
         : null,
@@ -79,9 +79,9 @@ export async function loadFoodPurchasePageData() {
 
     return {
       state: "member-ready" as const,
-      canCreateApplication: Boolean(readiness?.isReady),
+      canCreateApplication: Boolean(isReady),
       needsVerification:
-        foodPurchaseCapability.canMemberCreate && !readiness?.isReady,
+        foodPurchaseCapability.canMemberCreate && !isReady,
       cycles: cycles.map((cycle) => ({
         ...cycle,
         accountingSubmittedByUser: cycle.accountingSubmittedByUser

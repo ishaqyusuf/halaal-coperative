@@ -29,7 +29,10 @@ export default async function FoodPurchasePage({
     getNextPageParam: ({ meta }) => meta?.cursor,
   })
 
-  if (data.state === "staff-ready" || data.state === "member-ready") {
+  if (
+    data.state === "member-ready" ||
+    (data.state === "staff-ready" && filter.view !== "cycles")
+  ) {
     batchPrefetch([listOptions])
   }
 

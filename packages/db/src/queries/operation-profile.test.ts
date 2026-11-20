@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import {
+  assertMemberPaymentReceiptProof,
   defaultTenantServiceAccessModes,
   ensureTenantOperationProfileDefaults,
   getOperationNavRecordPresence,
@@ -329,6 +330,7 @@ describe("tenant operation profile", () => {
     expect(profile.policy).toEqual({
       foodPurchaseMaximumActiveObligationsPerMember: 1,
       foodPurchaseRequiresOpenCycle: true,
+      paymentReceiptProofRequired: false,
       procurementMaximumActiveObligationsPerMember: 1,
     })
   })
@@ -343,6 +345,7 @@ describe("tenant operation profile", () => {
         policy: {
           foodPurchaseMaximumActiveObligationsPerMember: 2,
           foodPurchaseRequiresOpenCycle: false,
+          paymentReceiptProofRequired: true,
           procurementMaximumActiveObligationsPerMember: 3,
         },
         services: {
@@ -363,6 +366,7 @@ describe("tenant operation profile", () => {
     expect(profile.policy).toEqual({
       foodPurchaseMaximumActiveObligationsPerMember: 2,
       foodPurchaseRequiresOpenCycle: false,
+      paymentReceiptProofRequired: true,
       procurementMaximumActiveObligationsPerMember: 3,
     })
     expect(profile.services.payment_receipts).toMatchObject({
@@ -533,5 +537,28 @@ describe("operation nav record presence", () => {
       "procurementRequest",
       "supportCase",
     ])
+  })
+})
+
+describe("member payment receipt proof", () => {
+  test("allows a receipt without proof unless the cooperative requires it", () => {
+    expect(() =>
+      assertMemberPaymentReceiptProof(
+        { paymentReceiptProofRequired: false },
+        undefined
+      )
+    ).not.toThrow()
+    expect(() =>
+      assertMemberPaymentReceiptProof(
+        { paymentReceiptProofRequired: true },
+        "  "
+      )
+    ).toThrow("requires proof of payment")
+    expect(() =>
+      assertMemberPaymentReceiptProof(
+        { paymentReceiptProofRequired: true },
+        "/api/uploads/00000000-0000-0000-0000-000000000000"
+      )
+    ).not.toThrow()
   })
 })

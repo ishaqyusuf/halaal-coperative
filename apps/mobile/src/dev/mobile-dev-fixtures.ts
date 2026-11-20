@@ -1707,6 +1707,7 @@ export function respondDevGuarantorApproval(
 export function getDevMemberReceipts(): MobileMemberReceipts {
   return clone({
     canCreateReceipt: true,
+    proofRequired: false,
     generatedAt,
     member,
     receipts,

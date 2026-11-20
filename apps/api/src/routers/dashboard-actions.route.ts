@@ -65,6 +65,7 @@ import {
   getMemberByUserId,
   getSupportCase,
   getInitialMigrationMemberReview,
+  assertMemberPaymentReceiptProof,
   getTenantOperationProfile,
   getChargeDefinitionOnDate,
   generateHistoricalBackfillShareProfitAllocations,
@@ -2876,6 +2877,10 @@ export async function updateTenantOperationProfileAction(formData: FormData) {
         formData,
         "foodPurchaseRequiresOpenCycle"
       ),
+      // Only the payment receipts form sends this; other saves keep the value.
+      paymentReceiptProofRequired: formData.has("paymentReceiptProofRequired")
+        ? getOptionalBoolean(formData, "paymentReceiptProofRequired")
+        : undefined,
       procurementMaximumActiveObligationsPerMember: Number(
         getRequiredString(
           formData,
@@ -6808,6 +6813,10 @@ export async function createOwnMemberPaymentReceiptAction(formData: FormData) {
       "Payment receipt self-service is not enabled for this cooperative."
     )
   }
+  assertMemberPaymentReceiptProof(
+    operationProfile.policy,
+    getOptionalTrimmedString(formData, "proofDocumentUrl")
+  )
 
   const paidAt = getRequiredString(formData, "paidAt")
   requireDateOnOrAfterTenantStartDate(actor, paidAt, "Receipt payment date")

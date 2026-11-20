@@ -592,6 +592,7 @@ export function ReceiptsScreen({
       {formOpen ? (
         <ReceiptSubmitFlow
           canCreate={canCreate}
+          proofRequired={Boolean(snapshot?.proofRequired)}
           currency={currency}
           draft={draft}
           offline={!online}

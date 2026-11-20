@@ -261,6 +261,15 @@ export function OperationProfileScreen({
                       : "Any cycle"
                   }
                 />
+                <ReviewRow
+                  compact
+                  label="Receipt proof"
+                  value={
+                    published.policy.paymentReceiptProofRequired
+                      ? "Required"
+                      : "Optional"
+                  }
+                />
               </ListCard>
               <Text className="text-muted-foreground" variant="small">
                 A platform limit can make a service view only. Edit policy

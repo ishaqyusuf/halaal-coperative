@@ -15,6 +15,7 @@ import {
 } from "./payment-receipts"
 import { getMemberByUserId } from "./members"
 import {
+  assertMemberPaymentReceiptProof,
   getTenantOperationProfile,
   resolveTenantServiceCapabilities,
 } from "./operation-profile"
@@ -46,6 +47,8 @@ export type MobileMemberReceiptSnapshot = {
   generatedAt: string
   member: { id: string; memberNumber: string; name: string } | null
   nextCursor: string | null
+  /** The cooperative requires an upload or link on every member receipt. */
+  proofRequired: boolean
   receipts: MobileMemberPaymentReceipt[]
   state: "available" | "database_unavailable" | "member_profile_missing"
   summary: {
@@ -97,6 +100,7 @@ function emptySnapshot(
     generatedAt: new Date().toISOString(),
     member: null,
     nextCursor: null,
+    proofRequired: false,
     receipts: [],
     state,
     summary: {
@@ -128,6 +132,17 @@ async function getReceiptServices(tenantId: string, prisma: PrismaClient) {
       settings.map(({ serviceKey, accessMode }) => [serviceKey, accessMode])
     )
   )
+}
+
+async function getReceiptProofRequired(
+  tenantId: string,
+  prisma: PrismaClient
+) {
+  const policy = await prisma.tenantPolicy.findUnique({
+    select: { paymentReceiptProofRequired: true },
+    where: { tenantId },
+  })
+  return policy?.paymentReceiptProofRequired === true
 }
 
 async function getReceiptCategories(input: {
@@ -339,13 +354,17 @@ export async function getMobileMemberReceiptFormOptions(
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
   const member = await getMemberByUserId(input, prisma)
-  if (!member) return { canCreateReceipt: false, categories: [] }
-  const { canCreateReceipt, options } = await getReceiptCategories({
-    memberId: member.id,
-    prisma,
-    tenantId: input.tenantId,
-  })
-  return { canCreateReceipt, categories: options }
+  if (!member)
+    return { canCreateReceipt: false, categories: [], proofRequired: false }
+  const [{ canCreateReceipt, options }, proofRequired] = await Promise.all([
+    getReceiptCategories({
+      memberId: member.id,
+      prisma,
+      tenantId: input.tenantId,
+    }),
+    getReceiptProofRequired(input.tenantId, prisma),
+  ])
+  return { canCreateReceipt, categories: options, proofRequired }
 }
 
 export async function getMobileMemberReceiptSnapshot(
@@ -367,7 +386,7 @@ export async function getMobileMemberReceiptSnapshot(
   const pageSize = 20
   const sort = ["submittedAt", "desc"] as ["submittedAt", "desc"]
   const filters = { ...scope, cursor, pageSize: pageSize + 1, sort }
-  const [summary, capabilities, items] = await Promise.all([
+  const [summary, capabilities, items, proofRequired] = await Promise.all([
     compact && cursor
       ? emptySnapshot("available").summary
       : getMemberScopedPaymentReceiptSummary(scope, prisma),
@@ -387,6 +406,7 @@ export async function getMobileMemberReceiptSnapshot(
       : listMemberPaymentReceiptPage(tenantId, filters, prisma).then(
           (page) => page.items
         ),
+    getReceiptProofRequired(tenantId, prisma),
   ])
   const rows = items.slice(0, pageSize)
   return {
@@ -394,6 +414,7 @@ export async function getMobileMemberReceiptSnapshot(
     canCreateSupportCase: capabilities.canCreateSupportCase,
     categories: capabilities.options,
     generatedAt: new Date().toISOString(),
+    proofRequired,
     member: {
       id: member.id,
       memberNumber: member.memberNumber,
@@ -461,6 +482,7 @@ export async function createMobileMemberReceiptForSession(
       "Payment receipt self-service is not enabled for this cooperative."
     )
   }
+  assertMemberPaymentReceiptProof(profile.policy, input.proofDocumentUrl)
   return toMobileReceipt(
     await createMemberPaymentReceipt(
       {

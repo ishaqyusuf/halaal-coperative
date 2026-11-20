@@ -106,6 +106,7 @@ export function ReceiptSubmitFlow({
   onDiscard,
   onSent,
   onViewReceipt,
+  proofRequired = false,
   scope,
   setDraft,
   stale,
@@ -119,6 +120,8 @@ export function ReceiptSubmitFlow({
   onDiscard: () => void
   onSent: (receipt: MobilePaymentReceipt) => void
   onViewReceipt: (receipt: MobilePaymentReceipt) => void
+  /** The cooperative requires an upload or link before sending. */
+  proofRequired?: boolean
   scope: string | undefined
   setDraft: Dispatch<SetStateAction<ReceiptDraft>>
   stale: boolean
@@ -199,7 +202,10 @@ export function ReceiptSubmitFlow({
     ? "Wait for the proof to finish uploading."
     : proofFile && proofError
       ? "Retry or remove the proof."
-      : linkError
+      : (linkError ??
+        (proofRequired && !proofUrl
+          ? "Your cooperative needs proof. Add a photo, PDF or link."
+          : null))
   const why =
     step === 0
       ? paymentError
@@ -704,7 +710,7 @@ export function ReceiptSubmitFlow({
             <>
               <FormField
                 label="Proof"
-                trailingLabel="Recommended"
+                trailingLabel={proofRequired ? "Required" : "Recommended"}
                 error={linkError}
               >
                 {linkMode ? (

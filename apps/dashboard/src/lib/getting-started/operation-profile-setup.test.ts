@@ -48,6 +48,7 @@ function profileFixture(
     policy: {
       foodPurchaseMaximumActiveObligationsPerMember: 1,
       foodPurchaseRequiresOpenCycle: true,
+      paymentReceiptProofRequired: false,
       procurementMaximumActiveObligationsPerMember: 1,
       ...policy,
     },

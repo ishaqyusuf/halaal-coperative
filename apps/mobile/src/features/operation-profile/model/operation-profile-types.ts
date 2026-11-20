@@ -41,6 +41,8 @@ export type MobileOperationProfileSnapshot = {
   policy: {
     foodPurchaseMaximumActiveObligationsPerMember: number
     foodPurchaseRequiresOpenCycle: boolean
+    /** Older servers omit it: proof is optional. */
+    paymentReceiptProofRequired?: boolean
     procurementMaximumActiveObligationsPerMember: number
   }
   reviewedAt: string | null

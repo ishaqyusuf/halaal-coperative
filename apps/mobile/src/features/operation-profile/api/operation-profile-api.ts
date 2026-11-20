@@ -51,6 +51,7 @@ function getDevSnapshot(): MobileOperationProfileSnapshot {
     policy: {
       foodPurchaseMaximumActiveObligationsPerMember: 1,
       foodPurchaseRequiresOpenCycle: true,
+      paymentReceiptProofRequired: false,
       procurementMaximumActiveObligationsPerMember: 1,
     },
     reviewedAt: devReviewed ? updatedAt : devReviewedAt,

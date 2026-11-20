@@ -190,10 +190,11 @@ export async function getMemberReceipts({
 
 export async function getReceiptFormOptions(): Promise<{
   canCreateReceipt: boolean
+  proofRequired?: boolean
   categories: MobileMemberReceipts["categories"]
 }> {
   if (isMobileDevFixtureSession()) {
-    return { canCreateReceipt: true, categories: devCategories }
+    return { canCreateReceipt: true, categories: devCategories, proofRequired: false }
   }
   return createMobileTrpcClient().mobile.member.receipts.formOptions.query()
 }

@@ -181,6 +181,8 @@ model TenantPolicy {
   foodPurchaseAllowsCommitmentReductionDuringPayback Boolean                   @default(false) @map("food_purchase_allows_commitment_reduction_during_payback")
   foodPurchaseRequiresOpenCycle                      Boolean                   @default(true) @map("food_purchase_requires_open_cycle")
   foodPurchaseMaximumActiveObligationsPerMember      Int                       @default(1) @map("food_purchase_maximum_active_obligations_per_member")
+  // Member-submitted payment receipts must carry proof (upload or link) when true.
+  paymentReceiptProofRequired                        Boolean                   @default(false) @map("payment_receipt_proof_required")
   monthlyLevyAmount                                  Decimal?                  @map("monthly_levy_amount") @db.Decimal(18, 2)
   migrationSetupMode                                 TenantMigrationSetupMode  @default(historical_backfill) @map("migration_setup_mode")
   // One Path Done markers: set when the admin saves step 5 / the share policy.

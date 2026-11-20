@@ -75,6 +75,8 @@ export type MobilePaymentReceipt = {
 export type MobileMemberReceipts = {
   cache?: MobileReadCacheState
   canCreateReceipt: boolean
+  /** Older servers omit it: proof stays optional. */
+  proofRequired?: boolean
   canCreateSupportCase: boolean
   categories: MobileReceiptCategoryOption[]
   generatedAt: string

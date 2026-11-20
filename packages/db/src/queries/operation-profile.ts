@@ -46,6 +46,7 @@ export type TenantServiceCapability = {
 export type TenantOperationProfilePolicy = {
   foodPurchaseMaximumActiveObligationsPerMember: number
   foodPurchaseRequiresOpenCycle: boolean
+  paymentReceiptProofRequired: boolean
   procurementMaximumActiveObligationsPerMember: number
 }
 
@@ -223,6 +224,7 @@ function normalizePolicy(policy: Record<string, unknown> | null | undefined) {
       typeof policy?.foodPurchaseRequiresOpenCycle === "boolean"
         ? policy.foodPurchaseRequiresOpenCycle
         : true,
+    paymentReceiptProofRequired: policy?.paymentReceiptProofRequired === true,
     procurementMaximumActiveObligationsPerMember: normalizePositiveInteger(
       policy?.procurementMaximumActiveObligationsPerMember,
       1
@@ -253,6 +255,10 @@ function normalizeInputPolicy(
       typeof input?.foodPurchaseRequiresOpenCycle === "boolean"
         ? input.foodPurchaseRequiresOpenCycle
         : fallback.foodPurchaseRequiresOpenCycle,
+    paymentReceiptProofRequired:
+      typeof input?.paymentReceiptProofRequired === "boolean"
+        ? input.paymentReceiptProofRequired
+        : fallback.paymentReceiptProofRequired,
     procurementMaximumActiveObligationsPerMember: normalizeInputPositiveInteger(
       input?.procurementMaximumActiveObligationsPerMember,
       fallback.procurementMaximumActiveObligationsPerMember,
@@ -400,6 +406,7 @@ export async function getTenantOperationProfile(
       select: {
         foodPurchaseMaximumActiveObligationsPerMember: true,
         foodPurchaseRequiresOpenCycle: true,
+        paymentReceiptProofRequired: true,
         procurementMaximumActiveObligationsPerMember: true,
       },
       where: { tenantId },
@@ -444,6 +451,7 @@ export async function getMobileAdminOperationProfile(
     accessMode: string | null
     foodPurchaseMaximumActiveObligationsPerMember: number | null
     foodPurchaseRequiresOpenCycle: boolean | null
+    paymentReceiptProofRequired: boolean | null
     procurementMaximumActiveObligationsPerMember: number | null
   }>>`
     SELECT profile.reviewed_at AS "reviewedAt",
@@ -453,6 +461,7 @@ export async function getMobileAdminOperationProfile(
            setting.access_mode::text AS "accessMode",
            policy.food_purchase_maximum_active_obligations_per_member AS "foodPurchaseMaximumActiveObligationsPerMember",
            policy.food_purchase_requires_open_cycle AS "foodPurchaseRequiresOpenCycle",
+           policy.payment_receipt_proof_required AS "paymentReceiptProofRequired",
            policy.procurement_maximum_active_obligations_per_member AS "procurementMaximumActiveObligationsPerMember"
     FROM tenants tenant
     LEFT JOIN tenant_operation_profiles profile ON profile.tenant_id = tenant.id
@@ -498,6 +507,7 @@ export async function updateTenantOperationProfileService(
         select: {
           foodPurchaseMaximumActiveObligationsPerMember: true,
           foodPurchaseRequiresOpenCycle: true,
+          paymentReceiptProofRequired: true,
           procurementMaximumActiveObligationsPerMember: true,
         },
         where: { tenantId: input.tenantId },
@@ -661,6 +671,7 @@ export async function updateTenantOperationProfile(
         foodPurchaseMaximumActiveObligationsPerMember:
           policy.foodPurchaseMaximumActiveObligationsPerMember,
         foodPurchaseRequiresOpenCycle: policy.foodPurchaseRequiresOpenCycle,
+        paymentReceiptProofRequired: policy.paymentReceiptProofRequired,
         procurementMaximumActiveObligationsPerMember:
           policy.procurementMaximumActiveObligationsPerMember,
         tenantId: input.tenantId,
@@ -669,6 +680,7 @@ export async function updateTenantOperationProfile(
         foodPurchaseMaximumActiveObligationsPerMember:
           policy.foodPurchaseMaximumActiveObligationsPerMember,
         foodPurchaseRequiresOpenCycle: policy.foodPurchaseRequiresOpenCycle,
+        paymentReceiptProofRequired: policy.paymentReceiptProofRequired,
         procurementMaximumActiveObligationsPerMember:
           policy.procurementMaximumActiveObligationsPerMember,
       },
@@ -766,4 +778,19 @@ export async function getOperationNavRecordPresence(
     ])
 
   return { foodPurchase, paymentReceipts, procurement, support }
+}
+
+/**
+ * Member-submitted receipts must carry proof (an upload or a link) when the
+ * cooperative requires it. Staff-recorded receipts are not checked here.
+ */
+export function assertMemberPaymentReceiptProof(
+  policy: Pick<TenantOperationProfilePolicy, "paymentReceiptProofRequired">,
+  proofDocumentUrl: string | null | undefined
+) {
+  if (policy.paymentReceiptProofRequired && !proofDocumentUrl?.trim()) {
+    throw ExpectedQueryError.validation(
+      "Your cooperative requires proof of payment. Attach a photo, PDF or link before sending."
+    )
+  }
 }

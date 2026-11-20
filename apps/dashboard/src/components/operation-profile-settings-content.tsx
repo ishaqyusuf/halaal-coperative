@@ -45,6 +45,12 @@ export function OperationProfileSettingsContent({
   const [nextAccessMode, setNextAccessMode] =
     useState<TenantServiceAccessMode>(currentAccessMode)
   const [reason, setReason] = useState("")
+  // Only the payment receipts form decides whether members must attach proof.
+  const managesReceiptProof = serviceKey === "payment_receipts"
+  const [proofRequired, setProofRequired] = useState(
+    policy.paymentReceiptProofRequired
+  )
+  const proofChanged = proofRequired !== policy.paymentReceiptProofRequired
   const service = getOperationProfileService(serviceKey)
   const selectedMode = operationProfileAccessModeOptions.find(
     (option) => option.value === nextAccessMode
@@ -64,7 +70,9 @@ export function OperationProfileSettingsContent({
         await updateTenantOperationProfileAction(formData)
         showSuccess(
           "Saved",
-          `${service.label}: ${selectedMode.label.toLowerCase()}.`
+          managesReceiptProof
+            ? `${service.label}: ${selectedMode.label.toLowerCase()}, proof ${proofRequired ? "required" : "optional"}.`
+            : `${service.label}: ${selectedMode.label.toLowerCase()}.`
         )
         setConfirming(false)
         await setParams(null)
@@ -82,7 +90,7 @@ export function OperationProfileSettingsContent({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    if (nextAccessMode === currentAccessMode) {
+    if (nextAccessMode === currentAccessMode && !proofChanged) {
       void setParams(null)
       return
     }
@@ -155,6 +163,76 @@ export function OperationProfileSettingsContent({
           ))}
         </RadioGroup>
       </fieldset>
+
+      {managesReceiptProof ? (
+        <fieldset className="grid gap-2">
+          <legend className="mb-2 text-base font-medium text-foreground">
+            Proof of payment
+          </legend>
+          <input
+            name="paymentReceiptProofRequired"
+            type="hidden"
+            value={proofRequired ? "true" : "false"}
+          />
+          <RadioGroup
+            className="grid gap-2"
+            disabled={isPending}
+            onValueChange={(value) => setProofRequired(value === "required")}
+            value={proofRequired ? "required" : "optional"}
+          >
+            {[
+              {
+                description:
+                  "Members can send a receipt without attaching anything.",
+                label: "Optional",
+                value: "optional",
+              },
+              {
+                description:
+                  "Members must attach a photo, PDF or link before sending.",
+                label: "Required",
+                value: "required",
+              },
+            ].map((option) => {
+              const selected =
+                option.value === (proofRequired ? "required" : "optional")
+              const now =
+                option.value ===
+                (policy.paymentReceiptProofRequired ? "required" : "optional")
+              return (
+                <label
+                  className={cn(
+                    "flex min-h-11 cursor-pointer items-start gap-3 rounded-(--ui-radius-control) border px-4 py-3",
+                    selected ? "border-primary bg-primary/5" : "border-border"
+                  )}
+                  htmlFor={`proof-${option.value}`}
+                  key={option.value}
+                >
+                  <RadioGroupItem
+                    className="mt-1"
+                    id={`proof-${option.value}`}
+                    value={option.value}
+                  />
+                  <span>
+                    <span className="block text-base font-semibold text-foreground">
+                      {option.label}
+                      {now ? (
+                        <span className="font-normal text-muted-foreground">
+                          {" "}
+                          (now)
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="block text-base text-muted-foreground">
+                      {option.description}
+                    </span>
+                  </span>
+                </label>
+              )
+            })}
+          </RadioGroup>
+        </fieldset>
+      ) : null}
 
       {reducesAccess ? (
         <div className="grid gap-2">

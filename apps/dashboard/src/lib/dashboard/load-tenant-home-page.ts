@@ -1,11 +1,11 @@
 import { normalizeRole } from "@halaalvest/auth/roles"
 import {
   createDbRuntime,
-  getMemberByUserId,
   getMemberHomeSnapshot,
-  getMemberOperationalReadiness,
+  isMemberOperationallyReady,
 } from "@halaalvest/db"
 import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
+import { findRequestMemberByUserId } from "@/lib/request-lookups"
 import {
   getDashboardServerContext,
   hasVerifiedDashboardSession,
@@ -47,7 +47,7 @@ export async function loadTenantHomePageData() {
       }
     }
 
-    const member = await getMemberByUserId({
+    const member = await findRequestMemberByUserId({
       tenantId: context.tenant.id,
       userId: context.auth.user.id,
     })
@@ -61,20 +61,19 @@ export async function loadTenantHomePageData() {
 
     // One lean snapshot instead of the full statement (75 → about 26
     // statements on 14 Nov 2026).
-    const [snapshot, operationalReadiness, operationProfile] =
-      await Promise.all([
-        getMemberHomeSnapshot({
-          memberId: member.id,
-          tenantId: context.tenant.id,
-        }),
-        getMemberOperationalReadiness({
-          memberId: member.id,
-          tenantId: context.tenant.id,
-        }),
-        getRequestTenantOperationProfile(context.tenant.id),
-      ])
+    const [snapshot, isReady, operationProfile] = await Promise.all([
+      getMemberHomeSnapshot({
+        memberId: member.id,
+        tenantId: context.tenant.id,
+      }),
+      isMemberOperationallyReady({
+        member,
+        tenantId: context.tenant.id,
+      }),
+      getRequestTenantOperationProfile(context.tenant.id),
+    ])
 
-    if (!snapshot || !operationalReadiness) {
+    if (!snapshot) {
       return {
         state: "member-profile-missing" as const,
         ...shell,
@@ -85,7 +84,7 @@ export async function loadTenantHomePageData() {
       state: "member-ready" as const,
       canSendReceipt:
         operationProfile.services.payment_receipts.shouldShowInMemberNav,
-      operationalReadiness,
+      isReady,
       snapshot,
       ...shell,
     }

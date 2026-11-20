@@ -728,11 +728,13 @@ export type OperationNavRecordPresence = {
 /**
  * Existence-only checks behind the operation-service nav items. Each check
  * selects one id; `memberUserId` scopes the checks to that user's member
- * record, so a member only sees nav for their own records.
+ * record. When `services` is supplied, unrequested services return false
+ * without querying.
  */
 export async function getOperationNavRecordPresence(
   input: {
     memberUserId?: string | null
+    services?: ReadonlySet<keyof OperationNavRecordPresence>
     tenantId: string
   },
   prismaOverride?: PrismaClient
@@ -742,9 +744,13 @@ export async function getOperationNavRecordPresence(
     tenantId: input.tenantId,
     ...(input.memberUserId ? { member: { userId: input.memberUserId } } : {}),
   }
-  const exists = (delegate: {
-    findFirst?: (args: unknown) => Promise<{ id: string } | null>
-  }) =>
+  const exists = (
+    service: keyof OperationNavRecordPresence,
+    delegate: {
+      findFirst?: (args: unknown) => Promise<{ id: string } | null>
+    }
+  ) =>
+    (!input.services || input.services.has(service)) &&
     typeof delegate?.findFirst === "function"
       ? delegate
           .findFirst({ select: { id: true }, where })
@@ -753,10 +759,10 @@ export async function getOperationNavRecordPresence(
 
   const [procurement, foodPurchase, support, paymentReceipts] =
     await Promise.all([
-      exists(prisma.procurementRequest),
-      exists(prisma.foodPurchaseApplication),
-      exists(prisma.supportCase),
-      exists(prisma.memberPaymentReceipt),
+      exists("procurement", prisma.procurementRequest),
+      exists("foodPurchase", prisma.foodPurchaseApplication),
+      exists("support", prisma.supportCase),
+      exists("paymentReceipts", prisma.memberPaymentReceipt),
     ])
 
   return { foodPurchase, paymentReceipts, procurement, support }

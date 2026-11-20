@@ -64,7 +64,7 @@ export default async function TenantHomePage({
     return (
       <MemberPortalOverview
         canSendReceipt={data.canSendReceipt}
-        operationalReadiness={data.operationalReadiness}
+        isReady={data.isReady}
         snapshot={data.snapshot}
       />
     )

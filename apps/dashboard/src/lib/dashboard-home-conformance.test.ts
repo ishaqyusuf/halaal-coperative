@@ -31,7 +31,8 @@ describe("dashboard home Midday conformance", () => {
     expect(route).toContain("<OverviewView")
     expect(loader).toContain('state: "staff-ready"')
     expect(loader).toContain('state: "member-ready"')
-    expect(loader).toContain("getMemberOperationalReadiness")
+    expect(loader).toContain("isMemberOperationallyReady")
+    expect(loader).not.toContain("getMemberOperationalReadiness")
   })
 
   test("renders inside the (sidebar) layout's shell (WP16)", () => {

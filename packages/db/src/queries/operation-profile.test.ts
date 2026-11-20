@@ -507,4 +507,31 @@ describe("operation nav record presence", () => {
       })
     }
   })
+
+  test("checks history only for the services hidden by the operation profile", async () => {
+    const { lookups, prisma } = createPresencePrismaStub({
+      memberPaymentReceipt: true,
+      procurementRequest: true,
+    })
+
+    const presence = await getOperationNavRecordPresence(
+      {
+        memberUserId: "user-1",
+        services: new Set(["procurement", "support"]),
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(presence).toEqual({
+      foodPurchase: false,
+      paymentReceipts: false,
+      procurement: true,
+      support: false,
+    })
+    expect(lookups.map((lookup) => lookup.model)).toEqual([
+      "procurementRequest",
+      "supportCase",
+    ])
+  })
 })

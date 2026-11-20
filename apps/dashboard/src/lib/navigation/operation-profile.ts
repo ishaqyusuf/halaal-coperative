@@ -13,6 +13,20 @@ type OperationProfileNavigationInput = {
 }
 
 const memberRoles = new Set<CooperativeRole>(["member"])
+const serviceLinks = [
+  { service: "procurement", presence: "procurement", path: "/procurement" },
+  {
+    service: "food_purchase",
+    presence: "foodPurchase",
+    path: "/food-purchase",
+  },
+  { service: "support_cases", presence: "support", path: "/support" },
+  {
+    service: "payment_receipts",
+    presence: "paymentReceipts",
+    path: "/payment-receipts",
+  },
+] as const
 
 /**
  * Per-request operation profile. The sidebar layout, the setup gate and page
@@ -29,34 +43,22 @@ const getHiddenNavPaths = cache(
     userId: string | null
   ) => {
     const isMember = role ? memberRoles.has(role) : false
-    const [operationProfile, presence] = await Promise.all([
-      getRequestTenantOperationProfile(tenantId),
-      getOperationNavRecordPresence({
-        memberUserId: isMember ? userId : null,
-        tenantId,
-      }),
-    ])
-    const hiddenPaths: string[] = []
+    const operationProfile = await getRequestTenantOperationProfile(tenantId)
     const navKey = isMember ? "shouldShowInMemberNav" : "shouldShowInStaffNav"
-    const { services } = operationProfile
+    const linksToCheck = serviceLinks.filter(
+      ({ service }) => !operationProfile.services[service][navKey]
+    )
+    if (linksToCheck.length === 0) return []
 
-    if (!services.procurement[navKey] && !presence.procurement) {
-      hiddenPaths.push("/procurement")
-    }
-
-    if (!services.food_purchase[navKey] && !presence.foodPurchase) {
-      hiddenPaths.push("/food-purchase")
-    }
-
-    if (!services.support_cases[navKey] && !presence.support) {
-      hiddenPaths.push("/support")
-    }
-
-    if (!services.payment_receipts[navKey] && !presence.paymentReceipts) {
-      hiddenPaths.push("/payment-receipts")
-    }
-
-    return hiddenPaths
+    // Existing records keep a hidden-by-default service reachable.
+    const presence = await getOperationNavRecordPresence({
+      memberUserId: isMember ? userId : null,
+      services: new Set(linksToCheck.map((link) => link.presence)),
+      tenantId,
+    })
+    return linksToCheck
+      .filter((link) => !presence[link.presence])
+      .map((link) => link.path)
   }
 )
 

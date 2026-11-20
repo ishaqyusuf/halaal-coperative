@@ -1,7 +1,4 @@
-import type {
-  MemberHomeSnapshot,
-  MemberOperationalReadiness,
-} from "@halaalvest/db"
+import type { MemberHomeSnapshot } from "@halaalvest/db"
 import { TenantLink as Link } from "@halaalvest/tenant-url/next"
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import { cn } from "@halaalvest/ui/lib/utils"
@@ -33,15 +30,14 @@ const detailsUpdateHref = memberSupportPrefillHref({
 
 export function MemberPortalOverview({
   canSendReceipt,
-  operationalReadiness,
+  isReady,
   snapshot,
 }: {
   canSendReceipt: boolean
-  operationalReadiness: MemberOperationalReadiness
+  isReady: boolean
   snapshot: MemberHomeSnapshot
 }) {
   const { activity, member, summary } = snapshot
-  const isReady = operationalReadiness.isReady
   const waitingItems = getMemberWaitingItems(snapshot.inProgress)
   const firstName = member.fullName.trim().split(/\s+/)[0] ?? ""
   const otherOwed =

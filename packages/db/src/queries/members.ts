@@ -1,10 +1,10 @@
-import type {
-  KycStatus,
-  MemberStatus,
-  MemberType,
+import {
   Prisma,
-  PrismaClient,
-  RepaymentScheduleStatus,
+  type KycStatus,
+  type MemberStatus,
+  type MemberType,
+  type PrismaClient,
+  type RepaymentScheduleStatus,
 } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { composeCooperativeAccessCode } from "@halaalvest/utils"
@@ -12,7 +12,7 @@ import { ExpectedQueryError, isUniqueConstraintError } from "../query-error"
 import { getMemberTransactions } from "./ledger"
 import {
   getMembersOperationalReadiness,
-  listMigrationFinalizedMemberIds,
+  memberMigrationReadinessCte,
 } from "./member-readiness"
 import {
   getTenantInitialMigrationState,
@@ -166,25 +166,36 @@ function buildMemberWhere(
 function getMembersTableOrderBy(
   sort?: ListMembersTableFilters["sort"]
 ): Prisma.MemberOrderByWithRelationInput[] {
-  if (!sort) {
-    return [{ joinedAt: "desc" }, { createdAt: "desc" }]
-  }
-
-  const [field, direction] = sort
-
-  return [{ [field]: direction }, { createdAt: "desc" }]
+  const [field, direction] = sort ?? ["joinedAt", "desc"]
+  return [{ [field]: direction }, { createdAt: "desc" }, { id: "desc" }]
 }
 
-function toMemberMigrationWhere(
-  migrationStatus: MemberMigrationFilterStatus,
-  finalizedIds: string[]
-): Prisma.MemberWhereInput {
-  return {
-    id:
-      migrationStatus === "finalized"
-        ? { in: finalizedIds }
-        : { notIn: finalizedIds },
-  }
+const memberTableSortColumns = {
+  fullName: Prisma.sql`full_name`,
+  joinedAt: Prisma.sql`joined_at`,
+  kycStatus: Prisma.sql`kyc_status`,
+  memberNumber: Prisma.sql`member_number`,
+  memberType: Prisma.sql`member_type`,
+  status: Prisma.sql`status`,
+} satisfies Record<MembersTableSortField, Prisma.Sql>
+
+function memberRegistrySqlFilter(filters?: ListMembersFilters) {
+  const { joinedFrom, joinedTo, kycStatus, memberType, search, status } =
+    filters ?? {}
+  const searchPattern = search ? `%${search}%` : null
+  // Match buildMemberWhere's Prisma contains/insensitive and inclusive bounds.
+  return Prisma.sql`
+    ${status ? Prisma.sql`AND m.status = ${status}::"MemberStatus"` : Prisma.empty}
+    ${kycStatus ? Prisma.sql`AND m.kyc_status = ${kycStatus}::"KycStatus"` : Prisma.empty}
+    ${memberType ? Prisma.sql`AND m.member_type = ${memberType}::"MemberType"` : Prisma.empty}
+    ${joinedFrom ? Prisma.sql`AND m.joined_at >= ${joinedFrom}` : Prisma.empty}
+    ${joinedTo ? Prisma.sql`AND m.joined_at <= ${joinedTo}` : Prisma.empty}
+    ${
+      searchPattern
+        ? Prisma.sql`AND (m.full_name ILIKE ${searchPattern} OR m.member_number ILIKE ${searchPattern})`
+        : Prisma.empty
+    }
+  `
 }
 
 const memberOptionSearchLimit = 20
@@ -336,46 +347,32 @@ export async function getMemberRegistrySummary(
   if (!prisma) throw new Error("Database not configured")
 
   const migrationStatus = filters?.migrationStatus
-  const baseWhere = buildMemberWhere(tenantId, filters)
-  const finalizedIds = await listMigrationFinalizedMemberIds(tenantId, prisma)
-  const where: Prisma.MemberWhereInput = migrationStatus
-    ? {
-        AND: [baseWhere, toMemberMigrationWhere(migrationStatus, finalizedIds)],
-      }
-    : baseWhere
-  // Status/KYC buckets plus non-null userId counts give every tile in one
-  // grouped query; only the unfiltered view needs a separate finalized count.
-  const [groups, migrationFinalizedCount] = await Promise.all([
-    prisma.member.groupBy({
-      _count: { _all: true, userId: true },
-      by: ["status", "kycStatus"],
-      where,
-    }),
-    migrationStatus
-      ? null
-      : prisma.member.count({
-          where: {
-            AND: [baseWhere, toMemberMigrationWhere("finalized", finalizedIds)],
-          },
-        }),
-  ])
-  const sum = (
-    rows: typeof groups,
-    count = (row: (typeof groups)[number]) => row._count._all
-  ) => rows.reduce((total, row) => total + count(row), 0)
-  const totalCount = sum(groups)
+  const migrationFilter = migrationStatus
+    ? Prisma.sql`WHERE is_finalized = ${migrationStatus === "finalized"}`
+    : Prisma.empty
+  // A COUNT aggregate without GROUP BY returns exactly one row.
+  const [summary] = await prisma.$queryRaw<
+    [
+      {
+        activeCount: number
+        kycPendingCount: number
+        linkedUsersCount: number
+        migrationFinalizedCount: number
+        totalCount: number
+      },
+    ]
+  >(Prisma.sql`
+    ${memberMigrationReadinessCte(tenantId, memberRegistrySqlFilter(filters))}
+    SELECT count(*) FILTER (WHERE status = 'active')::float8 AS "activeCount",
+           count(*) FILTER (WHERE kyc_status <> 'verified')::float8 AS "kycPendingCount",
+           count(user_id)::float8 AS "linkedUsersCount",
+           count(*) FILTER (WHERE is_finalized)::float8 AS "migrationFinalizedCount",
+           count(*)::float8 AS "totalCount"
+    FROM migration_readiness
+    ${migrationFilter}
+  `)
 
-  return {
-    activeCount: sum(groups.filter((group) => group.status === "active")),
-    kycPendingCount: sum(
-      groups.filter((group) => group.kycStatus !== "verified")
-    ),
-    linkedUsersCount: sum(groups, (group) => group._count.userId),
-    migrationFinalizedCount:
-      migrationFinalizedCount ??
-      (migrationStatus === "finalized" ? totalCount : 0),
-    totalCount,
-  }
+  return summary
 }
 
 export async function getMemberByUserId(
@@ -585,29 +582,36 @@ export async function listMembersTable(
   const pageSize = filters?.pageSize ?? 25
   const offset = filters?.cursor ? Number.parseInt(filters.cursor, 10) : 0
   const safeOffset = Number.isFinite(offset) && offset > 0 ? offset : 0
-  const baseWhere = buildMemberWhere(tenantId, {
+  const memberFilters = {
     ...filters,
     search: filters?.q ?? undefined,
-  })
-  const where: Prisma.MemberWhereInput = filters?.migrationStatus
-    ? {
-        AND: [
-          baseWhere,
-          toMemberMigrationWhere(
-            filters.migrationStatus,
-            await listMigrationFinalizedMemberIds(tenantId, prisma)
-          ),
-        ],
-      }
-    : baseWhere
+  }
+  const where = buildMemberWhere(tenantId, memberFilters)
+  let pageIds: string[] | undefined
 
-  const rows = await prisma.member.findMany({
-    where,
-    orderBy: getMembersTableOrderBy(filters?.sort),
-    skip: safeOffset,
-    take: pageSize + 1,
-    include: memberListInclude,
-  })
+  if (filters?.migrationStatus) {
+    const [field, direction] = filters.sort ?? ["joinedAt", "desc"]
+    const order = direction === "asc" ? Prisma.sql`ASC` : Prisma.sql`DESC`
+    const ids = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      ${memberMigrationReadinessCte(tenantId, memberRegistrySqlFilter(memberFilters))}
+      SELECT id
+      FROM migration_readiness
+      WHERE is_finalized = ${filters.migrationStatus === "finalized"}
+      ORDER BY ${memberTableSortColumns[field]} ${order}, created_at DESC, id DESC
+      LIMIT ${pageSize + 1} OFFSET ${safeOffset}
+    `)
+    pageIds = ids.map(({ id }) => id)
+  }
+
+  const rows =
+    pageIds?.length === 0
+      ? []
+      : await prisma.member.findMany({
+          where: pageIds ? { ...where, id: { in: pageIds } } : where,
+          orderBy: getMembersTableOrderBy(filters?.sort),
+          ...(pageIds ? {} : { skip: safeOffset, take: pageSize + 1 }),
+          include: memberListInclude,
+        })
   const hasNextPage = rows.length > pageSize
   const data = rows.slice(0, pageSize)
   const readinessByMemberId = await getMembersOperationalReadiness(
@@ -1641,12 +1645,25 @@ type MemberAmountGroup = {
 export async function listMemberStatementSummaries(
   tenantId: string,
   prismaOverride?: PrismaClient,
-  memberId?: string
+  memberId?: string,
+  joinedRange?: { fromDate?: Date; toDate?: Date }
 ): Promise<MemberStatementSummary[]> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
-  const memberScope = { tenantId, ...(memberId ? { memberId } : {}) }
+  const { fromDate, toDate } = joinedRange ?? {}
+  // The export previously compared JavaScript Dates at millisecond precision.
+  // An exclusive next-millisecond bound also includes sub-millisecond rows.
+  const endTime = toDate && new Date(toDate.getTime() + 1)
+  const joinedAt = {
+    ...(fromDate && { gte: fromDate }),
+    ...(endTime && Number.isFinite(endTime.getTime()) && { lt: endTime }),
+  }
+  const memberScope = {
+    tenantId,
+    ...(memberId ? { memberId } : {}),
+    ...(Object.keys(joinedAt).length > 0 && { member: { tenantId, joinedAt } }),
+  }
   const optionalDelegates = prisma as unknown as Record<
     string,
     { groupBy?: (args: any) => Promise<MemberAmountGroup[]> } | undefined
@@ -1666,14 +1683,24 @@ export async function listMemberStatementSummaries(
     foodPurchaseTotals,
   ] = await Promise.all([
     prisma.member.findMany({
-      where: { tenantId, ...(memberId ? { id: memberId } : {}) },
+      where: { tenantId, ...(memberId ? { id: memberId } : {}), joinedAt },
       orderBy: { createdAt: "desc" },
-      include: {
+      select: {
+        email: true,
+        exitedAt: true,
+        fullName: true,
+        id: true,
+        joinedAt: true,
+        memberNumber: true,
+        memberType: true,
+        status: true,
+        totalSavingsSnapshot: true,
         deductionSource: { select: { name: true } },
         user: { select: { email: true } },
         contributionPlans: {
           where: { isActive: true },
           orderBy: { startsAt: "desc" },
+          select: { amount: true, startsAt: true },
           take: 1,
         },
       },
@@ -1681,8 +1708,7 @@ export async function listMemberStatementSummaries(
     prisma.contribution.groupBy({
       by: ["memberId"],
       where: {
-        ...(memberId ? { memberId } : {}),
-        tenantId,
+        ...memberScope,
         status: "posted",
       },
       _count: { _all: true },
@@ -1696,8 +1722,7 @@ export async function listMemberStatementSummaries(
     prisma.repayment.groupBy({
       by: ["memberId"],
       where: {
-        ...(memberId ? { memberId } : {}),
-        tenantId,
+        ...memberScope,
         status: "posted",
       },
       _sum: { amount: true },
@@ -1706,8 +1731,7 @@ export async function listMemberStatementSummaries(
     prisma.loan.groupBy({
       by: ["memberId", "status"],
       where: {
-        ...(memberId ? { memberId } : {}),
-        tenantId,
+        ...memberScope,
         status: {
           in: [...statementLoanStatuses],
         },
@@ -1723,8 +1747,7 @@ export async function listMemberStatementSummaries(
     prisma.dividendAllocation.groupBy({
       by: ["memberId"],
       where: {
-        ...(memberId ? { memberId } : {}),
-        tenantId,
+        ...memberScope,
         dividendPeriod: {
           status: "published",
         },

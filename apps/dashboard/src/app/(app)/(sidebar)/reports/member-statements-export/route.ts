@@ -17,13 +17,12 @@ export async function GET(request: Request) {
   const filters = getReportsDateFilters(
     Object.fromEntries(searchParams.entries())
   )
-  const statements = (
-    await listMemberStatementSummaries(context.tenant.id)
-  ).filter((statement) => {
-    if (filters.fromDate && statement.joinedAt < filters.fromDate) return false
-    if (filters.toDate && statement.joinedAt > filters.toDate) return false
-    return true
-  })
+  const statements = await listMemberStatementSummaries(
+    context.tenant.id,
+    undefined,
+    undefined,
+    filters
+  )
   const csv = toCsv(
     [
       "Member",

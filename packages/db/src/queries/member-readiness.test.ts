@@ -131,8 +131,8 @@ describe("lighter member readiness flag", () => {
     return {
       calls,
       prisma: {
-        $queryRaw: async (...args: unknown[]) => {
-          calls.push(args)
+        $queryRaw: async ({ values }: { values: unknown[] }) => {
+          calls.push(values)
           return finalizedIds.map((id) => ({ id }))
         },
       },

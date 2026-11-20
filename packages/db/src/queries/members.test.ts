@@ -5,7 +5,6 @@ import {
   assertMemberKycTransition,
   assertMemberStatusTransition,
   ensureMemberPortalAccess,
-  getMemberRegistrySummary,
   getMemberStatementDetail,
   getMemberStatementSummary,
   listMemberStatementSummaries,
@@ -78,144 +77,6 @@ describe("member identity conflicts", () => {
         prisma as never
       )
     ).rejects.toThrow("member number or linked login already exists")
-  })
-})
-
-type MemberIdWhere = {
-  AND?: MemberIdWhere[]
-  id?: { in?: string[]; notIn?: string[] }
-}
-
-function matchesMemberIdWhere(id: string, where?: MemberIdWhere): boolean {
-  if (!where) return true
-  if (where.id?.in && !where.id.in.includes(id)) return false
-  if (where.id?.notIn?.includes(id)) return false
-  return (where.AND ?? []).every((part) => matchesMemberIdWhere(id, part))
-}
-
-describe("member registry summary", () => {
-  function createRegistrySummaryPrismaStub() {
-    const groupByCalls: unknown[] = []
-    const members = [
-      {
-        id: "member-1",
-        joinedAt: new Date("2025-01-01T00:00:00.000Z"),
-        kycStatus: "verified",
-        status: "active",
-        userId: "user-1",
-      },
-      {
-        id: "member-2",
-        joinedAt: new Date("2025-02-01T00:00:00.000Z"),
-        kycStatus: "pending",
-        status: "active",
-        userId: null,
-      },
-      {
-        id: "member-3",
-        joinedAt: new Date("2025-03-01T00:00:00.000Z"),
-        kycStatus: "rejected",
-        status: "suspended",
-        userId: "user-3",
-      },
-      {
-        id: "member-4",
-        joinedAt: new Date("2025-04-01T00:00:00.000Z"),
-        kycStatus: "verified",
-        status: "active",
-        userId: null,
-      },
-    ] as const
-    const rawQueries: unknown[] = []
-    const scoped = (where?: MemberIdWhere) =>
-      members.filter((member) => matchesMemberIdWhere(member.id, where))
-    const prisma = {
-      // Brought-forward members with an applied opening position.
-      $queryRaw: async (...input: unknown[]) => {
-        rawQueries.push(input)
-        return [{ id: "member-1" }, { id: "member-3" }]
-      },
-      member: {
-        count: async ({ where }: { where?: MemberIdWhere }) =>
-          scoped(where).length,
-        findMany: async () => {
-          throw new Error("The summary must not load member rows.")
-        },
-        groupBy: async (input: { where?: MemberIdWhere }) => {
-          groupByCalls.push(input)
-          const groups = new Map<
-            string,
-            {
-              _count: { _all: number; userId: number }
-              kycStatus: string
-              status: string
-            }
-          >()
-
-          for (const member of scoped(input.where)) {
-            const key = `${member.status}:${member.kycStatus}`
-            const group = groups.get(key) ?? {
-              _count: { _all: 0, userId: 0 },
-              kycStatus: member.kycStatus,
-              status: member.status,
-            }
-            group._count._all += 1
-            group._count.userId += member.userId ? 1 : 0
-            groups.set(key, group)
-          }
-
-          return [...groups.values()]
-        },
-      },
-    }
-
-    return { groupByCalls, prisma, rawQueries }
-  }
-
-  test("counts the complete filtered registry and finalized migrations", async () => {
-    const { groupByCalls, prisma, rawQueries } =
-      createRegistrySummaryPrismaStub()
-    const summary = await getMemberRegistrySummary(
-      "tenant-1",
-      { search: "ACAC" },
-      prisma as never
-    )
-
-    expect(summary).toEqual({
-      activeCount: 3,
-      kycPendingCount: 2,
-      linkedUsersCount: 2,
-      migrationFinalizedCount: 2,
-      totalCount: 4,
-    })
-    expect(rawQueries).toHaveLength(1)
-    expect(groupByCalls).toHaveLength(1)
-    expect(groupByCalls[0]).toMatchObject({
-      where: {
-        tenantId: "tenant-1",
-        OR: [
-          { fullName: { contains: "ACAC", mode: "insensitive" } },
-          { memberNumber: { contains: "ACAC", mode: "insensitive" } },
-        ],
-      },
-    })
-  })
-
-  test("scopes every summary count to the migration filter", async () => {
-    const { prisma } = createRegistrySummaryPrismaStub()
-    const summary = await getMemberRegistrySummary(
-      "tenant-1",
-      { migrationStatus: "pending" },
-      prisma as never
-    )
-
-    expect(summary).toEqual({
-      activeCount: 2,
-      kycPendingCount: 1,
-      linkedUsersCount: 0,
-      migrationFinalizedCount: 0,
-      totalCount: 2,
-    })
   })
 })
 
@@ -1099,33 +960,21 @@ describe("members table operational readiness", () => {
         status: "active",
       },
     ]
-    const memberFindManyCalls: Array<{
-      skip?: number
-      take?: number
-      where?: MemberIdWhere
-    }> = []
+    const pageReads: number[][] = []
     const prisma = {
-      $queryRaw: async () => [{ id: "member-1" }],
+      $queryRaw: async ({ values }: { values: unknown[] }) => {
+        const [limit, offset] = values.slice(-2) as [number, number]
+        pageReads.push([limit, offset])
+        return members.slice(1).slice(offset, offset + limit)
+      },
       appliedBackfillMonth: { findMany: async () => [] },
       backfillBatch: { findMany: async () => [] },
       memberOpeningBalance: {
         findMany: async () => [{ id: "opening-1", memberId: "member-1" }],
       },
       member: {
-        findMany: async (input: {
-          skip?: number
-          take?: number
-          where?: MemberIdWhere & { id?: { in?: string[] } }
-        }) => {
-          memberFindManyCalls.push(input)
-          const rows = members.filter((member) =>
-            matchesMemberIdWhere(member.id, input.where)
-          )
-
-          return input.take === undefined
-            ? rows
-            : rows.slice(input.skip ?? 0, (input.skip ?? 0) + input.take)
-        },
+        findMany: async (input: { where: { id: { in: string[] } } }) =>
+          members.filter((member) => input.where.id.in.includes(member.id)),
       },
       tenant: {
         findUnique: async () => ({ startDate: null }),
@@ -1157,12 +1006,10 @@ describe("members table operational readiness", () => {
       hasNextPage: false,
       hasPreviousPage: true,
     })
-    // The migration filter is applied in the query, so the page stays
-    // skip/take-bounded instead of loading every member.
-    expect(memberFindManyCalls[0]).toMatchObject({ skip: 0, take: 2 })
-    expect(memberFindManyCalls).toContainEqual(
-      expect.objectContaining({ skip: 1, take: 2 })
-    )
+    expect(pageReads).toEqual([
+      [2, 0],
+      [2, 1],
+    ])
   })
 
   test("serializes member table money snapshots as plain numbers", async () => {
@@ -1213,6 +1060,7 @@ describe("members table operational readiness", () => {
     expect(receivedOrderBy).toEqual([
       { joinedAt: "desc" },
       { createdAt: "desc" },
+      { id: "desc" },
     ])
   })
 

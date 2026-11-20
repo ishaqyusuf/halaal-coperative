@@ -1,7 +1,8 @@
-import type {
-  KycStatus,
-  MemberStatus,
-  PrismaClient,
+import {
+  Prisma,
+  type KycStatus,
+  type MemberStatus,
+  type PrismaClient,
 } from "../../generated/prisma/client"
 import { AppError } from "@halaalvest/errors"
 import { createPrismaClient } from "../prisma"
@@ -123,25 +124,19 @@ export function resolveMemberOperationalReadiness(
 }
 
 /**
- * Ids of the tenant's members whose migration is finalized, decided in SQL
- * with the same rules as `resolveMemberOperationalReadiness` +
- * `isMemberMigrationFinalized`, so registry counts and migration-filtered
- * pages never load every member row into memory.
+ * Tenant-scoped migration readiness for SQL member reads. Keep the rules in
+ * sync with `resolveMemberOperationalReadiness` and `isMemberMigrationFinalized`.
+ * The optional predicate is applied to the input members before measuring.
  */
-export async function listMigrationFinalizedMemberIds(
+export function memberMigrationReadinessCte(
   tenantId: string,
-  prismaOverride?: PrismaClient,
-  asOf = new Date(),
-  options: { memberId?: string } = {}
-): Promise<string[]> {
-  const memberId = options.memberId ?? null
-  const prisma = prismaOverride ?? createPrismaClient()
-  if (!prisma) throw new Error("Database not configured")
-
+  memberFilter: Prisma.Sql,
+  asOf = new Date()
+) {
   const currentMonth = new Date(
     Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth(), 1)
   ).toISOString()
-  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+  return Prisma.sql`
     WITH settings AS (
       SELECT t.start_date::timestamp AS tenant_start,
              p.migration_setup_mode::text AS policy_mode,
@@ -151,7 +146,8 @@ export async function listMigrationFinalizedMemberIds(
       WHERE t.id = ${tenantId}::uuid
     ),
     scoped AS (
-      SELECT m.id,
+      SELECT m.id, m.full_name, m.member_number, m.member_type, m.status,
+             m.kyc_status, m.joined_at, m.created_at, m.user_id,
              s.policy_mode,
              s.current_month,
              date_trunc(
@@ -173,7 +169,7 @@ export async function listMigrationFinalizedMemberIds(
       FROM members m
       CROSS JOIN settings s
       WHERE m.tenant_id = ${tenantId}::uuid
-        AND (${memberId}::uuid IS NULL OR m.id = ${memberId}::uuid)
+        ${memberFilter}
     ),
     measured AS (
       SELECT scoped.*,
@@ -189,18 +185,37 @@ export async function listMigrationFinalizedMemberIds(
                  AND a.month::timestamp < current_month
              ) AS covered_months
       FROM scoped
+    ),
+    migration_readiness AS (
+      SELECT measured.*, CASE
+        WHEN policy_mode = 'brought_forward'
+          OR (policy_mode IS NULL AND has_applied_opening_balance)
+          THEN has_applied_opening_balance
+        ELSE expected_months <= 0
+          OR has_applied_batch
+          OR covered_months >= expected_months
+      END AS is_finalized
+      FROM measured
     )
-    SELECT id::text AS id
-    FROM measured
-    WHERE CASE
-      WHEN policy_mode = 'brought_forward'
-        OR (policy_mode IS NULL AND has_applied_opening_balance)
-        THEN has_applied_opening_balance
-      ELSE expected_months <= 0
-        OR has_applied_batch
-        OR covered_months >= expected_months
-    END
   `
+}
+
+export async function listMigrationFinalizedMemberIds(
+  tenantId: string,
+  prismaOverride?: PrismaClient,
+  asOf = new Date(),
+  options: { memberId?: string } = {}
+): Promise<string[]> {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const memberFilter = options.memberId
+    ? Prisma.sql`AND m.id = ${options.memberId}::uuid`
+    : Prisma.empty
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    ${memberMigrationReadinessCte(tenantId, memberFilter, asOf)}
+    SELECT id::text AS id FROM migration_readiness WHERE is_finalized
+  `)
 
   return rows.map((row) => row.id)
 }

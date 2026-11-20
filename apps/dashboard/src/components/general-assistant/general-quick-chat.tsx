@@ -19,7 +19,7 @@ import {
   SparklesIcon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import type { ReactNode } from "react"
+import { type ReactNode, useState } from "react"
 import { useAssistantDraftRequests } from "@/components/quick-assistant/quick-assistant-requests"
 import {
   GeneralComposer,
@@ -47,7 +47,8 @@ export function GeneralQuickChat({
   /** Called when a link leaves the panel, e.g. to the full page. */
   onLeave?: () => void
 }) {
-  const vm = useGeneralAssistant()
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const vm = useGeneralAssistant({ showHistory: historyOpen })
   // A record page's "Ask assistant" fills the composer; nothing is sent.
   useAssistantDraftRequests(vm.setDraft)
   const { navigationDisabled } = generalChatFlags(vm)
@@ -63,7 +64,12 @@ export function GeneralQuickChat({
           className="size-4 shrink-0 text-primary"
         />
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <GeneralChatSwitcher vm={vm} onLeave={onLeave} />
+          <GeneralChatSwitcher
+            vm={vm}
+            historyOpen={historyOpen}
+            onHistoryOpenChange={setHistoryOpen}
+            onLeave={onLeave}
+          />
           {waiting ? (
             <span className="flex shrink-0 items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
               <span className="size-1.5 rounded-full bg-current" />
@@ -103,15 +109,19 @@ export function GeneralQuickChat({
 /** Title menu: saved chats, and the full assistant page. */
 function GeneralChatSwitcher({
   vm,
+  historyOpen,
+  onHistoryOpenChange,
   onLeave,
 }: {
   vm: GeneralAssistantVM
+  historyOpen: boolean
+  onHistoryOpenChange: (open: boolean) => void
   onLeave?: () => void
 }) {
   const { navigationDisabled } = generalChatFlags(vm)
   const chats = vm.conversations.data?.items ?? []
   return (
-    <DropdownMenu>
+    <DropdownMenu open={historyOpen} onOpenChange={onHistoryOpenChange}>
       <DropdownMenuTrigger
         render={
           <Button
@@ -132,6 +142,8 @@ function GeneralChatSwitcher({
             <DropdownMenuItem onClick={() => void vm.conversations.refetch()}>
               Couldn't load chats. Retry
             </DropdownMenuItem>
+          ) : vm.conversations.isPending && !vm.bootstrap.isError ? (
+            <DropdownMenuItem disabled>Loading saved chats…</DropdownMenuItem>
           ) : chats.length ? (
             chats.map((conversation) => (
               <DropdownMenuItem

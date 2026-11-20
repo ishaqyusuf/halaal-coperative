@@ -45,8 +45,10 @@ const errorText = (error: unknown, fallback: string) =>
  */
 export function useGeneralAssistant({
   initialConversationId = null,
+  showHistory = false,
 }: {
   initialConversationId?: string | null
+  showHistory?: boolean
 } = {}) {
   const api = useAssistantApi()
   const queryClient = useQueryClient()
@@ -81,7 +83,7 @@ export function useGeneralAssistant({
   const conversations = useQuery({
     queryKey: assistantKeys.conversations(),
     queryFn: () => api.listConversations(),
-    enabled,
+    enabled: enabled && showHistory,
     retry: false,
   })
   const state = useQuery({

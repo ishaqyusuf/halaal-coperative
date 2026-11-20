@@ -16,7 +16,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import {
   GENERAL_DIALOG,
   GeneralChatList,
@@ -32,6 +32,14 @@ import { useGeneralAssistant } from "./use-general-assistant"
 
 /** Reading width shared by the welcome, the thread and the composer. */
 const COLUMN = "mx-auto w-full max-w-[720px]"
+// Tailwind's xl breakpoint, which controls the saved chats rail.
+const CHAT_RAIL_QUERY = "(min-width: 80rem)"
+
+function subscribeToChatRail(onChange: () => void) {
+  const query = window.matchMedia(CHAT_RAIL_QUERY)
+  query.addEventListener("change", onChange)
+  return () => query.removeEventListener("change", onChange)
+}
 
 /**
  * The assistant page: one focused chat (ported from EwaTrade). Saved chats
@@ -44,14 +52,22 @@ export function AssistantWorkbench() {
   const routeId = useParams<{ id?: string }>().id ?? null
   // A saved-answer link (/assistant/m/<id>) lands here with ?m=<messageId>.
   const focusMessageId = useSearchParams().get("m")
-  const vm = useGeneralAssistant({ initialConversationId: routeId })
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const wideViewport = useSyncExternalStore(
+    subscribeToChatRail,
+    () => window.matchMedia(CHAT_RAIL_QUERY).matches,
+    () => false
+  )
+  const vm = useGeneralAssistant({
+    initialConversationId: routeId,
+    showHistory: historyOpen || (sidebarOpen && wideViewport),
+  })
   // "Ask assistant" from a record page lands here when the quick panel is
   // not mounted: it fills the composer and sends nothing.
   useAssistantDraftRequests(vm.setDraft)
   const router = useRouter()
   const { enabled, navigationDisabled } = generalChatFlags(vm)
-  const [historyOpen, setHistoryOpen] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
   const [chatQuery, setChatQuery] = useState("")
   const waiting = openProposals(vm).length
 

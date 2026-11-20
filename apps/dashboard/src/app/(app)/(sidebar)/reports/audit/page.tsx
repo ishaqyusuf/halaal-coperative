@@ -36,7 +36,7 @@ export default async function AuditViewerPage({
   }
 
   prefetch(
-    trpc.reports.auditEvents.infiniteQueryOptions(
+    trpc.reports.auditTimeline.infiniteQueryOptions(
       getActivityListInput(filters),
       { getNextPageParam: ({ meta }) => meta?.cursor }
     )

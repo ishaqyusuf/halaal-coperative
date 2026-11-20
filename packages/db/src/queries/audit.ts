@@ -223,6 +223,42 @@ export async function countAuditLogs(
   })
 }
 
+/** Fields shown in the Activity list and the Reports recent-activity section. */
+export async function listActivityTimeline(
+  tenantId: string,
+  input?: ListAuditLogsInput,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) return []
+
+  const rows = await prisma.auditLog.findMany({
+    ...(input?.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+    orderBy: getAuditLogOrderBy(input),
+    select: {
+      action: true,
+      actorType: true,
+      actorUser: { select: { email: true, fullName: true } },
+      entityType: true,
+      id: true,
+      occurredAt: true,
+    },
+    take: input?.limit ?? 25,
+    where: getAuditLogWhere(tenantId, input),
+  })
+
+  return rows.map((row) => ({
+    actionLabel: getActivityActionLabel(row.action),
+    actorLabel: getUserLabel(
+      row.actorUser,
+      getActivityActorFallback(row.actorType)
+    ),
+    entityLabel: getActivityEntityLabel(row.entityType),
+    id: row.id,
+    occurredAt: row.occurredAt,
+  }))
+}
+
 type AuditUserPreview = {
   email: string
   fullName: string
@@ -323,7 +359,7 @@ function getStatusWords(value: string) {
 }
 
 function getUserLabel(
-  user: AuditUserPreview | null | undefined,
+  user: Pick<AuditUserPreview, "email" | "fullName"> | null | undefined,
   fallback: string
 ) {
   if (!user) {

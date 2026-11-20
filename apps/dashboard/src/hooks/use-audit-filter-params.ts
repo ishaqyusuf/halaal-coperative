@@ -21,9 +21,7 @@ export const auditFilterParamsSchema = {
 }
 
 export function useAuditFilterParams() {
-  const [filters, setFilters] = useQueryStates(auditFilterParamsSchema, {
-    shallow: false,
-  })
+  const [filters, setFilters] = useQueryStates(auditFilterParamsSchema)
 
   return {
     filters,

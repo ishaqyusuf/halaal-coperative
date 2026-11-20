@@ -1,7 +1,60 @@
 import { describe, expect, test } from "bun:test"
-import { listActivityReportEvents } from "./audit"
+import { listActivityReportEvents, listActivityTimeline } from "./audit"
 
 describe("audit activity report", () => {
+  test("projects timeline labels and preserves scoped cursor ordering", async () => {
+    const occurredAt = new Date("2026-07-09T10:15:00.000Z")
+    const timeline = await listActivityTimeline(
+      "tenant-1",
+      { area: "money", cursor: "audit-2", limit: 31, search: "receipt" },
+      {
+        auditLog: {
+          findMany: async (args: Record<string, unknown>) => {
+            expect(args).toMatchObject({
+              cursor: { id: "audit-2" },
+              orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+              skip: 1,
+              take: 31,
+              where: {
+                tenantId: "tenant-1",
+                AND: expect.any(Array),
+                OR: expect.any(Array),
+              },
+            })
+            expect(args.select).toEqual({
+              action: true,
+              actorType: true,
+              actorUser: { select: { email: true, fullName: true } },
+              entityType: true,
+              id: true,
+              occurredAt: true,
+            })
+            return [
+              {
+                action: "member_payment_receipt.approved",
+                actorType: "user",
+                actorUser: { fullName: "", email: "staff@example.test" },
+                entityType: "MemberPaymentReceipt",
+                id: "audit-1",
+                occurredAt,
+              },
+            ]
+          },
+        },
+      } as never
+    )
+
+    expect(timeline).toEqual([
+      {
+        actionLabel: "Payment receipt approved",
+        actorLabel: "staff@example.test",
+        entityLabel: "Payment receipt",
+        id: "audit-1",
+        occurredAt,
+      },
+    ])
+  })
+
   test("normalizes actor, authorizer, entity, date, and change summary", async () => {
     const auditFindManyCalls: unknown[] = []
     const userFindManyCalls: unknown[] = []

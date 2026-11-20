@@ -55,11 +55,14 @@ describe("activity log conformance", () => {
   test("a plain paged list with a URL sheet per entry, no polling", () => {
     const route = read("../app/(app)/(sidebar)/reports/audit/page.tsx")
     const list = read("../components/activity/activity-list.tsx")
+    const filter = read("../components/audit-search-filter.tsx")
     const sheet = read("../components/sheets/activity-entry-sheet.tsx")
     const registry = read("./workflow-presentations.ts")
 
     expect(route).toContain("getActivityListInput(filters)")
-    expect(list).toContain("getActivityListInput(filters)")
+    expect(route).toContain("trpc.reports.auditTimeline.infiniteQueryOptions")
+    expect(list).toContain("trpc.reports.auditTimeline.infiniteQueryOptions")
+    expect(filter).toContain("setFilters(patch, { ...options, shallow: true })")
     expect(list).toContain("Show more")
     expect(list).not.toContain("refetchInterval")
     expect(list).not.toContain("useLiveTablePollInterval")

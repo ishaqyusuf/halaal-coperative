@@ -2,7 +2,9 @@ import {
   countAuditLogs,
   getActivityReportEvent,
   getReportsSummary,
+  type ListAuditLogsInput,
   listActivityReportEvents,
+  listActivityTimeline,
 } from "@halaalvest/db"
 import { z } from "zod"
 
@@ -23,38 +25,49 @@ function parseDateInput(value: string | undefined, endOfDay = false) {
   return Number.isNaN(date.getTime()) ? undefined : date
 }
 
-export const reportsRouter = createTRPCRouter({
-  auditEvents: minRoleProcedure("tenant_admin")
-    .input(listAuditEventsSchema)
-    .query(async ({ ctx, input }) => {
-      const pageSize = input?.pageSize ?? 30
-      const filters = {
-        action: input?.action || undefined,
-        area: input?.area ?? undefined,
-        cursor: input?.cursor ?? undefined,
-        fromDate: input?.from,
-        limit: pageSize + 1,
-        search: input?.q || undefined,
-        sort: input?.sort ?? null,
-        toDate: input?.to,
-      }
-      // The total is counted once, for the first page only.
-      const [events, total] = await Promise.all([
-        listActivityReportEvents(ctx.tenant.current.id, filters),
-        filters.cursor
-          ? Promise.resolve(null)
-          : countAuditLogs(ctx.tenant.current.id, filters),
-      ])
-      const data = events.slice(0, pageSize)
+async function listAuditPage<Event extends { id: string }>(
+  tenantId: string,
+  input: z.output<typeof listAuditEventsSchema>,
+  list: (tenantId: string, filters: ListAuditLogsInput) => Promise<Event[]>
+) {
+  const pageSize = input?.pageSize ?? 30
+  const filters = {
+    action: input?.action || undefined,
+    area: input?.area ?? undefined,
+    cursor: input?.cursor ?? undefined,
+    fromDate: input?.from,
+    limit: pageSize + 1,
+    search: input?.q || undefined,
+    sort: input?.sort ?? null,
+    toDate: input?.to,
+  }
+  // The total is counted once, for the first page only.
+  const [events, total] = await Promise.all([
+    list(tenantId, filters),
+    filters.cursor ? Promise.resolve(null) : countAuditLogs(tenantId, filters),
+  ])
+  const data = events.slice(0, pageSize)
 
-      return {
-        data,
-        meta: {
-          cursor: events.length > pageSize ? data.at(-1)?.id : undefined,
-          total,
-        },
-      }
-    }),
+  return {
+    data,
+    meta: {
+      cursor: events.length > pageSize ? data.at(-1)?.id : undefined,
+      total,
+    },
+  }
+}
+
+const auditListProcedure =
+  minRoleProcedure("tenant_admin").input(listAuditEventsSchema)
+
+export const reportsRouter = createTRPCRouter({
+  auditEvents: auditListProcedure.query(({ ctx, input }) =>
+    listAuditPage(ctx.tenant.current.id, input, listActivityReportEvents)
+  ),
+
+  auditTimeline: auditListProcedure.query(({ ctx, input }) =>
+    listAuditPage(ctx.tenant.current.id, input, listActivityTimeline)
+  ),
 
   auditEvent: minRoleProcedure("tenant_admin")
     .input(getAuditEventSchema)
@@ -72,10 +85,17 @@ export const reportsRouter = createTRPCRouter({
         .optional()
     )
     .query(({ ctx, input }) => {
-      return getReportsSummary({
-        fromDate: parseDateInput(input?.from),
-        tenantId: ctx.tenant.current.id,
-        toDate: parseDateInput(input?.to, true),
-      })
+      const tenantId = ctx.tenant.current.id
+      return getReportsSummary(
+        {
+          fromDate: parseDateInput(input?.from),
+          tenantId,
+          toDate: parseDateInput(input?.to, true),
+        },
+        undefined,
+        {
+          operationProfile: ctx.lookups?.getTenantOperationProfile?.(tenantId),
+        }
+      )
     }),
 })

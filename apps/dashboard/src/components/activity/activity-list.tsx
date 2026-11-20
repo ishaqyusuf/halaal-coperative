@@ -19,10 +19,18 @@ export function ActivityList() {
   const { filters, hasFilters, setFilters } = useAuditFilterParams()
   const { setParams } = useActivityEntryParams()
   // Keep the current rows on screen while a new search or filter loads.
-  const input = useDeferredValue(getActivityListInput(filters))
+  const { area, dateRange, search } = filters
+  const deferredArea = useDeferredValue(area)
+  const deferredDateRange = useDeferredValue(dateRange)
+  const deferredSearch = useDeferredValue(search)
+  const input = getActivityListInput({
+    area: deferredArea,
+    dateRange: deferredDateRange,
+    search: deferredSearch,
+  })
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useSuspenseInfiniteQuery(
-      trpc.reports.auditEvents.infiniteQueryOptions(input, {
+      trpc.reports.auditTimeline.infiniteQueryOptions(input, {
         getNextPageParam: ({ meta }) => meta?.cursor,
       })
     )

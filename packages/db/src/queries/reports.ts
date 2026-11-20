@@ -1,7 +1,10 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
-import { listActivityReportEvents } from "./audit"
-import { getTenantOperationProfile } from "./operation-profile"
+import { listActivityTimeline } from "./audit"
+import {
+  getTenantOperationProfile,
+  type TenantOperationProfileReadModel,
+} from "./operation-profile"
 import {
   getLateLoanPayments,
   getMoneyMovement,
@@ -66,7 +69,8 @@ function getEmptyReportsSummary(input: ReportsSummaryInput): ReportsSummary {
 
 export async function getReportsSummary(
   input: ReportsSummaryInput,
-  prismaOverride?: PrismaClient
+  prismaOverride?: PrismaClient,
+  options: { operationProfile?: Promise<TenantOperationProfileReadModel> } = {}
 ): Promise<ReportsSummary> {
   const prisma = prismaOverride ?? createPrismaClient()
 
@@ -84,12 +88,13 @@ export async function getReportsSummary(
       getMoneyMovement(prisma, range),
       getLateLoanPayments(prisma, { tenantId: input.tenantId }),
       getReportAttentionCounts(prisma, range),
-      listActivityReportEvents(
+      listActivityTimeline(
         input.tenantId,
         { fromDate: input.fromDate, limit: 5, toDate: input.toDate },
         prisma
       ),
-      getTenantOperationProfile(input.tenantId, prisma),
+      options.operationProfile ??
+        getTenantOperationProfile(input.tenantId, prisma),
     ])
   const services = operationProfile.services
   const needsALook = [

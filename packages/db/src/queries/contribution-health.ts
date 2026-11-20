@@ -1,13 +1,12 @@
-import type { PrismaClient } from "../../generated/prisma/client"
+import { Prisma, type PrismaClient } from "../../generated/prisma/client"
 
 /**
  * Home "Contribution health" for the current period.
  *
- * - `monthly_record`: the period's monthly record exists, so expected and paid
- *   figures come from its member rows.
- * - `active_commitments`: no monthly record yet. Expected is the sum of the
- *   active members' active commitment plans; received and paid members come
- *   from contributions posted this calendar month.
+ * - `monthly_record`: the selected record has member rows.
+ * - `active_commitments`: the selected record is missing or empty. Expected
+ *   comes from active members' active commitment plans; received and paid
+ *   members come from contributions posted this calendar month.
  *
  * `state` is `no_commitments` whenever nothing is expected, so a brand-new
  * cooperative never reads "Covered" with ₦0 expected.
@@ -26,11 +25,16 @@ export type ContributionHealth = {
   unpaidMemberCount: number
 }
 
-export type MonthlyRecordCollectionRow = {
-  calculatedPayableAmount: unknown
-  status: string
-  totalPaidAmount: unknown
+type MonthlyRecordCollection = {
+  expectedAmount: Prisma.Decimal
+  receivedAmount: Prisma.Decimal
+  paidCount: bigint
+  unpaidCount: bigint
+  rowCount: bigint
+  periodLabel: string
 }
+
+type ContributionPeriod = { month: number; year: number }
 
 export type CommitmentCollection = {
   /** Member ids with an active commitment plan this period. */
@@ -50,31 +54,26 @@ function resolveState(expected: number, received: number) {
 
 export function buildContributionHealth(input: {
   commitments: CommitmentCollection | null
-  monthlyRows: MonthlyRecordCollectionRow[] | null
+  monthlyCollection: MonthlyRecordCollection | null
   periodLabel: string
 }): ContributionHealth {
-  if (input.monthlyRows && input.monthlyRows.length > 0) {
-    const rows = input.monthlyRows
-    const expected = roundMoney(
-      rows.reduce((total, row) => total + Number(row.calculatedPayableAmount), 0)
-    )
-    const received = roundMoney(
-      rows.reduce((total, row) => total + Number(row.totalPaidAmount), 0)
-    )
+  const monthly = input.monthlyCollection
+  if (monthly && monthly.rowCount > 0n) {
+    const gap = monthly.expectedAmount.minus(monthly.receivedAmount)
 
     return {
       basis: "monthly_record",
-      collectionGap: Math.max(0, roundMoney(expected - received)),
-      expectedThisMonth: expected,
-      paidMemberCount: rows.filter(
-        (row) => row.status === "applied" && Number(row.totalPaidAmount) > 0
-      ).length,
-      periodLabel: input.periodLabel,
-      receivedThisMonth: received,
-      state: resolveState(expected, received),
-      unpaidMemberCount: rows.filter(
-        (row) => row.status !== "cancelled" && Number(row.totalPaidAmount) <= 0
-      ).length,
+      collectionGap: Math.max(0, gap.toNumber()),
+      expectedThisMonth: monthly.expectedAmount.toNumber(),
+      paidMemberCount: Number(monthly.paidCount),
+      periodLabel: monthly.periodLabel,
+      receivedThisMonth: monthly.receivedAmount.toNumber(),
+      state: monthly.expectedAmount.lte(0)
+        ? "no_commitments"
+        : gap.gt(0)
+          ? "gap"
+          : "covered",
+      unpaidMemberCount: Number(monthly.unpaidCount),
     }
   }
 
@@ -107,7 +106,7 @@ export function buildContributionHealth(input: {
     collectionGap: Math.max(0, roundMoney(expected - received)),
     expectedThisMonth: expected,
     paidMemberCount: payers.size,
-    periodLabel: input.periodLabel,
+    periodLabel: monthly?.periodLabel ?? input.periodLabel,
     receivedThisMonth: received,
     state: resolveState(expected, received),
     unpaidMemberCount: [...committed.keys()].filter(
@@ -116,14 +115,100 @@ export function buildContributionHealth(input: {
   }
 }
 
+export async function readMonthlyRecordCollection(
+  tenantId: string,
+  { month, year }: ContributionPeriod,
+  prisma: PrismaClient
+): Promise<MonthlyRecordCollection | null> {
+  if (typeof prisma.$queryRaw !== "function") {
+    // Match the SQL read for delegate-only test clients.
+    const record =
+      (await prisma.monthlyRecord.findFirst({
+        select: { id: true, periodLabel: true },
+        where: { tenantId, periodMonth: month, periodYear: year },
+      })) ??
+      (await prisma.monthlyRecord.findFirst({
+        orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }],
+        select: { id: true, periodLabel: true },
+        where: { tenantId, status: { in: ["draft", "open"] } },
+      }))
+    if (!record) return null
+
+    const rows = await prisma.monthlyRecordMember.findMany({
+      select: {
+        calculatedPayableAmount: true,
+        status: true,
+        totalPaidAmount: true,
+      },
+      where: { monthlyRecordId: record.id, tenantId },
+    })
+    const collection: MonthlyRecordCollection = {
+      expectedAmount: new Prisma.Decimal(0),
+      receivedAmount: new Prisma.Decimal(0),
+      paidCount: 0n,
+      unpaidCount: 0n,
+      rowCount: BigInt(rows.length),
+      periodLabel: record.periodLabel,
+    }
+    for (const row of rows) {
+      collection.expectedAmount = collection.expectedAmount.plus(
+        row.calculatedPayableAmount
+      )
+      collection.receivedAmount = collection.receivedAmount.plus(
+        row.totalPaidAmount
+      )
+      if (row.status === "applied" && row.totalPaidAmount.gt(0))
+        collection.paidCount++
+      if (row.status !== "cancelled" && row.totalPaidAmount.lte(0))
+        collection.unpaidCount++
+    }
+    return collection
+  }
+
+  const [collection] = await prisma.$queryRaw<MonthlyRecordCollection[]>`
+    SELECT record.period_label AS "periodLabel", collection.*
+    FROM monthly_records record
+    CROSS JOIN LATERAL (
+      SELECT
+        count(*) AS "rowCount",
+        coalesce(sum(member.calculated_payable_amount), 0) AS "expectedAmount",
+        coalesce(sum(member.total_paid_amount), 0) AS "receivedAmount",
+        count(*) FILTER (
+          WHERE member.status = 'applied' AND member.total_paid_amount > 0
+        ) AS "paidCount",
+        count(*) FILTER (
+          WHERE member.status <> 'cancelled' AND member.total_paid_amount <= 0
+        ) AS "unpaidCount"
+      FROM monthly_record_members member
+      WHERE member.monthly_record_id = record.id
+        AND member.tenant_id = ${tenantId}::uuid
+    ) collection
+    WHERE record.tenant_id = ${tenantId}::uuid
+      AND record.id = coalesce(
+        (
+          SELECT id FROM monthly_records
+          WHERE tenant_id = ${tenantId}::uuid
+            AND period_year = ${year} AND period_month = ${month}
+        ),
+        (
+          SELECT id FROM monthly_records
+          WHERE tenant_id = ${tenantId}::uuid AND status IN ('draft', 'open')
+          ORDER BY period_year DESC, period_month DESC
+          LIMIT 1
+        )
+      )
+  `
+  return collection ?? null
+}
+
 /**
  * Reads active commitments and this month's posted contributions. Only used
- * when the period has no monthly record. Missing delegates (narrow test
+ * when the selected record is missing or empty. Missing delegates (narrow test
  * doubles) read as empty.
  */
 export async function getCommitmentCollection(
   tenantId: string,
-  period: { month: number; year: number },
+  period: ContributionPeriod,
   prismaOverride: PrismaClient
 ): Promise<CommitmentCollection> {
   const prisma = prismaOverride as any

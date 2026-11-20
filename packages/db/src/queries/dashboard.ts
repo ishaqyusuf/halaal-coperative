@@ -9,6 +9,7 @@ import {
   buildContributionHealth,
   type ContributionHealth,
   getCommitmentCollection,
+  readMonthlyRecordCollection,
 } from "./contribution-health"
 import {
   getTenantOperationProfile,
@@ -22,7 +23,6 @@ import {
 
 const activeFinancingStatuses = ["disbursed", "active"] as const
 const pendingFinancingRequestStatuses = ["submitted", "under_review"] as const
-const pendingMonthlyRecordStatuses = ["draft", "open"] as const
 const pendingKycStatuses = ["not_started", "pending", "rejected"] as const
 
 export type DashboardMetrics = {
@@ -855,8 +855,7 @@ export async function getOverviewSummary(
 
   const asOf = new Date()
   const { month, year } = getCurrentMonth()
-  // Reads that need neither the KPI row nor the monthly record start now,
-  // beside them, instead of one round later (T05: four rounds → three).
+  // Start independent reads alongside the KPIs and the monthly collection.
   const deployableFundsSnapshot =
     options.deployableFunds ?? getDeployableFundsSnapshot({ tenantId }, prisma)
   const activityRowsRead = readOverviewRecentActivity(prisma, tenantId)
@@ -869,28 +868,9 @@ export async function getOverviewSummary(
     options.queueRows === "open-items"
       ? Promise.resolve(null)
       : (options.operationProfile ?? getTenantOperationProfile(tenantId, prisma))
-  // The KPIs (with the tenant row) in one statement, and the current month's
-  // record, or else the latest one still open. Rows load once, for the
-  // chosen record only.
-  const [kpis, candidateRecords] = await Promise.all([
+  const [kpis, monthlyCollection] = await Promise.all([
     readOverviewKpis(prisma, tenantId, asOf),
-    prisma.monthlyRecord.findMany({
-      orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }],
-      select: {
-        id: true,
-        periodLabel: true,
-        periodMonth: true,
-        periodYear: true,
-      },
-      take: 2,
-      where: {
-        OR: [
-          { periodMonth: month, periodYear: year },
-          { status: { in: [...pendingMonthlyRecordStatuses] } },
-        ],
-        tenantId,
-      },
-    }),
+    readMonthlyRecordCollection(tenantId, { month, year }, prisma),
   ])
   const tenant = kpis.tenant
 
@@ -911,40 +891,20 @@ export async function getOverviewSummary(
     })
   }
 
-  const currentMonthlyRecord =
-    candidateRecords.find(
-      (record) => record.periodMonth === month && record.periodYear === year
-    ) ??
-    candidateRecords[0] ??
-    null
-  // Without a monthly record, estimate from active commitments and this
-  // month's posted contributions instead of all-time totals (F22).
-  const commitmentsWithoutRecord = currentMonthlyRecord
-    ? null
-    : getCommitmentCollection(tenantId, { month, year }, prisma)
-
   const [
     deployableFundsForOverview,
-    monthlyRows,
     activityRows,
     financingCycleHealth,
     operationProfile,
+    commitments,
   ] = await Promise.all([
     deployableFundsSnapshot,
-    currentMonthlyRecord
-      ? prisma.monthlyRecordMember.findMany({
-          select: {
-            calculatedPayableAmount: true,
-            status: true,
-            totalPaidAmount: true,
-          },
-          where: { monthlyRecordId: currentMonthlyRecord.id, tenantId },
-        })
-      : Promise.resolve([]),
     activityRowsRead,
     financingCycleHealthRead,
     operationProfileRead,
-    commitmentsWithoutRecord,
+    monthlyCollection && monthlyCollection.rowCount > 0n
+      ? null
+      : getCommitmentCollection(tenantId, { month, year }, prisma),
   ])
   const {
     activeShareBusinesses,
@@ -970,13 +930,9 @@ export async function getOverviewSummary(
   } = kpis
 
   const contributionHealth = buildContributionHealth({
-    commitments:
-      monthlyRows.length > 0
-        ? null
-        : await (commitmentsWithoutRecord ??
-            getCommitmentCollection(tenantId, { month, year }, prisma)),
-    monthlyRows,
-    periodLabel: currentMonthlyRecord?.periodLabel ?? getFallbackPeriodLabel(),
+    commitments,
+    monthlyCollection,
+    periodLabel: getFallbackPeriodLabel(),
   })
   const { expectedThisMonth, receivedThisMonth } = contributionHealth
   const collectionCoverage =

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { Prisma } from "../../generated/prisma/client"
 import {
   buildContributionHealth,
   getCommitmentCollection,
@@ -8,7 +9,7 @@ describe("contribution health", () => {
   test("a new cooperative with no commitments is not reported as covered", () => {
     const health = buildContributionHealth({
       commitments: { committedMembers: [], postedByMember: [] },
-      monthlyRows: [],
+      monthlyCollection: null,
       periodLabel: "November 2026",
     })
 
@@ -39,7 +40,7 @@ describe("contribution health", () => {
           { amount: 0, memberId: "member-2" },
         ],
       },
-      monthlyRows: null,
+      monthlyCollection: null,
       periodLabel: "November 2026",
     })
 
@@ -54,31 +55,25 @@ describe("contribution health", () => {
     })
   })
 
-  test("uses the monthly record rows when they exist", () => {
+  test("uses the monthly collection when the record has rows", () => {
     const health = buildContributionHealth({
       commitments: null,
-      monthlyRows: [
-        {
-          calculatedPayableAmount: 25000,
-          status: "applied",
-          totalPaidAmount: 25000,
-        },
-        { calculatedPayableAmount: 10000, status: "draft", totalPaidAmount: 0 },
-        {
-          calculatedPayableAmount: 5000,
-          status: "cancelled",
-          totalPaidAmount: 0,
-        },
-      ],
+      monthlyCollection: {
+        expectedAmount: new Prisma.Decimal("1000000000000000.12"),
+        paidCount: 1n,
+        periodLabel: "October 2026",
+        receivedAmount: new Prisma.Decimal("1000000000000000.11"),
+        rowCount: 3n,
+        unpaidCount: 1n,
+      },
       periodLabel: "November 2026",
     })
 
     expect(health).toMatchObject({
       basis: "monthly_record",
-      collectionGap: 15000,
-      expectedThisMonth: 40000,
+      collectionGap: 0.01,
       paidMemberCount: 1,
-      receivedThisMonth: 25000,
+      periodLabel: "October 2026",
       state: "gap",
       unpaidMemberCount: 1,
     })
@@ -90,7 +85,7 @@ describe("contribution health", () => {
         committedMembers: [{ amount: 25000, memberId: "member-1" }],
         postedByMember: [{ amount: 25000, memberId: "member-1" }],
       },
-      monthlyRows: [],
+      monthlyCollection: null,
       periodLabel: "November 2026",
     })
 

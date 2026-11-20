@@ -6,8 +6,8 @@ import { getMemberProfitPayouts } from "./profit-payouts"
 /**
  * Lean reads for the staff member detail page and the printable member
  * statement. They select only the fields those pages render, unlike
- * `getMemberStatementDetail`, which also feeds the text export and the mobile
- * member screens.
+ * `getMemberStatementDetail`, which includes additional member and posting
+ * history.
  */
 
 const memberProfileSelect = {
@@ -152,6 +152,30 @@ export async function getMemberStatementView(
   prismaOverride?: PrismaClient,
   options: MemberStatementPostingsOptions = {}
 ) {
+  return readMemberStatementView(
+    { tenantId, id: memberId },
+    options,
+    prismaOverride
+  )
+}
+
+/** A complete posting history for the authenticated member in this tenant. */
+export async function getOwnMemberStatementView(
+  { tenantId, userId }: { tenantId: string; userId: string },
+  prismaOverride?: PrismaClient
+) {
+  return readMemberStatementView(
+    { tenantId, userId },
+    { allPostings: true },
+    prismaOverride
+  )
+}
+
+async function readMemberStatementView(
+  scope: { tenantId: string } & ({ id: string } | { userId: string }),
+  options: MemberStatementPostingsOptions,
+  prismaOverride?: PrismaClient
+) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
@@ -162,7 +186,7 @@ export async function getMemberStatementView(
       : 1
 
   const member = await prisma.member.findFirst({
-    where: { id: memberId, tenantId },
+    where: scope,
     select: {
       deductionSource: { select: { name: true } },
       fullName: true,
@@ -177,6 +201,8 @@ export async function getMemberStatementView(
     return null
   }
 
+  const { tenantId } = scope
+  const memberId = member.id
   const [ledgerTransactions, dividendAllocations, pendingCharges, summary] =
     await Promise.all([
       prisma.ledgerTransaction.findMany({

@@ -1,11 +1,14 @@
 import { describe, expect, test } from "bun:test"
+import type { Prisma } from "../../generated/prisma/client"
 import {
   getMemberStatementView,
+  getOwnMemberStatementView,
   MEMBER_STATEMENT_PAGE_SIZE,
 } from "./member-views"
 
-function createStatementPrismaStub(postingCount: number) {
-  const ledgerReads: any[] = []
+function createStatementPrismaStub(postingCount: number, memberExists = true) {
+  const memberReads: unknown[] = []
+  const ledgerReads: Prisma.LedgerTransactionFindManyArgs[] = []
   const postings = Array.from({ length: postingCount }, (_, index) => ({
     entries: [],
     id: `txn-${index}`,
@@ -16,12 +19,13 @@ function createStatementPrismaStub(postingCount: number) {
 
   return {
     ledgerReads,
+    memberReads,
     prisma: {
       $queryRaw: async () => [],
       chargeApplication: { findMany: async () => [] },
       dividendAllocation: { findMany: async () => [] },
       ledgerTransaction: {
-        findMany: async (args: any) => {
+        findMany: async (args: Prisma.LedgerTransactionFindManyArgs) => {
           ledgerReads.push(args)
           const start = args.skip ?? 0
           return postings.slice(
@@ -31,14 +35,19 @@ function createStatementPrismaStub(postingCount: number) {
         },
       },
       member: {
-        findFirst: async () => ({
-          deductionSource: null,
-          fullName: "Aisha Bello",
-          id: "member-1",
-          joinedAt: new Date("2025-01-01T00:00:00.000Z"),
-          memberNumber: "M-001",
-          status: "active",
-        }),
+        findFirst: async (args: { where: unknown }) => {
+          memberReads.push(args.where)
+          if (!memberExists) return null
+
+          return {
+            deductionSource: null,
+            fullName: "Aisha Bello",
+            id: "member-1",
+            joinedAt: new Date("2025-01-01T00:00:00.000Z"),
+            memberNumber: "M-001",
+            status: "active",
+          }
+        },
       },
     },
   }
@@ -110,12 +119,47 @@ describe("member statement postings paging", () => {
       { allPostings: true }
     )
 
-    expect(ledgerReads[0].take).toBeUndefined()
+    expect(ledgerReads[0]?.take).toBeUndefined()
     expect(view?.ledgerTransactions).toHaveLength(250)
     expect(view?.postings).toEqual({
       hasOlder: false,
       page: null,
       pageSize: null,
     })
+  })
+})
+
+describe("own member statement download", () => {
+  test("scopes the header to the signed-in user and loads their full posting history", async () => {
+    const { ledgerReads, memberReads, prisma } =
+      createStatementPrismaStub(250)
+
+    const view = await getOwnMemberStatementView(
+      { tenantId: "tenant-1", userId: "user-1" },
+      prisma as never
+    )
+
+    expect(memberReads).toEqual([{ tenantId: "tenant-1", userId: "user-1" }])
+    expect(ledgerReads).toHaveLength(1)
+    expect(ledgerReads[0]).toMatchObject({
+      where: { memberId: "member-1", tenantId: "tenant-1" },
+    })
+    expect(ledgerReads[0]?.take).toBeUndefined()
+    expect(view?.ledgerTransactions).toHaveLength(250)
+    expect(view?.ledgerTransactions.at(-1)?.id).toBe("txn-249")
+  })
+
+  test("short-circuits when the signed-in user has no profile in this tenant", async () => {
+    const { ledgerReads, memberReads, prisma } =
+      createStatementPrismaStub(250, false)
+
+    const view = await getOwnMemberStatementView(
+      { tenantId: "tenant-2", userId: "user-1" },
+      prisma as never
+    )
+
+    expect(view).toBeNull()
+    expect(memberReads).toEqual([{ tenantId: "tenant-2", userId: "user-1" }])
+    expect(ledgerReads).toHaveLength(0)
   })
 })

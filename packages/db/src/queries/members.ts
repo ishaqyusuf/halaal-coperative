@@ -2021,7 +2021,11 @@ function buildMemberStatementSummary(
   }
 }
 
-type StatementSummarySqlRow = StatementMemberRow & StatementMemberTotals
+type StatementSummarySqlRow = StatementMemberRow &
+  StatementMemberTotals & {
+    kycStatus: KycStatus
+    phoneNumber: string | null
+  }
 
 /**
  * One member's statement summary in a single SQL statement (the grouped list
@@ -2048,6 +2052,8 @@ async function readMemberStatementSummaryRow(
       m.joined_at AS "joinedAt",
       m.exited_at AS "exitedAt",
       m.email AS "email",
+      m.kyc_status::text AS "kycStatus",
+      m.phone_number AS "phoneNumber",
       m.total_savings_snapshot AS "totalSavingsSnapshot",
       ds.name AS "deductionSourceName",
       u.email AS "userEmail",
@@ -2180,6 +2186,33 @@ export async function getMemberStatementSummary(
   const row = await readMemberStatementSummaryRow(prisma, tenantId, memberId)
 
   return row ? buildMemberStatementSummary(row, row) : null
+}
+
+/** The member Home profile and balances come from the same scoped read. */
+export async function getMemberStatementSummaryWithProfile(
+  tenantId: string,
+  memberId: string,
+  prisma: PrismaClient
+) {
+  const row = await readMemberStatementSummaryRow(prisma, tenantId, memberId)
+  if (!row) return null
+
+  const summary = buildMemberStatementSummary(row, row)
+
+  return {
+    member: {
+      email: summary.email,
+      fullName: row.fullName,
+      id: row.id,
+      joinedAt: row.joinedAt,
+      kycStatus: row.kycStatus,
+      memberNumber: row.memberNumber,
+      phoneNumber: row.phoneNumber,
+      status: row.status,
+      workplaceName: row.deductionSourceName,
+    },
+    summary,
+  }
 }
 
 export async function getMemberStatementDetail(

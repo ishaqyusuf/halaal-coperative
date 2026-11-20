@@ -1,6 +1,6 @@
 import type { PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
-import { getMemberStatementSummary } from "./members"
+import { getMemberStatementSummaryWithProfile } from "./members"
 
 export type MemberHomeInProgress = {
   foodPurchaseRequests: number
@@ -48,23 +48,8 @@ export async function getMemberHomeSnapshot(
   if (!prisma) throw new Error("Database not configured")
 
   const { memberId, tenantId } = input
-  const [member, summary, inProgressRows, activityRows] = await Promise.all([
-    prisma.member.findFirst({
-      select: {
-        deductionSource: { select: { name: true } },
-        email: true,
-        fullName: true,
-        id: true,
-        joinedAt: true,
-        kycStatus: true,
-        memberNumber: true,
-        phoneNumber: true,
-        status: true,
-        user: { select: { email: true } },
-      },
-      where: { id: memberId, tenantId },
-    }),
-    getMemberStatementSummary(tenantId, memberId, prisma),
+  const [statement, inProgressRows, activityRows] = await Promise.all([
+    getMemberStatementSummaryWithProfile(tenantId, memberId, prisma),
     prisma.$queryRaw<Array<Record<keyof MemberHomeInProgress, bigint>>>`
       SELECT
         (SELECT count(*) FROM member_payment_receipts
@@ -122,7 +107,7 @@ export async function getMemberHomeSnapshot(
     `,
   ])
 
-  if (!member) {
+  if (!statement) {
     return null
   }
 
@@ -146,18 +131,7 @@ export async function getMemberHomeSnapshot(
       })
     ),
     inProgress,
-    member: {
-      email: member.email ?? member.user?.email ?? null,
-      fullName: member.fullName,
-      id: member.id,
-      joinedAt: member.joinedAt,
-      kycStatus: member.kycStatus,
-      memberNumber: member.memberNumber,
-      phoneNumber: member.phoneNumber,
-      status: member.status,
-      workplaceName: member.deductionSource?.name ?? null,
-    },
-    summary,
+    ...statement,
   }
 }
 

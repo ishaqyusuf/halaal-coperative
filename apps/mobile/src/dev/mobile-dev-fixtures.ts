@@ -93,7 +93,7 @@ function nextId(prefix: string) {
 
 const memberSections: Record<MobileMemberSectionKey, MobileMemberSection> = {
   commitments: {
-    emptyState: "No commitment activity yet.",
+    emptyState: "No saving activity yet.",
     generatedAt,
     key: "commitments",
     rows: [
@@ -107,18 +107,18 @@ const memberSections: Record<MobileMemberSectionKey, MobileMemberSection> = {
         value: 60000,
       },
       {
-        detail: "August 2026 monthly commitment",
+        detail: "August 2026 monthly saving",
         format: "currency",
         key: "commitment-aug",
-        label: "August commitment",
+        label: "August saving",
         status: "posted",
         value: 60000,
       },
       {
-        detail: "July 2026 monthly commitment",
+        detail: "July 2026 monthly saving",
         format: "currency",
         key: "commitment-jul",
-        label: "July commitment",
+        label: "July saving",
         status: "posted",
         value: 60000,
       },
@@ -136,7 +136,7 @@ const memberSections: Record<MobileMemberSectionKey, MobileMemberSection> = {
         detail: "Active since January 2026",
         format: "currency",
         key: "active-commitment",
-        label: "Active commitment",
+        label: "Monthly saving",
         value: 60000,
       },
       {
@@ -162,7 +162,7 @@ const memberSections: Record<MobileMemberSectionKey, MobileMemberSection> = {
       },
     ],
     subtitle:
-      "Track your active commitment, posted savings, and voluntary savings separately.",
+      "Track your monthly saving, posted savings, and voluntary savings separately.",
     title: "Commitments",
   },
   financing: {

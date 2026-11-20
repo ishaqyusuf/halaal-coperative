@@ -215,7 +215,7 @@ async function getReceiptCategories(input: {
 
   const planTargets = plans.map((plan) => ({
     id: plan.id,
-    label: `${Number(plan.amount).toLocaleString("en-NG")} active commitment`,
+    label: `${Number(plan.amount).toLocaleString("en-NG")} monthly saving`,
     outstandingAmount: null,
   }))
   const loanTargets = loans.map((loan) => ({
@@ -243,7 +243,7 @@ async function getReceiptCategories(input: {
 
   const options: MobileReceiptCategoryOption[] = [
     {
-      label: "Commitment",
+      label: "Monthly saving",
       postable: true,
       requiresTarget: false,
       targetKind: "contributionPlanId",

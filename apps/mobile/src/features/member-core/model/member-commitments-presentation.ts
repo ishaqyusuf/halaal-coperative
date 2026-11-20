@@ -58,7 +58,7 @@ export function buildMemberCommitmentsPresentation(
   const activeCommitment = findMetric(
     section,
     "active-commitment",
-    "Active commitment"
+    "Monthly saving"
   )
   const postedSavings = findMetric(section, "savings", "Savings")
   const specialSavings = findMetric(
@@ -86,8 +86,8 @@ export function buildMemberCommitmentsPresentation(
           : null,
       label: hasActivePlan
         ? plan?.interval && plan.interval !== "Monthly"
-          ? "Active commitment"
-          : "Monthly commitment"
+          ? "Saving plan"
+          : "Monthly saving"
         : "No active plan",
       status: hasActivePlan ? "Active" : null,
       value: hasActivePlan

@@ -15,14 +15,14 @@ import type {
 
 const devCategories: MobileMemberReceipts["categories"] = [
   {
-    label: "Commitment",
+    label: "Monthly saving",
     postable: true,
     requiresTarget: false,
     targetKind: "contributionPlanId",
     targets: [
       {
         id: "commitment-dev-1",
-        label: "NGN 85,000 active commitment",
+        label: "NGN 85,000 monthly saving",
         outstandingAmount: null,
       },
     ],
@@ -36,7 +36,7 @@ const devCategories: MobileMemberReceipts["categories"] = [
     targets: [
       {
         id: "commitment-dev-1",
-        label: "NGN 85,000 active commitment",
+        label: "NGN 85,000 monthly saving",
         outstandingAmount: null,
       },
     ],

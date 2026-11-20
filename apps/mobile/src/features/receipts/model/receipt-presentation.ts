@@ -9,7 +9,7 @@ export const receiptCategories: Record<
   MobileReceiptAllocationCategory,
   string
 > = {
-  commitment: "Commitment",
+  commitment: "Monthly saving",
   special_savings: "Special savings",
   loan_servicing: "Loan servicing",
   loan_extra_payment: "Extra loan payment",

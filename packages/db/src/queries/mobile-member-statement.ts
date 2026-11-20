@@ -98,10 +98,10 @@ function humanizeStatus(value: string | null | undefined) {
 function emptyStatementStats(): MobileMemberCoreMetric[] {
   return [
     {
-      detail: "No active commitment available",
+      detail: "No monthly saving set",
       format: "currency",
       key: "active-commitment",
-      label: "Active commitment",
+      label: "Monthly saving",
       value: 0,
     },
     {
@@ -164,10 +164,10 @@ export function buildMobileMemberStatementStats(input: {
     {
       detail: input.activePlan?.startsAt
         ? `Active since ${formatDateLabel(input.activePlan.startsAt)}`
-        : "No active commitment available",
+        : "No monthly saving set",
       format: "currency",
       key: "active-commitment",
-      label: "Active commitment",
+      label: "Monthly saving",
       value: input.activePlan?.amount ?? 0,
     },
     {

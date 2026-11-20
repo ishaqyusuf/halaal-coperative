@@ -140,7 +140,7 @@ function emptyMobileMemberCommitments(
   detail = "No linked member profile was found for this mobile session."
 ): MobileMemberCommitments {
   return {
-    emptyState: "No commitment records are available yet.",
+    emptyState: "No saving records are available yet.",
     generatedAt: new Date().toISOString(),
     key: "commitments",
     rows: [
@@ -155,10 +155,10 @@ function emptyMobileMemberCommitments(
     ],
     stats: [
       {
-        detail: "No active commitment available",
+        detail: "No monthly saving set",
         format: "currency",
         key: "active-commitment",
-        label: "Active commitment",
+        label: "Monthly saving",
         value: 0,
       },
       {
@@ -233,7 +233,7 @@ export function buildMobileMemberCommitments(
   const summary = input.summary
 
   return {
-    emptyState: "No commitment records are available yet.",
+    emptyState: "No saving records are available yet.",
     generatedAt: (input.generatedAt ?? new Date()).toISOString(),
     key: "commitments",
     rows:
@@ -245,7 +245,7 @@ export function buildMobileMemberCommitments(
                 "Your active plan and posted contributions will appear here.",
               format: null,
               key: "commitments-empty",
-              label: "No commitment activity",
+              label: "No saving activity",
               status: null,
               value: null,
             },
@@ -254,10 +254,10 @@ export function buildMobileMemberCommitments(
       {
         detail: input.activePlan?.startsAt
           ? `Active since ${formatDateLabel(input.activePlan.startsAt)}`
-          : "No active commitment available",
+          : "No monthly saving set",
         format: "currency",
         key: "active-commitment",
-        label: "Active commitment",
+        label: "Monthly saving",
         value: input.activePlan?.amount ?? 0,
       },
       {
@@ -486,10 +486,10 @@ export function buildMobileMemberCoreHome(input: {
       services,
       stats: [
         {
-          detail: "No active commitment available",
+          detail: "No monthly saving set",
           format: "currency",
           key: "commitment",
-          label: "Commitment",
+          label: "Monthly saving",
           value: 0,
         },
         {
@@ -527,9 +527,9 @@ export function buildMobileMemberCoreHome(input: {
   }
   if (!summary?.activeCommitmentAmount) {
     actionItems.push({
-      detail: "No active monthly commitment was found.",
+      detail: "No monthly saving has been set up.",
       key: "commitment",
-      label: "Commitment setup",
+      label: "Monthly saving setup",
       severity: "neutral",
     })
   }
@@ -559,10 +559,10 @@ export function buildMobileMemberCoreHome(input: {
       {
         detail: summary?.activeCommitmentStartsAt
           ? `Active since ${formatDateLabel(summary.activeCommitmentStartsAt)}`
-          : "No active commitment available",
+          : "No monthly saving set",
         format: "currency",
         key: "commitment",
-        label: "Commitment",
+        label: "Monthly saving",
         value: summary?.activeCommitmentAmount ?? 0,
       },
       {

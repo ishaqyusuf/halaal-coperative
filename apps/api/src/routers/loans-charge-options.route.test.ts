@@ -54,6 +54,7 @@ describe("loans.chargeOptions (charges on Ask for a loan)", () => {
       )
     )
     expect(await code(anonymous.chargeOptions())).toBe("UNAUTHORIZED")
+    expect(await code(anonymous.requestProductOptions())).toBe("UNAUTHORIZED")
   })
 
   test("members and staff may read the submission charges", async () => {

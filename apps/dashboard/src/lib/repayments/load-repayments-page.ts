@@ -1,22 +1,13 @@
 import {
   createDbRuntime,
   getRepaymentSummary,
-  listLoanOptions,
-  listTenantUsersWithRoles,
   type RepaymentSummary,
 } from "@halaalvest/db"
-import { canShowQuickFill, getDashboardServerContext } from "@/lib/server-context"
+import {
+  canShowQuickFill,
+  getDashboardServerContext,
+} from "@/lib/server-context"
 import { financeManagementRoles, hasAnyRole } from "@/lib/workspace-access"
-
-/** A loan staff can record a payment against, with the balance shown. */
-export type RepaymentLoanOption = {
-  id: string
-  memberName: string
-  outstandingPrincipal: number
-  productName: string
-  /** Sent back with the post so a changed loan is refused, not double-paid. */
-  status: string
-}
 
 export type RepaymentAssigneeOption = {
   id: string
@@ -26,9 +17,7 @@ export type RepaymentAssigneeOption = {
 export type RepaymentsPageData =
   | { state: "unavailable" }
   | {
-      assignees: RepaymentAssigneeOption[]
       canPostRepayment: boolean
-      loans: RepaymentLoanOption[]
       quickFillEnabled: boolean
       state: "ready"
       summary: RepaymentSummary
@@ -44,38 +33,17 @@ export async function loadRepaymentsPageData(): Promise<RepaymentsPageData> {
     return { state: "unavailable" }
   }
 
-  const [loans, tenantUsers, summary] = await Promise.all([
-    listLoanOptions(context.tenant.id, { statuses: ["active", "disbursed"] }),
-    listTenantUsersWithRoles(context.tenant.id, [
-      "super_admin",
-      "tenant_admin",
-      "finance_officer",
-      "operations_officer",
-    ]),
-    getRepaymentSummary({ tenantId: context.tenant.id }),
-  ])
   const canPostRepayment = hasAnyRole(
     context.auth.membership?.role,
     financeManagementRoles
   )
 
+  if (!canPostRepayment) return { state: "unavailable" }
+
   return {
-    assignees: tenantUsers.map((user) => ({
-      id: user.id,
-      label: user.fullName,
-    })),
     canPostRepayment,
-    loans: loans
-      .map((loan) => ({
-        id: loan.id,
-        memberName: loan.member.fullName,
-        outstandingPrincipal: loan.outstandingPrincipal,
-        productName: loan.loanProduct.name,
-        status: loan.status,
-      }))
-      .sort((left, right) => left.memberName.localeCompare(right.memberName)),
     quickFillEnabled: canShowQuickFill(context),
     state: "ready",
-    summary,
+    summary: await getRepaymentSummary({ tenantId: context.tenant.id }),
   }
 }

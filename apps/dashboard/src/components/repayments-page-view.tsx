@@ -69,10 +69,8 @@ export function RepaymentsPageView({
       title="Repayments"
     >
       <RepaymentSheet
-        assignees={data.assignees}
         canPostRepayment={data.canPostRepayment}
         devMode={data.quickFillEnabled}
-        loans={data.loans}
       />
 
       {data.canPostRepayment ? (

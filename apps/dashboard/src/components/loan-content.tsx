@@ -11,7 +11,6 @@ import {
   LoanDecisionConfirm,
   LoanPayOutConfirm,
   LoanRequestForm,
-  type LoanProductChoice,
 } from "@/components/forms/loan-forms"
 import { LoanFacts, LoanStatusWord } from "@/components/loans/loan-status-word"
 import { useLoanParams } from "@/hooks/use-loan-params"
@@ -24,6 +23,7 @@ import {
   isInstallmentLate,
 } from "@/lib/loans/loan-words"
 import { canFinalizeLoanRequest } from "@/lib/loans/loan-action-guards"
+import type { LoanLendingCapacity } from "@/lib/loans/load-loans-page"
 import { useTRPC } from "@/trpc/client"
 import { formatDayMonthYear } from "@/utils/format"
 
@@ -33,10 +33,10 @@ export type LoanContentProps = {
   /** Money available to lend now (deployable funds). */
   availablePool: number
   canReview: boolean
+  capacity: LoanLendingCapacity | null
   devMode: boolean
   disabledReason?: string | null
   fixedMember?: LoanMemberOption
-  loanProducts: LoanProductChoice[]
 }
 
 function useCompleteLoanWorkflow() {
@@ -503,28 +503,81 @@ function PayOutConfirm({
   )
 }
 
-/** "Ask for a loan" with its charges, read only while the form is open. */
-function LoanRequestFormWithCharges(
-  props: Omit<Parameters<typeof LoanRequestForm>[0], "loanRequestCharges">
-) {
+function LoanRequestFormWithOptions({
+  capacity,
+  ...props
+}: Omit<
+  Parameters<typeof LoanRequestForm>[0],
+  "loanProducts" | "loanRequestCharges"
+> & { capacity: LoanLendingCapacity | null }) {
   const trpc = useTRPC()
+  const enabled = !props.disabledReason
+  const products = useQuery(
+    trpc.loans.requestProductOptions.queryOptions(undefined, {
+      enabled,
+      staleTime: 0,
+    })
+  )
   const { data: loanRequestCharges } = useQuery(
     trpc.loans.chargeOptions.queryOptions(undefined, {
+      enabled,
       retry: 1,
       staleTime: 5 * 60_000,
     })
   )
 
-  return <LoanRequestForm {...props} loanRequestCharges={loanRequestCharges} />
+  if (enabled && (products.isPending || products.isFetching)) {
+    return <LoadingLine />
+  }
+  if (enabled && products.isError) {
+    return (
+      <div className="space-y-3 py-4">
+        <p className="text-muted-foreground">
+          Loan products could not be loaded.
+        </p>
+        <Button
+          onClick={() => void products.refetch()}
+          type="button"
+          variant="outline"
+        >
+          Try again
+        </Button>
+      </div>
+    )
+  }
+
+  const loanProducts = enabled
+    ? (products.data ?? []).map(({ id, loanType, name, termMonths }) => {
+        const term = `${name} · up to ${termMonths} months`
+        const remaining =
+          loanType === "quick" ? capacity?.quickLeft : capacity?.normalLeft
+        return {
+          id,
+          label:
+            remaining === undefined
+              ? term
+              : `${term} · ${formatCurrency(remaining)} left`,
+          termMonths,
+        }
+      })
+    : []
+
+  return (
+    <LoanRequestForm
+      {...props}
+      loanProducts={loanProducts}
+      loanRequestCharges={loanRequestCharges}
+    />
+  )
 }
 
 export function LoanContent({
   availablePool,
   canReview,
+  capacity,
   devMode,
   disabledReason,
   fixedMember,
-  loanProducts,
 }: LoanContentProps) {
   const completeLoanWorkflow = useCompleteLoanWorkflow()
   const {
@@ -538,11 +591,11 @@ export function LoanContent({
 
   if (loanSheetType === "request") {
     return (
-      <LoanRequestFormWithCharges
+      <LoanRequestFormWithOptions
+        capacity={capacity}
         devMode={devMode}
         disabledReason={disabledReason}
         fixedMember={fixedMember}
-        loanProducts={loanProducts}
         onSuccess={completeLoanWorkflow}
       />
     )

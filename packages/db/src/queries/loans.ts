@@ -132,6 +132,11 @@ export function toPlainLoanDto<T>(value: T): PlainLoanValue<T> {
   return value as PlainLoanValue<T>
 }
 
+const requestableLoanProductWhere = {
+  ...excludeBroughtForwardLoanProductWhere,
+  isActive: true,
+} satisfies Prisma.LoanProductWhereInput
+
 export async function listLoanProducts(
   tenantId: string,
   prismaOverride?: PrismaClient
@@ -143,14 +148,41 @@ export async function listLoanProducts(
   // only carries migrated opening loans, so it is never offered.
   const products = await prisma.loanProduct.findMany({
     where: {
-      ...excludeBroughtForwardLoanProductWhere,
+      ...requestableLoanProductWhere,
       tenantId,
-      isActive: true,
     },
     orderBy: { termMonths: "asc" },
   })
 
   return toPlainLoanDto(products)
+}
+
+export async function listRequestableLoanProductOptions(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  return prisma.loanProduct.findMany({
+    orderBy: { termMonths: "asc" },
+    select: { id: true, loanType: true, name: true, termMonths: true },
+    where: { ...requestableLoanProductWhere, tenantId },
+  })
+}
+
+export async function hasRequestableLoanProducts(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const product = await prisma.loanProduct.findFirst({
+    select: { id: true },
+    where: { ...requestableLoanProductWhere, tenantId },
+  })
+  return Boolean(product)
 }
 
 export async function listLoanRequests(
@@ -684,6 +716,31 @@ export async function listLoanOptions(
     outstandingPrincipal: Number(loan.outstandingPrincipal),
   }))
 }
+
+export async function listRepaymentPostOptions(
+  tenantId: string,
+  prismaOverride?: PrismaClient
+) {
+  const loans = await listLoanOptions(
+    tenantId,
+    { statuses: ["active", "disbursed"] },
+    prismaOverride
+  )
+
+  return loans
+    .map((loan) => ({
+      id: loan.id,
+      memberName: loan.member.fullName,
+      outstandingPrincipal: loan.outstandingPrincipal,
+      productName: loan.loanProduct.name,
+      status: loan.status,
+    }))
+    .sort((left, right) => left.memberName.localeCompare(right.memberName))
+}
+
+export type RepaymentLoanOption = Awaited<
+  ReturnType<typeof listRepaymentPostOptions>
+>[number]
 
 export async function listLoans(
   tenantId: string,

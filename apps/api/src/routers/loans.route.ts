@@ -3,6 +3,7 @@ import {
   getLoanRequestDetail,
   listLoanRequestRowsPage,
   listLoansPage,
+  listRequestableLoanProductOptions,
   searchGuarantorOptions,
 } from "@halaalvest/db"
 import {
@@ -82,6 +83,10 @@ export const loansRouter = createTRPCRouter({
         meta: result.meta,
       }
     }),
+
+  requestProductOptions: tenantProcedure.query(({ ctx }) =>
+    listRequestableLoanProductOptions(ctx.tenant.current.id)
+  ),
 
   request: tenantProcedure
     .input(getLoanRequestSchema)

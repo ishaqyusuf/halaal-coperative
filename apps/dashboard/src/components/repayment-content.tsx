@@ -2,6 +2,7 @@
 
 import type {
   RepaymentHistoryRow,
+  RepaymentLoanOption,
   RepaymentScheduleItemDetail,
 } from "@halaalvest/db"
 import { formatCurrency } from "@halaalvest/utils"
@@ -13,10 +14,7 @@ import {
 import { LoanFacts, LoanStatusWord } from "@/components/loans/loan-status-word"
 import { useRepaymentParams } from "@/hooks/use-repayment-params"
 import { getInstallmentWord, getRepaymentWord } from "@/lib/loans/loan-words"
-import type {
-  RepaymentAssigneeOption,
-  RepaymentLoanOption,
-} from "@/lib/repayments/load-repayments-page"
+import type { RepaymentAssigneeOption } from "@/lib/repayments/load-repayments-page"
 import { formatDayMonthYear } from "@/utils/format"
 
 const followUpWords: Record<string, string> = {
@@ -48,7 +46,7 @@ export function RepaymentContent({
   const { open, repaymentScheduleItemId, repaymentSheetType } =
     useRepaymentParams()
 
-  if (repaymentSheetType === "post") {
+  if (repaymentSheetType === "post" && canPostRepayment) {
     return (
       <RepaymentPostForm
         defaultLoanId={defaultLoanId}

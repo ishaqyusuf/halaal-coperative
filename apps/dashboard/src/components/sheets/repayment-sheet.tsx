@@ -8,10 +8,6 @@ import { RepaymentContent } from "@/components/repayment-content"
 import { RepaymentSheetHeader } from "@/components/repayment-sheet-header"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useRepaymentParams } from "@/hooks/use-repayment-params"
-import type {
-  RepaymentAssigneeOption,
-  RepaymentLoanOption,
-} from "@/lib/repayments/load-repayments-page"
 import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 import { useTRPC } from "@/trpc/client"
 
@@ -20,15 +16,11 @@ const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export function RepaymentSheet({
-  assignees,
   canPostRepayment,
   devMode,
-  loans,
 }: {
-  assignees: RepaymentAssigneeOption[]
   canPostRepayment: boolean
   devMode: boolean
-  loans: RepaymentLoanOption[]
 }) {
   const queryClient = useQueryClient()
   const router = useRouter()
@@ -42,6 +34,8 @@ export function RepaymentSheet({
   } = useRepaymentParams()
   const isOpen = Boolean(repaymentSheetType)
   const presentation = getWorkflowPresentation("repayment", repaymentSheetType)
+  const shouldLoadPostOptions =
+    canPostRepayment && repaymentSheetType === "post"
   const shouldLoadSchedule =
     isOpen &&
     (repaymentSheetType === "followUp" ||
@@ -66,6 +60,19 @@ export function RepaymentSheet({
       { repaymentId: repaymentId ?? disabledId },
       { enabled: shouldLoadRepayment }
     )
+  )
+  const postOptions = useQuery(
+    trpc.repayments.postOptions.queryOptions(undefined, {
+      enabled: shouldLoadPostOptions,
+      staleTime: 0,
+    })
+  )
+  const shouldLoadFollowUpOptions =
+    shouldLoadSchedule && repaymentSheetType === "followUp"
+  const followUpFilters = useQuery(
+    trpc.filters.repayments.queryOptions(undefined, {
+      enabled: shouldLoadFollowUpOptions,
+    })
   )
 
   async function closeSheet() {
@@ -94,12 +101,21 @@ export function RepaymentSheet({
     router.refresh()
   }
 
-  const selectedError =
-    (shouldLoadSchedule && scheduleQuery.isError) ||
-    (shouldLoadRepayment && repaymentQuery.isError)
+  const activeQueries = [
+    shouldLoadSchedule ? scheduleQuery : null,
+    shouldLoadRepayment ? repaymentQuery : null,
+    shouldLoadPostOptions ? postOptions : null,
+    shouldLoadFollowUpOptions ? followUpFilters : null,
+  ]
+  const failedQuery = activeQueries.find((query) => query?.isError)
   const selectedLoading =
-    (shouldLoadSchedule && scheduleQuery.isLoading) ||
-    (shouldLoadRepayment && repaymentQuery.isLoading)
+    (shouldLoadPostOptions && postOptions.isFetching) ||
+    activeQueries.some((query) => query?.isPending)
+  const assignees = shouldLoadFollowUpOptions
+    ? (followUpFilters.data
+        ?.find((filter) => filter.value === "assignedToUserId")
+        ?.options?.map(({ label, value }) => ({ id: value, label })) ?? [])
+    : []
 
   return (
     <WorkflowPresentation
@@ -121,7 +137,7 @@ export function RepaymentSheet({
           <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-6 md:pb-6">
             {selectedLoading ? (
               <p className="text-base text-muted-foreground">Loading…</p>
-            ) : selectedError ? (
+            ) : failedQuery ? (
               <div className="space-y-3 border-y border-border py-4">
                 <p className="text-base text-muted-foreground">
                   This could not be loaded.
@@ -129,11 +145,7 @@ export function RepaymentSheet({
                 <Button
                   size="touch"
                   className="text-base"
-                  onClick={() =>
-                    void (shouldLoadSchedule
-                      ? scheduleQuery.refetch()
-                      : repaymentQuery.refetch())
-                  }
+                  onClick={() => void failedQuery.refetch()}
                   type="button"
                   variant="outline"
                 >
@@ -146,7 +158,7 @@ export function RepaymentSheet({
                 canPostRepayment={canPostRepayment}
                 defaultLoanId={loanId ?? scheduleQuery.data?.loan.id}
                 devMode={devMode}
-                loans={loans}
+                loans={postOptions.data ?? []}
                 onMutationSuccess={refreshRepaymentData}
                 repayment={repaymentQuery.data ?? undefined}
                 scheduleItem={scheduleQuery.data ?? undefined}

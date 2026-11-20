@@ -59,7 +59,6 @@ export function LoansPageView({
   intakeFix,
   isMemberView,
   loanPortfolioTableSettings,
-  loanProducts,
   loanRequestTableSettings,
   pendingGuarantorCount,
   quickFillEnabled,
@@ -182,10 +181,10 @@ export function LoansPageView({
       <LoanSheet
         availablePool={availablePool}
         canReview={canReview}
+        capacity={capacity}
         devMode={quickFillEnabled}
         disabledReason={requestBlockedReason}
         fixedMember={fixedMember}
-        loanProducts={loanProducts}
       />
     </WorkspacePageShell>
   )

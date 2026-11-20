@@ -735,10 +735,17 @@ export async function getFinancingIntakeStatus(
   input: MonthlyFinancingCycleInput,
   prismaOverride?: PrismaClient
 ) {
-  const { cycle } = await getFinancingCycleSnapshotForPeriod(
-    input,
-    getPrisma(prismaOverride)
-  )
+  const { periodEnd, periodStart } = resolveMonthlyPeriod(input.periodStart)
+  const cycle = await getPrisma(prismaOverride).financingCycle.findUnique({
+    select: { status: true },
+    where: {
+      tenantId_periodStart_periodEnd: {
+        tenantId: input.tenantId,
+        periodStart,
+        periodEnd,
+      },
+    },
+  })
 
   return getIntakeStatus(cycle)
 }

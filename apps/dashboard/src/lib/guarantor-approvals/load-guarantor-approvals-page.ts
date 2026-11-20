@@ -1,9 +1,9 @@
 import {
   createDbRuntime,
-  getMemberByUserId,
-  getMemberOperationalReadiness,
+  isMemberOperationallyReady,
   listGuarantorRequestsForMember,
 } from "@halaalvest/db"
+import { findRequestMemberByUserId } from "@/lib/request-lookups"
 import { getDashboardServerContext } from "@/lib/server-context"
 
 /** `/guarantor-approvals`: a member's own guarantor requests, nothing else. */
@@ -20,7 +20,7 @@ export async function loadGuarantorApprovalsPageData() {
   }
 
   const member = context.auth.user
-    ? await getMemberByUserId({
+    ? await findRequestMemberByUserId({
         tenantId: context.tenant.id,
         userId: context.auth.user.id,
       })
@@ -37,15 +37,15 @@ export async function loadGuarantorApprovalsPageData() {
 
   // Answering needs a verified member (the action checks the same rule), so
   // say so before offering buttons. Read only when something is waiting.
-  const readiness = requests.some((request) => request.status === "pending")
-    ? await getMemberOperationalReadiness({
-        memberId: member.id,
-        tenantId: context.tenant.id,
-      })
-    : null
+  const hasPendingRequest = requests.some(
+    (request) => request.status === "pending"
+  )
+  const canAnswer =
+    !hasPendingRequest ||
+    (await isMemberOperationallyReady({ member, tenantId: context.tenant.id }))
 
   return {
-    canAnswer: readiness?.isReady ?? true,
+    canAnswer,
     requests,
     state: "ready" as const,
   }

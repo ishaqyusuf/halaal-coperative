@@ -3,6 +3,7 @@ import {
   getRepaymentScheduleItem,
   getRepaymentSummary,
   listRepaymentHistoryPage,
+  listRepaymentPostOptions,
   listRepaymentSchedulePage,
 } from "@halaalvest/db"
 import {
@@ -33,6 +34,10 @@ export const repaymentsRouter = createTRPCRouter({
         toDate: input?.toDate,
       })
     ),
+
+  postOptions: repaymentProcedure.query(({ ctx }) =>
+    listRepaymentPostOptions(ctx.tenant.current.id)
+  ),
 
   repayment: repaymentProcedure
     .input(getRepaymentSchema)

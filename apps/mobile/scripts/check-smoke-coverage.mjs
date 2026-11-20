@@ -142,7 +142,7 @@ assertIncludes("src/components/app/docked-hero-screen.tsx", [
 
 assertIncludes("src/app/(member)/(tabs)/_layout.tsx", [
   "Home",
-  "Monthly saving",
+  "Commitments",
   "Financing",
   "Shares",
   "More",

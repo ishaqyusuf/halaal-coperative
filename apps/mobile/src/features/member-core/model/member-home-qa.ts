@@ -43,7 +43,7 @@ function staleCache(home: MobileMemberHome): MobileMemberHome["cache"] {
 }
 
 const zeroDetails: Record<string, string> = {
-  commitment: "No monthly saving set",
+  commitment: "No active commitment available",
   financing: "No active financing",
   savings: "No contributions posted yet",
   "share-capital": "No share capital posted",
@@ -109,9 +109,9 @@ export function applyMemberHomeQaState(
               ...home,
               actionItems: [
                 {
-                  detail: "No monthly saving has been set up.",
+                  detail: "No active monthly commitment was found.",
                   key: "commitment",
-                  label: "Monthly saving setup",
+                  label: "Commitment setup",
                   severity: "neutral",
                 },
               ],
@@ -146,7 +146,7 @@ export function applyMemberHomeQaState(
                 status: "missing_profile",
               },
               stats: [
-                { detail: "No monthly saving set", format: "currency", key: "commitment", label: "Monthly saving", value: 0 },
+                { detail: "No active commitment available", format: "currency", key: "commitment", label: "Commitment", value: 0 },
                 { detail: "No posted savings available", format: "currency", key: "savings", label: "Savings", value: 0 },
                 { detail: "No active financing available", format: "currency", key: "financing", label: "Financing", value: 0 },
               ],

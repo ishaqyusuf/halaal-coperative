@@ -193,8 +193,8 @@ export function MemberCommitmentsScreen({
                 <View className="border-hero-foreground/20 flex-1 gap-[2px] border-r p-[12px]">
                   <Text className="text-hero-foreground/80" variant="caption">
                     {plan?.interval === "Monthly" || !plan
-                      ? "Monthly saving"
-                      : "Saving plan"}
+                      ? "Monthly commitment"
+                      : "Active commitment"}
                   </Text>
                   <Text className="text-hero-foreground" variant="money">
                     {position.activePlan.value ?? "Not set"}

@@ -53,7 +53,7 @@ describe("member commitments presentation", () => {
     expect(presentation).toEqual({
       activePlan: {
         detail: "Started January 2026",
-        label: "Monthly saving",
+        label: "Monthly commitment",
         status: "Active",
         value: "₦60,000",
       },

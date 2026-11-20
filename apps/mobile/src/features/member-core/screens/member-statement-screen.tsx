@@ -60,7 +60,7 @@ const metrics = [
   },
   {
     key: "active-commitment",
-    title: "Monthly saving",
+    title: "Commitment",
     icon: "BadgeCheck",
     tint: "bg-accent",
     ink: "text-accent-foreground",

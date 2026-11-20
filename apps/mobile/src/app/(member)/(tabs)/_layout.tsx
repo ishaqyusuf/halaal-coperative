@@ -31,7 +31,7 @@ export default function MemberTabsLayout() {
       <Tabs.Screen
         name="commitments"
         options={{
-          tabBarAccessibilityLabel: "Monthly saving and plans tab",
+          tabBarAccessibilityLabel: "Commitments and savings tab",
           title: "Plans",
           tabBarIcon: ({ color }) => (
             <Icon color={color} name="BadgeCheck" className="size-md" />

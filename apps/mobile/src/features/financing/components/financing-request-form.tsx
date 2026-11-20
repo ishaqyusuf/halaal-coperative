@@ -498,7 +498,7 @@ export function FinancingRequestForm({
                 />
                 <FormField
                   label="Extra monthly savings"
-                  helper="Added to your monthly saving while you repay."
+                  helper="Added to your monthly commitment while you repay."
                   optional
                 >
                   <MoneyField
@@ -796,7 +796,7 @@ function QuoteReview({
         {extra > 0 ? (
           <FinanceAmountRow
             label="Extra monthly savings"
-            detail="Added to your monthly saving"
+            detail="Added to your commitment"
             value={money(extra)}
           />
         ) : null}

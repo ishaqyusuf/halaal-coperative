@@ -20,6 +20,7 @@ import { clearLoginPrefillCookie } from "@/lib/login-prefill"
 import { verifyPassword } from "@/lib/password"
 import { getPublicRequestHost } from "@/lib/request-host"
 import { resolveInitialMigrationSetupGate } from "@/lib/setup-gate"
+import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData()
@@ -92,9 +93,9 @@ export async function POST(request: NextRequest) {
   }
 
   const setupGate =
-    membership && tenantResolution.tenant
+    tenantResolution.tenant && hasAnyRole(membership?.role, workspaceAdminRoles)
       ? await resolveInitialMigrationSetupGate({
-          role: membership.role,
+          role: membership?.role,
           tenantId: tenantResolution.tenant.id,
         })
       : null

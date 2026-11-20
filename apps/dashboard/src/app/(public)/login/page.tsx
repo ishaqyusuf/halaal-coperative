@@ -16,6 +16,7 @@ import {
 } from "@/lib/login-prefill"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { resolveInitialMigrationSetupGate } from "@/lib/setup-gate"
+import { hasAnyRole, workspaceAdminRoles } from "@/lib/workspace-access"
 import { tenantRedirect } from "@/utils/tenant-redirect"
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config"
 
@@ -39,9 +40,10 @@ export default async function LoginPage({
   const reset = typeof params.reset === "string" ? params.reset : null
 
   if (context.auth.sessionToken && context.auth.user) {
-    if (context.auth.membership && context.tenant) {
+    const role = context.auth.membership?.role
+    if (context.tenant && hasAnyRole(role, workspaceAdminRoles)) {
       const setupGate = await resolveInitialMigrationSetupGate({
-        role: context.auth.membership.role,
+        role,
         tenantId: context.tenant.id,
       })
 

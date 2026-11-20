@@ -536,6 +536,59 @@ export async function getTenantFinanceSetupLock(
   return toTenantFinanceSetupLock(row)
 }
 
+async function readMigrationProfitCounts(
+  prisma: PrismaClient,
+  tenantId: string,
+  currentSeasonStart: Date
+) {
+  if (typeof prisma.$queryRaw === "function") {
+    const seasonStartDate = currentSeasonStart.toISOString().slice(0, 10)
+    const [counts] = await prisma.$queryRaw<
+      [
+        {
+          businessProfitPools: number
+          reviewedBusinessProfitEntries: number
+          broughtForwardPendingPastProfitEntries: number
+        },
+      ]
+    >`
+      SELECT
+        count(*)::int AS "businessProfitPools",
+        count(linked_dividend_period_id)::int AS "reviewedBusinessProfitEntries",
+        (count(*) FILTER (
+          WHERE status = 'pending' AND profit_date < ${seasonStartDate}::date
+        ))::int AS "broughtForwardPendingPastProfitEntries"
+      FROM share_business_profit_entries
+      WHERE tenant_id = ${tenantId}::uuid
+    `
+    return counts
+  }
+
+  const [
+    businessProfitPools,
+    reviewedBusinessProfitEntries,
+    broughtForwardPendingPastProfitEntries,
+  ] = await Promise.all([
+    prisma.shareBusinessProfitEntry.count({ where: { tenantId } }),
+    prisma.shareBusinessProfitEntry.count({
+      where: { tenantId, linkedDividendPeriodId: { not: null } },
+    }),
+    prisma.shareBusinessProfitEntry.count({
+      where: {
+        tenantId,
+        status: "pending",
+        profitDate: { lt: currentSeasonStart },
+      },
+    }),
+  ])
+
+  return {
+    businessProfitPools,
+    reviewedBusinessProfitEntries,
+    broughtForwardPendingPastProfitEntries,
+  }
+}
+
 export async function getTenantInitialMigrationState(
   tenantId: string,
   prismaOverride?: PrismaClient,
@@ -600,8 +653,11 @@ export async function getTenantInitialMigrationState(
   const [
     tenant,
     chargeScheduleVersions,
-    businessProfitPools,
-    reviewedBusinessProfitEntries,
+    {
+      businessProfitPools,
+      reviewedBusinessProfitEntries,
+      broughtForwardPendingPastProfitEntries,
+    },
     shareCapitalPlans,
     memberBackfillCoverage,
     liveLegacyLoans,
@@ -609,7 +665,6 @@ export async function getTenantInitialMigrationState(
     legacyLoanReviewMarkers,
     businessProfitReviewMarkers,
     tenantPolicySetup,
-    broughtForwardPendingPastProfitEntries,
     appliedBackfillBatches,
   ] = await Promise.all([
     prisma.tenant.findUnique({
@@ -625,17 +680,11 @@ export async function getTenantInitialMigrationState(
     prisma.chargeDefinitionVersion.count({
       where: { tenantId },
     }),
-    prisma.shareBusinessProfitEntry.count({
-      where: { tenantId },
-    }),
-    prisma.shareBusinessProfitEntry.count({
-      where: {
-        tenantId,
-        linkedDividendPeriodId: {
-          not: null,
-        },
-      },
-    }),
+    readMigrationProfitCounts(
+      prisma,
+      tenantId,
+      currentProfitSeason.periodStart
+    ),
     prisma.tenantShareStructureVersion.count({
       where: { tenantId },
     }),
@@ -667,15 +716,6 @@ export async function getTenantInitialMigrationState(
         })
       : 0,
     readTenantPolicySetupSettings(prisma, tenantId),
-    prisma.shareBusinessProfitEntry.count({
-      where: {
-        tenantId,
-        profitDate: {
-          lt: currentProfitSeason.periodStart,
-        },
-        status: "pending",
-      },
-    }),
     prisma.backfillBatch.count({
       where: {
         tenantId,

@@ -1,11 +1,12 @@
 import { z } from "zod"
+import { TRPCError } from "@trpc/server"
 import {
   createMemberPaymentReceiptPageCursor,
   getMemberPaymentReceipt,
-  getMemberByUserId,
   listMemberPaymentReceiptPage,
   listPaymentReceiptMemberOptions,
 } from "@halaalvest/db"
+import { getScopedMemberId } from "../lib/member-scope"
 import {
   createTRPCRouter,
   permissionProcedure,
@@ -67,19 +68,26 @@ export const paymentReceiptsRouter = createTRPCRouter({
         tenantId: ctx.tenant.current.id,
       })
     ),
+  ownOptions: tenantProcedure.input(z.void()).query(async ({ ctx }) => {
+    const memberId = await getScopedMemberId(ctx)
+
+    if (!memberId || memberId === "__missing_member_profile__") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "A linked member profile is required to load receipt options.",
+      })
+    }
+
+    return listPaymentReceiptMemberOptions({
+      memberId,
+      tenantId: ctx.tenant.current.id,
+    })
+  }),
   get: tenantProcedure
     .input(z.object({ receiptId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      let memberId: string | undefined
-
-      if (ctx.auth.activeMembership.role === "member") {
-        const member = await getMemberByUserId({
-          tenantId: ctx.tenant.current.id,
-          userId: ctx.auth.session.user.id,
-        })
-
-        memberId = member?.id ?? "__missing_member_profile__"
-      }
+      const memberId = await getScopedMemberId(ctx)
+      if (memberId === "__missing_member_profile__") return null
 
       return getMemberPaymentReceipt(ctx.tenant.current.id, input.receiptId, {
         memberId,
@@ -89,20 +97,14 @@ export const paymentReceiptsRouter = createTRPCRouter({
     .input(listPaymentReceiptsSchema)
     .query(async ({ ctx, input }) => {
       const pageSize = input?.pageSize ?? 50
-      let memberId = input?.memberId
-
-      if (ctx.auth.activeMembership.role === "member") {
-        const member = await getMemberByUserId({
-          tenantId: ctx.tenant.current.id,
-          userId: ctx.auth.session.user.id,
-        })
-
-        memberId = member?.id ?? "__missing_member_profile__"
+      const scopedMemberId = await getScopedMemberId(ctx)
+      if (scopedMemberId === "__missing_member_profile__") {
+        return { data: [], meta: { cursor: undefined, total: 0 } }
       }
 
       const result = await listMemberPaymentReceiptPage(ctx.tenant.current.id, {
         cursor: input?.cursor ?? undefined,
-        memberId,
+        memberId: scopedMemberId ?? input?.memberId,
         pageSize: pageSize + 1,
         search: input?.q || undefined,
         sort: input?.sort ?? null,

@@ -3,7 +3,7 @@
 import { Suspense } from "react"
 import { useTenantRouter } from "@halaalvest/tenant-url/next"
 import { Button } from "@halaalvest/ui/components/button"
-import { useSuspenseQuery } from "@tanstack/react-query"
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { SparklesIcon } from "lucide-react"
 import {
   MemberPaymentReceiptCreateContent,
@@ -11,7 +11,6 @@ import {
   PaymentReceiptCreateContent,
   PaymentReceiptReviewContent,
   PaymentReceiptSupportCaseContent,
-  type PaymentReceiptOption,
 } from "@/components/payment-receipt-content"
 import { PaymentReceiptSheetHeader } from "@/components/payment-receipt-sheet-header"
 import {
@@ -28,23 +27,11 @@ import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 import { useTRPC } from "@/trpc/client"
 
 export function PaymentReceiptSheet({
-  categoryOptions,
-  commitmentPlans = [],
-  foodPurchaseApplications = [],
-  loans = [],
-  member,
-  procurementSchedules = [],
-  projectFinancingRequests = [],
+  categoryOptions = [],
+  memberId,
 }: {
-  categoryOptions: PaymentReceiptCategoryOption[]
-  // A member's own lists (member mode). Staff forms load one member's lists
-  // when that member is chosen.
-  commitmentPlans?: PaymentReceiptOption[]
-  foodPurchaseApplications?: PaymentReceiptOption[]
-  loans?: PaymentReceiptOption[]
-  member?: { id: string }
-  procurementSchedules?: PaymentReceiptOption[]
-  projectFinancingRequests?: PaymentReceiptOption[]
+  categoryOptions?: PaymentReceiptCategoryOption[]
+  memberId?: string
 }) {
   const { paymentReceiptId, paymentReceiptSheetType, setParams } =
     usePaymentReceiptParams()
@@ -88,19 +75,13 @@ export function PaymentReceiptSheet({
                 />
               </div>
             </>
-          ) : paymentReceiptSheetType === "member-create" && member ? (
+          ) : paymentReceiptSheetType === "member-create" && memberId ? (
             <>
               <PaymentReceiptSheetHeader type={paymentReceiptSheetType} />
               <div className="px-4 pb-6 md:px-6">
-                <MemberPaymentReceiptCreateContent
-                  categoryOptions={categoryOptions}
-                  commitmentPlans={commitmentPlans}
-                  foodPurchaseApplications={foodPurchaseApplications}
-                  loans={loans}
-                  member={member}
+                <MemberPaymentReceiptForm
+                  memberId={memberId}
                   onClose={closeSheet}
-                  procurementSchedules={procurementSchedules}
-                  projectFinancingRequests={projectFinancingRequests}
                 />
               </div>
             </>
@@ -119,6 +100,52 @@ export function PaymentReceiptSheet({
         </Suspense>
       ) : null}
     </WorkflowPresentation>
+  )
+}
+
+function MemberPaymentReceiptForm({
+  memberId,
+  onClose,
+}: {
+  memberId: string
+  onClose: () => Promise<void>
+}) {
+  const trpc = useTRPC()
+  const { data, isError, refetch } = useQuery(
+    trpc.paymentReceipts.ownOptions.queryOptions(undefined, {
+      gcTime: 0,
+      retry: false,
+      staleTime: 0,
+    })
+  )
+
+  if (isError && !data) {
+    return (
+      <div className="space-y-2">
+        <p className="text-sm text-muted-foreground" role="alert">
+          Receipt options could not be loaded.
+        </p>
+        <Button onClick={() => void refetch()} type="button" variant="outline">
+          Try again
+        </Button>
+      </div>
+    )
+  }
+
+  if (!data) {
+    return (
+      <p className="text-sm text-muted-foreground" role="status">
+        Loading receipt options...
+      </p>
+    )
+  }
+
+  return (
+    <MemberPaymentReceiptCreateContent
+      {...data}
+      member={{ id: memberId }}
+      onClose={onClose}
+    />
   )
 }
 

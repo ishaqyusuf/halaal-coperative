@@ -1,23 +1,17 @@
 import {
   buildPaymentReceiptCategoryOptions,
   createDbRuntime,
-  getMemberByUserId,
   getMemberPaymentReceiptSummary,
   getMemberScopedPaymentReceiptSummary,
-  listPaymentReceiptMemberOptions,
   type PaymentReceiptCategoryOption,
 } from "@halaalvest/db"
 import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
+import { findRequestMemberByUserId } from "@/lib/request-lookups"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { allStaffRoles, hasAnyRole } from "@/lib/workspace-access"
 
 export { buildPaymentReceiptCategoryOptions, type PaymentReceiptCategoryOption }
 
-// Staff pages load only the summary and the category list. A receipt's
-// plans, loans and requests are loaded for one member when staff pick that
-// member in the receipt sheet (`paymentReceipts.memberOptions`); the page no
-// longer reads every member's lists on each visit. A member's own page loads
-// their lists up front, which is bounded to that member.
 export async function loadPaymentReceiptsPageData() {
   const context = await getDashboardServerContext()
   const runtime = createDbRuntime()
@@ -38,7 +32,7 @@ export async function loadPaymentReceiptsPageData() {
       return { state: "member-sign-in-required" as const }
     }
 
-    const member = await getMemberByUserId({
+    const member = await findRequestMemberByUserId({
       tenantId,
       userId: context.auth.user.id,
     })
@@ -47,12 +41,11 @@ export async function loadPaymentReceiptsPageData() {
       return { state: "member-profile-missing" as const }
     }
 
-    const [summary, options, operationProfile] = await Promise.all([
+    const [summary, operationProfile] = await Promise.all([
       getMemberScopedPaymentReceiptSummary({
         memberId: member.id,
         tenantId,
       }),
-      listPaymentReceiptMemberOptions({ memberId: member.id, tenantId }),
       getRequestTenantOperationProfile(tenantId),
     ])
 
@@ -60,13 +53,7 @@ export async function loadPaymentReceiptsPageData() {
       state: "member-ready" as const,
       canCreateReceipt:
         operationProfile.services.payment_receipts.canMemberCreate,
-      categoryOptions: options.categoryOptions,
-      commitmentPlans: options.commitmentPlans,
-      foodPurchaseApplications: options.foodPurchaseApplications,
-      loans: options.loans,
-      member,
-      procurementSchedules: options.procurementSchedules,
-      projectFinancingRequests: options.projectFinancingRequests,
+      memberId: member.id,
       summary,
     }
   }

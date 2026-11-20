@@ -519,6 +519,57 @@ describe("member payment receipt queries", () => {
     expect(reads[0]).not.toHaveProperty("cursor")
   })
 
+  test.each([
+    ["asc", ["approved", "rejected"]],
+    ["desc", ["submitted", "under_review"]],
+  ] as const)(
+    "uses PostgreSQL enum order to page by status %s",
+    async (direction, statuses) => {
+      const reads: unknown[] = []
+      const sort = ["status", direction] as const
+      const receipt = receiptRow({ status: "correction_requested" })
+      const cursor = createMemberPaymentReceiptPageCursor(receipt, [...sort])
+
+      await listMemberPaymentReceiptPage(
+        "tenant-1",
+        { cursor, sort: [...sort] },
+        {
+          memberPaymentReceipt: {
+            count: async () => 0,
+            findMany: async (input: unknown) => {
+              reads.push(input)
+              return []
+            },
+          },
+        } as never
+      )
+
+      expect(reads[0]).toMatchObject({
+        orderBy: [
+          { status: direction },
+          { submittedAt: "desc" },
+          { id: "desc" },
+        ],
+        where: {
+          AND: [
+            { tenantId: "tenant-1" },
+            {
+              OR: [
+                { status: { in: [...statuses] } },
+                {
+                  AND: [
+                    { status: "correction_requested" },
+                    { OR: expect.any(Array) },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      })
+    }
+  )
+
   test("uses member-name keyset values instead of an id cursor", async () => {
     const reads: Record<string, unknown>[] = []
     const cursor = createMemberPaymentReceiptPageCursor(

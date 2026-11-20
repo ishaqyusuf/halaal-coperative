@@ -112,13 +112,15 @@ export type ListMemberPaymentReceiptPageFilters = {
   submittedTo?: Date
 }
 
-const receiptStatuses = new Set<MemberPaymentReceiptStatus>([
-  "approved",
-  "correction_requested",
-  "rejected",
+// PostgreSQL sorts the status enum in declaration order.
+const receiptStatusOrder: MemberPaymentReceiptStatus[] = [
   "submitted",
   "under_review",
-])
+  "correction_requested",
+  "approved",
+  "rejected",
+]
+const receiptStatuses = new Set(receiptStatusOrder)
 
 const allocationCategories = new Set<MemberPaymentReceiptAllocationCategory>([
   "commitment",
@@ -1645,7 +1647,7 @@ function decodePaymentReceiptPageCursor(
       typeof cursor.memberName !== "string" ||
       (typeof cursor.paymentReference !== "string" &&
         cursor.paymentReference !== null) ||
-      typeof cursor.status !== "string" ||
+      !receiptStatuses.has(cursor.status) ||
       typeof cursor.totalAmount !== "number" ||
       Number.isNaN(new Date(cursor.createdAt).getTime()) ||
       Number.isNaN(new Date(cursor.paidAt).getTime()) ||
@@ -1727,6 +1729,21 @@ function getPaymentReceiptPageKeysetWhere(input: {
     }
   }
 
+  if (sortField === "status") {
+    const position = receiptStatusOrder.indexOf(cursor.status)
+    const remainingStatuses =
+      sortDirection === "asc"
+        ? receiptStatusOrder.slice(position + 1)
+        : receiptStatusOrder.slice(0, position)
+
+    return {
+      OR: [
+        { status: { in: remainingStatuses } },
+        { AND: [{ status: cursor.status }, submittedAtTieBreak] },
+      ],
+    }
+  }
+
   const primaryField =
     sortField === "memberName"
       ? "memberName"
@@ -1734,9 +1751,7 @@ function getPaymentReceiptPageKeysetWhere(input: {
         ? "paidAt"
         : sortField === "paymentReference"
           ? "paymentReference"
-          : sortField === "status"
-            ? "status"
-            : "totalAmount"
+          : "totalAmount"
   const primaryValue =
     sortField === "memberName"
       ? cursor.memberName
@@ -1744,9 +1759,7 @@ function getPaymentReceiptPageKeysetWhere(input: {
         ? new Date(cursor.paidAt)
         : sortField === "paymentReference"
           ? cursor.paymentReference
-          : sortField === "status"
-            ? cursor.status
-            : cursor.totalAmount
+          : cursor.totalAmount
   const primaryEquals =
     primaryField === "memberName"
       ? { member: { is: { fullName: primaryValue } } }

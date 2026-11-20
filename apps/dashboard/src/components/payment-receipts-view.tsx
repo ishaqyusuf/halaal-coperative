@@ -8,7 +8,6 @@ import { SummaryCard } from "@/components/summary-card"
 import { PaymentReceiptsDataView } from "@/components/tables/payment-receipts/data-view"
 import { PaymentReceiptsDataErrorBoundary } from "@/components/tables/payment-receipts/error-boundary"
 import { PaymentReceiptsSkeleton } from "@/components/tables/payment-receipts/skeleton"
-import type { PaymentReceiptOption } from "@/components/payment-receipt-content"
 import { usePaymentReceiptFilterParams } from "@/hooks/use-payment-receipt-filter-params"
 import type { PaymentReceiptCategoryOption } from "@/lib/payment-receipts/load-payment-receipts-page"
 import type { TableSettings } from "@/utils/table-settings"
@@ -71,42 +70,18 @@ export function PaymentReceiptsView({
 
 export function MemberPaymentReceiptsView({
   canCreateReceipt,
-  categoryOptions,
-  commitmentPlans,
-  foodPurchaseApplications,
   initialSettings,
-  loans,
-  member,
-  projectFinancingRequests,
-  procurementSchedules,
+  memberId,
   summary,
 }: {
   canCreateReceipt: boolean
-  categoryOptions: PaymentReceiptCategoryOption[]
-  commitmentPlans: PaymentReceiptOption[]
-  foodPurchaseApplications: PaymentReceiptOption[]
   initialSettings?: Partial<TableSettings>
-  loans: PaymentReceiptOption[]
-  member: {
-    fullName: string
-    id: string
-    memberNumber: string
-  }
-  projectFinancingRequests: PaymentReceiptOption[]
-  procurementSchedules: PaymentReceiptOption[]
+  memberId: string
   summary: MemberPaymentReceiptSummary
 }) {
   return (
     <div className="space-y-6">
-      <PaymentReceiptSheet
-        categoryOptions={categoryOptions}
-        commitmentPlans={commitmentPlans}
-        foodPurchaseApplications={foodPurchaseApplications}
-        loans={loans}
-        member={member}
-        procurementSchedules={procurementSchedules}
-        projectFinancingRequests={projectFinancingRequests}
-      />
+      <PaymentReceiptSheet memberId={memberId} />
       <ReceiptSummary
         cards={[
           { label: "Waiting", value: summary.pendingReviewReceipts },

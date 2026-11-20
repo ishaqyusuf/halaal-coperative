@@ -86,14 +86,8 @@ export function PaymentReceiptsPageView({
       >
         <MemberPaymentReceiptsView
           canCreateReceipt={data.canCreateReceipt}
-          categoryOptions={data.categoryOptions}
-          commitmentPlans={data.commitmentPlans}
-          foodPurchaseApplications={data.foodPurchaseApplications}
           initialSettings={paymentReceiptsInitialSettings}
-          loans={data.loans}
-          member={data.member}
-          procurementSchedules={data.procurementSchedules}
-          projectFinancingRequests={data.projectFinancingRequests}
+          memberId={data.memberId}
           summary={data.summary}
         />
       </WorkspacePageShell>

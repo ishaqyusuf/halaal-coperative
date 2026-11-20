@@ -17,6 +17,7 @@ describe("membership approvals Midday conformance", () => {
     )
 
     expect(input).toEqual({
+      compact: true,
       q: "Amina",
       sort: ["submittedAt", "asc"],
       status: "pending_approval",
@@ -27,6 +28,7 @@ describe("membership approvals Midday conformance", () => {
         "sideways",
       ])
     ).toEqual({
+      compact: true,
       q: undefined,
       sort: null,
       status: undefined,

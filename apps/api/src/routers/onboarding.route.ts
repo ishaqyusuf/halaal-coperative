@@ -3,6 +3,7 @@ import {
   getMemberOnboardingRequestById,
   getMemberOnboardingRequestSummary,
   getTenantOnboardingState,
+  listMemberOnboardingRequestRows,
   listMemberOnboardingRequests,
   resolveConfiguredQaDomain,
 } from "@halaalvest/db"
@@ -60,16 +61,21 @@ export const onboardingRouter = createTRPCRouter({
     .input(listMembershipApprovalsSchema)
     .query(async ({ ctx, input }) => {
       const pageSize = input?.pageSize ?? 50
-      const requests = await listMemberOnboardingRequests(
-        ctx.tenant.current.id,
-        {
-          cursor: input?.cursor ?? undefined,
-          pageSize: pageSize + 1,
-          search: input?.q || undefined,
-          sort: input?.sort ?? null,
-          status: input?.status ?? undefined,
-        }
-      )
+      const tenantId = ctx.tenant.current.id
+      const filters = {
+        cursor: input?.cursor ?? undefined,
+        pageSize: pageSize + 1,
+        search: input?.q || undefined,
+        sort: input?.sort ?? null,
+        status: input?.status ?? undefined,
+      }
+      const requests =
+        input?.compact
+          ? {
+              items: await listMemberOnboardingRequestRows(tenantId, filters),
+              total: null,
+            }
+          : await listMemberOnboardingRequests(tenantId, filters)
       const items = requests.items.slice(0, pageSize)
 
       return {

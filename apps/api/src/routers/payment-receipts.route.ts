@@ -4,6 +4,7 @@ import {
   createMemberPaymentReceiptPageCursor,
   getMemberPaymentReceipt,
   listMemberPaymentReceiptPage,
+  listMemberPaymentReceiptPageWithoutTotal,
   listPaymentReceiptMemberOptions,
 } from "@halaalvest/db"
 import { getScopedMemberId } from "../lib/member-scope"
@@ -33,6 +34,7 @@ const paymentReceiptStatusSchema = z.enum([
 const listPaymentReceiptsSchema = z
   .object({
     cursor: z.string().nullable().optional(),
+    includeTotal: z.boolean().optional(),
     memberId: z.string().uuid().optional(),
     pageSize: z.coerce.number().int().min(1).max(100).optional(),
     q: z.string().nullable().optional(),
@@ -97,12 +99,17 @@ export const paymentReceiptsRouter = createTRPCRouter({
     .input(listPaymentReceiptsSchema)
     .query(async ({ ctx, input }) => {
       const pageSize = input?.pageSize ?? 50
+      const includeTotal = input?.includeTotal !== false
       const scopedMemberId = await getScopedMemberId(ctx)
       if (scopedMemberId === "__missing_member_profile__") {
-        return { data: [], meta: { cursor: undefined, total: 0 } }
+        return {
+          data: [],
+          meta: { cursor: undefined, total: includeTotal ? 0 : null },
+        }
       }
 
-      const result = await listMemberPaymentReceiptPage(ctx.tenant.current.id, {
+      const tenantId = ctx.tenant.current.id
+      const filters = {
         cursor: input?.cursor ?? undefined,
         memberId: scopedMemberId ?? input?.memberId,
         pageSize: pageSize + 1,
@@ -111,7 +118,16 @@ export const paymentReceiptsRouter = createTRPCRouter({
         status: input?.status,
         submittedFrom: input?.submittedFrom,
         submittedTo: input?.submittedTo,
-      })
+      }
+      const result = includeTotal
+        ? await listMemberPaymentReceiptPage(tenantId, filters)
+        : {
+            items: await listMemberPaymentReceiptPageWithoutTotal(
+              tenantId,
+              filters
+            ),
+            total: null,
+          }
       const data = result.items.slice(0, pageSize)
 
       return {

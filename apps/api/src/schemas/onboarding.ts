@@ -19,6 +19,7 @@ const membershipApprovalSortFieldSchema = z.enum([
 
 export const listMembershipApprovalsSchema = z
   .object({
+    compact: z.boolean().optional(),
     cursor: z.string().nullable().optional(),
     pageSize: z.coerce.number().int().min(1).max(100).optional(),
     q: z.string().nullable().optional(),

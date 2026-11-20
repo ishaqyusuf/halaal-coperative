@@ -36,6 +36,7 @@ export function getMembershipApprovalsListInput(
   search = filters.search
 ) {
   return {
+    compact: true,
     q: search ?? undefined,
     sort: getMembershipApprovalSort(sort),
     status: getEnumValue(filters.status, [

@@ -1887,9 +1887,14 @@ export async function listMemberPaymentReceiptPage(
 export async function listMemberPaymentReceiptPageWithoutTotal(
   tenantId: string,
   filters: ListMemberPaymentReceiptPageFilters,
-  prisma: PrismaClient
+  prisma?: PrismaClient
 ) {
-  const { items } = await queryMemberPaymentReceiptPage(tenantId, filters, true, prisma)
+  const { items } = await queryMemberPaymentReceiptPage(
+    tenantId,
+    filters,
+    true,
+    prisma
+  )
   return items
 }
 
@@ -1945,67 +1950,41 @@ async function queryMemberPaymentReceiptPage(
   }
 }
 
-export async function getMemberPaymentReceiptSummary(
+export function getMemberPaymentReceiptSummary(
   tenantId: string,
   prismaOverride?: PrismaClient
 ): Promise<MemberPaymentReceiptSummary> {
-  const prisma = prismaOverride ?? createPrismaClient()
-  if (!prisma) throw new Error("Database not configured")
-
-  const [
-    submittedReceipts,
-    underReviewReceipts,
-    correctionRequestedReceipts,
-    approvedReceipts,
-    rejectedReceipts,
-  ] = await Promise.all([
-    prisma.memberPaymentReceipt.count({
-      where: { tenantId, status: "submitted" },
-    }),
-    prisma.memberPaymentReceipt.count({
-      where: { tenantId, status: "under_review" },
-    }),
-    prisma.memberPaymentReceipt.count({
-      where: { tenantId, status: "correction_requested" },
-    }),
-    prisma.memberPaymentReceipt.count({
-      where: { tenantId, status: "approved" },
-    }),
-    prisma.memberPaymentReceipt.count({
-      where: { tenantId, status: "rejected" },
-    }),
-  ])
-
-  return {
-    approvedReceipts,
-    correctionRequestedReceipts,
-    pendingReviewReceipts: submittedReceipts + underReviewReceipts,
-    rejectedReceipts,
-    submittedReceipts,
-    underReviewReceipts,
-  }
+  return getPaymentReceiptStatusSummary({ tenantId }, prismaOverride)
 }
 
-export async function getMemberScopedPaymentReceiptSummary(
-  input: {
+export function getMemberScopedPaymentReceiptSummary(
+  {
+    memberId,
+    tenantId,
+  }: {
     memberId: string
     tenantId: string
   },
   prismaOverride?: PrismaClient
 ): Promise<MemberPaymentReceiptSummary> {
+  return getPaymentReceiptStatusSummary({ memberId, tenantId }, prismaOverride)
+}
+
+async function getPaymentReceiptStatusSummary(
+  where: { tenantId: string; memberId?: string },
+  prismaOverride?: PrismaClient
+): Promise<MemberPaymentReceiptSummary> {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
 
-  const where = {
-    memberId: input.memberId,
-    tenantId: input.tenantId,
-  }
   const groups = await prisma.memberPaymentReceipt.groupBy({
     _count: { _all: true },
     by: ["status"],
     where,
   })
-  const counts = new Map(groups.map((group) => [group.status, group._count._all]))
+  const counts = new Map(
+    groups.map((group) => [group.status, group._count._all])
+  )
   const submittedReceipts = counts.get("submitted") ?? 0
   const underReviewReceipts = counts.get("under_review") ?? 0
   const approvedReceipts = counts.get("approved") ?? 0

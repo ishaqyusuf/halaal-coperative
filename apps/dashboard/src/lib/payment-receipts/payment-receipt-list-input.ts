@@ -49,6 +49,7 @@ export function getPaymentReceiptListInput(
   search = filter.q
 ) {
   return {
+    includeTotal: false,
     q: search || undefined,
     sort: getPaymentReceiptSort(sort),
     status: receiptStatuses.has(filter.status as MemberPaymentReceiptStatus)

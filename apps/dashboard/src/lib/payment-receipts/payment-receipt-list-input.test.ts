@@ -13,6 +13,7 @@ describe("payment receipt list input", () => {
         "payroll"
       )
     ).toEqual({
+      includeTotal: false,
       q: "payroll",
       sort: ["totalAmount", "desc"],
       status: "under_review",
@@ -25,7 +26,12 @@ describe("payment receipt list input", () => {
         "unknown",
         "desc",
       ])
-    ).toEqual({ q: undefined, sort: null, status: undefined })
+    ).toEqual({
+      includeTotal: false,
+      q: undefined,
+      sort: null,
+      status: undefined,
+    })
     expect(getPaymentReceiptSort(["amount", "sideways"])).toBeNull()
   })
 })

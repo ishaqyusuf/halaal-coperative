@@ -357,8 +357,6 @@ export async function verifyMemberOnboardingRequest(
   })
 }
 
-// Only what the approval list and review show; the mobile admin list also
-// reads the linked user's email.
 const memberOnboardingListSelect = {
   createdAt: true,
   email: true,
@@ -368,7 +366,6 @@ const memberOnboardingListSelect = {
   memberNumber: true,
   phoneNumber: true,
   status: true,
-  user: { select: { email: true } },
 } as const
 
 const memberOnboardingDetailSelect = {
@@ -386,14 +383,10 @@ const memberOnboardingDetailSelect = {
   status: true,
 } as const
 
-export async function listMemberOnboardingRequests(
+function getMemberOnboardingListArgs(
   tenantId: string,
-  filters?: ListMemberOnboardingFilters,
-  prismaOverride?: PrismaClient
+  filters?: ListMemberOnboardingFilters
 ) {
-  const prisma = prismaOverride ?? createPrismaClient()
-  if (!prisma) throw memberOnboardingDatabaseError("memberOnboarding.list")
-
   const page = filters?.page ?? 1
   const pageSize = filters?.pageSize ?? 25
 
@@ -443,20 +436,54 @@ export async function listMemberOnboardingRequests(
               ? [{ phoneNumber: sortDirection }, { createdAt: "desc" as const }]
               : [{ status: sortDirection }, { createdAt: "desc" as const }]
 
+  return {
+    where,
+    orderBy:
+      sortField === "submittedAt"
+        ? orderBy
+        : [...orderBy, { id: "desc" as const }],
+    ...(filters?.cursor
+      ? { cursor: { id: filters.cursor }, skip: 1 }
+      : { skip: (page - 1) * pageSize }),
+    take: pageSize,
+  }
+}
+
+export async function listMemberOnboardingRequestRows(
+  tenantId: string,
+  filters?: ListMemberOnboardingFilters,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw memberOnboardingDatabaseError("memberOnboarding.list")
+
+  return prisma.memberOnboardingRequest.findMany({
+    ...getMemberOnboardingListArgs(tenantId, filters),
+    select: memberOnboardingListSelect,
+  })
+}
+
+export async function listMemberOnboardingRequests(
+  tenantId: string,
+  filters?: ListMemberOnboardingFilters,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw memberOnboardingDatabaseError("memberOnboarding.list")
+
+  const args = getMemberOnboardingListArgs(tenantId, filters)
   const [items, total] = await Promise.all([
     prisma.memberOnboardingRequest.findMany({
-      where,
-      orderBy,
-      ...(filters?.cursor
-        ? { cursor: { id: filters.cursor }, skip: 1 }
-        : { skip: (page - 1) * pageSize }),
-      take: pageSize,
-      select: memberOnboardingListSelect,
+      ...args,
+      select: {
+        ...memberOnboardingListSelect,
+        user: { select: { email: true } },
+      },
     }),
-    prisma.memberOnboardingRequest.count({ where }),
+    prisma.memberOnboardingRequest.count({ where: args.where }),
   ])
 
-  return { items, total, page, pageSize }
+  return { items, total, page: filters?.page ?? 1, pageSize: args.take }
 }
 
 export async function getMemberOnboardingRequestSummary(

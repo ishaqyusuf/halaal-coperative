@@ -1,8 +1,9 @@
-import type {
-  ContributionChannel,
-  ContributionStatus,
-  PaymentAllocationPreference,
-  PrismaClient,
+import {
+  type ContributionChannel,
+  type ContributionStatus,
+  type PaymentAllocationPreference,
+  Prisma,
+  type PrismaClient,
 } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import {
@@ -109,7 +110,7 @@ export type ListContributionsFilters = {
   contributionPlanId?: string
   cursor?: string | null
   /**
-   * Skip the total count (export batches page by cursor and need none);
+   * Skip the count for cursor consumers that only display rows. The result's
    * `total` is then 0.
    */
   includeTotal?: boolean
@@ -174,11 +175,16 @@ function encodeContributionCursor(cursor: ContributionListCursor) {
 
 function contributionCursorWhere(
   cursor: ContributionListCursor | null
-): Record<string, unknown> {
+): Prisma.ContributionWhereInput {
   if (!cursor) return {}
   const comparison = cursor.direction === "asc" ? "gt" : "lt"
 
   if (cursor.field === "memberName") {
+    if (cursor.value === null) {
+      throw ExpectedQueryError.validation(
+        "Contribution list cursor name is invalid."
+      )
+    }
     return {
       OR: [
         { member: { fullName: { [comparison]: cursor.value } } },
@@ -207,14 +213,22 @@ function contributionCursorWhere(
   }
 
   if (cursor.value === null) {
+    if (cursor.field !== "committedAmount") {
+      throw ExpectedQueryError.validation(
+        "Contribution list cursor amount is invalid."
+      )
+    }
     return {
-      [cursor.field]: null,
+      committedAmount: null,
       id: { [comparison]: cursor.id },
     }
   }
 
-  const value = Number(cursor.value)
-  if (!Number.isFinite(value)) {
+  let value: Prisma.Decimal
+  try {
+    value = new Prisma.Decimal(cursor.value)
+    if (!value.isFinite()) throw new Error("Non-finite amount")
+  } catch {
     throw ExpectedQueryError.validation(
       "Contribution list cursor amount is invalid."
     )
@@ -224,7 +238,9 @@ function contributionCursorWhere(
     OR: [
       { [cursor.field]: { [comparison]: value } },
       { [cursor.field]: value, id: { [comparison]: cursor.id } },
-      ...(cursor.field === "amount" ? [] : [{ [cursor.field]: null }]),
+      ...(cursor.field === "committedAmount"
+        ? [{ committedAmount: null }]
+        : []),
     ],
   }
 }
@@ -249,7 +265,7 @@ export async function listContributions(
       "Contribution list cursor does not match the requested sort."
     )
   }
-  const orderBy: any[] =
+  const orderBy: Prisma.ContributionOrderByWithRelationInput[] =
     sortField === "amount"
       ? [{ amount: sortDirection }, { id: sortDirection }]
       : sortField === "committedAmount"
@@ -258,10 +274,7 @@ export async function listContributions(
             { id: sortDirection },
           ]
         : sortField === "extraSavingsAmount"
-          ? [
-              { extraSavingsAmount: { sort: sortDirection, nulls: "last" } },
-              { id: sortDirection },
-            ]
+          ? [{ extraSavingsAmount: sortDirection }, { id: sortDirection }]
           : sortField === "memberName"
             ? [{ member: { fullName: sortDirection } }, { id: sortDirection }]
             : [{ postedAt: sortDirection }, { id: sortDirection }]

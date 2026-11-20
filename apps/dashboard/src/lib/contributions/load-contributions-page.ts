@@ -1,20 +1,24 @@
 import {
   createDbRuntime,
   getCollectionSourceContributionBatch,
+  getContributionFilterMetadata,
   getTenantOperationProfile,
   listActiveContributionPlans,
-  listCollectionSourceContributionBatches,
   listActiveDeductionSources,
   listLoanOptions,
   listMembersWithPaymentOrder,
+  listRecentCollectionSourceBatchLinks,
 } from "@halaalvest/db"
 import type { CollectionSourceBatchView } from "@halaalvest/db"
+import type { PageFilterData } from "@halaalvest/utils"
 import type { ContributionsFilterParams } from "@/hooks/use-contributions-filter-params"
 import {
   canShowQuickFill,
   getDashboardServerContext,
 } from "@/lib/server-context"
 import { allStaffRoles, hasAnyRole } from "@/lib/workspace-access"
+import { getInitialTableSettings } from "@/utils/columns"
+import type { TableSettings } from "@/utils/table-settings"
 
 type ContributionMemberRow = {
   fullName: string
@@ -55,11 +59,11 @@ export type ContributionsPageData =
   | {
       canRecordContributions: boolean
       canUseCollectionSourceBatches: boolean
-      filters: ContributionsFilterParams
       quickFillEnabled: boolean
       state: "unavailable"
     }
   | {
+      activeView: NonNullable<ContributionsFilterParams["view"]>
       canRecordContributions: boolean
       canUseCollectionSourceBatches: boolean
       /** Active plans, on the Commitments tab only; `items` may stop short. */
@@ -68,8 +72,11 @@ export type ContributionsPageData =
         total: number
       }
       collectionSourceBatchOptions: CollectionSourceBatchOption[]
-      collectionSourceBatches: Array<Omit<CollectionSourceBatchView, "rows">>
-      filters: ContributionsFilterParams
+      collectionSourceBatches: Awaited<
+        ReturnType<typeof listRecentCollectionSourceBatchLinks>
+      >
+      contributionTableSettings?: TableSettings
+      filterList?: PageFilterData[]
       loans: ContributionLoanRow[]
       members: {
         items: ContributionMemberRow[]
@@ -85,6 +92,7 @@ export async function loadContributionsPageData(
   filters: ContributionsFilterParams,
   input?: {
     selectedBatchId?: string
+    stageBatch?: boolean
   }
 ): Promise<ContributionsPageData> {
   const context = await getDashboardServerContext()
@@ -99,16 +107,25 @@ export async function loadContributionsPageData(
     return {
       canRecordContributions,
       canUseCollectionSourceBatches: false,
-      filters,
       quickFillEnabled,
       state: "unavailable" as const,
     }
   }
 
-  const operationProfile = await getTenantOperationProfile(context.tenant.id)
+  const requestedView = filters.view ?? "ledger"
+  const [operationProfile, requestedLedgerFilters] = await Promise.all([
+    getTenantOperationProfile(context.tenant.id),
+    requestedView === "ledger"
+      ? getContributionFilterMetadata(context.tenant.id)
+      : undefined,
+  ])
   const canUseCollectionSourceBatches =
     canRecordContributions &&
     operationProfile.services.collection_source_batch_posting.canStaffCreate
+  const activeView =
+    requestedView === "collections" && !canUseCollectionSourceBatches
+      ? "ledger"
+      : requestedView
 
   const [
     members,
@@ -116,36 +133,46 @@ export async function loadContributionsPageData(
     loans,
     collectionSourceOptions,
     collectionSourceBatches,
+    selectedCollectionSourceBatch,
+    filterList,
+    contributionTableSettings,
   ] = await Promise.all([
     // Only the Commitments tab lists members: those whose payment order is
     // not the default (bounded, with a total). Anyone else is found by
     // search, like the forms (MemberCombobox).
-    filters.view === "commitments"
+    activeView === "commitments"
       ? listMembersWithPaymentOrder(context.tenant.id)
       : Promise.resolve({ items: [], total: 0 }),
     // Active plans are listed on the Commitments tab (capped, with a total).
     // The payment form loads the chosen member's plans on its own.
-    filters.view === "commitments"
+    activeView === "commitments"
       ? listActiveContributionPlans(context.tenant.id)
       : Promise.resolve({ items: [], total: 0 }),
     listLoanOptions(context.tenant.id),
-    canUseCollectionSourceBatches
+    canUseCollectionSourceBatches &&
+    (activeView === "collections" || input?.stageBatch)
       ? listActiveDeductionSources(context.tenant.id)
       : Promise.resolve([]),
-    canUseCollectionSourceBatches
-      ? listCollectionSourceContributionBatches(context.tenant.id)
+    activeView === "collections"
+      ? listRecentCollectionSourceBatchLinks(context.tenant.id)
       : Promise.resolve([]),
-  ])
-  const selectedBatchId = input?.selectedBatchId
-  const selectedCollectionSourceBatch =
-    canUseCollectionSourceBatches && selectedBatchId
-      ? await getCollectionSourceContributionBatch(
+    canUseCollectionSourceBatches && input?.selectedBatchId
+      ? getCollectionSourceContributionBatch(
           context.tenant.id,
-          selectedBatchId
+          input.selectedBatchId
         )
-      : null
+      : Promise.resolve(null),
+    activeView === "ledger"
+      ? (requestedLedgerFilters ??
+        getContributionFilterMetadata(context.tenant.id))
+      : undefined,
+    activeView === "ledger"
+      ? getInitialTableSettings("contributions")
+      : undefined,
+  ])
 
   return {
+    activeView,
     canRecordContributions,
     canUseCollectionSourceBatches,
     commitmentPlans: {
@@ -165,7 +192,8 @@ export async function loadContributionsPageData(
       type: source.type,
     })),
     collectionSourceBatches,
-    filters,
+    contributionTableSettings,
+    filterList,
     loans: loans.map((loan) => ({
       id: loan.id,
       loanProduct: { name: loan.loanProduct.name },

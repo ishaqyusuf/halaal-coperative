@@ -17,6 +17,7 @@ describe("contribution ledger list input", () => {
     ).toEqual({
       channel: "payroll",
       from: "2026-08-01",
+      includeTotal: false,
       memberId: "member-1",
       q: "Amina",
       sort: ["postedAt", "desc"],
@@ -39,6 +40,7 @@ describe("contribution ledger list input", () => {
     ).toEqual({
       channel: undefined,
       from: undefined,
+      includeTotal: false,
       memberId: undefined,
       q: undefined,
       sort: undefined,

@@ -805,12 +805,10 @@ export async function listChargeActivityPage(
             OR: [
               {
                 member: {
-                  fullName: { contains: search, mode: "insensitive" },
-                },
-              },
-              {
-                member: {
-                  memberNumber: { contains: search, mode: "insensitive" },
+                  OR: [
+                    { fullName: { contains: search, mode: "insensitive" } },
+                    { memberNumber: { contains: search, mode: "insensitive" } },
+                  ],
                 },
               },
               {

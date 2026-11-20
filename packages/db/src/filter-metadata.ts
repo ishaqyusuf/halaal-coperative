@@ -8,7 +8,7 @@ import {
 import { createDbRuntime } from "./runtime"
 import { listTenantUsersWithRoles } from "./queries/auth"
 import { activityAreaLabels, activityAreas } from "./queries/activity-words"
-import { listMembers } from "./queries/members"
+import { listRecentMemberOptions } from "./queries/members"
 import { listLoanBorrowerOptions } from "./queries/loan-views"
 
 const cooperativeRoles = [
@@ -81,9 +81,7 @@ export async function getContributionFilterMetadata(
   const runtime = createDbRuntime()
   const members =
     runtime.status === "database-configured"
-      ? await listMembers(tenantId, { page: 1, pageSize: 100 }).then(
-          (result) => result.items
-        )
+      ? await listRecentMemberOptions(tenantId, { limit: 100 })
       : []
 
   return [

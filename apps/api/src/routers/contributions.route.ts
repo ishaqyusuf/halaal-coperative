@@ -26,6 +26,7 @@ const listContributionsLedgerSchema = z
       .transform((value) =>
         value ? new Date(`${value}T00:00:00.000Z`) : undefined
       ),
+    includeTotal: z.boolean().optional(),
     memberId: z.string().uuid().optional(),
     pageSize: z.coerce.number().int().min(1).max(100).optional(),
     q: z.string().nullable().optional(),
@@ -51,6 +52,7 @@ export const contributionsRouter = createTRPCRouter({
         channel: input?.channel,
         cursor: input?.cursor ?? undefined,
         fromDate: input?.from,
+        includeTotal: input?.includeTotal,
         memberId: input?.memberId,
         pageSize,
         search: input?.q || undefined,

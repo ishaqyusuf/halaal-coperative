@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { Prisma } from "../../generated/prisma/client"
 import {
   activeContributionPlanListLimit,
   closeContributionPlan,
@@ -332,6 +333,40 @@ describe("contribution live write guards", () => {
         contribution: {},
       } as never)
     ).rejects.toThrow("does not match the requested sort")
+  })
+
+  test("keeps committed amount cursor ties exact without counting an uncounted page", async () => {
+    const amount = "1000000000000000.12"
+    const cursor = Buffer.from(
+      JSON.stringify({
+        direction: "asc",
+        field: "committedAmount",
+        id: "contribution-2",
+        value: amount,
+      })
+    ).toString("base64url")
+    const reads: Prisma.ContributionFindManyArgs[] = []
+
+    const result = await listContributions(
+      "tenant-1",
+      { cursor, includeTotal: false, sort: ["committedAmount", "asc"] },
+      {
+        contribution: {
+          findMany: async (input: Prisma.ContributionFindManyArgs) => {
+            reads.push(input)
+            return []
+          },
+        },
+      } as never
+    )
+
+    const decimal = new Prisma.Decimal(amount)
+    expect(reads[0]?.where?.OR).toEqual([
+      { committedAmount: { gt: decimal } },
+      { committedAmount: decimal, id: { gt: "contribution-2" } },
+      { committedAmount: null },
+    ])
+    expect(result.total).toBe(0)
   })
 
   test("blocks contribution posting before live operations", async () => {

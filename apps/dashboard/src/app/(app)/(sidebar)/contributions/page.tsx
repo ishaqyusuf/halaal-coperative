@@ -1,5 +1,4 @@
 import type { Metadata } from "next"
-import { getContributionFilterMetadata } from "@halaalvest/db"
 import {
   ContributionsPageView,
   ContributionsUnavailableView,
@@ -9,9 +8,7 @@ import { loadContributionsFilterParams } from "@/hooks/use-contributions-filter-
 import { loadSortParams } from "@/hooks/use-sort-params"
 import { loadContributionsPageData } from "@/lib/contributions"
 import { getContributionListInput } from "@/lib/contributions/contribution-list-input"
-import { getDashboardServerContext } from "@/lib/server-context"
 import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server"
-import { getInitialTableSettings } from "@/utils/columns"
 
 export const metadata: Metadata = {
   description:
@@ -28,26 +25,16 @@ export default async function ContributionsPage({
   const filters = loadContributionsFilterParams(params)
   const contributionParams = loadContributionParams(params)
   const { sort } = loadSortParams(params)
-  const context = await getDashboardServerContext()
-  const [data, filterList, contributionTableSettings] = await Promise.all([
-    loadContributionsPageData(filters, {
-      selectedBatchId: contributionParams.batchId ?? undefined,
-    }),
-    context.tenant
-      ? getContributionFilterMetadata(context.tenant.id)
-      : Promise.resolve([]),
-    getInitialTableSettings("contributions"),
-  ])
+  const data = await loadContributionsPageData(filters, {
+    selectedBatchId: contributionParams.batchId ?? undefined,
+    stageBatch: contributionParams.contributionSheetType === "stageBatch",
+  })
 
   if (data.state !== "ready") {
     return <ContributionsUnavailableView />
   }
 
-  const activeView =
-    filters.view === "collections" && !data.canUseCollectionSourceBatches
-      ? "ledger"
-      : (filters.view ?? "ledger")
-
+  const { activeView } = data
   if (activeView === "ledger") {
     const ledgerInput = getContributionListInput(filters, sort)
     batchPrefetch([
@@ -59,11 +46,7 @@ export default async function ContributionsPage({
 
   return (
     <HydrateClient>
-      <ContributionsPageView
-        {...data}
-        contributionTableSettings={contributionTableSettings}
-        filterList={filterList}
-      />
+      <ContributionsPageView {...data} />
     </HydrateClient>
   )
 }

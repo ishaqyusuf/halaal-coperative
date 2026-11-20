@@ -58,6 +58,7 @@ export function getContributionListInput(
   return {
     channel: channel && contributionChannels.has(channel) ? channel : undefined,
     from: dateRange?.from,
+    includeTotal: false,
     memberId: filters.memberId ?? undefined,
     q: normalizeSearch(deferredSearch),
     sort: normalizeSort(sort),

@@ -337,28 +337,16 @@ export function refreshCollectionSourceBatchStatus(
   return refreshBatchStatus({ ...input, tx })
 }
 
-export async function listCollectionSourceContributionBatches(
+export async function listRecentCollectionSourceBatchLinks(
   tenantId: string,
   prismaOverride?: PrismaClient
-): Promise<Array<Omit<CollectionSourceBatchView, "rows">>> {
+) {
   const prisma = getPrisma(prismaOverride)
-  const batches = await (
-    prisma as any
-  ).collectionSourceContributionBatch.findMany({
-    include: {
-      deductionSource: true,
-      rows: {
-        include: {
-          member: {
-            select: {
-              fullName: true,
-              id: true,
-              memberNumber: true,
-              status: true,
-            },
-          },
-        },
-      },
+  return prisma.collectionSourceContributionBatch.findMany({
+    select: {
+      deductionSource: { select: { name: true } },
+      id: true,
+      periodLabel: true,
     },
     orderBy: [
       { periodYear: "desc" },
@@ -367,12 +355,6 @@ export async function listCollectionSourceContributionBatches(
     ],
     take: 12,
     where: { tenantId },
-  })
-
-  return batches.map((batch: any) => {
-    const { rows: _rows, ...summary } = serializeBatch(batch)
-
-    return summary
   })
 }
 

@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import type { PageFilterData } from "@halaalvest/utils"
 import { Badge } from "@halaalvest/ui/components/badge"
 import { buttonVariants } from "@halaalvest/ui/components/button"
 import { formatCurrency } from "@halaalvest/utils"
@@ -28,7 +27,6 @@ import { useContributionParams } from "@/hooks/use-contribution-params"
 import { useScrollHeader } from "@/hooks/use-scroll-header"
 import { useSortParams } from "@/hooks/use-sort-params"
 import { loadContributionsPageData } from "@/lib/contributions"
-import type { TableSettings } from "@/utils/table-settings"
 import { ViewTabs } from "@/components/view-tabs"
 
 type ContributionsPageData = Extract<
@@ -83,6 +81,7 @@ export function ContributionsUnavailableView() {
 }
 
 export function ContributionsPageView({
+  activeView,
   canRecordContributions,
   canUseCollectionSourceBatches,
   commitmentPlans,
@@ -94,18 +93,11 @@ export function ContributionsPageView({
   quickFillEnabled,
   selectedCollectionSourceBatch,
   contributionTableSettings,
-}: ContributionsPageData & {
-  contributionTableSettings?: Partial<TableSettings>
-  filterList?: PageFilterData[]
-}) {
+}: ContributionsPageData) {
   const searchParams = useSearchParams()
-  const { filters, setFilters } = useContributionsFilterParams()
+  const { setFilters } = useContributionsFilterParams()
   const { setParams: setContributionParams } = useContributionParams()
   const { setParams: setSortParams } = useSortParams()
-  const activeView =
-    filters.view === "collections" && !canUseCollectionSourceBatches
-      ? "ledger"
-      : (filters.view ?? "ledger")
   const activeCommitmentPlans = commitmentPlans.items
   const activeLoans = loans.filter((loan) =>
     ["approved", "disbursed", "active"].includes(loan.status)

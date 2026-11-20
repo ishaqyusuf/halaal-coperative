@@ -1,7 +1,7 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch"
 import { randomUUID } from "node:crypto"
 
-import { createTRPCContext } from "./context"
+import { buildRequestContext } from "./context"
 import { appRouter } from "./routers/_app"
 import { captureTrpcError } from "./observability/sentry"
 import { getSafeObservabilityRequestId } from "./observability/sentry-policy"
@@ -26,13 +26,13 @@ export async function handleTrpcRequest(
     ) ?? randomUUID()
   const headers = new Headers(request.headers)
   headers.set("x-request-id", requestId)
-  const correlatedRequest = new Request(request, { headers })
   const response = await fetchRequestHandler({
     allowMethodOverride: true,
     endpoint,
-    req: correlatedRequest,
+    req: request,
     router: appRouter,
-    createContext: createTRPCContext,
+    // Next.js can wrap Request. Keep its original transport and body intact.
+    createContext: () => buildRequestContext(headers),
     onError({ error, path, type }) {
       reportError({
         error,

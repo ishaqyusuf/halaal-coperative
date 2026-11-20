@@ -52,6 +52,12 @@ describe("monthly records workplace receiving", () => {
     await expect(
       member.rows({ monthlyRecordId: receiveInput.monthlyRecordId })
     ).rejects.toMatchObject({ code: "FORBIDDEN" })
+    await expect(
+      member.actionRows({
+        monthlyRecordId: receiveInput.monthlyRecordId,
+        scope: { workplaceId: receiveInput.workplaceId },
+      })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" })
   })
 
   test("rejects an empty or oversized selection before any write", async () => {

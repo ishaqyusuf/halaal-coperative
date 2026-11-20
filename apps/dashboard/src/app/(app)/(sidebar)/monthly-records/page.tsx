@@ -1,8 +1,4 @@
-import {
-  createDbRuntime,
-  getMonthlyRecordsPageData,
-  pageMonthlyRecordRows,
-} from "@halaalvest/db"
+import { createDbRuntime, getMonthlyRecordsPageData } from "@halaalvest/db"
 import type { Metadata } from "next"
 import {
   MonthlyRecordsAccessUnavailableView,
@@ -52,9 +48,16 @@ export default async function MonthlyRecordsPage({
 
   // Read-only: the GET never creates a month or seeds rows. The operation
   // profile is the request-cached copy the sidebar already loaded.
-  const [data, monthlyRecordTableSettings, operationProfile] =
+  const rowsQuery = getMonthlyRecordRowsInput({
+    q: filter.q,
+    sort,
+    status: filter.status,
+    workplaceId: filter.workplaceId,
+  })
+  const [{ firstPage, ...data }, monthlyRecordTableSettings, operationProfile] =
     await Promise.all([
       getMonthlyRecordsPageData({
+        rowsQuery,
         selectedRecordId,
         tenantId: context.tenant.id,
       }),
@@ -67,15 +70,10 @@ export default async function MonthlyRecordsPage({
       ? requestedYear
       : data.selectedRecord?.periodYear ?? new Date().getUTCFullYear()
 
-  // The detail above already holds every row, so the table's first page is
-  // hydrated from it rather than prefetched through a second detail load.
-  const monthlyRecordRowsInput = getMonthlyRecordRowsInput({
+  const monthlyRecordRowsInput = {
+    ...rowsQuery,
     monthlyRecordId: data.selectedRecord?.id,
-    q: filter.q,
-    sort,
-    status: filter.status,
-    workplaceId: filter.workplaceId,
-  })
+  }
   const monthlyRecordRowsOptions =
     trpc.monthlyRecords.rows.infiniteQueryOptions(monthlyRecordRowsInput, {
       getNextPageParam: ({ meta }) => meta?.cursor,
@@ -83,12 +81,7 @@ export default async function MonthlyRecordsPage({
 
   getQueryClient().setQueryData(monthlyRecordRowsOptions.queryKey, {
     pageParams: [monthlyRecordRowsOptions.initialPageParam],
-    pages: [
-      pageMonthlyRecordRows(
-        data.selectedRecord?.rows ?? [],
-        monthlyRecordRowsInput,
-      ),
-    ],
+    pages: [firstPage],
   })
 
   return (

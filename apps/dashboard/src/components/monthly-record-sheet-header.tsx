@@ -15,7 +15,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@halaalvest/ui/components/sheet"
-import type { MonthlyRecordMemberRow } from "@halaalvest/db"
+import type { MonthlyRecordActionRow } from "@halaalvest/db"
 import { useMonthlyRecordParams } from "@/hooks/use-monthly-record-params"
 import type { WorkflowPresentation } from "@/lib/workflow-presentations"
 
@@ -31,19 +31,17 @@ function periodName(year?: number | null, month?: number | null) {
 export function MonthlyRecordSheetHeader({
   periodLabel,
   presentation,
-  rows,
+  row,
 }: {
   periodLabel?: string
   presentation: WorkflowPresentation
-  rows: MonthlyRecordMemberRow[]
+  row?: MonthlyRecordActionRow
 }) {
   const {
-    monthlyRecordMemberId,
     monthlyRecordSheetType: type,
     targetMonth,
     targetYear,
   } = useMonthlyRecordParams()
-  const row = rows.find((item) => item.id === monthlyRecordMemberId)
   const { description, title } =
     type === "receive"
       ? { description: periodLabel, title: "Receive from workplace" }
@@ -72,7 +70,7 @@ export function MonthlyRecordSheetHeader({
                       description: row
                         ? `${row.memberName} stays on the list as cancelled.`
                         : undefined,
-                      title: "Cancel this row?",
+                      title: row ? "Cancel this row?" : "Monthly record",
                     }
 
   if (presentation === "alert-dialog") {

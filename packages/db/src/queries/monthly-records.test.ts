@@ -68,7 +68,7 @@ function createLockedMonthlyRecordPrismaStub({
         if (
           input &&
           typeof input === "object" &&
-          "include" in input
+          "select" in input
         ) {
           monthlyRecordDetailLoads.push(input)
         }

@@ -6,6 +6,7 @@ import { ensureTenantLedgerAccounts } from "./ledger"
 import {
   applyMonthlyRecordMember,
   cancelMonthlyRecordMember,
+  getMonthlyRecordActionRows,
   receiveWorkplaceMonthlyPayments,
 } from "./monthly-records"
 import { ensureTenantOperationProfileDefaults } from "./operation-profile"
@@ -193,6 +194,23 @@ run("workplace bulk receiving", () => {
       await db.tenant.deleteMany({ where: { id: tenantId } })
     }
     await db?.$disconnect()
+  })
+
+  it("loads the selected row or workplace for the current tenant and month", async () => {
+    const rows = await getMonthlyRecordActionRows(
+      tenantId, monthlyRecordId, { workplaceId }, db!
+    )
+    expect(rows.map(({ id }) => id)).toEqual([rowIds.a, rowIds.b, rowIds.c, rowIds.d])
+    expect(rows[0]).toMatchObject({ status: "pending", totalPayableAmount: 5000 })
+    expect(await getMonthlyRecordActionRows(
+      tenantId, monthlyRecordId, { rowId: rowIds.d! }, db!
+    )).toEqual([rows[3]!])
+    expect(await getMonthlyRecordActionRows(
+      crypto.randomUUID(), monthlyRecordId, { workplaceId }, db!
+    )).toEqual([])
+    expect(await getMonthlyRecordActionRows(
+      tenantId, crypto.randomUUID(), { rowId: rowIds.d! }, db!
+    )).toEqual([])
   })
 
   it("posts the ticked members once and records them against the workplace batch", async () => {

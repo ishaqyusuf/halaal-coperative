@@ -1,6 +1,6 @@
 import {
-  getMonthlyRecordDetail,
-  pageMonthlyRecordRows,
+  getMonthlyRecordActionRows,
+  getMonthlyRecordRowsPage,
   receiveWorkplaceMonthlyPayments,
 } from "@halaalvest/db"
 import { formatCurrency } from "@halaalvest/utils"
@@ -8,6 +8,7 @@ import { createTRPCRouter, permissionProcedure } from "../lib.trpc"
 import { sendTenantRoleNotificationEmails } from "../lib/server-notifications"
 import {
   listMonthlyRecordRowsSchema,
+  monthlyRecordActionRowsSchema,
   receiveWorkplaceSchema,
 } from "../schemas/monthly-records"
 
@@ -25,13 +26,22 @@ export const monthlyRecordsRouter = createTRPCRouter({
         }
       }
 
-      const record = await getMonthlyRecordDetail(
+      return getMonthlyRecordRowsPage(
         ctx.tenant.current.id,
         input.monthlyRecordId,
+        input,
       )
-
-      return pageMonthlyRecordRows(record?.rows ?? [], input)
     }),
+
+  actionRows: permissionProcedure("view_contribution_operations")
+    .input(monthlyRecordActionRowsSchema)
+    .query(({ ctx, input }) =>
+      getMonthlyRecordActionRows(
+        ctx.tenant.current.id,
+        input.monthlyRecordId,
+        input.scope,
+      )
+    ),
 
   // Marks the chosen members of one workplace as paid for the month in one
   // request. Finance roles only, like posting a workplace batch.

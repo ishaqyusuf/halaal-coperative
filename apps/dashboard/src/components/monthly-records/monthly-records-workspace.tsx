@@ -8,17 +8,16 @@ import {
   DropdownMenuTrigger,
 } from "@halaalvest/ui/components/dropdown-menu"
 import type {
-  MonthlyRecordDetail,
+  MonthlyRecordCollectionStats,
   MonthlyRecordSettingView,
   MonthlyRecordSummary,
+  MonthlyRecordWorkspaceSummary,
 } from "@halaalvest/db"
 import { formatCurrency } from "@halaalvest/utils"
 import { EllipsisIcon, UsersIcon } from "lucide-react"
-import { useMemo } from "react"
 import { MonthlyRecordColumnVisibility } from "@/components/monthly-record-column-visibility"
 import { MonthlyRecordSearchFilter } from "@/components/monthly-record-search-filter"
 import { MonthPicker } from "@/components/monthly-records/month-picker"
-import { getWorkplaceOptions } from "@/components/monthly-records/workplace-options"
 import { WorkplaceSelect } from "@/components/monthly-records/workplace-select"
 import { MonthlyRecordSheet } from "@/components/sheets/monthly-record-sheet"
 import { MonthlyRecordsDataView } from "@/components/tables/monthly-records/data-view"
@@ -37,28 +36,14 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
-function MonthlyRecordStats({
-  record,
-  workplaceId,
-}: {
-  record: MonthlyRecordDetail
-  workplaceId: string | null
-}) {
-  const stats = useMemo(() => {
-    const rows = workplaceId
-      ? record.rows.filter((row) => row.workplaceId === workplaceId)
-      : record.rows
-    const paid = rows.filter((row) => row.status === "applied")
-    const unpaid = rows.filter((row) => row.status === "pending")
+const emptyStats: MonthlyRecordCollectionStats = {
+  paidCount: 0,
+  received: 0,
+  toReceive: 0,
+  total: 0,
+}
 
-    return {
-      paidCount: paid.length,
-      received: paid.reduce((sum, row) => sum + row.totalPaidAmount, 0),
-      total: rows.length,
-      toReceive: unpaid.reduce((sum, row) => sum + row.totalPayableAmount, 0),
-    }
-  }, [record.rows, workplaceId])
-
+function MonthlyRecordStats({ stats }: { stats: MonthlyRecordCollectionStats }) {
   return (
     <dl className="grid grid-cols-1 divide-y divide-border border-y border-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
       <Stat label="Paid" value={`${stats.paidCount} of ${stats.total}`} />
@@ -117,14 +102,16 @@ export function MonthlyRecordsWorkspace({
   canManageWorkplaces: boolean
   monthlyRecordTableSettings?: Partial<TableSettings>
   records: MonthlyRecordSummary[]
-  selectedRecord: MonthlyRecordDetail | null
+  selectedRecord: MonthlyRecordWorkspaceSummary | null
   selectedYear: number
   settings: MonthlyRecordSettingView
 }) {
   const { filter, setFilter } = useMonthlyRecordFilterParams()
   const { setParams } = useMonthlyRecordParams()
-  const rows = selectedRecord?.rows ?? []
-  const workplaces = useMemo(() => getWorkplaceOptions(rows), [rows])
+  const workplaces = selectedRecord?.workplaces.filter(({ name }) => name) ?? []
+  const filteredWorkplace = selectedRecord?.workplaces.find(
+    ({ id }) => id === filter.workplaceId
+  )
   // With no record selected, the empty state offers to start this month.
   const today = new Date()
   const createTarget = selectedRecord
@@ -171,8 +158,11 @@ export function MonthlyRecordsWorkspace({
 
       {selectedRecord ? (
         <MonthlyRecordStats
-          record={selectedRecord}
-          workplaceId={filter.workplaceId}
+          stats={
+            filter.workplaceId
+              ? filteredWorkplace?.stats ?? emptyStats
+              : selectedRecord.stats
+          }
         />
       ) : null}
 
@@ -195,8 +185,8 @@ export function MonthlyRecordsWorkspace({
       <MonthlyRecordSheet
         monthlyRecordId={selectedRecord?.id}
         periodLabel={selectedRecord?.periodLabel}
-        rows={rows}
         settings={settings}
+        workplaces={workplaces}
       />
     </div>
   )

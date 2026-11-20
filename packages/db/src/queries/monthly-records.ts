@@ -1,4 +1,4 @@
-import type { LoanStatus, PrismaClient } from "../../generated/prisma/client"
+import type { LoanStatus, Prisma, PrismaClient } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
 import {
@@ -802,44 +802,92 @@ export async function listCurrentMonthStagedContributions(
 
 // Read-only, and a constant number of queries whatever the member count.
 // Rows are seeded by `ensureMonthlyRecord` (the create action or the cron).
-export async function getMonthlyRecordDetail(
+const monthlyRecordRowOrder = [
+  { member: { memberNumber: "asc" } },
+  { member: { fullName: "asc" } }
+] satisfies Prisma.MonthlyRecordMemberOrderByWithRelationInput[]
+
+const monthlyRecordRowSelect = {
+  calculatedPayableAmount: true,
+  contributionAmount: true,
+  id: true,
+  loanId: true,
+  loanRepaymentAmount: true,
+  memberId: true,
+  shareChargeAmount: true,
+  status: true,
+  totalPaidAmount: true,
+  member: {
+    select: {
+      deductionSource: { select: { id: true, name: true } },
+      fullName: true,
+      memberNumber: true,
+      totalSavingsSnapshot: true
+    }
+  }
+} satisfies Prisma.MonthlyRecordMemberSelect
+
+type MonthlyRecordReadRow = Prisma.MonthlyRecordMemberGetPayload<{
+  select: typeof monthlyRecordRowSelect
+}>
+
+type MonthlyRecordPeriod = Pick<
+  MonthlyRecordSummary,
+  "periodYear" | "periodMonth"
+>
+
+function readMonthlyRecord(
   tenantId: string,
   monthlyRecordId: string,
-  prismaOverride?: PrismaClient
-): Promise<MonthlyRecordDetail | null> {
-  const prisma = prismaOverride ?? createPrismaClient()
-  if (!prisma) throw new Error("Database not configured")
-
-  const record = await prisma.monthlyRecord.findFirst({
+  prisma: PrismaClient
+) {
+  return prisma.monthlyRecord.findFirst({
     where: { id: monthlyRecordId, tenantId },
-    include: {
+    select: {
+      id: true,
+      periodYear: true,
+      periodMonth: true,
+      periodLabel: true,
+      status: true,
       memberRows: {
-        include: {
-          member: {
-            select: {
-              deductionSource: { select: { id: true, name: true } },
-              fullName: true,
-              id: true,
-              memberNumber: true,
-              totalSavingsSnapshot: true,
-            },
-          },
-        },
-        orderBy: [
-          { member: { memberNumber: "asc" } },
-          { member: { fullName: "asc" } },
-        ],
-      },
-    },
+        select: monthlyRecordRowSelect,
+        orderBy: monthlyRecordRowOrder
+      }
+    }
   })
+}
 
-  if (!record) return null
+function toBaseMonthlyRecordRow(row: MonthlyRecordReadRow) {
+  return {
+    id: row.id,
+    memberId: row.memberId,
+    memberNumber: row.member.memberNumber,
+    memberName: row.member.fullName,
+    currentBalance: Number(row.member.totalSavingsSnapshot),
+    contributionAmount: Number(row.contributionAmount),
+    loanRepaymentAmount: Number(row.loanRepaymentAmount),
+    shareChargeAmount: Number(row.shareChargeAmount ?? 0),
+    totalPayableAmount: Number(row.calculatedPayableAmount),
+    totalPaidAmount: Number(row.totalPaidAmount),
+    status: row.status,
+    workplaceId: row.member.deductionSource?.id ?? null,
+    workplaceName: row.member.deductionSource?.name ?? null
+  }
+}
 
-  const { end, start } = getPeriodRange(record.periodYear, record.periodMonth)
-  const loanIds = record.memberRows
+type BaseMonthlyRecordRow = ReturnType<typeof toBaseMonthlyRecordRow>
+
+async function loadMonthlyRecordRowDetails(
+  tenantId: string,
+  period: MonthlyRecordPeriod,
+  rows: MonthlyRecordReadRow[],
+  prisma: PrismaClient
+) {
+  const { end, start } = getPeriodRange(period.periodYear, period.periodMonth)
+  const loanIds = rows
     .map((row) => row.loanId)
     .filter((loanId): loanId is string => Boolean(loanId))
-  const memberIds = record.memberRows.map((row) => row.memberId)
+  const memberIds = rows.map((row) => row.memberId)
   const loanLookupWhere =
     loanIds.length > 0
       ? {
@@ -849,29 +897,29 @@ export async function getMonthlyRecordDetail(
             {
               memberId: { in: memberIds },
               outstandingPrincipal: { gt: 0 },
-              status: { in: activeMonthlyRecordLoanStatuses },
-            },
-          ],
+              status: { in: activeMonthlyRecordLoanStatuses }
+            }
+          ]
         }
       : {
           memberId: { in: memberIds },
           outstandingPrincipal: { gt: 0 },
           status: { in: activeMonthlyRecordLoanStatuses },
-          tenantId,
+          tenantId
         }
   const [loans, quoteCharges, appliedCharges] = memberIds.length
     ? await Promise.all([
         prisma.loan.findMany({
           where: loanLookupWhere,
           select: { id: true, memberId: true, status: true },
-          orderBy: [{ disbursedAt: "desc" }, { createdAt: "desc" }],
+          orderBy: [{ disbursedAt: "desc" }, { createdAt: "desc" }]
         }),
         loadChargeQuoter(
           {
             assessedAt: start,
             tenantId,
             trigger: "monthly_collection",
-            workflow: "commitment_collection",
+            workflow: "commitment_collection"
           },
           prisma
         ),
@@ -880,14 +928,14 @@ export async function getMonthlyRecordDetail(
             tenantId,
             memberId: { in: memberIds },
             status: "posted",
-            assessedAt: { gte: start, lt: end },
+            assessedAt: { gte: start, lt: end }
           },
           select: {
             amount: true,
             chargeDefinitionId: true,
-            memberId: true,
-          },
-        }),
+            memberId: true
+          }
+        })
       ])
     : [[], () => [], []]
   const loanStatusById = new Map(loans.map((loan) => [loan.id, loan.status]))
@@ -897,10 +945,80 @@ export async function getMonthlyRecordDetail(
       activeLoanByMemberId.set(loan.memberId, loan)
     }
   }
-  const totalPaidByMemberId = new Map(
-    record.memberRows.map((row) => [row.memberId, Number(row.totalPaidAmount)])
+  const actualChargesByMemberId = new Map<string, number>()
+  for (const charge of appliedCharges) {
+    actualChargesByMemberId.set(
+      charge.memberId,
+      (actualChargesByMemberId.get(charge.memberId) ?? 0) +
+        Number(charge.amount)
+    )
+  }
+
+  const quotesByMemberId = new Map(
+    rows.map((row) => [row.memberId, quoteCharges(Number(row.totalPaidAmount))])
   )
-  const calculatedChargesByMemberId = new Map<string, number>()
+  return {
+    appliedCharges,
+    quotesByMemberId,
+    rows: rows.map((row): MonthlyRecordMemberRow => {
+      const base = toBaseMonthlyRecordRow(row)
+      const actualChargesAmount =
+        actualChargesByMemberId.get(base.memberId) ?? 0
+      const calculatedChargesAmount =
+        quotesByMemberId
+          .get(base.memberId)
+          ?.reduce((total, charge) => total + charge.amount, 0) ?? 0
+      const isApplied = base.status === "applied"
+      const actualFinalIncomeAmount = base.totalPaidAmount - actualChargesAmount
+      const calculatedFinalIncomeAmount =
+        base.totalPaidAmount - calculatedChargesAmount
+      const loanStatus = row.loanId
+        ? (loanStatusById.get(row.loanId) ?? "active")
+        : activeLoanByMemberId.get(base.memberId)?.status
+
+      return {
+        ...base,
+        actualChargesAmount,
+        calculatedChargesAmount,
+        allChargesAmount: isApplied
+          ? actualChargesAmount
+          : calculatedChargesAmount,
+        actualFinalIncomeAmount,
+        calculatedFinalIncomeAmount,
+        finalIncomeAmount: isApplied
+          ? actualFinalIncomeAmount
+          : calculatedFinalIncomeAmount,
+        hasChargeDifference:
+          isApplied &&
+          Math.abs(actualChargesAmount - calculatedChargesAmount) > 0.009,
+        hasFinalIncomeDifference:
+          isApplied &&
+          Math.abs(actualFinalIncomeAmount - calculatedFinalIncomeAmount) >
+            0.009,
+        loanStatus: loanStatus ?? "none"
+      }
+    })
+  }
+}
+
+export async function getMonthlyRecordDetail(
+  tenantId: string,
+  monthlyRecordId: string,
+  prismaOverride?: PrismaClient
+): Promise<MonthlyRecordDetail | null> {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const record = await readMonthlyRecord(tenantId, monthlyRecordId, prisma)
+  if (!record) return null
+
+  const { appliedCharges, quotesByMemberId, rows } =
+    await loadMonthlyRecordRowDetails(
+      tenantId,
+      record,
+      record.memberRows,
+      prisma
+    )
   const calculatedChargesByDefinitionId = new Map<
     string,
     {
@@ -912,14 +1030,7 @@ export async function getMonthlyRecordDetail(
     }
   >()
 
-  for (const row of record.memberRows) {
-    const quotes = quoteCharges(totalPaidByMemberId.get(row.memberId) ?? 0)
-
-    calculatedChargesByMemberId.set(
-      row.memberId,
-      quotes.reduce((total, charge) => total + charge.amount, 0)
-    )
-
+  for (const quotes of quotesByMemberId.values()) {
     for (const quote of quotes) {
       const existing = calculatedChargesByDefinitionId.get(
         quote.chargeDefinitionId
@@ -929,19 +1040,13 @@ export async function getMonthlyRecordDetail(
         code: quote.code,
         kind: quote.chargeValueType === "percentage" ? "percentage" : "fixed",
         name: quote.name,
-        totalAmount: (existing?.totalAmount ?? 0) + quote.amount,
+        totalAmount: (existing?.totalAmount ?? 0) + quote.amount
       })
     }
   }
-  const actualChargesByMemberId = new Map<string, number>()
   const actualChargesByDefinitionId = new Map<string, number>()
 
   for (const charge of appliedCharges) {
-    actualChargesByMemberId.set(
-      charge.memberId,
-      (actualChargesByMemberId.get(charge.memberId) ?? 0) +
-        Number(charge.amount)
-    )
     actualChargesByDefinitionId.set(
       charge.chargeDefinitionId,
       (actualChargesByDefinitionId.get(charge.chargeDefinitionId) ?? 0) +
@@ -964,77 +1069,95 @@ export async function getMonthlyRecordDetail(
         hasDifference:
           Math.abs(appliedTotalAmount - charge.totalAmount) > 0.009,
         memberCount: record.memberRows.length,
-        totalAmount: charge.totalAmount,
+        totalAmount: charge.totalAmount
       }
     }
   )
-  const totalChargeAmount = chargeBreakdown.reduce(
-    (total, charge) => total + charge.totalAmount,
-    0
-  )
-
   return {
     ...summarizeRows(record),
     chargeBreakdown,
-    totalChargeAmount,
-    rows: record.memberRows.map((row) => {
-      const totalPaidAmount = Number(row.totalPaidAmount)
-      const actualChargesAmount = actualChargesByMemberId.get(row.memberId) ?? 0
-      const calculatedChargesAmount =
-        calculatedChargesByMemberId.get(row.memberId) ?? 0
-      const isApplied = row.status === "applied"
-      const allChargesAmount = isApplied
-        ? actualChargesAmount
-        : calculatedChargesAmount
-      const actualFinalIncomeAmount = totalPaidAmount - actualChargesAmount
-      const calculatedFinalIncomeAmount =
-        totalPaidAmount - calculatedChargesAmount
-      const finalIncomeAmount = isApplied
-        ? actualFinalIncomeAmount
-        : calculatedFinalIncomeAmount
-
-      const loanStatus = row.loanId
-        ? (loanStatusById.get(row.loanId) ?? "active")
-        : activeLoanByMemberId.get(row.memberId)?.status
-
-      return {
-        allChargesAmount,
-        actualChargesAmount,
-        calculatedChargesAmount,
-        contributionAmount: Number(row.contributionAmount),
-        finalIncomeAmount,
-        actualFinalIncomeAmount,
-        calculatedFinalIncomeAmount,
-        hasChargeDifference:
-          isApplied &&
-          Math.abs(actualChargesAmount - calculatedChargesAmount) > 0.009,
-        hasFinalIncomeDifference:
-          isApplied &&
-          Math.abs(actualFinalIncomeAmount - calculatedFinalIncomeAmount) >
-            0.009,
-        id: row.id,
-        memberId: row.member.id,
-        memberNumber: row.member.memberNumber,
-        memberName: row.member.fullName,
-        currentBalance: Number(row.member.totalSavingsSnapshot),
-        loanRepaymentAmount: Number(row.loanRepaymentAmount),
-        loanStatus: loanStatus ?? "none",
-        shareChargeAmount: Number((row as any).shareChargeAmount ?? 0),
-        totalPayableAmount: Number(row.calculatedPayableAmount),
-        totalPaidAmount,
-        status: row.status as MonthlyRecordMemberStatusValue,
-        workplaceId: row.member.deductionSource?.id ?? null,
-        workplaceName: row.member.deductionSource?.name ?? null,
-      }
-    }),
+    totalChargeAmount: chargeBreakdown.reduce(
+      (sum, charge) => sum + charge.totalAmount,
+      0
+    ),
+    rows
   }
 }
 
-// The /monthly-records page GET: read-only, and a constant number of queries.
-// A month with no record (or no seeded rows) is created by the "Create month"
-// action, which runs `ensureMonthlyRecord`.
+export type MonthlyRecordCollectionStats = {
+  paidCount: number
+  received: number
+  toReceive: number
+  total: number
+}
+
+export type MonthlyRecordWorkplace = {
+  id: string
+  name: string
+  unpaidCount: number
+  stats: MonthlyRecordCollectionStats
+}
+
+function getMonthlyRecordCollectionSummary(rows: BaseMonthlyRecordRow[]) {
+  const stats: MonthlyRecordCollectionStats = {
+    paidCount: 0,
+    received: 0,
+    toReceive: 0,
+    total: 0
+  }
+  const workplaces = new Map<string, MonthlyRecordWorkplace>()
+
+  function addRow(
+    target: MonthlyRecordCollectionStats,
+    row: BaseMonthlyRecordRow
+  ) {
+    target.total += 1
+    if (row.status === "applied") {
+      target.paidCount += 1
+      target.received += row.totalPaidAmount
+    }
+    if (row.status === "pending") target.toReceive += row.totalPayableAmount
+  }
+
+  for (const row of rows) {
+    addRow(stats, row)
+    if (!row.workplaceId) continue
+
+    let workplace = workplaces.get(row.workplaceId)
+    if (!workplace) {
+      workplace = {
+        id: row.workplaceId,
+        name: row.workplaceName ?? "",
+        unpaidCount: 0,
+        stats: { paidCount: 0, received: 0, toReceive: 0, total: 0 }
+      }
+      workplaces.set(row.workplaceId, workplace)
+    }
+    addRow(workplace.stats, row)
+    if (row.status === "pending" && row.totalPayableAmount > 0) {
+      workplace.unpaidCount += 1
+    }
+  }
+
+  return {
+    stats,
+    workplaces: [...workplaces.values()].sort((a, b) =>
+      a.name.localeCompare(b.name)
+    )
+  }
+}
+
+export type MonthlyRecordWorkspaceSummary = MonthlyRecordPeriod &
+  ReturnType<typeof getMonthlyRecordCollectionSummary> & {
+    id: string
+    periodLabel: string
+  }
+
+// A GET never creates a month or seeds rows. Reuse the base read for both the
+// whole-month summary and the table's hydrated first page.
 export async function getMonthlyRecordsPageData(
   input: {
+    rowsQuery?: MonthlyRecordRowsQuery
     selectedRecordId?: string
     tenantId: string
   },
@@ -1045,16 +1168,40 @@ export async function getMonthlyRecordsPageData(
 
   const [records, settings] = await Promise.all([
     listMonthlyRecords(input.tenantId, prisma),
-    getMonthlyRecordSettings(input.tenantId, prisma),
+    getMonthlyRecordSettings(input.tenantId, prisma)
   ])
-  const selectedRecordId =
-    records.find((record) => record.id === input.selectedRecordId)?.id ??
-    records[0]?.id
-  const selectedRecord = selectedRecordId
-    ? await getMonthlyRecordDetail(input.tenantId, selectedRecordId, prisma)
+  const requestedRecord =
+    records.find((record) => record.id === input.selectedRecordId) ?? records[0]
+  const record = requestedRecord
+    ? await readMonthlyRecord(input.tenantId, requestedRecord.id, prisma)
     : null
+  if (!record) {
+    return {
+      firstPage: pageMonthlyRecordRows([]),
+      records,
+      selectedRecord: null,
+      settings
+    }
+  }
 
-  return { records, selectedRecord, settings }
+  const { id, periodLabel, periodMonth, periodYear } = record
+  const baseRows = record.memberRows.map(withMonthlyRecordRowSource)
+  const selectedRecord: MonthlyRecordWorkspaceSummary = {
+    id,
+    periodLabel,
+    periodMonth,
+    periodYear,
+    ...getMonthlyRecordCollectionSummary(baseRows)
+  }
+  const firstPage = await readMonthlyRecordRowsPage(
+    input.tenantId,
+    record,
+    baseRows,
+    input.rowsQuery ?? {},
+    prisma
+  )
+
+  return { firstPage, records, selectedRecord, settings }
 }
 
 export type MonthlyRecordRowSortField =
@@ -1080,12 +1227,17 @@ export type MonthlyRecordRowsQuery = {
   workplaceId?: string | null
 }
 
-// Filters, sorts and pages a month's rows in memory. Shared by the rows
-// procedure and the page, so the page can hydrate the table's first page from
-// the detail it already loaded instead of computing it twice.
 export function pageMonthlyRecordRows(
   rows: MonthlyRecordMemberRow[],
   input: MonthlyRecordRowsQuery = {}
+) {
+  return pageRowsByField(rows, input, input.sort)
+}
+
+function pageRowsByField<Row extends BaseMonthlyRecordRow>(
+  rows: Row[],
+  input: MonthlyRecordRowsQuery,
+  sort?: readonly [keyof Row, "asc" | "desc"] | null
 ) {
   const pageSize = input.pageSize ?? 50
   const query = input.q?.trim().toLowerCase()
@@ -1097,9 +1249,7 @@ export function pageMonthlyRecordRows(
         row.memberName.toLowerCase().includes(query) ||
         row.memberNumber.toLowerCase().includes(query))
   )
-  const sorted = input.sort
-    ? sortMonthlyRecordRows(filtered, input.sort)
-    : filtered
+  const sorted = sort ? sortMonthlyRecordRows(filtered, sort) : filtered
   const startIndex = input.cursor
     ? sorted.findIndex((row) => row.id === input.cursor) + 1
     : 0
@@ -1111,14 +1261,14 @@ export function pageMonthlyRecordRows(
     data,
     meta: {
       cursor: pageRows.length > pageSize ? data.at(-1)?.id : undefined,
-      total: sorted.length,
-    },
+      total: sorted.length
+    }
   }
 }
 
-function sortMonthlyRecordRows(
-  rows: MonthlyRecordMemberRow[],
-  [field, direction]: [MonthlyRecordRowSortField, "asc" | "desc"]
+function sortMonthlyRecordRows<Row>(
+  rows: Row[],
+  [field, direction]: readonly [keyof Row, "asc" | "desc"]
 ) {
   const factor = direction === "asc" ? 1 : -1
 
@@ -1134,6 +1284,115 @@ function sortMonthlyRecordRows(
       String(leftValue ?? "").localeCompare(String(rightValue ?? "")) * factor
     )
   })
+}
+
+function withMonthlyRecordRowSource(source: MonthlyRecordReadRow) {
+  return { ...toBaseMonthlyRecordRow(source), source }
+}
+
+async function readMonthlyRecordRowsPage(
+  tenantId: string,
+  record: MonthlyRecordPeriod & { memberRows: MonthlyRecordReadRow[] },
+  baseRows: ReturnType<typeof withMonthlyRecordRowSource>[],
+  input: MonthlyRecordRowsQuery,
+  prisma: PrismaClient
+) {
+  const field = input.sort?.[0]
+  // These columns need live charge or loan data to compare candidates, so
+  // compute their original values before selecting the cursor page.
+  if (
+    field === "allChargesAmount" ||
+    field === "finalIncomeAmount" ||
+    field === "loanStatus"
+  ) {
+    const { rows } = await loadMonthlyRecordRowDetails(
+      tenantId,
+      record,
+      record.memberRows,
+      prisma
+    )
+    return pageMonthlyRecordRows(rows, input)
+  }
+
+  const sort = field && input.sort ? ([field, input.sort[1]] as const) : null
+  const page = pageRowsByField(baseRows, input, sort)
+  const pageRows = page.data.map((row) => row.source)
+  const { rows } = await loadMonthlyRecordRowDetails(
+    tenantId,
+    record,
+    pageRows,
+    prisma
+  )
+
+  return { data: rows, meta: page.meta }
+}
+
+export async function getMonthlyRecordRowsPage(
+  tenantId: string,
+  monthlyRecordId: string,
+  input: MonthlyRecordRowsQuery,
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const record = await readMonthlyRecord(tenantId, monthlyRecordId, prisma)
+  return record
+    ? readMonthlyRecordRowsPage(
+        tenantId,
+        record,
+        record.memberRows.map(withMonthlyRecordRowSource),
+        input,
+        prisma
+      )
+    : pageMonthlyRecordRows([])
+}
+
+export type MonthlyRecordActionRow = Pick<
+  MonthlyRecordMemberRow,
+  | "id"
+  | "memberName"
+  | "memberNumber"
+  | "status"
+  | "totalPaidAmount"
+  | "totalPayableAmount"
+>
+
+export async function getMonthlyRecordActionRows(
+  tenantId: string,
+  monthlyRecordId: string,
+  scope: { rowId: string } | { workplaceId: string },
+  prismaOverride?: PrismaClient
+): Promise<MonthlyRecordActionRow[]> {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  const rows = await prisma.monthlyRecordMember.findMany({
+    where: {
+      tenantId,
+      monthlyRecord: { id: monthlyRecordId, tenantId },
+      ...("rowId" in scope
+        ? { id: scope.rowId }
+        : { member: { deductionSourceId: scope.workplaceId } })
+    },
+    orderBy: monthlyRecordRowOrder,
+    select: {
+      id: true,
+      calculatedPayableAmount: true,
+      status: true,
+      totalPaidAmount: true,
+      member: { select: { fullName: true, memberNumber: true } }
+    }
+  })
+
+  return rows.map((row) => ({
+    id: row.id,
+    memberName: row.member.fullName,
+    memberNumber: row.member.memberNumber,
+    status: row.status,
+    totalPaidAmount: Number(row.totalPaidAmount),
+    totalPayableAmount: Number(row.calculatedPayableAmount)
+  }))
 }
 
 export async function applyMonthlyRecordMember(

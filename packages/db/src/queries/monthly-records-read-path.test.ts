@@ -1,9 +1,12 @@
 import { describe, expect, test } from "bun:test"
 import {
   ensureMonthlyRecord,
+  getMonthlyRecordDetail,
+  getMonthlyRecordRowsPage,
   getMonthlyRecordsPageData,
   pageMonthlyRecordRows,
   type MonthlyRecordMemberRow,
+  type MonthlyRecordRowsQuery,
 } from "./monthly-records"
 
 const writeMethods = new Set([
@@ -43,6 +46,7 @@ function recordingPrisma(models: Record<string, Record<string, unknown>>) {
 }
 
 function pageGetPrisma(memberCount: number) {
+  const chargeMemberBatches: string[][] = []
   const memberRows = Array.from({ length: memberCount }, (_, index) => ({
     calculatedPayableAmount: 100,
     contributionAmount: 100,
@@ -50,6 +54,7 @@ function pageGetPrisma(memberCount: number) {
     loanId: null,
     loanRepaymentAmount: 0,
     member: {
+      deductionSource: index % 2 === 0 ? { id: "w1", name: "Ministry" } : null,
       fullName: `Member ${index}`,
       id: `member-${index}`,
       memberNumber: `M-${String(index).padStart(3, "0")}`,
@@ -61,7 +66,7 @@ function pageGetPrisma(memberCount: number) {
     totalPaidAmount: 100,
   }))
 
-  return recordingPrisma({
+  const stub = recordingPrisma({
     chargeApplicability: {
       findMany: async () => [
         {
@@ -84,7 +89,15 @@ function pageGetPrisma(memberCount: number) {
         },
       ],
     },
-    chargeApplication: { findMany: async () => [] },
+    chargeApplication: {
+      findMany: async (input: { where: { memberId: { in: string[] } } }) => {
+        const ids = input.where.memberId.in
+        chargeMemberBatches.push(ids)
+        return ids.includes("member-0")
+          ? [{ memberId: "member-0", chargeDefinitionId: "charge-1", amount: 3.25 }]
+          : []
+      },
+    },
     chargeDefinition: { findMany: async () => [] },
     loan: { findMany: async () => [] },
     monthlyRecord: {
@@ -127,6 +140,7 @@ function pageGetPrisma(memberCount: number) {
     },
     monthlyRecordSetting: { findUnique: async () => null },
   })
+  return { ...stub, chargeMemberBatches }
 }
 
 describe("monthly records page GET", () => {
@@ -164,9 +178,18 @@ describe("monthly records page GET", () => {
       autoGenerateEnabled: true,
       generationDayOfMonth: 1,
     })
-    expect(largeData.selectedRecord?.rows).toHaveLength(40)
-    expect(largeData.selectedRecord?.totalChargeAmount).toBe(80)
-    expect(smallData.selectedRecord?.totalChargeAmount).toBe(4)
+    expect(largeData.firstPage.data).toHaveLength(40)
+    expect(smallData.firstPage.data).toHaveLength(2)
+    expect(largeData.selectedRecord).toMatchObject({
+      stats: { paidCount: 1, received: 100, toReceive: 3900, total: 40 },
+      workplaces: [
+        {
+          id: "w1",
+          unpaidCount: 19,
+          stats: { paidCount: 1, received: 100, toReceive: 1900, total: 20 },
+        },
+      ],
+    })
   })
 
   test("never loads a detail for a record id outside the tenant's list", async () => {
@@ -180,6 +203,59 @@ describe("monthly records page GET", () => {
     expect(data.selectedRecord?.id).toBe("record-1")
     expect(calls.filter((call) => call === "monthlyRecord.findFirst")).toHaveLength(1)
   })
+  test("enriches only the visible rows for stored sorts, with whole-month totals", async () => {
+    const { chargeMemberBatches, prisma } = pageGetPrisma(120)
+    const rowsQuery: MonthlyRecordRowsQuery = {
+      workplaceId: "w1",
+      pageSize: 10,
+      sort: ["totalPayableAmount", "asc"],
+    }
+    const first = await getMonthlyRecordsPageData(
+      { rowsQuery, tenantId: "tenant-1" },
+      prisma as never
+    )
+    const next = await getMonthlyRecordRowsPage(
+      "tenant-1",
+      "record-1",
+      { ...rowsQuery, cursor: first.firstPage.meta.cursor },
+      prisma as never
+    )
+
+    expect(first.selectedRecord?.stats.total).toBe(120)
+    expect(first.selectedRecord?.workplaces[0]?.stats.total).toBe(60)
+    expect(first.firstPage.meta).toEqual({ cursor: "row-18", total: 60 })
+    expect(first.firstPage.data[0]).toMatchObject({
+      allChargesAmount: 3.25,
+      calculatedChargesAmount: 2,
+      finalIncomeAmount: 96.75,
+      hasChargeDifference: true,
+    })
+    expect(next.data.map(({ id }) => id)).toEqual(
+      Array.from({ length: 10 }, (_, index) => `row-${20 + index * 2}`)
+    )
+    expect(chargeMemberBatches.map(({ length }) => length)).toEqual([10, 10])
+  })
+
+  test("orders calculated values across the full result before cutting pages", async () => {
+    const { prisma } = pageGetPrisma(12)
+    const detail = await getMonthlyRecordDetail("tenant-1", "record-1", prisma as never)
+    expect(detail?.totalChargeAmount).toBe(24)
+    const query: MonthlyRecordRowsQuery = {
+      pageSize: 2,
+      sort: ["finalIncomeAmount", "desc"],
+    }
+    const first = await getMonthlyRecordRowsPage(
+      "tenant-1", "record-1", query, prisma as never
+    )
+    const nextQuery = { ...query, cursor: first.meta.cursor }
+    expect(first.data.map(({ id }) => id)).toEqual(["row-1", "row-2"])
+    expect(await getMonthlyRecordRowsPage("tenant-1", "record-1", nextQuery, prisma as never))
+      .toEqual(pageMonthlyRecordRows(detail?.rows ?? [], nextQuery))
+    expect(await getMonthlyRecordRowsPage("tenant-1", "record-1", {
+      ...nextQuery, cursor: "missing",
+    }, prisma as never)).toEqual(first)
+  })
+
 })
 
 describe("monthly record seeding", () => {

@@ -6,7 +6,7 @@ import {
 } from "@halaalvest/ui/components/native-select"
 import { cn } from "@halaalvest/ui/lib/utils"
 import { useId } from "react"
-import type { WorkplaceOption } from "./workplace-options"
+import type { MonthlyRecordWorkplace } from "@halaalvest/db"
 
 // A native select: large, familiar and easy to use on phones.
 export function WorkplaceSelect({
@@ -19,7 +19,7 @@ export function WorkplaceSelect({
   allLabel?: string
   className?: string
   onChange: (value: string | null) => void
-  options: WorkplaceOption[]
+  options: MonthlyRecordWorkplace[]
   value: string | null
 }) {
   const id = useId()

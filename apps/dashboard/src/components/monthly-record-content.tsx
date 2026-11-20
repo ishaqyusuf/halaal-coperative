@@ -6,8 +6,9 @@ import { CurrencyPrefixInput } from "@halaalvest/ui/components/currency-input"
 import { Input } from "@halaalvest/ui/components/input"
 import { Switch } from "@halaalvest/ui/components/switch"
 import type {
-  MonthlyRecordMemberRow,
+  MonthlyRecordActionRow,
   MonthlyRecordSettingView,
+  MonthlyRecordWorkplace,
 } from "@halaalvest/db"
 import { formatCurrency } from "@halaalvest/utils"
 import { DashboardNativeQuickFill } from "@/components/dashboard-quick-fill"
@@ -35,32 +36,32 @@ function periodName(year?: number | null, month?: number | null) {
 export function MonthlyRecordContent({
   monthlyRecordId,
   periodLabel,
-  rows,
+  selectedRow,
   settings,
+  workplaces,
 }: {
   monthlyRecordId?: string
   periodLabel?: string
-  rows: MonthlyRecordMemberRow[]
+  selectedRow?: MonthlyRecordActionRow
+  workplaces: MonthlyRecordWorkplace[]
   settings: MonthlyRecordSettingView
 }) {
   const [autoGenerateEnabled, setAutoGenerateEnabled] = useState(
     settings.autoGenerateEnabled
   )
   const {
-    monthlyRecordMemberId,
     monthlyRecordSheetType,
     setParams,
     targetMonth,
     targetYear,
   } = useMonthlyRecordParams()
-  const selectedRow = rows.find((row) => row.id === monthlyRecordMemberId)
 
   if (monthlyRecordSheetType === "receive") {
     return (
       <WorkplaceReceiveContent
         monthlyRecordId={monthlyRecordId}
         periodLabel={periodLabel}
-        rows={rows}
+        workplaces={workplaces}
       />
     )
   }
@@ -142,6 +143,10 @@ export function MonthlyRecordContent({
   }
 
   if (monthlyRecordSheetType === "cancel") {
+    if (!selectedRow) {
+      return <p className="text-muted-foreground">This member was not found.</p>
+    }
+
     return (
       <form
         action={async (formData) => {
@@ -152,15 +157,14 @@ export function MonthlyRecordContent({
         <input
           name="monthlyRecordMemberId"
           type="hidden"
-          value={monthlyRecordMemberId ?? ""}
+          value={selectedRow.id}
         />
         <WorkflowConfirmFooter cancelLabel="Keep">
           <Button
-            disabled={!monthlyRecordMemberId}
             type="submit"
             variant="destructive"
           >
-            {selectedRow?.status === "applied" ? "Undo payment" : "Cancel row"}
+            {selectedRow.status === "applied" ? "Undo payment" : "Cancel row"}
           </Button>
         </WorkflowConfirmFooter>
       </form>

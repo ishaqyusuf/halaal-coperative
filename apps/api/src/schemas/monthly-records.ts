@@ -36,6 +36,14 @@ export const listMonthlyRecordRowsSchema = z
   })
   .optional()
 
+export const monthlyRecordActionRowsSchema = z.object({
+  monthlyRecordId: z.string().uuid(),
+  scope: z.union([
+    z.object({ rowId: z.string().uuid() }),
+    z.object({ workplaceId: z.string().uuid() }),
+  ]),
+})
+
 export const receiveWorkplaceSchema = z.object({
   monthlyRecordId: z.string().uuid(),
   rowIds: z.array(z.string().uuid()).min(1).max(500),

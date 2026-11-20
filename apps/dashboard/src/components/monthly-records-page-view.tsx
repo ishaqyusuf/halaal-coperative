@@ -1,7 +1,7 @@
 import type {
-  MonthlyRecordDetail,
   MonthlyRecordSettingView,
   MonthlyRecordSummary,
+  MonthlyRecordWorkspaceSummary,
 } from "@halaalvest/db"
 import { WorkspaceEmptyState, WorkspacePageShell } from "@/components/dashboard"
 import { MonthlyRecordsWorkspace } from "@/components/monthly-records/monthly-records-workspace"
@@ -43,7 +43,7 @@ export function MonthlyRecordsPageView(props: {
   canManageWorkplaces: boolean
   monthlyRecordTableSettings?: Partial<TableSettings>
   records: MonthlyRecordSummary[]
-  selectedRecord: MonthlyRecordDetail | null
+  selectedRecord: MonthlyRecordWorkspaceSummary | null
   selectedYear: number
   settings: MonthlyRecordSettingView
 }) {

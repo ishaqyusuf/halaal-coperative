@@ -13,20 +13,17 @@ import { Badge } from "@halaalvest/ui/components/badge"
 import { Button } from "@halaalvest/ui/components/button"
 import { Checkbox } from "@halaalvest/ui/components/checkbox"
 import { toast } from "@halaalvest/ui/components/use-toast"
-import type { MonthlyRecordMemberRow } from "@halaalvest/db"
+import type { MonthlyRecordActionRow, MonthlyRecordWorkplace } from "@halaalvest/db"
 import { formatCurrency } from "@halaalvest/utils"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { WorkplaceSelect } from "@/components/monthly-records/workplace-select"
 import { useMarkWorkflowSaved } from "@/components/workflow-presentation"
 import { useMonthlyRecordFilterParams } from "@/hooks/use-monthly-record-filter-params"
 import { useMonthlyRecordParams } from "@/hooks/use-monthly-record-params"
 import { useTRPC } from "@/trpc/client"
-import {
-  getWorkplaceOptions,
-  isReceivable,
-} from "./workplace-options"
+import { isReceivable } from "./workplace-options"
 
 function memberLabel(count: number) {
   return count === 1 ? "1 member" : `${count} members`
@@ -35,15 +32,23 @@ function memberLabel(count: number) {
 export function WorkplaceReceiveContent({
   monthlyRecordId,
   periodLabel,
-  rows,
+  workplaces,
 }: {
   monthlyRecordId?: string
   periodLabel?: string
-  rows: MonthlyRecordMemberRow[]
+  workplaces: MonthlyRecordWorkplace[]
 }) {
   const { filter, setFilter } = useMonthlyRecordFilterParams()
-  const workplaces = useMemo(() => getWorkplaceOptions(rows), [rows])
-  const workplaceId = filter.workplaceId
+  const trpc = useTRPC()
+  const workplace = workplaces.find(({ id }) => id === filter.workplaceId)
+  const members = useQuery(
+    trpc.monthlyRecords.actionRows.queryOptions(
+      monthlyRecordId && workplace
+        ? { monthlyRecordId, scope: { workplaceId: workplace.id } }
+        : skipToken,
+      { gcTime: 0, retry: false },
+    ),
+  )
 
   if (!monthlyRecordId) {
     return (
@@ -62,23 +67,27 @@ export function WorkplaceReceiveContent({
     )
   }
 
-  const workplace = workplaces.find((item) => item.id === workplaceId)
-
   return (
     <div className="flex flex-col gap-5">
       <div className="px-6">
         <WorkplaceSelect
           onChange={(value) => void setFilter({ workplaceId: value })}
           options={workplaces}
-          value={workplaceId}
+          value={filter.workplaceId}
         />
       </div>
-      {workplace ? (
+      {members.isLoading ? (
+        <p role="status" className="px-6 text-muted-foreground">Loading workplace members…</p>
+      ) : members.isError ? (
+        <p role="alert" className="px-6 text-muted-foreground">
+          Could not load workplace members. Choose the workplace again or reopen the sheet.
+        </p>
+      ) : workplace && members.data ? (
         <WorkplaceReceiveList
           key={workplace.id}
           monthlyRecordId={monthlyRecordId}
           periodLabel={periodLabel ?? ""}
-          rows={rows.filter((row) => row.workplaceId === workplace.id)}
+          rows={members.data}
           workplaceId={workplace.id}
           workplaceName={workplace.name}
         />
@@ -98,7 +107,7 @@ function WorkplaceReceiveList({
 }: {
   monthlyRecordId: string
   periodLabel: string
-  rows: MonthlyRecordMemberRow[]
+  rows: MonthlyRecordActionRow[]
   workplaceId: string
   workplaceName: string
 }) {

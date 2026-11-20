@@ -10,6 +10,7 @@ import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
 import { useMutation } from "@tanstack/react-query"
 import { useState } from "react"
 import {
+  cancelMemberShareApplication,
   createMemberShareApplication,
   getMemberShareOverview,
   getMemberShareProfitPeriods,
@@ -81,6 +82,17 @@ export function MemberSharesRouteController() {
       void invalidate(overviewKey)
     },
   })
+  const cancellation = useMutation({
+    mutationFn: (applicationId: string) =>
+      runOnlineOperation("financial-command", () =>
+        cancelMemberShareApplication(applicationId)
+      ),
+    networkMode: "always",
+    retry: false,
+    onSuccess: () => {
+      void invalidate(overviewKey)
+    },
+  })
 
   if (!profile) return null
 
@@ -120,6 +132,7 @@ export function MemberSharesRouteController() {
       }}
       persistDraft={enabled}
       submit={submission.mutateAsync}
+      cancelRequest={cancellation.mutateAsync}
     />
   )
 }

@@ -194,18 +194,25 @@ export function MemberHomeHero({
 }) {
   const largeText = useLargeTextLayout()
   const firstName = profile.user.name.trim().split(/\s+/)[0] || "Member"
+  const router = useRouter()
 
   return (
     <ScreenHero className="gap-[20px]">
       <View className="flex-row items-center gap-[12px]">
-        <View
+        {/* The avatar opens More, where the member's profile and settings live. */}
+        <Pressable
+          accessibilityHint="Opens More"
           accessibilityLabel={`${profile.user.name} profile`}
+          accessibilityRole="button"
           className="size-[44px] items-center justify-center rounded-full bg-hero-foreground/15"
+          hitSlop={4}
+          onPress={() => router.navigate("/(member)/(tabs)/more")}
+          testID="member-home-avatar"
         >
           <Text className="text-hero-foreground" variant="label">
             {initialsFor(profile.user.name) || "HV"}
           </Text>
-        </View>
+        </Pressable>
         <View className="min-w-0 flex-1">
           <Text
             accessibilityRole="header"

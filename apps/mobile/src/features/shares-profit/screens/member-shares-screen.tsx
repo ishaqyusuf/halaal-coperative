@@ -1,7 +1,9 @@
 import { AppList } from "@/components/app/app-list"
 import { AppSheet } from "@/components/app/app-sheet"
+import { ConfirmSheet } from "@/components/app/confirm-sheet"
 import { EmptyState } from "@/components/app/empty-state"
 import { ReviewRow } from "@/components/app/result-screen"
+import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
 import {
   Elevated,
@@ -58,6 +60,8 @@ type SharesScreenProps = {
   submit: (
     input: MobileMemberShareApplicationCreateInput
   ) => Promise<MobileMemberShareApplication>
+  /** Withdraws a pending request; resolves with the cancelled request. */
+  cancelRequest: (applicationId: string) => Promise<MobileMemberShareApplication>
 }
 
 const REQUEST_STATUS: Record<
@@ -158,11 +162,37 @@ export function SharesScreen({
   profit,
   persistDraft,
   submit,
+  cancelRequest,
 }: SharesScreenProps) {
   const [search, setSearch] = useState("")
   const [detail, setDetail] = useState<MobileMemberShareApplication | null>(
     null
   )
+  // The request being withdrawn lives apart from `detail`: presenting the
+  // confirmation replaces the detail sheet, which closes it.
+  const [cancelTarget, setCancelTarget] =
+    useState<MobileMemberShareApplication | null>(null)
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelError, setCancelError] = useState<string | null>(null)
+  async function confirmCancelRequest() {
+    if (!cancelTarget) return
+    setCancelling(true)
+    setCancelError(null)
+    try {
+      await cancelRequest(cancelTarget.id)
+      setCancelTarget(null)
+    } catch (error) {
+      setCancelError(
+        offline
+          ? "You’re offline. Connect and try again."
+          : error instanceof Error && error.message
+            ? error.message
+            : "Couldn’t cancel this request. Try again."
+      )
+    } finally {
+      setCancelling(false)
+    }
+  }
   const [showProfit, setShowProfit] = useState(false)
   const money = useMemo(
     () =>
@@ -497,6 +527,24 @@ export function SharesScreen({
         testID="member-shares"
       />
       <AppSheet
+        footer={
+          detail?.status === "pending" ? (
+            <Button
+              disabled={offline}
+              onPress={() => {
+                setCancelError(null)
+                setCancelTarget(detail)
+                setDetail(null)
+              }}
+              testID="share-request-cancel"
+              variant="outline"
+            >
+              <Icon className="size-[18px] text-foreground" name="X" />
+              <Text>Cancel request</Text>
+            </Button>
+          ) : undefined
+        }
+        insetFloatingFooter
         onClose={() => setDetail(null)}
         title="Share request"
         visible={Boolean(detail)}
@@ -505,6 +553,23 @@ export function SharesScreen({
           <ShareRequestDetail application={detail} money={money} />
         ) : null}
       </AppSheet>
+      <ConfirmSheet
+        cancelLabel="Keep request"
+        confirmLabel="Cancel request"
+        description="Your cooperative won’t review it. You can send a new request later."
+        error={cancelError}
+        icon="X"
+        isConfirming={cancelling}
+        onCancel={() => setCancelTarget(null)}
+        onConfirm={() => void confirmCancelRequest()}
+        title={
+          cancelTarget
+            ? `Cancel your request for ${formatShareUnitCount(cancelTarget.requestedUnits)}?`
+            : "Cancel this request?"
+        }
+        tone="destructive"
+        visible={Boolean(cancelTarget)}
+      />
       <AppSheet
         onClose={() => {
           setShowProfit(false)

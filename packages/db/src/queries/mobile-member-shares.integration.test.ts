@@ -9,6 +9,7 @@ import {
   getMobileMemberSharesSnapshot,
   getMobileMemberShareTimelinePage,
 } from "./mobile-member-shares"
+import { cancelOwnMemberShareApplication } from "./tenant-finance"
 
 const databaseUrl = process.env.HALAALVEST_DATABASE_URL
 const localUrl =
@@ -268,5 +269,64 @@ runIntegration("mobile shares overview", () => {
       member: null,
       state: "member_profile_missing",
     })
+  })
+
+  test("lets a member cancel only their own pending share request", async () => {
+    const request = await prisma.memberShareApplication.create({
+      data: {
+        memberId,
+        requestedUnits: 4,
+        shareValueSnapshot: 100_000,
+        status: "pending",
+        tenantId,
+        unitAmountSnapshot: 25_000,
+      },
+    })
+    const identity = {
+      actorUserId: userId,
+      applicationId: request.id,
+      memberId,
+      tenantId,
+    }
+
+    // Another member cannot see, let alone cancel, this request.
+    await expect(
+      cancelOwnMemberShareApplication(
+        { ...identity, memberId: crypto.randomUUID() },
+        prisma
+      )
+    ).rejects.toThrow("Share request was not found.")
+
+    const cancelled = await cancelOwnMemberShareApplication(identity, prisma)
+    expect(cancelled.status).toBe("cancelled")
+    expect(cancelled.reviewedAt).toBeNull()
+
+    await expect(
+      cancelOwnMemberShareApplication(identity, prisma)
+    ).rejects.toThrow("already cancelled")
+
+    const reviewed = await prisma.memberShareApplication.create({
+      data: {
+        memberId,
+        requestedUnits: 1,
+        shareValueSnapshot: 25_000,
+        status: "rejected",
+        tenantId,
+        unitAmountSnapshot: 25_000,
+      },
+    })
+    await expect(
+      cancelOwnMemberShareApplication(
+        { ...identity, applicationId: reviewed.id },
+        prisma
+      )
+    ).rejects.toThrow("already been reviewed")
+    expect(
+      (
+        await prisma.memberShareApplication.findUnique({
+          where: { id: reviewed.id },
+        })
+      )?.status
+    ).toBe("rejected")
   })
 })

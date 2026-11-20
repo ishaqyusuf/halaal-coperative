@@ -3006,6 +3006,80 @@ export async function reviewMemberShareApplication(
   )
 }
 
+/**
+ * A member withdraws their own share request while it still awaits review.
+ * Pending requests post nothing to the share ledger, so cancelling only
+ * changes the status; the claim on `status: "pending"` keeps it from racing
+ * a staff review.
+ */
+export async function cancelOwnMemberShareApplication(
+  input: {
+    actorUserId: string
+    applicationId: string
+    memberId: string
+    tenantId: string
+  },
+  prismaOverride?: PrismaClient
+): Promise<MemberShareApplicationRow> {
+  const prisma = (prismaOverride ?? createPrismaClient()) as any
+  if (!prisma) throw new Error("Database not configured")
+
+  return runSerializableTransactionWithRetry(
+    prisma,
+    async (tx: any) => {
+      const where = {
+        id: input.applicationId,
+        memberId: input.memberId,
+        tenantId: input.tenantId,
+      }
+      const claim = await tx.memberShareApplication.updateMany({
+        data: { status: "cancelled" },
+        where: { ...where, status: "pending" },
+      })
+
+      const application = await tx.memberShareApplication.findFirst({
+        include: {
+          member: {
+            select: { email: true, fullName: true, memberNumber: true },
+          },
+        },
+        where,
+      })
+
+      if (!application) {
+        throw ExpectedQueryError.notFound("Share request was not found.")
+      }
+
+      if (claim.count !== 1) {
+        throw ExpectedQueryError.conflict(
+          application.status === "cancelled"
+            ? "This share request is already cancelled."
+            : "This share request has already been reviewed, so it can't be cancelled."
+        )
+      }
+
+      await createOptionalAuditLogEntry(
+        {
+          action: "member_share_application.cancelled",
+          actorType: "user",
+          actorUserId: input.actorUserId,
+          entityId: application.id,
+          entityType: "MemberShareApplication",
+          metadata: {
+            memberId: application.memberId,
+            requestedUnits: Number(application.requestedUnits),
+          },
+          tenantId: input.tenantId,
+        },
+        tx
+      )
+
+      return normalizeMemberShareApplication(application)
+    },
+    "Could not safely cancel the share request"
+  )
+}
+
 export async function listTenantShareStructureVersions(
   tenantId: string,
   prismaOverride?: PrismaClient

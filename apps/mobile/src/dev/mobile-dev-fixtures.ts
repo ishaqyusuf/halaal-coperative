@@ -1262,6 +1262,17 @@ export function createDevShareApplication(
   return clone(application)
 }
 
+export function cancelDevShareApplication(applicationId: string) {
+  const application = shareApplications.find(
+    (candidate) => candidate.id === applicationId
+  )
+  if (!application || application.status !== "pending") {
+    throw new Error("Only a pending share request can be cancelled.")
+  }
+  application.status = "cancelled"
+  return clone(application)
+}
+
 export function getDevMemberFinancing(): MobileMemberFinancing {
   return clone({
     generatedAt,

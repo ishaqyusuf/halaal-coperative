@@ -1,4 +1,5 @@
 import {
+  cancelDevShareApplication,
   createDevShareApplication,
   getDevMemberShares,
 } from "@/dev/mobile-dev-fixtures"
@@ -61,5 +62,13 @@ export async function createMemberShareApplication(
   if (isMobileDevFixtureSession()) return createDevShareApplication(input)
   return createMobileTrpcClient().mobile.member.shares.createApplication.mutate(
     input
+  )
+}
+
+export async function cancelMemberShareApplication(applicationId: string) {
+  if (isMobileDevFixtureSession())
+    return cancelDevShareApplication(applicationId)
+  return createMobileTrpcClient().mobile.member.shares.cancelApplication.mutate(
+    { applicationId }
   )
 }

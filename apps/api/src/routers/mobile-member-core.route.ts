@@ -1,4 +1,5 @@
 import {
+  cancelMobileMemberShareApplicationForSession,
   createMobileMemberShareApplicationForSession,
   createAuditLogEntry,
   createMobileMemberStatementExport,
@@ -46,6 +47,10 @@ const mobileMemberActivityInput = z
 const mobileShareApplicationCreateInput = z.object({
   notes: z.string().trim().max(1000).optional(),
   requestedUnits: z.number().int().positive(),
+})
+
+const mobileShareApplicationCancelInput = z.object({
+  applicationId: z.string().uuid(),
 })
 
 const mobileShareApplicationPageInput = z.object({
@@ -174,6 +179,17 @@ export const mobileMemberCoreProcedures = {
         return createMobileMemberShareApplicationForSession({
           notes: input.notes,
           requestedUnits: input.requestedUnits,
+          tenantId: ctx.tenant.current.id,
+          userId: ctx.auth.session.user.id,
+        })
+      }),
+    cancelApplication: memberOperationalProcedure
+      .input(mobileShareApplicationCancelInput)
+      .mutation(({ ctx, input }) => {
+        assertMemberWorkspace(ctx.auth.activeMembership.role)
+
+        return cancelMobileMemberShareApplicationForSession({
+          applicationId: input.applicationId,
           tenantId: ctx.tenant.current.id,
           userId: ctx.auth.session.user.id,
         })

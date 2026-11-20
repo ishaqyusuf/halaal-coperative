@@ -8,6 +8,7 @@ import {
   type ProfitPayoutDestination,
 } from "./profit-payouts"
 import {
+  cancelOwnMemberShareApplication,
   createMemberShareApplication,
   getMemberUnitSharePosition,
   getMemberUnitSharePositionForLinkedMember,
@@ -902,6 +903,38 @@ export async function createMobileMemberShareApplicationForSession(input: {
       notes: input.notes,
       requestedByUserId: input.userId,
       requestedUnits: input.requestedUnits,
+      tenantId: input.tenantId,
+    },
+    prisma
+  )
+
+  return toMobileShareApplication(application)
+}
+
+export async function cancelMobileMemberShareApplicationForSession(input: {
+  applicationId: string
+  tenantId: string
+  userId: string
+}): Promise<MobileMemberShareApplication> {
+  const prisma = createPrismaClient()
+  if (!prisma) {
+    throw new Error(
+      "Share requests are unavailable without database configuration."
+    )
+  }
+
+  const member = await getMemberByUserId(input, prisma)
+  if (!member) {
+    throw ExpectedQueryError.precondition(
+      "Member profile needs linking before managing share requests."
+    )
+  }
+
+  const application = await cancelOwnMemberShareApplication(
+    {
+      actorUserId: input.userId,
+      applicationId: input.applicationId,
+      memberId: member.id,
       tenantId: input.tenantId,
     },
     prisma

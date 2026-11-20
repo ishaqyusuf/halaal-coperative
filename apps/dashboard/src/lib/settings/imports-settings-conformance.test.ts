@@ -121,6 +121,10 @@ describe("imports settings Midday conformance", () => {
 
     expect(view).toContain("availability.isAvailable ?")
     expect(view).toContain("{availability.blockedReason}")
+    expect(route).toContain(
+      "canManageImports ? getTenantImportReadiness(context.tenant.id) : null"
+    )
+    expect(route).not.toContain("getTenantInitialMigrationState")
     expect(route).not.toContain("getImportReferenceData")
     expect(route).not.toContain("listImportBatches")
   })

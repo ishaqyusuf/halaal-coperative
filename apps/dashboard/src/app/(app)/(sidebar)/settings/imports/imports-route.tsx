@@ -1,7 +1,7 @@
 import {
   createDbRuntime,
   getImportKindSummaries,
-  getTenantInitialMigrationState,
+  getTenantImportReadiness,
 } from "@halaalvest/db"
 import {
   ImportsRuntimeUnavailable,
@@ -27,13 +27,6 @@ import {
   hasAnyRole,
   workspaceConfigurationRoles,
 } from "@/lib/workspace-access"
-
-/** Setup steps in plain words, for "finish this first" messages. */
-const setupStepWords: Record<string, string> = {
-  business_profit_pools: "your past business profits (or say there were none)",
-  charge_schedules: "your charges and levies",
-  finance_start_date: "the date your records start",
-}
 
 function buildImportAvailability({
   canConfigureWorkspace,
@@ -109,36 +102,32 @@ export async function ImportsSettingsRoute({
   const isOverview = section === "overview"
   const importKind =
     section !== "overview" && section !== "batches" ? section : undefined
-  const [initialSettings, migrationState, summaries] = await Promise.all([
+  const [initialSettings, readiness, summaries] = await Promise.all([
     getInitialTableSettings("imports"),
-    getTenantInitialMigrationState(context.tenant.id),
+    canManageImports ? getTenantImportReadiness(context.tenant.id) : null,
     isOverview && canManageImports
       ? getImportKindSummaries(context.tenant.id)
       : Promise.resolve([]),
   ])
-  const missing = new Set(migrationState.snapshot.missingStepKeys)
-  const setupSteps = [
-    "finance_start_date",
-    "charge_schedules",
-    "business_profit_pools",
-  ].filter((key) =>
-    missing.has(key as (typeof migrationState.snapshot.missingStepKeys)[number])
-  )
-  const hasAppliedMemberBackfill =
-    migrationState.counts.appliedBackfillBatches > 0 ||
-    migrationState.counts.appliedBackfillMembers > 0 ||
-    migrationState.counts.appliedBackfillMonths > 0
-  const closedReason = !migrationState.snapshot.canUseMigrationTools
-    ? "Imports are closed because your cooperative is live. Add new records on their own pages."
-    : hasAppliedMemberBackfill
-      ? "Imports are closed because members' past monthly records have already been added."
-      : null
+  const setupSteps = readiness
+    ? [
+        !readiness.hasFinanceStartDate && "the date your records start",
+        !readiness.hasChargeSchedules && "your charges and levies",
+        !readiness.hasBusinessProfitPools &&
+          "your past business profits (or say there were none)",
+      ].filter(Boolean)
+    : []
+  const closedReason =
+    readiness?.canUseMigrationTools === false
+      ? "Imports are closed because your cooperative is live. Add new records on their own pages."
+      : readiness?.hasAppliedMemberBackfill
+        ? "Imports are closed because members' past monthly records have already been added."
+        : null
   const historicalSetupBlockedReason = setupSteps.length
-    ? `First set ${setupSteps.map((key) => setupStepWords[key]).join(" and ")} in Finance setup.`
+    ? `First set ${setupSteps.join(" and ")} in Finance setup.`
     : null
-  const memberProfilesBlockedReason = missing.has("member_profiles")
-    ? "Add your members first."
-    : null
+  const memberProfilesBlockedReason =
+    readiness?.hasMemberProfiles === false ? "Add your members first." : null
   const importAvailability = buildImportAvailability({
     canConfigureWorkspace,
     canManageFinance,

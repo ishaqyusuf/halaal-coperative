@@ -1,4 +1,5 @@
 import type { PrismaClient } from "../../generated/prisma/client"
+import { ExpectedQueryError } from "../query-error"
 import type { PaymentReceiptAllocationInput } from "./payment-receipts"
 
 /**
@@ -541,4 +542,92 @@ export async function listMemberPayables(
   }
 
   return orderMemberPayables(payables, resolvedSettings.order)
+}
+
+export type PaymentAllocationSettingsSnapshot = PaymentAllocationSettings & {
+  /** True when nothing is saved (or the saved order is empty): defaults apply. */
+  isDefault: boolean
+}
+
+/** Admin read of the payment order setting, with defaults filled in. */
+export async function getTenantPaymentAllocationSettingsSnapshot(
+  tenantId: string,
+  prisma: PrismaClient
+): Promise<PaymentAllocationSettingsSnapshot> {
+  const policy = await prisma.tenantPolicy.findUnique({
+    select: {
+      paymentAllocationLeftover: true,
+      paymentAllocationMode: true,
+      paymentAllocationOrder: true,
+    },
+    where: { tenantId },
+  })
+  return {
+    ...resolvePaymentAllocationSettings(policy),
+    isDefault:
+      !policy ||
+      (policy.paymentAllocationMode === "automatic" &&
+        !policy.paymentAllocationOrder.length),
+  }
+}
+
+/**
+ * Saves the payment order setting. `order` must list every key once
+ * (overdue, procurement, food_purchase, loan, shares, commitment).
+ */
+export async function updateTenantPaymentAllocationSettings(
+  input: {
+    actorUserId: string
+    leftoverDestination: "special_savings"
+    mode: PaymentAllocationMode
+    order: PaymentAllocationOrderKey[]
+    tenantId: string
+  },
+  prisma: PrismaClient
+): Promise<PaymentAllocationSettingsSnapshot> {
+  const keys = new Set(input.order)
+  if (
+    keys.size !== input.order.length ||
+    keys.size !== DEFAULT_PAYMENT_ALLOCATION_ORDER.length ||
+    !DEFAULT_PAYMENT_ALLOCATION_ORDER.every((key) => keys.has(key))
+  ) {
+    throw ExpectedQueryError.validation(
+      "The payment order must list each item exactly once."
+    )
+  }
+  if (input.mode !== "automatic" && input.mode !== "member_choice") {
+    throw ExpectedQueryError.validation("Choose how payments are applied.")
+  }
+  const previous = await getTenantPaymentAllocationSettingsSnapshot(
+    input.tenantId,
+    prisma
+  )
+  const data = {
+    paymentAllocationLeftover: input.leftoverDestination,
+    paymentAllocationMode: input.mode,
+    paymentAllocationOrder: input.order,
+  }
+  await prisma.$transaction(async (tx) => {
+    await tx.tenantPolicy.upsert({
+      create: { ...data, tenantId: input.tenantId },
+      update: data,
+      where: { tenantId: input.tenantId },
+    })
+    await tx.auditLog.create({
+      data: {
+        action: "tenant_policy.payment_order_updated",
+        actorType: "user",
+        actorUserId: input.actorUserId,
+        entityId: input.tenantId,
+        entityType: "TenantPolicy",
+        metadata: {
+          next: { mode: input.mode, order: input.order },
+          previous: { mode: previous.mode, order: previous.order },
+        },
+        occurredAt: new Date(),
+        tenantId: input.tenantId,
+      },
+    })
+  })
+  return getTenantPaymentAllocationSettingsSnapshot(input.tenantId, prisma)
 }

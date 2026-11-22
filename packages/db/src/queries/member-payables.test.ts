@@ -325,3 +325,73 @@ describe("listMemberPayables", () => {
     expect(calls.shares.take).toBeGreaterThan(0)
   })
 })
+
+describe("payment order setting", () => {
+  const order = [
+    "commitment",
+    "overdue",
+    "procurement",
+    "food_purchase",
+    "loan",
+    "shares",
+  ] as const
+
+  test("reads defaults when nothing is saved", async () => {
+    const { prisma } = payablesPrisma()
+    const { getTenantPaymentAllocationSettingsSnapshot } = await import(
+      "./member-payables"
+    )
+    expect(
+      await getTenantPaymentAllocationSettingsSnapshot("tenant-1", prisma)
+    ).toEqual({ ...DEFAULT_PAYMENT_ALLOCATION_SETTINGS, isDefault: true })
+  })
+
+  test("saves a full order with an audit entry and rejects a partial one", async () => {
+    const { updateTenantPaymentAllocationSettings } = await import(
+      "./member-payables"
+    )
+    let saved: any = null
+    const audits: any[] = []
+    const policy = {
+      findUnique: async () => saved,
+      upsert: async (input: any) => {
+        saved = { paymentAllocationLeftover: "special_savings", ...input.update }
+        return saved
+      },
+    }
+    const prisma: any = {
+      $transaction: async (fn: any) =>
+        fn({ auditLog: { create: async (input: any) => audits.push(input) }, tenantPolicy: policy }),
+      tenantPolicy: policy,
+    }
+    const result = await updateTenantPaymentAllocationSettings(
+      {
+        actorUserId: "admin-1",
+        leftoverDestination: "special_savings",
+        mode: "member_choice",
+        order: [...order],
+        tenantId: "tenant-1",
+      },
+      prisma
+    )
+    expect(result).toEqual({
+      isDefault: false,
+      leftoverDestination: "special_savings",
+      mode: "member_choice",
+      order: [...order],
+    })
+    expect(audits[0].data.action).toBe("tenant_policy.payment_order_updated")
+    await expect(
+      updateTenantPaymentAllocationSettings(
+        {
+          actorUserId: "admin-1",
+          leftoverDestination: "special_savings",
+          mode: "automatic",
+          order: ["overdue", "loan"],
+          tenantId: "tenant-1",
+        },
+        prisma
+      )
+    ).rejects.toThrow("each item exactly once")
+  })
+})

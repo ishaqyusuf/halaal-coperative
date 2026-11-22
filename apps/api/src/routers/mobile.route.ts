@@ -21,6 +21,7 @@ import { mobileAdminProcurementOperationsProcedures } from "./mobile-admin-procu
 import { mobileAdminFoodPurchaseOperationsProcedures } from "./mobile-admin-food-purchase-operations.route"
 import { mobileAdminProjectFinancingOperationsProcedures } from "./mobile-admin-project-financing-operations.route"
 import { mobileAdminShareProfitGovernanceProcedures } from "./mobile-admin-share-profit-governance.route"
+import { mobileAdminPaymentOrderProcedures } from "./mobile-admin-payment-order.route"
 
 export const mobileRouter = createTRPCRouter({
   admin: createTRPCRouter({
@@ -36,6 +37,7 @@ export const mobileRouter = createTRPCRouter({
     ...mobileAdminShareProfitGovernanceProcedures,
     ...mobileAdminReportsAccessNotificationProcedures,
     ...mobileOperationProfileProcedures,
+    ...mobileAdminPaymentOrderProcedures,
   }),
   notifications: createTRPCRouter({
     ...mobileNotificationProcedures,

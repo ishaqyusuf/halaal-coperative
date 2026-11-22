@@ -630,6 +630,7 @@ export function RecordPaymentFlow({
                     currencyCode={currency}
                     maxLength={16}
                     onChangeValue={(extra) => patch({ extra })}
+                    style={{ fontSize: 18, fontWeight: "800" }}
                     testID="record-payment-extra"
                     value={draft.extra}
                   />

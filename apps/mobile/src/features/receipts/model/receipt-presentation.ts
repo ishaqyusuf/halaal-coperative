@@ -49,7 +49,7 @@ export const receiptStatuses = {
 
 /** Allocation categories in one line ("Procurement + Savings"). */
 export function receiptPartsLine(receipt: MobilePaymentReceipt) {
-  if (!receipt.allocations.length) return "Applied in the cooperative’s order"
+  if (!receipt.allocations.length) return "Applied automatically"
   return Array.from(
     new Set(receipt.allocations.map((split) => receiptCategories[split.category]))
   ).join(" + ")

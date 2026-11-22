@@ -273,11 +273,19 @@ export function PaymentLines({
                     : `${receiptMoney(line.amount / 100, currency)} of ${receiptMoney(line.payable.amount, currency)} · part paid`}
               </Text>
               {line.payable ? (
-                <View className="mt-[6px] h-[5px] overflow-hidden rounded-[3px] bg-surface-raised">
-                  <View
-                    className={cn("h-full rounded-[3px]", full ? "bg-primary" : "bg-brand-warm")}
-                    style={{ width: `${Math.max(0, Math.min(100, (line.amount / Math.max(1, due)) * 100))}%` }}
-                  />
+                <View
+                  className="mt-[6px] overflow-hidden rounded-[3px] bg-surface-raised"
+                  style={{ flexDirection: "row", height: 5 }}
+                >
+                  <View style={{ flexBasis: 0, flexGrow: Math.min(line.amount, due) }}>
+                    <View
+                      className={cn(
+                        "h-[5px] w-full rounded-[3px]",
+                        full ? "bg-primary" : "bg-brand-warm"
+                      )}
+                    />
+                  </View>
+                  <View style={{ flexBasis: 0, flexGrow: Math.max(0, due - line.amount) }} />
                 </View>
               ) : null}
             </View>

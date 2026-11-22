@@ -21,8 +21,8 @@ import {
 } from "./operation-profile"
 import { ExpectedQueryError } from "../query-error"
 import {
-  getTenantPaymentAllocationSettings,
   listMemberPayables,
+  resolvePaymentAllocationSettings,
   type MemberPayable,
   type PaymentAllocationMode,
 } from "./member-payables"
@@ -403,11 +403,21 @@ export async function getMobileMemberPayables(
       proofRequired: false,
     }
   }
-  const [settings, services, proofRequired] = await Promise.all([
-    getTenantPaymentAllocationSettings(input.tenantId, prisma),
+  // One policy read carries both the payment order and the proof rule.
+  const [policy, services] = await Promise.all([
+    prisma.tenantPolicy.findUnique({
+      select: {
+        paymentAllocationLeftover: true,
+        paymentAllocationMode: true,
+        paymentAllocationOrder: true,
+        paymentReceiptProofRequired: true,
+      },
+      where: { tenantId: input.tenantId },
+    }),
     getReceiptServices(input.tenantId, prisma),
-    getReceiptProofRequired(input.tenantId, prisma),
   ])
+  const settings = resolvePaymentAllocationSettings(policy)
+  const proofRequired = policy?.paymentReceiptProofRequired === true
   const payables = await listMemberPayables(
     { memberId: member.id, tenantId: input.tenantId },
     prisma,

@@ -87,16 +87,27 @@ function WhereItWent({
       })
   }
   if (!parts.size) return null
-  const total = Math.max(1, receipt.totalAmount)
   return (
     <>
-      <View className="mt-[8px] h-[8px] flex-row gap-[2px] overflow-hidden rounded-[4px]">
+      <View
+        style={{
+          alignSelf: "stretch",
+          borderRadius: 4,
+          columnGap: 2,
+          flexDirection: "row",
+          height: 8,
+          marginTop: 8,
+          overflow: "hidden",
+          width: "100%",
+        }}
+      >
         {[...parts.values()].map((part) => (
           <View
-            className={cn("h-full", part.color)}
             key={part.label}
-            style={{ width: `${(part.amount / total) * 100}%` }}
-          />
+            style={{ flexBasis: 0, flexGrow: part.amount, height: 8 }}
+          >
+            <View className={cn("h-[8px] w-full", part.color)} />
+          </View>
         ))}
       </View>
       <View className="mt-[6px] flex-row flex-wrap gap-x-[10px] gap-y-[4px]">

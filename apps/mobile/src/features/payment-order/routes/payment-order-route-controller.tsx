@@ -67,8 +67,8 @@ export function PaymentOrderRouteController() {
       queryClient.setQueryData(queryKey, updated)
       // The member payables read carries the tenant's mode and order.
       await Promise.all(
-        paymentOrderDependentKeys.map((key) =>
-          queryClient.invalidateQueries({ queryKey: key })
+        paymentOrderDependentKeys(profile).map((key) =>
+          queryClient.invalidateQueries({ exact: true, queryKey: key })
         )
       )
       return "saved"

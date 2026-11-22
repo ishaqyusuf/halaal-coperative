@@ -49,7 +49,7 @@ export function presentMemberFoodPurchaseForQa(
       ...foodPurchase,
       canCreateApplication: false,
       restrictionReasons: [
-        "Clear the active cooperative obligation before starting another Foodstuff Purchase application.",
+        "Settle an active Foodstuff Purchase obligation before applying again. Limit: 1.",
       ],
     }
   }

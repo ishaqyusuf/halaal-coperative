@@ -52,7 +52,7 @@ export function presentMemberProcurementForQa(
       ...procurement,
       canCreateRequest: false,
       restrictionReasons: [
-        "Clear the active cooperative obligation before starting another procurement request.",
+        "Settle an active procurement obligation before creating another request. Limit: 1.",
       ],
     }
   }

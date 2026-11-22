@@ -53,7 +53,7 @@ describe("member procurement QA presentation", () => {
     expect(result.canCreateRequest).toBe(false)
     expect(result.requests).toHaveLength(1)
     expect(result.restrictionReasons[0]).toContain(
-      "active cooperative obligation"
+      "Settle an active procurement obligation"
     )
   })
 

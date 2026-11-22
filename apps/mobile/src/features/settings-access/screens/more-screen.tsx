@@ -178,6 +178,14 @@ export function MoreScreen({
                   tone="amber"
                 />
               ) : null}
+              {canManageOperation ? (
+                <GroupedRow
+                  icon="ListOrdered"
+                  onPress={go("/payment-order")}
+                  title="Payment order"
+                  tone="sky"
+                />
+              ) : null}
             </SettingsGroup>
             {offline && canManageAccess ? (
               <Text className="mx-[16px] text-muted-foreground" variant="small">

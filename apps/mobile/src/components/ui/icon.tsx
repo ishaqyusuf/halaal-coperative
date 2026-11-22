@@ -109,6 +109,8 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
     require("lucide-react-native/dist/esm/icons/layout-dashboard").default,
   LayoutGrid: require("lucide-react-native/dist/esm/icons/layout-grid").default,
   ListChecks: require("lucide-react-native/dist/esm/icons/list-checks").default,
+  ListOrdered: require("lucide-react-native/dist/esm/icons/list-ordered").default,
+  GripVertical: require("lucide-react-native/dist/esm/icons/grip-vertical").default,
   Link: require("lucide-react-native/dist/esm/icons/link").default,
   Link2Off: require("lucide-react-native/dist/esm/icons/link-2-off").default,
   Lock: require("lucide-react-native/dist/esm/icons/lock").default,
@@ -143,6 +145,7 @@ const iconRegistry: Record<string, ComponentType<LucideProps>> = {
   PanelsTopLeft: require("lucide-react-native/dist/esm/icons/panels-top-left")
     .default,
   PieChart: require("lucide-react-native/dist/esm/icons/chart-pie").default,
+  PiggyBank: require("lucide-react-native/dist/esm/icons/piggy-bank").default,
   Plus: require("lucide-react-native/dist/esm/icons/plus").default,
   PlusCircle: require("lucide-react-native/dist/esm/icons/circle-plus").default,
   Receipt: require("lucide-react-native/dist/esm/icons/receipt").default,

@@ -404,6 +404,17 @@
       "tenantBoundary": "Configured and effective service access are tenant-scoped and server-authoritative. Changes require Operation Profile permission, live subscription access, an expected-mode compare-and-set, and a before/after audit event."
     },
     {
+      "file": "src/app/(admin)/payment-order.tsx",
+      "path": "/(admin)/payment-order",
+      "feature": "payment-order",
+      "controller": "@/features/payment-order/routes/payment-order-route-controller",
+      "roles": [
+        "tenant_admin",
+        "super_admin"
+      ],
+      "tenantBoundary": "The payment allocation mode, priority order and leftover destination are tenant settings read and written by admin-only API procedures; defaults apply when nothing is saved."
+    },
+    {
       "file": "src/app/notifications.tsx",
       "path": "/notifications",
       "feature": "notifications",

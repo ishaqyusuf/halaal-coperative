@@ -137,7 +137,7 @@ describe("mobile notification center", () => {
       false,
     ])
     expect(center.deliveries.map((item) => item.safeSummary)).toEqual([
-      "Receipt activity is available inside the app.",
+      "Payment activity is available inside the app.",
       "Support activity is available inside the app.",
       "Cooperative activity is available inside the app.",
     ])

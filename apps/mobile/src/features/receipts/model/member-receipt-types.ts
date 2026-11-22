@@ -49,6 +49,8 @@ export type MobileReceiptAllocation = {
   foodPurchaseApplicationId: string | null
   id: string
   loanId: string | null
+  /** Older servers omit it. */
+  memberShareApplicationId?: string | null
   notes: string | null
   periodIntent: MobileReceiptPeriodIntent
   projectFinancingRequestId: string | null
@@ -85,7 +87,11 @@ export type MobileMemberReceipts = {
   receipts: MobilePaymentReceipt[]
   state: "available" | "database_unavailable" | "member_profile_missing"
   summary: {
+    /** Applied total, ₦ (first page; older servers omit it). */
+    appliedAmount?: number
     approvedReceipts: number
+    /** Still being checked, ₦ (first page; older servers omit it). */
+    checkingAmount?: number
     correctionRequestedReceipts: number
     pendingReviewReceipts: number
     rejectedReceipts: number
@@ -98,6 +104,7 @@ export type MobileReceiptCreateAllocation = {
   contributionPlanId?: string
   foodPurchaseApplicationId?: string
   loanId?: string
+  memberShareApplicationId?: string
   notes?: string
   periodIntent?: MobileReceiptPeriodIntent
   projectFinancingRequestId?: string
@@ -114,4 +121,34 @@ export type MobileReceiptCreateInput = {
   proofDocumentName?: string
   proofDocumentUrl?: string
   totalAmount: number
+}
+
+/** What the member owes now (server `listMemberPayables`, T30). */
+export type MobileMemberPayableKind =
+  | "procurement"
+  | "food_purchase"
+  | "loan"
+  | "shares"
+  | "commitment"
+
+export type MobileMemberPayable = {
+  amount: number
+  dueDate: string | null
+  /** `<kind>:<targetId>`, the `payable` deep-link param. */
+  id: string
+  kind: MobileMemberPayableKind
+  overdue: boolean
+  subtitle: string | null
+  targetId: string
+  title: string
+}
+
+export type MobileMemberPayables = {
+  cache?: MobileReadCacheState
+  canCreateReceipt: boolean
+  /** `automatic`: a typed amount is applied in `payables` order. */
+  mode: "automatic" | "member_choice"
+  /** Already in the cooperative's payment order. */
+  payables: MobileMemberPayable[]
+  proofRequired: boolean
 }

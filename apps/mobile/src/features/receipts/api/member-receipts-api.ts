@@ -8,127 +8,60 @@ import { createMobileTrpcClient } from "@/lib/mobile-trpc-client"
 import { receiptMatches } from "../model/receipt-presentation"
 import { readCachedMobileQuery } from "@/lib/read-cache"
 import type {
+  MobileMemberPayables,
   MobileMemberReceipts,
   MobilePaymentReceipt,
   MobileReceiptCreateInput,
 } from "../model/member-receipt-types"
 
-const devCategories: MobileMemberReceipts["categories"] = [
-  {
-    label: "Commitment",
-    postable: true,
-    requiresTarget: false,
-    targetKind: "contributionPlanId",
-    targets: [
-      {
-        id: "commitment-dev-1",
-        label: "NGN 85,000 active commitment",
-        outstandingAmount: null,
-      },
-    ],
-    value: "commitment",
-  },
-  {
-    label: "Special savings",
-    postable: true,
-    requiresTarget: false,
-    targetKind: "contributionPlanId",
-    targets: [
-      {
-        id: "commitment-dev-1",
-        label: "NGN 85,000 active commitment",
-        outstandingAmount: null,
-      },
-    ],
-    value: "special_savings",
-  },
-  {
-    label: "Loan servicing",
-    postable: true,
-    requiresTarget: true,
-    targetKind: "loanId",
-    targets: [
-      {
-        id: "loan-dev-1",
-        label: "Equipment financing · NGN 320,000 outstanding",
-        outstandingAmount: 320000,
-      },
-    ],
-    value: "loan_servicing",
-  },
-  {
-    label: "Extra loan payment",
-    postable: true,
-    requiresTarget: true,
-    targetKind: "loanId",
-    targets: [
-      {
-        id: "loan-dev-1",
-        label: "Equipment financing · NGN 320,000 outstanding",
-        outstandingAmount: 320000,
-      },
-    ],
-    value: "loan_extra_payment",
-  },
-  {
-    label: "Shares",
-    postable: true,
-    requiresTarget: false,
-    targetKind: null,
-    targets: [],
-    value: "shares",
-  },
-  {
-    label: "Procurement",
-    postable: true,
-    requiresTarget: true,
-    targetKind: "procurementRepaymentScheduleItemId",
-    targets: [
-      {
-        id: "procurement-schedule-dev-1",
-        label: "Office equipment · NGN 72,500 outstanding",
-        outstandingAmount: 72500,
-      },
-    ],
-    value: "procurement",
-  },
-  {
-    label: "Project financing",
-    postable: true,
-    requiresTarget: true,
-    targetKind: "projectFinancingRequestId",
-    targets: [
-      {
-        id: "project-financing-dev-1",
-        label: "Workshop expansion · NGN 180,000 outstanding",
-        outstandingAmount: 180000,
-      },
-    ],
-    value: "project_financing",
-  },
-  {
-    label: "Foodstuff Purchase",
-    postable: true,
-    requiresTarget: true,
-    targetKind: "foodPurchaseApplicationId",
-    targets: [
-      {
-        id: "food-purchase-dev-1",
-        label: "August household basket · NGN 48,000 outstanding",
-        outstandingAmount: 48000,
-      },
-    ],
-    value: "food_purchase",
-  },
-  {
-    label: "Other",
-    postable: false,
-    requiresTarget: false,
-    targetKind: null,
-    targets: [],
-    value: "other",
-  },
-]
+/** Dev fixture payables (Aisha Bello, Amana Savings Cooperative). */
+const devPayables: MobileMemberPayables = {
+  canCreateReceipt: true,
+  mode: "automatic",
+  payables: [
+    {
+      amount: 72500,
+      dueDate: "2026-11-05",
+      id: "procurement:procurement-schedule-dev-1",
+      kind: "procurement",
+      overdue: true,
+      subtitle: "Instalment 3 of 6",
+      targetId: "procurement-schedule-dev-1",
+      title: "Laptop",
+    },
+    {
+      amount: 48000,
+      dueDate: "2026-11-30",
+      id: "food_purchase:food-purchase-dev-1",
+      kind: "food_purchase",
+      overdue: false,
+      subtitle: "Rice, oil and beans",
+      targetId: "food-purchase-dev-1",
+      title: "November basket",
+    },
+    {
+      amount: 60000,
+      dueDate: "2026-11-25",
+      id: "loan:loan-dev-1",
+      kind: "loan",
+      overdue: false,
+      subtitle: "Repayment",
+      targetId: "loan-dev-1",
+      title: "Equipment financing",
+    },
+    {
+      amount: 25000,
+      dueDate: "2026-11-30",
+      id: "commitment:commitment-dev-1",
+      kind: "commitment",
+      overdue: false,
+      subtitle: "November",
+      targetId: "commitment-dev-1",
+      title: "Monthly commitment",
+    },
+  ],
+  proofRequired: false,
+}
 
 function fixtureReceipt(
   receipt: ReturnType<typeof createDevMemberReceipt>
@@ -188,15 +121,24 @@ export async function getMemberReceipts({
   )
 }
 
-export async function getReceiptFormOptions(): Promise<{
-  canCreateReceipt: boolean
-  proofRequired?: boolean
-  categories: MobileMemberReceipts["categories"]
-}> {
-  if (isMobileDevFixtureSession()) {
-    return { canCreateReceipt: true, categories: devCategories, proofRequired: false }
-  }
-  return createMobileTrpcClient().mobile.member.receipts.formOptions.query()
+/**
+ * Record payment's one read (T30): current payables in the cooperative's
+ * order plus the allocation mode. Cached so the list's "Due now" shows
+ * offline.
+ */
+export async function getMemberPayables({
+  online,
+}: {
+  online: boolean
+}): Promise<MobileMemberPayables> {
+  return readCachedMobileQuery<MobileMemberPayables>(
+    "member.receipts.payables",
+    async () => {
+      if (!online) throw new Error("You’re offline.")
+      if (isMobileDevFixtureSession()) return devPayables
+      return createMobileTrpcClient().mobile.member.receipts.payables.query()
+    }
+  )
 }
 
 export async function createMemberReceipt(

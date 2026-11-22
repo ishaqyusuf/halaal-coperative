@@ -58,7 +58,11 @@ export type MobileMemberReceiptSnapshot = {
   receipts: MobileMemberPaymentReceipt[]
   state: "available" | "database_unavailable" | "member_profile_missing"
   summary: {
+    /** Total applied (approved), ₦ (T30 strip). First page only. */
+    appliedAmount?: number
     approvedReceipts: number
+    /** Receipts still being checked, ₦ (T30 strip). */
+    checkingAmount?: number
     correctionRequestedReceipts: number
     pendingReviewReceipts: number
     rejectedReceipts: number
@@ -141,10 +145,7 @@ async function getReceiptServices(tenantId: string, prisma: PrismaClient) {
   )
 }
 
-async function getReceiptProofRequired(
-  tenantId: string,
-  prisma: PrismaClient
-) {
+async function getReceiptProofRequired(tenantId: string, prisma: PrismaClient) {
   const policy = await prisma.tenantPolicy.findUnique({
     select: { paymentReceiptProofRequired: true },
     where: { tenantId },
@@ -439,10 +440,9 @@ export async function getMobileMemberReceiptSnapshot(
   const pageSize = 20
   const sort = ["submittedAt", "desc"] as ["submittedAt", "desc"]
   const filters = { ...scope, cursor, pageSize: pageSize + 1, sort }
+  const firstPage = !(compact && cursor)
   const [summary, capabilities, items, proofRequired] = await Promise.all([
-    compact && cursor
-      ? emptySnapshot("available").summary
-      : getMemberScopedPaymentReceiptSummary(scope, prisma),
+    firstPage ? getMemberScopedPaymentReceiptSummary(scope, prisma) : null,
     compact
       ? getReceiptServices(tenantId, prisma).then((services) => ({
           canCreateReceipt: services.payment_receipts.canMemberCreate,
@@ -480,10 +480,16 @@ export async function getMobileMemberReceiptSnapshot(
     receipts: rows.map(toMobileReceipt),
     state: "available",
     summary: {
-      approvedReceipts: summary.approvedReceipts,
-      correctionRequestedReceipts: summary.correctionRequestedReceipts,
-      pendingReviewReceipts: summary.pendingReviewReceipts,
-      rejectedReceipts: summary.rejectedReceipts,
+      ...(summary
+        ? {
+            appliedAmount: summary.approvedAmount,
+            checkingAmount: summary.pendingReviewAmount,
+          }
+        : {}),
+      approvedReceipts: summary?.approvedReceipts ?? 0,
+      correctionRequestedReceipts: summary?.correctionRequestedReceipts ?? 0,
+      pendingReviewReceipts: summary?.pendingReviewReceipts ?? 0,
+      rejectedReceipts: summary?.rejectedReceipts ?? 0,
     },
   }
 }

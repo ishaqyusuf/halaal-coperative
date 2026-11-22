@@ -171,15 +171,15 @@ export async function getMobileMemberMore(input: {
       key: "receipts",
       rows: [
         row({
-          detail: "Submitted or under finance review",
+          detail: "Payments finance is still checking",
           format: "count",
           key: "pending-receipts",
-          label: "Pending review",
+          label: "Checking",
           status: pendingReceipts > 0 ? "Open" : "Clear",
           value: pendingReceipts,
         }),
       ],
-      title: "Receipts",
+      title: "Transactions",
     },
     {
       icon: "PackageSearch",

@@ -94,6 +94,10 @@ export type MemberPaymentReceiptRow = {
 }
 
 export type MemberPaymentReceiptSummary = {
+  /** Total of approved receipts. */
+  approvedAmount: number
+  /** Total of receipts still being checked (submitted or under review). */
+  pendingReviewAmount: number
   approvedReceipts: number
   correctionRequestedReceipts: number
   pendingReviewReceipts: number
@@ -2093,9 +2097,17 @@ async function getPaymentReceiptStatusSummary(
 
   const groups = await prisma.memberPaymentReceipt.groupBy({
     _count: { _all: true },
+    _sum: { totalAmount: true },
     by: ["status"],
     where,
   })
+  const amounts = new Map(
+    groups.map((group) => [group.status, Number(group._sum?.totalAmount ?? 0)])
+  )
+  const amount = (...statuses: MemberPaymentReceiptStatus[]) =>
+    roundMoney(
+      statuses.reduce((sum, status) => sum + (amounts.get(status) ?? 0), 0)
+    )
   const counts = new Map(
     groups.map((group) => [group.status, group._count._all])
   )
@@ -2106,8 +2118,10 @@ async function getPaymentReceiptStatusSummary(
   const rejectedReceipts = counts.get("rejected") ?? 0
 
   return {
+    approvedAmount: amount("approved"),
     approvedReceipts,
     correctionRequestedReceipts,
+    pendingReviewAmount: amount("submitted", "under_review"),
     pendingReviewReceipts: submittedReceipts + underReviewReceipts,
     rejectedReceipts,
     submittedReceipts,

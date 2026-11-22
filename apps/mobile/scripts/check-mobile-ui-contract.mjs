@@ -353,9 +353,9 @@ function checkSeparatedDataEntrySurfaces() {
   )
   checkSourceMarkers(
     "src/features/receipts/screens/member-receipts-screen.tsx",
-    ["<AppList", "<ReceiptSubmitFlow", "<ReceiptSupportFlow"]
+    ["<AppList", "<RecordPaymentFlow", "<ReceiptSupportFlow"]
   )
-  for (const flow of ["receipt-submit-flow", "receipt-support-flow"]) {
+  for (const flow of ["record-payment-flow", "receipt-support-flow"]) {
     checkSourceMarkers(
       `src/features/receipts/components/${flow}.tsx`,
       ["<AppSheet", 'variant="form"']

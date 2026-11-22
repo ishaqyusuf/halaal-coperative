@@ -46,7 +46,7 @@ const PRESENTATION = {
     surface: "bg-accent",
     ink: "text-accent-foreground",
     title: "Get alerts on this phone",
-    description: "Turn on push for receipts, financing and security alerts.",
+    description: "Turn on push for payments, financing and security alerts.",
     detail: "Off · alerts stay in your inbox",
     action: "Turn on",
   },

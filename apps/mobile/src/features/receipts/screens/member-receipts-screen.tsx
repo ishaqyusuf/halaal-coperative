@@ -1,10 +1,10 @@
 import { AppList } from "@/components/app/app-list"
 import { EmptyState } from "@/components/app/empty-state"
 import { ScreenHeaderButton } from "@/components/app/screen-shell"
-import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
-import { Elevated } from "@/components/ui/list-card"
+import { Elevated, useCardShadow } from "@/components/ui/list-card"
 import { Pressable } from "@/components/ui/pressable"
+import { SegmentedControl } from "@/components/ui/segmented-control"
 import { Skeleton } from "@/components/ui/skeleton"
 import { StatusBanner } from "@/components/ui/status-banner"
 import { StatusPill } from "@/components/ui/status-pill"
@@ -18,6 +18,7 @@ import {
 import { useAuthContext } from "@/hooks/use-auth"
 import { useDebounce } from "@/hooks/use-debounce"
 import { useMobileFormDraft } from "@/hooks/use-mobile-form-draft"
+import { todayDateOnly } from "@/lib/date-only"
 import { isMobileReadCacheStale } from "@/lib/read-cache"
 import { useIsOnline } from "@/lib/online-status"
 import { cn } from "@/lib/utils"
@@ -30,110 +31,140 @@ import {
   getMemberReceipts,
 } from "../api/member-receipts-api"
 import { ReceiptDetail, ReceiptTile } from "../components/receipt-detail"
-import { ReceiptSubmitFlow } from "../components/receipt-submit-flow"
 import { ReceiptSupportFlow } from "../components/receipt-support-flow"
+import { RecordPaymentFlow } from "../components/record-payment-flow"
 import type {
   MobileMemberReceipts,
   MobilePaymentReceipt,
 } from "../model/member-receipt-types"
 import {
-  hasReceiptDraft,
-  newReceiptDraft,
+  hasPaymentDraft,
+  newPaymentDraft,
+  preselectedPayable,
+  type PaymentDraft,
+} from "../model/payment-plan"
+import {
+  receiptCategories,
+  receiptCategoryColors,
   receiptDate,
   receiptMatches,
   receiptMoney,
-  receiptMonth,
+  receiptPartsLine,
   receiptStatus,
-  receiptTitle,
 } from "../model/receipt-presentation"
+import {
+  memberPayablesQueryKey,
+  useMemberPayables,
+} from "../public/member-payables"
 
-type LedgerItem = {
-  first: boolean
-  last: boolean
-  month?: string
-  monthCount?: number
-  receipt: MobilePaymentReceipt
+type Lane = "all" | "checking" | "fix" | "applied"
+
+const laneStatuses: Record<Lane, readonly string[] | null> = {
+  all: null,
+  applied: ["approved"],
+  checking: ["submitted", "under_review", "pending_review"],
+  fix: ["correction_requested"],
 }
 
-function ledgerItems(receipts: MobilePaymentReceipt[]) {
-  const monthCounts = new Map<string, number>()
-  for (const item of receipts) {
-    const month = item.submittedAt.slice(0, 7)
-    monthCounts.set(month, (monthCounts.get(month) ?? 0) + 1)
-  }
-  return receipts.map((receipt, index, items): LedgerItem => {
-    const month = receipt.submittedAt.slice(0, 7)
-    const first = items[index - 1]?.submittedAt.slice(0, 7) !== month
-    return {
-      first,
-      last: items[index + 1]?.submittedAt.slice(0, 7) !== month,
-      month: first ? month : undefined,
-      monthCount: first ? monthCounts.get(month) : undefined,
-      receipt,
-    }
-  })
-}
-
-function ReceiptLedgerRow({
+/** The "where it went" bar and legend under a row (02 Activity feed). */
+function WhereItWent({
   currency,
-  item,
-  onPress,
+  receipt,
 }: {
   currency: string
-  item: LedgerItem
-  onPress: () => void
+  receipt: MobilePaymentReceipt
 }) {
-  const { receipt } = item
-  const status = receiptStatus(receipt.status)
-  const count = receipt.allocations.length
+  const parts = new Map<string, { amount: number; color: string; label: string }>()
+  for (const split of receipt.allocations) {
+    const label = receiptCategories[split.category]
+    const part = parts.get(label)
+    if (part) part.amount += split.amount
+    else
+      parts.set(label, {
+        amount: split.amount,
+        color: receiptCategoryColors[split.category],
+        label,
+      })
+  }
+  if (!parts.size) return null
+  const total = Math.max(1, receipt.totalAmount)
   return (
-    <View className={cn("px-[18px]", item.last && "pb-[16px]")}>
-      {item.month ? (
-        <View className="mb-[8px] flex-row items-baseline justify-between px-[2px]">
-          <Text accessibilityRole="header" variant="section">
-            {receiptMonth(item.month)}
-          </Text>
-          <Text className="text-muted-foreground" variant="caption">
-            {item.monthCount}
-          </Text>
-        </View>
-      ) : null}
+    <>
+      <View className="mt-[8px] h-[8px] flex-row gap-[2px] overflow-hidden rounded-[4px]">
+        {[...parts.values()].map((part) => (
+          <View
+            className={cn("h-full", part.color)}
+            key={part.label}
+            style={{ width: `${(part.amount / total) * 100}%` }}
+          />
+        ))}
+      </View>
+      <View className="mt-[6px] flex-row flex-wrap gap-x-[10px] gap-y-[4px]">
+        {[...parts.values()].map((part) => (
+          <View className="flex-row items-center gap-[5px]" key={part.label}>
+            <View className={cn("size-[8px] rounded-[3px]", part.color)} />
+            <Text className="text-muted-foreground" variant="caption">
+              {part.label} {receiptMoney(part.amount, currency)}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </>
+  )
+}
+
+function TransactionRow({
+  currency,
+  first,
+  last,
+  onPress,
+  receipt,
+}: {
+  currency: string
+  first: boolean
+  last: boolean
+  onPress: () => void
+  receipt: MobilePaymentReceipt
+}) {
+  const status = receiptStatus(receipt.status)
+  const fix = receipt.status === "correction_requested" && receipt.reviewNotes
+  return (
+    <View className={cn("px-[18px]", last && "pb-[16px]")}>
       <Pressable
-        accessibilityLabel={`${receiptTitle(receipt)}, ${receiptMoney(receipt.totalAmount, currency)}, ${status.label}`}
+        accessibilityLabel={`${receiptMoney(receipt.totalAmount, currency)}, ${receiptDate(receipt.paidAt, true)}, ${receiptPartsLine(receipt)}, ${status.label}`}
         accessibilityRole="button"
         className={cn(
-          "min-h-[68px] flex-row items-center gap-[10px] border-x border-border bg-card px-[13px] py-[10px]",
-          item.first && "rounded-t-[20px] border-t",
-          item.last && "rounded-b-[20px] border-b"
+          "min-h-[68px] flex-row items-start gap-[10px] border-x border-border bg-card px-[13px] py-[12px]",
+          first && "rounded-t-[20px] border-t",
+          last && "rounded-b-[20px] border-b"
         )}
         onPress={onPress}
       >
-        <ReceiptTile tone={status.tone} />
-        <View className="min-w-0 flex-1 gap-[2px]">
-          <Text className="font-extrabold" numberOfLines={1} variant="body">
-            {receiptTitle(receipt)}
-          </Text>
-          <Text
-            className="text-muted-foreground"
-            numberOfLines={1}
-            variant="small"
-          >
-            {receiptDate(receipt.paidAt, true)} · {count}{" "}
-            {count === 1 ? "split" : "splits"}
-          </Text>
-        </View>
-        <View className="items-end gap-[3px]">
+        <ReceiptTile
+          icon={
+            receipt.status === "approved"
+              ? "Wallet"
+              : (status.icon ?? "ReceiptText")
+          }
+          tone={status.tone}
+        />
+        <View className="min-w-0 flex-1">
           <Text tabular variant="money">
             {receiptMoney(receipt.totalAmount, currency)}
           </Text>
-          <StatusPill
-            icon={status.icon}
-            label={status.label}
-            tone={status.tone}
-          />
+          <Text
+            className={cn(fix ? "text-destructive" : "text-muted-foreground")}
+            numberOfLines={1}
+            variant="small"
+          >
+            {fix ||
+              `${receiptDate(receipt.paidAt, true)} · ${receiptPartsLine(receipt)}`}
+          </Text>
+          <WhereItWent currency={currency} receipt={receipt} />
         </View>
+        <StatusPill icon={status.icon} label={status.label} tone={status.tone} />
       </Pressable>
-      {!item.last ? (
+      {!last ? (
         <View className="border-x border-border bg-card pl-[67px]">
           <View className="h-px bg-border" />
         </View>
@@ -142,54 +173,43 @@ function ReceiptLedgerRow({
   )
 }
 
-function ReceiptStats({
+function Strip({
+  currency,
+  dueNow,
   snapshot,
 }: {
+  currency: string
+  dueNow: number | undefined
   snapshot: MobileMemberReceipts | undefined
 }) {
-  const cards = [
-    {
-      label: "In review",
-      count: snapshot?.summary.pendingReviewReceipts,
-      dot: "bg-brand-warm",
-    },
-    {
-      label: "To fix",
-      count: snapshot?.summary.correctionRequestedReceipts,
-      dot: "bg-brand-vivid",
-    },
-    {
-      label: "Approved",
-      count: snapshot?.summary.approvedReceipts,
-      dot: "bg-success",
-    },
+  const cells = [
+    { label: "Due now", value: dueNow },
+    { label: "Checking", value: snapshot?.summary.checkingAmount },
+    { label: "Applied", value: snapshot?.summary.appliedAmount },
   ]
   return (
     <Elevated
       className="flex-row rounded-[20px] border border-border bg-card"
       radius={20}
     >
-      {cards.map((card, i) => (
+      {cells.map((cell, index) => (
         <View
           className={cn(
-            "min-w-0 flex-1 items-start gap-[4px] px-[12px] py-[14px]",
-            i > 0 && "border-l border-border"
+            "min-w-0 flex-1 gap-[2px] p-[14px]",
+            index > 0 && "border-l border-border"
           )}
-          key={card.label}
+          key={cell.label}
         >
-          {card.count === undefined ? (
-            <Skeleton className="h-[26px] w-[28px] rounded-[6px]" />
+          <Text className="text-muted-foreground" variant="caption">
+            {cell.label}
+          </Text>
+          {cell.value === undefined ? (
+            <Skeleton className="h-[22px] w-[64px] rounded-[6px]" />
           ) : (
-            <Text tabular variant="title">
-              {card.count}
+            <Text numberOfLines={1} adjustsFontSizeToFit tabular variant="money">
+              {receiptMoney(cell.value, currency)}
             </Text>
           )}
-          <View className="flex-row items-center gap-[5px]">
-            <View className={cn("size-[7px] rounded-full", card.dot)} />
-            <Text className="shrink text-muted-foreground" variant="caption">
-              {card.label}
-            </Text>
-          </View>
         </View>
       ))}
     </Elevated>
@@ -197,22 +217,35 @@ function ReceiptStats({
 }
 
 export function ReceiptsScreen({
+  composePayable = null,
+  composeRequested = false,
   initialEntityId = null,
+  onComposeHandled,
 }: {
+  /** `payable` deep-link param (`<kind>:<id>`), T30 contract. */
+  composePayable?: string | null
+  /** `compose=1`: open Record payment on arrival. */
+  composeRequested?: boolean
   initialEntityId?: string | null
+  onComposeHandled?: () => void
 }) {
   const { profile } = useAuthContext()
   const router = useRouter()
   const online = useIsOnline()
   const cache = useQueryClient()
+  const shadow = useCardShadow()
   const account = profile
     ? `${profile.user.id}:${profile.tenant.id}:${profile.activeMembershipId}`
     : undefined
   const allowed = canUseMobileFeatureData(profile, "member")
   const currency = profile?.tenant.currencyCode ?? "NGN"
+  const cooperativeName = profile?.tenant.name ?? "your cooperative"
   const [search, setSearch] = useState("")
   const term = useDebounce(search.trim().slice(0, 120), 275)
-  const [draft, setDraft] = useState(newReceiptDraft)
+  const [lane, setLane] = useState<Lane>("all")
+  const [draft, setDraft] = useState<PaymentDraft>(() =>
+    newPaymentDraft(todayDateOnly())
+  )
   const [formOpen, setFormOpen] = useState(false)
   const [receiptId, setReceiptId] = useState<string | null>(initialEntityId)
   const [supportOpen, setSupportOpen] = useState(false)
@@ -229,18 +262,16 @@ export function ReceiptsScreen({
 
   const clearStoredDraft = useMobileFormDraft({
     enabled: allowed,
-    key: "member.receipts.create",
+    key: "member.receipts.payment",
     onHydrate: (value) =>
       setDraft((previous) => ({
         ...previous,
         ...value,
-        allocations: value.allocations?.length
-          ? value.allocations
-          : previous.allocations,
+        selected: Array.isArray(value.selected) ? value.selected : [],
       })),
     value: draft,
   })
-  const draftSaved = hasReceiptDraft(draft)
+  const draftSaved = hasPaymentDraft(draft)
 
   const listKey = appQueryKey("member-receipts", account, "ledger")
   const ledger = useAppInfiniteQuery<
@@ -260,6 +291,7 @@ export function ReceiptsScreen({
       getMemberReceipts({ cursor: pageParam, online }),
     selectItems: (page) => page.receipts,
   })
+  const payables = useMemberPayables({ enabled: allowed })
   const snapshot = ledger.data?.pages[0]
   const stale = isMobileReadCacheStale(snapshot?.cache)
   const canCreate = Boolean(snapshot?.canCreateReceipt)
@@ -294,14 +326,25 @@ export function ReceiptsScreen({
   const selected =
     detail.data === null ? null : (detail.data ?? cachedReceipt ?? null)
   const activeList = searching ? results : ledger
-  const rows = online
+  const loaded = online
     ? activeList.items
     : ledger.items.filter(
         (item) => !term || receiptMatches(item, term, currency)
       )
+  const statuses = laneStatuses[lane]
+  const rows = statuses
+    ? loaded.filter((item) => statuses.includes(item.status))
+    : loaded
   const totalCount = snapshot
-    ? Object.values(snapshot.summary).reduce((a, b) => a + b, 0)
+    ? snapshot.summary.approvedReceipts +
+      snapshot.summary.correctionRequestedReceipts +
+      snapshot.summary.pendingReviewReceipts +
+      snapshot.summary.rejectedReceipts
     : 0
+  const fixCount = snapshot?.summary.correctionRequestedReceipts ?? 0
+  const owed = payables.data?.payables
+  const dueNow = owed?.reduce((sum, payable) => sum + payable.amount, 0)
+  const overdue = owed?.find((payable) => payable.overdue)
   const missing = snapshot?.state === "member_profile_missing" || !allowed
   const failed =
     activeList.isError || snapshot?.state === "database_unavailable"
@@ -314,9 +357,35 @@ export function ReceiptsScreen({
     setReceiptId(id)
   }
 
+  // Pay-from-request deep link: open Record payment with the badge picked
+  // once payables load (unknown or already-paid ids pick nothing).
+  const composeHandled = useRef(false)
+  useEffect(() => {
+    if (!composeRequested) {
+      composeHandled.current = false
+      return
+    }
+    if (composeHandled.current || !snapshot || payables.isPending) return
+    composeHandled.current = true
+    const pick = preselectedPayable(
+      composePayable ?? undefined,
+      payables.data?.payables ?? []
+    )
+    if (pick) setDraft((value) => ({ ...value, selected: [pick] }))
+    if (snapshot.canCreateReceipt) setFormOpen(true)
+    onComposeHandled?.()
+  }, [
+    composePayable,
+    composeRequested,
+    onComposeHandled,
+    payables.data,
+    payables.isPending,
+    snapshot,
+  ])
+
   function resetDraft() {
     setDraft((value) => ({
-      ...newReceiptDraft(),
+      ...newPaymentDraft(todayDateOnly()),
       supportDescription: value.supportDescription,
       supportReceiptId: value.supportReceiptId,
     }))
@@ -338,7 +407,7 @@ export function ReceiptsScreen({
               }
             : value
       )
-      await activeList.refetch()
+      await Promise.all([activeList.refetch(), payables.refetch()])
     } finally {
       setRetrying(false)
     }
@@ -368,6 +437,8 @@ export function ReceiptsScreen({
               receipts: [receipt, ...first.receipts],
               summary: {
                 ...first.summary,
+                checkingAmount:
+                  (first.summary.checkingAmount ?? 0) + receipt.totalAmount,
                 pendingReviewReceipts: first.summary.pendingReviewReceipts + 1,
               },
             },
@@ -391,29 +462,13 @@ export function ReceiptsScreen({
         icon="ChevronLeft"
         onPress={() => router.back()}
       />
-      {compact ? <Text variant="label">Receipts</Text> : null}
-      {canCreate ? (
-        <Button
-          accessibilityLabel={
-            draftSaved ? "Continue receipt" : "Submit receipt"
-          }
-          onPress={openForm}
-          size="icon"
-          testID="receipt-new"
-        >
-          <Icon
-            className="size-[22px] text-primary-foreground"
-            name={draftSaved ? "SquarePen" : "Plus"}
-          />
-        </Button>
-      ) : (
-        <View className="size-[44px]" />
-      )}
+      {compact ? <Text variant="label">Transactions</Text> : null}
+      <View className="size-[44px]" />
     </View>
   )
   const empty = missing ? (
     <EmptyState
-      description="Your cooperative needs to link your member profile before receipts show here."
+      description="Your cooperative needs to link your member profile before your payments show here."
       icon="IdCard"
       title="Your member profile isn’t linked yet"
     />
@@ -423,7 +478,9 @@ export function ReceiptsScreen({
       description="Check your connection and try again."
       icon="CircleAlert"
       title={
-        online ? "Couldn’t load receipts" : "No receipts saved on this phone"
+        online
+          ? "Couldn’t load your transactions"
+          : "No transactions saved on this phone"
       }
       tone="error"
     />
@@ -432,20 +489,33 @@ export function ReceiptsScreen({
       action={{ label: "Clear search", onPress: () => setSearch("") }}
       description="Try a reference, an amount or a status."
       icon="Search"
-      title={`No receipts match “${term}”`}
+      title={`No payments match “${term}”`}
+    />
+  ) : lane !== "all" && loaded.length ? (
+    <EmptyState
+      action={{ label: "Show all", onPress: () => setLane("all") }}
+      description="Nothing in this list right now."
+      icon={lane === "fix" ? "BadgeCheck" : "Wallet"}
+      title={
+        lane === "fix"
+          ? "Nothing to fix"
+          : lane === "checking"
+            ? "Nothing being checked"
+            : "Nothing applied yet"
+      }
     />
   ) : (
     <EmptyState
       action={
-        canCreate ? { label: "Submit receipt", onPress: openForm } : undefined
+        canCreate ? { label: "Record payment", onPress: openForm } : undefined
       }
       description={
         canCreate
-          ? "After you pay your cooperative, send the proof here. Finance reviews it before posting."
-          : "Receipts you send will show here."
+          ? "When you pay the cooperative, add it here with your slip. We apply it to what you owe and put any extra in your savings."
+          : "Payments you record will show here."
       }
-      icon="ReceiptText"
-      title="No receipts yet"
+      icon="Wallet"
+      title="No payments yet"
     />
   )
 
@@ -453,27 +523,57 @@ export function ReceiptsScreen({
     <>
       <AppList
         back={false}
+        bottomAction={
+          canCreate && !formOpen ? (
+            <View className="flex-1 flex-row justify-end">
+              <View style={{ ...shadow, borderRadius: 28 }}>
+                <Pressable
+                  accessibilityLabel={
+                    draftSaved ? "Continue payment" : "Record payment"
+                  }
+                  accessibilityRole="button"
+                  className="h-[56px] flex-row items-center gap-[8px] rounded-full bg-primary pr-[20px] pl-[16px]"
+                  onPress={openForm}
+                  testID="receipt-new"
+                >
+                  <Icon
+                    className="size-[20px] text-primary-foreground"
+                    name={draftSaved ? "SquarePen" : "Plus"}
+                  />
+                  <Text className="text-primary-foreground" variant="section">
+                    {draftSaved ? "Continue payment" : "Record payment"}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : undefined
+        }
         compactHeader={<View className="px-[18px]">{nav(true)}</View>}
-        data={ledgerItems(rows)}
-        keyExtractor={(item) => item.receipt.id}
-        estimatedItemSize={77}
+        data={rows}
+        empty={empty}
         error={
           failed && rows.length > 0 && !activeList.isFetchNextPageError
-            ? "Couldn’t refresh receipts."
+            ? "Couldn’t refresh your transactions."
             : null
         }
-        empty={empty}
+        estimatedItemSize={96}
+        extraData={lane}
         header={
           <View className="gap-[14px]">
             {nav(false)}
-            <Text accessibilityRole="header" variant="screenTitle">
-              Receipts
-            </Text>
+            <View className="gap-[2px]">
+              <Text accessibilityRole="header" variant="screenTitle">
+                Transactions
+              </Text>
+              <Text className="text-muted-foreground" variant="small">
+                Money you’ve paid in and where it went
+              </Text>
+            </View>
             {!online ? (
               <StatusBanner
                 description={
                   snapshot?.cache?.cachedAt
-                    ? `Showing receipts saved ${receiptDate(snapshot.cache.cachedAt, true)}.`
+                    ? `Showing what was saved ${receiptDate(snapshot.cache.cachedAt, true)}. You can start a payment; send it when you’re back.`
                     : undefined
                 }
                 kind="offline"
@@ -484,17 +584,64 @@ export function ReceiptsScreen({
                 kind="stale"
                 onRetry={refresh}
                 retrying={retrying}
-                title="Couldn’t refresh receipts"
+                title="Couldn’t refresh your transactions"
               />
             ) : null}
             {!canCreate && snapshot?.state === "available" ? (
               <StatusBanner
+                description="Your payment history is still here."
                 kind="info"
-                title="New receipts are off"
-                description="Your receipt history is still available."
+                title="Recording payments is off"
               />
             ) : null}
-            {canCreate && draftSaved ? (
+            {!missing &&
+            (snapshot?.state === "available" || ledger.isPending) ? (
+              <Strip currency={currency} dueNow={dueNow} snapshot={snapshot} />
+            ) : null}
+            {canCreate && owed?.length ? (
+              <Pressable
+                accessibilityRole="button"
+                className="min-h-[56px] flex-row items-center gap-[10px] rounded-[20px] border border-border bg-card px-[13px] py-[10px]"
+                onPress={openForm}
+                testID="transactions-due"
+              >
+                <View
+                  className={cn(
+                    "size-[44px] items-center justify-center rounded-[14px]",
+                    overdue ? "bg-tint-danger" : "bg-accent"
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      "size-[20px]",
+                      overdue
+                        ? "text-tint-danger-foreground"
+                        : "text-accent-foreground"
+                    )}
+                    name={overdue ? "CircleAlert" : "CalendarClock"}
+                  />
+                </View>
+                <View className="min-w-0 flex-1">
+                  <Text className="font-extrabold" variant="body">
+                    {receiptMoney(dueNow ?? 0, currency)} due now
+                  </Text>
+                  <Text
+                    className="text-muted-foreground"
+                    numberOfLines={1}
+                    variant="small"
+                  >
+                    {overdue
+                      ? `${overdue.kind === "food_purchase" ? "Foodstuff" : overdue.kind === "procurement" ? "Procurement" : overdue.kind === "loan" ? "Loan" : "Payment"} overdue · tap to pay`
+                      : `${owed.length} item${owed.length === 1 ? "" : "s"} · tap to pay`}
+                  </Text>
+                </View>
+                <Icon
+                  className="size-[18px] text-muted-foreground"
+                  name="ChevronRight"
+                />
+              </Pressable>
+            ) : null}
+            {canCreate && draftSaved && !formOpen ? (
               <Pressable
                 accessibilityRole="button"
                 className="flex-row items-center gap-[10px] rounded-[18px] bg-accent p-[12px]"
@@ -509,14 +656,10 @@ export function ReceiptsScreen({
                     className="font-bold text-accent-foreground"
                     variant="body"
                   >
-                    Continue your receipt
+                    Continue your payment
                   </Text>
                   <Text className="text-accent-foreground" variant="small">
-                    {receiptMoney(
-                      Number(draft.totalAmount.replace(/,/g, "")) || 0,
-                      currency
-                    )}{" "}
-                    draft saved on this phone
+                    Saved on this phone
                   </Text>
                 </View>
                 <Icon
@@ -525,21 +668,38 @@ export function ReceiptsScreen({
                 />
               </Pressable>
             ) : null}
-            {!missing &&
-            (snapshot?.state === "available" || ledger.isPending) ? (
-              <ReceiptStats snapshot={snapshot} />
+            {totalCount > 0 ? (
+              <SegmentedControl
+                accessibilityLabel="Filter transactions"
+                onChange={setLane}
+                options={[
+                  { label: "All", value: "all" },
+                  { label: "Checking", value: "checking" },
+                  {
+                    count: fixCount || undefined,
+                    countBadge: true,
+                    countTone: "attention",
+                    label: "Fix",
+                    value: "fix",
+                  },
+                  { label: "Applied", value: "applied" },
+                ]}
+                scrollable={false}
+                value={lane}
+              />
             ) : null}
           </View>
         }
         isFetchingNextPage={activeList.isFetchingNextPage}
         isLoading={loading}
+        keyExtractor={(item) => item.id}
         listFooter={
           activeList.isFetchNextPageError && online ? (
             <View className="px-[18px]">
               <StatusBanner
                 kind="error"
                 onRetry={() => void activeList.fetchNextPage()}
-                title="Couldn’t load more receipts"
+                title="Couldn’t load more payments"
               />
             </View>
           ) : undefined
@@ -548,21 +708,23 @@ export function ReceiptsScreen({
         onRefresh={online ? refresh : undefined}
         onRetry={online ? refresh : undefined}
         refreshing={retrying}
-        renderItem={({ item }) => (
-          <ReceiptLedgerRow
+        renderItem={({ item, index }) => (
+          <TransactionRow
             currency={currency}
-            item={item}
-            onPress={() => openReceipt(item.receipt.id)}
+            first={index === 0}
+            last={index === rows.length - 1}
+            onPress={() => openReceipt(item.id)}
+            receipt={item}
           />
         )}
         search={
           totalCount > 10
             ? {
-                value: search,
-                onChangeText: setSearch,
-                placeholder: "Search receipts",
-                totalCount,
                 localSearch: !online,
+                onChangeText: setSearch,
+                placeholder: "Search payments",
+                totalCount,
+                value: search,
               }
             : undefined
         }
@@ -590,23 +752,36 @@ export function ReceiptsScreen({
         visible={Boolean(receiptId && !supportOpen && !formOpen)}
       />
       {formOpen ? (
-        <ReceiptSubmitFlow
-          canCreate={canCreate}
-          proofRequired={Boolean(snapshot?.proofRequired)}
+        <RecordPaymentFlow
+          cooperativeName={cooperativeName}
           currency={currency}
           draft={draft}
+          memberLine={
+            snapshot?.member
+              ? `${snapshot.member.name} · ${snapshot.member.memberNumber}`
+              : null
+          }
           offline={!online}
           onClose={() => setFormOpen(false)}
           onDiscard={() => {
             resetDraft()
             setFormOpen(false)
           }}
-          onSent={submitted}
+          onRetryPayables={() => void payables.refetch()}
+          onSent={(receipt) => {
+            submitted(receipt)
+            void cache.invalidateQueries({
+              exact: true,
+              queryKey: memberPayablesQueryKey(account),
+            })
+          }}
           onViewReceipt={(receipt) => {
             setFormOpen(false)
             openReceipt(receipt.id)
           }}
-          scope={account}
+          payables={payables.data}
+          payablesError={payables.isError && !payables.data}
+          payablesLoading={payables.isPending}
           setDraft={setDraft}
           stale={stale}
           visible

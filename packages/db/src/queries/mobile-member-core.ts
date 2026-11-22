@@ -389,7 +389,7 @@ function getServices(input: {
       hasRecords: input.receiptRecords > 0,
       icon: "ReceiptText",
       key: "receipts",
-      label: "Receipts",
+      label: "Transactions",
       setting: profileServices.payment_receipts,
       tone: "primary",
     },

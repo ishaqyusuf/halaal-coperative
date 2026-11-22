@@ -33,7 +33,13 @@ const tileColors: Record<StatusTone, string> = {
   warning: "bg-tint-warm text-tint-warm-foreground",
 }
 
-export function ReceiptTile({ tone }: { tone: StatusTone }) {
+export function ReceiptTile({
+  icon = "ReceiptText",
+  tone,
+}: {
+  icon?: string
+  tone: StatusTone
+}) {
   const [surface, ink] = tileColors[tone].split(" ")
   return (
     <View
@@ -42,7 +48,7 @@ export function ReceiptTile({ tone }: { tone: StatusTone }) {
         surface
       )}
     >
-      <Icon className={cn("size-[20px]", ink)} name="ReceiptText" />
+      <Icon className={cn("size-[20px]", ink)} name={icon} />
     </View>
   )
 }
@@ -120,13 +126,13 @@ function ReceiptTimeline({ receipt }: { receipt: MobilePaymentReceipt }) {
       date: receiptDate(receipt.submittedAt, true),
       tone: "done",
     },
-    { label: "In review", date: null, tone: resolved ? "done" : "current" },
+    { label: "Checking", date: null, tone: resolved ? "done" : "current" },
     {
       label: needsCorrection
-        ? "Correction"
+        ? "Fix needed"
         : rejected
-          ? "Rejected"
-          : "Approved",
+          ? "Declined"
+          : "Applied",
       date: null,
       tone: approved ? "done" : resolved ? "bad" : "future",
     },
@@ -199,7 +205,7 @@ function ReceiptProof({ receipt }: { receipt: MobilePaymentReceipt }) {
       <View className="bg-surface-raised flex-row items-center gap-[8px] rounded-[14px] p-[12px]">
         <Icon className="size-[17px] text-muted-foreground" name="Info" />
         <Text className="text-foreground-soft flex-1" variant="small">
-          No proof was attached to this receipt.
+          No slip was attached to this payment.
         </Text>
       </View>
     )
@@ -290,7 +296,7 @@ export function ReceiptDetail({
   return (
     <AppSheet
       onClose={onClose}
-      title={receipt ? receiptTitle(receipt) : "Receipt"}
+      title={receipt ? receiptTitle(receipt) : "Payment"}
       variant="form"
       visible={visible}
     >
@@ -311,10 +317,26 @@ export function ReceiptDetail({
           <ReceiptFinanceNote receipt={receipt} />
           <View className="gap-[8px]">
             <Text className="text-muted-foreground uppercase" variant="caption">
-              Split · {receipt.allocations.length}
+              {receipt.status === "approved" ? "Where it went" : "Where it goes"}
             </Text>
+            {!receipt.allocations.length ? (
+              <View className="flex-row gap-[10px] rounded-[14px] bg-accent p-[12px]">
+                <Icon
+                  className="mt-[1px] size-[17px] text-accent-foreground"
+                  name="Sparkles"
+                />
+                <Text className="flex-1 text-accent-foreground" variant="small">
+                  Finance applies it to what you owe when they check your
+                  slip: overdue first, then the cooperative’s order. Anything
+                  left goes to your special savings.
+                </Text>
+              </View>
+            ) : null}
             <Elevated
-              className="overflow-hidden rounded-[16px] border border-border bg-card"
+              className={cn(
+                "overflow-hidden rounded-[16px] border border-border bg-card",
+                !receipt.allocations.length && "hidden"
+              )}
               radius={16}
             >
               {receipt.allocations.map((split, index) => (
@@ -382,7 +404,7 @@ export function ReceiptDetail({
               <Text>
                 {receipt.status === "correction_requested"
                   ? "Reply to finance"
-                  : "Get help with this receipt"}
+                  : "Get help with this payment"}
               </Text>
             </Button>
           ) : (
@@ -398,7 +420,7 @@ export function ReceiptDetail({
       ) : (
         <EmptyState
           action={{
-            label: error ? "Try again" : "Back to receipts",
+            label: error ? "Try again" : "Back to Transactions",
             onPress: error ? onRetry : onClose,
           }}
           description={
@@ -409,8 +431,8 @@ export function ReceiptDetail({
           icon="ReceiptText"
           title={
             error
-              ? "Couldn’t load this receipt"
-              : "This receipt isn’t available"
+              ? "Couldn’t load this payment"
+              : "This payment isn’t available"
           }
           tone={error ? "error" : "default"}
         />

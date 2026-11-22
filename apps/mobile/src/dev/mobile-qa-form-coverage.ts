@@ -26,7 +26,7 @@ const serviceRequestSources = [
   feature("member-service-requests/service-request-editor.tsx"),
   feature("member-service-requests/service-request-adapters.ts"),
 ]
-const memberReceiptForm = feature("receipts/components/receipt-submit-flow.tsx")
+const memberReceiptForm = feature("receipts/components/record-payment-flow.tsx")
 const memberReceiptSupport = feature("receipts/components/receipt-support-flow.tsx")
 const memberSupportCreate = feature("support/components/member-support-create.tsx")
 const memberSupportThread = feature("support/components/member-support-thread.tsx")

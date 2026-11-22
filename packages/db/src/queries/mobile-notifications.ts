@@ -108,7 +108,7 @@ function safeCopy(type: string) {
   const normalized = type.toLowerCase()
   const kind =
     normalized.includes("receipt") || normalized.includes("payment")
-      ? "Receipt"
+      ? "Payment"
       : normalized.includes("loan") || normalized.includes("financing")
         ? "Financing"
         : normalized.includes("procurement")

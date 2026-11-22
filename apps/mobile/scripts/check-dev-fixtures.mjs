@@ -92,7 +92,7 @@ assertIncludes("src/dev/mobile-dev-quick-fill.ts", [
 const quickFillScreens = [
   "src/features/auth/screens/recovery-screen.tsx",
   "src/features/financing/components/financing-request-form.tsx",
-  "src/features/receipts/components/receipt-submit-flow.tsx",
+  "src/features/receipts/components/record-payment-flow.tsx",
   "src/features/receipts/components/receipt-support-flow.tsx",
   "src/features/support/components/member-support-create.tsx",
   "src/features/support/components/member-support-thread.tsx",

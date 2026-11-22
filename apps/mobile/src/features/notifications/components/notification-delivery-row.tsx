@@ -63,7 +63,7 @@ export function notificationDeliveryActionLabel(
 ) {
   switch (delivery.action) {
     case "open_receipts":
-      return "Open receipt"
+      return "Open payment"
     case "open_guarantors":
       return "Review"
     case "open_support":

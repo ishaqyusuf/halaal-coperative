@@ -154,7 +154,7 @@ export function ReceiptSupportFlow({
           </View>
         ) : null
       }
-      title="Receipt support"
+      title="Payment help"
       variant="form"
       visible={visible}
     >
@@ -170,9 +170,9 @@ export function ReceiptSupportFlow({
       ) : null}
       <ReceiptCardLabel currency={currency} receipt={receipt} />
       <ReceiptFinanceNote receipt={receipt} />
-      <FormField label="What’s wrong with this receipt?">
+      <FormField label="What’s wrong with this payment?">
         <Textarea
-          accessibilityLabel="What’s wrong with this receipt?"
+          accessibilityLabel="What’s wrong with this payment?"
           testID="receipt-support-description"
           className="min-h-[114px] rounded-[14px] px-[14px] py-[12px]"
           maxLength={2000}
@@ -183,7 +183,7 @@ export function ReceiptSupportFlow({
         />
         <View className="flex-row justify-between gap-[8px]">
           <Text className="flex-1 text-muted-foreground" variant="small">
-            Finance sees this receipt with your message.
+            Finance sees this payment with your message.
           </Text>
           <Text className="text-muted-foreground" variant="caption">
             {count}/2000

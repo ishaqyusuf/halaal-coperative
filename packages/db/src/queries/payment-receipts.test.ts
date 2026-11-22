@@ -409,10 +409,10 @@ describe("member payment receipt queries", () => {
             countWheres.push(input.where)
             expect(input.by).toEqual(["status"])
             return [
-              { status: "submitted", _count: { _all: 1 } },
-              { status: "under_review", _count: { _all: 2 } },
+              { status: "submitted", _count: { _all: 1 }, _sum: { totalAmount: 1000 } },
+              { status: "under_review", _count: { _all: 2 }, _sum: { totalAmount: 2500.5 } },
               { status: "correction_requested", _count: { _all: 3 } },
-              { status: "approved", _count: { _all: 4 } },
+              { status: "approved", _count: { _all: 4 }, _sum: { totalAmount: 90000 } },
               { status: "rejected", _count: { _all: 5 } },
             ]
           },
@@ -421,8 +421,10 @@ describe("member payment receipt queries", () => {
     )
 
     expect(summary).toEqual({
+      approvedAmount: 90000,
       approvedReceipts: 4,
       correctionRequestedReceipts: 3,
+      pendingReviewAmount: 3500.5,
       pendingReviewReceipts: 3,
       rejectedReceipts: 5,
       submittedReceipts: 1,

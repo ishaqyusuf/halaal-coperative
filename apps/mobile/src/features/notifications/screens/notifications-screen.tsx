@@ -251,7 +251,7 @@ export function NotificationsScreen({
                   ? "Try a different search."
                   : view === "unread"
                     ? "New notifications will show here."
-                    : "Receipts, financing and cooperative updates will show here."
+                    : "Payments, financing and cooperative updates will show here."
               }
               icon={
                 search.trim()

@@ -48,7 +48,7 @@ export function MemberActiveRequest({ item }: { item: MemberActiveItem }) {
       <div
         className={cn(
           "grid gap-4",
-          item.instalments.length && "lg:grid-cols-[minmax(0,1fr)_360px]"
+          item.instalments.length && "xl:grid-cols-[minmax(0,1fr)_360px]"
         )}
       >
         {item.instalments.length ? (
@@ -195,10 +195,13 @@ function InstalmentTable({
             <th className="px-4 py-3 text-right font-medium" scope="col">
               Amount
             </th>
-            <th className="px-4 py-3 font-medium" scope="col">
+            <th
+              className="hidden px-4 py-3 font-medium sm:table-cell"
+              scope="col"
+            >
               Due
             </th>
-            <th className="px-4 py-3" scope="col">
+            <th className="hidden px-4 py-3 sm:table-cell" scope="col">
               <span className="sr-only">Status</span>
             </th>
           </tr>
@@ -208,52 +211,61 @@ function InstalmentTable({
             const paid = row.status === "paid" || row.paidAmount >= row.amount
             const isNext = row.payable === nextPayable
             const due = formatDayMonthYear(row.dueDate)
+            const dueText = paid
+              ? "Paid"
+              : row.overdue
+                ? `Was due ${due}`
+                : `Due ${due}`
+            const dueTone = row.overdue
+              ? "font-semibold text-rose-700 dark:text-rose-300"
+              : "text-muted-foreground"
+            const action = paid ? (
+              <span className={goodPill}>
+                <Check aria-hidden className="size-4" />
+                Applied
+              </span>
+            ) : row.status === "waived" ? (
+              <span className="text-muted-foreground">Waived</span>
+            ) : isNext && checking ? (
+              <span className={warnPill}>
+                <Clock aria-hidden className="size-4" />
+                Checking
+              </span>
+            ) : isNext ? (
+              <Link
+                className={buttonVariants({ size: "touch" })}
+                href={memberPayHref(row.payable)}
+              >
+                <Wallet aria-hidden />
+                Pay
+              </Link>
+            ) : (
+              <span className="text-muted-foreground">Upcoming</span>
+            )
             return (
               <tr key={row.id}>
-                <td className="px-4 py-3 text-foreground">
+                <td className="px-4 py-3 whitespace-nowrap text-foreground">
                   Instalment {row.number}
+                  <span className={cn("block text-sm sm:hidden", dueTone)}>
+                    {dueText}
+                  </span>
                 </td>
-                <td className="px-4 py-3 text-right text-foreground tabular-nums">
+                <td className="px-4 py-3 text-right whitespace-nowrap text-foreground tabular-nums">
                   {formatCurrency(row.amount)}
+                  {paid || isNext ? (
+                    <div className="mt-2 sm:hidden">{action}</div>
+                  ) : null}
                 </td>
                 <td
                   className={cn(
-                    "px-4 py-3",
-                    row.overdue
-                      ? "font-semibold text-rose-700 dark:text-rose-300"
-                      : "text-muted-foreground"
+                    "hidden px-4 py-3 whitespace-nowrap sm:table-cell",
+                    dueTone
                   )}
                 >
-                  {paid
-                    ? "Paid"
-                    : row.overdue
-                      ? `Was due ${due}`
-                      : `Due ${due}`}
+                  {dueText}
                 </td>
-                <td className="px-4 py-2 text-right">
-                  {paid ? (
-                    <span className={goodPill}>
-                      <Check aria-hidden className="size-4" />
-                      Applied
-                    </span>
-                  ) : row.status === "waived" ? (
-                    <span className="text-muted-foreground">Waived</span>
-                  ) : isNext && checking ? (
-                    <span className={warnPill}>
-                      <Clock aria-hidden className="size-4" />
-                      Checking
-                    </span>
-                  ) : isNext ? (
-                    <Link
-                      className={buttonVariants({ size: "touch" })}
-                      href={memberPayHref(row.payable)}
-                    >
-                      <Wallet aria-hidden />
-                      Pay
-                    </Link>
-                  ) : (
-                    <span className="text-muted-foreground">Upcoming</span>
-                  )}
+                <td className="hidden px-4 py-2 text-right sm:table-cell">
+                  {action}
                 </td>
               </tr>
             )

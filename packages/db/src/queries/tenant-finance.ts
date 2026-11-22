@@ -2905,6 +2905,9 @@ export async function reviewMemberShareApplication(
       const claim = await tx.memberShareApplication.updateMany({
         data: {
           approvedUnits,
+          // T30: from now on an approved purchase is a Shares payable until
+          // member receipts pay it (null stays legacy = paid).
+          ...(approvedUnits === null ? {} : { paidAmount: 0 }),
           reviewedAt,
           reviewedByUserId: input.actorUserId ?? null,
           reviewNotes,

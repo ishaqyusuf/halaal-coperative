@@ -150,10 +150,10 @@ model MemberShareApplication {
   unitAmountSnapshot Decimal                      @map("unit_amount_snapshot") @db.Decimal(18, 2)
   shareValueSnapshot Decimal                      @map("share_value_snapshot") @db.Decimal(18, 2)
   status             MemberShareApplicationStatus @default(pending)
-  // T30: an approved purchase the member still has to pay shows as a Shares
-  // payable while `paymentDue`; receipt approval adds to `paidAmount`.
-  paymentDue         Boolean                      @default(false) @map("payment_due")
-  paidAmount         Decimal                      @default(0) @map("paid_amount") @db.Decimal(18, 2)
+  // T30: paid toward an approved purchase by member receipts. null = legacy
+  // (approved before T30), treated as fully paid and never a payable. Share
+  // approval sets 0; receipt approval adds to it, capped at the value.
+  paidAmount         Decimal?                     @map("share_paid_amount") @db.Decimal(18, 2)
   notes              String?
   reviewNotes        String?                      @map("review_notes")
   requestedByUserId  String?                      @map("requested_by_user_id") @db.Uuid

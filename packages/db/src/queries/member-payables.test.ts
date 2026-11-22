@@ -192,6 +192,12 @@ function payablesPrisma(overrides: Record<string, unknown[]> = {}) {
   const prisma = {
     contributionPlan: delegate("plan", overrides.plan ?? []),
     foodPurchaseApplication: delegate("food", overrides.food ?? []),
+    memberPaymentReceiptAllocation: {
+      groupBy: async (input: any) => {
+        calls.checking = input
+        return overrides.checking ?? []
+      },
+    },
     memberShareApplication: delegate("shares", overrides.shares ?? []),
     procurementRepaymentScheduleItem: delegate(
       "procurement",
@@ -234,13 +240,14 @@ describe("listMemberPayables", () => {
 
     expect(calls.shares.where).toEqual({
       memberId: "member-1",
-      paymentDue: true,
+      paidAmount: { not: null },
       status: "approved",
       tenantId: "tenant-1",
     })
     expect(payables).toEqual([
       {
         amount: 30000,
+        checkingAmount: 0,
         dueDate: null,
         id: "shares:share-app-1",
         kind: "shares",
@@ -284,6 +291,26 @@ describe("listMemberPayables", () => {
           id: "plan-1",
         },
       ],
+      checking: [
+        {
+          _sum: { amount: 72500 },
+          category: "procurement",
+          contributionPlanId: null,
+          foodPurchaseApplicationId: null,
+          loanId: null,
+          memberShareApplicationId: null,
+          procurementRepaymentScheduleItemId: "schedule-3",
+        },
+        {
+          _sum: { amount: 5000 },
+          category: "commitment",
+          contributionPlanId: "plan-1",
+          foodPurchaseApplicationId: null,
+          loanId: null,
+          memberShareApplicationId: null,
+          procurementRepaymentScheduleItemId: null,
+        },
+      ],
       policy: [{ paymentAllocationMode: "automatic", paymentAllocationOrder: [] }],
       procurement: [
         {
@@ -311,13 +338,23 @@ describe("listMemberPayables", () => {
     )
 
     expect(
-      payables.map((item) => [item.id, item.amount, item.overdue, item.subtitle])
+      payables.map((item) => [
+        item.id,
+        item.amount,
+        item.overdue,
+        item.subtitle,
+        item.checkingAmount,
+      ])
     ).toEqual([
-      ["procurement:schedule-3", 72500, true, "Instalment 3 of 6"],
-      ["food_purchase:food-1", 48000, false, "Rice and oil"],
-      ["loan:loan-1", 60000, false, "Repayment"],
-      ["commitment:plan-1", 20000, false, "November"],
+      ["procurement:schedule-3", 72500, true, "Instalment 3 of 6", 72500],
+      ["food_purchase:food-1", 48000, false, "Rice and oil", 0],
+      ["loan:loan-1", 60000, false, "Repayment", 0],
+      ["commitment:plan-1", 20000, false, "November", 5000],
     ])
+    // Checking counts only explicit allocations on receipts being checked.
+    expect(calls.checking.where).toMatchObject({
+      receipt: { status: { in: ["submitted", "under_review"] } },
+    })
     // Every source read is bounded.
     expect(calls.procurement.take).toBeGreaterThan(0)
     expect(calls.food.take).toBeGreaterThan(0)

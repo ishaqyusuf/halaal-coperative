@@ -133,6 +133,11 @@ export type MobileMemberPayableKind =
 
 export type MobileMemberPayable = {
   amount: number
+  /**
+   * Badge-picked payments to this item still being checked. Unsplit
+   * payments aren't counted until approval. Older servers omit it.
+   */
+  checkingAmount?: number
   dueDate: string | null
   /** `<kind>:<targetId>`, the `payable` deep-link param. */
   id: string

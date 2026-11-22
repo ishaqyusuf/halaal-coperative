@@ -21,6 +21,7 @@ const devPayables: MobileMemberPayables = {
   payables: [
     {
       amount: 72500,
+      checkingAmount: 0,
       dueDate: "2026-11-05",
       id: "procurement:procurement-schedule-dev-1",
       kind: "procurement",

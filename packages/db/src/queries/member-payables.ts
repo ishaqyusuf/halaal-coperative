@@ -48,6 +48,11 @@ export const DEFAULT_PAYMENT_ALLOCATION_SETTINGS: PaymentAllocationSettings = {
 
 export type MemberPayable = {
   amount: number
+  /**
+   * Badge-picked payments to this item still being checked (submitted or
+   * under review). Unsplit payments aren't counted until approval.
+   */
+  checkingAmount: number
   /** ISO date (yyyy-mm-dd) or null when the item has no due date. */
   dueDate: string | null
   /** `<kind>:<targetId>`, the id the pay-from-request deep link sends. */
@@ -292,7 +297,8 @@ export async function getTenantPaymentAllocationSettings(
  * - Foodstuff: approved applications with an unpaid balance, due at the end
  *   of the payback period after the cycle month.
  * - Loans: one payable per loan, the unpaid schedule rows due by month end.
- * - Shares: approved share purchases not yet paid (`paidAmount`).
+ * - Shares: approved share purchases with a non-null `paidAmount` below
+ *   their value (null = legacy, treated as paid).
  * - Commitment: the active plan's amount less what was posted this month.
  */
 export async function listMemberPayables(
@@ -306,8 +312,15 @@ export async function listMemberPayables(
   const thisMonth = monthStart(now)
   const scope = { memberId: input.memberId, tenantId: input.tenantId }
 
-  const [procurement, food, loanRows, shares, plan, resolvedSettings] =
-    await Promise.all([
+  const [
+    procurement,
+    food,
+    loanRows,
+    shares,
+    plan,
+    resolvedSettings,
+    checkingGroups,
+  ] = await Promise.all([
       prisma.procurementRepaymentScheduleItem.findMany({
         orderBy: [{ dueDate: "asc" }, { installmentNumber: "asc" }],
         select: {
@@ -385,7 +398,8 @@ export async function listMemberPayables(
           unitAmountSnapshot: true,
         },
         take: 6,
-        where: { ...scope, paymentDue: true, status: "approved" },
+        // null paidAmount = approved before T30, treated as paid.
+        where: { ...scope, paidAmount: { not: null }, status: "approved" },
       }),
       prisma.contributionPlan.findFirst({
         orderBy: { startsAt: "desc" },
@@ -405,9 +419,47 @@ export async function listMemberPayables(
       settings
         ? Promise.resolve(settings)
         : getTenantPaymentAllocationSettings(input.tenantId, prisma),
+      // Explicit (badge-picked) allocations on receipts still being checked.
+      // Unsplit receipts have no target until approval, so they don't count.
+      prisma.memberPaymentReceiptAllocation.groupBy({
+        _sum: { amount: true },
+        by: [
+          "procurementRepaymentScheduleItemId",
+          "foodPurchaseApplicationId",
+          "loanId",
+          "memberShareApplicationId",
+          "contributionPlanId",
+          "category",
+        ],
+        where: {
+          ...scope,
+          receipt: { status: { in: ["submitted", "under_review"] } },
+        },
+      }),
     ])
 
-  const payables: MemberPayable[] = []
+  const checking = new Map<string, number>()
+  for (const group of checkingGroups) {
+    const key =
+      group.procurementRepaymentScheduleItemId
+        ? `procurement:${group.procurementRepaymentScheduleItemId}`
+        : group.foodPurchaseApplicationId
+          ? `food_purchase:${group.foodPurchaseApplicationId}`
+          : group.loanId
+            ? `loan:${group.loanId}`
+            : group.memberShareApplicationId
+              ? `shares:${group.memberShareApplicationId}`
+              : group.category === "commitment" && group.contributionPlanId
+                ? `commitment:${group.contributionPlanId}`
+                : null
+    if (!key) continue
+    checking.set(
+      key,
+      roundMoney((checking.get(key) ?? 0) + Number(group._sum?.amount ?? 0))
+    )
+  }
+
+  const payables: Omit<MemberPayable, "checkingAmount">[] = []
 
   const monthEndIso = isoDate(monthEnd)
   const seenRequests = new Set<string>()
@@ -541,7 +593,13 @@ export async function listMemberPayables(
     }
   }
 
-  return orderMemberPayables(payables, resolvedSettings.order)
+  return orderMemberPayables(
+    payables.map((payable) => ({
+      ...payable,
+      checkingAmount: checking.get(payable.id) ?? 0,
+    })),
+    resolvedSettings.order
+  )
 }
 
 export type PaymentAllocationSettingsSnapshot = PaymentAllocationSettings & {

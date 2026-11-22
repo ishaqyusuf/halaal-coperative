@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { createPrismaClient } from "../prisma"
 import { ensureTenantLedgerAccounts } from "./ledger"
 import { getMobileMemberPayables } from "./mobile-member-receipts"
+import { reviewMemberShareApplication } from "./tenant-finance"
 import {
   AUTO_ALLOCATION_REASON,
   createMemberPaymentReceipt,
@@ -144,7 +145,7 @@ run("member payables and automatic allocation", () => {
         data: {
           approvedUnits: 2,
           memberId,
-          paymentDue: true,
+          paidAmount: 0,
           requestedUnits: 2,
           reviewedAt: monthStart,
           shareValueSnapshot: 2000,
@@ -154,7 +155,7 @@ run("member payables and automatic allocation", () => {
         },
       })
     ).id
-    // An approved purchase already settled at approval: never a payable.
+    // Legacy approved purchase (paidAmount null): treated as paid, never owed.
     await db!.memberShareApplication.create({
       data: {
         approvedUnits: 5,
@@ -243,7 +244,6 @@ run("member payables and automatic allocation", () => {
     expect(Number(schedule.paidAmount)).toBe(1000)
     expect(Number(food.paidAmount)).toBe(3000)
     expect(Number(share.paidAmount)).toBe(2000)
-    expect(share.paymentDue).toBe(false)
 
     const after = await getMobileMemberPayables({ tenantId, userId }, db!)
     expect(after.payables.map((item) => item.kind)).toEqual(["procurement"])
@@ -269,5 +269,37 @@ run("member payables and automatic allocation", () => {
         db!
       )
     ).rejects.toThrow("Pick what this payment is for")
+  })
+
+  it("share approval from now on makes the purchase a Shares payable", async () => {
+    await db!.tenantPolicy.upsert({
+      create: { shareConfigurationMode: "unit_based", tenantId },
+      update: { shareConfigurationMode: "unit_based" },
+      where: { tenantId },
+    })
+    const pending = await db!.memberShareApplication.create({
+      data: {
+        memberId,
+        requestedUnits: 1,
+        shareValueSnapshot: 1000,
+        status: "pending",
+        tenantId,
+        unitAmountSnapshot: 1000,
+      },
+    })
+    await reviewMemberShareApplication(
+      { actorUserId: userId, applicationId: pending.id, decision: "approved", tenantId },
+      db!
+    )
+    const approved = await db!.memberShareApplication.findUniqueOrThrow({
+      where: { id: pending.id },
+    })
+    expect(Number(approved.paidAmount)).toBe(0)
+    const { payables } = await getMobileMemberPayables({ tenantId, userId }, db!)
+    expect(payables.find((item) => item.id === `shares:${pending.id}`)).toMatchObject({
+      amount: 1000,
+      checkingAmount: 0,
+      kind: "shares",
+    })
   })
 })

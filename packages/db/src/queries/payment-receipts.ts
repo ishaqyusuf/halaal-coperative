@@ -704,7 +704,7 @@ async function validateAllocationReferences(input: {
       where: {
         id: { in: memberShareApplicationIds },
         memberId: input.memberId,
-        paymentDue: true,
+        paidAmount: { not: null },
         status: "approved",
         tenantId: input.tenantId,
       },
@@ -737,8 +737,9 @@ async function validateAllocationReferences(input: {
 }
 
 /**
- * Adds a receipt's share payment to the approved share purchase it pays and
- * clears `paymentDue` once the purchase is fully paid (T30).
+ * Adds a receipt's share payment to the approved share purchase it pays,
+ * capped at the purchase value (T30). Legacy purchases (`paidAmount` null)
+ * and fully paid ones are not awaiting payment.
  */
 async function payMemberShareApplication(input: {
   amount: number
@@ -756,31 +757,28 @@ async function payMemberShareApplication(input: {
     where: {
       id: input.applicationId,
       memberId: input.memberId,
-      paymentDue: true,
+      paidAmount: { not: null },
       status: "approved",
       tenantId: input.tenantId,
     },
   })
 
-  if (!application) {
+  const value = application
+    ? roundMoney(
+        (application.approvedUnits ?? 0) *
+          Number(application.unitAmountSnapshot)
+      )
+    : 0
+  const alreadyPaid = roundMoney(Number(application?.paidAmount ?? 0))
+
+  if (!application || alreadyPaid >= value - 0.005) {
     throw ExpectedQueryError.conflict(
       "This share purchase is no longer awaiting payment. Refresh and review again."
     )
   }
 
-  const value = roundMoney(
-    (application.approvedUnits ?? 0) * Number(application.unitAmountSnapshot)
-  )
-  const paidAmount = roundMoney(Number(application.paidAmount) + input.amount)
-
-  if (paidAmount - value > 0.005) {
-    throw ExpectedQueryError.validation(
-      "Share allocation exceeds what is left to pay on the share purchase."
-    )
-  }
-
   await input.tx.memberShareApplication.update({
-    data: { paidAmount, paymentDue: !moneyEquals(paidAmount, value) },
+    data: { paidAmount: Math.min(value, roundMoney(alreadyPaid + input.amount)) },
     where: { id: input.applicationId },
   })
 }

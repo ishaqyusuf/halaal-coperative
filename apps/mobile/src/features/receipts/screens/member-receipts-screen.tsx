@@ -89,22 +89,12 @@ function WhereItWent({
   if (!parts.size) return null
   return (
     <>
-      <View
-        style={{
-          alignSelf: "stretch",
-          borderRadius: 4,
-          columnGap: 2,
-          flexDirection: "row",
-          height: 8,
-          marginTop: 8,
-          overflow: "hidden",
-          width: "100%",
-        }}
-      >
+      <View className="mt-[8px] h-[8px] w-full flex-row gap-[2px] self-stretch overflow-hidden rounded-[4px]">
         {[...parts.values()].map((part) => (
           <View
+            className="h-[8px] basis-0"
             key={part.label}
-            style={{ flexBasis: 0, flexGrow: part.amount, height: 8 }}
+            style={{ flexGrow: part.amount }}
           >
             <View className={cn("h-[8px] w-full", part.color)} />
           </View>

@@ -28,7 +28,9 @@ import {
   ServiceRequestSuccess,
 } from "./service-request-detail"
 import { ServiceRequestEditor } from "./service-request-editor"
+import { useMemberPayables } from "@/features/receipts/public/member-payables"
 import {
+  type PayLink,
   requestGate,
   requestLoadErrorGate,
   requestPayLink,
@@ -260,6 +262,28 @@ function ScopedServiceRequestScreen({
     queryFn: () => adapter.detail(detailId ?? ""),
     queryKey: appQueryKey(kind, scope, "request", detailId),
   })
+  // T30 "being checked": read the shared payables cache (lane C) only while
+  // there is something this screen can pay. Same key as Transactions, so it
+  // is one bounded read per account, reused when already cached.
+  const detailRow = detailSeed ?? detail.data ?? null
+  const activePayLink = requestPayLink(kind, active)
+  const detailPayLink = requestPayLink(kind, detailRow)
+  const payables = useMemberPayables({
+    enabled: Boolean(
+      (activePayLink || detailPayLink) && !offline && !fixture && !qaState
+    ),
+  })
+  const withChecking = (
+    row: ServiceRequest | null | undefined,
+    link: PayLink | null
+  ) => {
+    if (!row || !link) return row ?? null
+    const checkingAmount = payables.data?.payables.find(
+      (payable) => payable.id === link.params.payable
+    )?.checkingAmount
+    return checkingAmount ? { ...row, checkingAmount } : row
+  }
+  const activeRow = withChecking(active, activePayLink) ?? undefined
   const quoteAmount = Number(draft.amount)
   const debouncedAmount = useDebounce(quoteAmount, 300)
   const quoteQuery = useAppQuery({
@@ -575,7 +599,7 @@ function ScopedServiceRequestScreen({
           loading={!detailSeed && detail.isFetching}
           onBack={dismissDetail}
           payable={kind !== "project-financing"}
-          payLink={requestPayLink(kind, detailSeed ?? detail.data)}
+          payLink={detailPayLink}
           onRetry={
             !offline && detail.isError
               ? () => {
@@ -584,7 +608,7 @@ function ScopedServiceRequestScreen({
               : undefined
           }
           onStart={canStart ? startForm : undefined}
-          row={detailSeed ?? detail.data ?? null}
+          row={withChecking(detailRow, detailPayLink)}
           unavailable={detail.isSuccess && !detail.data}
         />
       ) : workspace?.state === "member_profile_missing" ? (
@@ -602,7 +626,7 @@ function ScopedServiceRequestScreen({
         </ScreenShell>
       ) : (
         <ServiceRequestOverview
-          active={active}
+          active={activeRow}
           canStart={canStart}
           currency={currency}
           design={design}
@@ -622,7 +646,7 @@ function ScopedServiceRequestScreen({
           filter={filter}
           gate={gate}
           onGateAction={onGateAction}
-          payLink={requestPayLink(kind, active)}
+          payLink={activePayLink}
           getLane={getLane}
           loading={
             !workspace && (workspaceQuery.isPending || qaState === "loading")

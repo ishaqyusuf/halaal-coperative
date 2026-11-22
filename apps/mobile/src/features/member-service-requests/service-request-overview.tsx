@@ -176,6 +176,7 @@ function OverviewBalance({
   }
   const next = nextRequestPayment(active)
   const overdue = isPaymentOverdue(next)
+  const checking = active.checkingAmount ?? 0
   return (
     <Elevated
       className={cn(
@@ -251,7 +252,20 @@ function OverviewBalance({
                 </Text>
               </View>
             </View>
-            {payLink ? (
+            {payLink && checking > 0 ? (
+              <View
+                className="bg-tint-warm min-h-[36px] flex-row items-center gap-[6px] rounded-full px-[12px]"
+                testID="overview-checking"
+              >
+                <Icon
+                  className="text-tint-warm-foreground size-[14px]"
+                  name="Clock"
+                />
+                <Text className="text-tint-warm-foreground" variant="caption">
+                  {formatServiceMoney(checking, currency)} being checked
+                </Text>
+              </View>
+            ) : payLink ? (
               <PayButton label="Pay now" link={payLink} testID="overview-pay" />
             ) : null}
           </View>

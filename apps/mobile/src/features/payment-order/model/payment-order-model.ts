@@ -39,7 +39,7 @@ export const DEFAULT_PAYMENT_ORDER_SETTINGS: PaymentOrderSettings = {
 
 export const paymentOrderItems = {
   overdue: {
-    description: "Anything past its due date, oldest first",
+    description: "Past its due date, oldest first",
     icon: "TriangleAlert",
     label: "Overdue first",
     tint: ["bg-tint-danger", "text-tint-danger-foreground"],

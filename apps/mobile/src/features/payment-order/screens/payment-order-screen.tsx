@@ -1,6 +1,6 @@
 import { ConfirmSheet } from "@/components/app/confirm-sheet"
 import { EmptyState } from "@/components/app/empty-state"
-import { ResultScreen } from "@/components/app/result-screen"
+import { ResultScreen, ReviewRow } from "@/components/app/result-screen"
 import { ScreenShell, useScreenBack } from "@/components/app/screen-shell"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
@@ -15,6 +15,7 @@ import { View } from "react-native"
 import { PaymentOrderList } from "../components/payment-order-list"
 import {
   isSamePaymentOrderSettings,
+  paymentOrderItems,
   paymentOrderLeftovers,
   paymentOrderModes,
   type PaymentOrderSettings,
@@ -178,9 +179,17 @@ export function PaymentOrderScreen({
         titleVariant="screenTitle"
         tone="success"
         details={
-          <Text className="text-center text-muted-foreground" variant="small">
-            {mode?.label}
-          </Text>
+          <>
+            <ReviewRow compact label="Payments" value={mode?.label ?? ""} />
+            <View className="mx-[16px] h-px bg-border" />
+            <ReviewRow
+              compact
+              label="Order"
+              value={draft.order
+                .map((key) => paymentOrderItems[key].label.replace(" first", ""))
+                .join(" · ")}
+            />
+          </>
         }
       />
     )
@@ -189,6 +198,7 @@ export function PaymentOrderScreen({
   return (
     <>
       <ScreenShell
+        back={goBack ?? undefined}
         footer={
           canManage && draft ? (
             <Button

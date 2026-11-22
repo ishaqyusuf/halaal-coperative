@@ -1,4 +1,7 @@
+import { serviceLoadErrorGate } from "@halaalvest/utils/service-request-gate"
+import { Package } from "lucide-react"
 import { WorkspacePageShell } from "@/components/dashboard"
+import { ServiceStateCard } from "@/components/requests/service-state-card"
 import {
   MemberProcurementRequestsView,
   ProcurementRequestsView,
@@ -19,6 +22,21 @@ export function ProcurementPageView({
   data: ProcurementPageData
   procurementInitialSettings?: Partial<TableSettings>
 }) {
+  if (data.state === "unavailable") {
+    return (
+      <WorkspacePageShell
+        description=""
+        eyebrow="Procurement"
+        title="Procurement"
+      >
+        <ServiceStateCard
+          gate={serviceLoadErrorGate({ noun: "request", title: "Procurement" })}
+          serviceIcon={Package}
+        />
+      </WorkspacePageShell>
+    )
+  }
+
   if (isRequestPageBlocked(data.state)) {
     return <RequestPageState state={data.state} title="Procurement" />
   }
@@ -31,9 +49,10 @@ export function ProcurementPageView({
         title="Procurement"
       >
         <MemberProcurementRequestsView
+          active={data.active}
           canCreate={data.canCreate}
+          gate={data.gate}
           initialSettings={procurementInitialSettings}
-          needsVerification={data.needsVerification}
           summary={data.summary}
         />
       </WorkspacePageShell>

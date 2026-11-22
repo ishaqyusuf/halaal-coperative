@@ -7,6 +7,11 @@ import { useNotifications } from "@halaalvest/notifications-react"
 import { Badge } from "@halaalvest/ui/components/badge"
 import { formatCurrency } from "@halaalvest/utils"
 import type { FoodPurchaseCycleRow } from "@halaalvest/db"
+import type { ServiceGate } from "@halaalvest/utils/service-request-gate"
+import { ShoppingBasket } from "lucide-react"
+import { MemberActiveRequest } from "@/components/requests/member-active-request"
+import { ServiceStateCard } from "@/components/requests/service-state-card"
+import type { MemberActiveItem } from "@/lib/requests/member-service-state"
 import { FoodPurchaseHeader } from "@/components/food-purchase-header"
 import { FoodPurchaseMobileToolbar } from "@/components/food-purchase-mobile-toolbar"
 import { OpenFoodPurchaseSheet } from "@/components/open-food-purchase-sheet"
@@ -15,7 +20,6 @@ import {
   RequestClosedNotice,
   RequestSummaryGrid,
   RequestSummaryWide,
-  memberNeedsVerificationNotice,
 } from "@/components/requests/request-summary"
 import { FoodPurchaseSheet } from "@/components/sheets/food-purchase-sheet"
 import { SummaryCard } from "@/components/summary-card"
@@ -199,78 +203,80 @@ export function FoodPurchaseView({
 }
 
 export function MemberFoodPurchaseView({
+  active,
   canCreateApplication,
   cycles,
+  gate,
   initialSettings,
-  needsVerification = false,
   summary,
 }: {
+  active: MemberActiveItem | null
   canCreateApplication: boolean
   cycles: FoodPurchaseCycleRow[]
+  gate: ServiceGate | null
   initialSettings?: Partial<TableSettings>
-  needsVerification?: boolean
   summary: {
     approvedApplications: number
     pendingApplications: number
+    totalApplications: number
   }
 }) {
   const openCycles = cycles.filter((cycle) => cycle.status === "open")
   const hasOpenCycle = openCycles.length > 0
+  // A cooperative that never offered foodstuff shows only the state card.
+  const hasApplications = summary.totalApplications > 0
 
   return (
     <div className="space-y-6">
       <FoodPurchaseSheet cycles={cycles} />
-      <RequestSummaryGrid>
-        <SummaryCard
-          label="Waiting"
-          tone={summary.pendingApplications ? "attention" : "default"}
-          value={String(summary.pendingApplications)}
-        />
-        <SummaryCard
-          label="Approved"
-          value={String(summary.approvedApplications)}
-        />
-        <RequestSummaryWide>
-          <SummaryCard
-            label="Open month"
-            tone={hasOpenCycle ? "good" : "default"}
-            value={
-              hasOpenCycle
-                ? formatMonthYear(openCycles[0]!.periodMonth)
-                : "None"
-            }
-          />
-        </RequestSummaryWide>
-      </RequestSummaryGrid>
-
-      {!canCreateApplication ? (
-        <RequestClosedNotice>
-          {needsVerification
-            ? memberNeedsVerificationNotice
-            : "To ask for foodstuff, contact the cooperative office."}
-        </RequestClosedNotice>
-      ) : !hasOpenCycle ? (
-        <RequestClosedNotice>
-          There is no open month for foodstuff requests right now.
-        </RequestClosedNotice>
+      {gate ? (
+        <ServiceStateCard gate={gate} serviceIcon={ShoppingBasket} />
       ) : null}
+      {active ? <MemberActiveRequest item={active} /> : null}
 
-      <section className="min-w-0">
-        <FoodPurchaseMobileToolbar
-          canCreate={canCreateApplication}
-          hasOpenCycle={hasOpenCycle}
-          selfService
-        />
-        <FoodPurchaseHeader
-          canCreate={canCreateApplication}
-          hasOpenCycle={hasOpenCycle}
-          selfService
-        />
-        <FoodPurchaseDataView
-          canReviewApplications={false}
-          initialSettings={initialSettings}
-        />
-      </section>
+      {hasApplications || !gate ? (
+        <>
+          <RequestSummaryGrid>
+            <SummaryCard
+              label="Waiting"
+              tone={summary.pendingApplications ? "attention" : "default"}
+              value={String(summary.pendingApplications)}
+            />
+            <SummaryCard
+              label="Approved"
+              value={String(summary.approvedApplications)}
+            />
+            <RequestSummaryWide>
+              <SummaryCard
+                label="Open month"
+                tone={hasOpenCycle ? "good" : "default"}
+                value={
+                  hasOpenCycle
+                    ? formatMonthYear(openCycles[0]!.periodMonth)
+                    : "None"
+                }
+              />
+            </RequestSummaryWide>
+          </RequestSummaryGrid>
+
+          <section className="min-w-0">
+            <FoodPurchaseMobileToolbar
+              canCreate={canCreateApplication}
+              hasOpenCycle={hasOpenCycle}
+              selfService
+            />
+            <FoodPurchaseHeader
+              canCreate={canCreateApplication}
+              hasOpenCycle={hasOpenCycle}
+              selfService
+            />
+            <FoodPurchaseDataView
+              canReviewApplications={false}
+              initialSettings={initialSettings}
+            />
+          </section>
+        </>
+      ) : null}
     </div>
   )
 }

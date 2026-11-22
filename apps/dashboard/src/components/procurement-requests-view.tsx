@@ -4,15 +4,19 @@ import { formatCurrency } from "@halaalvest/utils"
 import type { ProcurementSummary } from "@halaalvest/db"
 import { ProcurementHeader } from "@/components/procurement-header"
 import { ProcurementMobileToolbar } from "@/components/procurement-mobile-toolbar"
+import type { ServiceGate } from "@halaalvest/utils/service-request-gate"
+import { Package } from "lucide-react"
+import { MemberActiveRequest } from "@/components/requests/member-active-request"
 import {
   RequestClosedNotice,
   RequestSummaryGrid,
   RequestSummaryWide,
-  memberNeedsVerificationNotice,
 } from "@/components/requests/request-summary"
+import { ServiceStateCard } from "@/components/requests/service-state-card"
 import { ProcurementRequestSheet } from "@/components/sheets/procurement-request-sheet"
 import { SummaryCard } from "@/components/summary-card"
 import { ProcurementDataView } from "@/components/tables/procurement/data-view"
+import type { MemberActiveItem } from "@/lib/requests/member-service-state"
 import type { TableSettings } from "@/utils/table-settings"
 
 export function ProcurementRequestsView({
@@ -83,59 +87,71 @@ export function ProcurementRequestsView({
 }
 
 export function MemberProcurementRequestsView({
+  active,
   canCreate,
+  gate,
   initialSettings,
-  needsVerification = false,
   summary,
 }: {
+  active: MemberActiveItem | null
   canCreate: boolean
+  gate: ServiceGate | null
   initialSettings?: Partial<TableSettings>
-  needsVerification?: boolean
-  summary: ProcurementSummary
+  summary: Pick<
+    ProcurementSummary,
+    | "activeRequests"
+    | "approvedRequests"
+    | "outstandingAmount"
+    | "overdueScheduleItems"
+    | "pendingRequests"
+    | "totalRequests"
+  >
 }) {
+  // A cooperative that never offered procurement shows only the state card.
+  const hasRequests = summary.totalRequests > 0
+
   return (
     <div className="space-y-6">
       <ProcurementRequestSheet />
-      <RequestSummaryGrid>
-        <SummaryCard
-          label="Waiting"
-          tone={summary.pendingRequests ? "attention" : "default"}
-          value={String(summary.pendingRequests)}
-        />
-        <SummaryCard
-          label="Approved"
-          value={String(summary.approvedRequests + summary.activeRequests)}
-        />
-        <RequestSummaryWide>
-          <SummaryCard
-            detail={
-              summary.overdueScheduleItems
-                ? `${summary.overdueScheduleItems} late payments`
-                : undefined
-            }
-            label="You owe"
-            tone={summary.overdueScheduleItems ? "attention" : "default"}
-            value={formatCurrency(summary.outstandingAmount)}
-          />
-        </RequestSummaryWide>
-      </RequestSummaryGrid>
+      {gate ? <ServiceStateCard gate={gate} serviceIcon={Package} /> : null}
+      {active ? <MemberActiveRequest item={active} /> : null}
 
-      {canCreate ? null : (
-        <RequestClosedNotice>
-          {needsVerification
-            ? memberNeedsVerificationNotice
-            : "To ask for an item, contact the cooperative office."}
-        </RequestClosedNotice>
-      )}
+      {hasRequests || !gate ? (
+        <>
+          <RequestSummaryGrid>
+            <SummaryCard
+              label="Waiting"
+              tone={summary.pendingRequests ? "attention" : "default"}
+              value={String(summary.pendingRequests)}
+            />
+            <SummaryCard
+              label="Approved"
+              value={String(summary.approvedRequests + summary.activeRequests)}
+            />
+            <RequestSummaryWide>
+              <SummaryCard
+                detail={
+                  summary.overdueScheduleItems
+                    ? `${summary.overdueScheduleItems} late payments`
+                    : undefined
+                }
+                label="You owe"
+                tone={summary.overdueScheduleItems ? "attention" : "default"}
+                value={formatCurrency(summary.outstandingAmount)}
+              />
+            </RequestSummaryWide>
+          </RequestSummaryGrid>
 
-      <section className="min-w-0">
-        <ProcurementMobileToolbar canCreate={canCreate} selfService />
-        <ProcurementHeader canCreate={canCreate} selfService />
-        <ProcurementDataView
-          canReview={false}
-          initialSettings={initialSettings}
-        />
-      </section>
+          <section className="min-w-0">
+            <ProcurementMobileToolbar canCreate={canCreate} selfService />
+            <ProcurementHeader canCreate={canCreate} selfService />
+            <ProcurementDataView
+              canReview={false}
+              initialSettings={initialSettings}
+            />
+          </section>
+        </>
+      ) : null}
     </div>
   )
 }

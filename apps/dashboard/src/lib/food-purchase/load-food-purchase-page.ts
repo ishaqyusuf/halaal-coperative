@@ -1,11 +1,13 @@
 import {
   createDbRuntime,
   getFoodPurchaseApplicationSummary,
+  getMobileMemberFoodPurchaseService,
   listFoodPurchaseCycles,
   isMemberOperationallyReady,
 } from "@halaalvest/db"
 import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
 import { findRequestMemberByUserId } from "@/lib/request-lookups"
+import { foodPurchaseMemberState } from "@/lib/requests/member-service-state"
 import { getDashboardServerContext } from "@/lib/server-context"
 import {
   allStaffRoles,
@@ -54,13 +56,14 @@ export async function loadFoodPurchasePageData() {
       return { state: "member-profile-missing" as const }
     }
 
-    // A member who is not verified sees a plain notice, not a form that fails.
-    const [cycles, applicationSummary, isReady] = await Promise.all([
-      listFoodPurchaseCycles({ tenantId: context.tenant.id }),
-      getFoodPurchaseApplicationSummary({
-        memberId: member.id,
+    // The mobile app's availability read gives the server's real reasons;
+    // the cycle rows feed the application form.
+    const [service, cycles, isReady] = await Promise.all([
+      getMobileMemberFoodPurchaseService({
         tenantId: context.tenant.id,
+        userId: context.auth.user.id,
       }),
+      listFoodPurchaseCycles({ tenantId: context.tenant.id }),
       foodPurchaseCapability.canMemberCreate
         ? isMemberOperationallyReady({
             member,
@@ -69,19 +72,16 @@ export async function loadFoodPurchasePageData() {
         : null,
     ])
 
-    if (
-      foodPurchaseCapability.accessMode === "disabled" &&
-      cycles.length === 0 &&
-      applicationSummary.totalApplications === 0
-    ) {
-      return { state: "service-disabled" as const }
+    if (service.state !== "available") {
+      return { state: "unavailable" as const }
     }
+
+    const memberState = foodPurchaseMemberState(service, isReady)
 
     return {
       state: "member-ready" as const,
-      canCreateApplication: Boolean(isReady),
-      needsVerification:
-        foodPurchaseCapability.canMemberCreate && !isReady,
+      canCreateApplication: memberState.gate === null,
+      ...memberState,
       cycles: cycles.map((cycle) => ({
         ...cycle,
         accountingSubmittedByUser: cycle.accountingSubmittedByUser
@@ -95,7 +95,7 @@ export async function loadFoodPurchasePageData() {
           id: cycle.releasedByUser.id,
         },
       })),
-      summary: applicationSummary,
+      summary: service.summary,
     }
   }
 

@@ -1,11 +1,11 @@
 import {
   createDbRuntime,
+  getMobileMemberProcurementService,
   getProcurementSummary,
-  isMemberOperationallyReady,
   tenantHasMembers,
 } from "@halaalvest/db"
 import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
-import { findRequestMemberByUserId } from "@/lib/request-lookups"
+import { procurementMemberState } from "@/lib/requests/member-service-state"
 import { getDashboardServerContext } from "@/lib/server-context"
 import {
   allStaffRoles,
@@ -45,40 +45,26 @@ export async function loadProcurementPageData() {
       return { state: "member-sign-in-required" as const }
     }
 
-    const member = await findRequestMemberByUserId({
+    // The same availability read the mobile app uses, so the states and the
+    // "Not yet" checklist come from the server's real reasons.
+    const service = await getMobileMemberProcurementService({
       tenantId: context.tenant.id,
       userId: context.auth.user.id,
     })
 
-    if (!member) {
+    if (service.state === "member_profile_missing") {
       return { state: "member-profile-missing" as const }
     }
 
-    // Readiness is read only when the member could ask, so a member who is
-    // not verified sees a plain notice instead of a form that will fail.
-    const [summary, isReady] = await Promise.all([
-      getProcurementSummary(context.tenant.id, undefined, member.id),
-      procurementCapability.canMemberCreate
-        ? isMemberOperationallyReady({
-            member,
-            tenantId: context.tenant.id,
-          })
-        : null,
-    ])
-
-    if (
-      procurementCapability.accessMode === "disabled" &&
-      summary.totalRequests === 0
-    ) {
-      return { state: "service-disabled" as const }
+    if (service.state !== "available") {
+      return { state: "unavailable" as const }
     }
 
     return {
       state: "member-ready" as const,
-      canCreate: Boolean(isReady),
-      needsVerification:
-        procurementCapability.canMemberCreate && !isReady,
-      summary,
+      canCreate: service.canCreateRequest,
+      ...procurementMemberState(service),
+      summary: service.summary,
     }
   }
 

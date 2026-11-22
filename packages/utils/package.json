@@ -24,6 +24,7 @@
     "./runtime-url": "./src/runtime-url.ts",
     "./app-update": "./src/app-update.ts",
     "./qa-policy": "./src/qa-policy.ts",
-    "./qa-policy-server": "./src/qa-policy-server.ts"
+    "./qa-policy-server": "./src/qa-policy-server.ts",
+    "./service-request-gate": "./src/service-request-gate.ts"
   }
 }

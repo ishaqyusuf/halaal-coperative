@@ -1,4 +1,7 @@
+import { serviceLoadErrorGate } from "@halaalvest/utils/service-request-gate"
+import { ShoppingBasket } from "lucide-react"
 import { WorkspacePageShell } from "@/components/dashboard"
+import { ServiceStateCard } from "@/components/requests/service-state-card"
 import {
   FoodPurchaseView,
   MemberFoodPurchaseView,
@@ -19,6 +22,24 @@ export function FoodPurchasePageView({
   data: FoodPurchasePageData
   foodPurchaseInitialSettings?: Partial<TableSettings>
 }) {
+  if (data.state === "unavailable") {
+    return (
+      <WorkspacePageShell
+        description=""
+        eyebrow="Foodstuff purchase"
+        title="Foodstuff purchase"
+      >
+        <ServiceStateCard
+          gate={serviceLoadErrorGate({
+            noun: "application",
+            title: "Foodstuff purchase",
+          })}
+          serviceIcon={ShoppingBasket}
+        />
+      </WorkspacePageShell>
+    )
+  }
+
   if (isRequestPageBlocked(data.state)) {
     return <RequestPageState state={data.state} title="Foodstuff purchase" />
   }
@@ -31,10 +52,11 @@ export function FoodPurchasePageView({
         title="Foodstuff purchase"
       >
         <MemberFoodPurchaseView
+          active={data.active}
           canCreateApplication={data.canCreateApplication}
           cycles={data.cycles}
+          gate={data.gate}
           initialSettings={foodPurchaseInitialSettings}
-          needsVerification={data.needsVerification}
           summary={data.summary}
         />
       </WorkspacePageShell>

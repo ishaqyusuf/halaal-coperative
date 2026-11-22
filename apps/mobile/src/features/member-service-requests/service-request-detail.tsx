@@ -344,9 +344,11 @@ export function ServiceRequestDetail({
                     </Text>
                     <Text
                       className={
-                        isNext && late
-                          ? "text-tint-danger-foreground"
-                          : "text-muted-foreground"
+                        isNext && row.checkingAmount
+                          ? "text-tint-warm-foreground"
+                          : isNext && late
+                            ? "text-tint-danger-foreground"
+                            : "text-muted-foreground"
                       }
                       variant="caption"
                     >

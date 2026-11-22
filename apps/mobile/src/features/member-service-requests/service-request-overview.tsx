@@ -254,7 +254,7 @@ function OverviewBalance({
             </View>
             {payLink && checking > 0 ? (
               <View
-                className="bg-tint-warm min-h-[36px] flex-row items-center gap-[6px] rounded-full px-[12px]"
+                className="bg-tint-warm min-h-[36px] w-full flex-row items-center gap-[6px] self-start rounded-full px-[12px]"
                 testID="overview-checking"
               >
                 <Icon

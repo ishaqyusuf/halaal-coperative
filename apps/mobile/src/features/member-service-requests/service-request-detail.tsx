@@ -20,7 +20,10 @@ import {
   type ServiceDesign,
   type ServiceRequest,
 } from "./service-request-model"
+import type { PayLink } from "./service-request-gate"
+import { NextPaymentCard, PayButton } from "./service-request-pay"
 import {
+  isPaymentOverdue,
   nextRequestPayment,
   repaymentProgress,
   requestBadge,
@@ -55,6 +58,8 @@ export function ServiceRequestDetail({
   onBack,
   onRetry,
   onStart,
+  payable = false,
+  payLink = null,
   row,
   unavailable,
 }: {
@@ -64,6 +69,9 @@ export function ServiceRequestDetail({
   onBack: () => void
   onRetry?: () => void
   onStart?: () => void
+  /** Procurement and foodstuff use the 02 Next payment card; project financing keeps its layout. */
+  payable?: boolean
+  payLink?: PayLink | null
   row: ServiceRequest | null
   unavailable?: boolean
 }) {
@@ -101,10 +109,9 @@ export function ServiceRequestDetail({
   const term = row.months
     ? `${row.months} months${row.monthly ? ` · ${formatServiceMoney(row.monthly, currency)}/mo` : ""}`
     : "Set during review"
-  const nextDate = next && new Date(next.date)
-  const today = new Date()
-  today.setUTCHours(0, 0, 0, 0)
-  const late = nextDate && nextDate < today
+  const late = isPaymentOverdue(next)
+  const fullyPaid =
+    payable && (row.status === "completed" || (active && row.outstanding === 0))
   const message = progressMessage(design, row)
   const steps =
     row.status === "completed"
@@ -203,7 +210,19 @@ export function ServiceRequestDetail({
       testID="service-detail"
       title={row.title}
     >
-      {active && (next || row.monthly) ? (
+      {payable && (fullyPaid || (active && row.outstanding !== null)) ? (
+        <View className="-mt-[30px]">
+          <NextPaymentCard
+            amount={next ? next.amount - next.paid : (row.outstanding ?? 0)}
+            checkingAmount={row.checkingAmount}
+            currency={currency}
+            dueDate={next?.date}
+            fullyPaid={fullyPaid}
+            link={payLink}
+            overdue={late}
+          />
+        </View>
+      ) : active && (next || row.monthly) ? (
         <View className="-mt-[30px]">
           <Elevated
             className="min-h-[72px] flex-row items-center gap-[12px] rounded-[20px] border border-transparent bg-card p-[14px] dark:border-border"
@@ -323,29 +342,42 @@ export function ServiceRequestDetail({
                     <Text className="font-bold" variant="small">
                       {formatServiceDate(payment.date)}
                     </Text>
-                    <Text className="text-muted-foreground" variant="caption">
+                    <Text
+                      className={
+                        isNext && late
+                          ? "text-tint-danger-foreground"
+                          : "text-muted-foreground"
+                      }
+                      variant="caption"
+                    >
                       {paid
                         ? "Paid"
                         : payment.status === "cancelled"
                           ? "Cancelled"
-                          : isNext && late
-                            ? "Overdue"
-                            : isNext
-                              ? "Next payment"
-                              : payment.paid > 0
-                                ? "Partly paid"
-                                : "Scheduled"}
+                          : isNext && row.checkingAmount
+                            ? "Being checked"
+                            : isNext && late
+                              ? "Overdue"
+                              : isNext
+                                ? "Next payment"
+                                : payment.paid > 0
+                                  ? "Partly paid"
+                                  : "Scheduled"}
                     </Text>
                   </View>
-                  <Text
-                    className={paid ? "text-muted-foreground" : ""}
-                    variant="money"
-                  >
-                    {formatServiceMoney(
-                      paid ? payment.paid : payment.amount - payment.paid,
-                      currency
-                    )}
-                  </Text>
+                  {isNext && payLink && !row.checkingAmount ? (
+                    <PayButton link={payLink} testID="schedule-pay" />
+                  ) : (
+                    <Text
+                      className={paid ? "text-muted-foreground" : ""}
+                      variant="money"
+                    >
+                      {formatServiceMoney(
+                        paid ? payment.paid : payment.amount - payment.paid,
+                        currency
+                      )}
+                    </Text>
+                  )}
                   {paid ? (
                     <Icon
                       className="text-success size-[18px]"

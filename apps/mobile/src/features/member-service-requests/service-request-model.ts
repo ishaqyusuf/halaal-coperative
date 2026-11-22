@@ -42,6 +42,8 @@ export type ServiceRequest = {
   details: [string, string | null][]
   reviewNotes: string | null
   payments?: RequestPayment[]
+  /** Submitted payment still with finance; set only when a read reports it. */
+  checkingAmount?: number
 }
 
 export type ServiceCharge = {

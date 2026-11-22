@@ -29,6 +29,11 @@ import {
 } from "./service-request-detail"
 import { ServiceRequestEditor } from "./service-request-editor"
 import {
+  requestGate,
+  requestLoadErrorGate,
+  requestPayLink,
+} from "./service-request-gate"
+import {
   matchesRequestFilter,
   restoreServiceDraft,
   serviceDesign,
@@ -487,8 +492,13 @@ function ScopedServiceRequestScreen({
     })
   }
 
-  const blocked = workspace && !workspace.canCreate
-  const noCycle = kind === "food-purchase" && workspace?.cycles?.length === 0
+  const gate = workspace
+    ? requestGate(kind, design, workspace, currency)
+    : workspaceQuery.isError
+      ? requestLoadErrorGate(design)
+      : null
+  const onGateAction = () =>
+    gate?.action.kind === "retry" ? refresh() : router.push("/(member)/support")
   const notice: ServiceNotice | undefined =
     offline || (workspace && stale)
       ? {
@@ -500,34 +510,7 @@ function ScopedServiceRequestScreen({
           title: offline ? "You’re offline" : "Saved data",
           tone: "warning",
         }
-      : blocked
-        ? {
-            action: {
-              label: "Ask the office",
-              onPress: () => router.push("/(member)/support"),
-            },
-            description: noCycle
-              ? "The office opens a cycle before accepting applications."
-              : workspace.reasons.join("\n"),
-            icon:
-              workspace.accessMode === "office_only"
-                ? "Building2"
-                : noCycle
-                  ? "CalendarDays"
-                  : "Ban",
-            title:
-              workspace.accessMode === "office_only"
-                ? `New ${design.noun}s are made at the office`
-                : workspace.accessMode === "read_only"
-                  ? `New ${design.noun}s are paused`
-                  : workspace.accessMode === "disabled"
-                    ? `${design.title} is unavailable`
-                    : noCycle
-                      ? "No cycle is open right now"
-                      : `You can’t start a new ${design.noun} yet`,
-            tone: workspace.accessMode === "office_only" ? "info" : "warning",
-          }
-        : undefined
+      : undefined
 
   function getLane(lane: RequestFilter): RequestLane {
     const isCurrent = lane === filter
@@ -591,6 +574,8 @@ function ScopedServiceRequestScreen({
           design={design}
           loading={!detailSeed && detail.isFetching}
           onBack={dismissDetail}
+          payable={kind !== "project-financing"}
+          payLink={requestPayLink(kind, detailSeed ?? detail.data)}
           onRetry={
             !offline && detail.isError
               ? () => {
@@ -602,27 +587,16 @@ function ScopedServiceRequestScreen({
           row={detailSeed ?? detail.data ?? null}
           unavailable={detail.isSuccess && !detail.data}
         />
-      ) : workspace?.state === "member_profile_missing" ||
-        (workspace?.accessMode === "disabled" && !workspace.totalCount) ? (
+      ) : workspace?.state === "member_profile_missing" ? (
         <ScreenShell back title={design.title}>
           <EmptyState
             action={{
               label: "Ask the office",
               onPress: () => router.push("/(member)/support"),
             }}
-            description={
-              workspace.state === "member_profile_missing"
-                ? "Ask the cooperative office to link your member record to this account."
-                : workspace.reasons.join("\n")
-            }
-            icon={
-              workspace.state === "member_profile_missing" ? "UserRound" : "Ban"
-            }
-            title={
-              workspace.state === "member_profile_missing"
-                ? "Your member profile isn’t linked yet"
-                : `${design.title} is unavailable`
-            }
+            description="Ask the cooperative office to link your member record to this account."
+            icon="UserRound"
+            title="Your member profile isn’t linked yet"
             tone="warning"
           />
         </ScreenShell>
@@ -646,6 +620,9 @@ function ScopedServiceRequestScreen({
               : null
           }
           filter={filter}
+          gate={gate}
+          onGateAction={onGateAction}
+          payLink={requestPayLink(kind, active)}
           getLane={getLane}
           loading={
             !workspace && (workspaceQuery.isPending || qaState === "loading")
@@ -664,6 +641,7 @@ function ScopedServiceRequestScreen({
       <ServiceRequestEditor
         charges={charges}
         currency={currency}
+        gate={gate}
         design={design}
         draft={draft}
         draftRestored={draftRestored}

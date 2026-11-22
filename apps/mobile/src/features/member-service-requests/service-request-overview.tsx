@@ -30,6 +30,13 @@ import {
   type ServiceWorkspace,
 } from "./service-request-model"
 import {
+  requestLoadErrorGate,
+  type PayLink,
+  type RequestGate,
+} from "./service-request-gate"
+import { PayButton, RequestGateCard } from "./service-request-pay"
+import {
+  isPaymentOverdue,
   nextRequestPayment,
   repaymentProgress,
   requestBadge,
@@ -143,11 +150,13 @@ function OverviewBalance({
   currency,
   design,
   onOpen,
+  payLink,
 }: {
   active?: ServiceRequest
   currency: string
   design: ServiceDesign
   onOpen: (row: ServiceRequest) => void
+  payLink: PayLink | null
 }) {
   if (!active) {
     return (
@@ -166,9 +175,15 @@ function OverviewBalance({
     )
   }
   const next = nextRequestPayment(active)
+  const overdue = isPaymentOverdue(next)
   return (
     <Elevated
-      className="rounded-[20px] border border-transparent bg-card dark:border-border"
+      className={cn(
+        "rounded-[20px] border bg-card",
+        overdue && payLink
+          ? "border-destructive"
+          : "border-transparent dark:border-border"
+      )}
       radius={20}
     >
       <Pressable
@@ -198,23 +213,47 @@ function OverviewBalance({
         </View>
         {next || active.monthly ? (
           <View className="flex-row flex-wrap items-center justify-between gap-[6px] border-t border-border pt-[12px]">
-            <View className="flex-row items-center gap-[6px]">
-              <Icon
-                className="size-[16px] text-muted-foreground"
-                name="CalendarDays"
-              />
-              <Text className="text-foreground-soft" variant="small">
-                {next
-                  ? `Next ${formatServiceDate(next.date)}`
-                  : "Monthly payback"}
+            <View className="min-w-0 flex-1 gap-[2px]">
+              <Text variant="money">
+                {payLink ? (next ? "Next: " : "Left: ") : ""}
+                {formatServiceMoney(
+                  next
+                    ? next.amount - next.paid
+                    : payLink
+                      ? (active.outstanding ?? 0)
+                      : (active.monthly ?? 0),
+                  currency
+                )}
               </Text>
+              <View className="flex-row items-center gap-[6px]">
+                <Icon
+                  className={cn(
+                    "size-[14px]",
+                    overdue
+                      ? "text-tint-danger-foreground"
+                      : "text-muted-foreground"
+                  )}
+                  name="CalendarDays"
+                />
+                <Text
+                  className={
+                    overdue
+                      ? "text-tint-danger-foreground"
+                      : "text-foreground-soft"
+                  }
+                  variant="caption"
+                >
+                  {next
+                    ? `${overdue ? "Overdue since" : "Due"} ${formatServiceDate(next.date)}`
+                    : payLink
+                      ? `${formatServiceMoney(active.monthly ?? 0, currency)} a month`
+                      : "Monthly payback"}
+                </Text>
+              </View>
             </View>
-            <Text variant="money">
-              {formatServiceMoney(
-                next ? next.amount - next.paid : (active.monthly ?? 0),
-                currency
-              )}
-            </Text>
+            {payLink ? (
+              <PayButton label="Pay now" link={payLink} testID="overview-pay" />
+            ) : null}
           </View>
         ) : null}
       </Pressable>
@@ -297,14 +336,17 @@ export function ServiceRequestOverview({
   draft,
   error,
   filter,
+  gate,
   getLane,
   loading,
   notice,
   onFilter,
+  onGateAction,
   onOpen,
   onRefresh,
   onSearch,
   onStart,
+  payLink,
   refreshing,
   search,
   workspace,
@@ -316,14 +358,17 @@ export function ServiceRequestOverview({
   draft: string | null
   error: string | null
   filter: RequestFilter
+  gate: RequestGate | null
   getLane: (lane: RequestFilter) => RequestLane
   loading: boolean
   notice?: ServiceNotice
   onFilter: (value: RequestFilter) => void
+  onGateAction: () => void
   onOpen: (row: ServiceRequest) => void
   onRefresh: () => void
   onSearch: (value: string) => void
   onStart: () => void
+  payLink: PayLink | null
   refreshing: boolean
   search: string
   workspace?: ServiceWorkspace
@@ -348,38 +393,38 @@ export function ServiceRequestOverview({
 
   if (!workspace && error) {
     return (
-      <ScreenShell back>
-        <EmptyState
-          action={{ label: "Try again", onPress: onRefresh }}
-          description={error}
-          icon="CircleAlert"
-          title={`${design.title} couldn’t load`}
-          tone="error"
+      <ScreenShell back title={design.title}>
+        <RequestGateCard
+          gate={gate ?? requestLoadErrorGate(design)}
+          onAction={onRefresh}
         />
       </ScreenShell>
     )
   }
+  const gated = Boolean(gate && !loading)
+  const quiet = gated && !total
   const header = (
     <>
-      {!loading ? (
+      {!loading && (active || !gated) ? (
         <OverviewBalance
           active={active}
           currency={currency}
           design={design}
           onOpen={onOpen}
+          payLink={payLink}
         />
       ) : null}
       {notice ? <RequestNotice notice={notice} /> : null}
+      {gate && gated ? (
+        <RequestGateCard gate={gate} onAction={onGateAction} />
+      ) : null}
       {draft && canStart ? (
         <Pressable
           accessibilityRole="button"
           className="min-h-[56px] flex-row items-center gap-[12px] rounded-[18px] border border-dashed border-primary/50 bg-accent px-[14px] py-[10px]"
           onPress={onStart}
         >
-          <Icon
-            className="size-[18px] text-accent-foreground"
-            name="Pencil"
-          />
+          <Icon className="size-[18px] text-accent-foreground" name="Pencil" />
           <View className="flex-1">
             <Text className="text-accent-foreground" variant="label">
               Continue your draft
@@ -404,7 +449,12 @@ export function ServiceRequestOverview({
           <Text>{newLabel}</Text>
         </Button>
       ) : null}
-      {!loading ? (
+      {quiet ? (
+        <Text className="mt-[6px]" variant="section">
+          Your {design.noun}s
+        </Text>
+      ) : null}
+      {!loading && !quiet ? (
         <SegmentedControl
           accessibilityLabel={`${design.title} request status`}
           onChange={onFilter}
@@ -461,23 +511,36 @@ export function ServiceRequestOverview({
                 }
                 data={page.rows}
                 empty={
-                  <EmptyState
-                    description={
-                      search
-                        ? `No ${design.noun}s match “${search}”.`
-                        : lane === "all"
-                          ? `Your ${design.title.toLowerCase()} ${design.noun}s and their status will appear here.`
-                          : `No ${design.noun}s with this status.`
-                    }
-                    icon={design.icon}
-                    title={
-                      search
-                        ? "No matches"
-                        : lane === "all"
-                          ? `No ${design.noun}s yet`
-                          : "Nothing here"
-                    }
-                  />
+                  quiet ? (
+                    <View className="mx-[18px] rounded-[18px] bg-card p-[18px] dark:border dark:border-border">
+                      <Text
+                        className="text-center text-muted-foreground"
+                        variant="small"
+                      >
+                        {design.noun === "application"
+                          ? "Applications you make show here with their payments."
+                          : "Requests you make show here with their instalments."}
+                      </Text>
+                    </View>
+                  ) : (
+                    <EmptyState
+                      description={
+                        search
+                          ? `No ${design.noun}s match “${search}”.`
+                          : lane === "all"
+                            ? `Your ${design.title.toLowerCase()} ${design.noun}s and their status will appear here.`
+                            : `No ${design.noun}s with this status.`
+                      }
+                      icon={design.icon}
+                      title={
+                        search
+                          ? "No matches"
+                          : lane === "all"
+                            ? `No ${design.noun}s yet`
+                            : "Nothing here"
+                      }
+                    />
+                  )
                 }
                 error={page.error ?? error}
                 estimatedItemSize={65}

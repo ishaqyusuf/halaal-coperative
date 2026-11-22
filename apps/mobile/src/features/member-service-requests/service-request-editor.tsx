@@ -21,6 +21,7 @@ import {
   type ServiceKind,
   type ServiceWorkspace,
 } from "./service-request-model"
+import type { RequestGate } from "./service-request-gate"
 import { RequestNotice } from "./service-request-overview"
 import {
   RequestSteps,
@@ -267,6 +268,7 @@ function DraftText({
 
 export function ServiceRequestEditor({
   charges,
+  gate,
   currency,
   design,
   draft,
@@ -293,6 +295,7 @@ export function ServiceRequestEditor({
   workspace,
 }: {
   charges: ServiceCharge[]
+  gate?: RequestGate | null
   currency: string
   design: ServiceDesign
   draft: RequestDraft
@@ -442,9 +445,9 @@ export function ServiceRequestEditor({
           {!workspace?.canCreate ? (
             <RequestNotice
               notice={{
-                description: workspace?.reasons.join("\n"),
-                icon: "Ban",
-                title: `New ${design.noun}s are unavailable`,
+                description: gate?.description,
+                icon: gate?.icon ?? "CircleAlert",
+                title: gate?.title ?? `You can’t send this ${design.noun} yet`,
                 tone: "warning",
               }}
             />

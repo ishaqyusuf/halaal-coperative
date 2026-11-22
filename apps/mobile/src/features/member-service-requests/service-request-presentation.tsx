@@ -82,6 +82,18 @@ export function nextRequestPayment(row: ServiceRequest) {
   )
 }
 
+/** Late is read, not stored: unpaid and due before today (UTC). */
+export function isPaymentOverdue(
+  payment: { date: string } | undefined,
+  now = new Date()
+) {
+  if (!payment) return false
+  const due = new Date(payment.date)
+  const today = new Date(now)
+  today.setUTCHours(0, 0, 0, 0)
+  return !Number.isNaN(due.getTime()) && due < today
+}
+
 export function repaymentProgress(row: ServiceRequest) {
   const total = row.repaymentTotal ?? row.amount
   return total > 0

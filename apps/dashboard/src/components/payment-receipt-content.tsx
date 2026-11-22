@@ -709,7 +709,12 @@ export function PaymentReceiptReviewContent({
     (total, allocation) => total + allocation.amount,
     0
   )
+  // Sent without a split (T30): approval applies it in the cooperative's
+  // payment order, so there is nothing to balance here.
+  const appliesAutomatically =
+    receipt.allocations.length === 0 && allocations.length === 0
   const isAllocationBalanced =
+    appliesAutomatically ||
     Math.abs(allocationTotal - receipt.totalAmount) < 0.005
   const allocationsChanged =
     JSON.stringify(allocationPayload) !== originalAllocationSnapshot
@@ -867,6 +872,19 @@ export function PaymentReceiptReviewContent({
               {formatCurrency(receipt.totalAmount)} allocated
             </p>
           </div>
+
+          {appliesAutomatically ? (
+            <Alert>
+              <AlertTitle>Applied automatically on approval</AlertTitle>
+              <AlertDescription>
+                The member didn&apos;t pick what this pays. Approving applies{" "}
+                {formatCurrency(receipt.totalAmount)} in the cooperative&apos;s
+                payment order: overdue items first, then procurement,
+                foodstuff, loans, approved shares and commitment. Anything left
+                goes to special savings.
+              </AlertDescription>
+            </Alert>
+          ) : null}
 
           {!isAllocationBalanced ? (
             <Alert variant="destructive">

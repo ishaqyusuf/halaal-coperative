@@ -20,6 +20,12 @@ import {
   resolveTenantServiceCapabilities,
 } from "./operation-profile"
 import { ExpectedQueryError } from "../query-error"
+import {
+  getTenantPaymentAllocationSettings,
+  listMemberPayables,
+  type MemberPayable,
+  type PaymentAllocationMode,
+} from "./member-payables"
 
 export type MobileReceiptTargetKind =
   | "contributionPlanId"
@@ -68,6 +74,7 @@ function toMobileReceipt(row: MemberPaymentReceiptRow) {
       foodPurchaseApplicationId: allocation.foodPurchaseApplicationId,
       id: allocation.id,
       loanId: allocation.loanId,
+      memberShareApplicationId: allocation.memberShareApplicationId,
       notes: allocation.notes,
       periodIntent: allocation.periodIntent,
       projectFinancingRequestId: allocation.projectFinancingRequestId,
@@ -367,6 +374,52 @@ export async function getMobileMemberReceiptFormOptions(
   return { canCreateReceipt, categories: options, proofRequired }
 }
 
+export type MobileMemberPayablesSnapshot = {
+  canCreateReceipt: boolean
+  /** `automatic`: a typed amount is applied in `payables` order. */
+  mode: PaymentAllocationMode
+  payables: MemberPayable[]
+  proofRequired: boolean
+}
+
+/**
+ * Record payment's one read (T30): the member's current payables in the
+ * cooperative's order, the allocation mode, proof policy and self-service
+ * switch. Member lookup, then one parallel batch of bounded reads.
+ */
+export async function getMobileMemberPayables(
+  input: { tenantId: string; userId: string },
+  prismaOverride?: PrismaClient
+): Promise<MobileMemberPayablesSnapshot> {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+  const member = await getMemberByUserId(input, prisma)
+  if (!member) {
+    return {
+      canCreateReceipt: false,
+      mode: "automatic",
+      payables: [],
+      proofRequired: false,
+    }
+  }
+  const [settings, services, proofRequired] = await Promise.all([
+    getTenantPaymentAllocationSettings(input.tenantId, prisma),
+    getReceiptServices(input.tenantId, prisma),
+    getReceiptProofRequired(input.tenantId, prisma),
+  ])
+  const payables = await listMemberPayables(
+    { memberId: member.id, tenantId: input.tenantId },
+    prisma,
+    settings
+  )
+  return {
+    canCreateReceipt: services.payment_receipts.canMemberCreate,
+    mode: settings.mode,
+    payables,
+    proofRequired,
+  }
+}
+
 export async function getMobileMemberReceiptSnapshot(
   input: {
     compact?: boolean
@@ -487,6 +540,8 @@ export async function createMobileMemberReceiptForSession(
     await createMemberPaymentReceipt(
       {
         ...input,
+        // No split: approval applies it in the cooperative's order (T30).
+        autoAllocate: input.allocations.length === 0,
         memberId: member.id,
         submittedByUserId: input.userId,
         requireProofUploadRecord: true,

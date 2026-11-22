@@ -3,6 +3,7 @@ import {
   createMobileMemberSupportCaseForSession,
   getMobileMemberReceiptSnapshot,
   getMobileMemberReceiptFormOptions,
+  getMobileMemberPayables,
   getTenantOperationProfile,
   getMobileMemberReceiptDetail,
   getMobileMemberSupportDetail,
@@ -45,6 +46,7 @@ export const receiptCreateInput = z.object({
         contributionPlanId: z.string().trim().min(1).optional(),
         foodPurchaseApplicationId: z.string().trim().min(1).optional(),
         loanId: z.string().trim().min(1).optional(),
+        memberShareApplicationId: z.string().trim().min(1).optional(),
         notes: z.string().trim().max(240).optional(),
         periodIntent: periodIntent.optional(),
         projectFinancingRequestId: z.string().trim().min(1).optional(),
@@ -56,7 +58,8 @@ export const receiptCreateInput = z.object({
           .optional(),
       })
     )
-    .min(1)
+    // Empty (T30): approval applies the amount in the cooperative's order.
+    .min(0)
     .max(8),
   channel: z.enum(["transfer", "cash", "manual", "payroll"]).optional(),
   memberNotes: z.string().trim().max(1000).optional(),
@@ -176,6 +179,13 @@ export const mobileMemberReceiptsSupportProcedures = {
         throw new TRPCError({ code: "FORBIDDEN" })
       }
       return { tenantId, userId: ctx.auth.session.user.id }
+    }),
+    payables: tenantProcedure.query(({ ctx }) => {
+      assertMemberWorkspace(ctx.auth.activeMembership.role)
+      return getMobileMemberPayables({
+        tenantId: ctx.tenant.current.id,
+        userId: ctx.auth.session.user.id,
+      })
     }),
     formOptions: tenantProcedure.query(({ ctx }) => {
       assertMemberWorkspace(ctx.auth.activeMembership.role)

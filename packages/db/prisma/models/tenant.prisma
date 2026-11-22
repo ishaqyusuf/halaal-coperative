@@ -183,6 +183,11 @@ model TenantPolicy {
   foodPurchaseMaximumActiveObligationsPerMember      Int                       @default(1) @map("food_purchase_maximum_active_obligations_per_member")
   // Member-submitted payment receipts must carry proof (upload or link) when true.
   paymentReceiptProofRequired                        Boolean                   @default(false) @map("payment_receipt_proof_required")
+  // Payment order (T30): unsplit member payments are applied overdue first,
+  // then by `paymentAllocationOrder` (empty = cooperative default order).
+  paymentAllocationMode                              PaymentAllocationMode     @default(automatic) @map("payment_allocation_mode")
+  paymentAllocationOrder                             String[]                  @default([]) @map("payment_allocation_order")
+  paymentAllocationLeftover                          PaymentAllocationLeftover @default(special_savings) @map("payment_allocation_leftover")
   monthlyLevyAmount                                  Decimal?                  @map("monthly_levy_amount") @db.Decimal(18, 2)
   migrationSetupMode                                 TenantMigrationSetupMode  @default(historical_backfill) @map("migration_setup_mode")
   // One Path Done markers: set when the admin saves step 5 / the share policy.

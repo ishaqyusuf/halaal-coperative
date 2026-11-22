@@ -29,3 +29,26 @@ describe("mobile receipt proof input", () => {
     ).toBe(false)
   })
 })
+
+describe("mobile receipt allocation input (T30)", () => {
+  test("accepts a payment without a split for automatic allocation", () => {
+    expect(
+      receiptCreateInput.safeParse({ ...payload, allocations: [] }).success
+    ).toBe(true)
+  })
+
+  test("accepts a share payment against an approved share purchase", () => {
+    expect(
+      receiptCreateInput.safeParse({
+        ...payload,
+        allocations: [
+          {
+            amount: 25_000,
+            category: "shares",
+            memberShareApplicationId: "share-application-1",
+          },
+        ],
+      }).success
+    ).toBe(true)
+  })
+})

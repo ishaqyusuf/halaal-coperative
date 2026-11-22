@@ -150,6 +150,10 @@ model MemberShareApplication {
   unitAmountSnapshot Decimal                      @map("unit_amount_snapshot") @db.Decimal(18, 2)
   shareValueSnapshot Decimal                      @map("share_value_snapshot") @db.Decimal(18, 2)
   status             MemberShareApplicationStatus @default(pending)
+  // T30: an approved purchase the member still has to pay shows as a Shares
+  // payable while `paymentDue`; receipt approval adds to `paidAmount`.
+  paymentDue         Boolean                      @default(false) @map("payment_due")
+  paidAmount         Decimal                      @default(0) @map("paid_amount") @db.Decimal(18, 2)
   notes              String?
   reviewNotes        String?                      @map("review_notes")
   requestedByUserId  String?                      @map("requested_by_user_id") @db.Uuid
@@ -160,6 +164,7 @@ model MemberShareApplication {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  paymentReceiptAllocations MemberPaymentReceiptAllocation[]
 
   @@index([tenantId, status, createdAt], map: "member_share_applications_tenant_status_created_idx")
   @@index([tenantId, memberId, status], map: "member_share_applications_tenant_member_status_idx")

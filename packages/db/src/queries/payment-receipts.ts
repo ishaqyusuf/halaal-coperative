@@ -21,6 +21,15 @@ import {
   type MemberPurchaseReceiptRepayment,
   postMemberPurchaseReceiptAllocations,
 } from "./member-purchase-receipts"
+import {
+  allocateReceiptAmount,
+  getTenantPaymentAllocationSettings,
+  listMemberPayables,
+} from "./member-payables"
+
+/** Audit reason when approval applies an unsplit receipt automatically. */
+export const AUTO_ALLOCATION_REASON =
+  "Applied automatically in the cooperative's payment order."
 
 export type { MemberPaymentReceiptStatus }
 
@@ -33,6 +42,8 @@ export type PaymentReceiptAllocationInput = {
   notes?: string | null
   periodIntent?: MemberPaymentReceiptPeriodIntent | null
   projectFinancingRequestId?: string | null
+  /** A `shares` allocation paying an approved share purchase (T30). */
+  memberShareApplicationId?: string | null
   procurementRepaymentScheduleItemId?: string | null
   targetPeriodStart?: Date | null
 }
@@ -50,6 +61,7 @@ export type MemberPaymentReceiptAllocationRow = {
   postedRepaymentId: string | null
   postedShareLedgerEntryId: string | null
   projectFinancingRequestId: string | null
+  memberShareApplicationId: string | null
   procurementRepaymentScheduleItemId: string | null
   targetPeriodStart: Date | null
 }
@@ -209,6 +221,7 @@ function assertAllocationTargetShape(input: {
   foodPurchaseApplicationId: string | null
   index: number
   loanId: string | null
+  memberShareApplicationId: string | null
   projectFinancingRequestId: string | null
   procurementRepaymentScheduleItemId: string | null
 }) {
@@ -216,6 +229,7 @@ function assertAllocationTargetShape(input: {
     contributionPlanId: input.contributionPlanId,
     foodPurchaseApplicationId: input.foodPurchaseApplicationId,
     loanId: input.loanId,
+    memberShareApplicationId: input.memberShareApplicationId,
     projectFinancingRequestId: input.projectFinancingRequestId,
     procurementRepaymentScheduleItemId:
       input.procurementRepaymentScheduleItemId,
@@ -230,7 +244,9 @@ function assertAllocationTargetShape(input: {
           ? new Set(["foodPurchaseApplicationId"])
           : projectFinancingCategories.has(input.category)
             ? new Set(["projectFinancingRequestId"])
-            : new Set<string>()
+            : shareCategories.has(input.category)
+              ? new Set(["memberShareApplicationId"])
+              : new Set<string>()
 
   const invalidTarget = Object.entries(targets).find(
     ([key, value]) => value && !allowedTargets.has(key)
@@ -376,6 +392,9 @@ function normalizeAllocationInput(
     foodPurchaseApplicationId,
     index,
     loanId: normalizeOptionalString(allocation.loanId),
+    memberShareApplicationId: normalizeOptionalString(
+      allocation.memberShareApplicationId
+    ),
     projectFinancingRequestId,
     procurementRepaymentScheduleItemId,
   })
@@ -392,6 +411,9 @@ function normalizeAllocationInput(
     notes: normalizeOptionalString(allocation.notes),
     periodIntent,
     projectFinancingRequestId,
+    memberShareApplicationId: normalizeOptionalString(
+      allocation.memberShareApplicationId
+    ),
     procurementRepaymentScheduleItemId,
     targetPeriodStart: allocation.targetPeriodStart ?? null,
   }
@@ -399,8 +421,11 @@ function normalizeAllocationInput(
 
 function normalizeAllocations(
   allocations: PaymentReceiptAllocationInput[],
-  totalAmount: number
+  totalAmount: number,
+  options: { allowEmpty?: boolean } = {}
 ) {
+  if (!allocations.length && options.allowEmpty) return []
+
   if (!allocations.length) {
     throw ExpectedQueryError.validation(
       "At least one payment allocation is required."
@@ -437,6 +462,7 @@ function normalizeReceipt(row: any): MemberPaymentReceiptRow {
       postedRepaymentId: allocation.postedRepaymentId ?? null,
       postedShareLedgerEntryId: allocation.postedShareLedgerEntryId ?? null,
       projectFinancingRequestId: allocation.projectFinancingRequestId ?? null,
+      memberShareApplicationId: allocation.memberShareApplicationId ?? null,
       procurementRepaymentScheduleItemId:
         allocation.procurementRepaymentScheduleItemId ?? null,
       targetPeriodStart: allocation.targetPeriodStart ?? null,
@@ -521,6 +547,7 @@ function allocationComparable(
         notes: allocation.notes,
         periodIntent: allocation.periodIntent,
         projectFinancingRequestId: allocation.projectFinancingRequestId,
+        memberShareApplicationId: allocation.memberShareApplicationId,
         procurementRepaymentScheduleItemId:
           allocation.procurementRepaymentScheduleItemId,
         targetPeriodStart:
@@ -544,6 +571,7 @@ function allocationAuditSnapshot(
     notes: allocation.notes,
     periodIntent: allocation.periodIntent,
     projectFinancingRequestId: allocation.projectFinancingRequestId,
+    memberShareApplicationId: allocation.memberShareApplicationId,
     procurementRepaymentScheduleItemId:
       allocation.procurementRepaymentScheduleItemId,
     targetPeriodStart: allocation.targetPeriodStart?.toISOString() ?? null,
@@ -659,6 +687,32 @@ async function validateAllocationReferences(input: {
     }
   }
 
+  const memberShareApplicationIds = Array.from(
+    new Set(
+      input.allocations
+        .map((allocation) => allocation.memberShareApplicationId)
+        .filter((value): value is string => Boolean(value))
+    )
+  )
+
+  if (memberShareApplicationIds.length) {
+    const count = await input.prisma.memberShareApplication.count({
+      where: {
+        id: { in: memberShareApplicationIds },
+        memberId: input.memberId,
+        paymentDue: true,
+        status: "approved",
+        tenantId: input.tenantId,
+      },
+    })
+
+    if (count !== memberShareApplicationIds.length) {
+      throw ExpectedQueryError.permission(
+        "One or more share purchases do not belong to this member or are not awaiting payment."
+      )
+    }
+  }
+
   if (projectFinancingRequestIds.length) {
     const count = await input.prisma.projectFinancingRequest.count({
       where: {
@@ -676,6 +730,55 @@ async function validateAllocationReferences(input: {
       )
     }
   }
+}
+
+/**
+ * Adds a receipt's share payment to the approved share purchase it pays and
+ * clears `paymentDue` once the purchase is fully paid (T30).
+ */
+async function payMemberShareApplication(input: {
+  amount: number
+  applicationId: string
+  memberId: string
+  tenantId: string
+  tx: PrismaClient
+}) {
+  const application = await input.tx.memberShareApplication.findFirst({
+    select: {
+      approvedUnits: true,
+      paidAmount: true,
+      unitAmountSnapshot: true,
+    },
+    where: {
+      id: input.applicationId,
+      memberId: input.memberId,
+      paymentDue: true,
+      status: "approved",
+      tenantId: input.tenantId,
+    },
+  })
+
+  if (!application) {
+    throw ExpectedQueryError.conflict(
+      "This share purchase is no longer awaiting payment. Refresh and review again."
+    )
+  }
+
+  const value = roundMoney(
+    (application.approvedUnits ?? 0) * Number(application.unitAmountSnapshot)
+  )
+  const paidAmount = roundMoney(Number(application.paidAmount) + input.amount)
+
+  if (paidAmount - value > 0.005) {
+    throw ExpectedQueryError.validation(
+      "Share allocation exceeds what is left to pay on the share purchase."
+    )
+  }
+
+  await input.tx.memberShareApplication.update({
+    data: { paidAmount, paymentDue: !moneyEquals(paidAmount, value) },
+    where: { id: input.applicationId },
+  })
 }
 
 async function findActiveContributionPlan(input: {
@@ -719,6 +822,7 @@ async function replaceAllocations(input: {
       notes: allocation.notes,
       periodIntent: allocation.periodIntent,
       projectFinancingRequestId: allocation.projectFinancingRequestId,
+      memberShareApplicationId: allocation.memberShareApplicationId,
       procurementRepaymentScheduleItemId:
         allocation.procurementRepaymentScheduleItemId,
       receiptId: input.receiptId,
@@ -948,6 +1052,16 @@ async function approveReceiptAllocations(input: {
       data: { postedShareLedgerEntryId: ledgerEntry.id },
       where: { id: allocation.id },
     })
+
+    if (allocation.memberShareApplicationId) {
+      await payMemberShareApplication({
+        amount: allocation.amount,
+        applicationId: allocation.memberShareApplicationId,
+        memberId: input.memberId,
+        tenantId: input.tenantId,
+        tx: input.tx,
+      })
+    }
   }
 
   const purchaseRepayments = await payReceiptTargets({
@@ -2004,6 +2118,11 @@ async function getPaymentReceiptStatusSummary(
 export async function createMemberPaymentReceipt(
   input: {
     allocations: PaymentReceiptAllocationInput[]
+    /**
+     * No allocations: approval applies the amount in the cooperative's
+     * payment order (member-payables.ts). Only when the tenant allows it.
+     */
+    autoAllocate?: boolean
     channel?: ContributionChannel
     memberId: string
     memberNotes?: string | null
@@ -2022,7 +2141,21 @@ export async function createMemberPaymentReceipt(
   if (!prisma) throw new Error("Database not configured")
 
   const totalAmount = normalizeAmount(input.totalAmount, "Receipt amount")
-  const allocations = normalizeAllocations(input.allocations, totalAmount)
+  const autoAllocate = input.autoAllocate === true && !input.allocations.length
+  if (autoAllocate) {
+    const settings = await getTenantPaymentAllocationSettings(
+      input.tenantId,
+      prisma
+    )
+    if (settings.mode !== "automatic") {
+      throw ExpectedQueryError.validation(
+        "Pick what this payment is for. Your cooperative doesn't apply payments automatically."
+      )
+    }
+  }
+  const allocations = normalizeAllocations(input.allocations, totalAmount, {
+    allowEmpty: autoAllocate,
+  })
   const paymentReference = normalizeOptionalString(input.paymentReference)
   const proofDocumentUrl = normalizeOptionalString(input.proofDocumentUrl)
 
@@ -2127,6 +2260,7 @@ export async function createMemberPaymentReceipt(
             notes: allocation.notes,
             periodIntent: allocation.periodIntent,
             projectFinancingRequestId: allocation.projectFinancingRequestId,
+            memberShareApplicationId: allocation.memberShareApplicationId,
             procurementRepaymentScheduleItemId:
               allocation.procurementRepaymentScheduleItemId,
             targetPeriodStart: allocation.targetPeriodStart,
@@ -2154,6 +2288,7 @@ export async function createMemberPaymentReceipt(
           allocationCategories: allocations.map(
             (allocation) => allocation.category
           ),
+          autoAllocate,
           memberId: input.memberId,
           paymentReference,
           totalAmount,
@@ -2260,6 +2395,7 @@ export async function reviewMemberPaymentReceipt(
         notes: allocation.notes,
         periodIntent: allocation.periodIntent,
         projectFinancingRequestId: allocation.projectFinancingRequestId,
+        memberShareApplicationId: allocation.memberShareApplicationId,
         procurementRepaymentScheduleItemId:
           allocation.procurementRepaymentScheduleItemId,
         targetPeriodStart: allocation.targetPeriodStart,
@@ -2267,13 +2403,33 @@ export async function reviewMemberPaymentReceipt(
       0
     )
   )
+  // A receipt sent without a split is applied in the cooperative's payment
+  // order when staff approve it (no explicit adjustment needed).
+  const autoAllocated =
+    input.decision === "approved" &&
+    !input.adjustedAllocations &&
+    existingAllocations.length === 0
   const nextAllocations = input.adjustedAllocations
     ? normalizeAllocations(input.adjustedAllocations, totalAmount)
-    : existingAllocations
+    : autoAllocated
+      ? normalizeAllocations(
+          allocateReceiptAmount({
+            now: existing.paidAt,
+            payables: await listMemberPayables(
+              { memberId: existing.memberId, tenantId: input.tenantId },
+              prisma
+            ),
+            totalAmount,
+          }),
+          totalAmount
+        )
+      : existingAllocations
   const existingComparable = allocationComparable(existingAllocations)
   const nextComparable = allocationComparable(nextAllocations)
   const allocationsChanged = existingComparable !== nextComparable
-  const adjustmentReason = normalizeOptionalString(input.adjustmentReason)
+  const adjustmentReason =
+    normalizeOptionalString(input.adjustmentReason) ??
+    (autoAllocated ? AUTO_ALLOCATION_REASON : null)
 
   if (allocationsChanged && !adjustmentReason) {
     throw ExpectedQueryError.validation(
@@ -2347,6 +2503,7 @@ export async function reviewMemberPaymentReceipt(
           postedRepaymentId: allocation.postedRepaymentId,
           postedShareLedgerEntryId: allocation.postedShareLedgerEntryId,
           projectFinancingRequestId: allocation.projectFinancingRequestId,
+          memberShareApplicationId: allocation.memberShareApplicationId,
           procurementRepaymentScheduleItemId:
             allocation.procurementRepaymentScheduleItemId,
           targetPeriodStart: allocation.targetPeriodStart,
@@ -2382,6 +2539,7 @@ export async function reviewMemberPaymentReceipt(
         metadata: {
           adjustmentReason,
           allocationsChanged,
+          autoAllocated,
           ...(allocationsChanged
             ? {
                 nextAllocations: allocationAuditSnapshot(nextAllocations),

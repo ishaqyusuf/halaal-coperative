@@ -115,3 +115,13 @@ enum TenantDomainKind {
   dashboard
   custom
 }
+
+// How a member payment without a split is applied (T30).
+enum PaymentAllocationMode {
+  automatic
+  member_choice
+}
+
+enum PaymentAllocationLeftover {
+  special_savings
+}

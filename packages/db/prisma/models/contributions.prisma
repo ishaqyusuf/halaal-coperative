@@ -184,6 +184,7 @@ model MemberPaymentReceiptAllocation {
   procurementRepaymentScheduleItemId String?                                @map("procurement_repayment_schedule_item_id") @db.Uuid
   foodPurchaseApplicationId          String?                                @map("food_purchase_application_id") @db.Uuid
   projectFinancingRequestId          String?                                @map("project_financing_request_id") @db.Uuid
+  memberShareApplicationId           String?                                @map("member_share_application_id") @db.Uuid
   postedContributionId               String?                                @map("posted_contribution_id") @db.Uuid
   postedRepaymentId                  String?                                @map("posted_repayment_id") @db.Uuid
   postedShareLedgerEntryId           String?                                @map("posted_share_ledger_entry_id") @db.Uuid
@@ -199,6 +200,7 @@ model MemberPaymentReceiptAllocation {
   procurementRepaymentScheduleItem ProcurementRepaymentScheduleItem? @relation(fields: [procurementRepaymentScheduleItemId], references: [id], onDelete: SetNull)
   foodPurchaseApplication          FoodPurchaseApplication?          @relation(fields: [foodPurchaseApplicationId], references: [id], onDelete: SetNull)
   projectFinancingRequest          ProjectFinancingRequest?          @relation(fields: [projectFinancingRequestId], references: [id], onDelete: SetNull)
+  memberShareApplication           MemberShareApplication?           @relation(fields: [memberShareApplicationId], references: [id], onDelete: SetNull)
   postedContribution               Contribution?                     @relation(fields: [postedContributionId], references: [id], onDelete: SetNull)
   postedRepayment                  Repayment?                        @relation(fields: [postedRepaymentId], references: [id], onDelete: SetNull)
   postedShareLedgerEntry           MemberShareLedgerEntry?           @relation(fields: [postedShareLedgerEntryId], references: [id], onDelete: SetNull)
@@ -209,6 +211,7 @@ model MemberPaymentReceiptAllocation {
   @@index([tenantId, procurementRepaymentScheduleItemId], map: "member_receipt_allocs_tenant_proc_schedule_idx")
   @@index([tenantId, foodPurchaseApplicationId], map: "member_receipt_allocs_tenant_food_application_idx")
   @@index([tenantId, projectFinancingRequestId], map: "member_receipt_allocs_tenant_project_financing_idx")
+  @@index([tenantId, memberShareApplicationId], map: "member_receipt_allocs_tenant_share_application_idx")
   @@index([receiptId], map: "member_payment_receipt_allocations_receipt_id_idx")
   @@map("member_payment_receipt_allocations")
 }

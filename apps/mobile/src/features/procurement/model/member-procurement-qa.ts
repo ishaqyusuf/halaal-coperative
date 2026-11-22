@@ -48,9 +48,16 @@ export function presentMemberProcurementForQa(
   }
 
   if (qaState === "blocked") {
+    // Member-level block: the service itself is self-service.
     return {
       ...procurement,
       canCreateRequest: false,
+      capability: {
+        ...procurement.capability,
+        accessMode: "member_self_service",
+        canMemberCreate: true,
+        canViewExisting: true,
+      },
       restrictionReasons: [
         "Settle an active procurement obligation before creating another request. Limit: 1.",
       ],

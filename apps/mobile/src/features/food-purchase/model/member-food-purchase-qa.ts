@@ -45,9 +45,16 @@ export function presentMemberFoodPurchaseForQa(
   }
 
   if (qaState === "blocked") {
+    // Member-level block: the service itself is self-service.
     return {
       ...foodPurchase,
       canCreateApplication: false,
+      capability: {
+        ...foodPurchase.capability,
+        accessMode: "member_self_service",
+        canMemberCreate: true,
+        canViewExisting: true,
+      },
       restrictionReasons: [
         "Settle an active Foodstuff Purchase obligation before applying again. Limit: 1.",
       ],

@@ -768,14 +768,18 @@ export function ReceiptsScreen({
               : null
           }
           offline={!online}
-          onClose={onSharedReceiptClosed ?? (() => setFormOpen(false))}
-          onDiscard={
-            onSharedReceiptClosed ??
-            (() => {
-              resetDraft()
-              setFormOpen(false)
-            })
-          }
+          onClose={() => {
+            if (onSharedReceiptClosed) onSharedReceiptClosed()
+            else setFormOpen(false)
+          }}
+          onDiscard={() => {
+            if (onSharedReceiptClosed) {
+              onSharedReceiptClosed()
+              return
+            }
+            resetDraft()
+            setFormOpen(false)
+          }}
           onRetryPayables={() => void payables.refetch()}
           onSent={(receipt) => {
             submitted(receipt)

@@ -1740,6 +1740,21 @@ export async function listMemberOpeningBalances(
   return rows.map(normalizeOpeningBalance)
 }
 
+function findLatestOpeningBalanceReversal(
+  scope: { memberId: string; openingDate: Date; tenantId: string },
+  prisma: Pick<PrismaClient, "memberOpeningBalance">
+) {
+  return prisma.memberOpeningBalance.findFirst({
+    orderBy: [
+      { reversedAt: { sort: "desc", nulls: "last" } },
+      { createdAt: "desc" },
+      { id: "desc" },
+    ],
+    select: { id: true, reversedAt: true },
+    where: { ...scope, status: "reversed" },
+  })
+}
+
 export async function createMemberOpeningBalance(
   input: MemberOpeningBalanceInput & {
     actorUserId: string
@@ -1817,16 +1832,10 @@ export async function createMemberOpeningBalance(
     return normalizeOpeningBalance(updated)
   }
 
-  const reversed = await tx.memberOpeningBalance.findFirst({
-    orderBy: [{ reversedAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
-    select: { id: true },
-    where: {
-      memberId: input.memberId,
-      openingDate,
-      status: "reversed",
-      tenantId: input.tenantId,
-    },
-  })
+  const reversed = await findLatestOpeningBalanceReversal(
+    { memberId: input.memberId, openingDate, tenantId: input.tenantId },
+    tx
+  )
   let created
 
   try {
@@ -2090,6 +2099,18 @@ export async function applyMemberOpeningBalance(
       )
     }
 
+    const reversed = await findLatestOpeningBalanceReversal(
+      {
+        memberId: existing.memberId,
+        openingDate: existing.openingDate,
+        tenantId: input.tenantId,
+      },
+      tx
+    )
+    // The replacement takes effect when the old position leaves the books.
+    // The reviewed opening date still determines the imported repayment schedule.
+    const financialPostingAt = reversed?.reversedAt ?? existing.openingDate
+
     const commitmentSavingsBalance = Number(
       existing.commitmentSavingsBalance ?? 0
     )
@@ -2132,7 +2153,7 @@ export async function applyMemberOpeningBalance(
           ],
           memberId: existing.memberId,
           narration: "Brought-forward opening savings balance",
-          postedAt: existing.openingDate,
+          postedAt: financialPostingAt,
           reference: openingBalanceLedgerReference.savings(existing.id),
           sourceType: "backfill",
           tenantId: input.tenantId,
@@ -2159,7 +2180,7 @@ export async function applyMemberOpeningBalance(
         {
           amount: shareCapitalBalance,
           createdByUserId: input.actorUserId,
-          effectiveDate: existing.openingDate,
+          effectiveDate: financialPostingAt,
           memberId: existing.memberId,
           notes: "Brought-forward opening share capital",
           sourceId: existing.id,
@@ -2175,7 +2196,7 @@ export async function applyMemberOpeningBalance(
           amount: shareCapitalBalance,
           memberId: existing.memberId,
           openingBalanceId: existing.id,
-          postedAt: existing.openingDate,
+          postedAt: financialPostingAt,
           tenantId: input.tenantId,
         },
         tx
@@ -2200,7 +2221,7 @@ export async function applyMemberOpeningBalance(
           loanId: financingPosting.loanId,
           memberId: existing.memberId,
           openingBalanceId: existing.id,
-          postedAt: existing.openingDate,
+          postedAt: financialPostingAt,
           tenantId: input.tenantId,
         },
         tx
@@ -2266,6 +2287,8 @@ export async function applyMemberOpeningBalance(
         entityType: "MemberOpeningBalance",
         metadata: {
           appliedAt: appliedAt.toISOString(),
+          financialPostingAt: financialPostingAt.toISOString(),
+          ...(reversed ? { replacesOpeningBalanceId: reversed.id } : {}),
           activeFinancingOutstanding,
           commitmentSavingsBalance,
           financingLedgerTransactionId,

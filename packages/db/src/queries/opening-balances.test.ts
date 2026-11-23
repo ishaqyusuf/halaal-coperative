@@ -294,8 +294,16 @@ function createOpeningBalancePrismaStub({
         openingBalanceCreates.push(input)
         return openingBalanceRow(input.data)
       },
-      findFirst: async (input: any) =>
-        openingRows.find((row: any) => {
+      findFirst: async (input: any) => {
+        const rows = input?.orderBy?.[0]?.reversedAt
+          ? [...openingRows].sort((first, second) => {
+              const timestamp = (row: Record<string, unknown>) =>
+                row.reversedAt instanceof Date ? row.reversedAt.getTime() : 0
+              return timestamp(second) - timestamp(first)
+            })
+          : openingRows
+
+        return rows.find((row: any) => {
           if (input?.where?.tenantId && row.tenantId !== input.where.tenantId) {
             return false
           }
@@ -337,7 +345,8 @@ function createOpeningBalancePrismaStub({
           }
 
           return true
-        }) ?? null,
+        }) ?? null
+      },
       findMany: async (input: any) =>
         openingRows.filter((row: any) => {
           if (input?.where?.tenantId && row.tenantId !== input.where.tenantId) {
@@ -1955,6 +1964,74 @@ function ledgerTotals(creates: any[]) {
 }
 
 describe("opening position general-ledger postings (QA F3)", () => {
+  test("books same-date replacement postings at the latest reversal without changing repayment dates", async () => {
+    const openingDate = new Date("2026-07-01T00:00:00.000Z")
+    const reversedAt = new Date("2026-08-10T14:30:00.000Z")
+    const prisma = createOpeningBalancePrismaStub({
+      openingRows: [
+        openingBalanceRow({
+          id: "replacement",
+          openingDate,
+          status: "approved",
+        }),
+        openingBalanceRow({
+          id: "older-reversal",
+          openingDate,
+          reversedAt: new Date("2026-08-03T12:00:00.000Z"),
+          status: "reversed",
+        }),
+        openingBalanceRow({
+          id: "prior-reversal",
+          openingDate,
+          reversedAt,
+          status: "reversed",
+        }),
+      ],
+    })
+
+    const replacement = await applyMemberOpeningBalance(
+      {
+        actorUserId: "user-1",
+        openingBalanceId: "replacement",
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(replacement.openingDate).toEqual(openingDate)
+    expect(prisma.openingBalanceUpdates).toHaveLength(1)
+    expect(prisma.openingBalanceUpdates[0]).toMatchObject({
+      where: { id: "replacement" },
+    })
+    expect(
+      prisma.ledgerTransactionCreates.map((create: any) => [
+        create.data.reference,
+        create.data.postedAt,
+      ])
+    ).toEqual([
+      ["opening-balance:replacement:savings", reversedAt],
+      ["opening-balance:replacement:share-capital", reversedAt],
+      ["opening-balance:replacement:financing", reversedAt],
+    ])
+    expect(prisma.memberShareLedgerEntryCreates[0]).toMatchObject({
+      data: { effectiveDate: reversedAt, sourceId: "replacement" },
+    })
+    expect(prisma.repaymentScheduleCreates[0]).toMatchObject({
+      data: { dueAt: openingDate },
+    })
+    expect(prisma.procurementScheduleCreates[0]).toMatchObject({
+      data: { dueDate: openingDate },
+    })
+    expect(prisma.auditLogCreates.at(-1)).toMatchObject({
+      data: {
+        metadata: {
+          financialPostingAt: reversedAt.toISOString(),
+          replacesOpeningBalanceId: "prior-reversal",
+        },
+      },
+    })
+  })
+
   test("posts savings, share capital and financing as balanced entries against Cooperative Equity", async () => {
     const prisma = createOpeningBalancePrismaStub({
       openingRows: [
@@ -1976,6 +2053,11 @@ describe("opening position general-ledger postings (QA F3)", () => {
     )
 
     const creates = prisma.ledgerTransactionCreates as any[]
+    expect(creates.map((create) => create.data.postedAt)).toEqual([
+      openingBalanceRow().openingDate,
+      openingBalanceRow().openingDate,
+      openingBalanceRow().openingDate,
+    ])
     expect(creates.map((create) => create.data.reference)).toEqual([
       "opening-balance:opening-1:savings",
       "opening-balance:opening-1:share-capital",

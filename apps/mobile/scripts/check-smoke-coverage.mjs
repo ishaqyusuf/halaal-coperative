@@ -212,10 +212,10 @@ assertIncludes(
 assertIncludes(
   "src/features/device-sessions/screens/device-sessions-screen.tsx",
   [
-    "LegendList",
-    "FloatingBottomSheet",
-    'presentation="compact"',
-    'scrollable="auto"',
+    "<StatusCard",
+    "<StatusSection",
+    "<ConfirmSheet",
+    'tone="destructive"',
     "Sign out all devices",
   ]
 )

@@ -235,8 +235,8 @@ function createLiveLoanRequestPrismaStub(input?: {
       create: async (input: any) => {
         loanRequestCreates.push(input)
         return {
-          id: "loan-request-1",
           ...input.data,
+          id: input.data.id ?? "loan-request-1",
         }
       },
       findFirst: async () => ({

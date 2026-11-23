@@ -149,6 +149,13 @@ export function AdminFoodPurchaseOperationsScreen({
   const accountingCycles = cycles.filter((cycle) => accountingStatuses.includes(cycle.status) && matches(cycle))
   const historyCycles = cycles.filter((cycle) => historyStatuses.includes(cycle.status) && matches(cycle))
   const refreshOverview = () => void overview.refetch({ cancelRefetch: false })
+  const initialOverviewFailed = overview.isError && !overview.data
+  const applicationLane = selected
+    ? {
+        ...applications.state,
+        items: applications.raw.map((item) => applicationRow(item, capabilities)),
+      }
+    : staticLane([], overview.isPending, initialOverviewFailed, refreshOverview, overview.isRefetching)
 
   // Detail: an application (fetched, cached) or a cycle (from the overview).
   const [detailRef, setDetailRef] = useState<{ id: string; type: "application" | "cycle" } | null>(null)
@@ -550,17 +557,13 @@ export function AdminFoodPurchaseOperationsScreen({
         lane={lane}
         laneState={(value) =>
           value === "applications"
-            ? {
-                ...applications.state,
-                items: applications.raw.map((item) => applicationRow(item, capabilities)),
-                loading: applications.state.loading || overview.isPending,
-              }
+            ? applicationLane
             : staticLane(
                 (value === "accounting" ? accountingCycles : historyCycles).map((item) =>
                   cycleRow(item, capabilities, currencyCode)
                 ),
                 overview.isPending,
-                overview.isError && !overview.data,
+                initialOverviewFailed,
                 refreshOverview,
                 overview.isRefetching
               )
@@ -585,7 +588,7 @@ export function AdminFoodPurchaseOperationsScreen({
         }}
         onRefresh={() => {
           refreshOverview()
-          applications.state.refetch()
+          if (selected) applications.state.refetch()
         }}
         refreshing={overview.isRefetching || applications.state.refreshing}
         search={search}

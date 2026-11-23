@@ -192,6 +192,36 @@ function OpeningDateField({
   )
 }
 
+function OpeningSectionHeading({
+  description,
+  disabled,
+  onRemove,
+  title,
+}: {
+  description: string
+  disabled?: boolean
+  onRemove: () => void
+  title: string
+}) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <FieldLegend>{title}</FieldLegend>
+        <FieldDescription>{description}</FieldDescription>
+      </div>
+      <Button
+        disabled={disabled}
+        onClick={onRemove}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
+        Remove
+      </Button>
+    </div>
+  )
+}
+
 export function OpeningBalanceOptionalSections({
   cooperativeStartDate,
   disabled,
@@ -277,34 +307,6 @@ export function OpeningBalanceOptionalSections({
     }
   }
 
-  function SectionHeading({
-    description,
-    section,
-    title,
-  }: {
-    description: string
-    section: OptionalSection
-    title: string
-  }) {
-    return (
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <FieldLegend>{title}</FieldLegend>
-          <FieldDescription>{description}</FieldDescription>
-        </div>
-        <Button
-          disabled={disabled}
-          onClick={() => removeSection(section)}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          Remove
-        </Button>
-      </div>
-    )
-  }
-
   return (
     <FieldSet>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -350,9 +352,10 @@ export function OpeningBalanceOptionalSections({
           {sections.includes("financing") ? (
             <FieldSet>
               <Separator />
-              <SectionHeading
+              <OpeningSectionHeading
                 description="Capture the current loan being serviced and the remaining repayment plan."
-                section="financing"
+                disabled={disabled}
+                onRemove={() => removeSection("financing")}
                 title="Finance"
               />
               <FieldGroup className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -444,9 +447,10 @@ export function OpeningBalanceOptionalSections({
           {sections.includes("procurement") ? (
             <FieldSet>
               <Separator />
-              <SectionHeading
+              <OpeningSectionHeading
                 description="Capture the current procurement item and remaining repayment plan."
-                section="procurement"
+                disabled={disabled}
+                onRemove={() => removeSection("procurement")}
                 title="Procurement"
               />
               <FieldGroup className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -496,9 +500,10 @@ export function OpeningBalanceOptionalSections({
           {sections.includes("foodPurchase") ? (
             <FieldSet>
               <Separator />
-              <SectionHeading
+              <OpeningSectionHeading
                 description="Capture the current food purchase and remaining repayment plan."
-                section="foodPurchase"
+                disabled={disabled}
+                onRemove={() => removeSection("foodPurchase")}
                 title="Food budget"
               />
               <FieldGroup className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -548,9 +553,10 @@ export function OpeningBalanceOptionalSections({
           {sections.includes("evidence") ? (
             <FieldSet>
               <Separator />
-              <SectionHeading
+              <OpeningSectionHeading
                 description="Upload or reference the source document used for this opening position."
-                section="evidence"
+                disabled={disabled}
+                onRemove={() => removeSection("evidence")}
                 title="Document / evidence"
               />
               <FieldGroup className="grid gap-4 sm:grid-cols-2">

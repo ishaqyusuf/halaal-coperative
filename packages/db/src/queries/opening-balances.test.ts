@@ -304,7 +304,12 @@ function createOpeningBalancePrismaStub({
             return false
           }
 
-          if (input?.where?.status && row.status !== input.where.status) {
+          const status = input?.where?.status
+          if (typeof status === "string" && row.status !== status) {
+            return false
+          }
+
+          if (status?.not === row.status) {
             return false
           }
 
@@ -721,6 +726,46 @@ describe("member opening balances", () => {
 
     expect(prisma.openingBalanceCreates).toHaveLength(0)
     expect(prisma.openingBalanceUpdates).toHaveLength(0)
+  })
+
+  test("stages a separate correction on the same opening date after reversal", async () => {
+    const openingDate = new Date("2026-07-15T00:00:00.000Z")
+    const original = openingBalanceRow({
+      id: "opening-reversed",
+      openingDate,
+      specialSavingsBalance: 22000,
+      status: "reversed",
+    })
+    const prisma = createOpeningBalancePrismaStub({ openingRows: [original] })
+
+    const corrected = await createMemberOpeningBalance(
+      {
+        actorUserId: "user-1",
+        memberId: "member-1",
+        openingDate,
+        specialSavingsBalance: 20000,
+        tenantId: "tenant-1",
+      },
+      prisma as never
+    )
+
+    expect(corrected.id).not.toBe(original.id)
+    expect(corrected).toMatchObject({
+      openingDate,
+      specialSavingsBalance: 20000,
+      status: "pending_review",
+    })
+    expect(original).toMatchObject({
+      specialSavingsBalance: 22000,
+      status: "reversed",
+    })
+    expect(prisma.openingBalanceUpdates).toHaveLength(0)
+    expect(prisma.auditLogCreates[0]).toMatchObject({
+      data: {
+        action: "migration.opening_balance.created",
+        metadata: { replacesOpeningBalanceId: original.id },
+      },
+    })
   })
 
   test("lists opening balances within tenant, member, and status filters", async () => {

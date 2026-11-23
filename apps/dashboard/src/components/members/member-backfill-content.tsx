@@ -213,10 +213,15 @@ export function OpeningBalanceCreateContent({
   const guarantorOptions = data.memberOptions.filter(
     (option) => option.id !== data.member.id
   )
-  const openingDate = getDefaultOpeningPositionDate({
-    joinedAt: data.member.joinedAt,
-    tenantStartDate: data.tenantStartDate,
-  })
+  const [reversedPosition] = data.memberOpeningBalances
+    .filter((position) => position.status === "reversed")
+    .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt))
+  const openingDate =
+    reversedPosition?.openingDate ||
+    getDefaultOpeningPositionDate({
+      joinedAt: data.member.joinedAt,
+      tenantStartDate: data.tenantStartDate,
+    })
   const shareCapitalQuickFillValue = isUnitBasedShare
     ? String(sharePolicy.unitAmount)
     : "10000"
@@ -234,8 +239,9 @@ export function OpeningBalanceCreateContent({
             Opening position
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Stage the balances and active obligations that already exist before
-            the member starts using the system.
+            {reversedPosition
+              ? "Enter the corrected balances and obligations for the original opening date, then stage them for review."
+              : "Stage the balances and active obligations that already exist before the member starts using the system."}
           </p>
         </div>
         {data.quickFillEnabled ? (

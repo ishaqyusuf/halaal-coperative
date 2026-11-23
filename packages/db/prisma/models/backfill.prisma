@@ -187,7 +187,7 @@ model MemberOpeningBalance {
   appliedProcurementRequest      ProcurementRequest?      @relation("MemberOpeningBalanceAppliedProcurement", fields: [appliedProcurementRequestId], references: [id], onDelete: SetNull)
   appliedFoodPurchaseApplication FoodPurchaseApplication? @relation("MemberOpeningBalanceAppliedFoodPurchase", fields: [appliedFoodPurchaseApplicationId], references: [id], onDelete: SetNull)
 
-  @@unique([tenantId, memberId, openingDate], map: "member_opening_balances_member_date_key")
+  @@unique([tenantId, memberId, openingDate], map: "member_opening_balances_member_date_key", where: raw("(status <> 'reversed'::\"MemberOpeningBalanceStatus\")"))
   @@index([tenantId, status], map: "member_opening_balances_tenant_status_idx")
   @@index([tenantId, memberId, status], map: "member_opening_balances_tenant_member_status_idx")
   @@map("member_opening_balances")

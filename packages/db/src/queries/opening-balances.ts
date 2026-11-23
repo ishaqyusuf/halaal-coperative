@@ -1769,6 +1769,7 @@ export async function createMemberOpeningBalance(
     where: {
       memberId: input.memberId,
       openingDate,
+      status: { not: "reversed" },
       tenantId: input.tenantId,
     },
   })
@@ -1816,6 +1817,16 @@ export async function createMemberOpeningBalance(
     return normalizeOpeningBalance(updated)
   }
 
+  const reversed = await tx.memberOpeningBalance.findFirst({
+    orderBy: [{ reversedAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+    select: { id: true },
+    where: {
+      memberId: input.memberId,
+      openingDate,
+      status: "reversed",
+      tenantId: input.tenantId,
+    },
+  })
   let created
 
   try {
@@ -1851,7 +1862,10 @@ export async function createMemberOpeningBalance(
       actorUserId: input.actorUserId,
       entityId: created.id,
       entityType: "MemberOpeningBalance",
-      metadata: auditMetadata,
+      metadata: {
+        ...auditMetadata,
+        ...(reversed ? { replacesOpeningBalanceId: reversed.id } : {}),
+      },
       tenantId: input.tenantId,
     },
     tx

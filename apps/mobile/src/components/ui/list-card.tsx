@@ -180,6 +180,7 @@ export function RecordRow({
   testID,
   title,
   trailing,
+  wrapText = false,
 }: {
   accessibilityLabel?: string
   /** Pre-formatted, e.g. formatMoney(25000). */
@@ -202,6 +203,7 @@ export function RecordRow({
   testID?: string
   title: string
   trailing?: ReactNode
+  wrapText?: boolean
 }) {
   const grouped = position !== undefined
   const content = (
@@ -213,11 +215,19 @@ export function RecordRow({
         <TintedAvatar icon={avatarIcon} name={avatarName ?? title} />
       )}
       <View className="min-w-0 flex-1 gap-[2px]">
-        <Text className="font-bold" numberOfLines={1} variant="body">
+        <Text
+          className="font-bold"
+          numberOfLines={wrapText ? undefined : 1}
+          variant="body"
+        >
           {title}
         </Text>
         {meta ? (
-          <Text className="text-muted-foreground" numberOfLines={compact ? 2 : 1} variant="small">
+          <Text
+            className="text-muted-foreground"
+            numberOfLines={wrapText ? undefined : compact ? 2 : 1}
+            variant="small"
+          >
             {meta}
           </Text>
         ) : null}

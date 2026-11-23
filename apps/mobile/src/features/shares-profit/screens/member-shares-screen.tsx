@@ -605,6 +605,7 @@ export function SharesScreen({
                 status={period.payout ? "Paid" : "Not paid yet"}
                 statusTone={period.payout ? "success" : "warning"}
                 title={period.name}
+                wrapText
               />
             ))}
           </Elevated>

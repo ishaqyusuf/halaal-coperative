@@ -20,6 +20,7 @@ import {
   RequestField,
   RequestFormActions,
 } from "@/components/requests/request-field"
+import { useMarkWorkflowSaved } from "@/components/workflow-presentation"
 import { useBusinessParams } from "@/hooks/use-business-params"
 import {
   businessStatusOptions,
@@ -67,6 +68,7 @@ export function BusinessForm({
   business?: BusinessDetail
   disabled: boolean
 }) {
+  const markSaved = useMarkWorkflowSaved()
   const refresh = useBusinessRefresh()
   const { setParams } = useBusinessParams()
   const { showError, showSuccess } = useNotifications()
@@ -120,6 +122,7 @@ export function BusinessForm({
               shareBusinessId: business.id,
             })
           )
+          markSaved()
           showSuccess("Business saved", values.name)
           await refresh(() =>
             setParams({ businessId: business.id, businessType: "details" })
@@ -128,6 +131,7 @@ export function BusinessForm({
           await createShareBusinessAction(
             objectToFormData({ ...values, sourceType: "manual" })
           )
+          markSaved()
           showSuccess("Business added", values.name)
           await refresh(() => setParams(null))
         }
@@ -270,6 +274,7 @@ export function ProfitEntryForm({
   entry?: BusinessProfitEntry
   setup: BusinessSetup
 }) {
+  const markSaved = useMarkWorkflowSaved()
   const refresh = useBusinessRefresh()
   const { setParams } = useBusinessParams()
   const { showError, showSuccess } = useNotifications()
@@ -336,6 +341,7 @@ export function ProfitEntryForm({
             objectToFormData({ ...values, shareBusinessId: business.id })
           )
         }
+        markSaved()
         setConfirmOpen(false)
         showSuccess(
           entry ? "Profit saved" : "Profit recorded",

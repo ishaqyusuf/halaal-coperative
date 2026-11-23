@@ -1,6 +1,5 @@
 #!/usr/bin/env bun
 
-import { spawnSync } from "node:child_process"
 import { randomBytes } from "node:crypto"
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
@@ -360,42 +359,6 @@ export async function runWriteSmoke(
     : 1
 }
 
-// Local stand-in for the owner's early-access approval: the same signed token
-// the approval email carries, minted with the marketing app's own code and
-// the local profile's secret. Never printed or stored in the receipt.
-export function mintApprovalToken(
-  plan: ReturnType<typeof planWriteSmoke>,
-  root: string,
-  env: NodeJS.ProcessEnv
-) {
-  const result = spawnSync(
-    "bun",
-    [
-      "-e",
-      `import { createSignedSignupApprovalToken, createSignupApprovalPayload } from "./src/lib/early-access"
-process.stdout.write(createSignedSignupApprovalToken(createSignupApprovalPayload(JSON.parse(process.env.QA_WRITE_SMOKE_APPROVAL ?? "{}"))))`,
-    ],
-    {
-      cwd: resolve(root, "apps/marketing"),
-      encoding: "utf8",
-      env: {
-        ...env,
-        NODE_ENV: "development",
-        QA_WRITE_SMOKE_APPROVAL: JSON.stringify({
-          cooperativeName: plan.cooperativeName,
-          primaryContactEmail: plan.ownerEmail,
-          primaryContactFullName: plan.ownerName,
-        }),
-      },
-      timeout: 60_000,
-    }
-  )
-  const token = result.stdout.trim()
-  if (result.status !== 0 || !/^[\w-]+\.[\w-]+$/.test(token))
-    throw new Error("Could not mint the local early-access approval.")
-  return token
-}
-
 type StageResult = {
   key: string
   status: "pass" | "fail" | "skipped"
@@ -417,7 +380,6 @@ async function runBrowserStages(
     JSON.stringify({
       ...plan,
       stages: undefined,
-      approvalToken: mintApprovalToken(plan, root, env),
       ownerPassword: `Qa-${randomBytes(9).toString("base64url")}9`,
       marketingOrigin: localOrigins.marketing,
       dashboardHost: new URL(localOrigins.dashboard).hostname,

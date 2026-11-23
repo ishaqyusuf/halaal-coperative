@@ -1,6 +1,6 @@
 // Playwright driver for `bun run qa:smoke:write run`. Runs under Node;
-// scripts/qa-write-smoke.ts checks every guard, mints the local early-access
-// approval and cleans up. This driver only talks to the named local hosts:
+// scripts/qa-write-smoke.ts checks every guard and cleans up.
+// This driver only talks to the named local hosts:
 // any request to another host is aborted, reads included.
 import { mkdirSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
@@ -50,7 +50,7 @@ function withTimeout(promise, ms, message) {
 }
 
 /**
- * @typedef {{ runId: string, qaDomain: string, slug: string, cooperativeName: string, ownerName: string, ownerEmail: string, ownerPassword: string, cooperativeCodePrefix: string, marketingOrigin: string, dashboardHost: string, approvalToken: string }} WritePlan
+ * @typedef {{ runId: string, qaDomain: string, slug: string, cooperativeName: string, ownerName: string, ownerEmail: string, ownerPassword: string, cooperativeCodePrefix: string, marketingOrigin: string, dashboardHost: string }} WritePlan
  * @typedef {{ key: string, status: "pass" | "fail" | "skipped", ms: number, detail: string }} StageResult
  */
 
@@ -162,7 +162,6 @@ export function onePathStages(page, plan, artifacts, state) {
       key: "signup",
       run: async () => {
         const url = new URL("/signup", plan.marketingOrigin)
-        url.searchParams.set("approvalToken", plan.approvalToken)
         await page.goto(url.toString(), { waitUntil: "domcontentloaded" })
         // The labels are not linked to every input, so use the form names.
         const fill = async (
@@ -172,12 +171,6 @@ export function onePathStages(page, plan, artifacts, state) {
           const field = page.locator(`input[name="${name}"]`).first()
           if (await field.isEditable()) await field.fill(value)
         }
-        // The approval prefills name and email once the form has hydrated;
-        // values typed before that are reset.
-        await page
-          .getByText("From your approved request")
-          .first()
-          .waitFor({ state: "visible", timeout: 60_000 })
         await page.waitForLoadState("networkidle").catch(() => {})
         const values = {
           cooperativeName: plan.cooperativeName,
@@ -195,6 +188,12 @@ export function onePathStages(page, plan, artifacts, state) {
             .inputValue()
           if (kept === plan.slug) break
         }
+        await page.getByText("Select country", { exact: true }).click()
+        await page.getByPlaceholder("Search countries").fill("Nigeria")
+        await page.getByText("Nigeria", { exact: true }).click()
+        await page
+          .getByRole("checkbox", { name: /I accept the platform terms/ })
+          .check()
         const response = page.waitForResponse(
           (candidate) =>
             new URL(candidate.url()).pathname === "/api/signup" &&

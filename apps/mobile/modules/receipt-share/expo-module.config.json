@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["ReceiptShareModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.receiptshare.ReceiptShareModule"]
+  }
+}

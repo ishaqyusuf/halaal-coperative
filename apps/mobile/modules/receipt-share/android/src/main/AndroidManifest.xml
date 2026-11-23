@@ -1,0 +1,17 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <activity
+      android:name="expo.modules.receiptshare.ReceiptShareActivity"
+      android:excludeFromRecents="true"
+      android:exported="true"
+      android:taskAffinity=""
+      android:theme="@android:style/Theme.Translucent.NoTitleBar">
+      <intent-filter>
+        <action android:name="android.intent.action.SEND" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <data android:mimeType="application/pdf" />
+        <data android:mimeType="image/*" />
+      </intent-filter>
+    </activity>
+  </application>
+</manifest>

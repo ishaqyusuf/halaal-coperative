@@ -210,6 +210,12 @@ const config: ExpoConfig = {
     ...(appLinkHost ? { associatedDomains: [`applinks:${appLinkHost}`] } : {}),
     privacyManifests: {
       NSPrivacyTracking: false,
+      NSPrivacyAccessedAPITypes: [
+        {
+          NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryFileTimestamp",
+          NSPrivacyAccessedAPITypeReasons: ["C617.1"],
+        },
+      ],
       NSPrivacyCollectedDataTypes: appOwnedCollectedDataTypes.map(
         (dataType) => ({
           NSPrivacyCollectedDataType: dataType,
@@ -255,6 +261,7 @@ const config: ExpoConfig = {
     "./plugins/with-app-update.cjs",
     "./plugins/with-fully-drawn-marker.cjs",
     "./plugins/with-launch-screen-refresh.cjs",
+    "./plugins/with-receipt-share.cjs",
     ...sentryPlugins,
     "expo-router",
     "./plugins/with-ios-pod-deployment-target",

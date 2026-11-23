@@ -35,6 +35,7 @@ import { CooperativeShortcutRuntime } from "@/runtime/cooperative-shortcut-runti
 import { MobileRuntimeGate } from "@/runtime/mobile-runtime-gate"
 import { MobileRuntimeProvider } from "@/runtime/mobile-runtime-provider"
 import { NotificationRuntime } from "@/runtime/notification-runtime"
+import { SharedReceiptRuntime } from "@/runtime/shared-receipt-runtime"
 import { TRPCReactProvider } from "@/trpc/client"
 import {
   MobileAppAccessProvider,
@@ -182,7 +183,9 @@ function RootLayoutNav() {
                                       <AppAutoUpdateModal />
                                       <AppBuildUpdate />
                                       <OverlayStatusBar />
-                                      <RoleProtectedStack />
+                                      <SharedReceiptRuntime>
+                                        <RoleProtectedStack />
+                                      </SharedReceiptRuntime>
                                     </CooperativeShortcutRuntime>
                                   </MobileRuntimeGate>
                                   <Toast />

@@ -23,6 +23,7 @@ import {
 } from "@/dev/mobile-dev-quick-fill"
 import { isValidDateOnly, todayDateOnly } from "@/lib/date-only"
 import { formatMoneyInput, parseMoneyInput } from "@/lib/money"
+import { getToken } from "@/lib/session-store"
 import { cn } from "@/lib/utils"
 import { isSafeSupportAttachmentUrl } from "@halaalvest/utils"
 import { useRef, useState, type Dispatch, type SetStateAction } from "react"
@@ -151,6 +152,7 @@ export function RecordPaymentFlow({
   payablesLoading,
   onRetryPayables,
   setDraft,
+  sharedReceipt,
   stale,
   visible,
 }: {
@@ -169,6 +171,7 @@ export function RecordPaymentFlow({
   payablesError: boolean
   payablesLoading: boolean
   setDraft: Dispatch<SetStateAction<PaymentDraft>>
+  sharedReceipt?: ReceiptProofFile
   stale: boolean
   visible: boolean
 }) {
@@ -184,7 +187,9 @@ export function RecordPaymentFlow({
   const [linkMode, setLinkMode] = useState(() =>
     Boolean(draft.proofDocumentUrl && !draft.proofDocumentName)
   )
-  const [proofFile, setProofFile] = useState<ReceiptProofFile | null>(null)
+  const [proofFile, setProofFile] = useState<ReceiptProofFile | null>(
+    sharedReceipt ?? null
+  )
   const [proofError, setProofError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const submitting = useRef(false)
@@ -205,6 +210,7 @@ export function RecordPaymentFlow({
   const money = (kobo: number) => receiptMoney(kobo / 100, currency)
 
   const proofUrl = draft.proofDocumentUrl.trim()
+  const sharedProof = proofFile === sharedReceipt ? sharedReceipt : undefined
   const linkError =
     (linkMode || !draft.proofDocumentName) &&
     Boolean(proofUrl) &&
@@ -234,7 +240,7 @@ export function RecordPaymentFlow({
                       : proofFile && proofError
                         ? "Retry or remove the proof."
                         : (linkError ??
-                          (proofRequired && !proofUrl
+                          (proofRequired && !proofUrl && !sharedProof
                             ? "Your cooperative needs proof. Add a photo, PDF or link."
                             : null))
 
@@ -301,13 +307,25 @@ export function RecordPaymentFlow({
     submitting.current = true
     setPhase("sending")
     try {
+      let uploaded: Awaited<ReturnType<typeof uploadReceiptProof>> | undefined
+      if (sharedProof) {
+        const token = getToken()
+        uploaded = await uploadReceiptProof(sharedProof)
+        if (token !== getToken()) throw new Error("The session changed.")
+        patch({
+          proofDocumentName: uploaded.fileName,
+          proofDocumentUrl: uploaded.url,
+        })
+        setProofFile(null)
+      }
       const receipt = await createMemberReceipt({
         allocations: createAllocations(plan, draft.paidAt),
         memberNotes: draft.memberNotes.trim() || undefined,
         paidAt: `${draft.paidAt}T00:00:00.000Z`,
         paymentReference: draft.paymentReference.trim() || undefined,
-        proofDocumentName: draft.proofDocumentName || undefined,
-        proofDocumentUrl: proofUrl || undefined,
+        proofDocumentName:
+          uploaded?.fileName ?? (draft.proofDocumentName || undefined),
+        proofDocumentUrl: uploaded?.url ?? (proofUrl || undefined),
         totalAmount: plan.total / 100,
       })
       setCreated(receipt)
@@ -326,7 +344,7 @@ export function RecordPaymentFlow({
   function back() {
     Keyboard.dismiss()
     if (phase === "review") setPhase("edit")
-    else if (hasPaymentDraft(draft)) setConfirmClose(true)
+    else if (hasPaymentDraft(draft) || sharedReceipt) setConfirmClose(true)
     else onClose()
   }
 
@@ -362,7 +380,7 @@ export function RecordPaymentFlow({
               </Text>
             ) : null}
             <View className="flex-row items-center gap-[8px]">
-              {phase === "edit" && !hasPaymentDraft(draft) ? (
+              {phase === "edit" && !sharedReceipt && !hasPaymentDraft(draft) ? (
                 <DevQuickFill
                   label="Quick fill payment"
                   onPress={() => {
@@ -437,7 +455,11 @@ export function RecordPaymentFlow({
             ) : phase === "error" ? (
               <ResultScreen
                 compact
-                description="Your payment is saved on this phone. Check your connection and try again."
+                description={
+                  sharedReceipt
+                    ? "Check your connection and try again."
+                    : "Your payment is saved on this phone. Check your connection and try again."
+                }
                 primary={
                   !offline && !stale && canCreate
                     ? { label: "Try again", onPress: submit }
@@ -466,7 +488,11 @@ export function RecordPaymentFlow({
     >
       {offline ? (
         <StatusBanner
-          description="Your payment is saved on this phone."
+          description={
+            sharedReceipt
+              ? "Connect to send this payment."
+              : "Your payment is saved on this phone."
+          }
           kind="offline"
           title="You’re offline"
         />
@@ -515,6 +541,7 @@ export function RecordPaymentFlow({
                 compact
                 label="Proof"
                 value={
+                  sharedProof?.fileName ||
                   draft.proofDocumentName ||
                   (proofUrl ? "Link" : "No proof attached")
                 }
@@ -831,21 +858,29 @@ export function RecordPaymentFlow({
       </AppSheet>
       <AppSheet
         onClose={() => setConfirmClose(false)}
-        title="Keep this payment?"
+        title={sharedReceipt ? "Discard this payment?" : "Keep this payment?"}
         variant="confirm"
         visible={confirmClose}
       >
-        <Text className="text-center text-muted-foreground" variant="small">
-          It stays on this phone until you send it or discard it.
-        </Text>
-        <Button
-          onPress={() => {
-            setConfirmClose(false)
-            onClose()
-          }}
-        >
-          <Text>Keep for later</Text>
-        </Button>
+        {sharedReceipt ? (
+          <Button onPress={() => setConfirmClose(false)}>
+            <Text>Continue editing</Text>
+          </Button>
+        ) : (
+          <>
+            <Text className="text-center text-muted-foreground" variant="small">
+              It stays on this phone until you send it or discard it.
+            </Text>
+            <Button
+              onPress={() => {
+                setConfirmClose(false)
+                onClose()
+              }}
+            >
+              <Text>Keep for later</Text>
+            </Button>
+          </>
+        )}
         <Button
           onPress={() => {
             setConfirmClose(false)

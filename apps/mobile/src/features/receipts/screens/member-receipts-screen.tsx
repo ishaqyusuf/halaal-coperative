@@ -30,6 +30,7 @@ import {
   getMemberReceiptDetail,
   getMemberReceipts,
 } from "../api/member-receipts-api"
+import type { ReceiptProofFile } from "../api/receipt-proof-api"
 import { ReceiptDetail, ReceiptTile } from "../components/receipt-detail"
 import { ReceiptSupportFlow } from "../components/receipt-support-flow"
 import { RecordPaymentFlow } from "../components/record-payment-flow"
@@ -222,6 +223,8 @@ export function ReceiptsScreen({
   composeRequested = false,
   initialEntityId = null,
   onComposeHandled,
+  onSharedReceiptClosed,
+  sharedReceipt,
 }: {
   /** `payable` deep-link param (`<kind>:<id>`), T30 contract. */
   composePayable?: string | null
@@ -229,6 +232,8 @@ export function ReceiptsScreen({
   composeRequested?: boolean
   initialEntityId?: string | null
   onComposeHandled?: () => void
+  onSharedReceiptClosed?: (paymentId?: string) => void
+  sharedReceipt?: ReceiptProofFile
 }) {
   const { profile } = useAuthContext()
   const router = useRouter()
@@ -247,7 +252,7 @@ export function ReceiptsScreen({
   const [draft, setDraft] = useState<PaymentDraft>(() =>
     newPaymentDraft(todayDateOnly())
   )
-  const [formOpen, setFormOpen] = useState(false)
+  const [formOpen, setFormOpen] = useState(Boolean(sharedReceipt))
   const [receiptId, setReceiptId] = useState<string | null>(initialEntityId)
   const [supportOpen, setSupportOpen] = useState(false)
   const [retrying, setRetrying] = useState(false)
@@ -262,7 +267,7 @@ export function ReceiptsScreen({
   }, [initialEntityId])
 
   const clearStoredDraft = useMobileFormDraft({
-    enabled: allowed,
+    enabled: allowed && !sharedReceipt,
     key: "member.receipts.payment",
     onHydrate: (value) =>
       setDraft((previous) => ({
@@ -763,11 +768,14 @@ export function ReceiptsScreen({
               : null
           }
           offline={!online}
-          onClose={() => setFormOpen(false)}
-          onDiscard={() => {
-            resetDraft()
-            setFormOpen(false)
-          }}
+          onClose={onSharedReceiptClosed ?? (() => setFormOpen(false))}
+          onDiscard={
+            onSharedReceiptClosed ??
+            (() => {
+              resetDraft()
+              setFormOpen(false)
+            })
+          }
           onRetryPayables={() => void payables.refetch()}
           onSent={(receipt) => {
             submitted(receipt)
@@ -777,6 +785,10 @@ export function ReceiptsScreen({
             })
           }}
           onViewReceipt={(receipt) => {
+            if (onSharedReceiptClosed) {
+              onSharedReceiptClosed(receipt.id)
+              return
+            }
             setFormOpen(false)
             openReceipt(receipt.id)
           }}
@@ -784,6 +796,7 @@ export function ReceiptsScreen({
           payablesError={payables.isError && !payables.data}
           payablesLoading={payables.isPending}
           setDraft={setDraft}
+          sharedReceipt={sharedReceipt}
           stale={stale}
           visible
         />

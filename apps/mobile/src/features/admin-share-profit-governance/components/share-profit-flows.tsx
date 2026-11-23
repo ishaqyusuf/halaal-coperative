@@ -495,7 +495,7 @@ export function ApproveEntrySheet({
   )
 }
 
-/** T22 screen 7 (01 Brand hero): review what members will see, then a destructive confirm. */
+/** T22 screen 7 (01 Brand hero): review the allocations, then confirm publication. */
 export function PublishProfitSheet({
   blocked,
   currencyCode,
@@ -541,7 +541,7 @@ export function PublishProfitSheet({
         overlay={
           step === "success" ? (
             <Result
-              description={`${money} from ${entry.businessName} is now visible to ${entry.allocationCount} members.`}
+              description={`${money} from ${entry.businessName} was published. Members can see their dividend once all profit in the period is published.`}
               onDone={onClose}
               title="Profit published"
             />
@@ -560,7 +560,7 @@ export function PublishProfitSheet({
           />
           <View className="gap-[4px] rounded-[24px] bg-primary px-[18px] py-[18px]">
             <Text className="text-primary-foreground/80" variant="label">
-              Publishing to {entry.allocationCount} members
+              {entry.allocationCount} member allocations
             </Text>
             <Text className="text-primary-foreground" variant="hero">
               {money}
@@ -569,7 +569,7 @@ export function PublishProfitSheet({
               {entry.businessName} · {periodName}
             </Text>
           </View>
-          <SectionHeader title="What members will see" value={`Top 3 of ${entry.allocationCount}`} />
+          <SectionHeader title="Allocations for this entry" value={`Top 3 of ${entry.allocationCount}`} />
           <Card className="gap-[12px]">
             {entry.allocations.slice(0, 3).map((allocation) => (
               <View className="flex-row items-center gap-[10px]" key={allocation.id}>
@@ -591,7 +591,7 @@ export function PublishProfitSheet({
             {[
               "Approved and ready to publish",
               `Allocations reconcile to ${money}`,
-              "Members are notified in the app",
+              "Members can see their dividend once all profit in the period is published",
             ].map((line) => (
               <View className="flex-row items-center gap-[10px]" key={line}>
                 <Icon className="size-[18px] text-primary" name="CircleCheck" />
@@ -602,7 +602,7 @@ export function PublishProfitSheet({
             ))}
           </Card>
           <StatusBanner
-            description="Allocations become member dividend records."
+            description="These allocations are included in the period’s dividend."
             kind="stale"
             title="Publishing can’t be undone"
           />
@@ -611,7 +611,7 @@ export function PublishProfitSheet({
       <ConfirmSheet
         cancelLabel="Cancel"
         confirmLabel="Publish profit"
-        description={`This can’t be undone. Members see their share of ${entry.businessName} profit straight away.`}
+        description="This can’t be undone. Members can see their dividend once all profit in the period is published."
         icon="Send"
         isConfirming={busy}
         onCancel={() => setConfirm(false)}

@@ -3,7 +3,9 @@ import { PrismaPg } from "@prisma/adapter-pg"
 import { PrismaClient } from "../../generated/prisma/client"
 import { normalizePostgresConnectionString } from "../postgres-connection"
 import { systemBillingChargeCodes } from "./cooperative-mobile-billing-constants"
+import { ensureTenantLedgerAccounts } from "./ledger"
 import {
+  applyMobileAdminCharge,
   getMobileAdminChargeMembers,
   getMobileAdminChargePage,
   getMobileAdminChargeRulesForApply,
@@ -287,6 +289,15 @@ describe.skipIf(!db)("mobile admin charges with Postgres", () => {
         run: () =>
           getMobileAdminChargeMembers({ search: "zainab", tenantId }, db!),
       },
+      {
+        name: "dated rule search",
+        count: 1,
+        run: () =>
+          getMobileAdminChargeRulesForApply(
+            { assessedAt: now, search: "fixture", tenantId },
+            db!
+          ),
+      },
     ]
     const timings: string[] = []
     simulatedLatency = true
@@ -309,5 +320,135 @@ describe.skipIf(!db)("mobile admin charges with Postgres", () => {
       simulatedLatency = false
     }
     console.log(`T17 (+5 ms/query) ${timings.join(" | ")}`)
+  })
+
+  test("offers and posts standalone fixed charges at their effective rate", async () => {
+    const later = new Date(now.getTime() + 86_400_000)
+    const percentageFrom = new Date(now.getTime() + 2 * 86_400_000)
+    const [standalone, workflow, legacy, inactive, system] =
+      await db!.chargeDefinition.createManyAndReturn({
+        data: [
+          { code: "T17-MANUAL-STANDALONE" },
+          { code: "T17-MANUAL-WORKFLOW" },
+          { code: "T17-MANUAL-LEGACY", appliesToLoanRequests: true },
+          { code: "T17-MANUAL-INACTIVE", isActive: false },
+          { code: systemBillingChargeCodes[1]! },
+        ].map((row) => ({
+          ...row,
+          tenantId,
+          appliesToMembers: false,
+          name: "Manual parity",
+          amount: 900,
+          kind: "fixed",
+          chargeFrequency: "manual",
+        })),
+      })
+    await db!.chargeApplicability.createMany({
+      data: [
+        {
+          tenantId,
+          chargeDefinitionId: workflow!.id,
+          workflow: "loan_request",
+          trigger: "submission",
+        },
+        {
+          tenantId,
+          chargeDefinitionId: standalone!.id,
+          isActive: false,
+          workflow: "loan_request",
+          trigger: "submission",
+        },
+      ],
+    })
+    await db!.chargeDefinitionVersion.createMany({
+      data: [
+        ...[standalone!, workflow!, legacy!, inactive!, system!].map(
+          ({ id }) => ({
+            tenantId,
+            chargeDefinitionId: id,
+            amount: 500,
+            effectiveFrom: earlier,
+            kind: "fixed" as const,
+          })
+        ),
+        {
+          tenantId,
+          chargeDefinitionId: standalone!.id,
+          amount: 700,
+          effectiveFrom: later,
+          kind: "fixed",
+        },
+        {
+          tenantId,
+          chargeDefinitionId: standalone!.id,
+          amount: 2,
+          effectiveFrom: percentageFrom,
+          kind: "percentage",
+          chargeValueType: "percentage",
+        },
+      ],
+    })
+    const pickerOn = (assessedAt: Date) =>
+      getMobileAdminChargeRulesForApply(
+        { assessedAt, search: "Manual parity", tenantId },
+        db!
+      )
+    expect(
+      (await pickerOn(now)).data.map(({ id, rate }) => ({ id, rate }))
+    ).toEqual([{ id: standalone!.id, rate: 500 }])
+    expect((await pickerOn(later)).data.map(({ rate }) => rate)).toEqual([700])
+    expect((await pickerOn(percentageFrom)).data).toEqual([])
+
+    await db!.tenant.update({
+      where: { id: tenantId },
+      data: { initialMigrationStatus: "live_operations" },
+    })
+    await ensureTenantLedgerAccounts(tenantId, db!)
+    const actor = await db!.user.create({
+      data: {
+        tenantId,
+        email: `mobile-charge-${crypto.randomUUID()}@example.test`,
+        fullName: "Finance test",
+        passwordHash: "test-only",
+      },
+    })
+    const apply = (
+      chargeDefinitionId: string,
+      assessedAt = now,
+      expectedAmount = 500
+    ) =>
+      applyMobileAdminCharge({
+        actorUserId: actor.id,
+        assessedAt,
+        basisAmount: 10000,
+        chargeDefinitionId,
+        commandId: crypto.randomUUID(),
+        expectedAmount,
+        expectedState: "available",
+        memberId: distantMemberId,
+        tenantId,
+      })
+
+    await expect(apply(workflow!.id)).rejects.toThrow("linked workflow")
+    await expect(apply(legacy!.id)).rejects.toThrow("linked workflow")
+    await expect(apply(system!.id)).rejects.toThrow(
+      "Charge definition not found"
+    )
+    await expect(apply(inactive!.id)).rejects.toThrow(
+      "Charge definition not found"
+    )
+    await expect(apply(standalone!.id, percentageFrom, 200)).rejects.toThrow(
+      "linked workflow"
+    )
+    await expect(apply(standalone!.id, now, 900)).rejects.toThrow(
+      "charge amount changed"
+    )
+    const saved = await apply(standalone!.id)
+    const row = await db!.chargeApplication.findUniqueOrThrow({
+      where: { id: saved.entityId },
+    })
+    expect([row.status, Number(row.amount), row.chargeApplicabilityId]).toEqual(
+      ["posted", 500, null]
+    )
   })
 })

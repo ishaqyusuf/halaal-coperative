@@ -1,4 +1,8 @@
-import { Prisma, type PrismaClient } from "../../generated/prisma/client"
+import {
+  Prisma,
+  type ChargeDefinition,
+  type PrismaClient,
+} from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import { ExpectedQueryError } from "../query-error"
 import {
@@ -598,73 +602,77 @@ async function findChargeDefinitions(
   input: ChargePickerInput & { assessedAt?: Date },
   prisma: PrismaClient
 ) {
-  const manual = { isActive: true, trigger: "manual" } as const
-  const definitions = await prisma.chargeDefinition.findMany({
-    include: {
-      applicability: {
-        where: {
-          isActive: true,
-          OR: [{ trigger: "manual" }, { trigger: "monthly_collection" }],
-        },
-      },
-      versions: {
-        orderBy: [
-          { effectiveFrom: "desc" },
-          { createdAt: "desc" },
-          { id: "desc" },
-        ],
-        take: 1,
-        where: { effectiveFrom: { lte: input.assessedAt ?? new Date() } },
-      },
-    },
-    orderBy: [{ name: "asc" }, { id: "asc" }],
-    ...(input.assessedAt
-      ? {
-          cursor: input.cursor ? { id: input.cursor } : undefined,
-          skip: input.cursor ? 1 : 0,
-          take: chargePageSize + 1,
-        }
-      : {}),
-    where: {
-      isActive: true,
-      tenantId: input.tenantId,
-      OR: [{ isMonthlyLevy: true }, { applicability: { some: manual } }],
-      ...(input.assessedAt
-        ? {
-            code: { notIn: systemBillingChargeCodes },
-            versions: { some: { effectiveFrom: { lte: input.assessedAt } } },
-            ...(input.search
-              ? {
-                  AND: {
-                    OR: [
-                      { code: { contains: input.search, mode: "insensitive" } },
-                      { name: { contains: input.search, mode: "insensitive" } },
-                    ],
-                  },
-                }
-              : {}),
-          }
-        : {}),
-    },
-  })
-  return definitions.map((definition) => ({
-    chargeFrequency: definition.chargeFrequency,
-    chargeValueType:
-      definition.versions[0]?.chargeValueType ?? definition.chargeValueType,
-    code: definition.code,
-    collectionMode:
-      definition.applicability.find((item) => item.trigger === "manual")
-        ?.collectionMode ??
-      definition.applicability.find(
-        (item) => item.trigger === "monthly_collection"
-      )?.collectionMode ??
-      ("deduct_from_savings" as const),
-    id: definition.id,
-    isMonthlyLevy: definition.isMonthlyLevy,
-    name: definition.name,
-    purpose: definition.purpose,
-    rate: Number(definition.versions[0]?.amount ?? definition.amount),
-  }))
+  const date = (input.assessedAt ?? new Date()).toISOString().slice(0, 10)
+  const search =
+    input.assessedAt && input.search
+      ? Prisma.sql`AND (d.name ILIKE ${`%${input.search}%`} OR d.code ILIKE ${`%${input.search}%`})`
+      : Prisma.empty
+  const cursor =
+    input.assessedAt && input.cursor
+      ? Prisma.sql`AND (d.name, d.id) > (
+        SELECT name, id FROM charge_definitions
+        WHERE id = ${input.cursor}::uuid AND tenant_id = ${input.tenantId}::uuid
+      )`
+      : Prisma.empty
+
+  // Resolve the effective value type before paging: a standalone charge can
+  // have fixed and percentage versions at different points in its history.
+  return prisma.$queryRaw<
+    Array<
+      Pick<
+        ChargeDefinition,
+        | "chargeFrequency"
+        | "chargeValueType"
+        | "code"
+        | "id"
+        | "isMonthlyLevy"
+        | "name"
+        | "purpose"
+      > & { collectionMode: ChargeCollectionMode; rate: number }
+    >
+  >`
+    SELECT d.charge_frequency AS "chargeFrequency",
+      COALESCE(v.charge_value_type, d.charge_value_type) AS "chargeValueType",
+      d.code,
+      COALESCE(a.collection_mode, 'deduct_from_savings') AS "collectionMode",
+      d.id, d.is_monthly_levy AS "isMonthlyLevy", d.name, d.purpose,
+      COALESCE(v.amount, d.amount)::double precision AS rate
+    FROM charge_definitions d
+    LEFT JOIN LATERAL (
+      SELECT id, charge_value_type, amount
+      FROM charge_definition_versions
+      WHERE charge_definition_id = d.id AND tenant_id = d.tenant_id
+        AND effective_from <= ${date}::date
+      ORDER BY effective_from DESC, created_at DESC, id DESC
+      LIMIT 1
+    ) v ON true
+    LEFT JOIN LATERAL (
+      SELECT trigger, collection_mode
+      FROM charge_applicability
+      WHERE charge_definition_id = d.id AND tenant_id = d.tenant_id
+        AND is_active AND trigger IN ('manual', 'monthly_collection')
+      ORDER BY CASE WHEN trigger = 'manual' THEN 0 ELSE 1 END, created_at, id
+      LIMIT 1
+    ) a ON true
+    WHERE d.tenant_id = ${input.tenantId}::uuid AND d.is_active
+      AND d.code NOT IN (${Prisma.join(systemBillingChargeCodes)})
+      AND (
+        d.is_monthly_levy OR a.trigger = 'manual'
+        OR (
+          NOT d.applies_to_members AND NOT d.applies_to_loan_requests AND NOT d.applies_to_loans
+          AND v.charge_value_type = 'fixed_amount'
+          AND NOT EXISTS (
+            SELECT 1 FROM charge_applicability
+            WHERE charge_definition_id = d.id AND tenant_id = d.tenant_id AND is_active
+          )
+        )
+      )
+      ${input.assessedAt ? Prisma.sql`AND v.id IS NOT NULL` : Prisma.empty}
+      ${search}
+      ${cursor}
+    ORDER BY d.name, d.id
+    ${input.assessedAt ? Prisma.sql`LIMIT ${chargePageSize + 1}` : Prisma.empty}
+  `
 }
 
 export async function getMobileAdminChargeRulesForApply(
@@ -731,14 +739,25 @@ export function applyMobileAdminCharge(
       })
       const definition = await prisma.chargeDefinition.findFirst({
         include: {
-          applicability: { where: { isActive: true } },
+          applicability: {
+            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+            where: { isActive: true, tenantId: input.tenantId },
+          },
           versions: {
-            orderBy: [{ effectiveFrom: "desc" }, { createdAt: "desc" }],
+            orderBy: [
+              { effectiveFrom: "desc" },
+              { createdAt: "desc" },
+              { id: "desc" },
+            ],
             take: 1,
-            where: { effectiveFrom: { lte: input.assessedAt } },
+            where: {
+              effectiveFrom: { lte: input.assessedAt },
+              tenantId: input.tenantId,
+            },
           },
         },
         where: {
+          code: { notIn: systemBillingChargeCodes },
           id: input.chargeDefinitionId,
           isActive: true,
           tenantId: input.tenantId,
@@ -754,16 +773,22 @@ export function applyMobileAdminCharge(
               (item) => item.trigger === "monthly_collection"
             )
           : null)
-      if (!applicability && !definition.isMonthlyLevy) {
-        throw ExpectedQueryError.precondition(
-          "This charge is only applied by its linked workflow."
-        )
-      }
       const version = definition.versions[0]
       if (!version)
         throw ExpectedQueryError.precondition(
           "No effective charge version exists for this date."
         )
+      const standaloneFixed =
+        version.chargeValueType === "fixed_amount" &&
+        !definition.appliesToMembers &&
+        !definition.appliesToLoanRequests &&
+        !definition.appliesToLoans &&
+        definition.applicability.length === 0
+      if (!applicability && !definition.isMonthlyLevy && !standaloneFixed) {
+        throw ExpectedQueryError.precondition(
+          "This charge is only applied by its linked workflow."
+        )
+      }
       const rate = Number(version.amount)
       const amount = calculateMobileAdminChargeAmount({
         basisAmount: input.basisAmount,

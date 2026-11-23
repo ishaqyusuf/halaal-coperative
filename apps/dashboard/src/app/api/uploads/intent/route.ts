@@ -1,6 +1,6 @@
 import { isMobileUploadRequest, getMobileReceiptUploadActor, mobileReceiptUploadPurpose, isMobileReceiptProofType } from "@/lib/uploads/mobile-receipt-upload"
 import { randomUUID } from "node:crypto"
-import { createDashboardEvidenceUpload } from "@halaalvest/db"
+import { createDashboardEvidenceUpload, getMemberReceiptSubmissionAccess } from "@halaalvest/db"
 import { NextResponse, type NextRequest } from "next/server"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { privateUploadPath, sanitizeUploadName } from "@/lib/uploads/private-blob-storage"
@@ -33,6 +33,13 @@ export async function POST(request: NextRequest) {
   }
   if (mobile && (input.purpose !== mobileReceiptUploadPurpose || !isMobileReceiptProofType(input.contentType))) {
     return NextResponse.json({ error: "Select a JPG, PNG or PDF." }, { status: 400 })
+  }
+  if (
+    input.purpose === mobileReceiptUploadPurpose &&
+    context?.auth.membership?.role === "member" &&
+    !(await getMemberReceiptSubmissionAccess(actor))
+  ) {
+    return NextResponse.json({ error: "Receipt submission is unavailable for this membership." }, { status: 403 })
   }
   const id = randomUUID()
   try {

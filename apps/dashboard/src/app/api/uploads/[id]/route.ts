@@ -62,18 +62,18 @@ export async function GET(
   }
 
   try {
-    if (mobile) {
-      const ownReceipt = await createPrismaClient()?.memberPaymentReceipt.findFirst({
-        select: { id: true },
-        where: { tenantId: actor.tenantId, proofDocumentUrl: url, member: { userId: actor.userId } },
-      })
-      if (!ownReceipt) return new Response("Not found", { status: 404 })
-    }
     const { readDashboardUpload } = await import("@/lib/uploads/local-upload-storage")
     const upload = await readDashboardUpload(id)
     if (!upload || upload.metadata.tenantId !== actor.tenantId ||
         (mobile && upload.metadata.purpose !== mobileReceiptUploadPurpose)) {
       return new Response("Not found", { status: 404 })
+    }
+    if (actor.role === "member" && upload.metadata.purpose === mobileReceiptUploadPurpose) {
+      const ownReceipt = await createPrismaClient()?.memberPaymentReceipt.findFirst({
+        select: { id: true },
+        where: { tenantId: actor.tenantId, proofDocumentUrl: url, member: { userId: actor.userId } },
+      })
+      if (!ownReceipt) return new Response("Not found", { status: 404 })
     }
     return new NextResponse(upload.bytes, {
       headers: {

@@ -1,5 +1,5 @@
 import { isMobileUploadRequest, getMobileReceiptUploadActor, mobileReceiptUploadPurpose, isMobileReceiptProofType } from "@/lib/uploads/mobile-receipt-upload"
-import { createAuditLogEntry, createDashboardEvidenceUpload, createDbRuntime, finalizeDashboardEvidenceUpload } from "@halaalvest/db"
+import { createAuditLogEntry, createDashboardEvidenceUpload, createDbRuntime, finalizeDashboardEvidenceUpload, getMemberReceiptSubmissionAccess } from "@halaalvest/db"
 import { NextResponse, type NextRequest } from "next/server"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { hasActiveUploadMembership } from "@/lib/uploads/upload-access"
@@ -56,6 +56,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Select a JPG, PNG or PDF." }, { status: 400 })
   }
 
+  if (
+    purpose === mobileReceiptUploadPurpose &&
+    context?.auth.membership?.role === "member" &&
+    !(await getMemberReceiptSubmissionAccess(actor))
+  ) {
+    return NextResponse.json({ error: "Receipt submission is unavailable for this membership." }, { status: 403 })
+  }
+
   // Native multipart uploads use the cached file's basename. The storage
   // adapter sanitizes the selected name before saving it.
   const pickedName = mobile ? formData.get("fileName") : null
@@ -73,7 +81,7 @@ export async function POST(request: NextRequest) {
       userId: actor.userId,
     })
 
-    if (mobile) {
+    if (purpose === mobileReceiptUploadPurpose) {
       await createDashboardEvidenceUpload({
         id: upload.id, tenantId: actor.tenantId, uploaderUserId: actor.userId, purpose,
         originalName: upload.originalName, contentType: upload.contentType, declaredSize: upload.size,
@@ -83,7 +91,9 @@ export async function POST(request: NextRequest) {
         purpose, contentType: upload.contentType, storedSize: upload.size,
       })
       if (!finalized) throw new Error("Upload could not be verified.")
-    } else if (createDbRuntime().status === "database-configured") {
+    }
+
+    if (!mobile && createDbRuntime().status === "database-configured") {
       await createAuditLogEntry({
         action: "file.uploaded",
         actorType: "user",

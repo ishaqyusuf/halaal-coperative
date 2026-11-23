@@ -1,7 +1,8 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client"
-import { getPendingDashboardEvidenceUpload } from "@halaalvest/db"
+import { getMemberReceiptSubmissionAccess, getPendingDashboardEvidenceUpload } from "@halaalvest/db"
 import { NextResponse, type NextRequest } from "next/server"
 import { getDashboardServerContext } from "@/lib/server-context"
+import { mobileReceiptUploadPurpose } from "@/lib/uploads/mobile-receipt-upload"
 import { verifyPrivateUploadIntent } from "@/lib/uploads/private-upload-intent"
 import { hasActiveUploadMembership } from "@/lib/uploads/upload-access"
 import { isPrivateDashboardUploadEnabled } from "@/lib/uploads/upload-policy"
@@ -21,6 +22,14 @@ export async function POST(request: NextRequest) {
         const context = await getDashboardServerContext()
         if (!hasActiveUploadMembership(context) || !context.tenant || !context.auth.user || !clientPayload) throw new Error("Unauthorized upload.")
         const intent = verifyPrivateUploadIntent(clientPayload, context.tenant.id, context.auth.user.id, pathname)
+        if (
+          intent.purpose === mobileReceiptUploadPurpose &&
+          context.auth.membership?.role === "member" &&
+          !(await getMemberReceiptSubmissionAccess({
+            tenantId: context.tenant.id,
+            userId: context.auth.user.id,
+          }))
+        ) throw new Error("Receipt submission is unavailable for this membership.")
         const record = await getPendingDashboardEvidenceUpload({
           id: intent.id, tenantId: context.tenant.id,
           uploaderUserId: context.auth.user.id, purpose: intent.purpose,

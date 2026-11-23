@@ -15,9 +15,10 @@ import {
   assertMemberOperationalReadiness,
   claimAssistantProposalConfirmation,
   createAssistantProposal,
-  createMemberPaymentReceipt,
   createMemberSupportCase,
+  createOwnMemberPaymentReceipt,
   findAssistantMember,
+  getMemberReceiptSubmissionAccess,
   getTenantOperationProfile,
   readAssistantPaymentTargets,
   readAssistantProposal,
@@ -47,8 +48,9 @@ export type ProposalDependencies = {
   findMember: typeof findAssistantMember
   assertReadiness: typeof assertMemberOperationalReadiness
   paymentTargets: typeof readAssistantPaymentTargets
+  receiptAccess: typeof getMemberReceiptSubmissionAccess
   searchMembers: typeof searchAssistantMembers
-  createReceipt: typeof createMemberPaymentReceipt
+  createReceipt: typeof createOwnMemberPaymentReceipt
   createSupportCase: typeof createMemberSupportCase
   recordPayment: typeof recordMemberPayment
 }
@@ -59,8 +61,9 @@ export const defaultProposalDependencies: ProposalDependencies = {
   findMember: findAssistantMember,
   assertReadiness: assertMemberOperationalReadiness,
   paymentTargets: readAssistantPaymentTargets,
+  receiptAccess: getMemberReceiptSubmissionAccess,
   searchMembers: searchAssistantMembers,
-  createReceipt: createMemberPaymentReceipt,
+  createReceipt: createOwnMemberPaymentReceipt,
   createSupportCase: createMemberSupportCase,
   recordPayment: recordMemberPayment,
 }
@@ -259,11 +262,10 @@ export async function startReceiptSubmission(
 ): Promise<ProposalStart> {
   const gate = await memberGate(principal, "submit_receipts", deps)
   if ("error" in gate) return reply(gate.error!, "I can't start a receipt here.")
-  const profile = await deps.operationProfile(principal.tenantId)
-  if (!profile.services.payment_receipts.canMemberCreate)
+  if (!(await deps.receiptAccess({ tenantId: principal.tenantId, memberId: gate.member!.id })))
     return reply(
-      unavailable("Your cooperative takes receipts at the office, not online."),
-      "Receipt submission is not open online for your cooperative."
+      unavailable("Online receipt submission isn't open for your member account."),
+      "I can't start a receipt here."
     )
   const amount = candidates.amount ? Number(candidates.amount) : null
   const fields: AssistantProposalFields = {
@@ -640,11 +642,9 @@ async function executeConfirmed(
     case "receipt-submission": {
       const gate = await memberGate(principal, "submit_receipts", deps)
       if ("error" in gate) return notSaved(row.id, row.revision, "You can no longer submit receipts here.")
-      const profile = await deps.operationProfile(principal.tenantId)
-      if (!profile.services.payment_receipts.canMemberCreate)
-        return notSaved(row.id, row.revision, "Online receipts are closed for your cooperative.")
       if (!fields.amount || !fields.paidOn || !fields.allocations.length)
         return notSaved(row.id, row.revision, "This receipt is missing details.")
+      const proofDocumentUrl = receiptProofUrl(fields.evidenceUploadId)
       const receipt = await deps.createReceipt({
         allocations: receiptAllocationInputs(fields.allocations),
         channel: "transfer",
@@ -652,8 +652,9 @@ async function executeConfirmed(
         memberNotes: "Submitted through the Halaalvest assistant.",
         paidAt: new Date(`${fields.paidOn}T00:00:00.000Z`),
         paymentReference: fields.paymentReference,
-        proofDocumentName: receiptProofUrl(fields.evidenceUploadId) ? fields.evidenceName ?? "Payment proof" : null,
-        proofDocumentUrl: receiptProofUrl(fields.evidenceUploadId),
+        proofDocumentName: proofDocumentUrl ? fields.evidenceName ?? "Payment proof" : null,
+        proofDocumentUrl,
+        requireProofUploadRecord: true,
         submittedByUserId: principal.userId,
         tenantId: principal.tenantId,
         totalAmount: Number(fields.amount.amount),
@@ -672,6 +673,9 @@ async function executeConfirmed(
       if ("error" in gate) return notSaved(row.id, row.revision, "You can no longer open requests here.")
       if (fields.purpose !== "special_savings_refund" && fields.purpose !== "money_owed")
         return notSaved(row.id, row.revision, "Choose what you need first.")
+      const profile = await deps.operationProfile(principal.tenantId)
+      if (!profile.services.support_cases.canMemberCreate)
+        return notSaved(row.id, row.revision, "Support requests are closed for your cooperative.")
       const supportCase = await deps.createSupportCase({
         category: "payment_issue",
         description: [

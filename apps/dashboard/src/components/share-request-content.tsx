@@ -188,7 +188,7 @@ export function MemberShareRequestForm({
         {isPending ? "Sending…" : "Send request"}
       </Button>
       <p className="text-sm text-muted-foreground">
-        Nothing is taken from your savings until the office approves it.
+        When the office approves your request, submit a payment receipt for the shares.
       </p>
     </div>
   )
@@ -290,7 +290,7 @@ type Decision = "approved" | "rejected"
 
 /**
  * One share request. Staff decide here: Approve or Decline, each behind an
- * AlertDialog (approving posts share capital; declining tells the member why).
+ * AlertDialog for staff approval or decline.
  */
 export function ShareRequestDetails({
   application,
@@ -310,6 +310,9 @@ export function ShareRequestDetails({
   const shares = formatShareCount(application.requestedUnits)
   const value = formatCurrency(application.shareValueSnapshot)
   const isWaiting = application.status === "pending"
+  const paidAmount = application.paidAmount
+  const approvedValue =
+    (application.approvedUnits ?? 0) * application.unitAmountSnapshot
 
   function review() {
     if (!decision) return
@@ -374,6 +377,14 @@ export function ShareRequestDetails({
             {formatDayMonthYear(application.reviewedAt)}
           </Fact>
         ) : null}
+        {application.status === "approved" && paidAmount != null ? (
+          <>
+            <Fact label="Paid">{formatCurrency(paidAmount)}</Fact>
+            <Fact label="Balance to pay">
+              {formatCurrency(Math.max(0, approvedValue - paidAmount))}
+            </Fact>
+          </>
+        ) : null}
         {application.notes ? (
           <Fact label={canReview ? "Member's note" : "Your note"}>
             {application.notes}
@@ -419,7 +430,7 @@ export function ShareRequestDetails({
         confirmDisabled={decision === "rejected" && !reason.trim()}
         description={
           decision === "approved"
-            ? `${value} is added to ${application.memberName}'s share capital.`
+            ? `${application.memberName} will owe ${value} for the approved shares.`
             : `${application.memberName} is told the request was not approved.`
         }
         destructive={decision === "rejected"}

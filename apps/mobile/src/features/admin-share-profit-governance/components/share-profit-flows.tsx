@@ -237,11 +237,11 @@ export function ShareReviewSheet({
           <Result
             description={
               approve
-                ? `${units} units for ${application.memberName} are posted to share capital.`
-                : `${application.memberName}’s request is closed. No share capital was posted.`
+                ? `${units} units for ${application.memberName} are approved and awaiting payment.`
+                : `${application.memberName}’s request is closed.`
             }
             onDone={onClose}
-            title={approve ? "Share capital posted" : "Request rejected"}
+            title={approve ? "Request approved" : "Request rejected"}
           />
         ) : undefined
       }
@@ -259,7 +259,9 @@ export function ShareReviewSheet({
               step={step}
             />
             <Text className="text-muted-foreground" variant="body">
-              Check the decision. {approve ? "Approving posts share capital straight away." : "The member is told the request was not approved."}
+              {approve
+                ? "The member can pay for the approved shares with a payment receipt."
+                : "The member will see the decision and the reason."}
             </Text>
             <Card>
               <KV label="Member" value={`${application.memberName} · ${application.memberNumber}`} />
@@ -268,7 +270,7 @@ export function ShareReviewSheet({
                 <>
                   <KV label="Units" value={`${units} of ${application.requestedUnits} requested`} />
                   {after !== null ? <KV label="Holding after" value={`${after} of ${policy.maximumShareUnits} units`} /> : null}
-                  <KV label="Posts to share capital" tone="total" value={money} />
+                  <KV label="Amount to pay" tone="total" value={money} />
                 </>
               ) : (
                 <KV label="Share capital" value="Nothing posted" />

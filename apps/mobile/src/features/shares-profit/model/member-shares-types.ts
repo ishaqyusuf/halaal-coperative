@@ -12,6 +12,7 @@ export type MobileMemberShareApplication = {
   createdAt: string
   id: string
   notes: string | null
+  paidAmount?: number | null
   requestedUnits: number
   reviewedAt: string | null
   reviewNotes: string | null

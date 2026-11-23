@@ -93,6 +93,7 @@ type AllocationDraft = {
   contributionPlanId: string
   foodPurchaseApplicationId: string
   loanId: string
+  memberShareApplicationId: string
   notes: string
   periodIntent: PeriodIntent
   projectFinancingRequestId: string
@@ -159,6 +160,7 @@ function emptyAllocation(): AllocationDraft {
     contributionPlanId: "",
     foodPurchaseApplicationId: "",
     loanId: "",
+    memberShareApplicationId: "",
     notes: "",
     periodIntent: "current_period",
     projectFinancingRequestId: "",
@@ -182,6 +184,7 @@ function draftFromAllocation(
     contributionPlanId: allocation.contributionPlanId ?? "",
     foodPurchaseApplicationId: allocation.foodPurchaseApplicationId ?? "",
     loanId: allocation.loanId ?? "",
+    memberShareApplicationId: allocation.memberShareApplicationId ?? "",
     notes: allocation.notes ?? "",
     periodIntent: allocation.periodIntent,
     projectFinancingRequestId: allocation.projectFinancingRequestId ?? "",
@@ -220,6 +223,10 @@ function toAllocationPayload(allocations: AllocationDraft[]) {
         allocation.category === "loan_servicing" ||
         allocation.category === "loan_extra_payment"
           ? allocation.loanId || null
+          : null,
+      memberShareApplicationId:
+        allocation.category === "shares"
+          ? allocation.memberShareApplicationId || null
           : null,
       notes: allocation.notes || null,
       periodIntent: allocation.periodIntent,
@@ -276,6 +283,7 @@ function useReceiptMemberOptions(
       plans: toSelect(data?.commitmentPlans),
       procurementSchedules: toSelect(data?.procurementSchedules),
       projectFinancingRequests: toSelect(data?.projectFinancingRequests),
+      shareApplications: toSelect(data?.shareApplications),
     }
   }, [fallbackCategoryOptions, memberId, query.data, query.isFetching])
 }
@@ -320,6 +328,7 @@ function clearIncompatibleTargets(category: AllocationCategory) {
       category === "loan_servicing" || category === "loan_extra_payment"
         ? undefined
         : "",
+    memberShareApplicationId: category === "shares" ? undefined : "",
     projectFinancingRequestId:
       category === "project_financing" ? undefined : "",
     procurementRepaymentScheduleItemId:
@@ -634,6 +643,7 @@ export function PaymentReceiptCreateContent({
               }
               projectFinancingRequests={selectedMemberProjectFinancingRequests}
               procurementSchedules={selectedMemberProcurementSchedules}
+              shareApplications={memberOptions.shareApplications}
             />
           ))}
         </div>
@@ -911,6 +921,7 @@ export function PaymentReceiptReviewContent({
                 onChange={(patch) => updateAllocation(index, patch)}
                 projectFinancingRequests={receiptProjectFinancingRequests}
                 procurementSchedules={receiptProcurementSchedules}
+                shareApplications={memberOptions.shareApplications}
               />
             ))}
           </div>
@@ -1084,6 +1095,7 @@ function ReviewAllocationEditor({
   onChange,
   projectFinancingRequests,
   procurementSchedules,
+  shareApplications,
 }: {
   allocation: AllocationDraft
   categoryOptions: PaymentReceiptCategoryOption[]
@@ -1095,6 +1107,7 @@ function ReviewAllocationEditor({
   onChange: (patch: Partial<AllocationDraft>) => void
   projectFinancingRequests: Array<{ label: string; value: string }>
   procurementSchedules: Array<{ label: string; value: string }>
+  shareApplications: Array<{ label: string; value: string }>
 }) {
   const idPrefix = `receipt-allocation-${index}`
   const visibleCategoryOptions = categoryOptions.some(
@@ -1269,6 +1282,28 @@ function ReviewAllocationEditor({
             />
           </FormField>
         ) : null}
+        {allocation.category === "shares" &&
+        (shareApplications.length > 0 || allocation.memberShareApplicationId) ? (
+          <FormField className="sm:col-span-2">
+            <FieldLabel htmlFor={`${idPrefix}-share-purchase`}>
+              Share purchase
+            </FieldLabel>
+            <LabeledSelectInput
+              disabled={disabled}
+              id={`${idPrefix}-share-purchase`}
+              onValueChange={(value) => onChange({ memberShareApplicationId: value })}
+              options={[
+                { label: "General share capital", value: "" },
+                ...shareApplications,
+                ...(allocation.memberShareApplicationId &&
+                !shareApplications.some((item) => item.value === allocation.memberShareApplicationId)
+                  ? [{ label: "Originally selected share purchase", value: allocation.memberShareApplicationId }]
+                  : []),
+              ]}
+              value={allocation.memberShareApplicationId}
+            />
+          </FormField>
+        ) : null}
 
         <FormField className="sm:col-span-2">
           <FieldLabel htmlFor={`${idPrefix}-note`}>Allocation note</FieldLabel>
@@ -1382,6 +1417,7 @@ export function MemberPaymentReceiptCreateContent({
   onClose,
   projectFinancingRequests,
   procurementSchedules,
+  shareApplications,
 }: {
   categoryOptions: PaymentReceiptCategoryOption[]
   commitmentPlans: PaymentReceiptOption[]
@@ -1393,6 +1429,7 @@ export function MemberPaymentReceiptCreateContent({
   onClose: () => void | Promise<void>
   projectFinancingRequests: PaymentReceiptOption[]
   procurementSchedules: PaymentReceiptOption[]
+  shareApplications: PaymentReceiptOption[]
 }) {
   const router = useRouter()
   const refreshPaymentReceipts = useRefreshPaymentReceipts()
@@ -1427,6 +1464,10 @@ export function MemberPaymentReceiptCreateContent({
   const procurementScheduleOptions = useMemo(
     () => selectOptionsForMember(procurementSchedules, member.id),
     [member.id, procurementSchedules]
+  )
+  const shareApplicationOptions = useMemo(
+    () => selectOptionsForMember(shareApplications, member.id),
+    [member.id, shareApplications]
   )
   const allocationTotal = allocations.reduce(
     (sum, allocation) => sum + Number(allocation.amount || 0),
@@ -1671,6 +1712,7 @@ export function MemberPaymentReceiptCreateContent({
               }
               projectFinancingRequests={projectFinancingRequestOptions}
               procurementSchedules={procurementScheduleOptions}
+              shareApplications={shareApplicationOptions}
             />
           ))}
         </div>
@@ -1800,6 +1842,7 @@ function AllocationEditor({
   onRemove,
   projectFinancingRequests,
   procurementSchedules,
+  shareApplications,
 }: {
   allocation: AllocationDraft
   categoryOptions: PaymentReceiptCategoryOption[]
@@ -1812,6 +1855,7 @@ function AllocationEditor({
   onRemove?: () => void
   projectFinancingRequests: Array<{ label: string; value: string }>
   procurementSchedules: Array<{ label: string; value: string }>
+  shareApplications: Array<{ label: string; value: string }>
 }) {
   const visibleCategoryOptions = categoryOptions.some(
     (option) => option.value === allocation.category
@@ -1962,6 +2006,19 @@ function AllocationEditor({
                 ...projectFinancingRequests,
               ]}
               value={allocation.projectFinancingRequestId}
+            />
+          </Field>
+        ) : null}
+        {allocation.category === "shares" && shareApplications.length > 0 ? (
+          <Field label="Share purchase">
+            <LabeledSelectInput
+              disabled={disabled}
+              onValueChange={(value) => onChange({ memberShareApplicationId: value })}
+              options={[
+                { label: "General share capital", value: "" },
+                ...shareApplications,
+              ]}
+              value={allocation.memberShareApplicationId}
             />
           </Field>
         ) : null}

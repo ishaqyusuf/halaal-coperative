@@ -239,6 +239,7 @@ export type MemberShareApplicationRow = {
   memberName: string
   memberNumber: string
   notes: string | null
+  paidAmount: number | null
   requestedByUserId: string | null
   requestedUnits: number
   reviewedAt: Date | null
@@ -450,6 +451,8 @@ function normalizeMemberShareApplication(
     memberName: application.member?.fullName ?? "Member",
     memberNumber: application.member?.memberNumber ?? "",
     notes: application.notes ?? null,
+    paidAmount:
+      application.paidAmount == null ? null : Number(application.paidAmount),
     requestedByUserId: application.requestedByUserId ?? null,
     requestedUnits: Number(application.requestedUnits),
     reviewedAt: application.reviewedAt ?? null,
@@ -2900,6 +2903,7 @@ export async function reviewMemberShareApplication(
             "Approved shares would exceed the member share cap."
           )
         }
+        await assertLiveFinancialWritesOpen(input.tenantId, tx)
       }
 
       const claim = await tx.memberShareApplication.updateMany({
@@ -2968,20 +2972,6 @@ export async function reviewMemberShareApplication(
 
       const approvedAmount = roundCurrency(
         approvedUnits * Number(application.unitAmountSnapshot)
-      )
-
-      await createMemberShareLedgerEntry(
-        {
-          amount: approvedAmount,
-          createdByUserId: input.actorUserId ?? undefined,
-          effectiveDate: input.effectiveDate ?? reviewedAt,
-          memberId: application.memberId,
-          notes: reviewNotes ?? "Approved optional share application",
-          sourceId: application.id,
-          sourceType: "share_application",
-          tenantId: input.tenantId,
-        },
-        tx
       )
 
       await createOptionalAuditLogEntry(
@@ -4004,6 +3994,103 @@ export async function listMemberShareLedgerEntries(
     },
     orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
   })
+}
+
+/**
+ * Reverse premature capital postings on receipt-tracked share approvals.
+ */
+export async function reconcileTrackedShareApprovalPostings(
+  input: { apply: boolean; tenantId: string },
+  prismaOverride?: PrismaClient
+) {
+  const prisma = prismaOverride ?? createPrismaClient()
+  if (!prisma) throw new Error("Database not configured")
+
+  return runSerializableTransactionWithRetry(
+    prisma,
+    async (tx) => {
+      const candidates = await tx.$queryRaw<
+        Array<{
+          amount: Prisma.Decimal
+          applicationId: string
+          effectiveDate: Date
+          ledgerEntryId: string
+          memberId: string
+        }>
+      >`
+        SELECT entry.id AS "ledgerEntryId", application.id AS "applicationId",
+          entry.member_id AS "memberId", entry.amount, entry.effective_date AS "effectiveDate"
+        FROM member_share_ledger_entries entry
+        JOIN member_share_applications application
+          ON application.id = entry.source_id
+          AND application.tenant_id = entry.tenant_id
+          AND application.member_id = entry.member_id
+        WHERE entry.tenant_id = ${input.tenantId}::uuid
+          AND entry.source_type = 'share_application'
+          AND application.status = 'approved'
+          AND application.share_paid_amount IS NOT NULL
+          AND entry.amount > 0
+          AND entry.amount = application.approved_units * application.unit_amount_snapshot
+          AND NOT EXISTS (
+            SELECT 1 FROM member_share_ledger_entries reversal
+            WHERE reversal.tenant_id = entry.tenant_id
+              AND reversal.source_type = 'reversal'
+              AND reversal.source_id = entry.id
+          )
+        ORDER BY entry.effective_date, entry.id
+        LIMIT 50
+      `
+
+      const corrections = []
+      for (const candidate of candidates) {
+        const { amount, applicationId, effectiveDate, ledgerEntryId, memberId } =
+          candidate
+        const reversal = input.apply
+          ? await createMemberShareLedgerEntry(
+              {
+                amount: -Number(amount),
+                effectiveDate,
+                memberId,
+                notes: "Reversed share capital recorded before receipt approval",
+                sourceId: ledgerEntryId,
+                sourceType: "reversal",
+                tenantId: input.tenantId,
+              },
+              tx
+            )
+          : null
+
+        if (reversal) {
+          await createAuditLogEntry(
+            {
+              action: "member_share_application.premature_capital_reversed",
+              actorType: "system",
+              entityId: applicationId,
+              entityType: "MemberShareApplication",
+              metadata: {
+                amount: -Number(amount),
+                effectiveDate: effectiveDate.toISOString().slice(0, 10),
+                ledgerEntryId,
+                reversalLedgerEntryId: reversal.id,
+              },
+              tenantId: input.tenantId,
+            },
+            tx
+          )
+        }
+
+        corrections.push({
+          amount: -Number(amount),
+          applicationId,
+          effectiveDate,
+          ledgerEntryId,
+          reversalLedgerEntryId: (reversal?.id as string | undefined) ?? null,
+        })
+      }
+      return corrections
+    },
+    "Could not safely reconcile tracked share approval postings"
+  )
 }
 
 export async function getMemberShareBalancesAtDate(

@@ -740,7 +740,7 @@ async function validateAllocationReferences(input: {
 
 /**
  * Adds a receipt's share payment to the approved share purchase it pays,
- * capped at the purchase value (T30). Legacy purchases (`paidAmount` null)
+ * within the purchase value (T30). Legacy purchases (`paidAmount` null)
  * and fully paid ones are not awaiting payment.
  */
 async function payMemberShareApplication(input: {
@@ -779,8 +779,15 @@ async function payMemberShareApplication(input: {
     )
   }
 
+  const paidAmount = roundMoney(alreadyPaid + input.amount)
+  if (paidAmount > value) {
+    throw ExpectedQueryError.conflict(
+      "This payment exceeds the share purchase balance. Refresh and review again."
+    )
+  }
+
   await input.tx.memberShareApplication.update({
-    data: { paidAmount: Math.min(value, roundMoney(alreadyPaid + input.amount)) },
+    data: { paidAmount },
     where: { id: input.applicationId },
   })
 }

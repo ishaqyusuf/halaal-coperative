@@ -2,7 +2,12 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { createPrismaClient } from "../prisma"
 import { ensureTenantLedgerAccounts } from "./ledger"
 import { getMobileMemberPayables } from "./mobile-member-receipts"
-import { reviewMemberShareApplication } from "./tenant-finance"
+import {
+  createMemberShareLedgerEntry,
+  getMemberShareBalancesAtDate,
+  reconcileTrackedShareApprovalPostings,
+  reviewMemberShareApplication,
+} from "./tenant-finance"
 import {
   AUTO_ALLOCATION_REASON,
   createMemberPaymentReceipt,
@@ -295,11 +300,104 @@ run("member payables and automatic allocation", () => {
       where: { id: pending.id },
     })
     expect(Number(approved.paidAmount)).toBe(0)
+    expect(
+      await db!.memberShareLedgerEntry.count({
+        where: { sourceId: pending.id, tenantId },
+      })
+    ).toBe(0)
     const { payables } = await getMobileMemberPayables({ tenantId, userId }, db!)
     expect(payables.find((item) => item.id === `shares:${pending.id}`)).toMatchObject({
       amount: 1000,
       checkingAmount: 0,
       kind: "shares",
     })
+  })
+
+  it("reverses historical tracked approvals once and posts only receipt payments as capital", async () => {
+    const originalDate = new Date(monthStart.getTime() - 86_400_000)
+    const startingBalance = async () =>
+      (await getMemberShareBalancesAtDate(tenantId, now, db!)).find(
+        (balance) => balance.memberId === memberId
+      )?.shareBalance ?? 0
+    const before = await startingBalance()
+    const applications = await Promise.all(
+      [0, 0, 0, null].map(async (paidAmount) => {
+        const application = await db!.memberShareApplication.create({
+          data: {
+            approvedUnits: 1,
+            memberId,
+            paidAmount,
+            requestedUnits: 1,
+            reviewedAt: originalDate,
+            shareValueSnapshot: 1000,
+            status: "approved",
+            tenantId,
+            unitAmountSnapshot: 1000,
+          },
+        })
+        const posting = await createMemberShareLedgerEntry(
+          {
+            amount: 1000,
+            effectiveDate: originalDate,
+            memberId,
+            sourceId: application.id,
+            sourceType: "share_application",
+            tenantId,
+          },
+          db!
+        )
+        return { application, posting }
+      })
+    )
+    const [unpaid, partial, settled, legacy] = applications
+    async function pay(applicationId: string, amount: number) {
+      const receipt = await createMemberPaymentReceipt(
+        {
+          allocations: [{ amount, category: "shares", memberShareApplicationId: applicationId }],
+          memberId,
+          paidAt: now,
+          tenantId,
+          totalAmount: amount,
+        },
+        db!
+      )
+      return reviewMemberPaymentReceipt(
+        { actorUserId: userId, decision: "approved", receiptId: receipt.id, tenantId },
+        db!
+      )
+    }
+
+    await pay(partial!.application.id, 400)
+    await pay(settled!.application.id, 1000)
+    expect(await startingBalance()).toBe(before + 5400)
+    const planned = await reconcileTrackedShareApprovalPostings({ apply: false, tenantId }, db!)
+    expect(planned.map((row) => row.applicationId).sort()).toEqual(
+      [unpaid!.application.id, partial!.application.id, settled!.application.id].sort()
+    )
+    expect(await startingBalance()).toBe(before + 5400)
+
+    const concurrent = await Promise.all([
+      reconcileTrackedShareApprovalPostings({ apply: true, tenantId }, db!),
+      reconcileTrackedShareApprovalPostings({ apply: true, tenantId }, db!),
+    ])
+    expect(concurrent.flat()).toHaveLength(3)
+    expect(await reconcileTrackedShareApprovalPostings({ apply: false, tenantId }, db!)).toEqual([])
+    for (const { posting } of applications.slice(0, 3)) {
+      const reversal = await db!.memberShareLedgerEntry.findFirstOrThrow({
+        where: { sourceId: posting.id, sourceType: "reversal", tenantId },
+      })
+      expect(Number(reversal.amount)).toBe(-1000)
+      expect(reversal.effectiveDate).toEqual(originalDate)
+    }
+    expect(
+      await db!.memberShareLedgerEntry.count({
+        where: { sourceId: legacy!.posting.id, sourceType: "reversal", tenantId },
+      })
+    ).toBe(0)
+    expect(await startingBalance()).toBe(before + 2400)
+    await expect(pay(partial!.application.id, 601)).rejects.toThrow("exceeds the share purchase balance")
+    expect(await startingBalance()).toBe(before + 2400)
+    await pay(partial!.application.id, 600)
+    expect(await startingBalance()).toBe(before + 3000)
   })
 })

@@ -1220,7 +1220,7 @@ describe("tenant finance queries", () => {
     })
   })
 
-  test("approves pending share applications into share ledger entries", async () => {
+  test("approves pending share applications without posting unpaid capital", async () => {
     const applicationUpdates: Record<string, unknown>[] = []
     const ledgerCreates: Record<string, unknown>[] = []
     const auditLogCreates: Record<string, unknown>[] = []
@@ -1303,6 +1303,7 @@ describe("tenant finance queries", () => {
     expect(applicationUpdates[0]).toMatchObject({
       data: {
         approvedUnits: 2,
+        paidAmount: 0,
         reviewedByUserId: "user-1",
         reviewNotes: "Approved after receipt review",
         status: "approved",
@@ -1313,18 +1314,7 @@ describe("tenant finance queries", () => {
         tenantId: "tenant-1",
       },
     })
-    expect(ledgerCreates[0]).toMatchObject({
-      data: {
-        amount: 20000,
-        createdByUserId: "user-1",
-        effectiveDate: new Date("2026-07-08T00:00:00.000Z"),
-        memberId: "member-1",
-        notes: "Approved after receipt review",
-        sourceId: "share-app-1",
-        sourceType: "share_application",
-        tenantId: "tenant-1",
-      },
-    })
+    expect(ledgerCreates).toEqual([])
     expect(auditLogCreates[0]).toMatchObject({
       data: {
         action: "member_share_application.approved",
@@ -1500,7 +1490,7 @@ describe("tenant finance queries", () => {
 
     expect([first.status, second.status]).toContain("fulfilled")
     expect([first.status, second.status]).toContain("rejected")
-    expect(ledgerCreates).toHaveLength(1)
+    expect(ledgerCreates).toHaveLength(0)
     expect(auditLogCreates).toHaveLength(1)
   })
 

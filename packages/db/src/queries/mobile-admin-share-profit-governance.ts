@@ -518,14 +518,17 @@ export async function getMobileAdminShareApplicationDetail(
           prisma
         )
       : Promise.resolve(null),
-    prisma.memberShareLedgerEntry.findFirst({
-      orderBy: { createdAt: "desc" },
-      where: {
-        sourceId: application.id,
-        sourceType: "share_application",
-        tenantId: input.tenantId,
-      },
-    }),
+    application.status === "approved" && application.paidAmount === null
+      ? prisma.memberShareLedgerEntry.findFirst({
+          orderBy: { createdAt: "desc" },
+          where: {
+            memberId: application.memberId,
+            sourceId: application.id,
+            sourceType: "share_application",
+            tenantId: input.tenantId,
+          },
+        })
+      : Promise.resolve(null),
   ])
 
   return {

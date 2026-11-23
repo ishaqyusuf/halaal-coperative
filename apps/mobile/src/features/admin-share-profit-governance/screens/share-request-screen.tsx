@@ -194,10 +194,23 @@ export function ShareRequestScreen({ shareId }: { shareId: string }) {
               {application.status === "approved" ? (
                 <KV label="Approved units" value={`${application.approvedUnits ?? 0} of ${application.requestedUnits}`} />
               ) : null}
-              <KV
-                label={application.status === "approved" ? "Posted to share capital" : "Share capital"}
-                value={postedLedger ? `${formatMoney(postedLedger.amount, { currencyCode })} · ${formatDay(postedLedger.effectiveDate)}` : "Nothing posted"}
-              />
+              {application.status === "approved" && application.paidAmount != null ? (
+                <>
+                  <KV label="Paid" value={formatMoney(application.paidAmount, { currencyCode })} />
+                  <KV
+                    label="Balance to pay"
+                    value={formatMoney(
+                      Math.max(0, (application.approvedUnits ?? 0) * application.unitAmountSnapshot - application.paidAmount),
+                      { currencyCode }
+                    )}
+                  />
+                </>
+              ) : postedLedger ? (
+                <KV
+                  label="Posted to share capital"
+                  value={`${formatMoney(postedLedger.amount, { currencyCode })} · ${formatDay(postedLedger.effectiveDate)}`}
+                />
+              ) : null}
               {application.reviewedAt ? <KV label="Reviewed" value={formatDay(application.reviewedAt)} /> : null}
               {application.reviewNotes ? (
                 <View className="gap-[4px] border-t border-border pt-[10px]">

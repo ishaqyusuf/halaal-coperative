@@ -25,6 +25,7 @@ export type ShareApplication = {
   memberName: string
   memberNumber: string
   notes: string | null
+  paidAmount?: number | null
   requestedByUserId: string | null
   requestedUnits: number
   reviewedAt: string | null

@@ -1295,6 +1295,8 @@ function parsePaymentReceiptAllocations(
       foodPurchaseApplicationId:
         getRowString(row, "foodPurchaseApplicationId") ?? null,
       loanId: getRowString(row, "loanId") ?? null,
+      memberShareApplicationId:
+        getRowString(row, "memberShareApplicationId") ?? null,
       notes: getRowString(row, "notes") ?? null,
       periodIntent: (getRowString(row, "periodIntent") ??
         "unspecified") as DashboardPaymentReceiptPeriodIntent,

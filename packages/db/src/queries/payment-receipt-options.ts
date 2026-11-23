@@ -1,4 +1,5 @@
-import type { PrismaClient } from "../../generated/prisma/client"
+import type { Prisma, PrismaClient } from "../../generated/prisma/client"
+import { createPrismaClient } from "../prisma"
 import { listMemberContributionPlans } from "./contributions"
 import { listFoodPurchaseApplications } from "./food-purchase"
 import { listMemberLoans } from "./loans"
@@ -35,6 +36,7 @@ export type PaymentReceiptMemberOptions = {
   loans: PaymentReceiptOption[]
   procurementSchedules: PaymentReceiptOption[]
   projectFinancingRequests: PaymentReceiptOption[]
+  shareApplications: PaymentReceiptOption[]
 }
 
 const baseCategoryOptions: PaymentReceiptCategoryOption[] = [
@@ -88,13 +90,14 @@ export function buildPaymentReceiptCategoryOptions(input: {
 
 // Everything a receipt for one member can be allocated to: active plans,
 // open loans, unpaid procurement instalments, approved foodstuff purchases and
-// repayable project financing. Loaded when staff pick a member in the receipt
-// sheet (and for a member's own receipts), never for the whole cooperative.
+// repayable project financing and unpaid share purchases. Loaded for one member
+// when opening their receipt form or when staff select them.
 export async function listPaymentReceiptMemberOptions(
   input: { memberId: string; tenantId: string },
   prismaOverride?: PrismaClient
 ): Promise<PaymentReceiptMemberOptions> {
   const scope = { memberId: input.memberId, tenantId: input.tenantId }
+  const prisma = prismaOverride ?? createPrismaClient()
   const [
     plans,
     loans,
@@ -103,10 +106,14 @@ export async function listPaymentReceiptMemberOptions(
     activeProjectFinancing,
     approvedProjectFinancing,
     operationProfile,
+    sharePurchases,
   ] = await Promise.all([
     listMemberContributionPlans(scope, prismaOverride),
     listMemberLoans(scope, prismaOverride),
-    listProcurementRequests({ ...scope, limit: 100, status: "active" }, prismaOverride),
+    listProcurementRequests(
+      { ...scope, limit: 100, status: "active" },
+      prismaOverride
+    ),
     listFoodPurchaseApplications(
       { ...scope, limit: 100, status: "approved" },
       prismaOverride
@@ -120,6 +127,21 @@ export async function listPaymentReceiptMemberOptions(
       prismaOverride
     ),
     getTenantOperationProfile(input.tenantId, prismaOverride),
+    prisma
+      ? prisma.$queryRaw<
+          Array<{ id: string; units: number; outstanding: Prisma.Decimal }>
+        >`
+      SELECT id, approved_units AS units,
+        approved_units * unit_amount_snapshot - share_paid_amount AS outstanding
+      FROM member_share_applications
+      WHERE tenant_id = ${scope.tenantId}::uuid
+        AND member_id = ${scope.memberId}::uuid
+        AND status = 'approved'
+        AND share_paid_amount < approved_units * unit_amount_snapshot
+      ORDER BY reviewed_at, id
+      LIMIT 100
+    `
+      : [],
   ])
 
   const procurementSchedules = procurementRequests.flatMap((request) =>
@@ -143,7 +165,8 @@ export async function listPaymentReceiptMemberOptions(
     .map((application) => ({
       application,
       outstanding:
-        Number(application.approvedAmount ?? 0) - Number(application.paidAmount),
+        Number(application.approvedAmount ?? 0) -
+        Number(application.paidAmount),
     }))
     .filter(
       ({ application, outstanding }) =>
@@ -180,7 +203,8 @@ export async function listPaymentReceiptMemberOptions(
 
   return {
     categoryOptions: buildPaymentReceiptCategoryOptions({
-      foodPurchaseAccessMode: operationProfile.services.food_purchase.accessMode,
+      foodPurchaseAccessMode:
+        operationProfile.services.food_purchase.accessMode,
       foodPurchaseApplicationsCount: foodPurchaseOptions.length,
       procurementAccessMode: operationProfile.services.procurement.accessMode,
       procurementSchedulesCount: procurementSchedules.length,
@@ -194,7 +218,9 @@ export async function listPaymentReceiptMemberOptions(
       })),
     foodPurchaseApplications: foodPurchaseOptions,
     loans: loans
-      .filter((loan) => ["approved", "disbursed", "active"].includes(loan.status))
+      .filter((loan) =>
+        ["approved", "disbursed", "active"].includes(loan.status)
+      )
       .map((loan) => ({
         id: loan.id,
         label: `${loan.loanProduct.name} - ${naira(Number(loan.outstandingPrincipal))}`,
@@ -202,5 +228,10 @@ export async function listPaymentReceiptMemberOptions(
       })),
     procurementSchedules,
     projectFinancingRequests,
+    shareApplications: sharePurchases.map(({ id, outstanding, units }) => ({
+      id,
+      label: `${units} share ${units === 1 ? "unit" : "units"} - ₦${naira(Number(outstanding))} due`,
+      memberId: input.memberId,
+    })),
   }
 }

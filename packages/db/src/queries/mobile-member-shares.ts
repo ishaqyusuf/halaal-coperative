@@ -41,6 +41,7 @@ type MobileMemberShareApplication = {
   createdAt: string
   id: string
   notes: string | null
+  paidAmount: number | null
   requestedUnits: number
   reviewedAt: string | null
   reviewNotes: string | null
@@ -254,7 +255,9 @@ function toMobileShareApplication(
     | "memberEmail"
     | "memberName"
     | "memberNumber"
+    | "paidAmount"
   > & {
+    paidAmount?: unknown
     shareValueSnapshot: unknown
     unitAmountSnapshot: unknown
   }
@@ -264,6 +267,7 @@ function toMobileShareApplication(
     createdAt: row.createdAt.toISOString(),
     id: row.id,
     notes: row.notes,
+    paidAmount: row.paidAmount == null ? null : Number(row.paidAmount),
     requestedUnits: row.requestedUnits,
     reviewedAt: row.reviewedAt ? row.reviewedAt.toISOString() : null,
     reviewNotes: row.reviewNotes,

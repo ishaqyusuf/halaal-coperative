@@ -402,7 +402,7 @@ export function SharesScreen({
                       </Text>
                       <Text className="text-muted-foreground" variant="small">
                         {position
-                          ? `Approved share capital · ${money(position.unitAmount)} each`
+                          ? `Paid in · ${money(position.unitAmount)} per unit`
                           : "Ledger balance as of today"}
                       </Text>
                     </View>
@@ -626,6 +626,8 @@ function ShareRequestDetail({
   money: (value: number) => string
 }) {
   const status = REQUEST_STATUS[application.status]
+  const approvedUnits = application.approvedUnits ?? application.requestedUnits
+  const approvedValue = approvedUnits * application.unitAmountSnapshot
   return (
     <View className="gap-[6px]">
       <StatusPill label={status.label} tone={status.tone} />
@@ -652,8 +654,21 @@ function ShareRequestDetail({
             <ReviewRow
               compact
               label="Approved units"
-              value={`${application.approvedUnits ?? application.requestedUnits} of ${application.requestedUnits}`}
+              value={`${approvedUnits} of ${application.requestedUnits}`}
             />
+            {application.paidAmount != null ? (
+              <>
+                <View className="h-px bg-border" />
+                <ReviewRow compact label="Paid" tabular value={money(application.paidAmount)} />
+                <View className="h-px bg-border" />
+                <ReviewRow
+                  compact
+                  label="Balance to pay"
+                  tabular
+                  value={money(Math.max(0, approvedValue - application.paidAmount))}
+                />
+              </>
+            ) : null}
           </>
         ) : null}
         {application.reviewedAt || application.status === "pending" ? (

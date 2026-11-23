@@ -139,6 +139,16 @@ describe("mobile Operation Profile route", () => {
     await expect(
       caller.mobile.admin.operationProfile.overview()
     ).rejects.toThrow("permission")
+    await expect(
+      caller.mobile.admin.operationProfile.receiptMemberAudience()
+    ).rejects.toThrow("permission")
+    await expect(
+      caller.mobile.admin.operationProfile.updateReceiptMemberAudience({
+        audience: "enabled",
+        expectedRevision: 0,
+        memberIds: [],
+      })
+    ).rejects.toThrow("permission")
   })
 
   test("validates service update modes before database access", async () => {

@@ -1,8 +1,12 @@
 import {
   getMobileAdminOperationProfile,
+  getPaymentReceiptMemberAudienceSettings,
+  maxPaymentReceiptMemberGrants,
+  paymentReceiptMemberAudiences,
   tenantServiceAccessModes,
   tenantServiceKeys,
   updateTenantOperationProfileService,
+  updatePaymentReceiptMemberAudience,
   type TenantOperationProfileReadModel,
 } from "@halaalvest/db"
 import { z } from "zod"
@@ -14,6 +18,13 @@ const updateServiceInput = z.object({
   expectedAccessMode: z.enum(tenantServiceAccessModes),
   nextAccessMode: z.enum(tenantServiceAccessModes),
   serviceKey: z.enum(tenantServiceKeys),
+})
+
+const updateReceiptMemberAudienceInput = z.object({
+  audience: z.enum(paymentReceiptMemberAudiences),
+  changeReason: z.string().trim().max(1000).optional(),
+  expectedRevision: z.number().int().nonnegative(),
+  memberIds: z.array(z.string().uuid()).max(maxPaymentReceiptMemberGrants),
 })
 
 /**
@@ -62,9 +73,27 @@ export function buildMobileOperationProfileSnapshot(input: {
 
 export const mobileOperationProfileProcedures = {
   operationProfile: createTRPCRouter({
+    receiptMemberAudience: permissionProcedure(
+      "manage_operation_profile"
+    ).query(({ ctx }) =>
+      getPaymentReceiptMemberAudienceSettings(ctx.tenant.current.id)
+    ),
+    updateReceiptMemberAudience: permissionProcedure("manage_operation_profile")
+      .input(updateReceiptMemberAudienceInput)
+      .mutation(async ({ ctx, input }) => {
+        const tenantId = ctx.tenant.current.id
+        await updatePaymentReceiptMemberAudience({
+          ...input,
+          actorUserId: ctx.auth.session.user.id,
+          tenantId,
+        })
+        return getPaymentReceiptMemberAudienceSettings(tenantId)
+      }),
     overview: permissionProcedure("manage_operation_profile").query(
       async ({ ctx }) => {
-        const profile = await getMobileAdminOperationProfile(ctx.tenant.current.id)
+        const profile = await getMobileAdminOperationProfile(
+          ctx.tenant.current.id
+        )
 
         return buildMobileOperationProfileSnapshot({
           profile,

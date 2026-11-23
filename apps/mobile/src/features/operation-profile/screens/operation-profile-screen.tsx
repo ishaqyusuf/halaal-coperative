@@ -12,6 +12,7 @@ import { useFocusEffect } from "@react-navigation/native"
 import { useCallback, useState } from "react"
 import { View } from "react-native"
 import { OperationProfileEditSheet } from "../components/operation-profile-edit-sheet"
+import { ReceiptMemberAudienceSheet } from "../components/receipt-member-audience-sheet"
 import {
   ModePill,
   OperationProfileHero,
@@ -133,7 +134,16 @@ export function OperationProfileScreen({
   const onBack = useScreenBack(true)
   const [editingService, setEditingService] =
     useState<MobileOperationProfileService | null>(null)
-  useFocusEffect(useCallback(() => () => setEditingService(null), []))
+  const [editingReceiptAudience, setEditingReceiptAudience] = useState(false)
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        setEditingService(null)
+        setEditingReceiptAudience(false)
+      },
+      []
+    )
+  )
   const readOnly = isOperationProfileReadOnly({
     isLimited,
     isOnline,
@@ -233,6 +243,30 @@ export function OperationProfileScreen({
                         service={service}
                       />
                     ))}
+                    {section.key === "member_channels" ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        disabled={readOnly}
+                        onPress={() => setEditingReceiptAudience(true)}
+                        className="min-h-11 flex-row items-center justify-between gap-3 p-[14px]"
+                      >
+                        <View className="min-w-0 flex-1 gap-1">
+                          <Text className="font-bold">
+                            Member receipt access
+                          </Text>
+                          <Text
+                            className="text-muted-foreground"
+                            variant="small"
+                          >
+                            Choose which members can send receipts.
+                          </Text>
+                        </View>
+                        <Icon
+                          className="size-base text-muted-foreground"
+                          name={readOnly ? "Lock" : "ChevronRight"}
+                        />
+                      </Pressable>
+                    ) : null}
                   </ListCard>
                 </View>
               )
@@ -344,6 +378,12 @@ export function OperationProfileScreen({
           onUpdate={onUpdateService}
           service={editingService}
           submitError={submitError}
+        />
+      ) : null}
+      {canManage && editingReceiptAudience ? (
+        <ReceiptMemberAudienceSheet
+          onClose={() => setEditingReceiptAudience(false)}
+          readOnly={readOnly}
         />
       ) : null}
     </>

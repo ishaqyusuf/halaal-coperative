@@ -139,3 +139,32 @@ export function cacheUpdatedOperationProfile(
     shouldFallback: () => false,
   }).catch(() => snapshot)
 }
+
+export function getMobileReceiptMemberAudience(signal: AbortSignal) {
+  return createMobileTrpcClient().mobile.admin.operationProfile.receiptMemberAudience.query(
+    undefined,
+    { signal }
+  )
+}
+
+export function searchMobileReceiptMembers(
+  search: string,
+  signal: AbortSignal
+) {
+  return createMobileTrpcClient().members.options.query(
+    { q: search },
+    { signal }
+  )
+}
+
+type UpdateReceiptMemberAudience = ReturnType<
+  typeof createMobileTrpcClient
+>["mobile"]["admin"]["operationProfile"]["updateReceiptMemberAudience"]["mutate"]
+
+export function updateMobileReceiptMemberAudience(
+  input: Parameters<UpdateReceiptMemberAudience>[0]
+) {
+  return createMobileTrpcClient().mobile.admin.operationProfile.updateReceiptMemberAudience.mutate(
+    input
+  )
+}

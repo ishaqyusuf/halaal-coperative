@@ -185,7 +185,7 @@ function mapReceipt(
 ): MobileAdminFinanceSupportItem {
   const base = {
     amount: row.totalAmount,
-    blockers: row.proofDocumentUrl ? [] : ["Payment evidence is missing."],
+    blockers: [],
     financialAdjustmentApprovalStatus: null,
     id: row.id,
     member: memberContext(row.member),
@@ -199,24 +199,27 @@ function mapReceipt(
     title: row.member.fullName,
   }
 
-  const allowedActions = itemActions(base, capabilities).filter(
-    (action) => !(base.blockers.length && action.key === "approve")
-  )
-
   return {
     ...base,
     ageMinutes: ageMinutes(row.submittedAt),
-    allowedActions,
+    allowedActions: itemActions(base, capabilities),
     details: [
       currencyDetail("Submitted amount", row.totalAmount),
-      { label: "Allocations", value: String(row.allocations.length) },
+      {
+        label: "Allocations",
+        value: row.allocations.length
+          ? String(row.allocations.length)
+          : "Calculated on approval",
+      },
       { label: "Channel", value: row.channel },
     ],
     policyEvidence: [
       row.proofDocumentUrl
         ? "Payment evidence attached"
-        : "Payment evidence missing",
-      "Approval posts only the submitted allocation evidence.",
+        : "No payment proof attached",
+      row.allocations.length
+        ? "Approval posts the submitted allocations."
+        : "Approval applies the cooperative’s payment order.",
     ],
   }
 }

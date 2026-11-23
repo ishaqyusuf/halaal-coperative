@@ -376,7 +376,12 @@ integration("mobile admin finance desk", () => {
     ])
     expect(
       lateReceipt.items[0]?.allowedActions.some(({ key }) => key === "approve")
-    ).toBe(false)
+    ).toBe(true)
+    expect(lateReceipt.items[0]?.blockers).toEqual([])
+    expect(lateReceipt.items[0]?.details).toContainEqual({
+      label: "Allocations",
+      value: "Calculated on approval",
+    })
     await expect(
       getMobileAdminFinanceDesk(
         { ...input(), entityId: otherReceiptId },

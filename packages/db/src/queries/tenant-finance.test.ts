@@ -15,6 +15,7 @@ import {
   listMemberShareApplicationPage,
   listShareBusinessesTable,
   publishShareProfitAllocations,
+  reconcileTrackedShareApprovalPostings,
   recommendTenantMigrationSetupMode,
   reviewMemberShareApplication,
   updateTenantBusinessProfitPolicy,
@@ -131,6 +132,29 @@ function currentAnnualSeasonTransaction(
 }
 
 describe("tenant finance queries", () => {
+  test("retries a Shares repair after a driver serialization conflict", async () => {
+    let attempts = 0
+    const prisma = {
+      $transaction: async (callback: (transaction: unknown) => Promise<unknown>) => {
+        attempts += 1
+        if (attempts === 1) {
+          throw new Error("TransactionWriteConflict", {
+            cause: { kind: "TransactionWriteConflict", originalCode: "40001" },
+          })
+        }
+        return callback({ $queryRaw: async () => [] })
+      },
+    }
+
+    const result = await reconcileTrackedShareApprovalPostings(
+      { apply: true, tenantId: "tenant-1" },
+      prisma as never
+    )
+
+    expect(result).toEqual([])
+    expect(attempts).toBe(2)
+  })
+
   test("only returns a business next cursor when another row exists", async () => {
     const requestedTake: number[] = []
     const businessRow = (index: number) => ({

@@ -1,11 +1,29 @@
 type ErrorLike = {
   cause?: unknown
   code?: unknown
+  kind?: unknown
   message?: unknown
   meta?: {
     driverAdapterError?: unknown
   }
   name?: unknown
+  originalCode?: unknown
+}
+
+export function isPrismaTransactionWriteConflictError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false
+  }
+
+  const errorLike = error as ErrorLike
+  return (
+    errorLike.code === "P2034" ||
+    errorLike.code === "40001" ||
+    errorLike.originalCode === "40001" ||
+    errorLike.kind === "TransactionWriteConflict" ||
+    isPrismaTransactionWriteConflictError(errorLike.cause) ||
+    isPrismaTransactionWriteConflictError(errorLike.meta?.driverAdapterError)
+  )
 }
 
 export function isPrismaMissingTableError(error: unknown): boolean {

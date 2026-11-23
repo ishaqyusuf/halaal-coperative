@@ -14,7 +14,10 @@ import {
   toBusinessProfitDateOnly,
 } from "@halaalvest/domain"
 import { createPrismaClient } from "../prisma"
-import { isPrismaMissingColumnError } from "../prisma-errors"
+import {
+  isPrismaMissingColumnError,
+  isPrismaTransactionWriteConflictError,
+} from "../prisma-errors"
 import { ExpectedQueryError, QueryInfrastructureError } from "../query-error"
 import { createAuditLogEntry } from "./audit"
 import { systemBillingChargeCodes } from "./cooperative-mobile-billing-constants"
@@ -571,7 +574,7 @@ async function runSerializableTransactionWithRetry<T>(
       })) as T
     } catch (error) {
       if (
-        (error as { code?: string } | null)?.code !== "P2034" ||
+        !isPrismaTransactionWriteConflictError(error) ||
         attempt === maxAttempts
       ) {
         throw error

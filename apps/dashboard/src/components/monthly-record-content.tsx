@@ -105,7 +105,13 @@ export function MonthlyRecordContent({
     }
 
     return (
-      <form action={applyMonthlyRecordMemberAction} className="grid gap-5">
+      <form
+        action={async (formData) => {
+          await applyMonthlyRecordMemberAction(formData)
+          await setParams(null)
+        }}
+        className="grid gap-5"
+      >
         {/* QA: pays what the member owes this month. */}
         <DashboardNativeQuickFill
           values={() => ({

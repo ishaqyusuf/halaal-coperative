@@ -1,3 +1,5 @@
+/* global __dirname */
+
 const fs = require("node:fs/promises")
 const path = require("node:path")
 const plist = require("@expo/plist").default

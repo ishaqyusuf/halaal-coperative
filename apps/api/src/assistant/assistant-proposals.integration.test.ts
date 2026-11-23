@@ -88,8 +88,16 @@ run("assistant financial confirmation policies", () => {
         tenantId,
         serviceSettings: {
           create: [
-            { tenantId, serviceKey: "payment_receipts", accessMode: "member_self_service" },
-            { tenantId, serviceKey: "support_cases", accessMode: "member_self_service" },
+            {
+              tenantId,
+              serviceKey: "payment_receipts",
+              accessMode: "member_self_service",
+            },
+            {
+              tenantId,
+              serviceKey: "support_cases",
+              accessMode: "member_self_service",
+            },
           ],
         },
       },
@@ -107,7 +115,10 @@ run("assistant financial confirmation policies", () => {
     await db?.$disconnect()
   })
 
-  async function stageReceipt(paymentReference: string, evidenceUploadId: string | null = null) {
+  async function stageReceipt(
+    paymentReference: string,
+    evidenceUploadId: string | null = null
+  ) {
     const conversation = await createAssistantConversation(principal)
     const now = new Date()
     return createAssistantProposal({
@@ -121,7 +132,13 @@ run("assistant financial confirmation policies", () => {
         amount: money(100),
         paidOn: now.toISOString().slice(0, 10),
         paymentReference,
-        allocations: [{ targetId: "special_savings", label: "Special savings", amount: money(100) }],
+        allocations: [
+          {
+            targetId: "special_savings",
+            label: "Special savings",
+            amount: money(100),
+          },
+        ],
         evidenceUploadId,
       },
       expiresAt: new Date(now.getTime() + 60_000),
@@ -143,21 +160,30 @@ run("assistant financial confirmation policies", () => {
     })
     expect(result).toMatchObject({ outcome: "not_saved", reference: null })
     expect(result.message).toContain("requires proof of payment")
-    expect(await db!.memberPaymentReceipt.count({ where: { tenantId, memberId, paymentReference } })).toBe(0)
+    expect(
+      await db!.memberPaymentReceipt.count({
+        where: { tenantId, memberId, paymentReference },
+      })
+    ).toBe(0)
   })
 
   test("only accepts a real, owned proof upload on a receipt draft", async () => {
     const unregisteredReference = "QA-PROOF-101"
-    const unregistered = await stageReceipt(unregisteredReference, crypto.randomUUID())
+    const unregistered = await stageReceipt(
+      unregisteredReference,
+      crypto.randomUUID()
+    )
     const denied = await confirmProposal(principal, {
       proposalId: unregistered.id,
       revision: unregistered.revision,
       confirmationKey: crypto.randomUUID(),
     })
     expect(denied).toMatchObject({ outcome: "not_saved", reference: null })
-    expect(await db!.memberPaymentReceipt.count({
-      where: { tenantId, memberId, paymentReference: unregisteredReference },
-    })).toBe(0)
+    expect(
+      await db!.memberPaymentReceipt.count({
+        where: { tenantId, memberId, paymentReference: unregisteredReference },
+      })
+    ).toBe(0)
 
     const evidence = {
       id: crypto.randomUUID(),
@@ -185,7 +211,9 @@ run("assistant financial confirmation policies", () => {
       select: { id: true, status: true },
     })
     expect(receipt?.status).toBe("submitted")
-    const claimed = await db!.dashboardEvidenceUpload.findUnique({ where: { id: evidence.id } })
+    const claimed = await db!.dashboardEvidenceUpload.findUnique({
+      where: { id: evidence.id },
+    })
     expect(claimed?.linkedEntityId).toBe(receipt?.id)
   })
 
@@ -209,14 +237,19 @@ run("assistant financial confirmation policies", () => {
       where: { tenantId_serviceKey: { tenantId, serviceKey: "support_cases" } },
       data: { accessMode: "office_only" },
     })
-    const result = await confirmProposal({ ...principal, channel: "native" }, {
-      proposalId: draft.id,
-      revision: draft.revision,
-      confirmationKey: crypto.randomUUID(),
-    })
+    const result = await confirmProposal(
+      { ...principal, channel: "native" },
+      {
+        proposalId: draft.id,
+        revision: draft.revision,
+        confirmationKey: crypto.randomUUID(),
+      }
+    )
     expect(result).toMatchObject({ outcome: "not_saved", reference: null })
     expect(result.message).toContain("Support requests are closed")
-    expect(await db!.supportCase.count({ where: { tenantId, memberId } })).toBe(0)
+    expect(await db!.supportCase.count({ where: { tenantId, memberId } })).toBe(
+      0
+    )
   })
 
   test("blocks a receipt draft and its confirmation after selected access is removed", async () => {
@@ -235,8 +268,13 @@ run("assistant financial confirmation policies", () => {
       `I paid ₦100 today, reference ${paymentReference}`,
       "member"
     )
-    const draft = await startReceiptSubmission(principal, conversation.id, candidates)
-    if (draft.kind !== "proposal") throw new Error("Selected member could not start a receipt.")
+    const draft = await startReceiptSubmission(
+      principal,
+      conversation.id,
+      candidates
+    )
+    if (draft.kind !== "proposal")
+      throw new Error("Selected member could not start a receipt.")
 
     await updatePaymentReceiptMemberAudience({
       tenantId,
@@ -253,10 +291,13 @@ run("assistant financial confirmation policies", () => {
     })
     expect(result).toMatchObject({ outcome: "not_saved", reference: null })
     expect(result.message).toContain("cannot submit receipts online")
-    expect(await db!.memberPaymentReceipt.count({
-      where: { tenantId, memberId, paymentReference },
-    })).toBe(0)
-    expect(await startReceiptSubmission(principal, conversation.id, candidates))
-      .toMatchObject({ kind: "answer", answer: { tone: "unavailable" } })
+    expect(
+      await db!.memberPaymentReceipt.count({
+        where: { tenantId, memberId, paymentReference },
+      })
+    ).toBe(0)
+    expect(
+      await startReceiptSubmission(principal, conversation.id, candidates)
+    ).toMatchObject({ kind: "answer", answer: { tone: "unavailable" } })
   })
 })

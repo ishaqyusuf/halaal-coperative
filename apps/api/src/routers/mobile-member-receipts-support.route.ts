@@ -4,7 +4,7 @@ import {
   getMobileMemberReceiptSnapshot,
   getMobileMemberReceiptFormOptions,
   getMobileMemberPayables,
-  getTenantOperationProfile,
+  getMemberReceiptSubmissionAccess,
   getMobileMemberReceiptDetail,
   getMobileMemberSupportDetail,
   getMobileMemberSupportSnapshot,
@@ -174,11 +174,11 @@ export const mobileMemberReceiptsSupportProcedures = {
       if (!ctx.request.mobileAuthenticated)
         throw new TRPCError({ code: "FORBIDDEN" })
       const tenantId = ctx.tenant.current.id
-      const profile = await getTenantOperationProfile(tenantId)
-      if (!profile.services.payment_receipts.canMemberCreate) {
+      const userId = ctx.auth.session.user.id
+      if (!(await getMemberReceiptSubmissionAccess({ tenantId, userId }))) {
         throw new TRPCError({ code: "FORBIDDEN" })
       }
-      return { tenantId, userId: ctx.auth.session.user.id }
+      return { tenantId, userId }
     }),
     payables: tenantProcedure.query(({ ctx }) => {
       assertMemberWorkspace(ctx.auth.activeMembership.role)

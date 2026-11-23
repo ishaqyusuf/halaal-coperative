@@ -16,6 +16,8 @@ import {
 } from "./contributions"
 import { getLedgerAccountByCode, postLedgerTransaction } from "./ledger"
 import { getTenantMigrationWriteAccess } from "./migration"
+import { assertMemberPaymentReceiptProof } from "./operation-profile"
+import { getMemberReceiptSubmissionAccess } from "./payment-receipt-member-access"
 import { createMemberShareLedgerEntry } from "./tenant-finance"
 import {
   type MemberPurchaseReceiptRepayment,
@@ -2127,27 +2129,44 @@ async function getPaymentReceiptStatusSummary(
   }
 }
 
-export async function createMemberPaymentReceipt(
-  input: {
-    allocations: PaymentReceiptAllocationInput[]
-    /**
-     * No allocations: approval applies the amount in the cooperative's
-     * payment order (member-payables.ts). Only when the tenant allows it.
-     */
-    autoAllocate?: boolean
-    channel?: ContributionChannel
-    memberId: string
-    memberNotes?: string | null
-    paidAt: Date
-    paymentReference?: string | null
-    proofDocumentName?: string | null
-    proofDocumentUrl?: string | null
-    requireProofUploadRecord?: boolean
-    submittedByUserId?: string | null
-    tenantId: string
-    totalAmount: number
-  },
+type MemberPaymentReceiptCreateInput = {
+  allocations: PaymentReceiptAllocationInput[]
+  /**
+   * No allocations: approval applies the amount in the cooperative's
+   * payment order (member-payables.ts). Only when the tenant allows it.
+   */
+  autoAllocate?: boolean
+  channel?: ContributionChannel
+  memberId: string
+  memberNotes?: string | null
+  paidAt: Date
+  paymentReference?: string | null
+  proofDocumentName?: string | null
+  proofDocumentUrl?: string | null
+  requireProofUploadRecord?: boolean
+  submittedByUserId?: string | null
+  tenantId: string
+  totalAmount: number
+}
+
+export function createMemberPaymentReceipt(
+  input: MemberPaymentReceiptCreateInput,
   prismaOverride?: PrismaClient
+) {
+  return createPaymentReceipt(input, prismaOverride)
+}
+
+export function createOwnMemberPaymentReceipt(
+  input: MemberPaymentReceiptCreateInput & { submittedByUserId: string },
+  prismaOverride?: PrismaClient
+) {
+  return createPaymentReceipt(input, prismaOverride, input.submittedByUserId)
+}
+
+async function createPaymentReceipt(
+  input: MemberPaymentReceiptCreateInput,
+  prismaOverride?: PrismaClient,
+  submittingMemberUserId?: string
 ) {
   const prisma = prismaOverride ?? createPrismaClient()
   if (!prisma) throw new Error("Database not configured")
@@ -2215,6 +2234,34 @@ export async function createMemberPaymentReceipt(
   })
 
   return runSerializableTransactionWithRetry(prisma, async (tx) => {
+    if (submittingMemberUserId !== undefined) {
+      const scope = { tenantId: input.tenantId, memberId: input.memberId }
+      const [member, allowed, policy] = await Promise.all([
+        tx.member.findFirst({
+          where: {
+            tenantId: scope.tenantId,
+            id: scope.memberId,
+            userId: submittingMemberUserId,
+          },
+          select: { id: true },
+        }),
+        getMemberReceiptSubmissionAccess(scope, tx),
+        tx.tenantPolicy.findUnique({
+          where: { tenantId: input.tenantId },
+          select: { paymentReceiptProofRequired: true },
+        }),
+      ])
+      if (!member || !allowed) {
+        throw ExpectedQueryError.permission(
+          "You cannot submit receipts online for this membership."
+        )
+      }
+      assertMemberPaymentReceiptProof(
+        policy ?? { paymentReceiptProofRequired: false },
+        proofDocumentUrl
+      )
+    }
+
     if (paymentReference) {
       const duplicate = await tx.memberPaymentReceipt.findFirst({
         select: { id: true },

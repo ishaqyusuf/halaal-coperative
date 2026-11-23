@@ -59,6 +59,7 @@ model Tenant {
   platformBillingSetting                TenantPlatformBillingSetting?
   platformAssistantUsage                PlatformAssistantUsage[]
   serviceSettings                       TenantServiceSetting[]
+  paymentReceiptMemberAccess            TenantPaymentReceiptMemberAccess?
   businessPolicy                        TenantBusinessPolicy?
   domains                               TenantDomain[]
   users                                 User[]
@@ -238,6 +239,29 @@ model TenantServiceSetting {
   @@unique([tenantId, serviceKey], map: "tenant_service_settings_tenant_service_key")
   @@index([tenantId, accessMode], map: "tenant_service_settings_tenant_access_mode_idx")
   @@map("tenant_service_settings")
+}
+
+model TenantPaymentReceiptMemberAccess {
+  tenantId String                      @id @map("tenant_id") @db.Uuid
+  audience PaymentReceiptMemberAudience
+  revision Int                         @default(1)
+
+  tenant Tenant                            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  grants TenantPaymentReceiptMemberGrant[]
+
+  @@map("tenant_payment_receipt_member_access")
+}
+
+model TenantPaymentReceiptMemberGrant {
+  tenantId String @map("tenant_id") @db.Uuid
+  memberId String @map("member_id") @db.Uuid
+
+  access TenantPaymentReceiptMemberAccess @relation(fields: [tenantId], references: [tenantId], onDelete: Cascade)
+  member Member                          @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, memberId])
+  @@index([memberId])
+  @@map("tenant_payment_receipt_member_grants")
 }
 
 model TenantBusinessPolicy {

@@ -4,7 +4,7 @@ import {
   getMemberHomeSnapshot,
   isMemberOperationallyReady,
 } from "@halaalvest/db"
-import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
+import { getRequestMemberReceiptSubmissionAccess } from "@/lib/navigation/operation-profile"
 import { findRequestMemberByUserId } from "@/lib/request-lookups"
 import {
   getDashboardServerContext,
@@ -61,7 +61,7 @@ export async function loadTenantHomePageData() {
 
     // One lean snapshot instead of the full statement (75 → about 26
     // statements on 14 Nov 2026).
-    const [snapshot, isReady, operationProfile] = await Promise.all([
+    const [snapshot, isReady, canSendReceipt] = await Promise.all([
       getMemberHomeSnapshot({
         memberId: member.id,
         tenantId: context.tenant.id,
@@ -70,7 +70,7 @@ export async function loadTenantHomePageData() {
         member,
         tenantId: context.tenant.id,
       }),
-      getRequestTenantOperationProfile(context.tenant.id),
+      getRequestMemberReceiptSubmissionAccess(context.tenant.id, context.auth.user.id),
     ])
 
     if (!snapshot) {
@@ -82,8 +82,7 @@ export async function loadTenantHomePageData() {
 
     return {
       state: "member-ready" as const,
-      canSendReceipt:
-        operationProfile.services.payment_receipts.shouldShowInMemberNav,
+      canSendReceipt,
       isReady,
       snapshot,
       ...shell,

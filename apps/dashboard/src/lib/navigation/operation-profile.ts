@@ -1,6 +1,7 @@
 import type { CooperativeRole } from "@halaalvest/auth/roles"
 import {
   createDbRuntime,
+  getMemberReceiptSubmissionAccess,
   getOperationNavRecordPresence,
   getTenantOperationProfile,
 } from "@halaalvest/db"
@@ -36,6 +37,11 @@ export const getRequestTenantOperationProfile = cache((tenantId: string) =>
   getTenantOperationProfile(tenantId)
 )
 
+export const getRequestMemberReceiptSubmissionAccess = cache(
+  (tenantId: string, userId: string) =>
+    getMemberReceiptSubmissionAccess({ tenantId, userId })
+)
+
 const getHiddenNavPaths = cache(
   async (
     role: CooperativeRole | null,
@@ -43,10 +49,18 @@ const getHiddenNavPaths = cache(
     userId: string | null
   ) => {
     const isMember = role ? memberRoles.has(role) : false
-    const operationProfile = await getRequestTenantOperationProfile(tenantId)
+    const [operationProfile, canSendReceipt] = await Promise.all([
+      getRequestTenantOperationProfile(tenantId),
+      isMember && userId
+        ? getRequestMemberReceiptSubmissionAccess(tenantId, userId)
+        : false,
+    ])
     const navKey = isMember ? "shouldShowInMemberNav" : "shouldShowInStaffNav"
     const linksToCheck = serviceLinks.filter(
-      ({ service }) => !operationProfile.services[service][navKey]
+      ({ service }) =>
+        isMember && service === "payment_receipts"
+          ? !canSendReceipt
+          : !operationProfile.services[service][navKey]
     )
     if (linksToCheck.length === 0) return []
 

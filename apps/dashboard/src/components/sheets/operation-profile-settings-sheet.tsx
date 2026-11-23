@@ -2,21 +2,25 @@
 
 import { Suspense } from "react"
 import type {
+  PaymentReceiptMemberAudienceSettings,
   TenantOperationProfilePolicy,
   TenantServiceCapability,
   TenantServiceKey,
 } from "@halaalvest/db"
 import { OperationProfileSettingsContent } from "@/components/operation-profile-settings-content"
 import { OperationProfileSettingsSheetHeader } from "@/components/operation-profile-settings-sheet-header"
+import { PaymentReceiptMemberAudienceForm } from "@/components/payment-receipt-member-audience-form"
 import { WorkflowPresentation } from "@/components/workflow-presentation"
 import { useOperationProfileSettingsParams } from "@/hooks/use-operation-profile-settings-params"
 import { operationProfileServiceKeys } from "@/lib/settings/operation-profile-settings"
 import { getWorkflowPresentation } from "@/lib/workflow-presentations"
 
 export function OperationProfileSettingsSheet({
+  memberReceiptAccess,
   policy,
   services,
 }: {
+  memberReceiptAccess: PaymentReceiptMemberAudienceSettings
   policy: TenantOperationProfilePolicy
   services: Record<TenantServiceKey, TenantServiceCapability>
 }) {
@@ -54,6 +58,12 @@ export function OperationProfileSettingsSheet({
           <OperationProfileSettingsSheetHeader
             serviceKey={selectedServiceKey}
           />
+          {selectedServiceKey === "payment_receipts" ? (
+            <PaymentReceiptMemberAudienceForm
+              key={memberReceiptAccess.revision}
+              settings={memberReceiptAccess}
+            />
+          ) : null}
           <OperationProfileSettingsContent
             currentAccessMode={services[selectedServiceKey].accessMode}
             key={selectedServiceKey}

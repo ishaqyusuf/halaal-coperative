@@ -173,3 +173,8 @@ export function isRestrictiveOperationProfileAccessChange({
       (previous === "member_self_service" && next !== "member_self_service"))
   )
 }
+export const paymentReceiptMemberAudienceLabels = {
+  disabled: "Disabled",
+  enabled: "Enabled",
+  selected_members: "Selected members",
+} as const

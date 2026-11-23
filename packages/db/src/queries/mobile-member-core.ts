@@ -7,6 +7,7 @@ import {
 } from "./members"
 import { getMobileNotificationUnreadCount } from "./mobile-notifications"
 import { resolveTenantServiceCapabilities } from "./operation-profile"
+import { memberReceiptSubmissionAccessSql } from "./payment-receipt-member-access"
 
 export const mobileMemberSectionKeys = [
   "commitments",
@@ -647,6 +648,7 @@ async function readMobileMemberHomeSignals(
         SELECT 1 FROM member_payment_receipts
         WHERE tenant_id = ${tenantId}::uuid AND member_id = ${memberId}::uuid
       ) AS "hasReceipts",
+      ${memberReceiptSubmissionAccessSql({ tenantId, memberId })} AS "canSendReceipt",
       EXISTS (
         SELECT 1 FROM procurement_requests
         WHERE tenant_id = ${tenantId}::uuid AND member_id = ${memberId}::uuid
@@ -671,16 +673,19 @@ async function readMobileMemberHomeSignals(
     hasFoodPurchase: boolean
     hasProcurement: boolean
     hasReceipts: boolean
+    canSendReceipt: boolean
     hasSupport: boolean
     serviceModes: Record<string, unknown> | null
   }>
   const row = rows[0]
   if (!row) return emptyMobileMemberHomeSignals
+  const services = resolveTenantServiceCapabilities(row.serviceModes ?? {})
+  services.payment_receipts.shouldShowInMemberNav = row.canSendReceipt
 
   return {
     foodPurchaseRecords: row.hasFoodPurchase ? 1 : 0,
     operationProfile: {
-      services: resolveTenantServiceCapabilities(row.serviceModes ?? {}),
+      services,
     },
     procurementRecords: row.hasProcurement ? 1 : 0,
     receiptRecords: row.hasReceipts ? 1 : 0,

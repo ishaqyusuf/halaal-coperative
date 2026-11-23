@@ -32,6 +32,7 @@ import {
   createLegacyLoanMigrationDraft,
   createMemberOpeningBalance,
   createMemberPaymentReceipt,
+  createOwnMemberPaymentReceipt,
   createProjectFinancingRequest,
   stageCollectionSourceContributionBatch,
   deleteMemberActivityEvent,
@@ -65,8 +66,9 @@ import {
   getMemberByUserId,
   getSupportCase,
   getInitialMigrationMemberReview,
-  assertMemberPaymentReceiptProof,
   getTenantOperationProfile,
+  maxPaymentReceiptMemberGrants,
+  paymentReceiptMemberAudiences,
   getChargeDefinitionOnDate,
   generateHistoricalBackfillShareProfitAllocations,
   markTenantBusinessProfitPoolsReviewed,
@@ -150,6 +152,7 @@ import {
   upsertMigrationBackfillAdjustment,
   updateMemberStatus,
   updateTenantOperationProfile,
+  updatePaymentReceiptMemberAudience,
   waiveChargeApplication,
   upsertMemberAmountLog,
   type FoodPurchaseApplicationRow,
@@ -2902,6 +2905,40 @@ export async function updateTenantOperationProfileAction(formData: FormData) {
   if (redirectTo?.startsWith("/")) {
     return { redirectTo }
   }
+}
+
+export async function updatePaymentReceiptMemberAudienceAction(
+  formData: FormData
+) {
+  const actor = await requireDashboardActor(workspaceAdminRoles)
+  const settings = z
+    .object({
+      audience: z.enum(paymentReceiptMemberAudiences),
+      changeReason: z.string().trim().max(1000).nullable(),
+      expectedRevision: z.string().regex(/^\d+$/).transform(Number),
+      memberIds: z.array(z.string().uuid()).max(maxPaymentReceiptMemberGrants),
+    })
+    .safeParse({
+      audience: formData.get("audience"),
+      changeReason: getOptionalTrimmedString(formData, "changeReason"),
+      expectedRevision: formData.get("expectedRevision"),
+      memberIds: formData.getAll("memberId"),
+    })
+  if (!settings.success) {
+    throw new DashboardActionExpectedError(
+      "Check the member receipt access settings and try again."
+    )
+  }
+
+  await updatePaymentReceiptMemberAudience({
+    ...settings.data,
+    actorUserId: actor.user.id,
+    tenantId: actor.tenant.id,
+  })
+
+  revalidatePath("/settings/operation-profile")
+  revalidatePath("/payment-receipts")
+  revalidatePath("/")
 }
 
 export async function createMemberShareApplicationAction(formData: FormData) {
@@ -6806,22 +6843,11 @@ export async function createMemberPaymentReceiptAction(formData: FormData) {
 export async function createOwnMemberPaymentReceiptAction(formData: FormData) {
   const actor = await requireDashboardActor(memberSelfServiceRoles)
   const member = await requireOperationalActorMember(actor)
-  const operationProfile = await getTenantOperationProfile(actor.tenant.id)
-
-  if (!operationProfile.services.payment_receipts.canMemberCreate) {
-    throw new DashboardActionExpectedError(
-      "Payment receipt self-service is not enabled for this cooperative."
-    )
-  }
-  assertMemberPaymentReceiptProof(
-    operationProfile.policy,
-    getOptionalTrimmedString(formData, "proofDocumentUrl")
-  )
 
   const paidAt = getRequiredString(formData, "paidAt")
   requireDateOnOrAfterTenantStartDate(actor, paidAt, "Receipt payment date")
 
-  await createMemberPaymentReceipt({
+  await createOwnMemberPaymentReceipt({
     allocations: parsePaymentReceiptAllocations(formData),
     channel: getRequiredString(
       formData,
@@ -7308,6 +7334,7 @@ const dashboardActionHandlers = {
   upsertTenantBroughtForwardSnapshotAction,
   setTenantOpeningCashAction,
   updateTenantOperationProfileAction,
+  updatePaymentReceiptMemberAudienceAction,
   createMemberShareApplicationAction,
   createOwnMemberShareApplicationAction,
   reviewMemberShareApplicationAction,
@@ -7537,6 +7564,9 @@ export const dashboardActionsRouter = createTRPCRouter({
   ),
   updateTenantOperationProfileAction: formAction(
     dashboardActionHandlers.updateTenantOperationProfileAction
+  ),
+  updatePaymentReceiptMemberAudienceAction: formAction(
+    dashboardActionHandlers.updatePaymentReceiptMemberAudienceAction
   ),
   createMemberShareApplicationAction: formAction(
     dashboardActionHandlers.createMemberShareApplicationAction

@@ -5,7 +5,10 @@ import {
   getMemberScopedPaymentReceiptSummary,
   type PaymentReceiptCategoryOption,
 } from "@halaalvest/db"
-import { getRequestTenantOperationProfile } from "@/lib/navigation/operation-profile"
+import {
+  getRequestMemberReceiptSubmissionAccess,
+  getRequestTenantOperationProfile,
+} from "@/lib/navigation/operation-profile"
 import { findRequestMemberByUserId } from "@/lib/request-lookups"
 import { getDashboardServerContext } from "@/lib/server-context"
 import { allStaffRoles, hasAnyRole } from "@/lib/workspace-access"
@@ -41,18 +44,17 @@ export async function loadPaymentReceiptsPageData() {
       return { state: "member-profile-missing" as const }
     }
 
-    const [summary, operationProfile] = await Promise.all([
+    const [summary, canCreateReceipt] = await Promise.all([
       getMemberScopedPaymentReceiptSummary({
         memberId: member.id,
         tenantId,
       }),
-      getRequestTenantOperationProfile(tenantId),
+      getRequestMemberReceiptSubmissionAccess(tenantId, context.auth.user.id),
     ])
 
     return {
       state: "member-ready" as const,
-      canCreateReceipt:
-        operationProfile.services.payment_receipts.canMemberCreate,
+      canCreateReceipt,
       memberId: member.id,
       summary,
     }

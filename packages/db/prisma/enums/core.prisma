@@ -101,6 +101,12 @@ enum TenantServiceAccessMode {
   read_only
 }
 
+enum PaymentReceiptMemberAudience {
+  disabled
+  enabled
+  selected_members
+}
+
 enum TenantServiceKey {
   payment_receipts
   procurement

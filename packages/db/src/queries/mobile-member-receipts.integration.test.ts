@@ -12,6 +12,12 @@ import {
   getMobileMemberReceiptFormOptions,
   getMobileMemberReceiptSnapshot,
 } from "./mobile-member-receipts"
+import {
+  getMemberReceiptSubmissionAccess,
+  updatePaymentReceiptMemberAudience,
+} from "./payment-receipt-member-access"
+import { reviewMemberPaymentReceipt } from "./payment-receipts"
+import { ensureTenantLedgerAccounts } from "./ledger"
 
 const url = process.env.HALAALVEST_DATABASE_URL
 const localUrl =
@@ -23,6 +29,7 @@ integration("mobile receipt ledger in local PostgreSQL", () => {
   let tenantId: string
   let userId: string
   let otherUserId: string
+  let otherMemberId: string
   let memberId: string
   let reads = 0
 
@@ -51,6 +58,7 @@ integration("mobile receipt ledger in local PostgreSQL", () => {
           name: "Receipt ledger integration",
           slug: `receipt-ledger-${key}`,
           status: "active",
+          initialMigrationStatus: "live_operations",
         },
       })
     ).id
@@ -90,6 +98,7 @@ integration("mobile receipt ledger in local PostgreSQL", () => {
     memberId = owner.id
     userId = owner.userId!
     otherUserId = other.userId!
+    otherMemberId = other.id
     const paidAt = new Date("2026-11-16T00:00:00Z")
     await prisma.memberPaymentReceipt.createMany({
       data: [
@@ -228,5 +237,175 @@ integration("mobile receipt ledger in local PostgreSQL", () => {
       where: { id },
     })
     expect(upload?.linkedEntityId).toBe(created.id)
+  })
+
+  test("enforces a selected audience on fresh and stale native forms and preserves review", async () => {
+    await prisma.membership.create({
+      data: { tenantId, userId, role: "tenant_admin" },
+    })
+    const settings = { actorUserId: userId, tenantId }
+    const selection = {
+      audience: "selected_members" as const,
+      changeReason: "Pilot with one member",
+      expectedRevision: 0,
+      memberIds: [memberId],
+    }
+    const before = await getMobileMemberReceiptFormOptions(
+      { tenantId, userId },
+      prisma
+    )
+    expect(before.canCreateReceipt).toBe(true)
+    await expect(
+      updatePaymentReceiptMemberAudience(
+        {
+          ...settings,
+          ...selection,
+          actorUserId: otherUserId,
+        },
+        prisma
+      )
+    ).rejects.toThrow("Admin access")
+    const foreignTenant = await prisma.tenant.create({
+      data: {
+        name: "Receipt access isolation",
+        slug: `receipt-audience-foreign-${crypto.randomUUID().slice(0, 8)}`,
+        members: {
+          create: {
+            fullName: "Foreign receipt member",
+            joinedAt: new Date("2024-01-15"),
+            memberNumber: "RCP-FOREIGN",
+            memberType: "individual",
+          },
+        },
+      },
+      select: { id: true, members: { select: { id: true } } },
+    })
+    try {
+      const foreignMemberId = foreignTenant.members[0]!.id
+      await expect(
+        updatePaymentReceiptMemberAudience(
+          { ...settings, ...selection, memberIds: [foreignMemberId] },
+          prisma
+        )
+      ).rejects.toThrow("Select active members from your cooperative")
+      expect(
+        await getMemberReceiptSubmissionAccess(
+          { tenantId, memberId: foreignMemberId },
+          prisma
+        )
+      ).toBe(false)
+    } finally {
+      await prisma.tenant.delete({ where: { id: foreignTenant.id } })
+    }
+    await updatePaymentReceiptMemberAudience(
+      { ...settings, ...selection },
+      prisma
+    )
+    await expect(
+      updatePaymentReceiptMemberAudience({ ...settings, ...selection }, prisma)
+    ).rejects.toThrow("settings changed")
+    expect(
+      await getMemberReceiptSubmissionAccess({ tenantId, memberId }, prisma)
+    ).toBe(true)
+    const other = await getMobileMemberReceiptSnapshot(
+      { compact: true, tenantId, userId: otherUserId },
+      prisma
+    )
+    expect(other.canCreateReceipt).toBe(false)
+    expect(
+      other.receipts.map(({ paymentReference }) => paymentReference)
+    ).toEqual(["TRF-OTHER"])
+
+    const submission = {
+      allocations: [{ amount: 500, category: "special_savings" as const }],
+      paidAt: new Date("2026-11-16T00:00:00Z"),
+      paymentReference: "AUDIENCE-PILOT",
+      tenantId,
+      totalAmount: 500,
+      userId,
+    }
+    const receipt = await createMobileMemberReceiptForSession(
+      submission,
+      prisma
+    )
+    await updatePaymentReceiptMemberAudience(
+      {
+        ...settings,
+        ...selection,
+        expectedRevision: 1,
+        memberIds: [otherMemberId],
+        changeReason: "Move the pilot to the second member",
+      },
+      prisma
+    )
+    expect(
+      await getMemberReceiptSubmissionAccess(
+        { tenantId, userId: otherUserId },
+        prisma
+      )
+    ).toBe(true)
+    await expect(
+      createMobileMemberReceiptForSession(
+        {
+          ...submission,
+          paymentReference: "AUDIENCE-REVOKED",
+        },
+        prisma
+      )
+    ).rejects.toThrow("cannot submit receipts online")
+    expect(
+      await prisma.memberPaymentReceipt.count({
+        where: { tenantId, paymentReference: "AUDIENCE-REVOKED" },
+      })
+    ).toBe(0)
+    await ensureTenantLedgerAccounts(tenantId, prisma)
+    await reviewMemberPaymentReceipt(
+      {
+        actorUserId: userId,
+        decision: "approved",
+        receiptId: receipt.id,
+        tenantId,
+      },
+      prisma
+    )
+    expect(
+      await getMobileMemberReceiptDetail(
+        { tenantId, userId, receiptId: receipt.id },
+        prisma
+      )
+    ).toMatchObject({ status: "approved" })
+
+    await updatePaymentReceiptMemberAudience(
+      { ...settings, audience: "enabled", expectedRevision: 2, memberIds: [] },
+      prisma
+    )
+    expect(
+      await getMemberReceiptSubmissionAccess({ tenantId, memberId }, prisma)
+    ).toBe(true)
+    expect(
+      await getMemberReceiptSubmissionAccess(
+        { tenantId, memberId: otherMemberId },
+        prisma
+      )
+    ).toBe(true)
+    await updatePaymentReceiptMemberAudience(
+      {
+        ...settings,
+        audience: "disabled",
+        expectedRevision: 3,
+        memberIds: [],
+        changeReason: "Pilot ended",
+      },
+      prisma
+    )
+    expect(
+      await getMemberReceiptSubmissionAccess({ tenantId, memberId }, prisma)
+    ).toBe(false)
+    expect(
+      await getMemberReceiptSubmissionAccess(
+        { tenantId, memberId: otherMemberId },
+        prisma
+      )
+    ).toBe(false)
   })
 })

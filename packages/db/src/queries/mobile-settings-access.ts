@@ -2,6 +2,7 @@ import { createPrismaClient } from "../prisma"
 import { getFoodPurchaseApplicationSummary } from "./food-purchase"
 import { getMemberByUserId } from "./members"
 import { getTenantOperationProfile } from "./operation-profile"
+import { getMemberReceiptSubmissionAccess } from "./payment-receipt-member-access"
 
 type MobileMetricFormat = "count" | "currency" | "percent"
 type MobileMemberMoreRow = {
@@ -88,6 +89,7 @@ export async function getMobileMemberMore(input: {
   const pending = ["submitted", "under_review"]
   const [
     profile,
+    canSendReceipt,
     receiptGroups,
     procurementGroups,
     projectRequests,
@@ -97,6 +99,7 @@ export async function getMobileMemberMore(input: {
     supportGroups,
   ] = await Promise.all([
     getTenantOperationProfile(input.tenantId, prisma),
+    getMemberReceiptSubmissionAccess(scope, prisma),
     prisma.memberPaymentReceipt.groupBy({
       by: ["status"],
       where: scope,
@@ -278,7 +281,7 @@ export async function getMobileMemberMore(input: {
     sections: sections.filter((section) => {
       if (section.key === "receipts") {
         return (
-          profile.services.payment_receipts.canMemberCreate ||
+          canSendReceipt ||
           receiptGroups.length > 0
         )
       }

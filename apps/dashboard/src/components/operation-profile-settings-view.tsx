@@ -10,6 +10,7 @@ import {
   getOperationProfileAccessModeLabel,
   getOperationProfileService,
   operationProfileServiceSections,
+  paymentReceiptMemberAudienceLabels,
 } from "@/lib/settings/operation-profile-settings"
 
 type OperationProfileSettingsSheetProps = ComponentProps<
@@ -31,6 +32,7 @@ export function OperationProfileSettingsUnavailableView({
 }
 
 export function OperationProfileSettingsView({
+  memberReceiptAccess,
   policy,
   services,
 }: OperationProfileSettingsSheetProps) {
@@ -58,7 +60,9 @@ export function OperationProfileSettingsView({
                         {service.body}
                       </p>
                       <p className="mt-1 text-base text-foreground">
-                        {getOperationProfileAccessModeLabel(accessMode)}
+                        {serviceKey === "payment_receipts"
+                          ? `Member submissions · ${paymentReceiptMemberAudienceLabels[memberReceiptAccess.audience]}`
+                          : getOperationProfileAccessModeLabel(accessMode)}
                       </p>
                     </div>
                     <OpenOperationProfileSettingsSheet
@@ -73,7 +77,11 @@ export function OperationProfileSettingsView({
         </div>
       ))}
 
-      <OperationProfileSettingsSheet policy={policy} services={services} />
+      <OperationProfileSettingsSheet
+        memberReceiptAccess={memberReceiptAccess}
+        policy={policy}
+        services={services}
+      />
     </SettingsPage>
   )
 }

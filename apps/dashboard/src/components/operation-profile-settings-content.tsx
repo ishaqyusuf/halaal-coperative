@@ -118,8 +118,15 @@ export function OperationProfileSettingsContent({
 
       <fieldset className="grid gap-2">
         <legend className="mb-2 text-base font-medium text-foreground">
-          Who can start a new one?
+          {managesReceiptProof
+            ? "Office receipt workflow"
+            : "Who can start a new one?"}
         </legend>
+        {managesReceiptProof ? (
+          <p className="text-sm text-muted-foreground">
+            Member submission settings above take precedence for online submissions.
+          </p>
+        ) : null}
         <input name={inputName} type="hidden" value={nextAccessMode} />
         <RadioGroup
           className="grid gap-2"

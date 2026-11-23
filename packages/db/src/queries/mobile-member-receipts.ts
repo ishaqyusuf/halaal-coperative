@@ -4,7 +4,7 @@ import type {
 } from "../../generated/prisma/client"
 import { createPrismaClient } from "../prisma"
 import {
-  createMemberPaymentReceipt,
+  createOwnMemberPaymentReceipt,
   createMemberPaymentReceiptPageCursor,
   getMemberPaymentReceipt,
   getMemberScopedPaymentReceiptSummary,
@@ -14,11 +14,11 @@ import {
   type PaymentReceiptAllocationInput,
 } from "./payment-receipts"
 import { getMemberByUserId } from "./members"
+import { resolveTenantServiceCapabilities } from "./operation-profile"
 import {
-  assertMemberPaymentReceiptProof,
-  getTenantOperationProfile,
-  resolveTenantServiceCapabilities,
-} from "./operation-profile"
+  getMemberReceiptSubmissionAccess,
+  memberReceiptSubmissionAccessSql,
+} from "./payment-receipt-member-access"
 import { ExpectedQueryError } from "../query-error"
 import {
   listMemberPayables,
@@ -123,34 +123,32 @@ function emptySnapshot(
   }
 }
 
-async function getReceiptServices(tenantId: string, prisma: PrismaClient) {
-  const settings = await prisma.tenantServiceSetting.findMany({
-    select: { accessMode: true, serviceKey: true },
-    where: {
-      tenantId,
-      serviceKey: {
-        in: [
-          "payment_receipts",
-          "support_cases",
-          "procurement",
-          "food_purchase",
-        ],
-      },
-    },
-  })
-  return resolveTenantServiceCapabilities(
-    Object.fromEntries(
-      settings.map(({ serviceKey, accessMode }) => [serviceKey, accessMode])
-    )
-  )
-}
-
-async function getReceiptProofRequired(tenantId: string, prisma: PrismaClient) {
-  const policy = await prisma.tenantPolicy.findUnique({
-    select: { paymentReceiptProofRequired: true },
-    where: { tenantId },
-  })
-  return policy?.paymentReceiptProofRequired === true
+async function getReceiptServices(
+  { memberId, tenantId }: { memberId: string; tenantId: string },
+  prisma: PrismaClient
+) {
+  const [row] = await prisma.$queryRaw<Array<{
+    canCreateReceipt: boolean
+    proofRequired: boolean
+    serviceModes: Record<string, unknown> | null
+  }>>`
+    SELECT ${memberReceiptSubmissionAccessSql({ memberId, tenantId })} AS "canCreateReceipt",
+      COALESCE((
+        SELECT payment_receipt_proof_required FROM tenant_policies
+        WHERE tenant_id = ${tenantId}::uuid
+      ), false) AS "proofRequired",
+      (
+        SELECT jsonb_object_agg(service_key::text, access_mode::text)
+        FROM tenant_service_settings
+        WHERE tenant_id = ${tenantId}::uuid
+          AND service_key IN ('support_cases', 'procurement', 'food_purchase')
+      ) AS "serviceModes"
+  `
+  return {
+    canCreateReceipt: row?.canCreateReceipt === true,
+    proofRequired: row?.proofRequired === true,
+    services: resolveTenantServiceCapabilities(row?.serviceModes ?? {}),
+  }
 }
 
 async function getReceiptCategories(input: {
@@ -160,9 +158,9 @@ async function getReceiptCategories(input: {
 }) {
   const { memberId, prisma, tenantId } = input
   const scope = { memberId, tenantId }
-  const [services, plans, loans, procurement, foodPurchase, projectFinancing] =
+  const [{ services, canCreateReceipt, proofRequired }, plans, loans, procurement, foodPurchase, projectFinancing] =
     await Promise.all([
-      getReceiptServices(tenantId, prisma),
+      getReceiptServices(scope, prisma),
       prisma.contributionPlan.findMany({
         where: { ...scope, isActive: true },
         orderBy: { createdAt: "desc" },
@@ -349,9 +347,10 @@ async function getReceiptCategories(input: {
     })
   }
   return {
-    canCreateReceipt: services.payment_receipts.canMemberCreate,
+    canCreateReceipt,
     canCreateSupportCase: services.support_cases.canMemberCreate,
     options,
+    proofRequired,
   }
 }
 
@@ -364,14 +363,11 @@ export async function getMobileMemberReceiptFormOptions(
   const member = await getMemberByUserId(input, prisma)
   if (!member)
     return { canCreateReceipt: false, categories: [], proofRequired: false }
-  const [{ canCreateReceipt, options }, proofRequired] = await Promise.all([
-    getReceiptCategories({
-      memberId: member.id,
-      prisma,
-      tenantId: input.tenantId,
-    }),
-    getReceiptProofRequired(input.tenantId, prisma),
-  ])
+  const { canCreateReceipt, options, proofRequired } = await getReceiptCategories({
+    memberId: member.id,
+    prisma,
+    tenantId: input.tenantId,
+  })
   return { canCreateReceipt, categories: options, proofRequired }
 }
 
@@ -404,7 +400,7 @@ export async function getMobileMemberPayables(
     }
   }
   // One policy read carries both the payment order and the proof rule.
-  const [policy, services] = await Promise.all([
+  const [policy, canCreateReceipt] = await Promise.all([
     prisma.tenantPolicy.findUnique({
       select: {
         paymentAllocationLeftover: true,
@@ -414,7 +410,7 @@ export async function getMobileMemberPayables(
       },
       where: { tenantId: input.tenantId },
     }),
-    getReceiptServices(input.tenantId, prisma),
+    getMemberReceiptSubmissionAccess({ memberId: member.id, tenantId: input.tenantId }, prisma),
   ])
   const settings = resolvePaymentAllocationSettings(policy)
   const proofRequired = policy?.paymentReceiptProofRequired === true
@@ -424,7 +420,7 @@ export async function getMobileMemberPayables(
     settings
   )
   return {
-    canCreateReceipt: services.payment_receipts.canMemberCreate,
+    canCreateReceipt,
     mode: settings.mode,
     payables,
     proofRequired,
@@ -451,13 +447,14 @@ export async function getMobileMemberReceiptSnapshot(
   const sort = ["submittedAt", "desc"] as ["submittedAt", "desc"]
   const filters = { ...scope, cursor, pageSize: pageSize + 1, sort }
   const firstPage = !(compact && cursor)
-  const [summary, capabilities, items, proofRequired] = await Promise.all([
+  const [summary, capabilities, items] = await Promise.all([
     firstPage ? getMemberScopedPaymentReceiptSummary(scope, prisma) : null,
     compact
-      ? getReceiptServices(tenantId, prisma).then((services) => ({
-          canCreateReceipt: services.payment_receipts.canMemberCreate,
+      ? getReceiptServices(scope, prisma).then(({ services, canCreateReceipt, proofRequired }) => ({
+          canCreateReceipt,
           canCreateSupportCase: services.support_cases.canMemberCreate,
           options: [],
+          proofRequired,
         }))
       : getReceiptCategories({ ...scope, prisma }),
     compact
@@ -469,7 +466,6 @@ export async function getMobileMemberReceiptSnapshot(
       : listMemberPaymentReceiptPage(tenantId, filters, prisma).then(
           (page) => page.items
         ),
-    getReceiptProofRequired(tenantId, prisma),
   ])
   const rows = items.slice(0, pageSize)
   return {
@@ -477,7 +473,7 @@ export async function getMobileMemberReceiptSnapshot(
     canCreateSupportCase: capabilities.canCreateSupportCase,
     categories: capabilities.options,
     generatedAt: new Date().toISOString(),
-    proofRequired,
+    proofRequired: capabilities.proofRequired,
     member: {
       id: member.id,
       memberNumber: member.memberNumber,
@@ -545,15 +541,8 @@ export async function createMobileMemberReceiptForSession(
     throw ExpectedQueryError.precondition(
       "Member profile needs linking before submitting receipts."
     )
-  const profile = await getTenantOperationProfile(input.tenantId, prisma)
-  if (!profile.services.payment_receipts.canMemberCreate) {
-    throw ExpectedQueryError.precondition(
-      "Payment receipt self-service is not enabled for this cooperative."
-    )
-  }
-  assertMemberPaymentReceiptProof(profile.policy, input.proofDocumentUrl)
   return toMobileReceipt(
-    await createMemberPaymentReceipt(
+    await createOwnMemberPaymentReceipt(
       {
         ...input,
         // No split: approval applies it in the cooperative's order (T30).

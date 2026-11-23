@@ -32,6 +32,7 @@ model Member {
   specialSavingsWithdrawals             MemberSpecialSavingsWithdrawal[]
   collectionSourceContributionBatchRows CollectionSourceContributionBatchRow[]
   paymentReceipts                       MemberPaymentReceipt[]
+  paymentReceiptGrants                  TenantPaymentReceiptMemberGrant[]
   paymentReceiptAllocations             MemberPaymentReceiptAllocation[]
   cooperativeMobileAccessTerms          CooperativeMobileAccessTerm[]
   platformBillSeats                     PlatformBillSeat[]

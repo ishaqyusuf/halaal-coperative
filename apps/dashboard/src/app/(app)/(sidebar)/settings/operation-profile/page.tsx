@@ -29,6 +29,7 @@ export default async function OperationProfileSettingsPage({
 
   return (
     <OperationProfileSettingsView
+      memberReceiptAccess={state.memberReceiptAccess}
       policy={state.profile.policy}
       services={state.profile.services}
     />

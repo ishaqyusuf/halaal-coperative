@@ -1,6 +1,8 @@
 import {
   createDbRuntime,
+  getPaymentReceiptMemberAudienceSettings,
   getTenantOperationProfile,
+  type PaymentReceiptMemberAudienceSettings,
   type TenantOperationProfileReadModel,
 } from "@halaalvest/db"
 import { getDashboardServerContext } from "@/lib/server-context"
@@ -13,6 +15,7 @@ type OperationProfileSettingsUnavailableState = {
 }
 
 type OperationProfileSettingsReadyState = {
+  memberReceiptAccess: PaymentReceiptMemberAudienceSettings
   profile: TenantOperationProfileReadModel
   status: "ready"
 }
@@ -48,8 +51,9 @@ export async function loadOperationProfileSettingsPage(): Promise<OperationProfi
     }
   }
 
-  return {
-    profile: await getTenantOperationProfile(context.tenant.id),
-    status: "ready",
-  }
+  const [profile, memberReceiptAccess] = await Promise.all([
+    getTenantOperationProfile(context.tenant.id),
+    getPaymentReceiptMemberAudienceSettings(context.tenant.id),
+  ])
+  return { memberReceiptAccess, profile, status: "ready" }
 }

@@ -12,6 +12,10 @@ import {
   readMonthlyRecordCollection,
 } from "./contribution-health"
 import {
+  BROUGHT_FORWARD_LOAN_PRODUCT_NAME,
+  excludeBroughtForwardLoanProductWhere,
+} from "./loan-product-rules"
+import {
   getTenantOperationProfile,
   type TenantOperationProfileReadModel,
 } from "./operation-profile"
@@ -563,7 +567,7 @@ type OverviewActivityRawRow = {
 
 /**
  * The three latest posted contributions, posted repayments and financing
- * requests, with member names, in one statement. Rows come back grouped by
+ * requests made in Halaalvest, with member names, in one statement. Rows come back grouped by
  * kind in that order, newest first (ties by id), as the summary merges them.
  * Clients without `$queryRaw` use one Prisma query per kind plus the names.
  */
@@ -598,7 +602,9 @@ export async function readOverviewRecentActivity(
       (SELECT 3, 'loan_request', q.id, NULL::numeric, q.requested_at,
           q.status::text, q.member_id
         FROM loan_requests q
+        JOIN loan_products p ON p.id = q.loan_product_id AND p.tenant_id = q.tenant_id
         WHERE q.tenant_id = ${tenantId}::uuid
+          AND p.name <> ${BROUGHT_FORWARD_LOAN_PRODUCT_NAME}
         ORDER BY q.requested_at DESC, q.id DESC
         LIMIT 3)
     ) a
@@ -639,7 +645,7 @@ async function readOverviewRecentActivityByModel(
         orderBy: [{ requestedAt: "desc" }, { id: "desc" }],
         select: { id: true, memberId: true, requestedAt: true, status: true },
         take: 3,
-        where: { tenantId },
+        where: { loanProduct: excludeBroughtForwardLoanProductWhere, tenantId },
       }),
     ])) as [
       Array<{

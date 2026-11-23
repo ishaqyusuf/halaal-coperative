@@ -39,7 +39,7 @@ export const suites = {
     "apps/dashboard/src/lib/contributions/contributions-page-conformance.test.ts",
   ],
   marketing: [
-    "apps/marketing/src/lib/marketing-experience-policy.test.ts",
+    "apps/marketing/src/components/marketing/homepage/homepage.test.tsx",
     "apps/marketing/src/lib/signup-flow.test.ts",
     "apps/marketing/src/lib/form-quick-fill-coverage.test.ts",
     "apps/marketing/src/lib/dev-form-fill.test.ts",

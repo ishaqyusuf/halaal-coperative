@@ -142,6 +142,13 @@
         "native-inline-style"
       ],
       "reason": "Splash progress dots are a Reanimated width pulse with token colours; the error footer pads by the runtime safe-area inset (T03)."
+    },
+    {
+      "file": "src/features/member-core/components/member-home-pay-pill.tsx",
+      "allow": [
+        "native-inline-style"
+      ],
+      "reason": "The floating Add payment pill keeps position:absolute with its runtime safe-area offset in style; on iOS the NativeWind absolute/right classes combined with a runtime bottom left the pill in flow as a full-width bar (T31 device QA, as dev-quick-fill found on Android). Classes keep the icon and text tokens."
     }
   ]
 }

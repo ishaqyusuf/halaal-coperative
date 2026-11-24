@@ -56,60 +56,69 @@ export function MemberHomePayPill({ expanded }: { expanded: boolean }) {
   }))
 
   return (
-    // Seated above the safe area; the inset is a runtime value.
+    // A strip across the bottom that lets touches through; the pill sits at
+    // its end, above the safe area (runtime inset).
+    // Position in style: absolute classes with a runtime bottom stayed in flow
+    // on iOS (see qa/mobile-native-style-exceptions.json).
     <View
-      className="absolute right-[18px]"
       pointerEvents="box-none"
-      style={{ bottom: insets.bottom > 0 ? insets.bottom : 16 }}
+      style={{
+        alignItems: "flex-end",
+        bottom: insets.bottom > 0 ? insets.bottom : 16,
+        left: 0,
+        position: "absolute",
+        right: 18,
+      }}
     >
-      <Pressable
-        accessibilityLabel="Add payment"
-        accessibilityRole="button"
-        haptic
-        hitSlop={4}
-        noRipple
-        onPress={() => router.push(newPaymentHref() as never)}
-        testID="member-home-add-payment"
+      {/* Surface and shadow outside the pressable, which clips its children. */}
+      <View
+        style={{
+          backgroundColor: colorScheme === "dark" ? colors.surfaceFloat : colors.card,
+          borderColor: colorScheme === "dark" ? colors.border : "transparent",
+          borderRadius: 999,
+          borderWidth: 1,
+          boxShadow: shadows[colorScheme].float,
+        }}
       >
-        <Animated.View
-          style={[
-            {
-              alignItems: "center",
-              backgroundColor: colorScheme === "dark" ? colors.surfaceFloat : colors.card,
-              borderColor: colorScheme === "dark" ? colors.border : "transparent",
-              borderRadius: 999,
-              borderWidth: 1,
-              boxShadow: shadows[colorScheme].float,
-              flexDirection: "row",
-              minHeight: 36,
-              paddingVertical: 4,
-            },
-            pillStyle,
-          ]}
+        <Pressable
+          accessibilityLabel="Add payment"
+          accessibilityRole="button"
+          className="rounded-full"
+          haptic
+          hitSlop={4}
+          onPress={() => router.push(newPaymentHref() as never)}
+          testID="member-home-add-payment"
         >
-          <Icon className="size-[17px] text-primary" name="Plus" strokeWidth={2.5} />
           <Animated.View
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            // Opacity, margin and width are driven by labelStyle.
-            style={[{ opacity: 1, overflow: "hidden" }, labelStyle]}
+            style={[
+              { alignItems: "center", flexDirection: "row", minHeight: 34, opacity: 1, paddingVertical: 4 },
+              pillStyle,
+            ]}
           >
-            <View style={{ width: labelWidth || undefined }}>
-              <Text
-                className="text-primary"
-                numberOfLines={1}
-                onLayout={(event) => {
-                  const width = Math.ceil(event.nativeEvent.layout.width)
-                  if (width && !labelWidth) setLabelWidth(width)
-                }}
-                variant="label"
-              >
-                Add payment
-              </Text>
-            </View>
+            <Icon className="size-[17px] text-primary" name="Plus" strokeWidth={2.5} />
+            <Animated.View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              // Opacity, margin and width are driven by labelStyle.
+              style={[{ opacity: 1, overflow: "hidden" }, labelStyle]}
+            >
+              <View style={{ width: labelWidth || undefined }}>
+                <Text
+                  className="text-primary"
+                  numberOfLines={1}
+                  onLayout={(event) => {
+                    const width = Math.ceil(event.nativeEvent.layout.width)
+                    if (width && !labelWidth) setLabelWidth(width)
+                  }}
+                  variant="label"
+                >
+                  Add payment
+                </Text>
+              </View>
+            </Animated.View>
           </Animated.View>
-        </Animated.View>
-      </Pressable>
+        </Pressable>
+      </View>
     </View>
   )
 }

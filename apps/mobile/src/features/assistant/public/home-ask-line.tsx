@@ -138,7 +138,8 @@ export function HomeAskLine({ financingOutstanding }: { financingOutstanding: nu
           numberOfLines={largeText ? undefined : 1}
           variant="body"
         >
-          {shown}
+          {/* Never an empty text node between questions (it lost its line height). */}
+          {shown || "\u200B"}
           {still ? null : <Text className="text-primary">|</Text>}
         </Text>
       </Pressable>

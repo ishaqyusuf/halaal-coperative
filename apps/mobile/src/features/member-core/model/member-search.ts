@@ -17,7 +17,7 @@ export type MemberSearchDestination = {
 
 const hubDestinations: MemberSearchDestination[] = [
   { href: "/(member)/(tabs)/commitments", icon: "BadgeCheck", key: "plans", label: "Plans", meta: "Commitment, savings and contributions" },
-  { href: "/(member)/(tabs)/financing", icon: "HandCoins", key: "finance", label: "Finance", meta: "Financing, requests and next due" },
+  { href: "/(member)/(tabs)/financing", icon: "HandCoins", key: "finance", label: "Finance", meta: "Financing and loans, requests and next due" },
   { href: "/(member)/(tabs)/shares", icon: "PieChart", key: "shares", label: "Shares", meta: "Share capital and profit" },
   { href: "/statement", icon: "FileText", key: "statement", label: "Statement", meta: "Every posted entry" },
   { href: "/(member)/(tabs)/more", icon: "UserRound", key: "account", label: "Account", meta: "Profile, KYC, settings and sign out" },

@@ -40,6 +40,8 @@ export function MemberSearchScreen({
           />
         </View>
       }
+      // Re-render rows when filtering changes their group position (corners).
+      extraData={results.length}
       keyExtractor={(item) => item.key}
       listFooter={
         asking ? (

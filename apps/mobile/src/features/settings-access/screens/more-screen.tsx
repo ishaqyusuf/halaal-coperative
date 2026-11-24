@@ -93,13 +93,16 @@ export function MoreScreen({
   return (
     <>
       <ScreenShell
-        back={false}
+        // Staff keep More as a dock tab. Members have no tabs (T31): this is
+        // the account menu that rises from the home avatar, closed with X.
+        back={isMember ? (router.canGoBack() ? () => router.back() : false) : false}
+        backIcon="close"
         compactTitle
         contentClassName="gap-[22px] pt-[8px]"
         onRefresh={offline ? undefined : onRefresh}
         refreshing={refreshing}
         testID={isMember ? "member-more" : "admin-more"}
-        title="More"
+        title={isMember ? "Account" : "More"}
       >
         {offline || member?.cache?.status === "stale" ? (
           <StatusBanner

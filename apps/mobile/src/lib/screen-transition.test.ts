@@ -15,10 +15,12 @@ describe("screen transition", () => {
     expect(stackTransition("(tabs)", false).animation).toBe("slide_from_right")
   })
 
-  test("the assistant rises from the bottom", () => {
+  test("the assistant and the member account menu rise from the bottom", () => {
     expect(stackTransition("ask-assistant", false).animation).toBe(
       "slide_from_bottom"
     )
+    expect(stackTransition("more", false).animation).toBe("slide_from_bottom")
+    expect(stackTransition("financing", false).animation).toBe("slide_from_right")
   })
 
   test("Reduce Motion fades every stack move and keeps swipe back", () => {

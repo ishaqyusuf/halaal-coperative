@@ -43,7 +43,9 @@ const home = {
 describe("member home presentation", () => {
   test("unavailable member home never substitutes sample financial data", () => {
     expect(buildMemberHomePresentation(null, "NGN")).toEqual({
+      askFinancingOutstanding: 0,
       attention: [],
+      canRecordPayment: false,
       readiness: null,
       services: [],
       stats: [],
@@ -59,9 +61,17 @@ describe("member home presentation", () => {
       percentage: 72,
       status: "needs_attention",
     })
-    expect(view.stats).toEqual([
-      { detail: "Posted savings", key: "savings", label: "Savings total", value: "₦860K" },
+    // Plans and Shares always show (T31), as empty states when absent.
+    expect(view.stats.map((stat) => [stat.key, stat.href, stat.empty?.action ?? null])).toEqual([
+      ["commitment", "/(member)/(tabs)/commitments", "Set up"],
+      ["savings", "/(member)/(tabs)/commitments", null],
+      ["share-capital", "/(member)/(tabs)/shares", "Buy shares"],
     ])
+    expect(view.stats[1]).toMatchObject({
+      detail: "Posted savings",
+      label: "Savings total",
+      value: "₦860K",
+    })
     expect(view.services.map((tile) => [tile.key, tile.label, tile.href])).toEqual([
       ["commitments", "Plans", "/(member)/(tabs)/commitments"],
       ["financing", "Financing", "/(member)/(tabs)/financing"],
@@ -74,6 +84,48 @@ describe("member home presentation", () => {
     // An item the app does not know yet still shows, without a link.
     expect(view.attention[1]).toMatchObject({ href: undefined, icon: "CircleAlert" })
     expect(view.unreadBadge).toBe("9+")
+  })
+
+  test("held plans and shares show their amounts and open their screens", () => {
+    const view = buildMemberHomePresentation(
+      {
+        ...home,
+        actions: { canRecordPayment: true },
+        stats: [
+          { detail: "Active since 12 Jan 2026", format: "currency", key: "commitment", label: "Commitment", value: 25000 },
+          { detail: "1 active record", format: "currency", key: "financing", label: "Financing exposure", value: 180000 },
+          { detail: "Ledger balance", format: "currency", key: "share-capital", label: "Share capital", value: 50000 },
+        ],
+      },
+      "NGN"
+    )
+    expect(view.stats.map((stat) => [stat.key, stat.empty])).toEqual([
+      ["commitment", null],
+      ["financing", null],
+      ["share-capital", null],
+    ])
+    expect(view.stats[1]?.href).toBe("/(member)/(tabs)/financing")
+    expect(view.askFinancingOutstanding).toBe(180000)
+    expect(view.canRecordPayment).toBe(true)
+  })
+
+  test("a zero plan or share balance reads as an empty state", () => {
+    const view = buildMemberHomePresentation(
+      {
+        ...home,
+        stats: [
+          { detail: "No active commitment available", format: "currency", key: "commitment", label: "Commitment", value: 0 },
+          { detail: "No share capital posted", format: "currency", key: "share-capital", label: "Share capital", value: 0 },
+        ],
+      },
+      "NGN"
+    )
+    expect(view.stats.map((stat) => stat.empty?.detail)).toEqual([
+      "No plan yet · start one from Plans",
+      "No shares yet · see how to buy",
+    ])
+    // Older servers don't send the payments gate: the pill stays hidden.
+    expect(view.canRecordPayment).toBe(false)
   })
 
   test("a cached read from an older server has no badge", () => {

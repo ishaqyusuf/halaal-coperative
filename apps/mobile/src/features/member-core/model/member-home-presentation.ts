@@ -5,6 +5,13 @@ import type { MobileMemberHome } from "./member-core-types"
 
 export type MemberHomeStat = {
   detail: string
+  /**
+   * With nothing held yet, the row says so and offers the way in instead of
+   * a zero (T31: Plans and Shares stay discoverable without tabs).
+   */
+  empty: { action: string; detail: string } | null
+  /** The pushed screen the row opens (Plans, Finance, Shares). */
+  href?: Href
   key: string
   label: string
   value: string
@@ -34,7 +41,14 @@ export type MemberHomeReadiness = {
 }
 
 export type MemberHomePresentation = {
+  /** Financing still owed, for the Ask line's context question (T31). */
+  askFinancingOutstanding: number
   attention: MemberHomeAttentionRow[]
+  /**
+   * Record payment is open to this member (the receipt submission gate the
+   * T30 payments flow uses). Older servers don't send it: hidden.
+   */
+  canRecordPayment: boolean
   readiness: MemberHomeReadiness | null
   services: MemberHomeServiceTile[]
   stats: MemberHomeStat[]
@@ -74,6 +88,47 @@ const attentionTargets: Record<string, { href: Href; icon: string }> = {
   "member-profile": { href: "/support", icon: "UserRound" },
 }
 
+/** Position rows open their pushed screen (no tabs for members, T31). */
+const statHrefs: Record<string, Href> = {
+  commitment: "/(member)/(tabs)/commitments",
+  financing: "/(member)/(tabs)/financing",
+  savings: "/(member)/(tabs)/commitments",
+  "share-capital": "/(member)/(tabs)/shares",
+  "special-savings": "/(member)/(tabs)/commitments",
+}
+
+/** Rows that always show on home, and what they say when nothing is held. */
+const alwaysShownStats: Record<
+  "commitment" | "share-capital",
+  { action: string; detail: string; label: string }
+> = {
+  commitment: {
+    action: "Set up",
+    detail: "No plan yet · start one from Plans",
+    label: "Commitment",
+  },
+  "share-capital": {
+    action: "Buy shares",
+    detail: "No shares yet · see how to buy",
+    label: "Share capital",
+  },
+}
+
+/**
+ * Home's position metrics with Plans and Shares guaranteed: a server that
+ * omits one (no linked profile) still gets the row, as an empty state.
+ */
+function withAlwaysShownStats(stats: MobileMemberHome["stats"]) {
+  const list = [...stats]
+  if (!list.some((metric) => metric.key === "commitment")) {
+    list.unshift({ detail: "", format: "currency", key: "commitment", label: "Commitment", value: 0 })
+  }
+  if (!list.some((metric) => metric.key === "share-capital")) {
+    list.push({ detail: "", format: "currency", key: "share-capital", label: "Share capital", value: 0 })
+  }
+  return list
+}
+
 const readinessLabels: Record<MemberHomeReadiness["status"], string> = {
   missing_profile: "Not linked",
   needs_attention: "Needs review",
@@ -93,7 +148,9 @@ export function buildMemberHomePresentation(
 ): MemberHomePresentation {
   if (!home) {
     return {
+      askFinancingOutstanding: 0,
       attention: [],
+      canRecordPayment: false,
       readiness: null,
       services: [],
       stats: [],
@@ -101,7 +158,10 @@ export function buildMemberHomePresentation(
     }
   }
 
+  const financing = home.stats.find((metric) => metric.key === "financing")
   return {
+    askFinancingOutstanding:
+      financing && Number.isFinite(financing.value) ? Math.max(0, financing.value) : 0,
     attention: home.actionItems.map((item) => ({
       detail: item.detail,
       href: attentionTargets[item.key]?.href,
@@ -110,6 +170,7 @@ export function buildMemberHomePresentation(
       label: item.label,
       severity: item.severity,
     })),
+    canRecordPayment: home.actions?.canRecordPayment === true,
     readiness: {
       detail: home.readiness.detail,
       label: readinessLabels[home.readiness.status],
@@ -122,12 +183,21 @@ export function buildMemberHomePresentation(
       key: service.key,
       label: serviceLabels[service.key] ?? service.label,
     })),
-    stats: home.stats.map((metric) => ({
-      detail: metric.detail,
-      key: metric.key,
-      label: metric.label,
-      value: formatMobileMetricValue(metric, currencyCode),
-    })),
+    stats: withAlwaysShownStats(home.stats).map((metric) => {
+      const always = alwaysShownStats[metric.key as keyof typeof alwaysShownStats]
+      const empty =
+        always && !(Number.isFinite(metric.value) && metric.value > 0)
+          ? { action: always.action, detail: always.detail }
+          : null
+      return {
+        detail: metric.detail,
+        empty,
+        href: statHrefs[metric.key],
+        key: metric.key,
+        label: metric.label,
+        value: formatMobileMetricValue(metric, currencyCode),
+      }
+    }),
     // Older servers (before T04) do not send the count.
     unreadBadge: formatUnreadBadge(home.notifications?.unread),
   }

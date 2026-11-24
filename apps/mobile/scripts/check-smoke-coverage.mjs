@@ -41,6 +41,7 @@ const requiredRoutes = [
   "src/app/(member)/financing-requests.tsx",
   "src/app/(member)/(tabs)/shares.tsx",
   "src/app/(member)/(tabs)/more.tsx",
+  "src/app/(member)/(tabs)/search.tsx",
   "src/app/(member)/receipts.tsx",
   "src/app/(member)/statement.tsx",
   "src/app/(member)/support.tsx",
@@ -140,12 +141,15 @@ assertIncludes("src/components/app/docked-hero-screen.tsx", [
   "useScreenChrome",
 ])
 
+// Members have no tabs (T31): home, then Plans/Finance/Shares pushed, the
+// account menu and search, all in the member hub stack.
 assertIncludes("src/app/(member)/(tabs)/_layout.tsx", [
-  "Home",
-  "Commitments",
-  "Financing",
-  "Shares",
-  "More",
+  'name="index"',
+  'name="commitments"',
+  'name="financing"',
+  'name="shares"',
+  'name="more"',
+  'name="search"',
 ])
 
 assertIncludes("src/app/(admin)/(tabs)/_layout.tsx", [

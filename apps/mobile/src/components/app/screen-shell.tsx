@@ -88,17 +88,39 @@ export function useScreenBack(back: boolean | (() => void) | undefined) {
 }
 
 /**
+ * Back on a brand hero (light glyph on the hero tint) for screens that have
+ * their own hero title row. It renders only when there is somewhere to go
+ * back to, so the same screen works as a root and as a pushed screen.
+ */
+export function HeroBackButton({ back }: { back?: boolean | (() => void) }) {
+  const onBack = useScreenBack(back)
+  if (!onBack) return null
+  return (
+    <ScreenHeaderButton
+      accessibilityLabel="Go back"
+      icon="ChevronLeft"
+      onPress={onBack}
+      testID="screen-back-button"
+      tone="inverse"
+    />
+  )
+}
+
+/**
  * The header row (back + actions) and the 26/32 large title. Used by
  * ScreenShell and as AppList's list header, so both read the same.
  */
 export function ScreenTitleHeader({
   back,
+  backIcon = "back",
   children,
   headerActions,
   title,
   tone = "default",
 }: {
   back?: boolean | (() => void)
+  /** "close" for a screen that rose as its own task (X, "Close"). */
+  backIcon?: "back" | "close"
   /** Extra header content below the title: summary card, segments, banner. */
   children?: ReactNode
   headerActions?: ReactNode
@@ -112,8 +134,8 @@ export function ScreenTitleHeader({
         <View className="min-h-[44px] flex-row items-center justify-between">
           {onBack ? (
             <ScreenHeaderButton
-              accessibilityLabel="Go back"
-              icon="ChevronLeft"
+              accessibilityLabel={backIcon === "close" ? "Close" : "Go back"}
+              icon={backIcon === "close" ? "X" : "ChevronLeft"}
               onPress={onBack}
               testID="screen-back-button"
               tone={tone}
@@ -270,6 +292,8 @@ export type ScreenShellProps = {
   compactTitle?: boolean
   /** Auto (router.canGoBack()) unless set; a function overrides navigation. */
   back?: boolean | (() => void)
+  /** "close" shows an X for a screen that rose from the bottom. */
+  backIcon?: "back" | "close"
   headerActions?: ReactNode
   /** Header content under the title (summary, segments, banners). */
   header?: ReactNode
@@ -298,6 +322,7 @@ export type ScreenShellProps = {
  */
 export function ScreenShell({
   back,
+  backIcon,
   compactTitle = false,
   children,
   contentClassName,
@@ -359,6 +384,7 @@ export function ScreenShell({
           <View style={{ paddingHorizontal: 18, paddingTop: chrome.insetsTop + 8 }}>
             <ScreenTitleHeader
               back={back}
+              backIcon={backIcon}
               headerActions={headerActions}
               title={title}
             >

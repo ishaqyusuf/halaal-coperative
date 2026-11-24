@@ -34,6 +34,17 @@ export function recordPaymentHref(payable: string) {
   }
 }
 
+/**
+ * Home's Add payment pill (T31): Record payment in its default mode, with no
+ * payable picked (the cooperative's priority order applies the amount).
+ */
+export function newPaymentHref() {
+  return {
+    params: { compose: "1" },
+    pathname: "/(member)/receipts" as const,
+  }
+}
+
 export function useMemberPayables(options: { enabled?: boolean } = {}) {
   const { profile } = useAuthContext()
   const online = useIsOnline()

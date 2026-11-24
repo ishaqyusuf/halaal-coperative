@@ -142,6 +142,16 @@
       "tenantBoundary": "Active member profile, device/session settings, and tenant-safe service navigation only."
     },
     {
+      "file": "src/app/(member)/(tabs)/search.tsx",
+      "path": "/(member)/search",
+      "feature": "member-core",
+      "controller": "@/features/member-core/routes/member-search-route-controller",
+      "roles": [
+        "member"
+      ],
+      "tenantBoundary": "Filters the active member's cached home services and hub screens locally; no read."
+    },
+    {
       "file": "src/app/(member)/statement.tsx",
       "path": "/(member)/statement",
       "feature": "statements",

@@ -21,8 +21,12 @@ export type StackTransition = {
   gestureEnabled: true
 }
 
-/** Routes that open as their own task rather than a step deeper in the app. */
-const RISING_ROUTES = new Set(["ask-assistant"])
+/**
+ * Routes that open as their own task rather than a step deeper in the app:
+ * the assistant, and the member account menu (T31: members have no tabs, so
+ * More rises from the home avatar instead of sitting in a dock).
+ */
+const RISING_ROUTES = new Set(["ask-assistant", "more"])
 
 export function tabTransition(reduceMotion: boolean): TabTransition {
   return { animation: reduceMotion ? "none" : "shift" }

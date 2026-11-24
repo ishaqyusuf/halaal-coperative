@@ -291,7 +291,7 @@ export function SharesScreen({
   return (
     <>
       <AppList
-        back={false}
+        // Pushed from home with Back (T31: no tabs for members).
         data={hasShares ? items : []}
         empty={
           mainError ? (

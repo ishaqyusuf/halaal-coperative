@@ -167,6 +167,39 @@ describe("mobile member core home", () => {
     expect(home.actionItems.map((item) => item.key)).toEqual([
       "member-profile",
     ])
+    expect(home.actions.canRecordPayment).toBe(false)
+  })
+
+  test("exposes the receipt submission gate as the home Add payment action", () => {
+    const services = (paymentReceipts: boolean) => ({
+      food_purchase: { shouldShowInMemberNav: false },
+      payment_receipts: { shouldShowInMemberNav: paymentReceipts },
+      procurement: { shouldShowInMemberNav: false },
+      support_cases: { shouldShowInMemberNav: false },
+    })
+    const home = (paymentReceipts: boolean | null) =>
+      buildMobileMemberCoreHome({
+        foodPurchaseRecords: 0,
+        member: {
+          fullName: "Amina Member",
+          id: "member-1",
+          kycStatus: "verified",
+          memberNumber: "MEM-001",
+          status: "active",
+        },
+        operationProfile:
+          paymentReceipts === null ? null : { services: services(paymentReceipts) },
+        procurementRecords: 0,
+        // Past receipts keep the tile but never grant the action.
+        receiptRecords: 1,
+        shareCapital: 0,
+        summary,
+        supportRecords: 0,
+      })
+
+    expect(home(true).actions.canRecordPayment).toBe(true)
+    expect(home(false).actions.canRecordPayment).toBe(false)
+    expect(home(null).actions.canRecordPayment).toBe(false)
   })
 })
 

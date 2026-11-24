@@ -45,16 +45,24 @@ type HeaderIcon = {
   onPress: () => void
 }
 
-/** The assistant's mark: a warm circle with the wand (T25). */
+/**
+ * The assistant's mark (T31, workshop 31-home-ask icon option 1): Sparkles
+ * on the mint tint, tint-ink glyph (6.7:1 light, 9.5:1 dark). A circle in
+ * rows and composers; the 56pt hero mark is a squircle.
+ */
 export function AssistantMark({ size = 32 }: { size?: 28 | 32 | 36 | 56 }) {
   const box = { 28: "size-[28px]", 32: "size-[32px]", 36: "size-[36px]", 56: "size-[56px]" }[size]
   const glyph = size === 56 ? "size-[26px]" : size === 28 ? "size-[14px]" : "size-[17px]"
   return (
     <View
       accessible={false}
-      className={cn("items-center justify-center rounded-full bg-brand-warm", box)}
+      className={cn(
+        "items-center justify-center bg-accent",
+        size === 56 ? "rounded-[18px]" : "rounded-full",
+        box
+      )}
     >
-      <Icon className={cn(glyph, "text-hero-mark-foreground")} name="WandSparkles" />
+      <Icon className={cn(glyph, "text-accent-foreground")} name="Sparkles" />
     </View>
   )
 }

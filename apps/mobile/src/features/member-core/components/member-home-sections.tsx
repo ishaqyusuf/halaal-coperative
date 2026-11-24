@@ -25,8 +25,10 @@ import {
   statTintFor,
 } from "./member-home-tints"
 
-/** KYC and membership status live on the member's More hub. */
+/** KYC and membership status live on the member's account menu (More). */
 const READINESS_HREF: Href = "/(member)/(tabs)/more"
+const ACCOUNT_HREF: Href = "/(member)/(tabs)/more"
+const SEARCH_HREF: Href = "/(member)/(tabs)/search"
 
 function chunk<T>(items: T[], size: number) {
   const rows: T[][] = []
@@ -72,6 +74,25 @@ function HeroBellButton({ badge }: { badge: string | null }) {
         </View>
       ) : null}
     </View>
+  )
+}
+
+/** 44pt round hero search (T31: search moved off the tab dock). */
+function HeroSearchButton() {
+  return (
+    <Pressable
+      accessibilityHint="Find a screen, service or record"
+      accessibilityLabel="Search"
+      accessibilityRole="button"
+      className="size-[44px] items-center justify-center rounded-full bg-hero-foreground/15"
+      haptic
+      hitSlop={4}
+      href={SEARCH_HREF}
+      testID="member-home-search"
+      transition
+    >
+      <Icon className="size-md text-hero-foreground" name="Search" />
+    </Pressable>
   )
 }
 
@@ -199,20 +220,33 @@ export function MemberHomeHero({
   return (
     <ScreenHero className="gap-[20px]">
       <View className="flex-row items-center gap-[12px]">
-        {/* The avatar opens More, where the member's profile and settings live. */}
-        <Pressable
-          accessibilityHint="Opens More"
-          accessibilityLabel={`${profile.user.name} profile`}
-          accessibilityRole="button"
-          className="size-[44px] items-center justify-center rounded-full bg-hero-foreground/15"
-          hitSlop={4}
-          onPress={() => router.navigate("/(member)/(tabs)/more")}
-          testID="member-home-avatar"
-        >
-          <Text className="text-hero-foreground" variant="label">
-            {initialsFor(profile.user.name) || "HV"}
-          </Text>
-        </Pressable>
+        {/* No tabs (T31): the avatar opens the account menu (More); the
+            small menu badge says so. The badge sits outside the pressable,
+            which clips its children. */}
+        <View className="size-[44px]">
+          <Pressable
+            accessibilityHint="Opens your account, settings and support"
+            accessibilityLabel={`Account and menu, ${profile.user.name}`}
+            accessibilityRole="button"
+            className="size-[44px] items-center justify-center rounded-full bg-hero-foreground/15"
+            haptic
+            hitSlop={4}
+            onPress={() => router.push(ACCOUNT_HREF)}
+            testID="member-home-avatar"
+          >
+            <Text className="text-hero-foreground" variant="label">
+              {initialsFor(profile.user.name) || "HV"}
+            </Text>
+          </Pressable>
+          <View
+            accessible={false}
+            className="absolute -bottom-[3px] -right-[3px] size-[19px] items-center justify-center rounded-full border-2 border-hero-start bg-card"
+            pointerEvents="none"
+            testID="member-home-menu-badge"
+          >
+            <Icon className="size-[10px] text-foreground" name="Menu" strokeWidth={2.8} />
+          </View>
+        </View>
         <View className="min-w-0 flex-1">
           <Text
             accessibilityRole="header"
@@ -230,7 +264,10 @@ export function MemberHomeHero({
             {profile.tenant.name}
           </Text>
         </View>
-        <HeroBellButton badge={unreadBadge} />
+        <View className="flex-row gap-[8px]">
+          <HeroSearchButton />
+          <HeroBellButton badge={unreadBadge} />
+        </View>
       </View>
 
       {loading ? (
@@ -345,6 +382,9 @@ export function AttentionList({ rows }: { rows: MemberHomeAttentionRow[] }) {
  * "Your position": one ListCard of record rows (tinted icon, label, a
  * two-line detail and the amount). Holds long naira amounts and large text
  * better than tiles; at large sizes the amount moves under the label.
+ * With no tabs (T31) each row pushes its screen (Plans, Finance, Shares),
+ * and Plans and Shares always show: with nothing held they say so and offer
+ * the way in instead of a zero.
  */
 export function PositionList({
   onOpenStatement,
@@ -368,35 +408,49 @@ export function PositionList({
       <ListCard>
         {stats.map((stat) => {
           const look = statTintFor(stat.key)
+          const label = stat.key === "commitment" ? "Plans · commitment" : stat.label
+          const detail = stat.empty?.detail ?? stat.detail
+          const trailing = stat.empty ? (
+            <View className="shrink-0 rounded-full bg-accent px-[10px] py-[3px]">
+              <Text className="text-accent-foreground" numberOfLines={1} variant="caption">
+                {stat.empty.action}
+              </Text>
+            </View>
+          ) : (
+            <Text className="shrink-0" numberOfLines={1} variant="money">
+              {stat.value}
+            </Text>
+          )
           return (
-            <View
-              accessibilityLabel={`${stat.label}, ${stat.value}. ${stat.detail}`}
-              accessible
-              className="min-h-[64px] flex-row items-center gap-[12px] px-[14px] py-[12px]"
+            <Pressable
+              accessibilityHint={stat.href ? `Opens ${label}` : undefined}
+              accessibilityLabel={`${label}, ${stat.empty ? stat.empty.action : stat.value}. ${detail}`}
+              accessibilityRole={stat.href ? "button" : undefined}
+              className="min-h-[64px] flex-row items-center gap-[12px] px-[14px] py-[12px] active:bg-accent/60"
+              haptic={Boolean(stat.href)}
+              href={stat.href}
               key={stat.key}
+              testID={`member-home-position-${stat.key}`}
             >
               <TintTile icon={look.icon} size={40} tint={look.tint} />
               <View className="min-w-0 flex-1 gap-[2px]">
                 <Text className="font-bold" numberOfLines={largeText ? undefined : 1} variant="body">
-                  {stat.label}
+                  {label}
                 </Text>
-                {largeText ? (
-                  <Text variant="money">{stat.value}</Text>
-                ) : null}
+                {largeText ? trailing : null}
                 <Text
                   className="text-muted-foreground"
                   numberOfLines={largeText ? undefined : 2}
                   variant="small"
                 >
-                  {stat.detail}
+                  {detail}
                 </Text>
               </View>
-              {largeText ? null : (
-                <Text className="shrink-0" numberOfLines={1} variant="money">
-                  {stat.value}
-                </Text>
-              )}
-            </View>
+              {largeText ? null : trailing}
+              {stat.href ? (
+                <Icon className="size-sm text-muted-foreground" name="ChevronRight" />
+              ) : null}
+            </Pressable>
           )
         })}
       </ListCard>

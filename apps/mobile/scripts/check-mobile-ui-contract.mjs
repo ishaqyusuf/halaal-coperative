@@ -270,16 +270,21 @@ function checkPopupPrimitives() {
     "visibleFormCount > 0",
     "registerVisibleForm",
   ])
-  for (const tabsLayout of [
-    "src/app/(admin)/(tabs)/_layout.tsx",
-    "src/app/(member)/(tabs)/_layout.tsx",
-  ]) {
-    checkSourceMarkers(tabsLayout, [
-      "useFullScreenFormVisibility",
-      "<DockTabBar {...props} hidden={hideTabBar} />",
-      "<DockScene>{children}</DockScene>",
-    ])
-  }
+  // Staff keep the floating dock; members have no tabs (T31): their hub is
+  // a stack with home as the only top-level screen.
+  checkSourceMarkers("src/app/(admin)/(tabs)/_layout.tsx", [
+    "useFullScreenFormVisibility",
+    "<DockTabBar {...props} hidden={hideTabBar} />",
+    "<DockScene>{children}</DockScene>",
+  ])
+  checkSourceMarkers("src/app/(member)/(tabs)/_layout.tsx", [
+    "<Stack",
+    "stackTransition(route.name, reduceMotion)",
+  ])
+  checkForbiddenSourceMarkers("src/app/(member)/(tabs)/_layout.tsx", [
+    "DockTabBar",
+    "<Tabs",
+  ])
   checkSourceMarkers("src/components/app/confirmation-sheet.tsx", [
     'scrollable="auto"',
     "{actions}",

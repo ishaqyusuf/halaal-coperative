@@ -2,7 +2,7 @@ import type { MobileMemberHome } from "./member-core-types"
 
 /**
  * Development-only QA states for member home device screenshots:
- * `halaalvest-dev:///?qaState=loading|error|offline|stale|refresh-error|new|noprofile|attention`.
+ * `halaalvest-dev:///?qaState=loading|error|offline|stale|refresh-error|new|noprofile|attention|payments-on|payments-off`.
  * The route controller applies them only in `__DEV__` builds.
  */
 export const memberHomeQaStates = [
@@ -12,6 +12,8 @@ export const memberHomeQaStates = [
   "new",
   "noprofile",
   "offline",
+  "payments-off",
+  "payments-on",
   "refresh-error",
   "stale",
 ] as const
@@ -74,6 +76,15 @@ export function applyMemberHomeQaState(
         isError: false,
         isOffline: false,
         isPending: false,
+      }
+    // T31: the Add payment pill follows the receipt submission gate.
+    case "payments-off":
+    case "payments-on":
+      return {
+        ...live,
+        home: home
+          ? { ...home, actions: { canRecordPayment: state === "payments-on" } }
+          : null,
       }
     case "refresh-error":
       return { ...live, isError: true, isOffline: false, isPending: false }
@@ -138,6 +149,7 @@ export function applyMemberHomeQaState(
                   severity: "warning",
                 },
               ],
+              actions: { canRecordPayment: false },
               member: null,
               notifications: { unread: 0 },
               readiness: {

@@ -1,4 +1,3 @@
-import { Icon } from "@/components/ui/icon"
 import { Pressable } from "@/components/ui/pressable"
 import { Text } from "@/components/ui/text"
 import { useLargeTextLayout } from "@/hooks/use-large-text-layout"
@@ -6,6 +5,7 @@ import { useMobileRuntime } from "@/runtime/mobile-runtime-provider"
 import { assistantSuggestions } from "@halaalvest/assistant/suggestions"
 import { cn } from "@/lib/utils"
 import { useRouter } from "expo-router"
+import { AssistantMark } from "../components/assistant-ui"
 import { ScrollView, View } from "react-native"
 
 /**
@@ -70,9 +70,7 @@ export function HomeAskBar({
           onPress={() => open({ focus: "1" })}
           testID="home-ask-bar-open"
         >
-          <View className="size-8 items-center justify-center rounded-full bg-brand-warm">
-            <Icon className="size-[17px] text-hero-mark-foreground" name="WandSparkles" />
-          </View>
+          <AssistantMark size={32} />
           <Text
             className="min-w-0 flex-1 text-base leading-6 text-muted-foreground"
             numberOfLines={largeText ? undefined : 1}

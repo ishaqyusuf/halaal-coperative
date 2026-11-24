@@ -24,6 +24,12 @@ export type MobileMemberCoreMetric = {
 }
 
 export type MobileMemberCoreHome = {
+  /**
+   * Home actions (T31). `canRecordPayment` is the same member receipt
+   * submission gate Record payment uses (memberReceiptSubmissionAccessSql),
+   * read in the home signals statement, so home adds no query for it.
+   */
+  actions: { canRecordPayment: boolean }
   actionItems: {
     detail: string
     key: string
@@ -462,12 +468,19 @@ export function buildMobileMemberCoreHome(input: {
   unreadNotifications?: number
 }): MobileMemberCoreHome {
   const services = getServices(input)
+  const actions = {
+    canRecordPayment: Boolean(
+      input.member &&
+        input.operationProfile?.services.payment_receipts.shouldShowInMemberNav
+    ),
+  }
   const notifications = {
     unread: Math.max(0, Math.trunc(input.unreadNotifications ?? 0)),
   }
 
   if (!input.member) {
     return {
+      actions,
       actionItems: [
         {
           detail: "No linked member profile was found for this mobile session.",
@@ -544,6 +557,7 @@ export function buildMobileMemberCoreHome(input: {
   }
 
   return {
+    actions,
     actionItems,
     generatedAt: (input.generatedAt ?? new Date()).toISOString(),
     member: {

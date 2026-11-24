@@ -1,5 +1,5 @@
 import { EmptyState } from "@/components/app/empty-state"
-import { ScreenHero, ScreenShell } from "@/components/app/screen-shell"
+import { HeroBackButton, ScreenHero, ScreenShell } from "@/components/app/screen-shell"
 import { ListSkeleton, Skeleton, SkeletonGroup } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { ListCard, RecordRow } from "@/components/ui/list-card"
@@ -133,10 +133,12 @@ function ScopedFinancingScreen({
         <ScreenShell
           hero={
             <ScreenHero className="gap-4">
-              <View className="min-h-[44px]">
+              <View className="min-h-[44px] flex-row items-center gap-[12px]">
+                {/* Pushed from home (T31: no tabs for members). */}
+                <HeroBackButton />
                 <Text
                   accessibilityRole="header"
-                  className="text-hero-foreground"
+                  className="min-w-0 flex-1 text-hero-foreground"
                   variant="screenTitle"
                 >
                   Finance

@@ -1,6 +1,6 @@
 import { AppList } from "@/components/app/app-list"
 import { EmptyState } from "@/components/app/empty-state"
-import { ScreenHero } from "@/components/app/screen-shell"
+import { HeroBackButton, ScreenHero } from "@/components/app/screen-shell"
 import { Icon } from "@/components/ui/icon"
 import { ListCard, RecordRow, TintedAvatar } from "@/components/ui/list-card"
 import { StatusPill } from "@/components/ui/status-pill"
@@ -148,6 +148,8 @@ export function MemberCommitmentsScreen({
       hero={
         <ScreenHero className="gap-[16px]">
           <View className="flex-row items-center justify-between gap-[12px]">
+            {/* Pushed from home (T31: no tabs for members). */}
+            <HeroBackButton />
             <Text
               accessibilityRole="header"
               className="text-hero-foreground flex-1"

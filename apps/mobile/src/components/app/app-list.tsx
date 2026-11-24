@@ -23,6 +23,8 @@ export type AppListSearch = {
   totalCount: number
   /** Filters loaded rows only, so it still works offline. */
   localSearch?: boolean
+  /** A search screen shows its field whatever the row count. */
+  alwaysShow?: boolean
 }
 
 export type AppListProps<T> = {
@@ -303,6 +305,7 @@ export function AppList<T>({
           accessibilityLabel={
             search?.accessibilityLabel ?? search?.placeholder ?? "Search"
           }
+          alwaysShowSearch={search?.alwaysShow}
           autoFocus={search?.autoFocus}
           bottomOffset={chrome.dockLift + searchBottomOffset}
           hidden={chrome.barsHidden}

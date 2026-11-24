@@ -44,6 +44,11 @@ export type MemberActivityHistoryState = {
 }
 
 export type MobileMemberHome = {
+  /**
+   * Home actions (T31). Optional: cached reads from older servers lack it.
+   * `canRecordPayment` is the member receipt submission gate (T30).
+   */
+  actions?: { canRecordPayment: boolean }
   actionItems: {
     detail: string
     key: string

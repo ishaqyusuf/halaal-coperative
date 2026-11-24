@@ -19,7 +19,7 @@ const statTints: Record<string, { icon: string; tint: HomeTint }> = {
   financing: { icon: "HandCoins", tint: "sky" },
   savings: { icon: "WalletCards", tint: "success" },
   "share-capital": { icon: "PieChart", tint: "lilac" },
-  "special-savings": { icon: "Sparkles", tint: "warm" },
+  "special-savings": { icon: "PiggyBank", tint: "warm" },
 }
 
 const serviceTints: Record<string, HomeTint> = {

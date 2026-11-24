@@ -4,10 +4,13 @@ import { DockScene, DockTabBar } from "@/components/app/dock-tab-bar"
 import { canViewMobileAdminReports } from "@/features/admin-reports-access/model/admin-reports-access-policy"
 import { useAuthContext } from "@/hooks/use-auth"
 import { useColors } from "@/hooks/use-color"
+import { tabTransition } from "@/lib/screen-transition"
 import { Tabs } from "expo-router"
+import { useReducedMotion } from "react-native-reanimated"
 
 export default function AdminTabsLayout() {
   const colors = useColors()
+  const reduceMotion = useReducedMotion()
   const { profile } = useAuthContext()
   const { hideTabBar } = useFullScreenFormVisibility()
   const canViewReports = canViewMobileAdminReports(profile?.cooperativeRole)
@@ -17,6 +20,7 @@ export default function AdminTabsLayout() {
       screenLayout={({ children }) => <DockScene>{children}</DockScene>}
       screenOptions={{
         headerShown: false,
+        ...tabTransition(reduceMotion),
         tabBarActiveTintColor: colors.accentForeground,
         tabBarInactiveTintColor: colors.mutedForeground,
       }}

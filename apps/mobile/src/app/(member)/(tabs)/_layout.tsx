@@ -2,10 +2,13 @@ import { Icon } from "@/components/ui/icon"
 import { useFullScreenFormVisibility } from "@/components/app/full-screen-form-visibility"
 import { DockScene, DockTabBar } from "@/components/app/dock-tab-bar"
 import { useColors } from "@/hooks/use-color"
+import { tabTransition } from "@/lib/screen-transition"
 import { Tabs } from "expo-router"
+import { useReducedMotion } from "react-native-reanimated"
 
 export default function MemberTabsLayout() {
   const colors = useColors()
+  const reduceMotion = useReducedMotion()
   const { hideTabBar } = useFullScreenFormVisibility()
 
   return (
@@ -13,6 +16,7 @@ export default function MemberTabsLayout() {
       screenLayout={({ children }) => <DockScene>{children}</DockScene>}
       screenOptions={{
         headerShown: false,
+        ...tabTransition(reduceMotion),
         tabBarActiveTintColor: colors.accentForeground,
         tabBarInactiveTintColor: colors.mutedForeground,
       }}

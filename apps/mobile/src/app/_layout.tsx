@@ -1,6 +1,6 @@
 import { AppBuildUpdate } from "@/components/app-build-update"
 import { AnalyticsRuntime } from "@/runtime/analytics-runtime"
-import "react-native-reanimated"
+import { useReducedMotion } from "react-native-reanimated"
 
 import { AppAutoUpdateModal } from "@/components/app-auto-update-modal"
 import { DevQuickFillLayer } from "@/components/app/dev-quick-fill-layer"
@@ -28,6 +28,7 @@ import {
 import { getMobileErrorReport } from "@/lib/sentry-policy"
 import { NAV_THEME } from "@/lib/theme"
 import { SPLASH_LOGO } from "@/lib/splash-logo"
+import { stackTransition } from "@/lib/screen-transition"
 import { getThemeOverride } from "@/lib/theme-preference"
 import { MobileRuntimeBanner } from "@/runtime/mobile-runtime-banner"
 import { AppLockRuntime } from "@/runtime/app-lock-runtime"
@@ -225,15 +226,17 @@ function AuthorizedNotificationRuntime({
 function RoleProtectedStack() {
   const { initializing, role } = useAuthContext()
   const access = useMobileAppAccess()
+  const reduceMotion = useReducedMotion()
 
   if (initializing) return <BootstrapScreen />
 
   return (
     <Stack
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerShadowVisible: false,
         headerShown: false,
-      }}
+        ...stackTransition(route.name, reduceMotion),
+      })}
     >
       <Stack.Screen name="index" options={{ animation: "fade" }} />
       {/* Neutral launcher-shortcut resolver; it defers to every gate below. */}

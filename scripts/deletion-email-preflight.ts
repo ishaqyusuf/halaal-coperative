@@ -1,4 +1,7 @@
-import { getServerEmailDeliveryConfig } from "../packages/notifications/src/server"
+import {
+  getServerEmailDeliveryConfig,
+  getServerQaDomainRoutes,
+} from "../packages/notifications/src/server"
 import { trustedExternalDeletionOrigin } from "../apps/marketing/src/lib/external-deletion-link"
 import { renderNotificationEmail } from "../packages/email/src/emails/notification"
 
@@ -31,8 +34,20 @@ if (target === "production" && emailConfig.deliveryMode !== "live")
   fail("production-email-must-be-live")
 if (target === "preview" && emailConfig.deliveryMode !== "console")
   fail("preview-email-must-use-qa-routing")
-if (target === "preview" && emailConfig.qaDomainRoutes.size === 0)
-  fail("preview-qa-domain-route-missing")
+// Preview QA routes come from Oversight when QA_POLICY_URL is set (its
+// active entries, with Preview turned on), else from EMAIL_QA_DOMAIN_ROUTES.
+let qaRoutes: Awaited<ReturnType<typeof getServerQaDomainRoutes>>
+try {
+  qaRoutes = await getServerQaDomainRoutes()
+} catch {
+  fail("qa-domain-routes-invalid")
+}
+if (target === "preview" && qaRoutes.routes.size === 0)
+  fail(
+    qaRoutes.managed
+      ? "preview-qa-domain-route-missing-in-oversight-policy"
+      : "preview-qa-domain-route-missing"
+  )
 
 let configuredOrigin: string
 let reviewedOrigin: string
@@ -72,7 +87,8 @@ console.log(
     configurationReady: true,
     providerCredentialsPresent: true,
     routingMode: emailConfig.deliveryMode,
-    qaRouteConfigured: emailConfig.qaDomainRoutes.size > 0,
+    qaRouteConfigured: qaRoutes.routes.size > 0,
+    qaRouteSource: qaRoutes.managed ? "oversight" : "environment",
     reviewedOriginMatches: true,
     templateRendered: true,
   })

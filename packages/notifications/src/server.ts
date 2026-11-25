@@ -156,6 +156,19 @@ export async function getServerQaDomainRoutes(
   return { managed, routes: parseQaDomainRoutes(routes) }
 }
 
+/**
+ * A cheap configuration check, with no Oversight request: QA routes come
+ * from Oversight (URL and read key set) or from a non-empty env map.
+ * Delivery still checks the actual route for each recipient.
+ */
+export function hasServerQaDomainRouteSource(
+  environment: Record<string, string | undefined> = process.env
+) {
+  if (environment.QA_POLICY_URL?.trim())
+    return Boolean(environment.QA_POLICY_READ_KEY?.trim())
+  return getEmailRoutingConfiguration(environment).qaDomainRoutes.size > 0
+}
+
 export async function getServerQaEmailDomains() {
   return [...(await getServerQaDomainRoutes()).routes.keys()]
 }

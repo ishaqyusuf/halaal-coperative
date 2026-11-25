@@ -4,6 +4,7 @@ import { createNotificationEmailDraft } from "./types/shared"
 import {
   createServerNotificationService,
   getServerEmailDeliveryConfig,
+  hasServerQaDomainRouteSource,
 } from "./server"
 
 const env = process.env as Record<string, string | undefined>
@@ -366,6 +367,37 @@ describe("server notification delivery", () => {
       testDraft("owner@fresh.qa.test")
     )
     expect(unreachable.status).toBe("failed")
+  })
+
+  test("QA route source counts Oversight without fetching the policy", () => {
+    const preview = {
+      APP_ENV: "preview",
+      EMAIL_DELIVERY_MODE: "console",
+      NODE_ENV: "production",
+      VERCEL_ENV: "preview",
+    }
+    expect(hasServerQaDomainRouteSource(preview)).toBe(false)
+    expect(
+      hasServerQaDomainRouteSource({
+        ...preview,
+        EMAIL_QA_DOMAIN_ROUTES: '{"ishaq.qa.test":"ishaq@example.com"}',
+      })
+    ).toBe(true)
+    expect(
+      hasServerQaDomainRouteSource({
+        ...preview,
+        QA_POLICY_URL:
+          "https://oversight.example.test/api/qa-policy/v1/halaalvest",
+      })
+    ).toBe(false)
+    expect(
+      hasServerQaDomainRouteSource({
+        ...preview,
+        QA_POLICY_READ_KEY: "k".repeat(32),
+        QA_POLICY_URL:
+          "https://oversight.example.test/api/qa-policy/v1/halaalvest",
+      })
+    ).toBe(true)
   })
 
   test("production fails closed: every production signal sends live and refuses console", async () => {

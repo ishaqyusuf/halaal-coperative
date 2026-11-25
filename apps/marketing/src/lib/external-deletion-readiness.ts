@@ -1,4 +1,7 @@
-import { getServerEmailDeliveryConfig } from "@/lib/server-notifications"
+import {
+  getServerEmailDeliveryConfig,
+  hasServerQaDomainRouteSource,
+} from "@/lib/server-notifications"
 import { trustedExternalDeletionOrigin } from "@/lib/external-deletion-link"
 
 export function canStartExternalDeletionRequest(input: {
@@ -46,7 +49,8 @@ export function isExternalDeletionRequestAvailable() {
       emailMode: email.deliveryMode,
       nodeEnv: process.env.NODE_ENV,
       originConfigured: true,
-      qaDomainRouteConfigured: email.qaDomainRoutes.size > 0,
+      // Oversight or the env var; no policy request at render time.
+      qaDomainRouteConfigured: hasServerQaDomainRouteSource(),
     })
   } catch {
     return false

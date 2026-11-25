@@ -8,8 +8,10 @@ import {
   type NotificationEmailTransport,
   type NotificationInput,
 } from "./index"
+import { getQaDomainRoutes } from "@halaalvest/utils/qa-policy-server"
 import {
   getEmailRoutingConfiguration,
+  parseQaDomainRoutes,
   resolveEmailRouting,
 } from "./email-routing"
 
@@ -76,6 +78,7 @@ function redactActionUrl(value: string) {
 export function createNonProductionEmailTransport(input: {
   environment?: Record<string, string | undefined>
   qaDomainRoutes: ReadonlyMap<string, string>
+  qaDomainsManaged?: boolean
 }): NotificationEmailTransport {
   return {
     send(draft) {
@@ -86,6 +89,7 @@ export function createNonProductionEmailTransport(input: {
         ...resolveEmailRouting(draft.recipient.value, {
           deliveryMode: "console",
           qaDomainRoutes: input.qaDomainRoutes,
+          qaDomainsManaged: input.qaDomainsManaged,
         }),
         deliveredRecipients: [],
         suppressed: developmentProfile ? "development" : "non_production",
@@ -140,8 +144,20 @@ export function getServerEmailDeliveryConfig() {
   }
 }
 
-export function getServerQaEmailDomains() {
-  return [...getEmailRoutingConfiguration().qaDomainRoutes.keys()]
+/**
+ * QA domain → tester inbox routes. Oversight's QA policy owns them when
+ * `QA_POLICY_URL` is set (cached 30 s, never fetched in production);
+ * otherwise `EMAIL_QA_DOMAIN_ROUTES` applies.
+ */
+export async function getServerQaDomainRoutes(
+  environment: Record<string, string | undefined> = process.env
+) {
+  const { managed, routes } = await getQaDomainRoutes(environment)
+  return { managed, routes: parseQaDomainRoutes(routes) }
+}
+
+export async function getServerQaEmailDomains() {
+  return [...(await getServerQaDomainRoutes()).routes.keys()]
 }
 
 export function isServerEmailDeliveryConfigured() {
@@ -155,28 +171,39 @@ export function createServerNotificationService() {
     copyRecipient,
     deliveryMode,
     from,
-    qaDomainRoutes,
     replyTo,
     testRecipient,
   } = getServerEmailDeliveryConfig()
 
   // deliveryMode is "console" exactly when the runtime is not production
   // (getEmailRoutingConfiguration refuses either mismatch), so a provider
-  // transport only ever exists in production.
-  const baseEmailTransport =
-    deliveryMode === "console"
-      ? createNonProductionEmailTransport({ qaDomainRoutes })
-      : configured && apiKey && from
-        ? createResendEmailTransport({
-            apiKey,
-            copyRecipient,
-            deliveryMode,
-            from,
-            qaDomainRoutes,
-            replyTo,
-            testRecipient,
-          })
-        : undefined
+  // transport only ever exists in production. QA routes are resolved per
+  // send because Oversight may add or disable a QA domain at any time.
+  const baseEmailTransport: NotificationEmailTransport | undefined =
+    deliveryMode === "console" || (configured && apiKey && from)
+      ? {
+          async send(draft) {
+            const qa = await getServerQaDomainRoutes()
+            const transport =
+              deliveryMode === "console" || !apiKey || !from
+                ? createNonProductionEmailTransport({
+                    qaDomainRoutes: qa.routes,
+                    qaDomainsManaged: qa.managed,
+                  })
+                : createResendEmailTransport({
+                    apiKey,
+                    copyRecipient,
+                    deliveryMode,
+                    from,
+                    qaDomainRoutes: qa.routes,
+                    qaDomainsManaged: qa.managed,
+                    replyTo,
+                    testRecipient,
+                  })
+            return transport.send(draft)
+          },
+        }
+      : undefined
 
   const emailTransport = baseEmailTransport
     ? createRetryingEmailTransport(baseEmailTransport, {

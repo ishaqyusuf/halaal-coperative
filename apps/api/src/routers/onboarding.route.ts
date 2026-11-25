@@ -69,13 +69,12 @@ export const onboardingRouter = createTRPCRouter({
         sort: input?.sort ?? null,
         status: input?.status ?? undefined,
       }
-      const requests =
-        input?.compact
-          ? {
-              items: await listMemberOnboardingRequestRows(tenantId, filters),
-              total: null,
-            }
-          : await listMemberOnboardingRequests(tenantId, filters)
+      const requests = input?.compact
+        ? {
+            items: await listMemberOnboardingRequestRows(tenantId, filters),
+            total: null,
+          }
+        : await listMemberOnboardingRequests(tenantId, filters)
       const items = requests.items.slice(0, pageSize)
 
       return {
@@ -124,7 +123,7 @@ export const onboardingRouter = createTRPCRouter({
         ...input,
         qaSourceDomain: resolveConfiguredQaDomain(
           input.ownerEmail,
-          getServerQaEmailDomains()
+          await getServerQaEmailDomains()
         ),
       })
     }),

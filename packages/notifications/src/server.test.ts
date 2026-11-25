@@ -19,6 +19,8 @@ const originalEnv = {
   emailTestMode: env.EMAIL_TEST_MODE,
   emailTestRecipient: env.EMAIL_TEST_RECIPIENT,
   nodeEnv: env.NODE_ENV,
+  qaPolicyReadKey: env.QA_POLICY_READ_KEY,
+  qaPolicyUrl: env.QA_POLICY_URL,
   resendApiKey: env.RESEND_API_KEY,
   testEmail: env.TEST_EMAIL,
   vercelEnv: env.VERCEL_ENV,
@@ -41,6 +43,8 @@ function restoreEnv() {
   restoreEnvValue("EMAIL_TEST_MODE", originalEnv.emailTestMode)
   restoreEnvValue("EMAIL_TEST_RECIPIENT", originalEnv.emailTestRecipient)
   restoreEnvValue("NODE_ENV", originalEnv.nodeEnv)
+  restoreEnvValue("QA_POLICY_READ_KEY", originalEnv.qaPolicyReadKey)
+  restoreEnvValue("QA_POLICY_URL", originalEnv.qaPolicyUrl)
   restoreEnvValue("RESEND_API_KEY", originalEnv.resendApiKey)
   restoreEnvValue("TEST_EMAIL", originalEnv.testEmail)
   restoreEnvValue("VERCEL_ENV", originalEnv.vercelEnv)
@@ -69,6 +73,9 @@ function testDraft(recipientEmail: string) {
 afterEach(() => {
   restoreEnv()
 })
+
+// Routes come from the env var unless a test opts into Oversight's policy.
+delete env.QA_POLICY_URL
 
 describe("server notification delivery", () => {
   test("logs bounded failure details without the recipient or provider response", async () => {
@@ -299,6 +306,66 @@ describe("server notification delivery", () => {
     expect(providerCalls).toBe(0)
     expect(delivery.routing?.mode).toBe("qa_domain")
     expect(createQaNotificationPreviews([delivery])).toHaveLength(1)
+  })
+
+  test("Oversight's QA policy owns the routes when QA_POLICY_URL is set", async () => {
+    console.log = () => undefined
+    let policyAvailable = true
+    let providerCalls = 0
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      if (String(input).includes("/api/qa-policy/")) {
+        if (!policyAvailable)
+          return new Response("<!DOCTYPE html>", { status: 502 })
+        return Response.json({
+          projectId: "halaalvest",
+          revision: 1,
+          environments: { development: true, preview: true },
+          entries: [
+            {
+              id: "57da5d46-6b28-44ef-8be7-d29eb6171f3f",
+              qa: "fresh.qa.test",
+              email: "fresh-tester@example.com",
+              phone: null,
+              accountId: null,
+              active: true,
+            },
+          ],
+        })
+      }
+      providerCalls += 1
+      return new Response("{}", { status: 200 })
+    }) as typeof fetch
+    env.APP_ENV = "preview"
+    env.VERCEL_ENV = "preview"
+    env.NODE_ENV = "production"
+    env.EMAIL_DELIVERY_MODE = "console"
+    // A stale env route no longer decides once Oversight owns QA.
+    env.EMAIL_QA_DOMAIN_ROUTES = JSON.stringify({
+      "ishaq.qa.test": "ishaq@example.com",
+    })
+    env.QA_POLICY_URL =
+      "https://oversight.example.test/api/qa-policy/v1/halaalvest"
+    env.QA_POLICY_READ_KEY = crypto.randomUUID()
+
+    const fresh = await createServerNotificationService().tryEmail(
+      testDraft("owner@fresh.qa.test")
+    )
+    expect(fresh.status).toBe("sent")
+    expect(fresh.routing?.mode).toBe("qa_domain")
+    expect(providerCalls).toBe(0)
+
+    const stale = await createServerNotificationService().tryEmail(
+      testDraft("owner@ishaq.qa.test")
+    )
+    expect(stale.status).toBe("failed")
+
+    // An unreachable policy fails closed for QA recipients.
+    policyAvailable = false
+    env.QA_POLICY_READ_KEY = crypto.randomUUID()
+    const unreachable = await createServerNotificationService().tryEmail(
+      testDraft("owner@fresh.qa.test")
+    )
+    expect(unreachable.status).toBe("failed")
   })
 
   test("production fails closed: every production signal sends live and refuses console", async () => {

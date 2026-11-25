@@ -51,26 +51,28 @@ function profile(
     ...overrides,
   })
 }
-test("QA mobile profiles explicitly deny analytics with configured attribution available", () => {
+test("QA mobile profiles explicitly deny analytics with configured attribution available", async () => {
   process.env.EMAIL_QA_DOMAIN_ROUTES = JSON.stringify({
     "tester.qa.test": "tester@example.com",
   })
   process.env.LOGLY_ATTRIBUTION_SECRET =
     "test-only-attribution-secret-of-32-characters"
   for (const result of [
-    profile({ qaAuthorizationId: "qa-auth" }),
-    profile({ user: { ...user, email: "member@tester.qa.test" } }),
-    profile({ tenant: { ...tenant, dataClassification: "qa" } }),
+    await profile({ qaAuthorizationId: "qa-auth" }),
+    await profile({ user: { ...user, email: "member@tester.qa.test" } }),
+    await profile({ tenant: { ...tenant, dataClassification: "qa" } }),
   ]) {
     expect(result.analyticsEnabled).toBe(false)
     expect(result.analyticsContext).toBeNull()
   }
-  expect(profile().analyticsEnabled).toBe(true)
-  expect(profile().analyticsContext?.token).toBeDefined()
+  expect((await profile()).analyticsEnabled).toBe(true)
+  expect((await profile()).analyticsContext?.token).toBeDefined()
 })
-test("missing attribution secret is distinct from QA denial", () => {
+test("missing attribution secret is distinct from QA denial", async () => {
   delete process.env.LOGLY_ATTRIBUTION_SECRET
-  expect(profile().analyticsEnabled).toBe(true)
-  expect(profile().analyticsContext).toBeNull()
-  expect(profile({ qaAuthorizationId: "qa-auth" }).analyticsEnabled).toBe(false)
+  expect((await profile()).analyticsEnabled).toBe(true)
+  expect((await profile()).analyticsContext).toBeNull()
+  expect(
+    (await profile({ qaAuthorizationId: "qa-auth" })).analyticsEnabled
+  ).toBe(false)
 })

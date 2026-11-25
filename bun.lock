@@ -377,6 +377,7 @@
       "name": "@halaalvest/events",
       "version": "0.1.0",
       "dependencies": {
+        "@halaalvest/utils": "workspace:*",
         "@ishaqyusuf/logly-core": "^0.2.0",
         "@ishaqyusuf/logly-next": "^0.2.1",
         "zod": "^4.6.7",
@@ -424,6 +425,7 @@
       "dependencies": {
         "@halaalvest/domain": "workspace:*",
         "@halaalvest/email": "workspace:*",
+        "@halaalvest/utils": "workspace:*",
         "zod": "^4.6.7",
       },
       "devDependencies": {

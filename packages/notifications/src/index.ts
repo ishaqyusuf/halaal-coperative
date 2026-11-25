@@ -45,6 +45,7 @@ export type ResendEmailTransportOptions = {
   deliveryMode?: EmailDeliveryMode
   from: string
   qaDomainRoutes?: ReadonlyMap<string, string>
+  qaDomainsManaged?: boolean
   replyTo?: string
   testRecipient?: string
 }
@@ -289,11 +290,12 @@ export function createResendEmailTransport(
         routing = resolveEmailRouting(draft.recipient.value, {
           deliveryMode,
           qaDomainRoutes: options.qaDomainRoutes ?? new Map<string, string>(),
+          qaDomainsManaged: options.qaDomainsManaged,
           testRecipient: options.testRecipient,
         })
       } catch (error) {
         if (
-          options.qaDomainRoutes?.size &&
+          (options.qaDomainsManaged || options.qaDomainRoutes?.size) &&
           draft.recipient.value.trim().toLowerCase().endsWith(".test")
         ) {
           throw createEmailTransportError(error, {

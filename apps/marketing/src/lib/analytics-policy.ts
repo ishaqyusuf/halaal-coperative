@@ -1,5 +1,5 @@
 import { buildRequestContext } from "@halaalvest/api/context"
-import { isQaAnalyticsPrincipal } from "@halaalvest/events/qa-policy-server"
+import { isManagedQaAnalyticsPrincipal } from "@halaalvest/events/qa-policy-server"
 import { headers } from "next/headers"
 import { getMarketingQaQuickFillContext } from "./qa-form-access.server"
 export async function getAnalyticsPolicy() {
@@ -8,10 +8,10 @@ export async function getAnalyticsPolicy() {
     getMarketingQaQuickFillContext(),
   ])
   return {
-    enabled: !isQaAnalyticsPrincipal({
+    enabled: !(await isManagedQaAnalyticsPrincipal({
       email: context.auth.session?.user.email,
       dataClassification: context.tenant.current?.dataClassification,
       qaSession: Boolean(context.auth.session?.qaAuthorizationId) || qa.enabled,
-    }),
+    })),
   }
 }

@@ -9,6 +9,8 @@ export type EmailDeliveryMode = (typeof emailDeliveryModes)[number]
 export type EmailRoutingConfiguration = {
   deliveryMode: EmailDeliveryMode
   qaDomainRoutes: ReadonlyMap<string, string>
+  /** Oversight owns the routes, so an unrouted `.test` recipient is refused. */
+  qaDomainsManaged?: boolean
   testRecipient?: string
 }
 
@@ -231,7 +233,10 @@ export function resolveEmailRouting(
     }
   }
 
-  if (configuration.qaDomainRoutes.size > 0 && domain.endsWith(".test")) {
+  if (
+    (configuration.qaDomainsManaged || configuration.qaDomainRoutes.size > 0) &&
+    domain.endsWith(".test")
+  ) {
     throw new Error(
       `QA email delivery blocked unmatched recipient domain "${domain}".`
     )

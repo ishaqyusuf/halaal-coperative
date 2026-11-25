@@ -110,6 +110,22 @@ export async function getQaPolicyEnvironment(
   }
 }
 
+/**
+ * The QA domain → tester inbox routes, as an `EMAIL_QA_DOMAIN_ROUTES` JSON
+ * string. With `QA_POLICY_URL` set, Oversight owns them: only active entries
+ * of an enabled environment count, and an unreachable policy yields none
+ * (`managed` tells callers to refuse unrouted `.test` recipients). Without it
+ * the legacy environment variable still applies.
+ */
+export async function getQaDomainRoutes(
+  env: Record<string, string | undefined> = process.env,
+): Promise<{ managed: boolean; routes: string | undefined }> {
+  if (!env.QA_POLICY_URL?.trim())
+    return { managed: false, routes: env.EMAIL_QA_DOMAIN_ROUTES }
+  const managed = await getQaPolicyEnvironment(env)
+  return { managed: true, routes: managed.EMAIL_QA_DOMAIN_ROUTES }
+}
+
 export async function managedQaIdentity(
   input: {
     email?: string | null

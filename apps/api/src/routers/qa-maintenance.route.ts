@@ -100,15 +100,15 @@ async function buildPreview() {
 }
 
 export const qaMaintenanceRouter = createTRPCRouter({
-  candidates: platformOwnerProcedure.query(() =>
-    discoverQaTenantCandidates(getServerQaEmailDomains())
+  candidates: platformOwnerProcedure.query(async () =>
+    discoverQaTenantCandidates(await getServerQaEmailDomains())
   ),
 
   adopt: platformOwnerProcedure
     .input(z.object({ tenantIds: z.array(z.uuid()).min(1) }))
-    .mutation(({ input }) =>
+    .mutation(async ({ input }) =>
       adoptQaTenantCandidates({
-        domains: getServerQaEmailDomains(),
+        domains: await getServerQaEmailDomains(),
         tenantIds: input.tenantIds,
       })
     ),

@@ -198,7 +198,7 @@ export const mobileAuthRouter = createTRPCRouter({
 
     return {
       accessSnapshot,
-      profile: buildMobileProfile({
+      profile: await buildMobileProfile({
         membership,
         memberships: memberships.length > 0 ? memberships : [membership],
         member,

@@ -1,3 +1,5 @@
+import { getQaDomainRoutes } from "@halaalvest/utils/qa-policy-server"
+
 /** Input must come from the authenticated session and authorized workspace. */
 export function isQaAnalyticsPrincipal(
   input: {
@@ -22,4 +24,13 @@ export function isQaAnalyticsPrincipal(
     const normalized = key.trim().toLowerCase().replace(/\.$/, "")
     return normalized.endsWith(".test") && normalized === domain
   })
+}
+
+/** As above, with QA domains from Oversight's policy when it owns them. */
+export async function isManagedQaAnalyticsPrincipal(
+  input: Parameters<typeof isQaAnalyticsPrincipal>[0]
+) {
+  if (input.qaSession || input.dataClassification?.toLowerCase() === "qa")
+    return true
+  return isQaAnalyticsPrincipal(input, (await getQaDomainRoutes()).routes)
 }

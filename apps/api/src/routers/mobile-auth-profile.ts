@@ -12,7 +12,7 @@ import {
   type TenantRecord,
   type UserRecord,
 } from "@halaalvest/db"
-import { isQaAnalyticsPrincipal } from "@halaalvest/events/qa-policy-server"
+import { isManagedQaAnalyticsPrincipal } from "@halaalvest/events/qa-policy-server"
 import { issueAnalyticsContext } from "@halaalvest/events/attribution-server"
 import { TRPCError } from "@trpc/server"
 
@@ -70,7 +70,7 @@ export async function assertMobileMemberWorkspaceEntitled(input: {
   void input
 }
 
-export function buildMobileProfile(input: {
+export async function buildMobileProfile(input: {
   membership: MembershipRecord
   memberships: MembershipRecord[]
   member: Awaited<ReturnType<typeof getLinkedMobileMember>>
@@ -86,11 +86,11 @@ export function buildMobileProfile(input: {
   const availableMemberships =
     tenantMemberships.length > 0 ? tenantMemberships : [input.membership]
 
-  const analyticsEnabled = !isQaAnalyticsPrincipal({
+  const analyticsEnabled = !(await isManagedQaAnalyticsPrincipal({
     email: input.user.email,
     qaSession: Boolean(input.qaAuthorizationId),
     dataClassification: input.tenant.dataClassification,
-  })
+  }))
   return {
     analyticsEnabled,
     analyticsContext: analyticsEnabled

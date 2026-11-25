@@ -104,7 +104,7 @@ export async function POST(request: Request) {
       ownerPasswordHash: hashPassword(input.password),
       qaSourceDomain: resolveConfiguredQaDomain(
         verification.primaryContactEmail,
-        getServerQaEmailDomains()
+        await getServerQaEmailDomains()
       ),
       slug: normalizeWorkspaceSlug(verification.workspaceSlug),
       state: input.state,

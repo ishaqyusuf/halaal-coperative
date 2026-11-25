@@ -12,7 +12,6 @@ import {
   type TenantResolution,
   type UserRecord,
 } from "@halaalvest/db"
-import { getServerQaEmailDomains } from "@halaalvest/notifications/server"
 import {
   resolveQaQuickFillContext,
   type QaQuickFillContext,
@@ -58,9 +57,8 @@ export function getQaQuickFillContext(context: {
   const qaDomain = context.auth.qaDomain?.trim().toLowerCase() ?? null
   return resolveQaQuickFillContext({
     authenticatedEmail: qaDomain ? `authorized@${qaDomain}` : null,
-    configuredDomains: qaDomain
-      ? [...new Set([...getServerQaEmailDomains(), qaDomain])]
-      : [],
+    // The session's QA Domain was authorized against Oversight's policy.
+    configuredDomains: qaDomain ? [qaDomain] : [],
     isDevelopment: false,
   })
 }

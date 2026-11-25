@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, test } from "bun:test"
 import { parseQaPolicy } from "./qa-policy"
 import {
   getQaPolicy,
+  getQaDomainRoutes,
   getQaPolicyEnvironment,
   managedQaDomainEnabled,
   managedQaIdentity,
@@ -202,4 +203,19 @@ test("a standalone Bun API and next dev read the same profile", async () => {
     QA_POLICY_READ_KEY: process.env.QA_POLICY_READ_KEY,
   })
   expect(managed.QA_ACCELERATOR_ENABLED).toBe("true")
+})
+test("QA email routes come from Oversight once QA_POLICY_URL is set", async () => {
+  const legacy = '{"legacy.qa.test":"legacy@example.com"}'
+  expect(
+    await getQaDomainRoutes({
+      APP_ENV: "preview",
+      EMAIL_QA_DOMAIN_ROUTES: legacy,
+    }),
+  ).toEqual({ managed: false, routes: legacy })
+  expect(
+    await getQaDomainRoutes({ ...process.env, EMAIL_QA_DOMAIN_ROUTES: legacy }),
+  ).toEqual({
+    managed: true,
+    routes: JSON.stringify({ "sample.qa.test": "tester@example.com" }),
+  })
 })

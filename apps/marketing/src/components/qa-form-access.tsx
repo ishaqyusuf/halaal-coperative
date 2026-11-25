@@ -140,7 +140,9 @@ export function QaFormAccess() {
           className={
             open
               ? "w-[min(24rem,calc(100vw-5rem))] gap-0 py-0 shadow-lg"
-              : "w-auto max-w-[17rem] gap-0 py-0 shadow-lg"
+              : // CardHeader is an inline-size container, so it adds no
+                // intrinsic width: an auto-width card collapses to padding.
+                "w-[min(17rem,calc(100vw-5rem))] gap-0 py-0 shadow-lg"
           }
           size="sm"
         >

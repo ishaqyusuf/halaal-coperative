@@ -81,6 +81,53 @@ describe("qaAcceleratorRouter", () => {
     process.env.HALAALVEST_ENV = "local"
   })
 
+  test("authorizes a configured QA Domain before its first cooperative exists", async () => {
+    const saved = {
+      policyUrl: process.env.QA_POLICY_URL,
+      routes: process.env.EMAIL_QA_DOMAIN_ROUTES,
+      secret: process.env.QA_ACCELERATOR_SECRET,
+    }
+    delete process.env.QA_POLICY_URL
+    process.env.EMAIL_QA_DOMAIN_ROUTES = JSON.stringify({
+      "fresh.qa.test": "qa@example.com",
+    })
+    process.env.QA_ACCELERATOR_SECRET = "qa-accelerator-test-secret-of-32-plus-chars"
+    try {
+      const client = await caller()
+      const authorization = await client.qaAccelerator.authorize({
+        clientId: "fresh-domain-web-client",
+        clientKind: "web",
+        contractVersion: 1,
+        qaDomain: "fresh.qa.test",
+      })
+      expect(authorization.qaDomain).toBe("fresh.qa.test")
+      const profiles = await client.qaAccelerator.profiles({
+        authorizationToken: authorization.authorizationToken,
+        clientId: "fresh-domain-web-client",
+        clientKind: "web",
+        contractVersion: 1,
+      })
+      expect(profiles.profiles).toEqual([])
+      await expect(
+        client.qaAccelerator.authorize({
+          clientId: "fresh-domain-web-client",
+          clientKind: "web",
+          contractVersion: 1,
+          qaDomain: "unlisted.qa.test",
+        })
+      ).rejects.toThrow()
+    } finally {
+      for (const [key, value] of Object.entries({
+        EMAIL_QA_DOMAIN_ROUTES: saved.routes,
+        QA_ACCELERATOR_SECRET: saved.secret,
+        QA_POLICY_URL: saved.policyUrl,
+      })) {
+        if (value === undefined) delete process.env[key]
+        else process.env[key] = value
+      }
+    }
+  })
+
   test("authorizes one exact QA Domain and enters an ordinary mobile session", async () => {
     const client = await caller()
     await expect(

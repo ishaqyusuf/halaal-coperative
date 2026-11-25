@@ -377,7 +377,9 @@ export async function authorizeQaDomainClient(
 ) {
   if (!["local", "development", "preview"].includes(input.environment))
     return null
-  if (!(await listQaAccessProfiles(input.qaDomain)).length) return null
+  // No existing-profile precondition: the caller has already checked the
+  // domain against server-owned QA policy, and a brand-new QA Domain must be
+  // able to authorize before its first cooperative exists (Marketing sign-up).
   const prisma = createPrismaClient()
   let expiresAt = input.expiresAt
   if (prisma) {

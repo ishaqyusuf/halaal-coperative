@@ -3,8 +3,13 @@ import {
   applyDashboardDevFormFill,
   createQaFoodPurchaseRequest,
   createQaImportCsv,
+  createQaLoanProductLimits,
+  createQaLoanRuleNumbers,
+  createQaProfitRules,
+  createQaWorkplaceName,
   getDashboardRandomDevFormFill,
 } from "./dev-form-fill"
+import { validateLoanRules, type LoanRules } from "./finance/loan-rules"
 import { dashboardImportConfigs } from "./import-csv"
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -158,5 +163,45 @@ describe("dashboard QA quick fill", () => {
     const csv = createQaImportCsv("contributions", config.sampleCsv)
     expect(csv).not.toContain("TRX-APR-001")
     expect(csv).toMatch(/TRX-\d{8}-[0-9A-Z]{6}/)
+  })
+
+  test("finance settings drafts pass the forms' own checks", () => {
+    const switches = {
+      activeFinancingBlocksEmergency: false,
+      activeFinancingBlocksProcurement: false,
+      disbursementRequiresDeployableFunds: true,
+      foodPurchaseAllowsCommitmentReductionDuringPayback: false,
+      procurementAllowsCommitmentReductionDuringPayback: false,
+      requiresDualLoanApproval: false,
+      specialSavingsCountsForEligibility: false,
+      strictCommitmentDuringFinancing: false,
+    }
+    for (let index = 0; index < 50; index += 1) {
+      const rules: LoanRules = { ...switches, ...createQaLoanRuleNumbers() }
+      expect(validateLoanRules(rules)).toBeNull()
+
+      for (const loanType of ["quick", "normal"]) {
+        const limits = createQaLoanProductLimits(loanType)
+        expect(Number.isInteger(Number(limits.termMonths))).toBe(true)
+        expect(Number(limits.maxSavingsMultiple)).toBeGreaterThan(0)
+      }
+
+      const profit = createQaProfitRules()
+      expect(Number(profit.membersPart)).toBeGreaterThanOrEqual(0)
+      expect(Number(profit.membersPart)).toBeLessThanOrEqual(100)
+      expect(profit.startMonth).toBeGreaterThanOrEqual(1)
+      expect(profit.startMonth).toBeLessThanOrEqual(12)
+    }
+  })
+
+  test("workplace names avoid ones the cooperative already has", () => {
+    const existing = ["Ministry of Health", "ministry of education"]
+    for (let index = 0; index < 30; index += 1) {
+      const name = createQaWorkplaceName(existing)
+      expect(existing.map((item) => item.toLowerCase())).not.toContain(
+        name.toLowerCase()
+      )
+      expect(name.trim().length).toBeGreaterThanOrEqual(2)
+    }
   })
 })

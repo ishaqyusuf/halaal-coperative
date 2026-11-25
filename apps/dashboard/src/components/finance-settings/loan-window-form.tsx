@@ -5,6 +5,7 @@ import { Textarea } from "@halaalvest/ui/components/textarea"
 import { formatCurrency } from "@halaalvest/utils"
 import { useState } from "react"
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog"
+import { DashboardStateQuickFill } from "@/components/dashboard-quick-fill"
 import { useFinanceSettingsSave } from "@/components/finance-settings/use-finance-settings-save"
 import { RequestChoice } from "@/components/requests/request-choice"
 import {
@@ -17,6 +18,7 @@ import {
   updateMonthlyFinancingCycleStatusAction,
 } from "@/lib/dashboard-actions"
 import { getLoanWindowWords } from "@/lib/finance/finance-settings-words"
+import { createQaLoanWindowNote } from "@/lib/dev-form-fill"
 import { objectToFormData } from "@/lib/form-submit"
 
 type WindowAction = "closed" | "open" | "paused"
@@ -121,6 +123,14 @@ export function LoanWindowForm({
         setConfirming(true)
       }}
     >
+      {/* Fills the note only: opening, pausing or closing stays the tester's call. */}
+      <DashboardStateQuickFill
+        draft={note}
+        enabled={!isPending}
+        isDirty={Boolean(note.trim())}
+        onFill={() => setNote(createQaLoanWindowNote())}
+        restore={setNote}
+      />
       <p className="text-base">
         Now: <span className="font-semibold">{getLoanWindowWords(status)}</span>
       </p>

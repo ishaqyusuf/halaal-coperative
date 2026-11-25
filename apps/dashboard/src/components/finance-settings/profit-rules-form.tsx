@@ -10,6 +10,7 @@ import {
 import { formatCurrency } from "@halaalvest/utils"
 import { useState } from "react"
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog"
+import { DashboardStateQuickFill } from "@/components/dashboard-quick-fill"
 import { SettingsToggle } from "@/components/finance-settings/settings-toggle"
 import { useFinanceSettingsSave } from "@/components/finance-settings/use-finance-settings-save"
 import { RequestChoice } from "@/components/requests/request-choice"
@@ -25,6 +26,7 @@ import {
   getProfitSeasonPattern,
   profitFrequencyOptions,
 } from "@/lib/finance/finance-settings-words"
+import { createQaProfitRules } from "@/lib/dev-form-fill"
 import { objectToFormData } from "@/lib/form-submit"
 
 type Policy = TenantBusinessProfitPolicySettings
@@ -139,6 +141,23 @@ export function ProfitRulesForm({
 
   return (
     <form className="grid gap-6" onSubmit={onSubmit}>
+      {/* Board approval and past profit stay as they are: both are decisions. */}
+      <DashboardStateQuickFill
+        draft={{ frequency, membersPart, startMonth }}
+        enabled={!isPending}
+        isDirty={changes.length > 0}
+        onFill={() => {
+          const draft = createQaProfitRules()
+          setFrequency(draft.frequency)
+          setStartMonth(draft.startMonth)
+          setMembersPart(draft.membersPart)
+        }}
+        restore={(draft) => {
+          setFrequency(draft.frequency)
+          setStartMonth(draft.startMonth)
+          setMembersPart(draft.membersPart)
+        }}
+      />
       <RequestChoice
         label="How often is profit shared?"
         onChange={setFrequency}

@@ -5,6 +5,7 @@ import { Button } from "@halaalvest/ui/components/button"
 import { Input } from "@halaalvest/ui/components/input"
 import { useState } from "react"
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog"
+import { DashboardStateQuickFill } from "@/components/dashboard-quick-fill"
 import { SettingsToggle } from "@/components/finance-settings/settings-toggle"
 import { useFinanceSettingsSave } from "@/components/finance-settings/use-finance-settings-save"
 import {
@@ -17,6 +18,7 @@ import {
   formatMultiple,
   getLoanTypeName,
 } from "@/lib/finance/finance-settings-words"
+import { createQaLoanProductLimits } from "@/lib/dev-form-fill"
 import { objectToFormData } from "@/lib/form-submit"
 
 /** One loan type: its name, longest repayment, borrowing limit, on or off. */
@@ -105,6 +107,23 @@ export function LoanProductForm({
 
   return (
     <form className="grid gap-5" onSubmit={onSubmit}>
+      <DashboardStateQuickFill
+        draft={{ multiple, termMonths }}
+        enabled={!isPending}
+        isDirty={
+          Number(termMonths) !== product.termMonths ||
+          Number(multiple) !== product.maxSavingsMultiple
+        }
+        onFill={() => {
+          const limits = createQaLoanProductLimits(product.loanType)
+          setTermMonths(limits.termMonths)
+          setMultiple(limits.maxSavingsMultiple)
+        }}
+        restore={(draft) => {
+          setTermMonths(draft.termMonths)
+          setMultiple(draft.multiple)
+        }}
+      />
       <RequestField label="Name members see">
         <Input
           className="h-12 text-lg"

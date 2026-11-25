@@ -6,6 +6,8 @@ import { toast } from "@halaalvest/ui/components/use-toast"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 import { type FormEvent, useId, useState } from "react"
+import { DashboardStateQuickFill } from "@/components/dashboard-quick-fill"
+import { createQaWorkplaceName } from "@/lib/dev-form-fill"
 import { useTRPC } from "@/trpc/client"
 
 type Workplace = { id: string; memberCount: number; name: string }
@@ -51,9 +53,24 @@ export function WorkplacesContent() {
   return (
     <div className="flex flex-col gap-6">
       <form className="flex flex-col gap-2" onSubmit={handleAdd}>
-        <label className="font-medium" htmlFor={nameId}>
-          New workplace
-        </label>
+        <div className="flex items-center justify-between gap-3">
+          <label className="font-medium" htmlFor={nameId}>
+            New workplace
+          </label>
+          <DashboardStateQuickFill
+            draft={name}
+            enabled={!create.isPending}
+            isDirty={Boolean(name.trim())}
+            onFill={() =>
+              setName(
+                createQaWorkplaceName(
+                  workplaces.data?.map((workplace) => workplace.name) ?? []
+                )
+              )
+            }
+            restore={setName}
+          />
+        </div>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Input
             autoComplete="off"

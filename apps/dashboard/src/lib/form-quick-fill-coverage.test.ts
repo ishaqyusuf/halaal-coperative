@@ -84,6 +84,12 @@ describe("dashboard Quick fill coverage", () => {
       "components/signup-links/member-signup-link-content.tsx",
       "components/support/support-case-view.tsx",
       "components/support/support-create-form.tsx",
+      "components/finance-settings/loan-product-form.tsx",
+      "components/finance-settings/loan-rules-form.tsx",
+      "components/finance-settings/loan-window-form.tsx",
+      "components/finance-settings/profit-rules-form.tsx",
+      "components/monthly-records/workplaces-content.tsx",
+      "components/payment-receipt-member-audience-form.tsx",
     ]
 
     for (const file of coveredForms) {

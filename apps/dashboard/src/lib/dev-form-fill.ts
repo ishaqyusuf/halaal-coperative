@@ -6,6 +6,7 @@ import {
   createQaCode,
   createQaCooperative,
   createQaDigits,
+  createQaLocation,
   createQaOccupation,
   createQaPerson,
   createQaReference,
@@ -471,3 +472,73 @@ export function createQaSupportCase() {
 
 export const qaSupportReply =
   "Thank you. We have checked the record and assigned it for completion; you will be notified once it is posted."
+
+/** Loan product limits (the loan type's name stays as it is). */
+export function createQaLoanProductLimits(loanType: string) {
+  return loanType === "quick"
+    ? {
+        maxSavingsMultiple: pickQaValue(["1", "1.5"] as const),
+        termMonths: pickQaValue(["3", "6"] as const),
+      }
+    : {
+        maxSavingsMultiple: pickQaValue(["2", "2.5", "3"] as const),
+        termMonths: pickQaValue(["12", "18", "24"] as const),
+      }
+}
+
+/** The number fields of the loan rules (on/off switches stay as they are). */
+export function createQaLoanRuleNumbers() {
+  return {
+    foodPurchaseMaximumPaybackMonths: pickQaValue(["3", "4", "6"] as const),
+    loanEligibilityMultiple: pickQaValue(["2", "2.5", "3"] as const),
+    procurementMaximumPaybackMonths: pickQaValue(["6", "10", "12"] as const),
+    quickLoanAllocationPercentage: pickQaValue(["20", "25", "30"] as const),
+    reserveBufferAmount: createQaAmount(100_000, 500_000, 50_000),
+  }
+}
+
+/** Profit sharing draft (board approval and past profit stay as they are). */
+export function createQaProfitRules() {
+  return {
+    frequency: pickQaValue(["annual", "semi_annual", "quarterly"] as const),
+    membersPart: pickQaValue(["60", "70", "75", "80"] as const),
+    startMonth: pickQaValue([1, 7] as const),
+  }
+}
+
+const loanWindowNotes = [
+  "Agreed at the monthly board meeting.",
+  "Approved by the financing committee.",
+  "As announced at the general meeting.",
+] as const
+
+/** A note for opening, pausing or closing loan requests. */
+export function createQaLoanWindowNote() {
+  return pickQaValue(loanWindowNotes)
+}
+
+const workplaceNames = [
+  "Ministry of Health",
+  "Ministry of Education",
+  "Federal Medical Centre",
+  "State Water Board",
+  "Local Government Secretariat",
+  "Federal Polytechnic",
+  "State Teaching Hospital",
+  "Ministry of Agriculture",
+  "Board of Internal Revenue",
+  "State Universal Basic Education Board",
+] as const
+
+/** A workplace name not already in the list (adds a town when all are used). */
+export function createQaWorkplaceName(existing: readonly string[]) {
+  const taken = new Set(existing.map((name) => name.trim().toLowerCase()))
+  const free = workplaceNames.filter((name) => !taken.has(name.toLowerCase()))
+  if (free.length) return pickQaValue(free)
+  const { city } = createQaLocation()
+  return `${pickQaValue(workplaceNames)}, ${city}`
+}
+
+/** Why member receipt access is changing. */
+export const qaReceiptAccessReason =
+  "Agreed at the board meeting: receipts now go through the selected collectors."

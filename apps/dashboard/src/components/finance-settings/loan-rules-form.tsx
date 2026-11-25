@@ -7,6 +7,7 @@ import { Input } from "@halaalvest/ui/components/input"
 import { formatCurrency } from "@halaalvest/utils"
 import { useState } from "react"
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog"
+import { DashboardStateQuickFill } from "@/components/dashboard-quick-fill"
 import { SettingsToggle } from "@/components/finance-settings/settings-toggle"
 import { useFinanceSettingsSave } from "@/components/finance-settings/use-finance-settings-save"
 import {
@@ -21,6 +22,7 @@ import {
   type LoanRules,
   validateLoanRules,
 } from "@/lib/finance/loan-rules"
+import { createQaLoanRuleNumbers } from "@/lib/dev-form-fill"
 import { objectToFormData } from "@/lib/form-submit"
 
 type Policy = TenantFinancingSettingsWorkspace["policy"]
@@ -128,6 +130,15 @@ export function LoanRulesForm({
 
   return (
     <form className="grid gap-6" onSubmit={onSubmit}>
+      <DashboardStateQuickFill
+        draft={rules}
+        enabled={!isPending}
+        isDirty={changes.length > 0}
+        onFill={() =>
+          setRules((current) => ({ ...current, ...createQaLoanRuleNumbers() }))
+        }
+        restore={setRules}
+      />
       <RulesGroup title="Money for loans each month">
         <RequestField
           hint="This money is never lent out."

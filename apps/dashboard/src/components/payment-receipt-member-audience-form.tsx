@@ -14,7 +14,9 @@ import { Textarea } from "@halaalvest/ui/components/textarea"
 import { useRouter } from "next/navigation"
 import { useState, useTransition, type FormEvent } from "react"
 import { MemberCombobox } from "@/components/member-combobox"
+import { DashboardStateQuickFill } from "@/components/dashboard-quick-fill"
 import { updatePaymentReceiptMemberAudienceAction } from "@/lib/dashboard-actions"
+import { qaReceiptAccessReason } from "@/lib/dev-form-fill"
 import { paymentReceiptMemberAudienceLabels } from "@/lib/settings/operation-profile-settings"
 
 const audienceOptions = [
@@ -178,6 +180,14 @@ export function PaymentReceiptMemberAudienceForm({
       ) : null}
       {reasonRequired ? (
         <div className="grid gap-2">
+          {/* Fills the reason only: who may send receipts is the tester's call. */}
+          <DashboardStateQuickFill
+            draft={reason}
+            enabled={!isPending}
+            isDirty={Boolean(reason.trim())}
+            onFill={() => setReason(qaReceiptAccessReason)}
+            restore={setReason}
+          />
           <label htmlFor="receipt-audience-reason" className="font-medium">
             Why is access changing?
           </label>
